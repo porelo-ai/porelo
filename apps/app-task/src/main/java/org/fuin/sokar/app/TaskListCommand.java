@@ -52,12 +52,7 @@ public class TaskListCommand implements Callable<Integer>, SokarFactory.ContextA
 
         // Named like a task and not listed: a container Sokar holds no id for. Said rather than left out, because
         // "No tasks" over a stopped container that has a task's record lets its work be removed unseen.
-        final java.util.Set<String> listed = tasks.stream().map(TaskInventory.Task::name)
-                .collect(java.util.stream.Collectors.toSet());
-        final List<String> unlisted = context.podman().sokarContainers().stream()
-                .map(name -> name.split("\t", 2)[0])
-                .filter(org.fuin.sokar.runtime.ContainerName::isTask)
-                .filter(name -> !listed.contains(name)).distinct().toList();
+        final List<String> unlisted = new TaskInventory(context).unrecognized(tasks);
 
         if (tasks.isEmpty()) {
             out.println(unlisted.isEmpty() ? "No tasks." : "No tasks Sokar acts on.");

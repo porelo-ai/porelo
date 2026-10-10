@@ -461,6 +461,35 @@ public final class TaskInventory {
     }
 
     /**
+     * Returns the containers named like a task that are not one: no container id Sokar recorded when it made them -
+     * made before it recorded one, or by something else. Nothing of Sokar's acts on them, and they are never adopted;
+     * they are named so that "no tasks" does not hide a container whose removal removes what is in it.
+     *
+     * @param listed The tasks there are.
+     * @return Their names, in the runtime's order.
+     */
+    public List<String> unrecognized(final List<Task> listed) {
+        final java.util.Set<String> names = listed.stream().map(Task::name)
+                .collect(java.util.stream.Collectors.toSet());
+        return context.podman().sokarContainers().stream()
+                .map(name -> name.split("\t", 2)[0])
+                .filter(org.fuin.sokar.runtime.ContainerName::isTask)
+                .filter(name -> !names.contains(name)).distinct().toList();
+    }
+
+    /**
+     * Says what a container named like a task with no recorded id is, where a command was asked about it.
+     *
+     * @param name The container.
+     * @return One line, without the {@code sokar: } prefix.
+     */
+    public static String unrecognizedNote(final String name) {
+        return name + " is named like a task, but Sokar holds no container id for it (made before it recorded one,"
+                + " or by something else), so nothing of Sokar's acts on it; removing it removes what is in it,"
+                + " and 'podman cp' saves its workspace first";
+    }
+
+    /**
      * Returns every task on this machine, running or stopped.
      *
      * @return Tasks, in the order the runtime lists them.

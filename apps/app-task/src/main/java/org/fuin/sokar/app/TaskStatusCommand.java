@@ -80,6 +80,11 @@ public class TaskStatusCommand implements Callable<Integer>, SokarFactory.Contex
 
         final TaskInventory.Task task = TaskInventory.deriving(context).tasks().stream()
                 .filter(each -> each.name().equals(container)).findFirst().orElse(null);
+        if (task == null && new TaskInventory(context).unrecognized(java.util.List.of()).contains(container)) {
+            err.println("sokar: " + TaskInventory.unrecognizedNote(container));
+            err.flush();
+            return 69;
+        }
         if (task == null) {
             err.println("sokar: there is no task called " + container);
             Suggests.offer(err, this);

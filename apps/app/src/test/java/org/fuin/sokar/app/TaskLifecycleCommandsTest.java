@@ -478,6 +478,23 @@ class TaskLifecycleCommandsTest {
     }
 
     @Test
+    void statusAndLogsSayWhatAContainerNamedLikeATaskWithNoRecordedIdIs(@TempDir Path dir) throws IOException {
+
+        // Said "there is no task called" over a stopped container whose removal removes what is in it.
+        runner.answering("ps", "sokar-uc-shell-1\tExited (0) 5 days ago\n");
+        final SokarContext context = context(dir).recognizingTasks();
+        stateOf("sokar-uc-shell-1");
+
+        assertThat(execute(context, "task", "status", "sokar-uc-shell-1")).isEqualTo(69);
+        assertThat(err.toString()).contains("sokar-uc-shell-1 is named like a task").contains("no container id")
+                .contains("removing it removes what is in it").contains("podman cp")
+                .doesNotContain("there is no task called");
+
+        assertThat(execute(context, "task", "logs", "sokar-uc-shell-1")).isEqualTo(69);
+        assertThat(err.toString()).contains("is named like a task");
+    }
+
+    @Test
     void tellsANameThatNamesNothingApartFromATaskWithNoLogs(@TempDir Path dir) {
 
         // Reported: 'task logs sokar-does-not' answered "either nothing wrote one, or the machine

@@ -53,9 +53,9 @@ final class TaskMethods {
         // The same question 'sokar task list' asks, answered by the same code. A second
         // implementation is how the two come to disagree about what is running.
         server.method("List", (parameters, replies) -> {
-            final List<Map<String, Object>> tasks =
-                    inventory.tasks().stream().map(TaskInventory.Task::asMap).toList();
-            replies.last(Map.of("tasks", tasks));
+            final List<TaskInventory.Task> found = inventory.tasks();
+            replies.last(Map.of("tasks", found.stream().map(TaskInventory.Task::asMap).toList(),
+                    "unrecognized", inventory.unrecognized(found)));
         });
 
         server.method("RefreshTask", (parameters, replies) -> {
@@ -147,8 +147,9 @@ final class TaskMethods {
                 // Asked without 'more', which is a client wanting the state once. Answering with
                 // the list rather than an error means one method serves both, and a client that
                 // cannot stream is not locked out of the data.
-                replies.last(Map.of("tasks", inventory.tasks().stream()
-                        .map(TaskInventory.Task::asMap).toList()));
+                final List<TaskInventory.Task> found = inventory.tasks();
+                replies.last(Map.of("tasks", found.stream().map(TaskInventory.Task::asMap).toList(),
+                        "unrecognized", inventory.unrecognized(found)));
                 return;
             }
             List<String> previous = null;
@@ -159,10 +160,13 @@ final class TaskMethods {
                 // comparing the whole answer made this fire every second and told a fleet view to
                 // redraw because a clock had moved. Measured against a real task, which is the
                 // only way this shows up at all.
-                final List<String> settled = tasks.stream().map(SokarDaemon::withoutAge).toList();
+                final List<String> unrecognized = inventory.unrecognized(tasks);
+                final List<String> settled = new java.util.ArrayList<>(
+                        tasks.stream().map(SokarDaemon::withoutAge).toList());
+                settled.addAll(unrecognized);
                 if (!settled.equals(previous)) {
                     replies.more(Map.of("tasks",
-                            tasks.stream().map(TaskInventory.Task::asMap).toList()));
+                            tasks.stream().map(TaskInventory.Task::asMap).toList(), "unrecognized", unrecognized));
                     previous = settled;
                 }
                 sleep(WATCH_INTERVAL);

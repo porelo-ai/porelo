@@ -1,6 +1,6 @@
 # B161 — Doctor As Data
 
-**Status:** in progress: `--json` is built; the daemon method is open. Blocks `sokar-frontend` F106.
+**Status:** built. Blocks `sokar-frontend` F106 no longer.
 
 **What must be true.** `sokar doctor --json` says every finding as data - the check, its state, the words and the
 remedy - from the same checks the text runs, for a client to read; the exit code is the text's.
@@ -31,6 +31,7 @@ live in one place. Reading the text would tie a client to its layout and its col
   its state and remedy, and a machine with a missing part is `MISSING` and exits 69.
 - `doc/commands.md` gives the shape.
 
-## To be checked
+## Decided
 
-- Whether the daemon answers the same as a method, for a client that is already connected.
+- The daemon already answers it: `Doctor` returns the same probes (`name`, `state`, `detail`, `action`) and
+  `ready`, from `DoctorCommand.probesFor`. A connected client reads that; `--json` is for one that runs the command.

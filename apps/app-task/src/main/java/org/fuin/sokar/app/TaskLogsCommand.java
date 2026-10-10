@@ -116,6 +116,11 @@ public class TaskLogsCommand implements Callable<Integer>, SokarFactory.ContextA
         // leave its state directory behind, and those logs are worth reading precisely then.
         final boolean known = context.podman().sokarTasks().stream()
                 .anyMatch(task -> task.name().equals(container));
+        if (!known && new TaskInventory(context).unrecognized(java.util.List.of()).contains(container)) {
+            err.println("sokar: " + TaskInventory.unrecognizedNote(container));
+            err.flush();
+            return 69;
+        }
         if (!known && logs.isEmpty()) {
             err.println("sokar: there is no task called " + container);
             Suggests.offer(err, this);

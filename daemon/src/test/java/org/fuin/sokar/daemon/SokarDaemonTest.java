@@ -325,6 +325,24 @@ class SokarDaemonTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void listsTheContainersNamedLikeTasksThatAreNotTasks(@TempDir Path dir) throws Exception {
+
+        // The same the CLI's list says under its table: a client shows them as what they are, never as tasks.
+        runner.answering("ps", "sokar-uc-shell\tExited (0) 5 days ago\t1700000000\t1700000100\tuc\tguarded\n");
+        final SokarContext context = context(dir).recognizingTasks();
+
+        servingContext(context, dir, socket -> {
+            try (VarlinkClient client = new VarlinkClient(socket)) {
+                final Map<String, Object> reply = client.call(SokarDaemon.INTERFACE + ".List", Map.of());
+
+                assertThat((List<?>) reply.get("tasks")).isEmpty();
+                assertThat((List<Object>) reply.get("unrecognized")).containsExactly("sokar-uc-shell");
+            }
+        });
+    }
+
+    @Test
     void saysWhatStartingEachTaskWouldDo(@TempDir Path dir) throws Exception {
 
         // Answered per task in the listing rather than by a call per row: an interface drawing

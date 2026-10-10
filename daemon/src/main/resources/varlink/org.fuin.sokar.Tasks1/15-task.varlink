@@ -363,7 +363,11 @@ type Log (
 # ---------------------------------------------------------------------------- what exists
 
 # Every task on this machine, running or stopped.
-method List() -> (tasks: []Task)
+#
+# unrecognized names the containers named like a task that are not one: Sokar holds no container id for them
+# (made before it recorded one, or by something else), so no method acts on them and none adopts them. A client
+# shows them as what they are, never as tasks: removing one removes what is in it.
+method List() -> (tasks: []Task, unrecognized: []string)
 
 # The same answer, again whenever it changes.
 #
@@ -373,7 +377,7 @@ method List() -> (tasks: []Task)
 # Called with "more" it sends the whole list on every change and nothing in between. The age
 # in state is deliberately not a change: it moves on its own, and a view that redrew for it
 # would redraw every second forever.
-method Watch() -> (tasks: []Task)
+method Watch() -> (tasks: []Task, unrecognized: []string)
 
 # The purposes a credential may serve: "git" and "any". "git" is the only one anything reads
 # today; a record with another is kept and used by nothing. When a second consumer appears it will

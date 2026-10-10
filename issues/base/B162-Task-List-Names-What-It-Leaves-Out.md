@@ -1,6 +1,6 @@
 # B162 — Task List Names What It Leaves Out
 
-**Status:** in progress: `task list` names them; the daemon's list and `task status` do not yet.
+**Status:** built.
 
 **What must be true.** `sokar task list` never says "No tasks." while containers named like tasks are there: it names
 the ones it does not list, and why.
@@ -19,10 +19,11 @@ and a container prune removed the work in five of them unseen.
   it and that removing it removes what is in it; with nothing listed it says "No tasks Sokar acts on." instead of
   "No tasks." (`TaskLifecycleCommandsTest`, seen red first).
 
-## Not yet
-
-- The daemon's list for the interface says the same, as data.
-- `task status <name>` on such a container says why it is not a task, instead of "there is no task called".
+- `task status` and `task logs` on such a container say what it is - named like a task, no container id, removing it
+  removes what is in it, `podman cp` saves its workspace - instead of "there is no task called"
+  (`TaskLifecycleCommandsTest`, seen red first).
+- The daemon's `List` and `Watch` answer `unrecognized` beside `tasks`, the same names, from the same code as the CLI
+  (`TaskInventory.unrecognized`); a change in them is a change for `Watch` (`SokarDaemonTest`, seen red first).
 
 ## Decided
 
