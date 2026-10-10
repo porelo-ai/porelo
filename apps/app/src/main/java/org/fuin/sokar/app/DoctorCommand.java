@@ -28,6 +28,10 @@ public class DoctorCommand implements Callable<Integer>, SokarFactory.ContextAwa
 
     private SokarContext context = SokarContext.real();
 
+    @picocli.CommandLine.Option(names = "--json",
+            description = "Every finding as one JSON object, from the same checks as the text, for a program to read.")
+    private boolean json;
+
     @picocli.CommandLine.Option(names = "--color", paramLabel = "<when>",
             description = "auto, always or never. Default: ${DEFAULT-VALUE} - colour on a terminal unless NO_COLOR is"
                     + " set.")
@@ -497,6 +501,24 @@ public class DoctorCommand implements Callable<Integer>, SokarFactory.ContextAwa
      * @param out Where to write.
      */
     private void printShadowed(PrintWriter out) {
+        final java.util.List<String[]> notes = shadowed();
+        if (notes.isEmpty()) {
+            return;
+        }
+        out.println();
+        for (final String[] note : notes) {
+            out.println(painted(note[0], Probe.State.DEGRADED, colour) + " " + note[1]);
+            out.println("         " + note[2]);
+        }
+    }
+
+    /**
+     * Returns what is installed and not used: each as its kind ({@code not used}, {@code not taken}), the file, and
+     * why. The text and the JSON say the same list.
+     *
+     * @return The notes, possibly none.
+     */
+    private java.util.List<String[]> shadowed() {
 
         final java.util.List<java.nio.file.Path[]> hidden = new java.util.ArrayList<>();
         final java.nio.file.Path hooks = context.paths().shadowedHookBinaries();
@@ -516,18 +538,14 @@ public class DoctorCommand implements Callable<Integer>, SokarFactory.ContextAwa
                 hidden.add(new java.nio.file.Path[] { loser, winner }));
         final java.util.List<org.fuin.sokar.agent.api.AgentDirectory.Description> refused = agents.descriptions()
                 .stream().filter(description -> description.refusal() != null).toList();
-        if (hidden.isEmpty() && refused.isEmpty()) {
-            return;
-        }
-        out.println();
+        final java.util.List<String[]> notes = new java.util.ArrayList<>();
         for (final java.nio.file.Path[] pair : hidden) {
-            out.println(painted("not used", Probe.State.DEGRADED, colour) + " " + pair[0]);
-            out.println("         hidden by " + pair[1]);
+            notes.add(new String[] { "not used", pair[0].toString(), "hidden by " + pair[1] });
         }
         for (final org.fuin.sokar.agent.api.AgentDirectory.Description description : refused) {
-            out.println(painted("not taken", Probe.State.DEGRADED, colour) + " " + description.file());
-            out.println("         " + description.refusal());
+            notes.add(new String[] { "not taken", description.file().toString(), String.valueOf(description.refusal()) });
         }
+        return notes;
     }
 
     /**
@@ -678,6 +696,9 @@ public class DoctorCommand implements Callable<Integer>, SokarFactory.ContextAwa
     public Integer call() {
 
         final PrintWriter out = spec.commandLine().getOut();
+        if (json) {
+            return json(out);
+        }
         // A terminal only: piped or written to a file, the report carries no escape codes.
         final java.io.Console console = System.console();
         colour = colours(color, console != null && console.isTerminal(), System.getenv("NO_COLOR"));
@@ -721,6 +742,16 @@ public class DoctorCommand implements Callable<Integer>, SokarFactory.ContextAwa
 
         out.flush();
 
+        return exit(probes);
+    }
+
+    /**
+     * Returns the exit code for a report, the same for the text and the JSON.
+     *
+     * @param probes The findings.
+     * @return 69 when anything is missing, 1 when hardening covers one thread only, 0 otherwise.
+     */
+    private static int exit(final java.util.List<Probe> probes) {
         // Anything missing means a task will fail, or run without something it needs and say
         // nothing - hooks that never load a firewall being the worst of them. Degraded and unknown
         // do not fail the command: the machine works, and the report says how well.
@@ -730,5 +761,52 @@ public class DoctorCommand implements Callable<Integer>, SokarFactory.ContextAwa
 
         // On a JVM this is a warning, in the shipped binary it must never appear.
         return ProcessHardening.appliesToWholeProcess() ? 0 : 1;
+    }
+
+    /**
+     * Writes the report as one JSON object: the same probes in the same order as the text, the notes beneath them,
+     * the paths and the process's hardening. No colour, whatever {@code --color} says: a program reads it.
+     *
+     * @param out Where to write.
+     * @return The exit code, the text's.
+     */
+    private int json(final PrintWriter out) {
+        final XdgPaths paths = context.paths().xdg();
+        final java.util.Map<String, Object> report = new java.util.LinkedHashMap<>();
+        report.put("version", SokarVersion.version());
+        final java.util.List<Probe> probes = probes();
+        report.put("findings", probes.stream().map(probe -> {
+            final java.util.Map<String, Object> finding = new java.util.LinkedHashMap<>();
+            finding.put("check", probe.name());
+            finding.put("state", probe.state().name());
+            finding.put("detail", probe.detail());
+            finding.put("remedy", probe.healthy() ? null : probe.action());
+            return (Object) finding;
+        }).toList());
+        final java.util.List<Object> notes = new java.util.ArrayList<>();
+        if (java.nio.file.Files.isRegularFile(context.paths().failureLog())) {
+            notes.add(java.util.Map.of("kind", "failures", "file", context.paths().failureLog().toString(),
+                    "detail", "a command failed unexpectedly"));
+        }
+        for (final String[] note : shadowed()) {
+            notes.add(java.util.Map.of("kind", note[0], "file", note[1], "detail", note[2]));
+        }
+        report.put("notes", notes);
+        final java.util.Map<String, Object> where = new java.util.LinkedHashMap<>();
+        where.put("config", paths.config().toString());
+        where.put("data", paths.data().toString());
+        where.put("state", paths.state().toString());
+        where.put("runtime", paths.runtime().toString());
+        where.put("hooks", context.paths().binaryDirectory().toString());
+        where.put("agents", agentLocations().stream().map(java.nio.file.Path::toString).toList());
+        report.put("paths", where);
+        final java.util.Map<String, Object> process = new java.util.LinkedHashMap<>();
+        process.put("dumpable", String.valueOf(ProcessHardening.dumpable()));
+        process.put("noNewPrivileges", String.valueOf(ProcessHardening.noNewPrivileges()));
+        process.put("wholeProcess", ProcessHardening.appliesToWholeProcess());
+        report.put("process", process);
+        out.println(org.fuin.sokar.wire.Json.write(report));
+        out.flush();
+        return exit(probes);
     }
 }

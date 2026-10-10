@@ -1,6 +1,6 @@
 # B161 — Doctor As Data
 
-**Status:** open. Blocks `sokar-frontend` F106.
+**Status:** in progress: `--json` is built; the daemon method is open. Blocks `sokar-frontend` F106.
 
 **What must be true.** `sokar doctor --json` says every finding as data - the check, its state, the words and the
 remedy - from the same checks the text runs, for a client to read; the exit code is the text's.
@@ -18,6 +18,12 @@ live in one place. Reading the text would tie a client to its layout and its col
 - The same probes, in the same order, as the text; the text and the JSON come from one list, so they cannot disagree.
 - The exit code as without `--json`: 69 when anything is `MISSING`, 0 otherwise.
 - No colour and no escape codes in it, whatever `--color` says.
+
+## Built so far
+
+- `sokar doctor --json`: one object with `version`, `findings` (`check`, `state`, `detail`, `remedy`), `notes`
+  (`kind`, `file`, `detail`), `paths` and `process`, from the same probe list and notes as the text; no colour; the
+  text's exit code (`DoctorJsonTest`, seen red first).
 
 ## Acceptance
 

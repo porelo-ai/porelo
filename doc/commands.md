@@ -408,7 +408,10 @@ the daemon and each followed project. Each line has one of four states:
 
 Every state but `OK` names the one thing to do. On a terminal the states are coloured - `MISSING` red, `DEGRADED`
 and `UNKNOWN` yellow, `OK` green - beside the same words; piped, redirected or with `NO_COLOR` set there is no colour,
-and `--color=always|never` decides it for one run. Only `MISSING` fails the command (exit 69); a degraded
+and `--color=always|never` decides it for one run. `--json` says the same as one JSON object, for a program:
+`findings` in the text's order, each with `check`, `state`, `detail` and `remedy` (`null` when `OK`); `notes` for what
+is installed and not used and for the failure log, each with `kind`, `file` and `detail`; `paths`; `process`; and
+`version`. It carries no colour whatever `--color` says, and exits as the text does. Only `MISSING` fails the command (exit 69); a degraded
 machine runs tasks. A machine using slirp4netns rather than pasta, for example, is degraded: the gate
 then binds every interface and is reachable from this machine's network, with the per-task token what
 keeps it shut. A binary hidden by another copy is named with both halves:
