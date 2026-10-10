@@ -159,6 +159,9 @@ terminal, no terminal, `--no-input` and `--yes`.
   and run their own removal on a yes (`PruneTest`, `ClearingTest`); `gate approve` onto a taken branch offers the next
   free one and approves onto it (`ApproveOfferTest`); `project unfollow` offers to stop running tasks, and to destroy
   unreviewed work, no by default and naming it, then unfollows again (`UnfollowOfferTest`). Each takes `--no-input`.
+- **Task start, another way to start:** earlier work of the name waiting at the gate offers the next free name,
+  checked against the gate and the containers there; no agent, or no gate for an agent, offers a shell in the task;
+  on a yes `task start` starts again that way, at most a few times (`StartInsteadOfferTest`).
 - **Not yet:** a provider chosen from a list - refused only for an agent that names no default provider, and every
   agent today names one; a task chosen from a list - `TaskTarget` asks already at a terminal; a workspace from
   before a restart copied to `./recovered` (`TaskResumeCommand`).

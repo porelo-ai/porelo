@@ -49,6 +49,18 @@ final class WorkspaceSetup {
     /** The earlier work of this task's name that waits at the gate, when that is the refusal. */
     private org.fuin.sokar.gate.GitGate.@Nullable Waiting earlierWork;
 
+    /** The next name under which no earlier work waits and no container is, when earlier work is the refusal. */
+    private @Nullable String freeName;
+
+    /**
+     * Returns the next free name for the task, when earlier work of its name is the refusal.
+     *
+     * @return The name, or {@code null}.
+     */
+    @Nullable String freeName() {
+        return freeName;
+    }
+
     /**
      * Returns why the last {@link #openWorkspace} refused the start, or {@code null}.
      *
@@ -113,6 +125,14 @@ final class WorkspaceSetup {
                 final String earlier = gate.waiting(task);
                 if (earlier != null) {
                     earlierWork = gate.waitingWork(task);
+                    final java.util.List<String> containers = context.podman().sokarContainers();
+                    for (int n = 2; n < 100 && freeName == null; n++) {
+                        final String candidate = task + "-" + n;
+                        if (gate.waiting(candidate) == null
+                                && !containers.contains(org.fuin.sokar.runtime.ContainerName.of(project, candidate))) {
+                            freeName = candidate;
+                        }
+                    }
                     // Its work waits for a person, and a new task of the same name would push onto it.
                     refusal = "work of an earlier task called " + task + " waits at the gate (" + earlier
                             + "): approve or reject it first, with 'sokar gate approve' or 'sokar gate reject', or"

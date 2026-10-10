@@ -200,6 +200,36 @@ public class TaskRunCommand implements Callable<Integer>, SokarFactory.ContextAw
 
     @Override
     public Integer call() {
+        // A refusal the person answered with another way to start - another name, or a shell - starts again with it,
+        // at most a few times, so answers that each lead to another refusal end rather than loop.
+        int code = startOnce();
+        for (int tries = 0; code == TaskLaunch.RETRY && tries < 3; tries++) {
+            code = startOnce();
+        }
+        return code == TaskLaunch.RETRY ? 69 : code;
+    }
+
+    /**
+     * Takes the way the person chose instead of a refusal, for the next start.
+     *
+     * @param launch The start.
+     * @param code What it returned.
+     * @return The code, {@link TaskLaunch#RETRY} when the next start is to go another way.
+     */
+    private int retried(final TaskLaunch launch, final int code) {
+        final String chosen = launch.retry();
+        if (code != TaskLaunch.RETRY || chosen == null) {
+            return code == TaskLaunch.RETRY ? 69 : code;
+        }
+        if (chosen.equals("shell")) {
+            attach = "shell";
+        } else if (chosen.startsWith("name:")) {
+            task = chosen.substring("name:".length());
+        }
+        return code;
+    }
+
+    private Integer startOnce() {
 
         final PrintWriter out = spec.commandLine().getOut();
         final PrintWriter err = spec.commandLine().getErr();
@@ -315,7 +345,7 @@ public class TaskRunCommand implements Callable<Integer>, SokarFactory.ContextAw
                             .taskIn(existing.project(), existing.container())));
         }
 
-        return launch.launch(out, err, running -> {
+        return retried(launch, launch.launch(out, err, running -> {
 
             environmentCache = running.environment();
 
@@ -409,7 +439,7 @@ public class TaskRunCommand implements Callable<Integer>, SokarFactory.ContextAw
                 outcome.set(0);
             }
             return left;
-        });
+        }));
     }
 
     /**

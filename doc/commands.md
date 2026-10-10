@@ -145,7 +145,9 @@ which otherwise stops or starts the task as removing it needs. `--no-input` asks
 list what would go and then ask whether to remove it, no by default, where they said to run them again with `--yes`;
 `gate approve` onto a branch that already holds earlier work offers the next free one (`-2`, `-3` …), never a force;
 `project unfollow` offers to stop the project's running tasks, and to destroy unreviewed work only on an explicit yes
-after naming it. Each takes `--no-input`; without a terminal each refuses as before.
+after naming it. Each takes `--no-input`; without a terminal each refuses as before. A start refused because earlier
+work of its name waits at the gate offers the next free name (`NAME-2` …), and one with no agent to run, or no gate for
+the agent to hand work back through, offers a shell in the task instead; on a yes the start goes on that way.
 
 **`task logs`** shows the files of the gate, broker, relay, resolver and clearance watcher, not the
 agent's output. `events.jsonl` is what the firewall blocked: look there when a task starts and then

@@ -410,6 +410,46 @@ public final class TaskLaunch {
     /** Who is offered a remedy where the start would name a command: nobody, unless a terminal is there. */
     private Offer offer = Offer.NOBODY;
 
+    /** What a start returns when the person took another way to start: {@link #retry()} says which. */
+    static final int RETRY = -2;
+
+    /** The way the person took instead of a refusal: {@code "shell"}, or {@code "name:<name>"}; or none. */
+    private @Nullable String retry;
+
+    /**
+     * Returns the way the person took instead of a refusal, for the caller to start again with.
+     *
+     * @return {@code "shell"}, {@code "name:<name>"}, or {@code null}.
+     */
+    @Nullable String retry() {
+        return retry;
+    }
+
+    /**
+     * Asks whether to start under the next free name, where earlier work of this name waits at the gate.
+     *
+     * @param earlier The refusal.
+     * @param free The next free name, or {@code null} when none was found.
+     * @param offer Who is asked.
+     * @return {@code "name:<free>"} on a yes, or {@code null}.
+     */
+    static @Nullable String nameInstead(final String earlier, final @Nullable String free, final Offer offer) {
+        return free != null && offer != Offer.NOBODY && offer.confirm(earlier, "Start it as '" + free + "' instead?",
+                "", false) ? "name:" + free : null;
+    }
+
+    /**
+     * Asks whether to start a shell in the task instead of an agent that cannot work.
+     *
+     * @param missing What is missing.
+     * @param offer Who is asked.
+     * @return {@code "shell"} on a yes, or {@code null}.
+     */
+    static @Nullable String shellInstead(final String missing, final Offer offer) {
+        return offer != Offer.NOBODY && offer.confirm(missing, "Start a shell in the task instead?", "", false)
+                ? "shell" : null;
+    }
+
     /**
      * Offers what a refusal would name, through the given helper: at a terminal, a person is asked and the remedy run.
      *
@@ -758,6 +798,10 @@ public final class TaskLaunch {
             //
             // Only for AGENT. A SHELL task deliberately needs no agent - working inside the
             // container by hand is exactly what it is for.
+            if (request.mode() == org.fuin.sokar.wire.TaskMode.AGENT && select(agents) == null
+                    && (retry = shellInstead("no agent to attach", offer)) != null) {
+                return RETRY;
+            }
             if (request.mode() == org.fuin.sokar.wire.TaskMode.AGENT && select(agents) == null) {
                 err.println("sokar: no agent to attach"
                         + (request.agentName() == null ? "; none is installed here"
@@ -771,11 +815,19 @@ public final class TaskLaunch {
             final boolean gated = !request.noGate() && !request.dryRun();
             final TaskWorkspace workspace = workspace().openWorkspace(project, gated, out, err);
             final String earlier = workspace().refusal();
+            if (earlier != null && (retry = nameInstead(earlier, workspace().freeName(), offer)) != null) {
+                return RETRY;
+            }
             if (earlier != null) {
                 err.println("sokar: " + earlier);
                 err.println("sokar: nothing was created");
                 err.flush();
                 return 65;
+            }
+            if (gated && workspace == null && request.mode() == org.fuin.sokar.wire.TaskMode.AGENT
+                    && (retry = shellInstead("there is no gate for the agent to hand its work back through", offer))
+                            != null) {
+                return RETRY;
             }
             if (gated && workspace == null && request.mode() != org.fuin.sokar.wire.TaskMode.SHELL) {
                 // An agent's work leaves through the gate. Started without one, it has an empty workspace and
