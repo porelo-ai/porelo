@@ -51,6 +51,12 @@ public class GateApproveCommand implements Callable<Integer>, SokarFactory.Conte
                     + " only signed.")
     private boolean signed;
 
+    @Option(names = "--no-input", description = "Ask nothing: a branch that already holds work is refused, as before.")
+    private boolean noInput;
+
+    /** Who is asked to take the next free branch: this process's terminal, or nobody without one. */
+    Offer.Asker asker = Offer.atTerminal() ? Offer.Asker.terminal() : Offer.Asker.NOBODY;
+
     @Spec
     private CommandSpec spec;
 
@@ -66,7 +72,31 @@ public class GateApproveCommand implements Callable<Integer>, SokarFactory.Conte
 
         final PrintWriter out = spec.commandLine().getOut();
         final PrintWriter err = spec.commandLine().getErr();
+        final Offer offer = noInput || asker == Offer.Asker.NOBODY ? Offer.NOBODY : new Offer(asker, false, false, err);
+        // Each branch taken is offered the next free one once, so a run of taken names ends rather than loops.
+        for (int tries = 0; tries < 10; tries++) {
+            final String next = approveOnce(out, err, offer);
+            if (next == null) {
+                return exit;
+            }
+            branch = next;
+        }
+        return exit;
+    }
 
+    /** The exit code of the last try. */
+    private int exit;
+
+    /**
+     * Approves onto {@link #branch} once.
+     *
+     * @param out Where to report.
+     * @param err Where to refuse.
+     * @param offer Who is asked to take the next free branch.
+     * @return The branch to try next when the person took it, or {@code null} when this try is the last.
+     */
+    private @org.jspecify.annotations.Nullable String approveOnce(final PrintWriter out, final PrintWriter err,
+            final Offer offer) {
         try {
             final Project project = GateSupport.byName(context, projectName);
             final GitGate gate = GateSupport.gate(context, project,
@@ -80,22 +110,47 @@ public class GateApproveCommand implements Callable<Integer>, SokarFactory.Conte
                 out.println("forwarded " + name + " to " + branch);
             }
             out.flush();
-            return 0;
+            exit = 0;
+            return null;
         } catch (GateException.BranchExists ex) {
-            // The words the contract names, and the next free branch to approve onto: never a force over this one.
+            // The next free branch is offered at a terminal; the words the contract names, and that branch, otherwise.
+            // Never a force over the one that is taken.
+            final String next = suggested(ex.branch());
+            final String taken = instead(ex.branch(), String.valueOf(ex.at()), next, offer);
+            if (taken != null) {
+                return taken;
+            }
             err.println("sokar: " + ex.branch() + " already holds " + ex.at() + ", from earlier work; approve onto"
-                    + " another branch with --branch " + suggested(ex.branch()));
+                    + " another branch with --branch " + next);
             err.flush();
-            return 70;
+            exit = 70;
+            return null;
         } catch (GateException ex) {
             err.println("sokar: " + ex.getMessage());
             err.flush();
-            return 70;
+            exit = 70;
+            return null;
         } catch (RuntimeException ex) {
             err.println("sokar: " + ex.getMessage());
             err.flush();
-            return 2;
+            exit = 2;
+            return null;
         }
+    }
+
+    /**
+     * Asks whether to approve onto the next free branch instead of one that already holds earlier work.
+     *
+     * @param branch The branch taken.
+     * @param at What it holds.
+     * @param next The next free branch.
+     * @param offer Who is asked.
+     * @return {@code next} on a yes, {@code null} when nobody took it.
+     */
+    static @org.jspecify.annotations.Nullable String instead(final String branch, final String at, final String next,
+            final Offer offer) {
+        return offer != Offer.NOBODY && offer.confirm(branch + " already holds " + at + ", from earlier work",
+                "Approve onto " + next + " instead?", "", false) ? next : null;
     }
 
     /**

@@ -155,6 +155,10 @@ terminal, no terminal, `--no-input` and `--yes`.
   from its record; one for an egress set that does not exist names the sets (`Shown`, `ShownTest`). After
   `vault passphrase`, the new passphrase is kept where the old one was cached, instead of dropped for a
   `vault unlock`. Hooks out of date after an update were already registered again by a start, without asking.
+- **Projects, clearing and the gate:** `prune` and `clear` ask whether to remove what they listed, no by default,
+  and run their own removal on a yes (`PruneTest`, `ClearingTest`); `gate approve` onto a taken branch offers the next
+  free one and approves onto it (`ApproveOfferTest`); `project unfollow` offers to stop running tasks, and to destroy
+  unreviewed work, no by default and naming it, then unfollows again (`UnfollowOfferTest`). Each takes `--no-input`.
 - **Not yet:** a provider chosen from a list - refused only for an agent that names no default provider, and every
   agent today names one; a task chosen from a list - `TaskTarget` asks already at a terminal; a workspace from
   before a restart copied to `./recovered` (`TaskResumeCommand`).

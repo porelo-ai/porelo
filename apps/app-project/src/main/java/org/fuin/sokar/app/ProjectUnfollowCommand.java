@@ -44,6 +44,12 @@ public class ProjectUnfollowCommand
     @Option(names = "--dry-run", description = "Says what would go, and removes nothing.")
     private boolean dryRun;
 
+    @Option(names = "--no-input", description = "Ask nothing: running tasks and unreviewed work refuse, as before.")
+    private boolean noInput;
+
+    /** Who is asked to stop running tasks or destroy unreviewed work: this process's terminal, or nobody without one. */
+    Offer.Asker asker = Offer.atTerminal() ? Offer.Asker.terminal() : Offer.Asker.NOBODY;
+
     @Option(names = "--force",
             description = "Removes it although work is waiting for review. That work is destroyed.")
     private boolean force;
@@ -82,8 +88,25 @@ public class ProjectUnfollowCommand
         // The project first, because that is the part that can refuse. Forgetting the repository
         // and then failing to remove the project would leave a project nothing updates any more -
         // the worst of both.
-        final ProjectDeletion.Result deleted =
-                new ProjectDeletion(context).delete(name, dryRun, force);
+        ProjectDeletion.Result deleted = new ProjectDeletion(context).delete(name, dryRun, force);
+        // What a refusal would tell a person to do first is offered instead, and the removal tried again after it:
+        // at most once per kind of refusal, so a remedy that did not help ends in that refusal rather than a loop.
+        final Offer offer = dryRun || noInput || asker == Offer.Asker.NOBODY ? Offer.NOBODY
+                : new Offer(asker, false, false, err);
+        final java.util.Set<ProjectDeletion.Outcome> offered = java.util.EnumSet.noneOf(ProjectDeletion.Outcome.class);
+        String next;
+        while (offered.add(deleted.outcome()) && (next = nextTry(deleted.outcome(),
+                deleted.outcome() == ProjectDeletion.Outcome.HOLDS_WORK ? deleted.unreviewed() : deleted.running(),
+                offer)) != null) {
+            if (next.equals("stop")) {
+                for (final String task : deleted.running()) {
+                    new TaskControl(context).stop(task);
+                }
+                deleted = new ProjectDeletion(context).delete(name, false, force);
+            } else {
+                deleted = new ProjectDeletion(context).delete(name, false, true);
+            }
+        }
 
         if (followed == null && deleted.outcome() == ProjectDeletion.Outcome.NO_SUCH_PROJECT) {
             if (force) {
@@ -170,4 +193,26 @@ public class ProjectUnfollowCommand
         return 0;
     }
 
+    /**
+     * Says what to do before unfollowing again, after asking, or nothing when the refusal stands.
+     *
+     * @param outcome Why the removal was refused.
+     * @param what The running tasks, or the unreviewed work.
+     * @param offer Who is asked.
+     * @return {@code "stop"} to stop the running tasks, {@code "force"} to destroy the unreviewed work, or
+     *         {@code null}.
+     */
+    static @org.jspecify.annotations.Nullable String nextTry(final ProjectDeletion.Outcome outcome,
+            final java.util.List<String> what, final Offer offer) {
+        if (offer == Offer.NOBODY) {
+            return null;
+        }
+        return switch (outcome) {
+            case TASKS_RUNNING -> offer.confirm("its tasks are still up: " + String.join(", ", what),
+                    "Stop them now, as 'sokar task stop' does?", "", false) ? "stop" : null;
+            case HOLDS_WORK -> offer.confirm("it holds work nobody has reviewed",
+                    "Destroy it and unfollow?", String.join(", ", what), true) ? "force" : null;
+            default -> null;
+        };
+    }
 }

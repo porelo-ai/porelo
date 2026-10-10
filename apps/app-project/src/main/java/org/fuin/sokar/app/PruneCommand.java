@@ -22,6 +22,12 @@ public class PruneCommand implements Callable<Integer>, SokarFactory.ContextAwar
     @Option(names = "--yes", description = "Remove what is listed. Without it nothing is removed.")
     private boolean yes;
 
+    @Option(names = "--no-input", description = "Ask nothing: list, and remove only with --yes.")
+    private boolean noInput;
+
+    /** Who is asked to remove what is listed: this process's terminal, or nobody without one. */
+    Offer.Asker asker = Offer.atTerminal() ? Offer.Asker.terminal() : Offer.Asker.NOBODY;
+
     @Option(names = "--including-work", description = "Remove what holds work nobody has looked at too: a push"
             + " nobody reviewed, a stopped task's workspace, a message waiting for a person.")
     private boolean includingWork;
@@ -73,7 +79,22 @@ public class PruneCommand implements Callable<Integer>, SokarFactory.ContextAwar
             out.println();
         }
         if (!yes && !result.removes().isEmpty()) {
-            out.println("Nothing was removed. 'sokar prune --yes' removes what would be.");
+            // What a second command with --yes would remove is asked here instead, no by default: removing is the
+            // one step a person decides, and the list they decide on is the one just shown.
+            if (!noInput && asker != Offer.Asker.NOBODY) {
+                out.flush();
+                if (new Offer(asker, false, false, new PrintWriter(out, true)).confirm(
+                        result.removes().size() + " left over listed above", "Remove them now?", "", true)) {
+                    final Prune.Result done = new Prune(context).run(true, includingWork);
+                    out.println("Removed:");
+                    done.removes().forEach(item -> show(out, item, null));
+                    out.flush();
+                    return 0;
+                }
+                out.println("Nothing was removed.");
+            } else {
+                out.println("Nothing was removed. 'sokar prune --yes' removes what would be.");
+            }
         }
         out.flush();
         return 0;

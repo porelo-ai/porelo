@@ -146,4 +146,28 @@ class ClearingTest {
         assertThat(cleared.refused()).isTrue();
         assertThat(dir.resolve("data/sokar/mirrors/one.git")).as("nothing is cleared while one project refuses").exists();
     }
+
+    @Test
+    void atATerminalWhatTheListingNamesIsOfferedToBeClearedWithNoAsTheDefault(@TempDir final Path dir) throws IOException {
+        final SokarContext context = context(dir);
+        project("one");
+        final java.util.function.Function<Offer.Asker, String> clear = asker -> {
+            final ClearCommand command = new ClearCommand();
+            command.setContext(context);
+            command.asker = asker;
+            final java.io.StringWriter out = new java.io.StringWriter();
+            final picocli.CommandLine cmd = new picocli.CommandLine(command);
+            cmd.setOut(new java.io.PrintWriter(out));
+            cmd.setErr(new java.io.PrintWriter(out));
+            cmd.execute();
+            return out.toString();
+        };
+
+        assertThat(clear.apply(question -> "")).contains("nothing was removed");
+        assertThat(dir.resolve("data/sokar/mirrors/one.git")).exists();
+        assertThat(clear.apply(Offer.Asker.NOBODY)).contains("run it again with --yes");
+
+        assertThat(clear.apply(question -> "y")).contains("removed");
+        assertThat(dir.resolve("data/sokar/mirrors/one.git")).doesNotExist();
+    }
 }

@@ -23,6 +23,12 @@ public class ClearCommand implements Callable<Integer>, SokarFactory.ContextAwar
     @Option(names = "--yes", description = "Clears what the listing names. Without it, nothing is removed.")
     private boolean yes;
 
+    @Option(names = "--no-input", description = "Ask nothing: list, and clear only with --yes.")
+    private boolean noInput;
+
+    /** Who is asked to clear what is listed: this process's terminal, or nobody without one. */
+    Offer.Asker asker = Offer.atTerminal() ? Offer.Asker.terminal() : Offer.Asker.NOBODY;
+
     @Option(names = "--dry-run", description = "Lists what would go, and removes nothing.")
     private boolean dryRun;
 
@@ -45,8 +51,21 @@ public class ClearCommand implements Callable<Integer>, SokarFactory.ContextAwar
         // What the vault holds is listed and cleared too: at a terminal a shut vault is opened for this alone.
         context.openIfShut(true, false, spec.commandLine().getErr());
         final boolean listOnly = dryRun || !yes;
-        return render(new Clearing(context).account(listOnly, force), listOnly, !dryRun && !yes,
-                spec.commandLine().getOut());
+        final PrintWriter out = spec.commandLine().getOut();
+        final boolean asking = !dryRun && !yes && !noInput && asker != Offer.Asker.NOBODY;
+        final Clearing.Result listed = new Clearing(context).account(listOnly, force);
+        final int code = render(listed, listOnly, !dryRun && !yes && !asking, out);
+        if (!asking || listed.items().isEmpty() || listed.refused()) {
+            return code;
+        }
+        // What a second command with --yes would clear is asked here instead, no by default.
+        if (!new Offer(asker, false, false, new PrintWriter(out, true)).confirm("this account's Sokar, listed above",
+                "Clear it now?", "", true)) {
+            out.println("nothing was removed");
+            out.flush();
+            return code;
+        }
+        return render(new Clearing(context).account(false, force), false, false, out);
     }
 
     /**

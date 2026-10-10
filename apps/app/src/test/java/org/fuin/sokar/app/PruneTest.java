@@ -187,4 +187,39 @@ class PruneTest {
             }
         }
     }
+
+    private String prune(final SokarContext context, final Offer.Asker asker, final String... arguments) {
+        final PruneCommand command = new PruneCommand();
+        command.setContext(context);
+        command.asker = asker;
+        final java.io.StringWriter out = new java.io.StringWriter();
+        final picocli.CommandLine cmd = new picocli.CommandLine(command);
+        cmd.setOut(new java.io.PrintWriter(out));
+        cmd.setErr(new java.io.PrintWriter(out));
+        cmd.execute(arguments);
+        return out.toString();
+    }
+
+    @Test
+    void atATerminalWhatIsListedIsOfferedToBeRemovedWithNoAsTheDefault() throws IOException {
+        final SokarContext context = context();
+        final Path mirror = leftOver(context, "gatedemo");
+
+        // It said "'sokar prune --yes' removes what would be", a second command with no decision in it the first had not.
+        assertThat(prune(context, question -> "")).contains("Nothing was removed");
+        assertThat(mirror).as("an answer of nothing is no").exists();
+
+        assertThat(prune(context, question -> "y")).contains("Removed:");
+        assertThat(mirror).doesNotExist();
+    }
+
+    @Test
+    void withoutATerminalOrWithNoInputNothingIsAskedAndTheLineIsTodays() throws IOException {
+        final SokarContext context = context();
+        final Path mirror = leftOver(context, "gatedemo");
+
+        assertThat(prune(context, Offer.Asker.NOBODY)).contains("'sokar prune --yes' removes what would be");
+        assertThat(prune(context, question -> "y", "--no-input")).contains("'sokar prune --yes' removes what would be");
+        assertThat(mirror).exists();
+    }
 }

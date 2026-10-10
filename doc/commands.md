@@ -141,6 +141,12 @@ running task first; to push the work it holds to the gate, discard it, or keep t
 so its work can be pushed; and to discard unseen what nobody recorded - no by default, and never with `--yes`,
 which otherwise stops or starts the task as removing it needs. `--no-input` asks nothing.
 
+**Elsewhere, what a refusal would send you to type is asked at a terminal**, by the same rules: `prune` and `clear`
+list what would go and then ask whether to remove it, no by default, where they said to run them again with `--yes`;
+`gate approve` onto a branch that already holds earlier work offers the next free one (`-2`, `-3` …), never a force;
+`project unfollow` offers to stop the project's running tasks, and to destroy unreviewed work only on an explicit yes
+after naming it. Each takes `--no-input`; without a terminal each refuses as before.
+
 **`task logs`** shows the files of the gate, broker, relay, resolver and clearance watcher, not the
 agent's output. `events.jsonl` is what the firewall blocked: look there when a task starts and then
 does nothing. The logs **do not survive a restart**. Unpushed work is only known while the task runs,
