@@ -176,7 +176,8 @@ class GitGateTest {
                     .as("a branch of the mirror").hasMessageContaining("remote rejected")
                     .hasMessageContaining("this task's work goes to " + GitGate.INCOMING + "task-1")
                     .hasMessageContaining("remote: ").hasMessageContaining("push with 'git push sokar'")
-                    .hasMessageNotContaining("403");
+                    // git's own words for a 403, not the digits: the server's random port can hold them (40305 did).
+                    .hasMessageNotContaining("returned error: 403");
             assertThatThrownBy(() -> git(work, "push", url(server), "HEAD:" + GitGate.INCOMING + "task-2"))
                     .as("another task's ref").hasMessageContaining("remote rejected");
             git(work, "push", url(server), "HEAD:" + GitGate.INCOMING + "task-1");
