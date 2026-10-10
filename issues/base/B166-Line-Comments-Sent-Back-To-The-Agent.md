@@ -42,8 +42,9 @@ way a comment travels - local, to and from a forge, from an agent reviewing - ke
 
 ## The shape
 
-- The comment is a message kind of its own, `comment`, whose rules the sluice holds (`sokar-message-sluice`: anchor,
-  suggestion field, lengths).
+- The comment is a message kind of its own, `comment`, whose rules the sluice holds (`sokar-message-sluice` SL24): the
+  anchor checked by its shape, the suggestion only by the detectors for encoded data, and no origin stated by the
+  sender - the host adds it after the filter.
 - The daemon serves comments, threads and replies through one set of methods for the CLI, the interface
   (`sokar-frontend`) and the IDE plugin (`sokar-intellij`), which show each comment with its origin.
 - Size: medium.
@@ -58,4 +59,5 @@ way a comment travels - local, to and from a forge, from an agent reviewing - ke
 ## To be checked
 
 - Whether comments survive a new push of the same task, moved to the lines they were on.
-- The size limit of a suggestion.
+- The size limit of a suggestion, the same here and in SL24.
+- Whether `comment` is a kind of the sluice's narrowed schema or a part of its own (SL24's open point).
