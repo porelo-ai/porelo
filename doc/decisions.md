@@ -662,3 +662,186 @@ it, through one helper (`Offer`), alike everywhere:
 
 What stays a message: where nobody can answer, a review or trust decision that must not be made in passing, and a plain
 report.
+
+## A credential is entered only in a terminal
+
+No method of the daemon's contract takes a secret: a credential reaches the vault by `vault put`, `vault login` or an
+import, typed or pasted into a terminal at the node - over ssh, or in the terminal an interface opens there - and read
+without echo. A contract that never carries a value is a property anyone can check by reading the interface
+description; a method that carried one would make it a property every later log line, error and streamed reply has to
+keep. A forced-command ssh account cannot open such a terminal and is not served: on such a machine an administrator
+stores the credential through another account.
+
+## A credential with no expiry is stored and named
+
+A credential that carries no end is accepted, never refused: some providers issue nothing else. The store says it has
+no expiry and the list of credentials marks it, because a long-lived key is the one secret whose leak does not decay,
+and the person who could replace it with a shorter-lived one should see that every time they look.
+
+## A developer's build labels itself
+
+On an SELinux machine only binaries labelled `sokar_exec_t` may bind Sokar's sockets. A binary from a build tree is
+labelled by the build itself, with `chcon`, after each build, where SELinux is enabled and the policy loaded. A file
+context for a build path would name in the shipped policy a path only one person has.
+
+## An MCP server reaches a task only over HTTP, through the gateway on the host
+
+1. The gateway can attach a server's key, read its tool lists and calls and journal them only where the traffic crosses
+   the host; a server over stdio has no such crossing.
+2. A server over stdio is never started on the host, where it would run outside the task's firewall, limits and
+   namespace with the person's rights. Where a project has one at all, it runs inside the task's container as the
+   agent's own, and is named as not covered.
+3. When a server's tool list changes, only the new or changed tools are held until a person accepts them; the unchanged
+   ones stay usable. Holding the whole server would stop a task over a change it may never use and teach people to
+   accept without reading.
+
+## Nested containers never in a guarded project
+
+A container started inside a task opens user namespaces and more of the kernel to the agent. A `guarded` project
+promises the least is opened, so it may never set it; and where the assessment finds the guarantees hold only on a
+task's own kernel, nested containers are built only there.
+
+## A devcontainer file's features are not fetched
+
+A feature is a script from a registry, run as root during the image build and chosen by whoever edits the repository's
+devcontainer file. Sokar takes the file's image, or builds its Dockerfile from the reviewed default branch, and names
+each feature as not installed, so nothing runs at build time that the project file does not name.
+
+## Several attempts share one credential
+
+The attempts of one start may share one credential and so its rate limit. Sokar does not split or queue them; a
+reached limit is said per attempt, naming the credential, so a stalled attempt is not read as a weaker one. Five
+attempts per start is the default ceiling. N attempts use up a subscription's limit about N times as fast; the person
+chose N.
+
+## A reviewer task reviews only its own project
+
+A task in the role reviewer reads the waiting work of other tasks of its own project only. Reading another project's
+work would carry code across the line Sokar keeps between projects everywhere else.
+
+## An approve lands as a merge carrying provenance; a fast-forward is a project's choice
+
+The merge the host makes at an approve records the models, agent and provider that made the work, read from the
+broker, never from the agent, with the reviewed commit untouched as its second parent. A branch protected for linear
+history refuses a merge, so a project may choose a fast-forward; it then gives up the provenance in its history, and
+the documentation says so.
+
+## The owner approves alone unless a project asks for a second person
+
+On a node the person who started a task is the one who approves. A project that needs separation of duties sets four
+eyes, and its approve then needs another of its signers' signature over the reviewed commit. Without the setting a
+person working alone is not slowed down.
+
+## A time limit does not cut off a person who is watching
+
+An unattended run ends at its project's limit; a start may shorten that limit, never lengthen it. A person attached to
+the task holds the stop back: at the limit they are warned, and the run is stopped once they detach. A person at the
+session is the oversight the limit stands in for.
+
+## Account-wide settings live in one file
+
+Settings that belong to the account rather than to a project - the period after which unused access is reported and
+whether it is locked, how long `task.log` is kept, the largest bundle a client may upload, where the event log is
+copied - go into `$XDG_CONFIG_HOME/sokar/config.yml`. A missing file means every default, an unknown key is refused by
+name, and one page lists every key with its default.
+
+## Unused access is reported, and locked only on request
+
+A device slot or deploy key unused for 45 days is named by `doctor`, with the remedy. Locking it is a setting, off by
+default: a lock surprises whoever comes back after a long absence, while a report leaves the decision with the person.
+
+## The event log is anchored in the user's journal and outlives a clearing
+
+An account's own file cannot be made tamper-proof against that account, so each line's hash also goes to the user's
+systemd journal. Where the settings name a destination, each line is also sent off the machine; nothing leaves without
+that setting. The log is the account's history, not a project's, so `sokar clear` of the account keeps it.
+
+## What carries an agent's words is kept for a period
+
+`task.log` holds the agent's own words and so may hold personal and confidential data. It is cut 30 days after it was
+written, even while its task lives, and so is a session's recording; the account's settings may change the period.
+
+## A task's spending is capped in tokens, not in money
+
+Every provider's answer carries a token count, so a token ceiling holds for every provider the broker forwards to; a
+price does not, and one computed from a price list on the host goes stale. The ceiling is enforced in the task's
+broker, which the agent cannot bypass. A ceiling in money may follow, only for providers that report each answer's
+cost, as an addition to the token ceiling.
+
+## An alert either only tells or stops the task; it never freezes it
+
+A paused task holds its session while its tokens' lifetimes run on, so a freeze contains nothing a stop does not and
+leaves a half-open state to clean up. Each project chooses whether an alert only tells a person, the default, or also
+stops the task and revokes its tokens.
+
+## A false secret finding is acknowledged on the host, never in the repository
+
+The agent writes the repository, so an acknowledgement it could write is one it could use to silence a finding. The
+list is kept beside the project on the host, owner-only, each entry with a hash of the matched text so it lapses when
+that text changes. The scan covers the tree a task checks out, not its history, and the documentation says so.
+
+## A new dependency with a finding waits for a person
+
+A name that is not in its registry, could not be checked, or is close to a well-known one is the shape a hallucinated
+or squatted package takes; a mark in the review is not enough, because an approve can be given without reading it. The
+approve asks for each such dependency and, without a terminal, is refused until the dependency is named, bound to the
+reviewed commit. Maven Central and npm come first.
+
+## A release waits for the misuse suite, and a found hole is never skipped
+
+The guarantees are attacked as an agent would attack them - escaping the container, carrying data out through DNS,
+allowed domains and the broker, bypassing the approval - and a release is made only when every such scenario ran and
+passed. A scenario that finds a hole holds the release until the hole is closed; it is never tagged or filtered out to
+let a release go.
+
+## The data protection page follows the federal ISDS concept template
+
+An organisation that writes an information security and data protection concept fills the Swiss federal template
+chapter by chapter; a page in the same chapters lets it take Sokar's part without rearranging it. Each chapter says
+what Sokar provides and what the organisation still regulates.
+
+## Every Sokar repository gets the changelog check from its parent
+
+The rule that a change brings a changelog entry holds for every repository, so the check is bound once in
+`sokar-parent`, which every Maven repository of Sokar inherits, and configured where only Sokar reads it. A repository
+whose product is not built with Maven runs the same check as a step of its own in its workflow.
+
+## A leg runs only the unit tests that need its machine
+
+A rented machine exists to deploy the product and run the acceptance suite against it. Unit tests run on the build
+host, except those whose condition only the target has, such as SELinux; those run on the leg that has it and fail it
+when skipped there. A leg is not made a second build host.
+
+## A kernel of its own for a task is measured before it is decided
+
+The second wall is worth something against kernel bugs, but its cost falls on the ruleset, the resolver, the hooks and
+the sockets. Adoption is decided on measured answers: whether a kernel of its own works, whether the ruleset still
+fails closed, and what it costs. Snapshot and restore of a task, its running agent with it, is a goal such a runtime
+may make reachable.
+
+## A storage class Sokar cannot prove is shown as user-scoped
+
+What protected an unlock is shown as worth more only when Sokar can prove it, by a slot the node enrolled itself or by
+evidence such as a TPM2 attestation the node checks. A claim a client merely sends is recorded, but the command line
+and the interface show it exactly like a user-scoped slot: a label that reads stronger than it is does more harm than
+an honest weaker one.
+
+## A digest pins an image; a tag-only image in a followed project needs a person's consent once
+
+A digest names exactly one image, so a signed project file that carries one pins its content; podman's signature
+policy is an option a project may add. A followed project that names its image by tag only does not start until a
+person allows it once; after that the digest is kept and a change of it is said at every start, so a moved tag never
+changes what runs silently.
+
+## One key signs everything a machine installs from Sokar
+
+Packages, the setup script and the Debian repository's metadata are signed with one key, so a machine trusts one
+fingerprint. Its private half is held by the project's owner only and reaches CI only as a repository secret. The
+repositories that publish to the same package repositories switch signing on with the same release, because a setup
+that checks signatures refuses every repository that does not sign yet.
+
+## A view of a task is guarded by Sokar's token, not by VNC's password
+
+A task's screen is offered only to a project that switches it on in `project.yml`, and even then only through Sokar's
+relay, which takes a strong one-time token before a byte reaches the VNC server. Loopback alone is no access control on
+a machine with other accounts, and VNC's own password is too weak to rely on.

@@ -28,6 +28,10 @@ Read in the code at `30c8169b`:
   `UnhandedWork` what a task holds (asked while it runs, its note when stopped - as `CheckoutApproval.held` does).
   `Clearing.project` adds one item per ref (kind `work`, `<project>/<task>`) and one per task holding commits or
   changes, before the deletion runs; `account` lists them in the dry run it already makes first.
+- **Who lets that work go.** At a terminal, the confirmation that names each `work` item is enough to clear it:
+  `ClearCommand.forceAnyway` (and the project clear alike) asks with every item by task and project, no by default,
+  and a yes clears without `--force`; `--yes` alone never answers it. Where nobody can be asked - no terminal, or
+  `--no-input` - a clear that would remove unreviewed work is still refused without `--force`, and names that work.
 
 Steps: the record in `DeployKeys` with `DeployKeysTest`; `Clearing` reads it; the work items; `Result.asMap` keeps its
 shape (items gain a kind); `doc/commands.md` under `sokar clear`; a scenario in
@@ -42,8 +46,6 @@ is empty today.
   with its forge, repository and fingerprint. Seen to fail: the clear answering no key for that project.
 - A clear that would remove work waiting at the gate or a task's unpushed work says which, by task and project,
   in the listing before anything is removed. Seen to fail: a listing without `--yes` that does not name it.
-
-## Open questions
-
-- Whether `--force` is still needed to clear unreviewed work, as removing one task needs it, or the confirmation
-  naming that work is enough (the operator's).
+- At a terminal, the question that names that work clears it on a yes and keeps it on the default no, without
+  `--force`. Without a terminal, `sokar clear --yes` keeps it and names it; with `--force` it clears it. Seen to
+  fail: a clear without a terminal and without `--force` that removes unreviewed work.

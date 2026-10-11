@@ -1,7 +1,8 @@
 # B154 — A Tamper-Evident Event Log Per Node
 
 **Status:** Analyzed.
-**Size:** L - a design to decide first (where the chain's anchor lives), then a new record written from many commands.
+**Size:** L - a new record written from many commands, its anchor in the user's journal, an optional copy sent off the
+machine, and a log that `sokar clear` leaves.
 
 **What must be true.** Every security-relevant event of a node - approve, reject, clearance, hand-in, runtime extensions, and every change of permissions (a clearance at run time, `--credential`, a change of `project.yml`) - is written to a log that shows when it was changed afterwards.
 
@@ -13,7 +14,8 @@ Today these are in separate journals that can be edited without a trace; regulat
 
 ## The shape
 
-One append-only log per account, hash-chained or kept where the account cannot rewrite it; read by a command and the daemon.
+One append-only, hash-chained log per account, anchored in the user's systemd journal, with an optional copy sent off
+the machine; read by a command and the daemon. It outlives `sokar clear` of the account.
 
 ## Plan
 
@@ -27,10 +29,13 @@ What is there today, all owned by the account and editable without a trace:
   hash of the one before, `sokar talk verify` checks it. [B121](README.md#b121) removes it once this log exists.
 - An approve or reject is recorded nowhere but in the gate's own refs and the check signal (`GateCheckCommand`).
 
-Design (to decide first, see below): an account's own file cannot be made tamper-proof against the account. So the
-log is a hash chain in `$XDG_STATE_HOME/sokar/events.jsonl`, and each line's hash also goes to the user's systemd
-journal, whose files the account can read but not rewrite. A changed or removed line is then a line whose hash the
-journal does not hold.
+Design: an account's own file cannot be made tamper-proof against the account. So the log is a hash chain in
+`$XDG_STATE_HOME/sokar/events.jsonl`, and each line's hash also goes to the user's systemd journal, whose files the
+account can read but not rewrite. A changed or removed line is then a line whose hash the journal does not hold. Where
+the account-wide settings file (`config.yml`, which [B153](README.md#b153) adds; whichever is built first brings its
+reader) names a destination, each line is also sent off the machine, so the record does not hang on this machine
+alone; without one, nothing leaves. The log is the account's history, not
+a project's, so `sokar clear` of the account leaves it and says so.
 
 Steps:
 
@@ -45,21 +50,26 @@ Steps:
    where it is granted, `task stop --all` beside `stops.log`.
 4. `sokar events [--since] [--verify]` (app) and the daemon's `Events()` and `VerifyEvents()` in a new
    `55-events.varlink`; `InterfaceDescriptionTest` holds them.
-5. [B121](README.md#b121) then drops the chain from `MessageRecord` and `talk verify`.
-6. `doc/security.md` gets a section: what is logged, where, and what the journal anchor does and does not prove.
+5. The copy off the machine: `event_log: {copy: <destination>}` in `config.yml`, absent by default; each appended
+   line is sent there as well, and a send that fails is named by `doctor`, never blocks the event. `doc/settings.md`
+   gives the key.
+6. `sokar clear` of the account (`Clearing`, `apps/app-project`) leaves `events.jsonl`, and its listing says that the
+   event log stays. Red: a clearing test that finds the log, with its chain intact, after an account is cleared.
+7. [B121](README.md#b121) then drops the chain from `MessageRecord` and `talk verify`.
+8. `doc/security.md` gets a section: what is logged, where, what the journal anchor and the copy off the machine do
+   and do not prove, and that a clearing of the account keeps the log.
 
 ## Acceptance
 
 - Seen to fail first, then green: the behaviour above, in a test of the module that carries it.
+- A line edited, or removed with every later one, is named by `sokar events --verify` against the journal.
+- With a destination set, each event reaches it; without one, nothing leaves the machine.
+- After `sokar clear` of the account, `events.jsonl` is still there and verifies.
 - The documentation page that describes the area says it.
-
-## Open questions
-
-- Where the chain's anchor is kept: the user's systemd journal as planned, a key in the vault that signs each line
-  (the account can open the vault, so it proves less), or a copy sent off the machine (the operator's).
-- Whether the log outlives `sokar clear` of the account (the operator's).
 
 ## To be checked
 
 - It replaces what [B121](README.md#b121) removes from the message record; near [B26](README.md#b26), whose machine-wide history may be the same file
   (Agent Core's).
+- How the copy is sent off the machine - syslog over TLS, or an https endpoint - and whether a send that failed is
+  retried from the log's position (Agent Core's).

@@ -8,16 +8,23 @@ reply never carries the value back, and nothing keeps a copy.
 
 ## Why
 
-**Whether to build it is parked.** The rule was decided, then refined, then the passphrase was
+**`StoreCredential` is not built.** The rule was decided, then refined, then the passphrase was
 examined and two of the three original arguments turned out not to survive. The passphrase half is settled
 since: a device unlocks with a share of its own, never the passphrase ([the vault's
-keyslots](../../doc/credentials.md#the-vaults-keyslots)). The credential half is this requirement.
+keyslots](../../doc/credentials.md#the-vaults-keyslots)). The credential half is settled the same way:
 
-**Until then a credential is entered at the node, over ssh** - the same rule as the passphrase.
-Nothing below is on the contract, and an interface asks for a secret nowhere.
+- **A credential is entered only in a terminal** - at the node, over ssh, or in the terminal an interface opens
+  there - the same rule as the passphrase. Nothing below is on the contract, and an interface asks for a secret
+  nowhere but in its terminal.
+- **A forced-command ssh account is a dead end, and is not served.** It is the one case where entering a secret at
+  the node denies a capability rather than a convenience; there a credential is stored by an administrator through
+  another account.
+- **A credential with no expiry is stored, not refused**: the store says it has none, and the list of credentials
+  marks it. Refusing one would break every provider that only issues those; saying so keeps the lifetime argument
+  below in front of the person who can act on it.
 
-What follows is *what must be true if it is built*, which is worth having written down either way:
-the reasoning is what a later decision will be taken on.
+What follows is *what would have had to be true had it been built*, kept because the reasoning is what
+these decisions were taken on.
 
 Somebody running Sokar on a machine they are not sitting at cannot get a credential into the vault
 from the interface. Today the honest instruction is *"open a shell on that node and type it
@@ -132,8 +139,8 @@ method ImportCredential(agent: string, dryRun: ?bool) -> (
 ```
 
 **`ImportCredential` moves no secret at all** - the daemon reads the agent's own config file on its
-own disk, and only an agent name crosses. It is therefore unaffected by whatever the parked
-decision decides, and is the better default wherever an agent can log itself in.
+own disk, and only an agent name crosses. It is therefore unaffected by `StoreCredential` not being
+built, and is the better default wherever an agent can log itself in.
 
 ### Built: `sokar vault login`, which is this flow from the CLI
 
@@ -210,7 +217,7 @@ The measurements this would rest on are already taken and are in
 cannot be remapped, there is no ordering problem, IPv6 is not a trap, and a port collision exits
 zero while binding only half. They keep whether or not this is ever built.
 
-An OAuth login is also the case where the parked decision matters least: the token is minted by the
+An OAuth login is also the case where `StoreCredential` matters least: the token is minted by the
 provider and delivered straight into the node's process, so it never crosses anything either way.
 
 ## Notes
@@ -222,8 +229,8 @@ has to preserve. That is a worse kind of guarantee, accepted knowingly.
 
 ## Plan
 
-Read in the code at `30c8169b`. Whether to build `StoreCredential` is still parked (see Why); this is the plan for when
-it is not.
+Read in the code at `30c8169b`. `StoreCredential` is not built (see Why); the steps below are the plan it would
+have had, kept with the reasoning.
 
 **Already built, so not part of this:**
 
@@ -235,7 +242,7 @@ it is not.
 - **The salt is the vault's, not the write's.** `VaultFile` keeps the salt the file was written with and only makes
   a new one for a new vault or a new slot, so a `vault put` no longer pays a full Argon2id derivation.
 
-**`StoreCredential`, if it is built:**
+**`StoreCredential`, had it been built:**
 
 1. `30-vault.varlink`: `StoreCredential(name, value, type)` -> `(outcome, storedAs, kind, length, detail)`, outcomes
    `STORED`, `REPLACED`, `VAULT_LOCKED`, `UNBROKERABLE`, `REFUSED`. The daemon resolves `storedAs` with the same rule
@@ -267,16 +274,6 @@ read by every agent repository), so L.
   goes red when any of them carries it; a test that stores into a locked vault or for an
   unbrokerable kind goes red when the reply says stored; a test that types a credential at the CLI
   goes red when it is echoed.
-
-## Open questions
-
-- **Whether to build `StoreCredential` at all** (the operator's). Parked since the passphrase half was settled;
-  everything above waits on it.
-- **Whether a forced-command ssh account should be served at all** (the operator's), or written down as a dead end:
-  it is the one case where entering a secret at the node denies a capability rather than a convenience.
-- **Whether the daemon should refuse to store a credential with no expiry** (the operator's), or merely say so.
-  The lifetime argument above says the long-lived key is the problem; refusing one outright would break every
-  provider that only issues those.
 
 ## To be checked
 

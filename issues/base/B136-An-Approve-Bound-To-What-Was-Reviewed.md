@@ -47,7 +47,9 @@ holds now"), and the line `ProjectEnrollCommand` prints (`apps/app-project`), wh
    `waits     <full id>  <subject>` and asks through `Offer.confirm` whether to forward exactly that, no by default;
    a yes approves with that commit as `reviewed`, so a push between the question and the answer is
    `MovedSinceReview`; a no ends with exit 70 and the bound line. Without a terminal, or with `--no-input`: refused,
-   exit 70, `sokar: name the commit you reviewed: --commit <full id> waits now`. The same for `--signed`.
+   exit 70, `sokar: name the commit you reviewed: --commit <full id> waits now`. The same for `--signed`, and the
+   same for a stopped task: it can be started again before the answer, so its ref is no more settled than a
+   running one's.
 4. **The daemon's `Approve` refuses an empty `commit`.** A new error in `35-gate.varlink`,
    `CommitNotNamed(name: string, waiting: string)`, raised in `GateMethods` before the gate is touched; the comment
    on `commit` says it is required in effect. The interface and the plugin send it already (`sokar-frontend`
@@ -73,11 +75,7 @@ Red first: a test beside `ApproveOfferTest` in `apps/app` - a pending push moved
   is shown and asked about, or refused without a terminal.
 - `gate review`'s last lines name the full commit and the bound approve line.
 - `--commit` with the commit that waits forwards it, as now; with another, `MovedSinceReview` as now.
-
-## Open questions
-
-- Whether a stopped task is reason enough to approve without asking, since nothing can move its ref any more
-  (the operator's). The plan asks anyway: a stopped task can be started again before the answer.
+- A plain `gate approve` of a stopped task's work asks, or is refused without a terminal, as for a running one.
 
 ## To be checked
 

@@ -14,7 +14,8 @@ Approval is one person today, who may be the one who asked the agent for the wor
 
 ## The shape
 
-A project setting; who started a task is recorded; approve by the same principal is refused with who else may approve.
+A project setting, off by default: without it the owner approves alone, as today. In a project that sets it, who
+started a task is recorded, and an approve by that principal alone is refused, naming who else may approve.
 
 ## Plan
 
@@ -25,10 +26,10 @@ agent, mode, provider and start time, not who started it. A signed approve (`Git
 with the person's own key through their git; a project's configuration commits are checked against its allowed
 signers (`ProjectPaths.configurationSigners`).
 
-**Proposed design.** A person is the principal of their signing key in the project's allowed signers - the same on
+**Design.** A person is the principal of their signing key in the project's allowed signers - the same on
 one machine and across machines.
 
-1. `approval: {four_eyes: true}` in `project.yml`: `Project`, `ProjectReader`, `ProjectSchema`,
+1. `approval: {four_eyes: true}` in `project.yml`, default `false`: `Project`, `ProjectReader`, `ProjectSchema`,
    `doc/project-file.md`, `DocumentedProjectFileTest`.
 2. The task records who started it: `TaskProfile` version 5 with `startedBy`, the principal of the starting
    account's signing key.
@@ -37,20 +38,18 @@ one machine and across machines.
    `sokar gate co-sign`, and handed to the node; `Approve` (`35-gate.varlink`) and `gate approve` take it.
 4. `GitGate` checks it with `ssh-keygen -Y verify` before anything is pushed; without one from a principal other
    than `startedBy`, the approve is refused and names the other signers.
-5. `doc/how-it-works.md` (the gate) and `doc/corporate-security.md` say it.
+5. `doc/how-it-works.md` (the gate, and the glossary's "the only one who can approve", which then holds only for a
+   project without the setting) and `doc/corporate-security.md` say it.
 
 Red first: a `GateApproveCommand` test in a four-eyes project - the starter's approve alone is refused naming the
-other signers; with a second principal's signature over the reviewed commit, it forwards.
+other signers; with a second principal's signature over the reviewed commit, it forwards. In a project without the
+setting, the owner's approve alone forwards as today.
 
 ## Acceptance
 
 - Seen to fail first, then green: the behaviour above, in a test of the module that carries it.
+- A project without `approval: {four_eyes: true}` approves as today: the owner alone, no second signature asked for.
 - The documentation page that describes the area says it.
-
-## Open questions
-
-- Whether a node may need a second person at all, against "the operator is the only one who approves" (the
-  operator's).
 
 ## To be checked
 

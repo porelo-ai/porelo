@@ -34,6 +34,12 @@ The agents that can reach it are listed in
    host with a fake key; the vendor's own refusal proves the swap, and `sokar task status` names the provider. Not
    the stub: it is given a socket, and Sokar puts a dialect's path only on a URL endpoint
    (`CredentialWiring.endpointFor`), so the stub's fixed `/v1/messages` misses `/api/anthropic`.
+6. **The two hosts' keys, measured:** whether a key made on one host is taken on the other, which would let one key
+   serve both providers. The two provider files stay either way, since the upstream is the provider file's; what the
+   measurement settles is the line in `doc/credentials.md` - one key stored under both names, or a key of its own
+   for each. An account is provided for the measurement. What must exist at the service for it: an account on
+   https://open.bigmodel.cn and one on https://z.ai, each with an API key. Nothing of the accounts - names,
+   addresses, keys - goes into a committed file; what is committed is the measured answer.
 
 ## Acceptance
 
@@ -43,11 +49,9 @@ The agents that can reach it are listed in
   of the container's environment, files and process arguments finds the real key.
 - Which provider a task used is answerable afterwards from the task's own record. Seen to fail: the
   record of a task that used it does not name Zhipu.
-
-## Open questions
-
-- Whether a key made on one host works on the other, which would let one vault entry serve both (the operator's,
-  measured with an account).
+- Whether a key made on one host is taken on the other is measured with both hosts' keys, and `doc/credentials.md`
+  says what was found. Seen to fail: the documentation claims one key serves both, or that it does not, with no
+  measurement behind it, or anything of the accounts in a committed file.
 
 ## To be checked
 

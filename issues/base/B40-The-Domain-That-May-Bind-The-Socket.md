@@ -71,13 +71,20 @@ Steps, in order:
    package scripts of [B135](README.md#b135)) build with the policy development files instead of `checkmodule` alone.
 4. Move `setsockcreate` and `create bind listen accept` from `unconfined_t` to `sokar_t`. `unconfined_t` keeps
    `connectto`, for host-side clients that are not Sokar. The two container rules stay as they are.
-5. A binary run from a build tree stays `unconfined_t` and can no longer create a labelled socket. `SocketContext`
-   treats that refusal as it treats a missing module today - an unlabelled socket - and `doctor` says the policy is
-   loaded, this binary is not in Sokar's domain, and `chcon -t sokar_exec_t <binary>` is the remedy.
+5. A developer's build is labelled with `chcon`, set by the build after each build: the native build (`-Pnative`)
+   runs `chcon -t sokar_exec_t` on every binary it writes when the machine has SELinux enabled and the policy
+   loaded, and does nothing elsewhere. The label is lost on every rebuild, and every rebuild sets it again; the
+   policy names no developer's path. A binary that is still unlabelled - copied, or built another way - stays
+   `unconfined_t` and can no longer create a labelled socket. `SocketContext` treats that refusal as it treats a
+   missing module today - an unlabelled socket - and `doctor` says the policy is loaded, this binary is not in
+   Sokar's domain, and `chcon -t sokar_exec_t <binary>` is the remedy.
 6. Every rule carries a comment naming its domain and why; a test in `dist/package-check`, which already reads what
    the packages ship, refuses a rule without one.
 7. `doc/security.md` states the asymmetry: the `0700` runtime directory and the uid are the control on every
    machine (`VaultProxy` and `SshAgentServer` set it); the label is a second lock on SELinux machines only.
+
+**Not here: AppArmor.** An equivalent for AppArmor machines - only Sokar's binaries may bind the socket - is wanted,
+and is an issue of its own; until it is built, `doc/security.md` says the second lock exists on SELinux machines only.
 
 ## Acceptance
 
@@ -96,12 +103,5 @@ Steps, in order:
   absent.
 - The policy states which domain each rule is for and why, so a later reader can tell a decision
   from an accident. Seen to fail: a rule in the policy without that statement.
-
-## Open questions
-
-- **Whether `chcon` is an acceptable answer for a binary from a build tree** (the operator's). Without it a developer's
-  build cannot serve a task on an enforcing machine, which is worse than today; with it, the label is lost again on
-  every rebuild. The alternative is a second file context for a developer's build path, which names a path in the
-  policy that only one person has.
-- **Whether AppArmor has an equivalent worth writing** (the operator's). The supported set is two distributions and
-  only one of them is SELinux; a guarantee that exists on one is a guarantee with a footnote.
+- A developer's native build serves a task on an enforcing machine with the policy loaded, straight after the build.
+  Seen to fail: a freshly built `sokar` is denied a bind, or the build fails on a machine without SELinux.

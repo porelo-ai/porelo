@@ -3,7 +3,9 @@
 **Status:** Analyzed.
 **Size:** L - thresholds need a measured baseline first; three watchers, a contract event and containment.
 
-**What must be true.** Sokar raises an alert on anomalies a person should see - very large prompt bodies, many clearance attempts, unusual name patterns under declared domains - and a project may choose to contain the task on an alert: freeze or stop it and revoke its token.
+**What must be true.** Sokar raises an alert on anomalies a person should see - very large prompt bodies, many clearance
+attempts, unusual name patterns under declared domains - and a project chooses what an alert does: it only alerts, or it
+also stops the task and revokes its token.
 
 ## Why
 
@@ -14,7 +16,7 @@ Today these are journalled (`reach.md`) and nobody is told while it happens.
 ## Plan
 
 Which signals, with which thresholds per project; the alert through the channels Sokar already has (a desktop
-notification, the interface); the containment per project, off by default. Read in the code on 2026-10-11: every
+notification, the interface); stopping the task per project, off by default. Read in the code on 2026-10-11: every
 signal is already seen on the host, per task, by a process that runs beside the task.
 
 - **Large prompt bodies:** `VaultProxy.handle` (`supervisor/`) reads each request's body, up to `BODY_LIMIT`, before
@@ -23,8 +25,9 @@ signal is already seen on the host, per task, by a process that runs beside the 
   NFLOG reader and asks through `ClearanceService`; each decision goes to `ClearanceJournal` (`clearance/`).
 - **Unusual names under declared domains:** the task's resolver (`shield/.../DnsPolicy.java`, dnsmasq with its log);
   a name is unusual by its length, its entropy and the count of distinct names under one declared domain.
-- **Containment exists in part:** `TaskPanic` stops tasks and their helpers; `TokenBroker.revokeAllFor` revokes a
-  task's tokens. No freeze exists; `podman pause` is the candidate.
+- **Containment exists:** `TaskPanic` stops tasks and their helpers; `TokenBroker.revokeAllFor` revokes a task's
+  tokens. There is no freeze: a paused agent holds its session while its tokens' lifetimes run on, so a task is
+  either left running with the alert or stopped.
 
 Steps, in order:
 
@@ -37,8 +40,9 @@ Steps, in order:
    addition the interface and the plugin read. `sokar task status` and `sokar task logs <task> alerts` show it.
 3. **The three signals,** each in its watcher, each with its test: body size in `VaultProxy`, attempts in
    `ShieldWatchCommand`, names in the resolver's watcher.
-4. **Containment per project,** `alerts.contain: none | freeze | stop`, off by default: freeze pauses the container
-   and revokes its tokens; stop does as `task stop` and revokes them. Both are journalled with the alert.
+4. **What an alert does, per project:** `alerts.on: alert | stop`, `alert` by default. `alert` only tells; `stop`
+   does as `task stop` and revokes the task's tokens through `TokenBroker.revokeAllFor`, journalled with the alert.
+   No other value is read: a project file naming another is refused with the two it may name.
 5. **Docs:** `doc/reach.md` (what is told, not only journalled), `doc/project-file.md`, `doc/commands.md`.
 
 Red first: a `VaultProxy` test with a body above a threshold of 1 KiB that is forwarded and alerts nothing today.
@@ -46,12 +50,10 @@ Red first: a `VaultProxy` test with a body above a threshold of 1 KiB that is fo
 ## Acceptance
 
 - Seen to fail first, then green: the behaviour above, in a test of the module that carries it.
+- A project with `alerts.on: stop` whose task crosses a threshold has the task stopped and its token refused by the
+  broker afterwards; with `alert` the task runs on and the alert is shown. Seen to fail: a stopped task whose token
+  still reaches the provider.
 - The documentation page that describes the area says it.
-
-## Open questions
-
-- Whether a project may choose freeze at all, since a paused agent holds its session and its tokens' lifetimes run
-  on (the operator's).
 
 ## To be checked
 

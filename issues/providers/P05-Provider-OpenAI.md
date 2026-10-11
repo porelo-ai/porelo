@@ -38,7 +38,10 @@ A provider is data (`doc/credentials.md`, "Model providers"): nothing in the bro
    no key. With a real key in the suite's secrets, a model answers.
 5. **The sign-in, measured apart:** whether its token works as a bearer on `api.openai.com` or only on another host
    the agent's own client uses; when measured, its own `upstream` or the `oauth` entries, and `unbrokerable` is
-   lifted.
+   lifted. An account is provided for the measurement. What must exist at the service for it: an account with the
+   plan its own agent signs in with, and an API key made at https://platform.openai.com for the live run with a real
+   key. Nothing of the account - its name, address, key or token - goes into a committed file; what is committed is
+   the measured shape.
 
 ## Acceptance
 
@@ -48,7 +51,6 @@ A provider is data (`doc/credentials.md`, "Model providers"): nothing in the bro
   of the container's environment, files and process arguments finds the real key or sign-in token.
 - Which provider a task used is answerable afterwards from the task's own record. Seen to fail: the
   record of a task that used it does not name OpenAI.
-
-## Open questions
-
-- Whether the account sign-in can be brokered: unverified, and measurable only with an account (the operator's).
+- The account sign-in is measured with the account provided for it, and is either brokered or stays refused with
+  what was measured written beside the refusal. Seen to fail: `unbrokerable` lifted with no measurement behind it, or
+  anything of the account in a committed file.

@@ -19,6 +19,9 @@ containers inside their sandbox.
   namespace or reach the host's, what it means for seccomp and capabilities, and whether a kernel of the task's own
   ([B59](README.md#b59)) is the better ground.
 - Only then the build: opt-in per project, said by `--dry-run` and `sokar doctor`, off by default.
+- If the assessment ends in "not without [B59](README.md#b59)", nested containers are built only on a task's own kernel, and wait for
+  it; nothing opens them on the shared kernel.
+- A project of the class `guarded` may never open them, whatever the assessment says.
 
 ## Plan
 
@@ -36,13 +39,15 @@ is not.
      nft rules and resolver, and whether any other network mode (slirp, pasta, a bridge) can be refused from inside;
    - what a nested container's processes can see of the host (`/proc`, cgroups) and whether the per-task limits
      (`core/.../project/Limits.java`) still count them;
-   - whether a task's own kernel ([B59](README.md#b59)) gives the same with less opened.
+   - whether a task's own kernel ([B59](README.md#b59)) gives the same with less opened, and so whether the assessment ends in
+     "not without [B59](README.md#b59)": then step 3 is built on that kernel only, and waits for it.
 2. **Red first, if built:** a scenario in `acceptance/suite/.../task/task-builds.feature` whose nested container
    resolves a declared host and is refused an undeclared one; red today because podman cannot start in a task.
 3. **The build:** `image.nested_containers: true` in `core/.../project/ProjectReader.java` and `ProjectSchema`, off by
    default; `ContainerSpec` adds only what the assessment found necessary, and a `containers.conf` in the image
    forces `network_mode = "host"` and the vfs or fuse-overlayfs driver; `Containerfile` installs podman when asked.
-   `--dry-run` and `sokar doctor` name what the project opened.
+   `--dry-run` and `sokar doctor` name what the project opened. A project of the class `guarded` setting it is
+   refused when the project file is read, naming the class.
 4. **Docs:** `doc/reach.md` and `doc/project-file.md` say what a project opens by it.
 
 ## Acceptance
@@ -50,8 +55,5 @@ is not.
 - The assessment, written, with each guarantee of `doc/reach.md` checked against nested containers.
 - If built: seen to fail first, then green - a container started in a task reaches a declared host and is refused an
   undeclared one, exactly like the task.
-
-## Open questions
-
-- Whether the assessment ends in "not without [B59](README.md#b59)" (the operator's, once the assessment is written).
-- Whether a project of the class `guarded` may open it at all, or only a less strict class (the operator's).
+- A `guarded` project file with `image.nested_containers: true` is refused, naming the class.
+- If the assessment ends in "not without [B59](README.md#b59)": nothing in the build opens nested containers on the shared kernel.

@@ -64,7 +64,10 @@ answered two directories away.
 4. **The correction is visible.** Silently changing modes under an operator is its own surprise -
    `sokar doctor` is where this belongs: it says what is wrong, and the fix is something a person
    runs knowing what it does.
-5. **Nothing is loosened to make this work.** The sockets are permissive on purpose, inside a
+5. **A review checkout is owner-only too.** `~/sokar/reviews` sits in the home so a person can open
+   it in their own editor, not so others can read it: it holds the same unreviewed work as the
+   mirror. Sharing a review is a deliberate copy a person makes, never a mode Sokar leaves open.
+6. **Nothing is loosened to make this work.** The sockets are permissive on purpose, inside a
    locked directory, and that reasoning is measured and stays. This requirement is about the
    directories nobody reasoned about.
 
@@ -78,18 +81,22 @@ is already set where somebody thought of it: `HandIns`, `TaskBuilds`, `TaskState
 
 Steps, in order:
 
-1. Red first: an acceptance scenario that runs a task under `umask 002` and one under `umask 022`, then finds
-   nothing under the data and state directories with `find -perm /077`. It fails today on `mirrors/`, `projects/`
-   and `upstream/`.
+1. Red first: an acceptance scenario that runs a task under `umask 002` and one under `umask 022`, checks its work
+   out with `sokar gate checkout`, then finds nothing under the data and state directories or `~/sokar/reviews` with
+   `find -perm /077`. It fails today on `mirrors/`, `projects/`, `upstream/` and the review checkout.
 2. One helper in `core` beside `XdgPaths`: create every missing component below a root with `rwx------` as the
    creation attribute, one component at a time, and write a file with `rw-------`. Creating each component with the
    attribute leaves no window, which answers the race in `createDirectories`.
-3. Route the durable writers through it: the data and state directories, `projects/`, `upstream/`, `mirrors/`.
+3. Route the durable writers through it: the data and state directories, `projects/`, `upstream/`, `mirrors/`, and
+   `~/sokar/reviews` (`GatePaths.reviewCheckout`, checked out into by `GateCheckoutCommand`): `reviews/` and each
+   checkout's directory are created owner-only before git writes into them, and the working tree, which
+   `core.sharedRepository` does not cover, is tightened by a walk once the checkout is written.
 4. Mirrors: `git init --bare --shared=0600`, and `git config core.sharedRepository 0600` after a clone. git then
    writes files `0600` and directories `0700` whatever the umask, which answers what git creates underneath.
-5. `sokar doctor` gains a probe that walks the data and state directories (not the runtime directory's sockets) and
-   fails, naming each path readable by group or others. At a terminal it offers the remedy as a decision, as other
-   probes do: it tightens the named paths and reports what it changed. That is the correction of an older machine.
+5. `sokar doctor` gains a probe that walks the data and state directories and `~/sokar/reviews` (not the runtime
+   directory's sockets) and fails, naming each path readable by group or others. At a terminal it offers the remedy
+   as a decision, as other probes do: it tightens the named paths and reports what it changed. That is the
+   correction of an older machine.
 6. Tests: the helper under a missing parent; `doctor` with a loosened path named; a machine at the old modes
    corrected and reported; the proxy's socket keeps its mode inside its `0700` directory.
 7. A second acceptance account reads nothing under the first account's data directory, since the suite already
@@ -99,6 +106,7 @@ Steps, in order:
 
 - On a machine that has run a task, every directory and file Sokar created under its data
   directory is owner-only, asserted against a real run rather than against a constructor.
+- A review checked out into `~/sokar/reviews` is owner-only, the directory and every file in it, under either umask.
 - A machine that ran tasks under an older Sokar is corrected, and the correction is reported rather
   than performed silently.
 - `sokar doctor` fails, and names the paths, when any of them is readable by anyone else.
@@ -106,15 +114,10 @@ Steps, in order:
   asserts the permissive socket inside the `0700` directory still is what it is.
 - Setting `umask 022` before a run changes nothing about the result.
 - **Seen to fail:** the real-run test goes red when any directory or file under the data directory
-  is readable by group or others, including a run under `umask 002` or `022`; a test that starts
+  or `~/sokar/reviews` is readable by group or others, including a run under `umask 002` or `022`; a test that starts
   from a data directory at the old modes goes red when it is not corrected or the correction is not
   reported; `sokar doctor`'s test goes red when a loosened path is not named; the socket test goes
   red when the socket's mode changes.
-
-## Open questions
-
-- **Whether `~/sokar/reviews` is owner-only too** (the operator's). It sits in the home, where a person may mean to
-  share a review; the log files and the state directories are in the plan.
 
 ## To be checked
 

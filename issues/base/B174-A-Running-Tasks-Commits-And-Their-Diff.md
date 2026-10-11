@@ -1,6 +1,6 @@
 # B174 — A Running Task's Commits And Their Diff
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** M - one contract change (two methods and a type in `15-task.varlink`), the census that `WorkHeld` already
 runs widened to a list, the stop's note keeping that list, a diff read in the container and cut as [B150](README.md#b150) cuts a review,
 and docs; no other repository's contract changes but the interface reading it.

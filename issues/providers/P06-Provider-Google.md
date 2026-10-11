@@ -35,7 +35,10 @@ The agents that can reach it are listed in
    a fake key: Google's own refusal (`API_KEY_INVALID`) proves the swap, `sokar task status` names `google`, and the
    container holds no key.
 5. **The sign-in, measured apart:** it reaches other hosts than the API key does; when measured, it is a provider
-   file of its own or the `oauth` entries here, and `unbrokerable` is lifted.
+   file of its own or the `oauth` entries here, and `unbrokerable` is lifted. An account is provided for the
+   measurement. What must exist at the service for it: an account its own agent signs in with, and an API key made
+   through https://ai.google.dev for the live run and for the header check below. Nothing of the account - its name,
+   address, key or token - goes into a committed file; what is committed is the measured shape.
 
 ## Acceptance
 
@@ -45,10 +48,9 @@ The agents that can reach it are listed in
   container's environment and files for the real credential finds it.
 - Which provider a task used is answerable afterwards from the task's own record. Seen to fail: the task's record
   after a request to it does not name Google.
-
-## Open questions
-
-- Whether the account sign-in can be brokered: unverified, and measurable only with an account (the operator's).
+- The account sign-in is measured with the account provided for it, and is either brokered or stays refused with
+  what was measured written beside the refusal. Seen to fail: `unbrokerable` lifted with no measurement behind it, or
+  anything of the account in a committed file.
 
 ## To be checked
 

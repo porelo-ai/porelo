@@ -56,6 +56,16 @@ The first two decide whether the rest is worth doing.
    a terminal is handed over today (`exec -it … tmux new-session -A`).
 6. **What does it cost?** Start time per task, memory per task, whether the image has to change, and
    whether the acceptance suite passes unchanged against a task started this way.
+7. **Can a task be frozen and brought back?** Snapshot and restore of a task, its running agent with
+   it, is a goal: a task would then come back after a restart where it was, not only through `task
+   start --restarted` and the conversation [B46](README.md#b46) brings back. Measure whether the
+   runtime can snapshot a running workload and restore it, on the same machine and after a reboot,
+   and what podman lets through of it.
+
+**What the second wall is worth is decided on these measurements, not before them.** The gain is
+against kernel bugs; rootless, no capabilities and `no-new-privileges` already remove the usual
+ladder. Whether that gain is worth what it costs is judged on the answers to a kernel of its own
+working, the ruleset failing closed, and the cost - and on what question 7 adds.
 
 ## Plan
 
@@ -69,12 +79,14 @@ It splits into three issues:
 
 1. **The experiment** (M): first whether the libvirt and rented machines offer nested KVM (`/dev/kvm`, the CPU
    flags). Then, on a machine that does, the stub's image under `podman run --runtime krun`, by hand and with
-   Sokar's hooks registered; questions 1 to 6 answered here, each with its command. No code changes.
+   Sokar's hooks registered; questions 1 to 7 answered here, each with its command. No code changes. The
+   measurements are the input to the decision on adoption; nothing is adopted before they exist.
 2. **The doctor probe** (S): `sokar doctor` says whether `/dev/kvm` is usable and the runtime is installed. Red
    first: the probe's test on a machine description without `/dev/kvm` expects "not able".
-3. **Adoption** (L), only if questions 1 and 2 have answers that fail closed: a project setting that chooses the
-   runtime, the `offline` class first; `Podman` passes `--runtime`; the ruleset in its new home; an acceptance leg
-   on a KVM machine. Red first: a task whose ruleset load is made to fail starts under the KVM-backed runtime.
+3. **Adoption** (L), decided on the experiment's answers and only if questions 1 and 2 fail closed: a project
+   setting that chooses the runtime, the `offline` class first; `Podman` passes `--runtime`; the ruleset in its new
+   home; an acceptance leg on a KVM machine. Red first: a task whose ruleset load is made to fail starts under the
+   KVM-backed runtime.
 
 ## Acceptance
 
@@ -87,18 +99,12 @@ It splits into three issues:
 - `sokar doctor` says whether this machine can do it at all, rather than a task failing to start
   with a runtime error. Seen to fail: `sokar doctor` on a machine without `/dev/kvm` or the runtime reports it
   able.
+- Snapshot and restore are measured: whether a task frozen with its running agent comes back, and what of it
+  survives a reboot. Seen to fail: question 7 with no measured answer and command beside it.
 - The `offline` class is the first candidate: it declares no egress, so question 1 is smallest there.
 - No acceptance scenario is weakened to make a task start this way, and a task that cannot get its
   ruleset does not start - under either runtime. Seen to fail: a task whose ruleset load is made to fail starts,
   under either runtime.
-
-## Open questions
-
-- **What a second wall is worth here** (the operator's). Rootless, no capabilities and `no-new-privileges` already
-  remove the usual ladder; the gain is against kernel bugs, and the cost is the four mechanisms above.
-- **Snapshot and restore** (the operator's). A task comes back after a machine restart through `task start
-  --restarted`, and its conversation with it where [B46](README.md#b46) ([index](README.md)) can. A runtime that can freeze and
-  restore a workload would change what those can promise, and it is not available through podman today.
 
 **Guideline points, 2026-10-09:** a review of security guidelines counts this as its item F8,
 answering OpenSSF tip 2, OWASP AI Agent Cheat Sheet §9.

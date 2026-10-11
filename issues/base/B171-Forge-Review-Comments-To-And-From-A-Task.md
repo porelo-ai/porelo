@@ -23,7 +23,8 @@ same checks.
   results are delivered today, after the sluice as an inbound filter. **Only accounts on the project's list** - the
   maintainers, named in the project file - are delivered; comments of other accounts are held and shown to the person,
   who may release single ones.
-- **Out (way B on the forge):** a reply passes the sluice, the anchor check, and size and rate limits, and is **released
+- **Out (way B on the forge):** a reply passes the sluice, the anchor check, the size limit and the rate limits - at
+  most 10 comments a task an hour and 60 a project an hour - and is **released
   by the person by default**, as `talk release` releases a message, in the CLI, the interface and the IDE plugin. A
   project may switch the release off explicitly (for a private repository, say); then a comment goes out after the
   sluice. Every one is journaled.
@@ -38,7 +39,7 @@ host and hands verdicts into the task; the reader is a separate executable answe
 
 1. **The contract:** `builds/api/.../ReviewReader.java` and `org.fuin.sokar.Review1.varlink` beside `Build1`:
    `pullRequest(target, branch)` (the open pull request whose head is the branch, or none), `comments(target, number,
-   since)` (B166's model, each with the forge account as its origin) and `write(target, number, comment)` with the
+   since)` ([B166](README.md#b166)'s model, each with the forge account as its origin) and `write(target, number, comment)` with the
    write token in `target`. `BuildMain` serves `Review1` when the reader implements it, and `describe` names it.
    `builds/stub/StubReader` implements it from files, for the acceptance suite.
 2. **Red first:** a test in `apps/app` against the stub reader: a listed account's comment is delivered, an unlisted
@@ -53,7 +54,9 @@ host and hands verdicts into the task; the reader is a separate executable answe
    the mailbox's held list, which `talk held` and `talk release` already show and release one by one.
 6. **Out:** a reply with `to: review` on a task whose work has a pull request goes into a release queue after the
    sluice and [B166](README.md#b166)'s anchor check; `talk release` sends exactly one, through `write`; with `release_out: false` it
-   goes at once. At most 10 comments a task an hour and 60 a project an hour, beyond that held with the reason.
+   goes at once. At most 10 comments a task an hour and 60 a project an hour, counted over the last hour when a
+   comment would go out, released or not; one beyond either is held with the limit it reached and goes once the
+   hour allows it, never dropped.
 7. **The daemon:** `MessagingMethods` lists and releases outgoing and held comments, in the shapes [B166](README.md#b166) gives
    `Comment` and `Thread`, so the interface ([F107](https://github.com/sokar-ai/sokar-frontend/blob/main/issues/README.md#f107)) and the IDE plugin ([IJ04](https://github.com/sokar-ai/sokar-intellij/blob/main/issues/README.md#ij04)) show the same.
 8. **The journal:** each delivered, held, released and written comment, with the account or the task and who
@@ -65,11 +68,9 @@ host and hands verdicts into the task; the reader is a separate executable answe
 - Seen to fail first, then green, against a stand-in forge reader: a listed account's comment arrives in the task; an
   unlisted one's is held and shown, and arrives once released; the agent's reply waits for release and goes out once
   released; with the release switched off it goes out after the sluice; the journal names each.
-- `doc/project-file.md` says the account list and the switch; `doc/build-readers.md` says `Review1`.
-
-## Open questions
-
-- The rate limits out: 10 a task an hour and 60 a project an hour in this plan (the operator's).
+- An eleventh comment of one task within an hour, and a sixty-first of one project, is held with the limit it reached,
+  and goes out once the hour allows it.
+- `doc/project-file.md` says the account list, the switch and the limits; `doc/build-readers.md` says `Review1`.
 
 ## To be checked
 

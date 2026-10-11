@@ -13,7 +13,9 @@ Authorities' guidance asks an organisation for such a concept; Sokar's part of i
 
 ## The shape
 
-A page in `doc/`, linked from `corporate-security.md`.
+A page in `doc/`, linked from `corporate-security.md`, that follows the chapters of the Swiss federal administration's
+ISDS concept template (the HERMES result *ISDS concept*), so an organisation fills its own concept chapter by
+chapter from it.
 
 ## Plan
 
@@ -27,19 +29,25 @@ messaging key and allowed signers (`MessagingPaths`); a mirror through `sokar ga
 **Steps:**
 
 1. Red first: `DataProtectionDocumentTest` in `apps/app`, tagged `documents`, that the page names each of the files
-   above by the name the path classes give, and that `corporate-security.md` links it.
-2. `doc/data-protection.md` in three parts: what Sokar provides (where prompts go, credentials kept on the host,
-   egress denied by default, the gate, the journals, the `offline` class and a local provider); what the organisation
-   regulates (the provider contract and where its data is kept, who operates a node, how long journals are kept,
-   the incident process, device management); what to back up, with the paths, and that the vault is worth nothing
-   without its passphrase or a keyslot.
+   above by the name the path classes give, that its headings are the template's chapters in order, and that
+   `corporate-security.md` links it.
+2. `doc/data-protection.md` with the template's chapters as its headings, in its order, in English and each naming
+   the template's chapter it answers. Under each: what Sokar provides there (where prompts go, credentials kept on
+   the host, egress denied by default, the gate, the journals, the `offline` class and a local provider), and what
+   the organisation regulates itself (the provider contract and where its data is kept, who operates a node, how
+   long journals are kept, the incident process, device management). A chapter Sokar has nothing for says so in one
+   line rather than being left out. What to back up, with the paths, and that the vault is worth nothing without its
+   passphrase or a keyslot, goes under the template's chapter on operation and continuity.
 3. The link from `corporate-security.md` and an entry in `mkdocs.yml` beside it.
 
 ## Acceptance
 
 - Seen to fail first, then green: the behaviour above, in a test of the module that carries it.
+- The page's headings are the template's chapters in the template's order; the documents test reads them against
+  the list it holds of those chapters and fails when one is missing or out of order.
 - The documentation page that describes the area says it.
 
-## Open questions
+## To be checked
 
-- Whether the page follows the headings of one named guidance, or its own (the operator's).
+- The template's chapters and their order, read from its current edition, and which of them is the one on operation
+  and continuity (Agent Core's).

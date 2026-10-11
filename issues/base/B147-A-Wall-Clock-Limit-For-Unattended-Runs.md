@@ -1,8 +1,8 @@
 # B147 — A Wall-Clock Limit For Unattended Runs
 
 **Status:** Analyzed.
-**Size:** M - a project key, a stop that really ends the run, and a reason in the status across `core`, `runtime`,
-`app-task` and the daemon's contract; one measurement first.
+**Size:** M - a project key, a stop that really ends the run and waits for an attached person, and a reason in the
+status across `core`, `runtime`, `app-task` and the daemon's contract; one measurement first.
 
 **What must be true.** An unattended run ends at a time limit its project or its start sets, and says so.
 
@@ -14,7 +14,9 @@ An agent left to itself can run for as long as nobody looks.
 
 ## The shape
 
-A limit per project and per start; the run stopped as `task stop` stops it, its work kept; the reason in the task's status.
+A limit per project, which a start may only shorten; the run a start with a prompt makes is stopped as `task stop`
+stops it, its work kept; the reason in the task's status. A person attached to the task holds the stop back: at the
+limit they are warned in their session, and the run is stopped once they detach.
 
 ## A likely fault in today's limit, unmeasured
 
@@ -37,29 +39,35 @@ project file has no time limit: `Limits` (`core/.../project/Limits.java`) holds 
 
 1. Measure on a test machine, without restart scenarios: after the limit, `podman top <task>` still shows the agent.
 2. `limits.minutes` in `project.yml`: `Limits` gains `minutes` (default 30); `ProjectReader`, `ProjectSchema`,
-   `doc/project-file.md`, `DocumentedProjectFileTest`. `--minutes` defaults to the project's value.
-3. The run ends inside the container: the exec wraps the agent's command in
-   `timeout --kill-after=30s <seconds>` (`Podman.executeArguments`), so the deadline holds even when the host's client
-   dies; the host waits with a margin over it.
-4. At the deadline the task is stopped as `task stop` stops it (`TaskControl`), its work kept, and the reason is
-   written to the task record (`TaskProfile`, e.g. `ended: "time limit of 30 minutes reached at <time>"`).
+   `doc/project-file.md`, `DocumentedProjectFileTest`. `--minutes` defaults to the project's value and may only
+   shorten it: a value above it is refused before the task starts, naming the project's limit.
+3. The run ends inside the container: the exec wraps the agent's command in a deadline of Sokar's own
+   (`Podman.executeArguments`), so it holds even when the host's client dies; the host waits with a margin over it.
+   At the deadline the wrapper asks the task's session (`TaskAttachCommand.SESSION`) whether a person is attached.
+   If none is, it ends the agent (`TERM`, `KILL` 30 seconds later). If one is, it writes into their session that the
+   limit is reached and the run stops when they detach, and ends the agent once nobody is attached.
+4. When the run ends at the deadline the task is stopped as `task stop` stops it (`TaskControl`), its work kept, and
+   the reason is written to the task record (`TaskProfile`, e.g. `ended: "time limit of 30 minutes reached at
+   <time>"`, and, where a person held it back, when they detached).
    `task status`, `task list` and the daemon's task status (`15-task.varlink`) show it - a contract change.
 
-Red first: a `Podman` test that `executeArguments` with a timeout wraps the command in `timeout`; then a
+Red first: a `Podman` test that `executeArguments` with a timeout wraps the command in the deadline; then a
 `TaskLaunch` test with a stand-in runner whose run outlives the limit - the task is stopped and its status names the
-limit.
+limit; with a stand-in session that reports a person attached, the task is not stopped until it reports none; and
+`--minutes` above the project's limit is refused.
 
 ## Acceptance
 
 - Seen to fail first, then green: the behaviour above, in a test of the module that carries it.
+- On a test machine: after the limit, with nobody attached, `podman top <task>` shows no agent and `task status`
+  names the limit; with a person attached, the agent runs on, the session shows the warning, and the task stops once
+  they detach.
+- `--minutes` above the project's limit is refused, naming the limit; below it, the shorter limit holds.
 - The documentation page that describes the area says it.
-
-## Open questions
-
-- The limit applies to the run a start with a prompt makes. Whether a person attached to the task holds the stop
-  back (the operator's).
-- Whether `--minutes` may go above the project's limit (the operator's).
 
 ## To be checked
 
-- Whether every image Sokar builds carries `timeout`, or Sokar brings its own into the container (Agent Core's).
+- Whether every image Sokar builds carries what the wrapper needs (`timeout` or a shell loop), or Sokar brings its
+  own into the container (Agent Core's).
+- How the wrapper tells that a person is attached: the session multiplexer's list of clients, and whether it notices a
+  dropped ssh connection as a detach (Agent Core's).

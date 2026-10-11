@@ -49,8 +49,10 @@ Steps, in order:
 3. Contract: `Agent` gains `ships: []ShippedComponent` and `shipsUnverified: string` ("" when the bill was read),
    filled by `AgentMethods` from `PackagedBill` and described in `40-agent.varlink`. The interface is told on the
    channel.
-4. `AgentsCommand --supply-chain` renders from the same reader: a count of shipped and fetched components, the list
-   under `--verbose`, `UNVERIFIED - <reason>` for a missing or unreadable bill.
+4. `AgentsCommand --supply-chain` renders from the same reader: by default a count of shipped and fetched
+   components, the list under `--verbose`, `UNVERIFIED - <reason>` for a missing or unreadable bill. A Node tree is
+   162 entries, so the list is asked for; the daemon returns the components as data either way, and an interface
+   shows them as it chooses.
 5. `AgentIsolationTest` (`apps/app`) already refuses an agent's name in Sokar's sources, which covers the last
    criterion.
 
@@ -70,12 +72,9 @@ The check against an installed `sokar-pi` is made on the fedora VM by hand; no a
   `UNVERIFIED` with a reason.
 - Nothing added here names an agent. The bill's path follows from the package, so it stays data.
   Seen to fail: an agent's name appears in the code added for this.
-
-## Open questions
-
-- **How much an operator wants printed** (the operator's). A Node tree is 162 entries. The plan prints counts and the
-  list only under `--verbose`; since the daemon returns the components as data, an interface may choose differently
-  without either being wrong.
+- `--supply-chain` prints counts of shipped and fetched components by default and the components themselves only
+  under `--verbose`. Seen to fail: the 162 entries of `sokar-pi`'s bill printed without `--verbose`, or missing with
+  it.
 
 **Guideline points, 2026-10-09:** a review of security guidelines counts this as its item F9,
 answering NCSC/CISA secure development, OWASP `LLM03`, Sysdig 6, AISVS `C06`.

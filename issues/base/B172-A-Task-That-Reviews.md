@@ -17,6 +17,7 @@ it reviews.
 ## The shape
 
 - `sokar task start --role reviewer` with what to review: waiting work, a branch, or a pull request's head.
+- A reviewer reviews only other tasks of its own project: never its own work, never another project's.
 - The gate puts those commits into the task's mirror, read-only. The task's pushes are refused.
 - Its comments appear in the review beside the person's, marked with their origin (task and role), through [B166](README.md#b166)'s
   checks; on a forge, through [B171](README.md#b171)'s release.
@@ -34,7 +35,8 @@ that server shows and takes, and what origin the host gives its comments.
 2. **The role in the task's record:** `wire/.../TaskProfile.java` gains `role` (`developer` by default, `reviewer`),
    with a version bump as for the provider; `sokar task status` and `task list` show it.
 3. **The start:** `--role reviewer --review <pending name>` (or `--review-branch <branch>`) in the start options,
-   checked by `StartCheck`: the pending push must exist in the same project. The pull request's head is [B171](README.md#b171)'s step
+   checked by `StartCheck`: the pending push must exist in the same project and be another task's; one of another
+   project is refused as not found, naming no other project. The pull request's head is [B171](README.md#b171)'s step
    and comes with it.
 4. **The gate:** `GateWiring` makes the task's server with the reviewed ref unhidden and `receive-pack` refused
    whatever the ref; the task's clone checks out the reviewed commit. The workspace setup gives no push URL.
@@ -50,12 +52,8 @@ that server shows and takes, and what origin the host gives its comments.
 
 - Seen to fail first, then green: a reviewer task reads the waiting work, its comment shows in the review as the
   reviewer's, and its push and an approve in its name are refused.
+- A reviewer started on another project's waiting work is refused before it starts.
 - `doc/commands.md` says the role.
-
-## Open questions
-
-- Whether a reviewer may review its own project's other tasks only, as this plan says, or any waiting work on the
-  machine (the operator's).
 
 ## To be checked
 

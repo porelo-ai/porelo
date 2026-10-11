@@ -2,9 +2,12 @@
 
 **Status:** Analyzed.
 **Size:** M - http for loopback in two validators, a broker route without a credential across `agents/api`,
-`supervisor`, `app-task` and `app-vault`, a provider file and a page.
+`supervisor`, `app-task` and `app-vault`, two provider files and a page.
 
-**What must be true.** Sokar ships an example provider definition for a model served on this machine, an OpenAI-compatible endpoint on the host, so a person can keep prompts on the machine; choosing and running the model stays theirs.
+**What must be true.** Sokar ships two example provider definitions for an OpenAI-compatible endpoint a person runs
+themselves: one for a model served on this machine, on the host's loopback, and one for a model on the organisation's
+network, over https. So a person can keep prompts on the machine or inside the organisation; choosing and running the
+model stays theirs.
 
 ## Why
 
@@ -14,7 +17,8 @@ Data sovereignty obligations may rule out a remote provider; Sokar can make the 
 
 ## The shape
 
-A provider file under `providers/` with the endpoint on the host and no credential; a page that says how a task reaches it.
+Two provider files under `providers/`: one with the endpoint on the host (`http://127.0.0.1`) and no credential, one
+with an https endpoint on the organisation's network; a page that says how a task reaches each.
 
 ## Plan
 
@@ -35,21 +39,22 @@ with the host's network, and the agent reaches it through the relay in its own n
    credential header and still checks the phantom token on its socket; `CredentialWiring`, `CredentialChoice` and
    `StartCheck` do not ask the vault for one. Red: a `VaultProxy` test whose stand-in local server receives the
    agent's request with no `Authorization` header.
-3. `providers/local.yaml`: upstream on `127.0.0.1`, dialect `openai`, a comment that the port is the server's;
-   packaged with the other provider files.
-4. A section in `doc/credentials.md` (or `reach.md`): a local model, how a task reaches it, and that the prompts stay
-   on the machine only while the server does.
+3. `providers/local.yaml`: upstream `http://127.0.0.1`, dialect `openai`, no credential, a comment that the port is
+   the server's. `providers/organisation.yaml`: upstream `https://` with a placeholder host on the organisation's
+   network, dialect `openai`, and a comment that the host and any certificate authority are the organisation's
+   (`TrustedCertificates`). Both packaged with the other provider files.
+4. A section in `doc/credentials.md` (or `reach.md`): a model of one's own, the two templates, how a task reaches
+   each, and that the prompts stay on the machine, or inside the organisation, only while the server does.
 
 ## Acceptance
 
 - Seen to fail first, then green: the behaviour above, in a test of the module that carries it.
+- Both provider files are read by `ProviderDefinition` in a test: the local one with `http` on loopback and no
+  credential, the organisation's with `https`.
 - The documentation page that describes the area says it.
-
-## Open questions
-
-- Whether the template is for a model on this machine only, or also one on the organisation's network over https
-  (the operator's).
 
 ## To be checked
 
-- Which port and path the template ships with, given that servers differ (Agent Core's).
+- Which port and path the templates ship with, given that servers differ (Agent Core's).
+- Whether the organisation's template needs a credential at all, or ships with none and says how to add one (Agent
+  Core's).

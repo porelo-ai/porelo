@@ -10,8 +10,8 @@ seen to succeed end to end, not only in unit tests.
 
 ## Plan
 
-Read in the code at `30c8169b`. The key-based kinds wait for a service that needs them; the `client_credentials`
-run does not.
+Read in the code at `30c8169b`. The `client_credentials` run is built now. No service is known that needs a
+key-based kind, so after step 1 this issue rests, and steps 2 and 3 are taken up when one is.
 
 **What is there.** `TokenPurchase` (`supervisor/.../TokenPurchase.java`, kind `client-credentials`) buys a token on
 the host, per task and in memory, once however many requests wait, again `MARGIN` (60 s) before its end; it is a
@@ -53,10 +53,6 @@ the bought token; `CredentialScan` already keeps a token field in a response fro
 - On a rented machine, a task holding a `client_credentials` entry reaches a service through an
   authorization server the broker trusts, and keeps working past the bought token's end. Seen to fail: a
   503 naming the authorization server, or a second exchange before the first token is a minute from its end.
-
-## Open questions
-
-- **Which service is the first to need a key-based kind** (the operator's). Steps 2 and 3 wait for one.
 
 ## To be checked
 

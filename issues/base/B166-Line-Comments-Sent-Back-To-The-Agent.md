@@ -91,7 +91,8 @@ Steps:
    `sokar/comments/<push name>/`, written through a temporary file and a rename. The anchor check reads the file with
    `git cat-file` at the commit (`new`) or at the review's base (`old`, the same base `rankedReview` diffs against),
    and the lines around it for delivery. Threads stay bound to the commit they name; a new push of the same task shows
-   them as on an earlier commit and does not move them.
+   them as on an earlier commit and does not move them. Moving a thread with a new push to the lines it was on is out
+   of scope here and will be an issue of its own.
 3. **The CLI:** `sokar gate comment <name> --path P --line 12[-14] [--side old] [--suggestion-file F] [--reply-to T]
    <text>` and `sokar gate comments <name>` in `apps/app-gate`; `GateReviewCommand` prints each thread under its
    line; `GateRejectCommand` and the daemon's `Reject` hand the open threads to `PersonNote.rejectedWork`, which writes
@@ -116,12 +117,9 @@ Steps:
 - Seen to fail first, then green: two comments on a waiting push and a reject arrive in the task as one message naming
   both anchors; a comment on a line the commit does not have is refused; a suggestion that touches a line outside its
   anchor is refused; the agent's reply appears in the thread, marked as the agent's.
+- After a second push of the same task, a thread on the first push's commit still names that commit and its lines,
+  and is shown as on an earlier commit.
 - `doc/commands.md` and `doc/messages.md` say it.
-
-## Open questions
-
-- Whether threads should later move with a new push of the same task to the lines they were on, rather than stay on
-  the commit they name, as the first step does (the operator's).
 
 ## To be checked
 

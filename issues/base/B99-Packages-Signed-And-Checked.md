@@ -19,13 +19,16 @@ TLS to the project's own repository; `repo_gpgcheck` is not set either.
 
 ## The shape
 
-- **Snapshot and release RPMs of Sokar and of every agent are signed** with the repository's packaging key.
+- **Snapshot and release RPMs of Sokar and of every agent are signed** with the repository's packaging key: the
+  key the Debian repository's metadata is already signed with, so a machine trusts one fingerprint for everything
+  it installs from Sokar. Its private half is held by the project's owner only, and reaches CI only as a
+  repository secret.
 - **Every place that sets up the repository checks them**: `gpgcheck=1`, `repo_gpgcheck=1` and the key named by
   `gpgkey=`, in `sokar-setup.sh`, the documentation and the legs, moved in one change.
-- **Every repository that publishes to the same package repositories signs from the same day**: `sokar`, the matrix
-  transport and its homeserver, the message filter, the three agents. Switched on for one alone, the setup refuses
-  the others. So the key, the CI secret that carries it and how a repository signs with it are written here first,
-  and every repository moves together.
+- **Every repository that publishes to the same package repositories switches signing on with its next release**:
+  `sokar`, the matrix transport and its homeserver, the message filter, the three agents, released together.
+  Switched on for one alone, the setup refuses the others. So the key, the CI secret that carries it and how a
+  repository signs with it are written here first, and every repository moves in that release.
 - **The setup script is signed too.** `sokar-setup-<version>.sh` is the one Sokar interface that is a file, and a
   wizard runs it as root on a machine that has nothing of Sokar's yet (a code review of `sokar-frontend`).
   Each version gets a detached signature beside it, made with the same key, so a caller holding that public key can
@@ -64,25 +67,30 @@ Read in the code on 2026-10-11:
 
 Steps in Sokar, in order:
 
-1. **The key and the secret written down here** (Acceptance's first condition): which key, the CI secret's name,
-   the `%_gpg_name` macro the build passes. Nothing is switched on before.
+1. **The key and the secret written down here** (Acceptance's first condition): the packaging key whose
+   fingerprint `doc/getting-started.md` already names, the repository secret's name (the same in every
+   repository), and the `%_gpg_name` macro the build passes. The private half is put into each repository's
+   secrets by the project's owner; no agent and no workflow log ever holds it. Nothing is switched on before.
 2. **`check-signed` in `sokar-release`** (`sokar-buildtools`), with a test on an unsigned and a foreign-signed RPM
    built in the test - red first, as the check that does not exist yet.
 3. **This tree's `build.yml`**: import the packaging key, build with `-Drpm.sign.skip=false` on every channel,
    run `check-signed` before `jf rt upload`, sign the setup script, upload the `.asc` and the `latest` pointer.
-4. **On the agreed day, together with the other repositories**: `sokar-setup.sh`, `doc/getting-started.md` and
+4. **In the next release, together with the other repositories**: `sokar-setup.sh`, `doc/getting-started.md` and
    `AgentLeg` move to `gpgcheck=1`, `repo_gpgcheck=1`, `gpgkey=`; the `getting-started` paragraph on why it is
    off goes.
 
 ## Acceptance
 
-- Every snapshot and release RPM of Sokar and of every agent carries a signature by the packaging key. Seen to
-  fail: `rpm -K` on a published package reports it unsigned or signed by another key.
+- Every snapshot and release RPM of Sokar and of every agent, and every setup script, carries a signature by the
+  packaging key - the one fingerprint the Debian repository's metadata is signed with. Seen to fail: `rpm -K` on
+  a published package reports it unsigned or signed by another key, or `check-signed` given a keyring with any
+  other fingerprint passes.
 - `sokar-setup.sh`, the documentation and the legs set `gpgcheck=1`, `repo_gpgcheck=1` and `gpgkey=`. Seen to fail:
   installing a package with a broken or missing signature from the configured repository succeeds.
 - The key, the CI secret that carries it and how a repository signs with it are written here before any repository
   switches signing on, and `sokar`, the matrix transport and its homeserver, the message filter and the three agents
-  sign from the same day. Seen to fail: a setup on a clean machine refuses a package from one of them.
+  sign from their next release on, together. Seen to fail: a setup on a clean machine refuses a package from one of
+  them.
 - A test refuses an unsigned package before it is published. Seen to fail: the build publishes an RPM with signing
   skipped.
 - Each `sokar-setup-<version>.sh` has a detached signature beside it, made with the same key. Seen to fail:
@@ -90,12 +98,6 @@ Steps in Sokar, in order:
 
 **Guideline points, 2026-10-09:** a review of security guidelines counts this as its item F9,
 answering NCSC/CISA secure development, OWASP `LLM03`, Sysdig 6, AISVS `C06`.
-
-## Open questions
-
-- Which key signs the packages: the one the Debian repository's metadata is signed with, or a new one, and who
-  holds its private half (the operator's).
-- The day every repository switches signing on (the operator's).
 
 ## To be checked
 

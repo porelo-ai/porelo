@@ -1,7 +1,8 @@
 # B51 — The tests that run nowhere
 
 **Status:** Analyzed.
-**Size:** L - what a leg is for is a decision first, and the report across legs touches the leg driver and the workflow.
+**Size:** M - a JUnit condition, one test class run on the fedora leg, and a report across legs that touches the leg
+driver and the workflow.
 
 **What must be true.** Whoever reads a green build can tell a test that did not apply on this run from one that
 cannot run anywhere in the pipeline, and the SELinux-dependent unit tests run where SELinux is.
@@ -44,11 +45,12 @@ the unit behaviour these two cases were written for.
 
 ## The shape
 
-The SELinux-dependent tests have to execute where SELinux is. That means the leg running the unit
-tests **on the rented machine** rather than the driver running them here — which is a change to
-what a leg is for, so it is a decision rather than a fix.
+The SELinux-dependent tests have to execute where SELinux is. **The fedora leg runs those unit tests,
+and only those, on the rented machine**; every other unit test stays on the build host, where it
+runs today. A leg stays what it is - a deployment and the acceptance suite against it - with one
+narrow addition for the tests that need the machine's kernel.
 
-Two smaller things are worth doing either way, and neither depends on that decision:
+Two smaller things belong with it:
 
 - **A skip that can never apply should say so**, rather than presenting itself as a condition that
   happened not to hold. A test disabled because no machine in the pipeline can satisfy it is a
@@ -68,10 +70,10 @@ Steps, in order:
 1. Red first: a test asserting that a test disabled for want of SELinux gives a reason naming where in the pipeline
    it runs. Then a JUnit condition in `testing` (`sokar-testing`) that takes the place of `@EnabledIf` and says
    "runs on the fedora leg" rather than an ordinary skip.
-2. The two tests run on the rented machine: after deploying, the fedora leg runs `SocketContextTest` in the checkout
-   its snapshot already compiles, and fails when the two are skipped there. Breaking the SELinux branch of
-   `SocketContext` then turns that leg red. This is the decision below; the other way is a probe binary run by an
-   acceptance step.
+2. The two tests run on the rented machine: after deploying, the fedora leg runs the SELinux-dependent unit tests -
+   today `SocketContextTest`, found by the condition of step 1 rather than by a list - in the checkout its snapshot
+   already compiles, and fails when they are skipped there. No other unit test runs on the leg. Breaking the SELinux
+   branch of `SocketContext` then turns that leg red.
 3. Each leg uploads its surefire reports. A job after the matrix in `build.yml` lists the test cases skipped on
    every leg and fails naming them, unless a test says where it runs.
 
@@ -80,15 +82,12 @@ Steps, in order:
 - The two SELinux-gated tests in `SocketContextTest` execute on a machine with SELinux, and the fedora leg's
   report shows them run, not skipped. Seen to fail: breaking the SELinux branch of `SocketContext` turns that leg
   red.
+- The fedora leg runs no unit test that does not need SELinux; the rest run on the build host as before. Seen to
+  fail: the leg's report lists a test class without the SELinux condition.
 - A test whose condition no machine in the pipeline can satisfy reports itself as such, not as skipped on this
   run. Seen to fail: a test gated on a condition no leg meets shows up in the build as an ordinary skip.
 - The build reports, across the legs of a matrix, which conditional tests were satisfied nowhere. Seen to fail: a
   matrix in which both legs skip the same conditional test passes without naming it.
-
-## Open questions
-
-- **Whether a leg runs unit tests on the rented machine** (the operator's), rather than the driver running them on
-  the host - a change to what a leg is for, so a decision.
 
 ## To be checked
 

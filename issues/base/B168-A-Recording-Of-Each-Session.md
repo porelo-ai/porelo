@@ -17,7 +17,9 @@ keeps one.
 
 - The output of the task's tmux session, with its timing, written on the host outside the task's reach; the task
   cannot change or delete it.
-- `sokar task replay TASK` plays it back in a terminal; it stays after the task is removed until the person removes it.
+- `sokar task replay TASK` plays it back in a terminal; it stays after the task is removed.
+- A recording is kept 30 days by default, then removed; an unattended run's recording is its `task.log`, kept as long.
+- A session's recording holds at most 64 MiB; what comes after is cut, and the recording says where and how much.
 - The task's journal entry ([B154](README.md#b154)) names the recording and its checksum.
 
 ## Plan
@@ -34,30 +36,31 @@ and the gap is recorded.
 2. **`apps/app-base/.../SessionRecording.java`:** decodes control-mode lines and writes the recording as
    newline-separated JSON events (`[seconds, "o", text]`, a header with the task, the agent and the size), with a gap
    event where the client was gone. The path is in `SokarPaths`, outside the task's state directory, so
-   `task remove` leaves it: `recordings/<task>/<started>.cast`, `0600`.
+   `task remove` leaves it: `recordings/<task>/<started>.cast`, `0600`. At 64 MiB it stops writing output and ends
+   the file with a cut event: when, and how many bytes were left out; the reader goes on counting until the session
+   ends.
 3. **Started and stopped with the session:** `TaskRunner` starts the reader once the session is up (where it starts
    `ScreenFile.writer()`), the daemon's task watch restarts it when it ended while the task runs, and the task's stop
    closes it and writes its SHA-256 beside it.
 4. **`apps/app-task/.../TaskReplayCommand.java`** (`sokar task replay TASK [--speed N] [--list]`), added to
    `TaskCommand`'s subcommands; it finds recordings of removed tasks by name. `sokar prune` gains `--recordings` to
-   remove them; nothing removes one by itself in this step.
+   remove them before their time.
 5. **The journal:** the task's record names the recording and its checksum now; [B154](README.md#b154)'s entry carries both once it is
    built.
-6. **Docs:** `doc/commands.md` says the command and what a recording may hold: anything the agent printed, secrets
-   included where it printed them, which is why it is `0600` and stays on the machine.
-7. **Acceptance:** a scenario in `acceptance/suite/.../task/task-session.feature`: the stub prints its lines attached,
+6. **An unattended run:** its output is already in `task.log`, so it is not recorded again; `task remove` moves the
+   log into `recordings/<task>/<started>.task.log` instead of deleting it, and `task replay` prints it.
+7. **Kept 30 days:** a recording older than the machine's keeping time (30 days unless set) after its task ended is
+   removed by `Prune`, from the daemon's pass and from `sokar prune`; `sokar prune --recordings` removes them sooner.
+8. **Docs:** `doc/commands.md` says the command, the 30 days and the 64 MiB, and what a recording may hold: anything
+   the agent printed, secrets included where it printed them, which is why it is `0600` and stays on the machine.
+9. **Acceptance:** a scenario in `acceptance/suite/.../task/task-session.feature`: the stub prints its lines attached,
    the task is removed, and `sokar task replay` prints them in order.
 
 ## Acceptance
 
 - Seen to fail first, then green: what a stub agent printed plays back in order after the task is removed.
-- `doc/commands.md` says it, and what it may hold (anything the agent printed, secrets included where it printed them).
-
-## Open questions
-
-- How long recordings are kept by default, and their size limit: kept until removed and capped at 64 MiB per session
-  in this plan, the rest cut and said (the operator's).
-
-## To be checked
-
-- Whether an unattended run is recorded the same way, when its output is already in its log (Agent Core's).
+- A session printing more than 64 MiB leaves a recording of 64 MiB that ends saying how much was cut.
+- A recording, and an unattended run's `task.log`, older than 30 days after the task ended are removed; younger ones
+  are not.
+- `doc/commands.md` says it, how long it is kept and how large it may grow, and what it may hold (anything the agent
+  printed, secrets included where it printed them).

@@ -53,24 +53,29 @@ list every second, and the second is what `Watch`'s design exists to prevent.
 
 ## The shape
 
-1. **One command shows the tasks on this machine and keeps showing them**, updating as they
-   change, until the person stops it. It is the same listing `sokar task list` prints - not a
-   second rendering that can drift from it.
-2. **What it shows comes from the same answer the interface gets.** It consumes `Watch` rather
+1. **`sokar task list --watch` shows the tasks on this machine and keeps showing them**, updating
+   as they change, until the person stops it. It is a flag, not a verb: the same listing `sokar task
+   list` prints - not a second rendering that can drift from it.
+2. **It covers the whole machine, and `--project <name>` narrows it** - on the listing and on the
+   watching form alike, so the two never show different sets of tasks.
+3. **What it shows comes from the same answer the interface gets.** It consumes `Watch` rather
    than polling the inventory in a loop of its own; two change detectors for one question is how
    the CLI and the graphical view come to disagree about the same machine.
-3. **It redraws when something changed, and for nothing else** - with the age as the stated
+4. **It redraws when something changed, and for nothing else** - with the age as the stated
    exception, recomputed locally from the timestamp rather than fetched.
-4. **Stopping it is Ctrl-C, and stopping it is not a failure.** It leaves the terminal as it found
+5. **Stopping it is Ctrl-C, and stopping it is not a failure.** It leaves the terminal as it found
    it: no lost cursor, no colours left on, no scrollback eaten. The reset this product already had
    to learn for attaching applies here too.
-5. **It degrades rather than refuses.** Where output is not a terminal, it prints changes as they
+6. **It degrades rather than refuses.** Where output is not a terminal, it prints changes as they
    happen instead of drawing over itself, so `| tee` in a session log still produces something
    readable. Where the stream is not available it says so and falls back to the single listing,
    naming what it could not do.
-6. **What needs a person is visible without reading every row.** Now that the daemon produces `waiting`, a
+7. **What needs a person is visible without reading every row.** Now that the daemon produces `waiting`, a
    task waiting on somebody is the thing this view exists to surface; a person should not have to
    compare columns to find it.
+8. **A clearance question waiting is a hint line, not a prompt.** The view says how many questions
+   are waiting and for which tasks; they are answered where they are answered today, and the view
+   stays one thing.
 
 ## Plan
 
@@ -87,17 +92,22 @@ Steps, in order:
    time, and is called by both.
 2. A reader from a `Watch` reply back to `TaskInventory.Task`, beside the daemon's own mapping and tested as a round
    trip, so that the view renders the same record the listing does.
-3. The watching form (a flag on `task list`, pending the question below): connect to `daemonSocket()`, call `Watch`
-   with `more`, and let each reply replace the held list. A local clock redraws only the age column, once a minute,
-   from `since`.
-4. At a terminal: draw in the alternate screen with the cursor hidden; redraw only rows whose fields other than the
+3. `--project <name>` on `task list`, filtering the tasks before `TaskListing` sees them, so the one-shot listing and
+   the watching form take the same filter; a test lists a machine with two projects both ways.
+4. The watching form, `--watch` on `task list`: connect to `daemonSocket()`, call `Watch` with `more`, and let each
+   reply replace the held list. A local clock redraws only the age column, once a minute, from `since`.
+5. Beside `Watch`, the view subscribes to `Prompts` and keeps the open questions (dropping one when its verdict or
+   its expiry arrives). While any is open, one hint line above the table says how many wait and for which tasks,
+   and where they are answered; the view offers no way to answer them. Under `--project` it counts only that
+   project's tasks. A test sees the line appear on a question and go on its verdict.
+6. At a terminal: draw in the alternate screen with the cursor hidden; redraw only rows whose fields other than the
    age differ; restore screen, cursor and colours on exit, on Ctrl-C and on a failure, with the same reset that
    attaching uses. Exit 0 on Ctrl-C. Waiting tasks sort first and are marked. A unit test with a recording terminal
    asserts which rows were written for one change, and that a minute with no change writes only ages.
-5. Not at a terminal: one line per change with the time, the task and what changed; a test finds no escape
+7. Not at a terminal: one line per change with the time, the task and what changed; a test finds no escape
    sequence.
-6. No daemon: say so, print the one-shot listing and exit, naming what could not be done.
-7. Acceptance, in the terminal kit: start the view, stop a task from a second terminal, see its row change; Ctrl-C,
+8. No daemon: say so, print the one-shot listing and exit, naming what could not be done.
+9. Acceptance, in the terminal kit: start the view, stop a task from a second terminal, see its row change; Ctrl-C,
    then `stty -a` and the cursor show the terminal as it was. The step goes red when the reset is removed.
 
 ## Acceptance
@@ -112,20 +122,16 @@ Steps, in order:
   acceptance kit rather than by reading the code - this is the failure mode that was already met
   once when attaching, and it is only visible at a real terminal. Seen to fail: the acceptance scenario goes
   red when the terminal reset on exit is removed.
+- `--project <name>` shows the same tasks in the listing and in the watching form, and the watching form without
+  it shows every task on the machine. Seen to fail: a test with two projects finds a task of the other project in
+  either form, or a task missing from the unfiltered view.
+- A waiting clearance question shows as one hint line naming its task, and the line goes when the question is
+  answered or expires. Seen to fail: a test that sends a question and its verdict through `Prompts` sees no line,
+  or a line that stays.
 - Piped to a file, the output is readable line-by-line history rather than escape sequences. Seen to fail: a
   test of the piped output finds an escape sequence.
 - The rendering is the same code that prints the one-shot listing, proven by a test that changes
   the listing's format and sees both change. Seen to fail: that test, when only one of the two changes.
-
-## Open questions
-
-- **Is it a flag or a verb?** (the operator's) `sokar task list --watch` reads as the listing that keeps going, and
-  the house already has `sokar shield watch` as a verb. A flag keeps the two renderings obviously the same thing; a
-  verb is easier to give its own options later. Decide once - the two will not be reconciled afterwards.
-- **Does it belong to one project or to the machine?** (the operator's) A filter in the watching form and not in the
-  listing breaks the "same listing" promise, so a filter would be added to both.
-- **Does the same view show the clearance questions?** (the operator's) `Prompts` carries questions that expire, and
-  a person watching their tasks is the person who should see one; or it makes this view two things at once.
 
 ## To be checked
 

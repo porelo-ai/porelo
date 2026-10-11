@@ -24,6 +24,11 @@ the host's files nor its tools - and the person cannot reach what it built to tr
 - **Sokar offers that virtual screen as a view**: a VNC stream published on the host's loopback only, reached from a
   person's computer through ssh as the daemon is. Pixels and input only; no code from the box runs on the person's
   computer.
+- **Switched on per project**, in `project.yml`: a project that does not ask for the view has no VNC server in its
+  image and nothing to connect to.
+- **Sokar's relay asks for a strong token before anything reaches the VNC server.** Being on loopback is not
+  enough, and VNC's own password check is weak, so nothing relies on it: a connection that does not present the
+  token first is closed having reached nothing.
 - **Not a web build in the person's browser**: that would run the agent's JavaScript with the person's network - a
   way out past the egress policy for unreviewed work.
 - **The same view on a review container** ([B95](README.md#b95), `gate try`): the person tries the pending push itself - what would
@@ -52,15 +57,20 @@ Steps for the view of a task:
 1. **Not a published port**: the VNC server in the task listens on a Unix socket in a directory mounted from the
    task's state directory, as the screen file is (`ScreenFile`). Nothing is bound in the network at all, so
    nothing is reached past the host's loopback, and the firewall and the hooks need no rule.
-2. **The daemon relays it**: `method View(task) -> (address, password)` in `15-task.varlink` starts a relay on the
-   host's loopback for that socket, ended with the connection, and a one-time password the VNC server is given
-   through its password file. A person's computer forwards that loopback port through ssh, as for the daemon.
-3. **Switched on per project**: `view: true` in the project file, which adds the VNC server and Xvfb to the
+2. **The daemon relays it**: `method View(task) -> (address, token)` in `15-task.varlink` starts a relay on the
+   host's loopback for that socket, ended with the connection, with a one-time token of 256 random bits. The relay
+   reads the token as the first bytes of every connection, compares it in constant time, and only then opens the
+   VNC server's socket; a connection with a wrong or missing token is closed before the socket is opened. The VNC
+   server's own password is not what protects it. A person's computer forwards that loopback port through ssh, as
+   for the daemon.
+3. **Switched on per project**: `view: true` in `project.yml`, which adds the VNC server and Xvfb to the
    image's layers; a project without it has no socket and `View` answers `NoView`.
-4. **`sokar task view <task>`** prints the forward and the password, for an external viewer.
+4. **`sokar task view <task>`** puts an external viewer behind the token: it presents the token to the relay and
+   gives the viewer a port to connect to, and prints the forward to set up.
 
-Red first: a test of the container's specification that finds a published port or a bound address; then a
-scenario that connects without the password and is refused, and one with it that reads the first screen.
+Red first: a test of the container's specification that finds a published port or a bound address; a relay test
+that connects without the token, or with a wrong one, and finds the VNC server's socket opened; then a scenario
+that connects without the token and is refused, and one with it that reads the first screen.
 
 ## Acceptance
 
@@ -77,16 +87,15 @@ scenario that connects without the password and is refused, and one with it that
 - The same view is offered on a review container ([B95](README.md#b95), `gate try`), showing the pending push rather
   than the agent's working tree. Seen to fail: the view on a review container shows the working
   tree's state rather than the pushed commit.
-- The view is authenticated beyond being on loopback. Seen to fail: a viewer without the credential
-  connects.
-
-## Open questions
-
-- How the view is switched on: per project in `project.yml` (the plan's leaning), or per task at its start
-  (the operator's).
-- Whether a one-time VNC password is enough beyond loopback, given that VNC's own password check is weak; the relay
-  could ask for a token first instead (the operator's).
+- The view is authenticated beyond being on loopback, by the relay's token, before anything reaches the VNC
+  server. Seen to fail: a viewer without the token, or with a wrong one, reaches the VNC server's socket at all -
+  even when it would then pass the VNC server's own password.
+- The view exists only for a project that switches it on in `project.yml`. Seen to fail: a task of a project
+  without `view: true` answers `View` with an address.
 
 ## To be checked
 
 - Which VNC server goes into the image, and whether it can listen on a Unix socket only (Agent Core's, measured).
+- How `sokar task view` gives an external viewer, which cannot send the token itself, a port no one else on the
+  host can use (Agent Core's): a bridge on the person's own computer's loopback, or one on the host behind the ssh
+  forward.

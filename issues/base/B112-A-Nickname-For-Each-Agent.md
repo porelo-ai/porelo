@@ -39,9 +39,11 @@ Read in the code on 2026-10-11:
 
 Steps:
 
-1. **The label as a nickname**: `TaskControl.label` refuses a label that is not one word of the characters a
-   task name takes, or that another task of the project has as its label or its name. A label already set that
-   breaks the rule is shown, and is no nickname. Red first: a test labelling two tasks of one project alike.
+1. **The label as a nickname**: `TaskControl.label` refuses a label that is not one word of the characters a task name
+   takes, or that another task of the project has as its label or its name; there is no label that is only a caption.
+   The refusal names the rule the label breaks - not one word of the characters a task name takes, already the label of
+   `<task>`, or already the name of `<task>` - and nothing is written. A label set before the rule that breaks it is
+   shown, and is no nickname until it is changed. Red first: a test labelling two tasks of one project alike.
 2. **`@label` reaches the task**: `TransportConversations` adds each task's label to the map beside its short
    name; a message's `metadata.to` is still written with the task's name (`MessageDispatch`). Red first: a test
    whose room message names `@label` and reaches no task.
@@ -60,13 +62,12 @@ Steps:
 - The transport is asked to set the display name at enrolment and when the nickname changes, and only when its
   `describe` says `"display": true`.
 - `metadata.to` and `metadata.from` carry task names, never a nickname.
+- A label with a space, or one another task of the project has as its label or name, is refused with the rule it
+  breaks, and the task keeps the label it had.
 - **Seen to fail:** a test that writes `@label` in the room goes red when the task is not reached; a test of the
   card goes red when `you` is missing either name; a test with a transport that does not declare `"display": true`
-  goes red when it is asked; a test of a message to a nickname goes red when its metadata carries the nickname.
-
-## Open questions
-
-- Whether a label that cannot be a nickname is refused, or kept as a caption with no `@` (the operator's).
+  goes red when it is asked; a test of a message to a nickname goes red when its metadata carries the nickname; a
+  test labelling two tasks alike goes red when the second label is written.
 
 ## To be checked
 

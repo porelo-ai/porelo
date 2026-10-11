@@ -16,8 +16,12 @@ together, and that is much asked for.
 
 - A state per step: a commit on a ref of the host's own in the task's workspace, never pushed and never seen by the gate
   as work; what makes a step is the agent's turn ending, as the activity reading of [B120](README.md#b120) already knows it.
+- The last 20 states are kept by default; a project may set another number, or keep every state until the task ends.
+  The oldest goes when a newer one is kept, and every state goes with the task.
 - `sokar task rewind TASK [--to <n>]` lists the states, and restores one after a question with what is lost (asked
   as a destructive step: no by default).
+- A running agent session is not restored over: the rewind offers to stop and restart the agent's session itself,
+  default no. Declined, nothing is restored, and it says to stop the session first.
 - The conversation goes back where the agent names a session to resume from ([B46](README.md#b46)); otherwise only the files, and it
   says so.
 - The resumption of a conversation by `session_id` and `resume_flag` is built (`agents/README.md`).
@@ -44,25 +48,29 @@ Steps:
    nor its refs, and streams `git bundle create -` of it to the host into a bare repository per task under
    `TaskPaths.containerState(container)/steps.git`, ref `refs/steps/<n>`. That repository is the host's alone and
    never the gate's. Where the agent declares session files, a copy of them goes beside it as `steps/<n>/session`.
+   After a state is kept, the states beyond the project's number (20 by default, `all` keeps every one) are dropped
+   oldest first - the ref deleted and the repository pruned - and the numbers of the states kept do not change.
 3. Who notices the turn's end: a helper per task beside the gate and the clearance watcher (`TaskHelpers`), polling
    `AgentWaiting`/`AgentEnding` as the listing does; a turn that ends while the helper is down is not a state.
 4. `TaskRewindCommand` (`sokar task rewind TASK [--to <n>]`): without `--to`, lists the states with time and
    files changed; with it, names what is lost - the files changed since, the later turns of the conversation - and
-   asks as a destructive step, default no, never taken by `--yes`. Then it stops the agent's session, copies the
-   bundle in, resets tracked files and removes files the state did not have (ignored files are left and said), puts
-   the session copy back and starts the agent with `resume_flag`; without a declared session only the files, and it
-   says so.
-5. Daemon: `Steps(task)` and `Rewind(task, to)` in `15-task.varlink`, `InterfaceDescriptionTest`.
-6. `doc/commands.md`: `task rewind`, and what is not restored (ignored files, anything outside the workspace,
-   what already reached the gate).
+   asks as a destructive step, default no, never taken by `--yes`. Where the agent's session runs, it then offers
+   through `Offer` to stop and restart it, default no; declined, it restores nothing and says to stop the session
+   first. Then it stops the agent's session, copies the bundle in, resets tracked files and removes files the state
+   did not have (ignored files are left and said), puts the session copy back and starts the agent with
+   `resume_flag`; without a declared session only the files, and it says so.
+5. The number kept: a project setting (`doc/project-file.md`), a whole number from 1 or `all`, 20 when not set.
+6. Daemon: `Steps(task)` and `Rewind(task, to, restartSession: bool)` in `15-task.varlink`,
+   `InterfaceDescriptionTest`; a rewind on a running session without `restartSession` is refused as a named error.
+7. `doc/commands.md`: `task rewind`, how many states are kept, and what is not restored (ignored files, anything
+   outside the workspace, what already reached the gate).
 
 ## Acceptance
 
 - Seen to fail first, then green: three steps of a stub agent make three states; rewinding to the first restores its
   files exactly and leaves the later states listed.
-- `doc/commands.md` says it, and what is not restored.
-
-## Open questions
-
-- How many states are kept, and what they cost on disk for a large workspace (the operator's).
-- Whether a rewind may stop and restart the agent's session itself, or the person stops it first (the operator's).
+- With the number set to 2, three steps leave the last two states listed; with `all`, every state stays until the
+  task is removed, and goes with it.
+- A rewind on a running session, the offer declined, changes no file and says to stop the session first; accepted,
+  the session is stopped, the state restored and the agent started again.
+- `doc/commands.md` and `doc/project-file.md` say it, and what is not restored.

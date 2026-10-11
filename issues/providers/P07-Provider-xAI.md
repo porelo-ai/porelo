@@ -32,7 +32,10 @@ The agents that can reach it are listed in
 4. **Live:** a scenario in an agent repository speaking `openai` or `native`, as its `openrouter` scenario does, with
    a fake key: xAI's own refusal proves the swap, `sokar task status` names `xai`, and the container holds no key.
 5. **The subscription account, measured apart:** whether its token is a bearer on `api.x.ai` or reaches another host;
-   then its own entries or a file of its own, and `unbrokerable` is lifted.
+   then its own entries or a file of its own, and `unbrokerable` is lifted. An account is provided for the
+   measurement. What must exist at the service for it: an account with the subscription its own agent signs in with,
+   and an API key for the public API, for the live run with a real key. Nothing of the account - its name, address,
+   key or token - goes into a committed file; what is committed is the measured shape.
 
 ## Acceptance
 
@@ -42,8 +45,6 @@ The agents that can reach it are listed in
 - **Seen to fail:** a test that sends a task's request through the broker goes red when it does not
   arrive at xAI; a search of the container for the real credential goes red when it is found; a
   test that reads the task's record afterwards goes red when it does not name the provider.
-
-## Open questions
-
-- Whether the subscription account its own agent uses can be brokered: unverified, and measurable only with an
-  account (the operator's).
+- The subscription account is measured with the account provided for it, and is either brokered or stays refused
+  with what was measured written beside the refusal. Seen to fail: `unbrokerable` lifted with no measurement behind
+  it, or anything of the account in a committed file.
