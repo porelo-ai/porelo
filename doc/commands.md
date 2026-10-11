@@ -151,6 +151,8 @@ the agent to hand work back through, offers a shell in the task instead; on a ye
 Where an option names one of several - the provider for an agent that names no default, the agent for
 `vault authorize` when several sign in, the project for `shield egress`, `talk pass` and `talk hold` - a terminal is
 shown them by number and asked for one, instead of being sent back to add the option.
+A task started before the machine restarted cannot come back; `task resume` and `task attach` on it offer to copy
+its workspace to `./recovered` (`recovered-2` … where that is taken), and then to remove the task, no by default.
 
 **`task logs`** shows the files of the gate, broker, relay, resolver and clearance watcher, not the
 agent's output. `events.jsonl` is what the firewall blocked: look there when a task starts and then

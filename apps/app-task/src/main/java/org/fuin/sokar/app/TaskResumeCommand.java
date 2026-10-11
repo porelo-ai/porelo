@@ -99,6 +99,13 @@ public class TaskResumeCommand implements Callable<Integer>, SokarFactory.Contex
                 result = new TaskControl(context).resume(container);
             }
         }
+        // A task that cannot come back is offered its recovery at a terminal, where the refusal would print the commands.
+        if ((result.outcome() == TaskControl.Outcome.PREDATES_RESTART
+                || result.outcome() == TaskControl.Outcome.TOKENS_NOT_KEPT)
+                && recover(container, Offer.atTerminal() ? new Offer(Offer.Asker.terminal(), false, false, err)
+                        : Offer.NOBODY, context, java.nio.file.Path.of(""), out)) {
+            return 0;
+        }
         return render(result, container, out, err, suggests);
     }
 
@@ -217,5 +224,43 @@ public class TaskResumeCommand implements Callable<Integer>, SokarFactory.Contex
         out.flush();
         err.flush();
         return result.outcome() == TaskControl.Outcome.RESUMED ? 0 : 70;
+    }
+
+    /**
+     * Offers what a task that cannot come back would tell a person to type: its workspace copied to {@code ./recovered}
+     * first, then the task removed - the copy asked with yes as the default, the removal with no, after naming what
+     * goes. A folder that is there already is never written into; the next free name is taken.
+     *
+     * @param container The task.
+     * @param offer Who is asked.
+     * @param context The machine.
+     * @param into Where the folder goes: the working directory.
+     * @param out Where to report.
+     * @return Whether the workspace was copied; {@code false} when nobody took it, and the refusal stands.
+     */
+    static boolean recover(final String container, final Offer offer, final SokarContext context,
+            final java.nio.file.Path into, final PrintWriter out) {
+        if (offer == Offer.NOBODY) {
+            return false;
+        }
+        java.nio.file.Path target = into.resolve("recovered");
+        for (int n = 2; java.nio.file.Files.exists(target); n++) {
+            target = into.resolve("recovered-" + n);
+        }
+        if (!offer.confirm(container + " cannot be started again; its workspace is still inside it",
+                "Copy it to " + target + " now?", "", false)) {
+            return false;
+        }
+        context.podman().copyOut(container, "/workspace", target);
+        out.println("recovered " + container + ":/workspace into " + target);
+        if (offer.confirm("the workspace is copied to " + target, "Remove " + container + " now?",
+                "the container " + container + " and everything else in it", true)) {
+            new TaskControl(context).remove(container, false, true);
+            out.println("removed   " + container);
+        } else {
+            out.println("kept      " + container + "; 'sokar task remove " + container + " --force' discards it");
+        }
+        out.flush();
+        return true;
     }
 }

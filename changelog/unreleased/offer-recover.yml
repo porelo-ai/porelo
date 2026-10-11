@@ -1,0 +1,2 @@
+title: A task from before a restart offers to copy its workspace to ./recovered and then to remove it, at task resume and task attach
+type: changed

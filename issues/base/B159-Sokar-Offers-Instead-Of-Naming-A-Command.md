@@ -166,8 +166,9 @@ terminal, no terminal, `--no-input` and `--yes`.
   (`SelectedProvider.pick`, `SelectedProviderTest`); the agent for `vault authorize` when several sign in
   (`GrantEntryTest`); the project for `shield egress`, `talk pass`, `talk hold`, `default` first and the rest by name
   (`ProjectSource.chosen`, `ProjectChoiceTest`).
-- **Not yet:** a task chosen from a list - `TaskTarget` asks already at a terminal; a workspace from
-  before a restart copied to `./recovered` (`TaskResumeCommand`).
+- **A task from before a restart:** `task resume` and `task attach` offer to copy its workspace to `./recovered`
+  (never into a folder that is there), then to remove the task, no by default (`RecoverOfferTest`). The interface's
+  start detail keeps the two commands, for a person with no terminal, and names `task resume` beside them. A task chosen from a list: `TaskTarget` already asks.
 - **Task start, hooks:** nothing to offer. A start already registers missing and outdated hooks without asking;
   `DANGLING` means the hook binaries are not where this Sokar has them, which neither `sokar setup` nor anything Sokar
   can run makes good - only installing the package again does, so it stays a message.

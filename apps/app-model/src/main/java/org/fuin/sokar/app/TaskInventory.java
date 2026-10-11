@@ -613,7 +613,8 @@ public final class TaskInventory {
                         : !summary.running() && !Files.isDirectory(state)
                         ? "started before this machine restarted; copy the workspace out with"
                                 + " 'podman cp " + summary.name() + ":/workspace ./recovered',"
-                                + " then 'sokar task remove " + summary.name() + " --force'"
+                                + " then 'sokar task remove " + summary.name() + " --force' - or 'sokar task resume "
+                                + summary.name() + "' at a terminal offers both"
                         : "",
                 // From the container's label, like the project and the class above, and for the
                 // same reason: it survives a reboot. There is no sidecar fallback because the
