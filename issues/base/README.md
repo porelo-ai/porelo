@@ -79,7 +79,7 @@ from its side, as *blocked by*.
 | <a id="b116"></a>[B116](B116-A-Log-Read-Back-In-Windows.md) | M | - | `Tail` gets `before` to read back in windows, and a cap per line reported in `cut`. | - |
 | <a id="b165"></a>[B165](B165-A-Port-Of-A-Task-On-Loopback-Only.md) | M | - | `sokar task port`: a two-half relay, in the task's namespace and on host loopback only, over a `0700` socket, with `ports.log`, docs and a scenario. | - |
 
-## Idea
+## Accepted
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|

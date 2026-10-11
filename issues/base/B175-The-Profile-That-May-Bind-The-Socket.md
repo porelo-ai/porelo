@@ -1,6 +1,6 @@
 # B175 — The Profile That May Bind The Socket
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** On a machine that confines programs by AppArmor rather than SELinux, only Sokar's binaries may
 bind the sockets a task connects to, as the SELinux domain of [B40](README.md#b40) ensures on SELinux machines, so a

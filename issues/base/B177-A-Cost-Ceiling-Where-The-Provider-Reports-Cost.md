@@ -1,6 +1,6 @@
 # B177 — A Cost Ceiling Where The Provider Reports Cost
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** A project may cap a task's spending in money, beside the token ceiling of
 [B138](README.md#b138), for providers that report the cost of each answer themselves - a router service that sells

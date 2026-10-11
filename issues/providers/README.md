@@ -13,7 +13,7 @@ a release.
 Grouped by state, as in [the base set](../base/README.md); within a group ordered by what to do next. [P09](README.md#p09) concerns
 providers as a class, the others one provider each.
 
-## Idea
+## Accepted
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|

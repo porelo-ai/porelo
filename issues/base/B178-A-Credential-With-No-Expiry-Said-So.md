@@ -1,6 +1,6 @@
 # B178 — A Credential With No Expiry Said So
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** Storing a credential that carries no end - by `vault put`, `vault login` or `ImportCredential` -
 says so when it is stored, rather than refusing it, since some providers issue nothing else. The credential list
