@@ -4,9 +4,11 @@
 name: Shared rules check
 run-name: "${{ github.workflow }} · ${{ github.ref_name }}: ${{ github.event.head_commit.message || github.event.pull_request.title || github.workflow }}"
 
+# Once a day, not on a push: every hand-over runs the same checks locally on its exact commit first, and a run per
+# push spent build minutes on what was already known. 03:17 UTC lies outside the hours the repositories are worked in.
 on:
-  push:
-    branches: [main]
+  schedule:
+    - cron: '17 3 * * *'
   pull_request:
   workflow_dispatch:
 
@@ -26,5 +28,6 @@ jobs:
       # The root's validate runs check-actions, check-shared, check-citations, check-readmes and check-doc-site,
       # with sokar-release from Central; the tests tagged documents follow it, so a change to a page runs every test
       # that reads one.
+      # Modules in parallel: about a third less time than one after another.
       - name: The documents
-        run: ./mvnw -B -U -s settings.xml -Pdocuments test
+        run: ./mvnw -B -U -T 1C -s settings.xml -Pdocuments test
