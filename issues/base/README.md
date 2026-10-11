@@ -122,6 +122,12 @@ from its side, as *blocked by*.
 | <a id="b169"></a>[B169](B169-Containers-Inside-A-Task.md) | L | - | The nested-container assessment first (user namespaces, seccomp, network mode, limits) measured on both legs; then an opt-in `image.nested_containers`. | 2 |
 | <a id="b170"></a>[B170](B170-A-Devcontainer-File-As-Image-Source.md) | L | - | `image.devcontainer`: a JSONC reader takes `image` and `containerEnv` and lists the rest as ignored; features a second step, fetched pinned. | 2 |
 
+## Idea
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="b174"></a>[B174](B174-A-Running-Tasks-Commits-And-Their-Diff.md) | - | - | A running task's commits and their diff, asked of the daemon before the work reaches the gate; for the interface's account of what a piece did. |
+
 ## Two things that dissolved rather than becoming requirements
 
 Both are recorded where somebody will look rather than dropped.

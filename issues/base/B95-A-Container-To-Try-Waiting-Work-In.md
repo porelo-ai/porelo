@@ -62,7 +62,11 @@ Steps for `gate try`:
 4. **`method Try(project, upstream?, repository?, name, commit?, command: []string)`** in `35-gate.varlink`:
    streaming, a reply per chunk of output (`lines`, as `Tail` sends them) and a last one with `exit`. Refused as
    `MovedSinceReview` as `Approve` is, and `StreamRequired` without `more`. The interface's "Run its tests" calls it.
-5. **The result kept with the review**: the last run's command, exit, commit and when, beside the pending ref's
+5. **The command a project names**: `repositories.<name>.try` in `project.yml`, a list of arguments run without a
+   shell, e.g. `try: ["./mvnw", "-B", "verify"]`; `gate try <task>` with no command after `--` runs it, and the
+   interface offers it, a person's own override aside. `ProjectFile`'s reader and `doc/project-file.md` take the
+   key; a string instead of a list is refused by name.
+6. **The result kept with the review**: the last run's command, exit, commit and when, beside the pending ref's
    record, and `Review` answers it (`tried: ?TryResult`).
 
 Red first: a unit test of the container's specification that finds the gate's address in its ruleset, or a
