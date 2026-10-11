@@ -53,6 +53,17 @@ RUN set -eux; \
     else echo 'no curl/git/ssh/tmux and no known package manager in ubuntu:24.04' >&2; exit 1; \
     fi
 
+# Python 3 for the agents that evaluate it, added where the image has a package manager. Not one of
+# the tools above that a task needs: an image without it, and without a way to add it, still builds.
+RUN set -eux; \
+    if command -v python3 >/dev/null 2>&1; then :; \
+    elif command -v apt-get >/dev/null 2>&1; then \
+        apt-get update && apt-get install -y --no-install-recommends python3 && rm -rf /var/lib/apt/lists/*; \
+    elif command -v apk >/dev/null 2>&1; then apk add --no-cache python3; \
+    elif command -v dnf >/dev/null 2>&1; then dnf install -y python3 && dnf clean all; \
+    else echo 'no python3 in ubuntu:24.04 and no package manager to add it' >&2; \
+    fi
+
 
 # How much a session remembers, pinned rather than inherited. What 'sokar task
 # attach' can honestly claim on returning is exactly this many lines, and a
@@ -140,5 +151,5 @@ ENV PATH=/home/agent/.local/bin:/usr/local/bin:/usr/bin:/bin
 ENV LANG=C.UTF-8
 
 LABEL org.fuin.sokar.project="uc"
-LABEL org.fuin.sokar.recipe="89e7a70636253ec9"
+LABEL org.fuin.sokar.recipe="0c86c1e18cf69c68"
 LABEL org.fuin.sokar.security-class="guarded"

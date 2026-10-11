@@ -29,6 +29,22 @@ class ContainerfileTest {
     }
 
     @Test
+    void everyTaskImageGetsPython3WhereItCanAndNoImageFailsForWantOfIt() {
+
+        // An agent that evaluates Python warned at every start in 'default': its image had no Python, and a person
+        // cannot change 'default'.
+        final String rendered = Containerfile.render(new Project("default", "", SecurityClass.GUARDED, "ubuntu:24.04",
+                null));
+
+        assertThat(rendered).contains("if command -v python3 >/dev/null 2>&1; then :;")
+                .contains("apt-get install -y --no-install-recommends python3")
+                .contains("apk add --no-cache python3").contains("dnf install -y python3");
+        final String step = rendered.substring(rendered.indexOf("if command -v python3"));
+        assertThat(step.substring(0, step.indexOf("    fi"))).as("an image with no package manager still builds")
+                .doesNotContain("exit 1");
+    }
+
+    @Test
     void writesTheSourcesAProjectNames() {
 
         // The point of the key: a machine behind a corporate mirror, or one where Canonical's own

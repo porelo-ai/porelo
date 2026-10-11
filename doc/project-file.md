@@ -75,8 +75,9 @@ repositories:
 
 image:
 
-  # Required. What the task image is built from. apt, apk and dnf are handled; a base without
-  # them must ship curl, git, ssh and tmux itself.
+  # Required. What the task image is built from. Sokar adds curl, git, ssh, tmux and python3 with
+  # apt, apk or dnf; a base without them must ship curl, git, ssh and tmux itself, and builds
+  # without python3 if it has neither it nor a package manager.
   base_image: "ubuntu:24.04"
 
   # Optional. Extra Containerfile lines, run as root at build time. Keep it small: any change

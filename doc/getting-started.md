@@ -184,8 +184,8 @@ sokar task start
 ```
 
 With no project named, the repository goes into `default`, the project every machine has. Its
-settings are Sokar's and cannot be changed: class `guarded`, base image `ubuntu:24.04`, and no
-egress beyond what the agent needs. The task is named after the repository (`myproject`, then
+settings are Sokar's and cannot be changed: class `guarded`, base image `ubuntu:24.04` with curl, git, ssh,
+tmux and `python3` (no pip), and no egress beyond what the agent needs. The task is named after the repository (`myproject`, then
 `myproject-2`, ...); `sokar task start <name>` chooses another name.
 
 It builds the image, starts the container, starts the agent and reports what it wired up:
