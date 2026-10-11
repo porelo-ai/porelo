@@ -627,3 +627,20 @@ the vault: a stopped task is brought back with its work, and a resume needs them
 of its own - `sokar vault lock`, and `sokar vault remove` of an entry, which revokes at the service where it can. Folding
 revocation into the stop would make the one command reached for in doubt destroy what a calm look afterwards would
 keep.
+
+## Sokar offers what it would tell a person to type
+
+Where something is missing and a refusal would name the command that makes it good, Sokar asks at a terminal and does
+it, through one helper (`Offer`), alike everywhere:
+
+1. **The remedy is the command's own code,** run as that command or called as its function - never a copy of it.
+2. **The precondition is checked again afterwards,** never taken on trust; a remedy that did not help ends in the
+   refusal it replaced.
+3. **A destructive step** - discarding work, deleting, leaving an account at a service, changing a person's own file -
+   names what it touches first, defaults to no, and is never taken by `--yes`.
+4. **Without a terminal, or with `--no-input`,** nothing is asked and the refusal is word for word as before; a script,
+   the daemon and the helpers see no change.
+5. **Several gaps at once** are asked one after another, and the command goes on once at the end.
+
+What stays a message: where nobody can answer, a review or trust decision that must not be made in passing, and a plain
+report.

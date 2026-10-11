@@ -17,7 +17,7 @@ as a hosted service, not on the person's own machine.
 - The N tasks share a name with a number each (`<name>-1` … `<name>-N`) and a group the gate knows them by.
 - `sokar gate review <group>` shows, per attempt: the diff's size, the files touched, whether its build passed where the
   project names one, and the agent's own summary; `gate diff` between two attempts.
-- Approving one discards the others' waiting pushes and offers to remove their tasks (B159), default no.
+- Approving one discards the others' waiting pushes and offers to remove their tasks (as `Offer` asks), default no.
 - Size: medium - the start, the gate view; the interface's view is `sokar-frontend`'s part.
 
 ## Acceptance

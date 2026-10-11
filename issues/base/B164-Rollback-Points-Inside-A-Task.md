@@ -15,8 +15,8 @@ together, and that is much asked for.
 
 - A state per step: a commit on a ref of the host's own in the task's workspace, never pushed and never seen by the gate
   as work; what makes a step is the agent's turn ending, as the activity reading of B120 already knows it.
-- `sokar task rewind TASK [--to <n>]` lists the states, and restores one after a question with what is lost (B159,
-  destructive, default no).
+- `sokar task rewind TASK [--to <n>]` lists the states, and restores one after a question with what is lost (asked
+  as a destructive step: no by default).
 - The conversation goes back where the agent names a session to resume from (B46); otherwise only the files, and it
   says so.
 - Size: medium; the resumption of a conversation is built (B46).
