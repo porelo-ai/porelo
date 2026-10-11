@@ -1,6 +1,7 @@
 # B129 — An Agent Found By Its Description
 
-**Status:** implemented here; the package check's install of such an agent is open.
+**Status:** Implementing.
+**Size:** S - the stub's package and the package check, two build modules, no contract.
 
 **What must be true.** An agent of another vendor is found once its package is installed, under the vendor's own
 names: the package, the executable and the place it lives need not start with `sokar`. The package puts one small
@@ -42,13 +43,6 @@ something the vendor states on purpose.
   - a description in the account's directory hides the system's of the same name, and `sokar doctor` says so;
   - removing the description file removes the agent from `sokar agents`, though its executable is still there.
 
-## To be checked
-
-- Whether the `sokar-agent-*` file names are still read beside the descriptions, for the agent packages already
-  released, and until when; or whether those packages move to a description in their next release.
-- Whether the transports (`/usr/libexec/sokar/transports`) and the build readers (`/usr/libexec/sokar/builds`) are
-  found the same way, by a description of their own kind.
-
 ## As built, 2026-10-09
 
 - `AgentDirectory` reads `~/.local/share/sokar/agents.d/` then `/usr/share/sokar/agents.d/` beside the binary
@@ -62,3 +56,23 @@ something the vendor states on purpose.
   system's, removing the description removing the agent, and the old names beside it.
 - **Open:** the package check installing such an agent in a clean Debian and Fedora.
 
+## Plan
+
+Built and on main (`AgentDirectory`, `AgentDescriptionTest`, `DoctorCommand`, the docs). Left: the package check
+installing an agent that carries no file of Sokar's name. Both questions once under "To be checked" are answered in
+"As built": the old `sokar-agent-*` names are still read; transports and build readers stay as they are.
+
+1. **The stub is packaged as a vendor would.** `agents/pom.xml` maps the stub's executable to
+   `/usr/lib/sokar-agent-stub/stub` instead of `${agent.install.dir}`, and adds
+   `agents/stub/src/main/agents.d/stub.yaml` (`executable: /usr/lib/sokar-agent-stub/stub`) under
+   `/usr/share/sokar/agents.d/`, in the `.deb` (jdeb `dataSet`) and the `.rpm` (`mapping`) alike.
+   `${agent.install.dir}` stays a property for the agents' own repositories.
+2. **The package check proves it.** `dist/package-check` `Install.COMMON` gains two markers in `markers()`:
+   `DESCRIBED` - `sokar agents --verbose` names `/usr/share/sokar/agents.d/stub.yaml` - and `NO-SOKAR-NAME` - no
+   `sokar-agent-*` file under `/usr/libexec/sokar/agents`. Both run in Ubuntu 26.04, Debian 13, Fedora 43 and 44.
+3. **What reads the old place follows.** `acceptance/legs` `Deploy` puts the stub into the account's directory under
+   its old name, which the descriptions leave working; it stays. `dpkg -s sokar-agent-stub` and its removal are by
+   package name and do not change. `agents/README.md` names the stub as the example of a description.
+
+Red first: `InstallTest` expects the two new markers in the Debian and Fedora scripts, and `LayoutTest` (or a new
+case beside it) expects `stub.yaml` in both packages and no file under `/usr/libexec/sokar/agents`.

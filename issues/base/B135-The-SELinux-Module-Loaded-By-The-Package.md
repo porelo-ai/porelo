@@ -1,6 +1,7 @@
 # B135 — The SELinux Module Loaded By The Package
 
-**Status:** decided.
+**Status:** Analyzed.
+**Size:** M - maintainer scripts in both packages, the package check, docs, one run on an enforcing Fedora.
 
 **What must be true.** Where SELinux is enabled, installing the `sokar` package loads Sokar's policy module, so a
 task reaches the vault proxy with no manual step, and removing the package removes the module. `sokar doctor` reports
@@ -27,6 +28,34 @@ known to be needed? Decided the same day: the package does it.
 - **A failure to load is not a failed install.** The package says what failed and names the script, and `doctor`
   reports it as today. Refusing the whole install over the module would leave a machine with nothing.
 - **The script stays**, for a machine where SELinux is enabled after the install, and the docs say so.
+
+## Plan
+
+Read in the code on 2026-10-11: both packages carry `selinux/sokar_socket.te` and `install-selinux-policy.sh` under
+`/usr/share/sokar/selinux` (`dist/dist-rpm/pom.xml`, `dist/dist-deb/pom.xml`) and no maintainer script at all;
+`DoctorCommand` reports the module through `SocketContext.selinuxPresent()` and names the script.
+
+1. **The script does the work, the packages call it.** `selinux/install-selinux-policy.sh` gains `--quiet-if-off`:
+   where `selinuxenabled` fails it exits 0 and does nothing; a missing tool or a failed load says what failed and
+   exits non-zero as today. A second script, `selinux/remove-selinux-policy.sh`, runs `semodule -r sokar_socket` only
+   where `semodule -l` lists it. Both are installed beside the `.te`.
+2. **`.rpm`:** in `dist/dist-rpm/pom.xml`, `postinstallScriptlet` runs the install script with `--quiet-if-off`
+   and on a failure prints the script's own line to run by hand and exits 0; `postremoveScriptlet` runs the removal
+   only when `$1` is 0, so an upgrade keeps the module and the next `%post` loads the new one. `requires` gains
+   `checkpolicy` and `policycoreutils`; the description's sentence about installing by hand goes.
+3. **`.deb`:** `postinst` (on `configure`) and `postrm` (on `remove` and `purge`) in
+   `dist/dist-deb/src/deb/control/`, jdeb takes them from the control directory; `control` gains
+   `Recommends: checkpolicy, policycoreutils, semodule-utils` (Debian's `semodule_package` is in `semodule-utils`).
+4. **The package check reads them:** `dist/package-check` reads `rpm -qp --scripts` and the `.deb`'s `postinst` and
+   `postrm` (`dpkg-deb -I`) and expects the install script in the install and `sokar_socket` in the removal, beside
+   `Parity`; the install in the four containers stays green, SELinux being off there.
+5. **Docs:** `doc/getting-started.md` and `doc/security.md` say the package loads the module where SELinux is enabled,
+   and keep the script for a machine where it is enabled afterwards.
+6. **Once on a machine:** a Fedora 43 leg (`acceptance/legs`, `--os fedora`), checked to be enforcing with
+   `getenforce`, installs the built `.rpm` with `dnf`, starts a task that reaches the vault proxy, and `dnf remove`
+   leaves no `sokar_socket` in `semodule -l`.
+
+Red first: the package check's new reading of the scripts, against today's packages, which carry none.
 
 ## Acceptance
 

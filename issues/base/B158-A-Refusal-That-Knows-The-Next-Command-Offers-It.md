@@ -1,6 +1,7 @@
 # B158 — A Refusal That Knows The Next Command Offers It
 
-**Status:** implemented here for `vault login`; the other refusals listed below are open.
+**Status:** Implementing.
+**Size:** M - several command modules over one helper; what is left is one test, under an hour.
 
 **What must be true.** Where a command refuses only to tell the person which command to run next, and Sokar already
 knows that command's answer, it asks at a terminal and does it, instead of making the person type it. Without a
@@ -15,8 +16,8 @@ Found in the joint test, 2026-10-10:
     which logs in nowhere - or pass --force to authorize again, which may or may not invalidate the
     credential already here
 
-The person had to read the sentence, then type one of two commands that Sokar had just named. B133 does the same for a
-shut vault, and B132 for a grant missing at a task's start.
+The person had to read the sentence, then type one of two commands that Sokar had just named. [B133](README.md#b133) does the same for a
+shut vault, and [B132](README.md#b132) for a grant missing at a task's start.
 
 ## The shape
 
@@ -30,6 +31,24 @@ shut vault, and B132 for a grant missing at a task's start.
     B133 has not reached yet.
 - Not of this kind, and left as refusals: `task remove` of a running task (stopping is a decision), and a start whose
   name has earlier work waiting (approve or reject is a review, not a command to run).
+
+## Plan
+
+Built and on main:
+
+- The rule is a decision now, "Sokar offers what it would tell a person to type" in `doc/decisions.md`, through one
+  helper, `Offer` (`apps/app-base/src/main/java/org/fuin/sokar/app/Offer.java`).
+- `vault login` on an agent already signed in: `VaultLoginCommand` offers the import, a login again or nothing
+  (`VaultLoginOfferTest`, seen red first).
+- A start refused for a missing grant, sign-in or key: `TaskLaunch.credentialRemedy` offers the very command the
+  refusal names - `vault authorize`, `vault login` or `vault put` - and the start goes on once the credential is
+  there (`CredentialOfferTest`, seen red first). Without a terminal the refusal is word for word as before.
+- `task resume` of a task whose vault is shut: `TaskResumeCommand.resume` asks for the passphrase through
+  `SokarContext.openIfShut` and decides again once it is open, as [B133](README.md#b133) built it.
+
+Left: the test the acceptance asks for the resume. In `apps/app`, a task whose resume answers `NEEDS_VAULT`, a
+`VaultPrompt` stood in that gives the passphrase: the task resumes; with `VaultPrompt.NOBODY` the refusal still says
+`Unlock it with 'sokar vault unlock'`. It may be green at once, as the code is there; then it is kept as the guard.
 
 ## Acceptance
 

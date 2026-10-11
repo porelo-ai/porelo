@@ -1,6 +1,7 @@
 # B59 — A Kernel Of Its Own For A Task
 
-**Status:** later; an experiment before it is a requirement.
+**Status:** Analyzed.
+**Size:** XL - an experiment, a doctor probe and an adoption that would change the hooks; split as the plan says.
 
 **What must be true.** Whether a task can run under a runtime that gives it its own kernel is measured rather than
 assumed, and a task never starts that way without its ruleset failing closed.
@@ -56,6 +57,25 @@ The first two decide whether the rest is worth doing.
 6. **What does it cost?** Start time per task, memory per task, whether the image has to change, and
    whether the acceptance suite passes unchanged against a task started this way.
 
+## Plan
+
+Read in today's code. `Podman` (`runtime`) starts every task with the host's default runtime; no `--runtime` is
+passed anywhere. `NftHook` (`hooks`) runs at `createRuntime` and loads the ruleset with
+`nsenter --target <pid> --net nft --file -`; `SupervisorHook` starts the resolver in the same namespace; the vault
+proxy, ssh-agent and clearance sockets are bind-mounted from the runtime directory; `task attach` is
+`podman exec -it ... tmux new-session -A`. `SecurityClass` (`core`) has `offline`.
+
+It splits into three issues:
+
+1. **The experiment** (M): first whether the libvirt and rented machines offer nested KVM (`/dev/kvm`, the CPU
+   flags). Then, on a machine that does, the stub's image under `podman run --runtime krun`, by hand and with
+   Sokar's hooks registered; questions 1 to 6 answered here, each with its command. No code changes.
+2. **The doctor probe** (S): `sokar doctor` says whether `/dev/kvm` is usable and the runtime is installed. Red
+   first: the probe's test on a machine description without `/dev/kvm` expects "not able".
+3. **Adoption** (L), only if questions 1 and 2 have answers that fail closed: a project setting that chooses the
+   runtime, the `offline` class first; `Podman` passes `--runtime`; the ruleset in its new home; an acceptance leg
+   on a KVM machine. Red first: a task whose ruleset load is made to fail starts under the KVM-backed runtime.
+
 ## Acceptance
 
 - Every question above has an answer measured on a machine with KVM, written down with the command
@@ -74,23 +94,21 @@ The first two decide whether the rest is worth doing.
 
 ## To be checked
 
-- **Nested virtualisation** on the libvirt test machines and on rented ones. Without it, this cannot
-  be tested where everything else is tested, and that alone may end the experiment.
-- **Whether the guest is the better home for the ruleset anyway.** A ruleset the workload cannot
-  reach around, loaded by something the workload cannot stop, is the property that matters; which
-  kernel holds it is not.
-- **What a second wall is worth here.** Rootless, no capabilities and `no-new-privileges` already
-  remove the usual ladder; the gain is against kernel bugs, and the cost is the four mechanisms
-  above. That trade is the decision, and it belongs to the operator.
-- **This is the rehearsal for `sokar-project` PJ25**, Sokar on Apple Containers. A container on macOS always has a kernel
-  of its own, so that requirement asks the same four questions this one does: where per-container
-  egress filtering lives and whether it fails closed, whether a host socket reaches the workload,
-  whether the host's loopback can be mapped in for the gate, and how much is genuinely shared.
-  Answering them here costs one Linux machine with KVM and the acceptance suite that already runs;
-  answering them there costs a second implementation on another platform.
-- **Snapshot and restore.** A task comes back after a machine restart through `task start
-  --restarted`, and its conversation with it where B46 ([index](README.md)) can. A runtime that can freeze and restore a workload would change
-  what those can promise, and it is not available through podman today.
+- **Nested virtualisation** on the libvirt test machines and on rented ones (Agent Core's, measured). Without it,
+  this cannot be tested where everything else is tested, and that alone may end the experiment.
+- **Whether the guest is the better home for the ruleset anyway** (Agent Core's). A ruleset the workload cannot
+  reach around, loaded by something the workload cannot stop, is the property that matters; which kernel holds it
+  is not.
+- **What a second wall is worth here** (the operator's). Rootless, no capabilities and `no-new-privileges` already
+  remove the usual ladder; the gain is against kernel bugs, and the cost is the four mechanisms above.
+- **This is the rehearsal for `sokar-project` [PJ25](https://github.com/sokar-ai/sokar-project/blob/main/issues/README.md#pj25)**, Sokar on Apple Containers (Agent Project's). A container on
+  macOS always has a kernel of its own, so that requirement asks the same questions: where per-container egress
+  filtering lives and whether it fails closed, whether a host socket reaches the workload, whether the host's
+  loopback can be mapped in for the gate, and how much is genuinely shared. Answering them here costs one Linux
+  machine with KVM and the acceptance suite that already runs.
+- **Snapshot and restore** (the operator's). A task comes back after a machine restart through `task start
+  --restarted`, and its conversation with it where [B46](README.md#b46) ([index](README.md)) can. A runtime that can freeze and
+  restore a workload would change what those can promise, and it is not available through podman today.
 
 **Guideline points, 2026-10-09:** a review of security guidelines counts this as its item F8,
 answering OpenSSF tip 2, OWASP AI Agent Cheat Sheet §9.

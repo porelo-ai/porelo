@@ -1,6 +1,7 @@
 # B127 — An Online Task Pushes Through The Host
 
-**Status:** implemented here; the acceptance run on the Ubuntu VM is open.
+**Status:** Review.
+**Size:** L - the gate and its server, the start and the firewall, the build helper, seven documents and scenarios.
 
 **What must be true.** A task of class `online` reaches its upstream the way a `guarded` one does: only through the
 gate on the host, and with no credential and no socket of one in its container. The host fills the gate from the
@@ -28,6 +29,19 @@ publish. Moving that power to the host makes "no credential in a container" true
 It also makes a local upstream work: the host can read a `file://` repository on the same machine, which a container
 never can, so the acceptance suite's online fixture is a real one again. The builds scenario's fixture is such a
 repository, and since an online task whose fetch fails is refused at its start, it could not start any more.
+
+## Plan
+
+Built and on `origin/main` (`b5625490`, `14962fa3`, the documents in `9ae41550`; released in 0.4.1):
+`GateServeCommand --pass-on` (`apps/app-gate/...`) passes the task's own incoming ref on as `sokar/<task>`;
+`GitHttpServer.passOn` (`gate/...`) refuses every other ref before anything reaches the forge; `GitGate.passOn`
+pushes with force with the key `GitCredentials` lends, and `GitGate.refresh` fetches from the upstream before an
+agent's fetch. **Answered:** the branch at the forge is `sokar/<task>`, as `approve` names it.
+
+The acceptance run on the Ubuntu VM is green on `30c8169b` (220 scenarios), `task-builds.feature` with its `file://`
+upstream included. `doc/` and `README.md` name an ssh-agent only for `sokar vault agent`, which serves a command on the
+host, for an ssh key declared `--agent` in `doc/credentials.md`, and in the decision's history. The operator's test is
+left.
 
 ## Acceptance
 
@@ -66,7 +80,7 @@ repository, and since an online task whose fetch fails is refused at its start, 
 
 ## To be checked
 
-- The name of the task's branch at the forge: `sokar/<task>`, as `approve` names it, or the name the agent chose.
 - What the gate answers when the forge is slow or cannot be reached: the agent's push waits how long, and fails with
-  what.
-- Online tasks started before this keep their socket until they are removed; they are only the tests' own.
+  what; `GitGate.passOn` sets no time limit of its own today (Agent Core's).
+- Whether online tasks started before this may keep their socket until they are removed, since they are only the
+  tests' own (Agent Core's).

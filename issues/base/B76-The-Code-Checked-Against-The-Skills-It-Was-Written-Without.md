@@ -1,6 +1,7 @@
 # B76 — The Code Checked Against The Skills It Was Written Without
 
-**Status:** now; every module has been read, what is left is each section's **Open** list.
+**Status:** Implementing.
+**Size:** L - ten open findings in five modules, and three modules added on 2026-10-08 that were never read.
 
 **What must be true.** Every Java module has been read against the skills that apply to it, and
 each finding is either fixed with a test that was watched to fail, or declined with the reason
@@ -134,7 +135,7 @@ Fixed, each with a test watched to fail:
 Moved, with the reason:
 
 - **Copies of the passphrase and keys left in memory** - the keyring's strings and native buffers, a
-  device key and the master key on paths that throw - are B23's, which owns what a managed runtime
+  device key and the master key on paths that throw - are [B23](README.md#b23)'s, which owns what a managed runtime
   can and cannot wipe; none of it can be observed from a test.
 
 Declined, with the reason:
@@ -404,6 +405,37 @@ Open:
 - **`ends within N seconds` asserts only that the limit was not reached**, so an immediate refusal passes it;
   every scenario here asserts what was said after it, a repository using the kit may not.
 
+## Plan
+
+Read in the code on 2026-10-11: every **Open** item above still holds, and the list of modules is no longer
+every module. Since `ac40a26` three modules came into this tree that nobody read against the skills:
+`builds/api` and `builds/stub` (the build interface, about 1100 lines), `dist/package-check` (about 1000) and
+`acceptance/legs` (about 1500), all added on 2026-10-08. `apps/*` and `daemon` have changed by many thousand
+lines since their reading; they are read again only where a finding below touches them.
+
+In order, credentials and threads first, one commit per module:
+
+1. **`sokar-vault`'s three tests that do not prove their guard** (`vault/src/test/...`): the keyring's
+   session-link case removes the link, the failed-write case fails after the temporary file is written, and a
+   second process (a forked JVM) holds the file lock while the first waits.
+2. **`sokar-shield`'s netlink socket** (`shield/.../NetlinkSocket.java`): the descriptor is closed when `bind`
+   fails. Red first: a test with a bind that fails, through a seam for the downcall, sees `close` not called.
+3. **`sokar-hooks`' hung `nft`** (`hooks/.../NftHook.java`, which waits 30 seconds today): the program it runs
+   comes through a seam, the hook's own limit is below the runtime's, and the hook log says it timed out. Red
+   first: a fake `nft` that sleeps, and a hook log without the word.
+4. **`sokar` (app)**: a message id delivered twice across passes is recognised against the held record as well
+   (`MessageRecord`, `TransportConversations`); the message watch says when it falls back to the pass for lack
+   of inotify watches (`MessageWatch`, one line in `doc/messages.md`); a test meets pruning and lending one
+   token (`FollowCredential`).
+5. **The acceptance kit**: `ends within N seconds` takes the expected end as part of the step, or the kit's
+   README says it asserts the limit only. The remote command's limit is `sokar-buildtools`'; it is written
+   there as an issue and leaves this list.
+6. **The new modules**, read against the same skills: `builds/api` and `builds/stub` (security-audit,
+   java-code-review, concurrency-review, test-quality), `dist/package-check` and `acceptance/legs`
+   (test-quality, security-audit, java-code-review). Each gets its row in *Done so far* and a section here.
+
+Every fix keeps the rule above: a test watched to fail with the fix undone.
+
 ## Acceptance
 
 - A list of the modules, each with the skills it was read against and the commit that closed it.
@@ -417,3 +449,10 @@ Open:
   to that.
 - **Seen to fail:** each fix's test, run with the fix undone, goes red; a module listed above
   without its skills and closing commit means this issue is not done.
+
+## To be checked
+
+- Whether `apps/*` and `daemon` are read again whole for what changed since `ac40a26`, or only where a finding
+  touches them (Agent Core's).
+- `ends within N seconds`: change the step for every repository that uses the kit, or say what it asserts
+  (Agent Core's, with the agent repositories' agents).

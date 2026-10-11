@@ -1,6 +1,7 @@
 # B146 — One Stop Of Every Task On A Node
 
-**Status:** built.
+**Status:** Review.
+**Size:** M - a command, a daemon method and a journal across `app-task` and `daemon`; built and pushed.
 
 **What must be true.** One command stops every task of an account on a machine at once, and the stop is journalled.
 
@@ -24,6 +25,14 @@ An incident needs everything stopped now; today each task is stopped by name.
 - The daemon's `Panic` answers the line as `journalled` (`SokarDaemonTest`).
 - Tokens stay in the vault, as `task stop` keeps them: `doc/decisions.md`, "A stop of every task keeps its tokens".
 
+## Plan
+
+- Built and on `origin/main` since 2026-10-11 ("Stop every task with task stop --all as panic does, and journal each
+  stop of everything with who and when").
+- Left: the operator's test - `sokar task stop --all` with two tasks running, then the line in `stops.log`.
+- Revoking the tokens is decided against: the stop keeps them, as `task stop` does; revoking stays `vault revoke`
+  per task (`doc/decisions.md`).
+
 ## Acceptance
 
 - Seen to fail first, then green: the behaviour above, in a test of the module that carries it.
@@ -31,4 +40,4 @@ An incident needs everything stopped now; today each task is stopped by name.
 
 ## To be checked
 
-- Whether it also revokes the tasks' tokens.
+- None.

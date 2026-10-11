@@ -1,6 +1,8 @@
 # B63 — A Share That Is Not Stored At All
 
-**Status:** later
+**Status:** Analyzed.
+**Size:** XL - a measurement, FIDO2 at the machine, TPM2, and what the node records are four pieces; split as the plan
+says.
 
 **What must be true.** An operator whose device unlocks the vault can rely on that device being
 worth more than the account it runs under: code running as them cannot obtain the share without
@@ -66,6 +68,31 @@ how many credentials may unwrap it, and it was complete without a single token. 
 which is a different question with different failure modes - and bundling them would have meant
 neither shipping until a token was on somebody's desk.
 
+## Plan
+
+Read in today's code. `Keyslot` (`vault`) records `storage` as one of `USER_SCOPED`, `APPLICATION_SCOPED`, `FIDO2`
+and `TPM2`, recorded and not verified. `VaultFile.enroll(opener, share, name, storage)` wraps the master key with a
+share, and `Opener.share(byte[])` opens with one. A device enrolls through the daemon's `EnrollDevice` and unlocks
+through `UnlockWithShare` (`30-vault.varlink`); `VaultDevicesCommand` (`apps/app-vault`) prints what each storage is
+worth. No command enrolls the machine itself with a token. `SystemdCredential` (`vault`) already reaches a TPM
+through `systemd-creds` for the unlock cache, and `KernelKeyring` shows how a C library is called through FFM in the
+dynamically linked binaries.
+
+It splits into four issues:
+
+1. **The measurement** (S): libfido2 through FFM from a JVM and from the native image, with a token present, absent
+   and untouched; whether the hmac-secret of one credential and salt gives the same 32 bytes after a reboot. The
+   results go into this issue; nothing is built.
+2. **FIDO2 at the machine** (L): `sokar vault enroll --fido2` in `apps/app-vault`. The keyslot header gains the
+   credential id and the salt, readable while locked (`Keyslot`, `VaultHeader`); the share is derived, used and
+   cleared. Unlock tries a FIDO2 slot when a token is there, with a stated touch timeout, and names the token when it
+   is absent. Red first: a unit test with a token behind an interface asserting the header holds the inputs and no
+   share, and the sentence for an absent token. The checks with a real token are made at a desk; no leg has one.
+3. **TPM2** (L): the same with a sealed object and a PIN.
+4. **What the node records** (M): a slot the node enrolled itself records what it did; a `FIDO2` claimed through
+   `EnrollDevice` is shown as claimed, or the product stops showing it as different. A contract change in
+   `30-vault.varlink`, agreed with the interface on the channel.
+
 ## Acceptance
 
 - **A machine with a token enrolls itself.** `sokar vault enroll --fido2` at the machine derives a
@@ -87,8 +114,10 @@ neither shipping until a token was on somebody's desk.
 
 ## To be checked
 
-- **Whether the node can tell what protected an unlock** (point 5), or the product must stop
-  presenting a `FIDO2` or `TPM2` slot as different from a `USER_SCOPED` one.
-- **How a token behaves in this codebase**: whether a native image can call libfido2 and tpm2-tss
-  without carrying half of them, and what a token that is absent looks like from Java - to be
-  measured first, as the Notes say.
+- **Whether the node can tell what protected an unlock** (the operator's, after the measurement), or the product
+  must stop presenting a `FIDO2` or `TPM2` slot as different from a `USER_SCOPED` one.
+- **How a token behaves in this codebase** (Agent Core's): whether a native image can call libfido2 and tpm2-tss
+  without carrying half of them, and what a token that is absent looks like from Java - measured first, as the
+  Notes say.
+- **Whether TPM2 goes through `systemd-creds`** (Agent Core's), which Sokar already runs, or through tpm2-tss: the
+  first needs no library in the image, the second asks for a PIN itself.

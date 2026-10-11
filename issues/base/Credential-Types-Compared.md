@@ -5,8 +5,8 @@ no single requirement can hold, the way
 [the comparison of agents and providers](https://github.com/sokar-ai/sokar-project/blob/main/doc/agents-and-providers.md) holds the one that spans
 agents and providers. The part they share - more than one credential in a task, a route each - and the key kind are
 built and described in [Credentials](../../doc/credentials.md#more-than-one-credential-in-a-task); what is
-left is owned by [B30](B30-Credentials-The-Broker-Has-To-Fetch.md) and
-[B31](B31-An-Authorization-A-Person-Grants-Once.md), one per kind.
+left is owned by [B30](README.md#b30) and
+[B31](README.md#b31), one per kind.
 
 ## Why they were split
 
@@ -24,10 +24,10 @@ is to argue it in — not to widen an existing kind until it covers something it
 | Kind | What Sokar holds | What Sokar does | What the container gets | Who is involved | Owner |
 |---|---|---|---|---|---|
 | **Key** | the value itself | strips, attaches, forwards | a phantom token and an endpoint | nobody | built |
-| **Grant** | a client secret or a key, plus a token URL and scopes | exchanges it for a short-lived token, caches it, renews it | a phantom token and an endpoint | nobody | [B30](B30-Credentials-The-Broker-Has-To-Fetch.md) |
-| **Authorization** | what a person's consent produced, with its refresh token | attaches it, and refreshes it the way a grant is refreshed | a phantom token and an endpoint | a person, once | [B31](B31-An-Authorization-A-Person-Grants-Once.md) |
+| **Grant** | a client secret or a key, plus a token URL and scopes | exchanges it for a short-lived token, caches it, renews it | a phantom token and an endpoint | nobody | [B30](README.md#b30) |
+| **Authorization** | what a person's consent produced, with its refresh token | attaches it, and refreshes it the way a grant is refreshed | a phantom token and an endpoint | a person, once | [B31](README.md#b31) |
 | **Minted** | nothing | issues it | the token itself, in full | nobody | built |
-| **Signed** | a key that never leaves | performs the operation on request | a socket | nobody | built for ssh, generalized by [B30](B30-Credentials-The-Broker-Has-To-Fetch.md) |
+| **Signed** | a key that never leaves | performs the operation on request | a socket | nobody | built for ssh, generalized by [B30](README.md#b30) |
 | **Out of band** | — | — | — | — | refused, below |
 
 The last column of the container's side is the point: **four of the five supported kinds put the same
@@ -58,8 +58,8 @@ authentication**, where each person's own context persists.
 Keys and grants are shared: a project holds one, and everyone who can start a task in that project
 can spend it. Authorizations are individual by construction — that is why they exist. The difference
 is not in the plumbing, it is in what the record has to say afterwards, and it is why
-[B31](B31-An-Authorization-A-Person-Grants-Once.md) reaches into
-[B26](B26-What-This-Machine-Has-Been-Doing.md) and the other two do not.
+[B31](README.md#b31) reaches into
+[B26](README.md#b26) and the other two do not.
 
 ## What is refused
 
@@ -83,11 +83,11 @@ is whether that work belongs in a task at all.
 than one string, a broker that serves more than one route, and keys presented as they are stored.
 Both are built.
 
-**Then B30**, because it is the unbuilt half of handing a task credentials, which has been
+**Then [B30](README.md#b30)**, because it is the unbuilt half of handing a task credentials, which has been
 waiting on a credential kind that actually expires. It is the largest of the three and the
 one that introduces a clock the broker has to keep.
 
-**B31 last**, because it needs B30's refresh to be worth anything, because it is the only one that
+**[B31](README.md#b31) last**, because it needs [B30](README.md#b30)'s refresh to be worth anything, because it is the only one that
 needs a person, and because the question it turns on — whether the broker can carry an MCP session at
 all — is unmeasured, and answering it may change the shape of the file.
 

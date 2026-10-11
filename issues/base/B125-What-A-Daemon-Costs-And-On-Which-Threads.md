@@ -1,9 +1,10 @@
 # B125 — What A Daemon Costs, And On Which Threads
 
-**Status:** now; first measurement done 2026-10-07, platform threads stay.
+**Status:** Implementing.
+**Size:** M - what is left: two measurements on the two-CPU VM, one bound on loops in `app-messaging`, one listing fix.
 
 **What must be true.** What one `sokard` costs is measured, idle and at work, and its loops run on
-the kind of thread that the measurement and B79's fault support. The decision is written down with the
+the kind of thread that the measurement and [B79](README.md#b79)'s fault support. The decision is written down with the
 numbers that made it, not inferred.
 
 ## Why
@@ -19,10 +20,34 @@ a platform thread.
 
 The kind of thread is a separate question: how many threads a machine carries, and whether a call on
 the socket always finds a thread to run on. The daemon's long-lived passes (`BackgroundPass`) and
-every varlink connection run on platform threads since B79. A daemon once answered no call for four
+every varlink connection run on platform threads since [B79](README.md#b79). A daemon once answered no call for four
 minutes. The likeliest cause was background passes and connection reads on virtual threads, pinned in
 native calls, holding both carriers of a two-CPU VM. That cause was inferred, not measured, and the
 hang has not been seen since. Whether virtual threads would serve better was the open question.
+
+## Plan
+
+Built, read in the code at `30c8169b`: the pause (`caf9585d`, `MessageWaitPaceTest`); platform threads with
+`SOKAR_THREADS=virtual` kept for measuring (`wire/.../varlink/ServingThreads.java`); screens read from a file the task
+writes (`apps/app-base/.../ScreenFile.java`) and eight at once (`AgentWaiting.readScreens`); a heap bound for each
+helper; the leaks of the first round. Both measured rounds below say platform threads stay.
+
+What is left, in this order:
+
+1. **The loops of exited tasks.** `MessageWatch.members` (`apps/app-messaging/.../MessageWatch.java`) takes every
+   mailbox of a project, and `waiting` starts a `sokar-direct-<container>` loop for each, so an exited task that was
+   not removed keeps a thread that waits on its transport. The loop is started, and kept, only for a running task with
+   an account in the vault. Red first: a test of `MessageWatch` whose member's container is exited, against the code
+   that starts its loop.
+2. **A container created and never started** is to be listed so `sokar task remove` can remove it: a test of
+   `Podman.sokarTasks` (`runtime/.../Podman.java`) with a `Created` line and no recorded id shows whether the filter on
+   the recorded id is what drops it, and `ContainerSummary` already reads `Created`.
+3. **The idle measurement**, on the two-CPU VM, of the native build, before and after `caf9585d`: no project, exited
+   tasks with no account, one running task, the vault shut and open - CPU over a minute and threads, a row each in
+   this issue.
+4. **The [B79](README.md#b79) run on virtual threads**: the same VM, `sokard` killed with `SIGKILL` and started at once with
+   `SOKAR_THREADS=virtual`, fifteen or more projects followed, a full acceptance run without the restart scenarios;
+   a hang gets a `SIGQUIT` dump. The outcome and its reason go under the measurements.
 
 ## Acceptance
 
@@ -33,7 +58,7 @@ hang has not been seen since. Whether virtual threads would serve better was the
 - **Every daemon loop that waits on something outside it rests when that thing did not wait**, each
   with a test watched to fail. Today these are the two transport loops (`MessageWaitPaceTest`). The
   others sleep or block (`sokar-messages`, `sokar-message-notices`, `sokar-follow`, `sokar-upstream`).
-- **Virtual or platform, decided with a measurement:** the B79 scenario (two-CPU VM, a daemon started
+- **Virtual or platform, decided with a measurement:** the [B79](README.md#b79) scenario (two-CPU VM, a daemon started
   right after a SIGKILL, fifteen or more projects followed, a full acceptance run) run with the
   passes and connections on virtual threads. If calls hang, a thread dump (`SIGQUIT`) names where they
   wait, and the platform threads stay, with the reason recorded here. If none hangs in enough runs to
@@ -44,13 +69,12 @@ hang has not been seen since. Whether virtual threads would serve better was the
 
 ## To be checked
 
-- How many platform threads a daemon holds with N tasks: a direct-chat loop per task, a conversation
-  loop per project, a thread per open varlink connection, and whether that matters below a few
-  hundred.
+- How many threads a daemon holds with N tasks that each have a conversation: measured at 20-24 threads for up to
+  30 tasks with none, so the direct-chat loops are what is left to count (Agent Core's).
 - Whether a native call (`podman`, `git`, `ssh`, a transport adapter) pins a carrier in today's
-  GraalVM native image, measured rather than taken from the JDK's documentation.
+  GraalVM native image, measured rather than taken from the JDK's documentation (Agent Core's).
 - Whether `matrix`'s `0.4.0~snapshot.309` daemon, with its vault shut, shows the same turning threads
-  after the fix.
+  after the fix, or that account is simply moved to a current build (the operator's).
 
 ## Measured, 2026-10-07
 
@@ -75,7 +99,7 @@ most +0.18 MB/min).
 **What follows:**
 
 - **Platform or virtual makes no difference** that this measurement can see, so platform threads stay, with
-  B79's reason. `SOKAR_THREADS=virtual` stays, so it can be measured again. `sokard` holds a few dozen threads at
+  [B79](README.md#b79)'s reason. `SOKAR_THREADS=virtual` stays, so it can be measured again. `sokard` holds a few dozen threads at
   30 tasks; the work is processes (`podman`, `git`), which a virtual thread does not make faster. Where virtual
   threads fit - many long waits on the network in plain Java - Sokar already uses them: the credential proxy serves
   each connection on one.

@@ -1,6 +1,7 @@
 # B120 — A Wake Waits For Rest That Holds
 
-**Status:** implemented here; the agent repositories' wake scenarios on both legs are the last check.
+**Status:** Implementing.
+**Size:** S - `AgentWake` in `app-messaging`, `Podman.enter` and their unit tests; no contract.
 
 **What must be true.** Sokar types its wake line into a task's session only when the agent's declared `at_rest` has
 held on two looks at the screen a short while apart, with no sign of work between them, never into a turn that is
@@ -17,7 +18,7 @@ the agent then reported "empty messages that keep interrupting my tool calls" an
 same scenarios were green on other legs with the same code, which is what a race looks like. The acceptance kit's
 own ready check already asks that a marker stay on screen for a while before it counts.
 
-**One definition of rest:** B118 reads `at rest` for status and list from the same `at_rest`; it takes rest by this
+**One definition of rest:** [B118](README.md#b118) reads `at rest` for status and list from the same `at_rest`; it takes rest by this
 rule too, so a status never says *at rest* for the instant the wake would not type into.
 
 ## The line must also leave the input box
@@ -42,10 +43,6 @@ that did not reach the agent, never as a wake that did.
   the rest held, if the wake no longer types at all.
 - The wake scenarios of the agent repositories stay green with the change, on both legs.
 
-## To be checked
-
-- How far apart the two looks are, and whether the daemon's pass waits between them or the next pass takes the second.
-
 ## As built, 2026-10-10
 
 - `AgentWake.wake` reads the screen twice, `LOOK` (1.5 s) apart, and types only when both show rest and no open
@@ -58,3 +55,12 @@ that did not reach the agent, never as a wake that did.
   box submitted once more, a line still standing not delivered and only submitted next time; `AgentWakeTest`'s agent
   now takes the line it is given, as a real one does.
 
+## Plan
+
+Built and on `origin/main` (`3f678c27`): `AgentWake.wake` and `rests`
+(`apps/app-messaging/src/main/java/org/fuin/sokar/app/AgentWake.java`), `Podman.enter`, `WakeLandsTest` and
+`AgentWakeTest`. What is left is no code here:
+
+- The wake scenarios of the agent repositories, on both legs, against a `sokar` snapshot that holds `3f678c27`. A red
+  one there is read for whether `LOOK` is too short for that agent's work line, before anything else changes.
+- [B118](README.md#b118) takes its rest by this rule; the test of `rests` moves into `app-model` then, and `AgentWake` calls it there.

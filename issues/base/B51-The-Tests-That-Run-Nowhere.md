@@ -1,6 +1,7 @@
 # B51 — The tests that run nowhere
 
-**Status:** soon.
+**Status:** Analyzed.
+**Size:** L - what a leg is for is a decision first, and the report across legs touches the leg driver and the workflow.
 
 **What must be true.** Whoever reads a green build can tell a test that did not apply on this run from one that
 cannot run anywhere in the pipeline, and the SELinux-dependent unit tests run where SELinux is.
@@ -55,6 +56,25 @@ Two smaller things are worth doing either way, and neither depends on that decis
 - **The build should be able to report which conditional tests were satisfied nowhere**, across the
   legs of a matrix. One leg cannot see this; the pair of them makes it obvious.
 
+## Plan
+
+Read in today's code. `SocketContextTest` (`wire`) gates two tests on `@EnabledIf("selinux")`, which reads
+`/sys/fs/selinux/enforce`. `acceptance/legs/src/main/java/org/fuin/sokar/legs/Main.java` builds with `-DskipTests`
+before deploying, so the unit tests in a leg's log run on the host that drives it. Other tests skip through
+`assumeTrue` (`KernelKeyringTest`, `VarlinkInteropTest`) and are of the same kind.
+
+Steps, in order:
+
+1. Red first: a test asserting that a test disabled for want of SELinux gives a reason naming where in the pipeline
+   it runs. Then a JUnit condition in `testing` (`sokar-testing`) that takes the place of `@EnabledIf` and says
+   "runs on the fedora leg" rather than an ordinary skip.
+2. The two tests run on the rented machine: after deploying, the fedora leg runs `SocketContextTest` in the checkout
+   its snapshot already compiles, and fails when the two are skipped there. Breaking the SELinux branch of
+   `SocketContext` then turns that leg red. This is the decision below; the other way is a probe binary run by an
+   acceptance step.
+3. Each leg uploads its surefire reports. A job after the matrix in `build.yml` lists the test cases skipped on
+   every leg and fails naming them, unless a test says where it runs.
+
 ## Acceptance
 
 - The two SELinux-gated tests in `SocketContextTest` execute on a machine with SELinux, and the fedora leg's
@@ -67,5 +87,7 @@ Two smaller things are worth doing either way, and neither depends on that decis
 
 ## To be checked
 
-- Whether a leg runs the unit tests on the rented machine rather than the driver running them on the host - a
-  change to what a leg is for, so a decision.
+- **Whether a leg runs unit tests on the rented machine** (the operator's), rather than the driver running them on
+  the host - a change to what a leg is for, so a decision.
+- **Where the report across legs lives** (Agent Core's): in this repository's workflow, or as a command of
+  `sokar-release` that the agent repositories could run too.

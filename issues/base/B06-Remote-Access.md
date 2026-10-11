@@ -1,6 +1,7 @@
 # B06 — Remote Access
 
-**Status:** later.
+**Status:** Implementing.
+**Size:** M - both shapes are built; left are an ssh hop and a socket check in the acceptance suite, and a doc line.
 
 **What must be true.** Tasks on another machine are usable over an encrypted tunnel, without the
 daemon ever binding a network port.
@@ -69,11 +70,42 @@ smaller than it was - an expired question is recorded, replaced on screen by a n
 destination stays blocked, and can still be answered afterwards through `Decide` - but the answer
 has to reach somebody, and who can be reached is decided here rather than by the prompt.
 
-Notifications are the part this constrains that is not yet settled - F23 in the
-[interface's own set](https://github.com/sokar-ai/sokar-frontend/blob/main/issues/README.md),
-whose file is gone because a finished requirement there is deleted rather than kept:
+Notifications are the part this constrains that is not yet settled; the interface's requirement for them in
+[its own set](https://github.com/sokar-ai/sokar-frontend/blob/main/issues/README.md) is retired:
 a forwarded socket delivers events to a client that is connected, which is not the same as
 reaching a person whose client is closed.
+
+## Plan
+
+Read in the code at `30c8169b`:
+
+- **Both shapes are built.** The daemon listens only on `UnixDomainSocketAddress`, through
+  `SocketContext.openUnixSocket` (`wire/.../SocketContext.java`) and `VarlinkServer`
+  (`wire/.../varlink/VarlinkServer.java`). `sokar daemon connect` is `DaemonConnectCommand`
+  (`apps/app/.../DaemonConnectCommand.java`), with `DaemonConnectCommandTest`. `doc/running.md` already describes it.
+- **The one inet listener is not the daemon's.** `SocketRelay` (`supervisor/.../SocketRelay.java`) binds an
+  `InetSocketAddress` inside a task's network namespace, to reach the broker. So the check looks at the daemon's own
+  process, never at every Sokar process on the machine.
+- **The hop this file could not measure is available.** Every machine the acceptance suite runs on has its own sshd
+  (`credentials-commands.feature` relies on it), and scenarios already speak varlink through `sokar daemon connect`
+  (`task-unattended.feature`, `credential-several.feature`). `ssh localhost` on the machine is a real ssh hop.
+- **What stays as it is.** The tail's rate is `TAIL_INTERVAL` (200 ms) with `MAX_CHUNK` (64 KiB) in `SokarDaemon`;
+  the clearance prompt's wait is `shield watch --timeout` (`ShieldWatchCommand`, `DesktopPrompt`), 60 s by default.
+  Neither is changed here.
+- **The client half is the interface's.** Showing a cut tunnel as a disconnection and reconnecting without a
+  restart are sokar-frontend's, by its `doc/decisions.md`; the last two criteria are checked there.
+
+Steps:
+
+1. A scenario in `acceptance/suite/.../machine/machine.feature`, red first: with the daemon running, `ss -ltnup` and
+   `ss -lunp` filtered by the daemon's pid list nothing, and `ss -lxp` lists its socket. It goes red when the daemon
+   owns any TCP or UDP listener.
+2. A scenario for the hop: `Tasks1.Watch` sent through `ssh localhost sokar daemon connect`, a task started and
+   stopped on the machine, both reported on the client side; then the ssh client is killed under the watch, and the
+   client side ends with an error, never with an empty task list. The same once through `ssh -L` with a socket
+   forward and `List` over the forwarded path.
+3. The measurements written into this file; `doc/running.md`'s section on another machine names both shapes'
+   costs (a socket file and its lifetime against one ssh session per stream).
 
 ## Acceptance
 
@@ -89,20 +121,18 @@ reaching a person whose client is closed.
 
 ## To be checked
 
-- **What a client should do when a stream is cut.** The daemon's streams now fail loudly rather
-  than ending quietly, which is the honest half; reconnecting and resuming a watch is a decision
-  nothing has had to make yet, and it is this requirement's to make because the transport decides
-  what a reconnection costs.
-- **Whether an interface should manage the tunnel itself.** Spawning `ssh` and owning its
-  lifetime is friendlier and puts key handling and process supervision inside the client;
-  requiring a tunnel that is already up keeps it out of the credential business. Not this
-  requirement's to decide alone, but it constrains what "reconnection recovers" above can mean.
-- **Whether a forward is verified before a flow depends on it.** `doc/credentials.md` already
-  records that a port collision lies - ssh binds `[::1]` when `127.0.0.1` is taken and says nothing
-  - and a login then completes against whatever is listening. Nothing checks. Raised by a security
-  review; the cheaper answer it also names is a device-code flow, which removes the
-  forward rather than checking it, and is only available where the provider offers one.
-- **Which of the two shapes an interface should use.** Both exist and both work; the trade is
-  measured above, and choosing is the interface's decision rather than this one's. What is not
-  measured is either shape over a real ssh hop from a second machine - this machine runs no sshd -
-  so the reconnection behavior above is still untested against a link that actually drops.
+- **What a client should do when a stream is cut** (Agent Frontend's). The daemon's streams fail loudly rather than
+  ending quietly, which is the honest half; reconnecting and resuming a watch is the interface's, and it constrains
+  what "reconnection recovers" above can mean.
+- **Whether an interface should manage the tunnel itself** (Agent Frontend's). Spawning `ssh` and owning its
+  lifetime is friendlier and puts key handling and process supervision inside the client; requiring a tunnel that
+  is already up keeps it out of the credential business. sokar-frontend's `doc/decisions.md` records managing
+  `ssh` itself.
+- **Whether a forward is verified before a flow depends on it** (Agent Core's). `doc/credentials.md` records that a
+  port collision lies - ssh binds `[::1]` when `127.0.0.1` is taken and says nothing - and a login then completes
+  against whatever is listening. Nothing checks. The cheaper answer is a device-code flow, which removes the forward
+  rather than checking it, and is only available where the provider offers one.
+- **Which of the two shapes an interface should use** (Agent Frontend's). Both exist and both work; the trade is
+  measured above.
+- **How long a clearance prompt waits for somebody who is not at the machine** (the operator's). 60 seconds was
+  never measured against anybody; see Notes.

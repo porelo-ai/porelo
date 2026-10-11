@@ -1,11 +1,11 @@
 # B14 — Talking Between Tasks, design
 
-How [B14](B14-Talking-Between-Tasks.md) is built, and how its groups would be. The mailbox, the host's
+How [B14](README.md#b14) is built, and how its groups would be. The mailbox, the host's
 queues, the signature, the sluice, the record and the daemon's methods exist as described here. **Where this
 file names the local or spool transports, carriage between the Unix users of one machine, or a git transport,
 those are retired**: the carrier is a transport that keeps a conversation
-([B86](B86-Messages-Over-Matrix-The-Sokar-Half.md)), and the adapter contract below holds for it with the
-lifecycle B86 adds. What is left to build here is groups, and carriage between machines.
+([B86](README.md#b86)), and the adapter contract below holds for it with the
+lifecycle [B86](README.md#b86) adds. What is left to build here is groups, and carriage between machines.
 
 **In short:**
 
@@ -108,7 +108,7 @@ enum spelling, not `agent`) from a task's outbox and nothing else, requires `mes
 whose `metadata.to` names exactly one peer. The filter checks the A2A 1.0 envelope: `contextId` is optional,
 `extensions` is an optional list of any URIs (no Sokar extension URI exists), and `metadata` is free. The narrowed
 schema below - fixed kinds with fixed data parts, a Sokar extension URI - is enforced by nothing yet; enforcing it is
-B108, in Soon (2026-10-04). What an agent is told is what is enforced: the mailbox guide, in `doc/messages.md`.
+[B108](README.md#b108), in Soon (2026-10-04). What an agent is told is what is enforced: the mailbox guide, in `doc/messages.md`.
 
 What the narrowed schema allows, and nothing else:
 
@@ -142,7 +142,7 @@ Every object is closed: a property the schema does not name is a refusal, not so
 - **One verification path for every transport**, whatever carried the two files.
 - **The key is the daemon user's**, held in that user's state directory at `0600` and never mounted
   anywhere. Sokar runs as a systemd *user* unit, so two people on one machine have two identities and
-  neither can read the other's key; the boundary is exactly Unix-user strength, as B13
+  neither can read the other's key; the boundary is exactly Unix-user strength, as [B13](README.md#b13)
   ([index](README.md)) already says for the guard.
 - **It is not the user's login key.** One lets a machine connect, the other says what it vouches for:
   a login key is often passphrase-protected, and revoking one should not invalidate the other.

@@ -1,6 +1,7 @@
 # B132 — A Subscription Granted With One Command
 
-**Status:** implemented here, but for the offer at `task start`; the agents' grants are theirs to declare.
+**Status:** Review.
+**Size:** M - providers, agents' definitions, the vault commands and the start, with docs.
 
 **What must be true.** For a provider Sokar knows, `sokar vault authorize <provider>` is the one command that grants
 it: on an empty vault it creates the entry with the provider's own settings and goes straight into the device flow.
@@ -56,7 +57,7 @@ On 2026-10-09 the agent's app was first chosen on the premise that it was the ag
 premise was wrong, as above. **Knowing whose ids they are, it was decided the same day:**
 
 1. **The client id comes from the agent package that will use the grant.** It is carried in the agent's description
-   file (B129), so Sokar signs in the way the agent itself would without Sokar. `vault authorize github-copilot` takes
+   file ([B129](README.md#b129)), so Sokar signs in the way the agent itself would without Sokar. `vault authorize github-copilot` takes
    it from the agent installed for that provider, and asks which one when there are several.
 2. **No OAuth app of Sokar's own, and no measurement of one.**
 3. **Written down with its real owner.** `doc/credentials.md` and each agent's documentation say which app the id
@@ -104,3 +105,19 @@ the Pi family first, each id with its owner as read from the agent's source.
 - **Open:** at a terminal, `task start` offering to run the grant and then starting the task; the agents' own
   `login.grants`, which the agent packages declare.
 
+## Plan
+
+Built and on main. The offer at `task start`, open on 2026-10-09, is built since (`f9f9f82e`):
+`TaskLaunch.nextCommand` names `vault authorize <provider>`, `vault login <agent>` or `vault put <name>`, at a
+terminal runs it through `Offer` and goes on once the credential is there, and without one names it, exit 65
+(`CredentialOfferTest`). `19a9ef70` offers the agent to authorize by number where several sign in. `doc/credentials.md`
+says whose app is granted and how to use another. Nothing is left to build in this repository.
+
+Left elsewhere: no agent declares `login.grants` yet (`sokar-omp` `omp.yaml` and `sokar-pi` `pi.yaml` hold none on
+2026-10-11), so `vault authorize github-copilot` on an empty vault is refused, as for no agent that signs in,
+until one does. The first acceptance point waits for that; the third is also `sokar-omp` [OM18](https://github.com/sokar-ai/sokar-omp/blob/main/issues/README.md#om18)'s.
+
+## To be checked
+
+- Who opens the issue in `sokar-omp` and `sokar-pi` for `login.grants.github-copilot`, each id with its owner as
+  read from the agent's source (the sokar-omp and sokar-pi agents', with Agent Core's request).

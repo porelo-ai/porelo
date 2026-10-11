@@ -1,7 +1,7 @@
 # B121 — A Message Record Without A Chain
 
-**Status:** blocked by B154: the chain is the only tamper-evident record today, so it goes only once
-B154's event log replaces it.
+**Status:** Analyzed; blocked by sokar [B154](README.md#b154).
+**Size:** M - one class and one command in `app-messaging`, a scenario, and four documents with a decision.
 
 **What must be true.** A task's message record says what Sokar did with each message on this host - filtered, held,
 refused, delivered - as plain state, and nothing in it or about it claims to prove what was said or in which order;
@@ -25,6 +25,30 @@ is delivered; that decides who may reach a task, not whether a history was chang
 message against its `.sig` again later adds nothing to the check made when it arrived, so `sokar talk verify` goes
 with the chain.
 
+## Plan
+
+Blocked because the chain is the only tamper-evident record today; it goes only once [B154](README.md#b154)'s event log replaces it.
+
+Read in the code at `30c8169b`:
+
+- `MessageRecord` (`apps/app-messaging/src/main/java/org/fuin/sokar/app/MessageRecord.java`): `append` reads
+  `lastHash()` and writes `previous` and `hash`; `verify` walks the chain; `hash` and `lastHash` serve only these; an
+  unreadable line is parsed into a placeholder with `previous` and `hash` of `?`. Duplicate suppression, budgets,
+  refusals and `TalkLogCommand` read `event`, `id`, `peer` and `detail` only.
+- `TalkVerifyCommand` and its registration in `TalkCommand`'s subcommands; no daemon method and no varlink type
+  serves it.
+- `talk-commands.feature` (`acceptance/suite/.../talk/`): `verify` in the two tables of subcommands, and the scenario
+  that runs `sokar talk verify {task}`.
+- `doc/commands.md`, `doc/messages.md`, `doc/decisions.md` (the row and the entry "Each host keeps its own record"),
+  and the designs of [B14](README.md#b14) and [B15](README.md#b15), which mention the chain.
+
+Steps: `MessageRecord.append` writes no `previous` and no `hash`; `verify`, `hash`, `lastHash` and the placeholder's
+two fields go, and an unreadable line is skipped and said in the journal; `TalkVerifyCommand` and its registration
+go; the feature's rows and scenario go; `MessageRecordTest` loses its chain tests; the documents and the decision say
+what the record is now.
+
+Red first: `MessageRecordTest` - a freshly appended line read back has a `hash`.
+
 ## Acceptance
 
 - A line written to the record has no `previous` and no `hash`. Seen to fail: a unit test reading a freshly written
@@ -34,6 +58,6 @@ with the chain.
   scenario that runs it. A message's signature is checked when it arrives, as today. Seen to fail: `sokar talk
   verify` is still answered by anything but "unknown command".
 - `doc/messages.md`, `doc/commands.md` and the decision "Each host keeps its own record" say what the record is now:
-  the host's own state, with the conversation's history on the homeserver. B14's design says the same, and B15 keeps
-  its own journal without a record of B14's to share.
+  the host's own state, with the conversation's history on the homeserver. [B14](README.md#b14)'s design says the same, and [B15](README.md#b15) keeps
+  its own journal without a record of [B14](README.md#b14)'s to share.
 

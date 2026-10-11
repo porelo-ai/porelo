@@ -1,6 +1,7 @@
 # B98 — The Image A Signature Names
 
-**Status:** soon
+**Status:** Analyzed.
+**Size:** M - the core model, the image build and start, `project` and `doctor`, and the default project.
 
 **What must be true.** A signed project's image is the image it names: an operator is told when a
 project names its image by tag only, the digest is recorded when the image is built, and a start
@@ -8,7 +9,7 @@ says when it changed.
 
 ## Why
 
-From a code review (sokar-project PJ19), "Project images are not digest- or signature-pinned", rated important.
+From a code review in `sokar-project`, "Project images are not digest- or signature-pinned", rated important.
 
 A project file's `base_image` is any image reference, and it reaches the container file's `FROM` as written. A tag
 such as `ubuntu:24.04` names whatever the registry serves under it on the day a machine first builds the image:
@@ -23,6 +24,31 @@ a reproducible root either.
 
 A digest is accepted: `base_image: "ubuntu:24.04@sha256:…"` builds from exactly that image. A project that wants
 its signature to mean its image can pin one now.
+
+## Plan
+
+Read in the code on 2026-10-11: `base_image` is read by `ProjectReader` into `Project.baseImage()`
+(`core/.../project/`), written into `FROM` by `Containerfile` (`runtime/`), and is part of the recipe
+fingerprint the image carries as the label `org.fuin.sokar.recipe`. `TaskLaunch` prints `base image` at a
+start; `DefaultProject` writes `ubuntu:24.04` (`BASE_IMAGE`); `Podman.imageRecipe` reads a label back with
+`podman image inspect`. Nothing reads or keeps the base image's digest.
+
+1. **`Project.baseImagePinned()`** in `core`: true when the reference carries `@sha256:`. Unit test first.
+2. **`sokar project` and `sokar doctor`**: a line per project whose base image is a tag only, with the digest
+   podman holds for it today (`Podman.imageDigest(image)`, `{{.Digest}}`) or "not pulled here". Red first: a
+   `DoctorCommandTest` and a project listing test with a tag-only `base_image` that find no such line.
+3. **The digest recorded at a build**: `Podman.buildArguments` adds `--label org.fuin.sokar.base-digest=<digest>`,
+   read from the base image just before the build; not in the recipe fingerprint, so an image is not stale for
+   it alone. A start that builds compares it with the label on the image it replaces and says
+   `base image changed  <old> -> <new>`. Red first: a test with a fake runner whose base digest differs between
+   two builds, and a start that prints nothing about it.
+4. **A followed project with a tag-only image**: the start's `source` line (`TaskLaunch`, beside "followed,
+   verified") adds "its image is named by tag, which the signature does not cover". Red first: the launch test
+   of a followed project.
+5. **The default project with a digest**: `DefaultProject` resolves `ubuntu:24.04` to its digest when it writes
+   the file (pulling it when podman has none) and writes `ubuntu:24.04@sha256:...`; offline, it writes the tag and
+   says so. Red first: a test of the written file with a fake runner.
+6. `doc/project-file.md` says what a digest buys and what it does not (the packages the build installs).
 
 ## Acceptance
 
@@ -39,8 +65,10 @@ its signature to mean its image can pin one now.
 ## To be checked
 
 - Whether to require podman's signature policy (`policy.json`) for a project that names a signed image, or the
-  digest alone.
+  digest alone (the operator's).
+- Whether a followed project with a tag-only image only says so, or is refused unless a person allows it once
+  (the operator's).
 
 **Guideline points, 2026-10-09:** a review of security guidelines counts this as its item F9,
-answering NCSC/CISA secure development, OWASP LLM03, Sysdig 6, AISVS C06.
+answering NCSC/CISA secure development, OWASP `LLM03`, Sysdig 6, AISVS `C06`.
 

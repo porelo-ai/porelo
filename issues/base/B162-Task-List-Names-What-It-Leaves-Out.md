@@ -1,6 +1,7 @@
 # B162 — Task List Names What It Leaves Out
 
-**Status:** built.
+**Status:** Review.
+**Size:** M - the CLI's list, status and logs, and the daemon's `List` and `Watch` with a contract field.
 
 **What must be true.** `sokar task list` never says "No tasks." while containers named like tasks are there: it names
 the ones it does not list, and why.
@@ -24,6 +25,13 @@ and a container prune removed the work in five of them unseen.
   (`TaskLifecycleCommandsTest`, seen red first).
 - The daemon's `List` and `Watch` answer `unrecognized` beside `tasks`, the same names, from the same code as the CLI
   (`TaskInventory.unrecognized`); a change in them is a change for `Watch` (`SokarDaemonTest`, seen red first).
+
+## Plan
+
+Built and on main, nothing left but the operator's test. One source, `TaskInventory.unrecognized`
+(`apps/app-model/.../TaskInventory.java`), feeds `TaskListCommand`, `TaskStatusCommand`, `TaskLogsCommand` and the
+daemon's `List` and `Watch` (`daemon/.../TaskMethods.java`, `unrecognized` in `15-task.varlink`);
+`TaskLifecycleCommandsTest` and `SokarDaemonTest` were seen red first.
 
 ## Decided
 

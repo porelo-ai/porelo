@@ -1,6 +1,7 @@
 # B130 — Two Refusals By Name
 
-**Status:** implemented here; the interface and the plugin are theirs.
+**Status:** Review.
+**Size:** M - one contract change with two errors, the gate, the daemon and the CLI, read by two clients.
 
 **What must be true.** Two refusals that a returning task name runs into reach a client by name, with what it needs
 to offer the next step, instead of as `Failed` with git's text or a general start failure. An interface can then
@@ -53,3 +54,11 @@ its name. Two things of the earlier task can still be there.
 - **Seen to fail first:** `SokarDaemonTest` - `Approve` answered `Failed`, `Start` the general start failure - then
   green with the named errors; `GitGateTest` for the refusal, the branch that grew from it, and the next free name.
 
+## Plan
+
+Built and on main (`231a09e7`, with the offer of the next free name at a terminal in `fbce592f` and `791a152c`):
+`GitGate.approve` and `GitGate.nextFreeBranch`/`waitingWork` in `gate/`, `GateMethods` and the two errors in
+`35-gate.varlink` and `15-task.varlink`, `GateApproveCommand` and the start's refusal in `apps/`. The clients read
+the contract already: the interface (`sokar-frontend`, `gate.dart`, `start_refusal_test.dart`,
+`live_b130_test.dart`) and the plugin (`sokar-intellij`, `Decisions`, `LiveTakenBranchTest`). Nothing is left to
+build here; left is the test of the four acceptance points on a machine, the clients' against a real daemon.

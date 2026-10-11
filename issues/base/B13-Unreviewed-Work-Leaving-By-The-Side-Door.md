@@ -1,6 +1,7 @@
 # B13 — Unreviewed Work Leaving By The Side Door
 
-**Status:** soon; the guard, `gate checkout` and the already-upstream marking built.
+**Status:** Implementing.
+**Size:** S - the guard, `gate checkout` and the marking are on main; left are a hand-push scenario and a decision.
 
 **What must be true.** A person who carries an agent's unreviewed work to the upstream by hand hears about it at the
 moment they push, and the gate never records that work as something it is not.
@@ -247,6 +248,32 @@ upgrade is a re-run.
 and `gate approve` - and `--no-verify` as the deliberate way past, named rather than hidden,
 because a person who means it may still do it.
 
+## Plan
+
+Read in the code at `30c8169b`; the built parts are on `origin/main`.
+
+- **Built and covered.** `GateCheckCommand`, `GateProtectCommand`, `GateCheckoutCommand` (`apps/app-gate/...`) and
+  the marking (`UpstreamDistance`, `PendingPush.upstream`, `UpstreamRecords` in `apps/app-model/...`), with
+  `UpstreamDistanceTest` and the regressions named above. `gate-commands.feature` proves the guard stops agent
+  commits, lets `--no-verify` past and says "not protected" under `core.hooksPath`; `gate-review.feature` proves
+  `gate checkout` opens where nothing runs. Since `43ff6398`, on `main`, `protect` appends
+  its check to a `pre-push` somebody else wrote, when asked, and `--remove` takes only its own lines out again.
+- **Not covered end to end: the already-upstream marking.** No scenario pushes an incoming ref to the upstream by
+  hand and then reads `gate pending` and `gate reject`.
+- **Not built: an upstream review branch.** `GateMode` (`gate/.../GateMode.java`) has `OFFLINE`, `GATEKEEPING` and
+  `ONLINE`; none sends work to a review branch on the upstream, so the last criterion's negative half holds today
+  and its positive half (an opt-in setting) does not exist.
+
+Steps:
+
+1. A scenario in `acceptance/suite/.../gate/gate-review.feature`, red first: a guarded project's task pushes, the
+   incoming ref is pushed to the upstream's default branch by hand with plain git, the daemon's `SyncUpstream`
+   measures it (`UpstreamSync`), then `gate pending` shows the push marked as already upstream, and `gate reject`
+   without `--force` refuses and names `--force`.
+2. Whether the opt-in upstream review branch is built at all (below). If not, the last criterion keeps only its
+   negative half and this file says so; if so, it becomes an issue of its own (a project key, a `GateMode` path and
+   a scenario - M), not part of this one.
+
 ## Acceptance
 
 - Work that reached the upstream without passing the gate is **prevented or reported**, not
@@ -275,10 +302,13 @@ because a person who means it may still do it.
 
 ## To be checked
 
-- **Whether the mirror should be harder to fetch from.** Making it unreadable would break `gate
-  review`, which is how anybody looks at the work at all. Probably nothing to do here, but it is
-  the other end of the same path.
-- **Whether attaching an editor to the container should be made to work anyway.** It is possible
-  and it is currently blocked by the egress rules, and the workaround - declaring an editor
-  vendor's hosts - widens the agent's reach for a person's benefit, which is backwards. `podman cp`
-  places the server with no egress at all. This matters less if the checkout above exists.
+- **Whether sending work to a review branch on the upstream is offered at all** (the operator's). Nothing does it
+  today. If it is wanted, it needs a project setting of its own and a name; if not, the last criterion drops its
+  positive half.
+- **Whether the mirror should be harder to fetch from** (Agent Core's). Making it unreadable would break `gate
+  review`, which is how anybody looks at the work at all. Probably nothing to do here, but it is the other end of
+  the same path.
+- **Whether attaching an editor to the container should be made to work anyway** (the operator's). It is possible
+  and currently blocked by the egress rules, and the workaround - declaring an editor vendor's hosts - widens the
+  agent's reach for a person's benefit, which is backwards. `podman cp` places the server with no egress at all.
+  `gate checkout` exists now, which makes this matter less.

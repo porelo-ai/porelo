@@ -1,6 +1,7 @@
 # B34 — What The Resolver Can Actually Do
 
-**Status:** soon
+**Status:** Analyzed.
+**Size:** S - a named value in `shield`, `doctor`'s probe and JSON, the refusal's words, and the path of the binary.
 
 **What must be true.** An operator can see what a machine's resolver can do and what follows for a
 task; a machine that cannot enforce egress by name is refused with the reason, naming what was
@@ -19,7 +20,7 @@ dnsmasq nftset      yes
 ```
 
 Without `nftset` support a declared domain resolves and is then dropped - names work and nothing
-reaches anything - so the check exists and `task run` refuses the machine. That is correct and it
+reaches anything - so the check exists and `sokar setup` reports the machine not ready. That is correct and it
 is all there is: a host either has the one dnsmasq this project can use, or it cannot run tasks.
 
 ### What they did
@@ -54,6 +55,31 @@ this, which is evidence it was worth doing there. This project has one resolver,
 check, so the same idea is much smaller here - and the smaller version may be a named enum and two
 sentences rather than a subsystem.
 
+## Plan
+
+Read in the code at `30c8169b`.
+
+- **What there is.** `DnsmasqProbe.supportsNftSet` (`shield/.../DnsmasqProbe.java`) parses `dnsmasq --version` into a
+  boolean; `DoctorCommand.nftSetSupport` turns it into the probe `dnsmasq nftset` (`yes`, or missing with "install a
+  dnsmasq built with nftset support"). The refusal is at `sokar setup`, not at a task start: it
+  reports "Not ready yet" for any missing probe (`SetupCommand`, `DoctorCommand.probesFor`); a task start does not
+  check. The binary is `dnsmasq` from `PATH` in three places: `DnsmasqProbe.versionCommand`, `DnsPolicy` and
+  `SupervisorHook` (`hooks/...`), so the one probed and the one run can differ only by `PATH`.
+- **Two values, not tiers.** Egress by name here is an nftables set filled by the resolver. dnsmasq's other way of
+  filling a set, `ipset`, fills a set nftables does not read, so it gives a task nothing; there is no lesser tier to
+  offer. The model is `NFTSET` (names declared are reachable, nothing else is) and `NONE` (names would resolve and
+  reach nothing: refused), each with its sentence.
+
+Steps:
+
+1. Red first, `DnsmasqProbeTest`: the output of a dnsmasq without `nftset` answers a value whose sentence names
+   `nftset` and what it would have provided; and `DoctorCommandTest` asserts the named value, not `yes`.
+2. `ResolverCapability` (`shield`) with the two values and their sentences; `DnsmasqProbe` returns it with the
+   absolute path the binary was found at (resolved from `PATH` once, the same lookup the hook does).
+3. `DoctorCommand`: the probe line names the value and the path; its JSON (`--json`) carries both. `SetupCommand`'s
+   "Not ready yet" names the missing capability through the probe's name.
+4. `doc/running.md` under preparing a machine: the two values and what each means for a task.
+
 ## Acceptance
 
 - The resolver's capability is a value with a name, not a boolean, and `doctor` reports it.
@@ -68,9 +94,8 @@ sentences rather than a subsystem.
 
 ## To be checked
 
-- **Are there real machines this would rescue?** Debian and Ubuntu ship dnsmasq with nftset;
-  Fedora does. If every supported host passes the boolean, this buys wording and nothing else -
-  which is a reason to write the wording and stop.
-- **Whether a lesser tier can exist at all here.** Sokar's whole egress story is nftables sets
-  filled by the resolver. A tier that cannot do that may have nothing to offer a task, in which
-  case the honest model has two values and one of them is "refused".
+- **Are there real machines this would rescue?** (Agent Core's, by measuring). Debian, Ubuntu and Fedora ship
+  dnsmasq with nftset. If every supported host passes, this buys wording and nothing else - which is what the plan
+  above builds, and no more.
+- **Whether a task start should check too** (Agent Core's). Today only `setup` and `doctor` refuse; a machine whose
+  dnsmasq changed after setup starts tasks that reach nothing.

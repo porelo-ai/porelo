@@ -1,6 +1,7 @@
 # B139 — An Alert On What Looks Wrong
 
-**Status:** open.
+**Status:** Analyzed.
+**Size:** L - thresholds need a measured baseline first; three watchers, a contract event and containment.
 
 **What must be true.** Sokar raises an alert on anomalies a person should see - very large prompt bodies, many clearance attempts, unusual name patterns under declared domains - and a project may choose to contain the task on an alert: freeze or stop it and revoke its token.
 
@@ -10,9 +11,37 @@ Today these are journalled (`reach.md`) and nobody is told while it happens.
 
 **Guideline points it answers:** OWASP AI Agent Cheat Sheet §5/§6; Acalvio 7, 10, 11; ACSC (frequent repetitive prompts, a baseline); AISVS 9.1.3, 9.6.1, 9.6.3. From a review of security guidelines, 2026-10-09.
 
-## The shape
+## Plan
 
-Which signals, with which thresholds per project; the alert through the channels Sokar already has (notification, the interface); the containment option per project, off by default.
+Which signals, with which thresholds per project; the alert through the channels Sokar already has (a desktop
+notification, the interface); the containment per project, off by default. Read in the code on 2026-10-11: every
+signal is already seen on the host, per task, by a process that runs beside the task.
+
+- **Large prompt bodies:** `VaultProxy.handle` (`supervisor/`) reads each request's body, up to `BODY_LIMIT`, before
+  it forwards it.
+- **Many clearance attempts:** `ShieldWatchCommand` (`apps/app-egress/`) receives every blocked connection from the
+  NFLOG reader and asks through `ClearanceService`; each decision goes to `ClearanceJournal` (`clearance/`).
+- **Unusual names under declared domains:** the task's resolver (`shield/.../DnsPolicy.java`, dnsmasq with its log);
+  a name is unusual by its length, its entropy and the count of distinct names under one declared domain.
+- **Containment exists in part:** `TaskPanic` stops tasks and their helpers; `TokenBroker.revokeAllFor` revokes a
+  task's tokens. No freeze exists; `podman pause` is the candidate.
+
+Steps, in order:
+
+1. **Baselines measured, not guessed:** a week of the VM's acceptance runs and of real tasks, the body sizes, the
+   blocked attempts per minute and the names per declared domain, written into this issue. The thresholds are set
+   from them, each as a project setting with a default (`alerts:` in the project file, read into `core/.../project`).
+2. **One alert type, one path.** `Alert(task, signal, measured, threshold, at)` written by each watcher to the task's
+   `alerts.jsonl` and sent to the daemon, which shows it by a desktop notification (as `DesktopPrompt` does) and to
+   the interface as a new field of the task (`alerts`) in what `15-task.varlink`'s `Watch` answers, a contract
+   addition the interface and the plugin read. `sokar task status` and `sokar task logs <task> alerts` show it.
+3. **The three signals,** each in its watcher, each with its test: body size in `VaultProxy`, attempts in
+   `ShieldWatchCommand`, names in the resolver's watcher.
+4. **Containment per project,** `alerts.contain: none | freeze | stop`, off by default: freeze pauses the container
+   and revokes its tokens; stop does as `task stop` and revokes them. Both are journalled with the alert.
+5. **Docs:** `doc/reach.md` (what is told, not only journalled), `doc/project-file.md`, `doc/commands.md`.
+
+Red first: a `VaultProxy` test with a body above a threshold of 1 KiB that is forwarded and alerts nothing today.
 
 ## Acceptance
 
@@ -21,4 +50,7 @@ Which signals, with which thresholds per project; the alert through the channels
 
 ## To be checked
 
-- Near B26 and B38; which baselines are measured before a threshold is set.
+- Near [B26](README.md#b26) and [B38](README.md#b38): whether alerts go into [B26](README.md#b26)'s machine-wide record once it exists, or stay per task (Agent
+  Core's). Which baselines are measured is step 1 of the plan.
+- Whether a project may choose freeze at all, since a paused agent holds its session and its tokens' lifetimes run
+  on (the operator's).

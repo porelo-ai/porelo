@@ -1,6 +1,7 @@
 # B126 — One Source For A Repository, Both Ways
 
-**Status:** implemented here; the walk in `walk9` is open.
+**Status:** Review.
+**Size:** L - the gate, the start, `approve`, the `default` entries, the guide and the docs, with scenarios.
 
 **What must be true.** A task's repository has one source, and its work comes from there and goes back there. A
 task started in a checkout takes its history from that checkout, and `sokar approve` puts the work back into it; Sokar
@@ -20,6 +21,22 @@ A checkout is where a person works. When it is the source, the remote is theirs 
 credential for it at all. When the remote is the source, the checkout is no part of the flow: the gate's mirror is the
 only copy Sokar keeps, and the person pulls the approved work from the remote like anyone else's.
 
+## Plan
+
+Built and on `origin/main` (`10dcaaf0`, with fixes in `b5625490`), read in the code at `30c8169b`:
+
+- `DefaultProject.Entry.source()` (`apps/app-model/.../DefaultProject.java`) answers `CHECKOUT` when the upstream is
+  the checkout it was added from, else `REMOTE`; the row carries `source`. Entries made before are remote-sourced.
+- `GitGate.refresh` (`gate/.../GitGate.java`) fetches `+refs/heads/*:refs/heads/*` with `--prune` from the source:
+  a checkout gives **all its local branches**, and a branch the source rewrote is **moved, and said**, never refused.
+  `TaskRefresh` and `sokar task refresh` bring it on demand; `TaskControl` refreshes when a stopped task is started
+  again, and the task's mailbox is told what moved and that `git fetch sokar` brings it.
+- `CheckoutApproval` (`apps/app-gate/...`) puts the work into the checkout as `sokar/<task>` and, when nothing waits
+  at the gate, names what each task of that checkout holds (`UnhandedWork`).
+- `doc/commands.md` says which source a task has and where its work goes.
+
+Left: the walk in `walk9`, the operator's.
+
 ## Acceptance
 
 - **Started in a checkout:** the mirror is seeded from the checkout's committed history, its local commits included,
@@ -37,8 +54,3 @@ only copy Sokar keeps, and the person pulls the approved work from the remote li
 - **`approve` names work the task holds that is not at the gate** (commits or uncommitted changes, as `task stop`
   already reports them), with how to bring it there, instead of only "nothing waits at the gate".
 - `doc/commands.md` and the guide in a task say which source a task has and where its work goes.
-
-## To be checked
-
-- Which branches a checkout gives the mirror: all of its local branches, or the checked-out one and its upstream's.
-- What a refresh does when the source rewrote a branch the agent built on: refuse, or move it and say so.

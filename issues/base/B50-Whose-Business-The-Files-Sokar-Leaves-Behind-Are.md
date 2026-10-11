@@ -1,6 +1,8 @@
 # B50 — Whose Business The Files Sokar Leaves Behind Are
 
-**Status:** soon
+**Status:** Analyzed.
+**Size:** M - several modules (paths, gate, registry, doctor), a correction of existing machines, and acceptance runs
+under two umasks.
 
 **What must be true.** Every file Sokar writes is readable by whoever it concerns, and by nobody
 else - including on machines that already ran tasks.
@@ -26,7 +28,7 @@ Measured on the Ubuntu test VM, on a machine that had run real tasks:
 What is in them is not incidental:
 
 - **The gate mirror holds the work an agent pushed and nobody has reviewed yet.** That is the thing
-  [B13](B13-Unreviewed-Work-Leaving-By-The-Side-Door.md) exists to keep from leaving unseen, and it
+  [B13](README.md#b13) exists to keep from leaving unseen, and it
   is the whole source of every project this machine has touched.
 - **The registry** names every project and the path to its project file.
 - **The upstream records** say what each project's upstream is and how far behind it has fallen.
@@ -66,6 +68,33 @@ answered two directories away.
    locked directory, and that reasoning is measured and stays. This requirement is about the
    directories nobody reasoned about.
 
+## Plan
+
+Read in today's code. `XdgPaths` (`core`) names the data and state directories and sets no mode. `ProjectPaths`
+(`apps/app-base`) writes `projects/` and `upstream/`; `GitGate` (`gate`) makes a mirror under `mirrors/` with
+`git init --bare` or `git clone --bare`; `ProjectInventory` and `BackupRestore` resolve the same paths. Owner-only
+is already set where somebody thought of it: `HandIns`, `TaskBuilds`, `TaskState`, `TaskHelpers`, `NodeIdentity`,
+`HostKey`, `VaultFile`, and the socket directories in `VaultProxy` and `SshAgentServer`.
+
+Steps, in order:
+
+1. Red first: an acceptance scenario that runs a task under `umask 002` and one under `umask 022`, then finds
+   nothing under the data and state directories with `find -perm /077`. It fails today on `mirrors/`, `projects/`
+   and `upstream/`.
+2. One helper in `core` beside `XdgPaths`: create every missing component below a root with `rwx------` as the
+   creation attribute, one component at a time, and write a file with `rw-------`. Creating each component with the
+   attribute leaves no window, which answers the race in `createDirectories`.
+3. Route the durable writers through it: the data and state directories, `projects/`, `upstream/`, `mirrors/`.
+4. Mirrors: `git init --bare --shared=0600`, and `git config core.sharedRepository 0600` after a clone. git then
+   writes files `0600` and directories `0700` whatever the umask, which answers what git creates underneath.
+5. `sokar doctor` gains a probe that walks the data and state directories (not the runtime directory's sockets) and
+   fails, naming each path readable by group or others. At a terminal it offers the remedy as a decision, as other
+   probes do: it tightens the named paths and reports what it changed. That is the correction of an older machine.
+6. Tests: the helper under a missing parent; `doctor` with a loosened path named; a machine at the old modes
+   corrected and reported; the proxy's socket keeps its mode inside its `0700` directory.
+7. A second acceptance account reads nothing under the first account's data directory, since the suite already
+   runs several accounts on one machine.
+
 ## Acceptance
 
 - On a machine that has run a task, every directory and file Sokar created under its data
@@ -84,18 +113,10 @@ answered two directories away.
 
 ## To be checked
 
-- **Whether the umask is worth defending against directly.** Setting the mode explicitly after
-  creating a path is correct and racy: between `createDirectories` and `setPosixFilePermissions`
-  there is a window. `Files.createDirectory` with a `PosixFilePermissions` attribute closes it for
-  a directory Sokar creates itself; a parent created by `createDirectories` is the awkward case,
-  and it is the one that matters here.
-- **What `podman` and `git` create underneath.** The mirror is a git repository made by `git`, and
-  the build directory is filled by `podman build`. Sokar can set the mode of the directory it hands
-  them; what they write inside is theirs, and whether that needs a pass afterwards has to be
-  measured rather than assumed.
-- **Whether the same question has a second answer elsewhere.** This one was found by looking at a
-  machine rather than at the source. The log files, the state directories under the runtime path,
-  and `~/sokar/reviews` have not been looked at the same way.
-- **What a shared machine means for this.** Two developers on one machine are two nodes with two
-  data directories, which is the design - but only if neither can read the other's. That is the
-  case this requirement is really about, and nobody has tried it.
+- **What `podman build` writes into the build directory** (Agent Core's): measured after a build, and whether it
+  needs a pass afterwards or a directory outside the data directory.
+- **Whether `~/sokar/reviews` is owner-only too** (the operator's). It sits in the home, where a person may mean to
+  share a review; the log files and the state directories are in the plan.
+- **Whether anything under the data directory is bind-mounted into a task** (Agent Core's). A container's account
+  maps to a subordinate uid, so an owner-only file there would be unreadable to it; a search of the mounts answers
+  it before step 3.

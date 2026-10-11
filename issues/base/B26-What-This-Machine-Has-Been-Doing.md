@@ -1,6 +1,7 @@
 # B26 — What This Machine Has Been Doing
 
-**Status:** soon
+**Status:** Analyzed.
+**Size:** L - a new durable record written from many places, a method and a command over it, and two caps to measure.
 
 **What must be true.** An operator can ask a machine what it has done — which tasks ran, what
 reached the gate, what was refused and what failed — and get an answer for longer than the tasks
@@ -49,7 +50,6 @@ cost `since` and `behindMeasured` both exist to avoid.
 
 The per-task logs stay. They are the detail. What is missing is the spine.
 
-
 ## The shape
 
 ### Notes
@@ -87,6 +87,38 @@ happened here last night" has nowhere to look today, and that is true with no in
   carried beside the name, so the spine can say which log without naming a file.
 - **`sokar task logs` is built now, separately.** It needs nothing from this requirement.
 
+## Plan
+
+Read in the code at `30c8169b`.
+
+**What is there now.** `sokar task logs` is built (`apps/app-task/.../TaskLogsCommand.java`), so the first missing
+thing above is gone. A task's state directory is still `xdg.runtime()/<container>` (`TaskPaths`), so the seven
+files still die at a reboot. Account-wide and durable, under `xdg.state()` (`SokarPaths`): `failures.log`,
+`stops.log` (each `task stop --all` and `panic`, with who and when), `grants.log` (whom a task acted as, [B31](README.md#b31)), the
+clearance journals, and the message record (`MessageRecord`, the one hash chain). None of them is a spine.
+
+**One log, not two.** [B154](README.md#b154) plans `EventLog` in `apps/app-model`, `$XDG_STATE_HOME/sokar/events.jsonl`, with the
+daemon's `Events()`. This journal is that file: whichever of the two is built first creates `EventLog`, and the
+other adds to it. What [B26](README.md#b26) adds is its event list, the cursor and the caps.
+
+Steps:
+
+1. Red first, in `apps/app-model`: `EventLog` appended past a cap keeps within it and writes a trimming event; made
+   unwritable, `append` returns and the caller carries on; an event given a value that looks like a credential, a
+   prompt or agent output is refused by the writer's shape (names and outcomes only, no free text field).
+2. `EventLog.append(kind, project, task, outcome)`: one JSON line under `PIPE_BUF` with `O_APPEND`, each carrying a
+   monotonic cursor; both caps (size and age) checked on append, trimming recorded.
+3. The writers, one line each: `TaskControl` (start, stop, remove), the image build (`Preparation`), the hooks'
+   repair (`SetupCommand`, and where `TaskLaunch` repairs them), the gate (a push arriving in `GitHttpServer`,
+   `GateApproveCommand`, `GateRejectCommand` and the daemon's same calls), a clearance decision (`ClearanceHub`), a
+   credential brokered for a task (the broker, once per credential per task rather than per request), and
+   `failures.log`'s writer.
+4. `Events(after: ?string)` in a new `55-events.varlink`, streaming with `more`; `sokar events [--follow]` reading
+   the same file through the same reader, so both show the same order. `InterfaceDescriptionTest` holds them.
+5. An acceptance scenario: events recorded, the runtime directory cleared and the task removed, the journal still
+   answers - without a reboot, which the shared machine must not do.
+6. `doc/commands.md` and `doc/how-it-works.md`: what is recorded and what never is.
+
 ## Acceptance
 
 - Events are recorded for at least: a task started, stopped, or removed; an image built; hook
@@ -114,15 +146,15 @@ happened here last night" has nowhere to look today, and that is true with no in
 
 ## To be checked
 
-- **Concurrent appends.** The daemon, the CLI and several helpers run as the same user and would
-  write to one file. On Linux an `O_APPEND` write below `PIPE_BUF` is atomic, which would make one
-  line per event safe without a lock — **this must be measured, not assumed**, and the line length
-  bounded on purpose if it is what the design rests on.
-- **Whether an event can be tied to its task without widening what an event holds.** A security
-  review asked for correlation and proposed carrying destination address, port and
-  process to get it. The first half is this requirement's gap; the second is refused here - the
-  journal carries names and outcomes, and an address in a durable record is the thing a task's own
-  logs are on tmpfs to avoid. What is open is whether a task id alone is enough to answer *what has
-  this machine been doing* without the rest coming with it.
-- **What the two caps actually are.** Decided that there are two; the numbers are not chosen, and
-  they should come from what a busy machine really writes rather than from a round figure.
+- **Concurrent appends** (Agent Core's). The daemon, the CLI and several helpers run as the same user and would
+  write to one file. On Linux an `O_APPEND` write below `PIPE_BUF` is atomic, which would make one line per event
+  safe without a lock - **this must be measured, not assumed**, and the line length bounded on purpose if it is
+  what the design rests on. [B154](README.md#b154) plans a file lock instead.
+- **Whether an event can be tied to its task without widening what an event holds** (Agent Core's). A security
+  review asked for correlation and proposed carrying destination address, port and process. The journal carries
+  names and outcomes; what is open is whether a task id alone is enough.
+- **What the two caps actually are** (Agent Core's). Decided that there are two; the numbers should come from what a
+  busy machine really writes rather than from a round figure.
+- **Whether trimming and a hash chain can live in one file** (the operator's). [B154](README.md#b154) wants every line provable;
+  [B26](README.md#b26) wants the file bounded. Trimming a chain needs the first kept line's predecessor hash kept as an anchor, or the
+  chain restarts at each trim and says so.

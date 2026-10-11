@@ -1,6 +1,7 @@
 # B133 — A Shut Vault Opened Where It Is Needed
 
-**Status:** implemented here; the suite scenario is open.
+**Status:** Implementing.
+**Size:** S - left is one acceptance scenario with the kit's terminal steps, no code; the whole was M.
 
 **What must be true.** At a terminal, a command that needs a shut vault asks for the passphrase itself and carries
 on. Nobody is sent off to type `sokar vault unlock` and then the first command again. Without a terminal it still
@@ -10,7 +11,7 @@ refuses and names `sokar vault unlock`.
 
 Asked on 2026-10-09: when Sokar knows the vault has to be opened, it should open it in the same command. Today
 some commands ask and others refuse with "'sokar vault unlock'". `vault login` even runs the whole login first and
-fails afterwards: "logged in, but the vault is locked". With B132's offer at `task start`, a first start on a fresh
+fails afterwards: "logged in, but the vault is locked". With [B132](README.md#b132)'s offer at `task start`, a first start on a fresh
 machine becomes one command: the passphrase, the grant, the task.
 
 ## Where it is today
@@ -82,3 +83,19 @@ machine becomes one command: the passphrase, the grant, the task.
   or absent, asked only where needed). **Open:** the suite scenario that starts a task on a shut vault by answering
   the prompt.
 
+## Plan
+
+Built and on main (`95ff9462`): `SokarContext.openerAsking` and `openIfShut`, `VaultPrompt`, every command listed
+above, `OpenerAskingTest`; the retry of a keyring that did not answer is on `main` too.
+The no-terminal path is already a scenario (`task/task-refused.feature`, "the vault is locked", no mirror, no
+container) and the login's is too (`agents/agent-login.feature`, asked before the login). Left: the start at a terminal.
+
+1. A scenario in `acceptance/suite/.../task/task-refused.feature`, or a file `task-shut-vault.feature` beside it,
+   with the kit's steps as they are (`TerminalSteps`): a vault of its own holding the fake credential as
+   `anthropic`, a project, `a terminal on the machine`, `I run "sokar vault lock"`, `I run "sokar task start --project
+   <p> --repository <p> --agent stub --attach shell --detach"`; then the terminal shows `Vault passphrase (unlocks it
+   for`, `I type "acceptance"`, and the task is listed. Then a script, without a terminal, runs `sokar vault list` and
+   it lists `anthropic`: the vault is still open, as `vault unlock` leaves it.
+2. Run on the VM with `not @restart`; green there closes the issue.
+
+Red first: the scenario run against the commit before `95ff9462` stops at "the vault is locked" instead of the prompt.

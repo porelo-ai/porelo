@@ -1,6 +1,7 @@
 # B33 — A Task's Own Fetches
 
-**Status:** soon; unconfirmed here, to be reproduced first.
+**Status:** Analyzed.
+**Size:** S - a reproduction on the VM first; at most one image line and one acceptance scenario follow from it.
 
 **What must be true.** A task can fetch from the forges its work depends on, and a failure to do so is never
 reported as a credential problem.
@@ -42,6 +43,28 @@ and exposing its pseudo-headers is in AGENTS.md: it surfaced as `Unable to conne
 responses that were all HTTP 200. Different mechanism, same shape - a protocol difference wearing
 an authentication failure's clothes.
 
+## Plan
+
+Read in the code at `30c8169b`. The default base image is `ubuntu:24.04` (`DefaultProject.BASE_IMAGE`, and
+`AgentLogin.LOGIN_BASE_IMAGE` for the login container); a project may name any image with apt, apk or dnf
+(`image.base_image`). The image's Containerfile is written by `Containerfile` (`runtime/.../Containerfile.java`), which
+installs `git` with `curl` and `ca-certificates` and sets no `http.version` anywhere.
+
+Steps:
+
+1. **Reproduce (no code).** On the VM, an `online` task on `ubuntu:24.04` whose project declares `github.com`
+   (the `git-hosting` set): `git clone https://github.com/<a public repository>` inside it, with and without
+   `git config --system http.version HTTP/1.1`; the same on a Fedora base. The result goes into this file. If it
+   does not reproduce, this file says so and is closed with nothing built.
+2. **If it reproduces:** an acceptance scenario in `acceptance/suite/.../task/`, red first, cloning a public
+   repository inside a task on `ubuntu:24.04`. Then one `RUN` in `Containerfile`, applied only where `/etc/os-release`
+   says noble, with the reason in a comment beside it and in the class's Javadoc. A second scenario on a Fedora base
+   proves the line is not applied where it is not needed.
+3. **The wrong signal.** Whatever the result, a 401 from a forge inside a task never reaches Sokar's broker - an
+   anonymous clone carries no phantom token - so nothing of Sokar's can mislabel it. A line in `doc/running.md`,
+   under adding your own tooling, says that a 401 on an anonymous fetch is not the vault's, and names the setting if
+   step 1 found it.
+
 ## Acceptance
 
 - An anonymous clone from a public forge succeeds inside a task on every supported base image. Seen to fail: the
@@ -57,8 +80,6 @@ an authentication failure's clothes.
 
 ## To be checked
 
-- **Does it reproduce?** An anonymous clone from GitHub inside a `ubuntu:24.04` task, with and
-  without the setting. Until that is done this requirement is somebody else's bug report.
-- **Which images are affected**, if it does. Fedora bases use a different curl and may not be.
-- **Whether the acceptance suite should cover it.** It is a scenario a person would do - start a
-  task, clone something public - and the acceptance suite has the machinery to run exactly that.
+- **Whether the acceptance suite should depend on github.com** (Agent Core's). The scenario is one a person would
+  do, but it makes the suite's result depend on a forge's behaviour; a scenario run only on request is the other
+  way.

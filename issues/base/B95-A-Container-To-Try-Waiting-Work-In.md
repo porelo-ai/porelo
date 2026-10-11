@@ -1,6 +1,7 @@
 # B95 — A Container To Try Waiting Work In
 
-**Status:** soon
+**Status:** Analyzed.
+**Size:** XL - a command, a streaming Varlink method, a third kind of container and an IDE; splits in two below.
 
 **What must be true.** A reviewer can run a build or tests against waiting work, and later attach an
 IDE to it, in a fresh container with the project's egress and no way back - never on the host and
@@ -30,6 +31,45 @@ The interface's half is sokar-frontend's: "Run its tests" and "Open in an IDE" b
 **An IDE's remote backend on the host.** It runs as the account that holds the vault, the daemon's socket and the
 deploy keys; building there runs the agent's code with all of it.
 
+## Plan
+
+Read in the code on 2026-10-11. A task's container is made in one place, `TaskRunner.start`
+(`apps/app-base/.../TaskRunner.java`): the ruleset and resolver written to the task's state directory, the
+sidecar the hooks read, the image built under the project's build lock, and a `ContainerSpec`
+(`runtime/.../ContainerSpec.java`) with the project's limits, the vault socket, the mailbox and the guide. The
+gate's calls (`35-gate.varlink`, `GitGate` in `gate/`) name pending work by project, repository and ref, and
+`Approve` pins the commit the person read (`commit`).
+
+**Split in two**, each L or smaller:
+
+1. **This issue: `gate try`** (L), in the terminal and over the daemon.
+2. **A new issue: the IDE in a try container** (L), after this one and beside [B100](README.md#b100), which decides how a person's
+   computer reaches something inside a container through ssh. Its backend comes through the project's image;
+   this issue only keeps the container's shape fit for it.
+
+Steps for `gate try`:
+
+1. **`TryRun`** in `apps/app-gate`: the pending ref's commit, taken as `Approve` takes it (refused as
+   `MovedSinceReview` when it moved), exported from the mirror with `git archive` into a directory of the
+   account's own under the project's state - never a checkout the mirror shares.
+2. **A container like a task's, without a way back**: `TaskRunner`'s ruleset and resolver with no gate address
+   (the online and guarded classes put the gate in the ruleset; here nothing does), no vault socket, no mailbox,
+   no guide, the project's image and `limitsFor(repository)`. Labelled as Sokar's with a kind of its own, so
+   `sokar task list` never shows it as a task and `sokarContainers()` still finds it to clean up. Removed when the
+   command ends, `--rm` and a `finally`.
+3. **`sokar gate try <task> [--repository] -- <command>`** (`GateTryCommand`), its output streamed, its exit the
+   command's.
+4. **`method Try(project, upstream?, repository?, name, commit?, command: []string)`** in `35-gate.varlink`:
+   streaming, a reply per chunk of output (`lines`, as `Tail` sends them) and a last one with `exit`. Refused as
+   `MovedSinceReview` as `Approve` is, and `StreamRequired` without `more`. The interface's "Run its tests" calls it.
+5. **The result kept with the review**: the last run's command, exit, commit and when, beside the pending ref's
+   record, and `Review` answers it (`tried: ?TryResult`).
+
+Red first: a unit test of the container's specification that finds the gate's address in its ruleset, or a
+vault socket among its volumes. Then the acceptance scenario in `gate-review.feature`: a command that pushes
+to the gate, one that reaches a host outside the egress, the container listed after the end, the mirror's refs
+compared before and after.
+
 ## Acceptance
 
 - `sokar gate try <task> -- <command>` runs the command in a fresh container from the project's image, with the
@@ -45,8 +85,11 @@ deploy keys; building there runs the agent's code with all of it.
 
 ## To be checked
 
-1. **Its limits**: the task's, or a review's own - a build or an IDE backend wants more memory than many tasks.
-2. **Whether the result is recorded with the review**, so an approval can say which run it followed.
+1. **Its limits**: the task's, or a review's own - a build or an IDE backend wants more memory than many tasks
+   (the operator's).
+2. **Whether an approval records which run it followed**, beyond the review showing the last one (the operator's).
+3. **Whether `gate try` takes the agent's provider credentials** - a test suite that calls a model needs them, and
+   the plan above gives none (the operator's).
 
 **Guideline points, 2026-10-09:** a review of security guidelines counts this as its item F7,
 answering the source document's "same SAST/DAST gates for AI code" (§3), Checkmarx, LinkedIn 11.

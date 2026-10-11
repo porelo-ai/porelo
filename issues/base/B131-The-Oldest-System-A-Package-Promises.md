@@ -1,6 +1,7 @@
 # B131 — The Oldest System A Package Promises
 
-**Status:** implemented here.
+**Status:** Review.
+**Size:** M - both packages, the build's check from `sokar-buildtools`, the runners and the docs.
 
 **What must be true.** The `.deb` and the `.rpm` install only where `sokar`, `sokard` and the stub agent can start:
 they declare the oldest C library and zlib the binaries need, a build that would need more fails before it is
@@ -61,7 +62,7 @@ is at most glibc 2.41**, Debian 13's; today they would declare 2.34, what the bi
 - A build whose binaries need a newer `GLIBC_` than the floor fails in `dist-check`, seen on purpose.
 - The packages install and `sokar doctor` runs on Debian 13 and Fedora 43, each in a container or on a machine, once.
 
-The same pattern, from its first version, for `sokar-build-github`'s package (its GH01).
+The same pattern, from its first version, for `sokar-build-github`'s package (its [GH01](https://github.com/sokar-ai/sokar-build-github/blob/main/issues/README.md#gh01)).
 
 ## As built, 2026-10-09
 
@@ -78,3 +79,14 @@ The same pattern, from its first version, for `sokar-build-github`'s package (it
   5.4.2) and `fedora:43` (glibc 2.42, podman 5.8.4).
 - **Every build:** `dist/package-check` installs in `debian:13` and `fedora:43` beside `ubuntu:26.04` and
   `fedora:44`, each pinned by digest; Debian from its own mirrors, not Ubuntu's.
+
+## Plan
+
+Built and on main (`bfface03`): the floors and the ceiling in the root `pom.xml`, `Depends` in
+`dist/dist-deb/src/deb/control/control`, `requires` in `dist/dist-rpm/pom.xml`, `check-linkage` in
+`dist/dist-check/pom.xml`, `runs-on: ubuntu-24.04` in `.github/workflows/build.yml`, `debian:13` and `fedora:43` in
+`dist/package-check` (`Main`, `ImagesTest`), the systems in `doc/getting-started.md`. Nothing is left to build.
+
+One gap against the acceptance: it asks that `sokar doctor` runs on Debian 13 and Fedora 43; the package check runs
+`sokar --version`, `sokar setup` and `sokar agents` there (`Install.COMMON`), and the measurement ran `--version`.
+That is close enough to test by hand once; a `DOCTOR-RUNS` marker in `Install.COMMON` would make it every build's.

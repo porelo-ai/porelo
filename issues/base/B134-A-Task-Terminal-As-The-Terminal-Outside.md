@@ -1,6 +1,7 @@
 # B134 — A Task Terminal As The Terminal Outside
 
-**Status:** implemented here; Pi and the per-agent check in a real task are open, for the joint test.
+**Status:** Implementing.
+**Size:** M - left are Pi's measurement and the kit's per-key test, a step and a scenario; the whole was L.
 
 **What must be true.** An agent in a task behaves at the keyboard and on the screen as it does in a plain terminal on
 the same machine. Scrolling, Esc, modified keys, colours, the clipboard, links, focus and images work as they do
@@ -104,3 +105,25 @@ neither outside copy mode nor in it. Bound since: a page down in copy mode, whic
 key to the program outside it. Checked in tmux 3.4 with the keys typed through an attached client: 21, 42, 21, out of
 copy mode, then to the program.
 
+## Plan
+
+Built and on main (`e55e8f0d`, `2d669ab1` for Shift+PageDown): the settings in
+`runtime/src/main/java/org/fuin/sokar/runtime/Containerfile.java`, pinned by `ContainerfileTest`; the account's
+`~/.config/sokar/tmux.conf` copied in by `TaskRunner` (`AccountTmuxTest`); `doc/running.md` says what is not closed.
+Left, in this order:
+
+1. **Pi measured,** on the Ubuntu VM with the logging program and the script of 2026-10-09, a column beside Claude Code
+   and Oh My Pi: alternate screen or not, the mouse asked for or not, and whether it scrolls its own view on PageUp.
+   A difference the settings do not cover is a new row under "Not closed" and in `doc/running.md`.
+2. **A step to send a key as bytes.** `acceptance/kit` `TerminalSteps` gains `I press the key {string}`, a table of
+   names to the bytes an `xterm-256color` sends (Esc, PageUp, Shift+PageUp, Shift+Enter in both forms, Ctrl+Right,
+   Alt+x, focus in and out), written raw through `Terminal` as `I type` writes text.
+3. **A scenario per key**, `acceptance/suite/.../task/task-terminal.feature`: a task with `--agent stub --attach
+   shell`; in the session `stty raw -echo; od -An -tx1 -v` stands in for the agent; each key is pressed and the
+   terminal shows the hex the table says arrives (CSI u for xterm's Shift+Enter, as measured). Esc is pressed and must
+   show within one second, which today's 500 ms would still pass, so its timing stays with `ContainerfileTest`.
+4. **The joint test** covers the rest: each agent in a real task with a person's own terminal, scrolling, links,
+   images and the clipboard, which the kit's terminal does not render.
+
+Red first: the scenario for Shift+Enter in the CSI u form against the image of the commit before `e55e8f0d`, where
+tmux delivered nothing.

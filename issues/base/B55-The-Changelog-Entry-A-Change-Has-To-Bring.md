@@ -1,6 +1,8 @@
 # B55 — The Changelog Entry A Change Has To Bring
 
-**Status:** soon.
+**Status:** Analyzed.
+**Size:** L - crosses repositories: the check is proposed to logchange first, and otherwise built as a fuinorg plugin of
+its own.
 
 **What must be true.** A change to what ships or builds brings a changelog entry, or says on purpose
 that it does not, and the build checks it in every repository that keeps a changelog.
@@ -54,6 +56,24 @@ Each of these was in `check-changelog.py` because it had gone wrong once:
 - **A shallow clone must not make it pass.** A range that cannot be compared - an abbreviated SHA in a
   depth-1 clone - fails rather than being judged fine.
 
+## Plan
+
+Read in today's code. The root `pom.xml` runs `logchange-maven-plugin`'s `lint` at `validate` (`inherited=false`),
+configured by `changelog/logchange-config.yml`, with entries under `changelog/unreleased/`. Nothing requires an
+entry, and no workflow checks one.
+
+Steps, in order:
+
+1. Red first: the check's cases as tests, taken from what the old script kept - a range that adds a file under
+   `changelog/unreleased/` passes; one that changes a shipped path without one fails; a waiver excuses its own commit
+   only; editor settings and the licence are exempt; a range that cannot be resolved in a shallow clone fails.
+2. Propose a goal, or a `lint` option, to logchange with those cases, and offer the implementation.
+3. If upstream declines, the same goal and tests in a fuinorg plugin in its own repository under
+   `github.com/fuinorg`.
+4. Sokar binds the goal at `validate` in the root POM, with the range from CI (the push's `before` and `after`) and
+   a full-history checkout in the job that runs it.
+5. Break each rule in turn and watch its case fail.
+
 ## Acceptance
 
 - A range that changes what ships without adding an entry fails; the same range with an entry passes;
@@ -69,9 +89,10 @@ Each of these was in `check-changelog.py` because it had gone wrong once:
 
 ## To be checked
 
-- **What logchange's maintainers want:** a goal or a `lint` option, and what a waiver looks like in
-  their model, where entries are files rather than lines.
-- **Where "what ships or builds" is defined:** by convention, or configured per project.
-- **Which repositories adopt logchange besides Sokar, and how.** The three agent repositories keep a
-  changelog and inherit `org.fuin:pom`, so the parent POM would be the one place; `sokar-frontend` has no
-  parent POM and would need its own. Both are decisions for later.
+- **What logchange's maintainers want** (logchange's maintainers'): a goal or a `lint` option, and what a waiver
+  looks like in their model, where entries are files rather than lines.
+- **Where "what ships or builds" is defined** (Agent Core's): by convention, or configured per project with editor
+  settings and the licence exempt by default.
+- **Which repositories adopt logchange besides Sokar, and how** (the operator's). The three agent repositories keep
+  a changelog and inherit `org.fuin:pom`, so the parent POM would be the one place; `sokar-frontend` has no parent
+  POM and would need its own.

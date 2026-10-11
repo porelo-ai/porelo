@@ -1,6 +1,7 @@
 # B31 — An Authorization A Person Grants Once
 
-**Status:** soon; the device code flow, the redirect flow, revocation, `AUTHORIZATION_NEEDED`, the grant's record and the "authorization needed" event built, dynamic client registration decided and not built.
+**Status:** Implementing.
+**Size:** M - dynamic client registration in the supervisor and the vault commands against a stand-in, then two runs.
 
 **What must be true.** A person grants an authorization once, where a person actually is, and every task afterwards
 uses it without holding it and without asking again.
@@ -10,11 +11,11 @@ uses it without holding it and without asking again.
 The only kind with a human in it. Driven by remote MCP servers, where the
 agent is expected to inherit a person's permissions rather than a service account's. Depends on
 [more than one credential in a task](../../doc/credentials.md#more-than-one-credential-in-a-task), which is built, and, for everything after the first consent, on
-[B30](B30-Credentials-The-Broker-Has-To-Fetch.md). Compared with the other kinds in
+[B30](README.md#b30). Compared with the other kinds in
 [Credential Types Compared](Credential-Types-Compared.md).
 
 **Where the other half lives.** Rendering the consent link whole, opening it, and showing a wait that ends outside
-the interface is the interface's work, sokar-frontend F31. It is **blocked by this file**.
+the interface is the interface's work, in `sokar-frontend`, which took this file's criteria as they were quoted.
 
 ### The kind
 
@@ -39,7 +40,7 @@ business since 2026-09-13; this is a question the box genuinely cannot answer al
 
 **There is no way back in.** An authorization code is delivered to a redirect URI, conventionally
 `http://localhost:<port>`. The container has no inbound path, and when the person is not at this
-machine at all ([B06](B06-Remote-Access.md)) the code has to land somewhere that can still hand it
+machine at all ([B06](README.md#b06)) the code has to land somewhere that can still hand it
 back.
 
 **And if the agent completes the flow, the token is in the box.** Audience-scoped and short-lived,
@@ -63,7 +64,7 @@ expires mid-run, in new clothes.
 **A task acting as a person is an audit fact, not only a credential fact.** With shared
 authentication the record says a machine did something; with individual authentication it says a
 named person did, through an agent, unattended. That belongs in
-[B26](B26-What-This-Machine-Has-Been-Doing.md) rather than being invented here, and it is a reason to
+[B26](README.md#b26) rather than being invented here, and it is a reason to
 be slow rather than a reason not to build it.
 
 **Dynamic client registration has to be held somewhere.** If the agent registers, the registration
@@ -94,13 +95,13 @@ service, per project, per person, and asked once.
 **Sokar already has that mechanism under another name.** A clearance prompt is a question naming the
 project, the task and what was reached, answered out of band, taking effect on the connection that is
 waiting — and it is never asked twice for a task, across a resume. A consent link is the same object
-with a URL in it. B06 already owns the hard half of both: how long a prompt waits for somebody who is
+with a URL in it. [B06](README.md#b06) already owns the hard half of both: how long a prompt waits for somebody who is
 not at the machine.
 
 ### Where the code lands, which is the part with three answers
 
 - **A loopback listener on the node**, for an operator sitting at it. Simplest, and useless remotely.
-- **Forwarded over ssh**, reusing what B06 settled for the daemon socket: the browser is on the
+- **Forwarded over ssh**, reusing what [B06](README.md#b06) settled for the daemon socket: the browser is on the
   operator's machine, the redirect comes back down the tunnel.
 - **A device code, which has no redirect at all.** The person is shown a URL and a code and uses any
   browser anywhere; the broker polls. This is the only one of the three that works when nobody is
@@ -130,7 +131,7 @@ not at the machine.
 - **Granting:** `sokar vault authorize <name>`, and the daemon's `Authorize(name)` as a stream, runs the
   device flow on the host. The refresh token that comes back is stored in the account's vault, hidden
   like a task's tokens, with who granted it and when. It never reaches a task.
-- **Using:** the broker buys each access token with the refresh token, host-side, as B30 buys one with a
+- **Using:** the broker buys each access token with the refresh token, host-side, as [B30](README.md#b30) buys one with a
   client secret: per task, in memory, once however many requests wait. A refresh token the service
   rotates is written back to the vault.
 - **A task started without a grant:** an unattended run is refused before anything exists, and an
@@ -148,7 +149,7 @@ not at the machine.
   refresh token is refused at setup: it would end within the hour.
 - **The daemon's `Authorize(name)`** is the same flow as a stream: "needed" with the link and the code,
   then "granted", "refused", "expired" or "failed". Called without streaming it is refused.
-- **The broker spends the grant** with the `refresh_token` grant, per task and in memory, as B30 buys
+- **The broker spends the grant** with the `refresh_token` grant, per task and in memory, as [B30](README.md#b30) buys
   with a client secret, and writes a rotated refresh token back to the vault. A grant the service revoked
   or let expire answers that it needs authorizing again, not that a key is wrong. A credential nobody has
   granted answers with the command that grants it.
@@ -173,11 +174,11 @@ not at the machine.
   exists afterwards, an unreachable service is named, and no grant appears in `vault list`. A real grant
   has not run on a VM: no device authorization service is reachable from it.
 
-### Decided, for the interface (F31)
+### Decided, for the interface
 
 - **An endpoint may be plain http on loopback only** - `127.0.0.1`, `::1` or `localhost` - and must be
   https everywhere else, for `device_authorization_url`, `authorization_url`, `token_url` and
-  `revocation_url` alike, and for `client-credentials` too. The same rule as B86's homeserver: nothing
+  `revocation_url` alike, and for `client-credentials` too. The same rule as [B86](README.md#b86)'s homeserver: nothing
   leaves the machine unencrypted, and a stand-in service on the machine can be measured against.
 - **`CanStart` answers `AUTHORIZATION_NEEDED`** for a credential of kind `oauth-device` or `oauth-code`
   that nobody has granted: its own outcome, never `CREDENTIAL_MISSING` or `CREDENTIAL_UNUSABLE`, with the
@@ -219,7 +220,7 @@ not at the machine.
   closes when either side does.
 - **A task acting as a person is recorded in the task's record now.** Per credential it keeps who granted
   the grant it spends and when; `Task.credentials` shows it, and the record outlives the task in the
-  account's state. [B26](B26-What-This-Machine-Has-Been-Doing.md) takes it over when its machine log is
+  account's state. [B26](README.md#b26) takes it over when its machine log is
   built.
 - **"A service that accepts consent only from the agent's own browser" is closed, not decided**: no such
   service is known, and the shape does not hold. A task behind the broker never sees a 401, so its agent
@@ -278,6 +279,32 @@ app: an access token, no refresh token, no expiry.
   forgotten with the place to revoke it named). Not measured: a Copilot request through the broker, which needs an
   account with Copilot.
 
+## Plan
+
+Read in the code at `30c8169b`. Built and on main: everything under "As built" above - `DeviceGrant`, `CodeGrant`,
+`Grants`, `TokenPurchase`'s refresh (`supervisor/...`), `vault authorize`, `vault remove` with revocation, `CanStart`'s
+`AUTHORIZATION_NEEDED`, `Authorizations()`, `GrantRecord` and `grants.log`, and the MCP stream fix in `VaultProxy`.
+Nothing reads `/.well-known/oauth-protected-resource` or `oauth-authorization-server`, and nothing registers a
+client.
+
+Steps:
+
+1. **Metadata (S).** In `supervisor`, beside `Grants`: read the protected resource's metadata (RFC 9728) for its
+   authorization server, then that server's metadata (RFC 8414) for the registration, device, authorization, token
+   and revocation endpoints, each held to `Grants.secure`. Red first: a test against a stand-in serving both
+   documents, red while an entry naming only the service cannot be authorized.
+2. **Registration (M).** Where the metadata names a `registration_endpoint` and the entry has no `client_id`,
+   `vault authorize` registers once (RFC 7591) on the host and keeps `client_id`, a client secret if issued, and
+   the registration access token in the account's vault beside the entry, hidden as a grant is. A second
+   `authorize`, and every task, reuse it. Red first: a stand-in that counts registrations, red at two.
+3. **Removal (S).** `vault remove` (`VaultRemoveCommand`) deletes the registration at the service where it offers
+   that (RFC 7592, the registration access token), after revoking the grant, and keeps the entry with the same
+   advice as today where the service cannot be told.
+4. **Runs on the VM.** A real device grant against a service the VM can reach, and an MCP session through the
+   broker held open for an hour against a real server; their results written here. Neither changes code unless it
+   breaks.
+5. `doc/credentials.md`: an entry may name only a service; what is registered and where it is kept.
+
 ## Acceptance
 
 - An operator authorizes a service once, outside any task container, and a task then uses it. Seen to fail:
@@ -295,7 +322,7 @@ app: an access token, no refresh token, no expiry.
 - A grant that has expired or been revoked is reported as needing authorization again, distinctly
   from a wrong credential and from an expired task token. Seen to fail: `TokenPurchaseTest`'s ended grant is
   answered as a wrong key.
-- Refresh happens through [B30](B30-Credentials-The-Broker-Has-To-Fetch.md)'s machinery, host-side,
+- Refresh happens through [B30](README.md#b30)'s machinery, host-side,
   and a scope list that would not permit refresh is refused when the authorization is set up rather
   than discovered when a task dies. Seen to fail: a grant with a stated expiry and no refresh token is kept at
   setup.
@@ -315,10 +342,12 @@ app: an access token, no refresh token, no expiry.
 
 ## To be checked
 
-- **Whether the broker can carry an MCP session at all - measured 2026-10-01, and one defect fixed.** It
-  passes every method (GET and DELETE as well as POST), the `Mcp-Session-Id` header both ways, `Accept`,
-  and `text/event-stream` chunk by chunk with no bound on the body. **It held an answer back until its first
-  8 KiB had arrived**, so a server that sent a small event and then waited reached the agent only after the
+- **Which real service to measure against** (the operator's). A real grant has not run on a VM because no device
+  authorization service is reachable from it, and the hour-long MCP stream needs a real server; both need a service
+  and an account somebody holds.
+- **Whether the broker carries an MCP session for an hour** - measured 2026-10-01 against a stand-in, with one
+  defect fixed: it passes every method (GET and DELETE as well as POST), the `Mcp-Session-Id` header both ways,
+  `Accept`, and `text/event-stream` chunk by chunk with no bound on the body. **It held an answer back until its
+  first 8 KiB had arrived**, so a server that sent a small event and then waited reached the agent only after the
   pause (measured: 3 s held for a 3 s pause, `VaultProxyTest`); it now passes the first bytes as soon as they
-  arrive and scans what follows as before. A stream held open for an hour against a real server is still
-  to be seen.
+  arrive. Step 4 is what is left (Agent Core's).

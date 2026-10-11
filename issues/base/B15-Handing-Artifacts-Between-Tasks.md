@@ -1,6 +1,7 @@
 # B15 — Handing Artifacts Between Tasks
 
-**Status:** later.
+**Status:** Analyzed.
+**Size:** XL - a contract grown in the transport's repository, a way out of a task, delivery, a record and a gate check.
 
 **What must be true.** What a task builds can reach another task of the project wherever that task
 runs, carried by the project's message transport beside its messages, addressed by content,
@@ -23,7 +24,7 @@ the storage: it has to be redone around the message transport below before it is
 One task produces something another needs: a built binary, a dataset, a trained model, a coverage
 report, a screenshot of a failure. Today there is no path at all. A task's workspace is inside its
 container and stays there on purpose, and the only things bind-mounted into a container are the
-vault and ssh sockets. The conditions are [B14](B14-Talking-Between-Tasks.md)'s: it must be
+vault and ssh sockets. The conditions are [B14](README.md#b14)'s: it must be
 controlled, visible to a person, recorded, restrictable and stoppable.
 
 ## Most of this is answered, and the answer is the gate
@@ -71,7 +72,7 @@ second storage behind the host.
 
 **A task publishing to one** puts the storage's credential in the path, needs a new declared host in
 every participating project's egress set, and is exactly the side door
-[B13](B13-Unreviewed-Work-Leaving-By-The-Side-Door.md) is about - built in on purpose and reviewed by
+[B13](README.md#b13) is about - built in on purpose and reviewed by
 nobody.
 
 **A second storage behind the host** would avoid those, and would still be a second thing to run,
@@ -135,7 +136,7 @@ What stays Sokar's, whatever the transport:
   started with it off where the project has it on, never the other way round. One switch covers
   handing on and receiving.
 - **The policy**: an artifact stays in its project and travels only in the project's own
-  conversation, never in a direct chat ([B122](B122-No-Direct-Chat-Between-Tasks.md)), so the
+  conversation, never in a direct chat ([B122](README.md#b122)), so the
   operator, who is in that conversation, can see what was handed. The project declares what its
   tasks accept, and refusals are outcomes rather than exceptions.
 - **The record**, written before the other side can see anything: every artifact a task put or
@@ -147,7 +148,7 @@ What stays Sokar's, whatever the transport:
 
 ## Notes
 
-**The relationship to [B14](B14-Talking-Between-Tasks.md).** The same conversation, the same
+**The relationship to [B14](README.md#b14).** The same conversation, the same
 transports and the same split between Sokar and a transport, with a different payload; unlike a
 message, an artifact never crosses into another project. The record is this requirement's own.
 
@@ -160,6 +161,47 @@ rather than first, not for doing it quietly.
 does. The guarantees are provenance, non-execution by default, declaration by the consumer, and a
 record — not safety of the content. Saying so is better than a check that catches the careless case
 and teaches people to trust it for the deliberate one.
+
+## Plan
+
+Read in the code at `30c8169b`. Nothing of this exists; the design file is to be redone first, around the message
+transport rather than podman's store.
+
+**What is reused.**
+
+- **Delivery into a task is `HandIns`** (`apps/app-model/.../HandIns.java`, the daemon's `HandIn`, `TakeBack`,
+  `HandIns`): a file arrives in parts, is checked by size and sha256, written as root into `/sokar/.incoming` and
+  renamed into `/sokar/files`, mode 0644, in a directory the agent cannot write, and every hand-in is a line in a
+  record. That is "read-only and never executable, into a place of that task's own" already; an artifact received
+  is a hand-in whose record line names the artifact, the peer and the signature.
+- **The transport contract** is `TransportDescription`, `TransportSend`, `TransportPoll` and `TransportLifecycle`
+  (`apps/app-messaging/...`): `describe` is read as JSON and `takes` lists the options a transport accepts beyond
+  the common ones. The artifact verbs join it the same way, and `describe` announces them and the size limit.
+- **The signature** is the host's message key, as `MessageIntake` signs a message (SSHSIG over exact bytes, with a
+  namespace of its own) and delivery verifies against `KnownPeers`; an artifact is signed over its digest the same
+  way, under another namespace so one cannot be replayed as the other.
+- **The push limit** at the gate is `GitHttpServer`'s `LimitedInputStream` over the whole request; a limit per blob
+  is a check on the received pack, which is new.
+
+**The split**, each an issue of L or smaller:
+
+1. **The design redone (S).** `B15-Handing-Artifacts-Between-Tasks_design.md` rewritten: the transport's verbs, a
+   drop directory per task, `HandIns` for delivery, the plain record, no podman store.
+2. **A blob over the threshold refused at the gate (M).** A project key (`gate.max_blob_bytes` or similar, with a
+   default) in `ProjectSchema`; the gate's receive path checks each new blob's size (`git cat-file
+   --batch-check` over the received objects) and refuses naming the number. Independent of the rest; red first:
+   a push carrying a blob over the threshold that waits for review.
+3. **The artifact verbs (L, with the transport's repository).** `put`, `fetch`, `remove`, `list` with their
+   arguments and exit codes, the `describe` fields, and a stand-in transport for the tests in `testing/`. Red first:
+   a stand-in transport offering the verbs needs no change in `sokar` to carry an artifact.
+4. **Taking an artifact out (L).** A drop directory bind-mounted from the task's own state (as the mailbox is),
+   read by a host-side helper of that task only: regular files only, symbolic links refused, size counted as copied
+   against the project's limit (never above the transport's), sha256, the commit the workspace was at, the record
+   line written, then the signed put. The project switch (`artifacts:` in `project.yml`) and `task start
+   --no-artifacts`. Red first: a symbolic link in the drop directory that is followed.
+5. **Receiving, listing and withdrawing (M).** The accept declaration in `project.yml`, fetch and signature check,
+   delivery through `HandIns`, `sokar artifact list` and `withdraw` naming the tasks that have it, the daemon's
+   methods. Red first: an artifact put with mode 0755 that arrives executable, or one not declared that arrives.
 
 ## Acceptance
 
@@ -241,8 +283,13 @@ and teaches people to trust it for the deliberate one.
 
 ## To be checked
 
-- **The artifact verbs**: their arguments, what `describe` says about them, and their exit codes -
-  settled by writing one transport that crosses machines against them.
-- **What a message transport can carry**, measured per transport rather than assumed:
-  the largest artifact its system accepts, what keeps the bytes and for how long, and who can read
-  them there. Each transport answers this for itself in `describe` and in its own documentation.
+- **The artifact verbs** (Agent Core's, with the transport repository's agent): their arguments, what `describe`
+  says about them, and their exit codes - settled by writing one transport that crosses machines against them.
+- **What a message transport can carry** (the transport repository's agent), measured per transport rather than
+  assumed: the largest artifact its system accepts, what keeps the bytes and for how long, and who can read them
+  there. Each transport answers this for itself in `describe` and in its own documentation.
+- **How the helper learns the commit** (Agent Core's). Provenance needs the revision the workspace was at, and
+  nothing may run git inside the container or read `/workspace` from the host. The gate's mirror gives the last
+  pushed commit, which may be older.
+- **What happens when an artifact of the same name arrives twice** (Agent Core's). `HandIns` replaces a file of the
+  same name today; for an artifact that is a file changing under a running agent.

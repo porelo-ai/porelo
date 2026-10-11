@@ -1,6 +1,7 @@
 # B137 — An Offline Project Never Connects
 
-**Status:** implemented here; the acceptance suite's bundle round trip is open.
+**Status:** Implementing.
+**Size:** S - left is one acceptance scenario with existing steps; the whole was M.
 
 **What must be true.** A project of the class `offline` makes no connection out, neither from the task nor from the
 host on its behalf. A repository comes in as one file a person carries to the machine, and the work leaves the same
@@ -75,3 +76,19 @@ provider through the host's broker, as in every class (`TaskLaunch` wires the br
 the prompts and what the agent reads leave the machine to the provider. The offline picture and `security.md` say so.
 **Decided, 2026-10-09:** offline keeps reaching its provider; it is said plainly instead.
 
+## Plan
+
+Built and on main (`f4cec6eb`): `Project`, `WorkspaceSetup`, `FollowedProjects.fromAFile`, `ConfigurationWatch`,
+`Reconcile`, the tests named above, `doc/security.md`. The follow over the socket from a file is a requirement of its
+own (`c91c82d0`). Left: the round trip on a clean machine.
+
+1. A scenario `acceptance/suite/.../project/project-offline-bundle.feature`, in one script on the machine: a project
+   repository whose `sokar.yaml` says `offline`, written with `git bundle create`; `sokar project follow <name>
+   <bundle>`; a code repository bundled the same way and seeded with `sokar gate restore <bundle> --project <name>`;
+   a task with `--agent stub` that commits and pushes; `sokar gate backup <file> --project <name>`, and
+   `git bundle list-heads <file>` names the task's commit.
+2. In the same feature: `sokar project refresh` says the project is followed from a file and fetches nothing; a
+   `project follow` of the same definition from a `file://` address is refused as offline from a URL.
+3. Run on the VM with `not @restart`; green there closes the issue.
+
+Red first: the refusal of the `file://` follow, against the commit before `f4cec6eb`, where it was followed.

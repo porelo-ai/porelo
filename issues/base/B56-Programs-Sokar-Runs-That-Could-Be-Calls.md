@@ -1,6 +1,8 @@
 # B56 — Programs Sokar Runs That Could Be Calls
 
-**Status:** later.
+**Status:** Analyzed.
+**Size:** S - completing the table and a test that keeps it complete is one module; each replacement is an issue of its
+own.
 
 **What must be true.** Every external program Sokar starts either has a written reason to stay a program or is
 replaced by a call proven on a JVM and in the native image.
@@ -61,6 +63,33 @@ the two cases there were - the rootless check under the unit's properties (`Unit
 agent's description (`AgentDescription`); another case would be an
 issue of its own ([index](README.md)).
 
+## Plan
+
+A search of the main sources on 2026-10-11 for `ProcessBuilder` and `Command.of` found programs the table does not
+list. The first criterion fails today on them:
+
+| Program | Started by | Could be |
+|---|---|---|
+| `stty` | `Asterisks` (vault) | `tcsetattr(3)` through FFM, in the dynamically linked binaries |
+| `systemctl --user` | `SelfReplacement` (daemon), `SetupCommand` | the user manager's D-Bus; the JDK has none |
+| `systemd-run` | `Scope` (core) | the same |
+| `ssh-keygen` | `VaultPutCommand` | plain Java reads an OpenSSH key; an encrypted one needs bcrypt-pbkdf |
+| `ssh` | `ForgeIdentity` | stays: the operator's ssh configuration is the point |
+| `kill` | `RunningClearance`, `RunningEgress` | `ProcessHandle.destroy()` for TERM; `-HUP` only through `kill(2)` |
+| `rpm`, `dnf`, `apt-cache` | `InstallablePackages` | stays: the package database is theirs |
+| agent, build and helper binaries | `InstalledAgent`, `InstalledBuildReader`, `TaskRunner` | stay: Sokar's own |
+
+`tmux` and `chmod` run inside a container through `podman exec`, so they are out of scope as the ssh strings are.
+
+Steps, in order:
+
+1. Red first: a test in `apps/app`, beside `AgentIsolationTest`, which already scans all sources, collects every
+   literal program name given to `ProcessBuilder` or `Command.of` in main code and fails on one not in its list. It
+   fails today on the programs above.
+2. Add the rows above to the table, each with its reason or candidate, and the names to the test's list.
+3. Each replacement is an issue of its own. The cheapest first: `tar` in `AgentStaging` as plain Java, then `kill`
+   through `ProcessHandle`.
+
 ## Acceptance
 
 - Every external program Sokar starts appears here, either with the reason it stays a program or
@@ -73,11 +102,10 @@ issue of its own ([index](README.md)).
 
 ## To be checked
 
-To be checked again with each Java and GraalVM release:
-
+To be checked again with each Java and GraalVM release (Agent Core's):
 
 - **FFM in a static image**: whether a later GraalVM still needs `libc.so.6` for the default lookup.
 - **GraalVM's C interface against static musl**, from inside a hook.
-- **`setns(2)` and a child process** in a native image: whether the child starts in the namespace of
-  the thread that entered it.
+- **`setns(2)` and a child process** in a native image: whether the child starts in the namespace of the thread
+  that entered it.
 - **podman's REST API against its CLI**: what depending on `podman.socket` costs an operator.

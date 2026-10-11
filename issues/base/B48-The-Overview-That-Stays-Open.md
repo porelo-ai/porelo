@@ -1,6 +1,8 @@
 # B48 — The Overview That Stays Open
 
-**Status:** soon.
+**Status:** Analyzed.
+**Size:** M - the CLI only and no contract change, but it splits the listing, adds a stream reader and needs a terminal
+acceptance step.
 
 **What must be true.** A person at a terminal watches their tasks change, from the same answer the interface
 reads, without a loop they wrote themselves.
@@ -70,6 +72,34 @@ list every second, and the second is what `Watch`'s design exists to prevent.
    task waiting on somebody is the thing this view exists to surface; a person should not have to
    compare columns to find it.
 
+## Plan
+
+Read in today's code. `TaskListCommand.render(PrintWriter)` (`apps/app-task`) builds its answer through
+`TaskInventory` and prints the table in the same method. The daemon's `Watch` (`15-task.varlink`, served by
+`TaskMethods` in `daemon`) sends the whole list on every change and leaves the age out. `VarlinkClient.callMore`
+(`wire`) streams replies to a consumer; `ShieldSubscribeCommand` (`apps/app-egress`) is a CLI command that already
+consumes a stream this way. `SokarPaths.daemonSocket()` names the socket.
+
+Steps, in order:
+
+1. Red first: a test that changes the listing's format and expects the one-shot and the watching output to change
+   together. Then split `render` into a `TaskListing` that takes the tasks, the unrecognized names and the current
+   time, and is called by both.
+2. A reader from a `Watch` reply back to `TaskInventory.Task`, beside the daemon's own mapping and tested as a round
+   trip, so that the view renders the same record the listing does.
+3. The watching form (a flag on `task list`, pending the question below): connect to `daemonSocket()`, call `Watch`
+   with `more`, and let each reply replace the held list. A local clock redraws only the age column, once a minute,
+   from `since`.
+4. At a terminal: draw in the alternate screen with the cursor hidden; redraw only rows whose fields other than the
+   age differ; restore screen, cursor and colours on exit, on Ctrl-C and on a failure, with the same reset that
+   attaching uses. Exit 0 on Ctrl-C. Waiting tasks sort first and are marked. A unit test with a recording terminal
+   asserts which rows were written for one change, and that a minute with no change writes only ages.
+5. Not at a terminal: one line per change with the time, the task and what changed; a test finds no escape
+   sequence.
+6. No daemon: say so, print the one-shot listing and exit, naming what could not be done.
+7. Acceptance, in the terminal kit: start the view, stop a task from a second terminal, see its row change; Ctrl-C,
+   then `stty -a` and the cursor show the terminal as it was. The step goes red when the reset is removed.
+
 ## Acceptance
 
 - The command is started against a machine with tasks on it, a task changes state, and the view
@@ -89,19 +119,14 @@ list every second, and the second is what `Watch`'s design exists to prevent.
 
 ## To be checked
 
-- **Is it a flag or a verb?** `sokar task list --watch` reads as the listing that keeps going, and
-  the house already has `sokar shield watch` as a verb. A flag on the listing keeps the two
-  renderings obviously the same thing; a verb is easier to give its own options later. Decide once
-  - the two will not be reconciled afterwards.
-- **Does it need the daemon?** `sokar task list` does not: it builds its answer through
-  `TaskInventory` in this process, so it works on a machine where nothing is running but podman.
-  Consuming `Watch` makes the watching form need a daemon that the one-shot form does not, which
-  is a difference an operator meets as an error message. Either that is stated plainly, or the
-  watching form falls back to polling its own inventory and accepts being the second change
-  detector this file's point 2 refuses.
-- **Does it belong to one project or to the machine?** The listing is per machine today. Watching
-  is the moment somebody wants only their own project's tasks, and a filter that exists in the
-  watching form and not in the listing breaks the *"same listing"* promise above.
-- **Does the same view want to show the clearance questions?** `Prompts` carries questions that
-  expire, and a person watching their tasks is exactly the person who should see one. It may be
-  the right thing here, or it may be what makes this view two things at once.
+- **Is it a flag or a verb?** (the operator's) `sokar task list --watch` reads as the listing that keeps going, and
+  the house already has `sokar shield watch` as a verb. A flag keeps the two renderings obviously the same thing; a
+  verb is easier to give its own options later. Decide once - the two will not be reconciled afterwards.
+- **Does it need the daemon?** (the operator's) `sokar task list` builds its answer in this process and works where
+  nothing runs but podman. Consuming `Watch` makes the watching form need a daemon, which an operator meets as an
+  error message. The plan states it plainly and falls back to one listing; the other choice is polling its own
+  inventory, as the second change detector point 2 refuses.
+- **Does it belong to one project or to the machine?** (the operator's) A filter in the watching form and not in the
+  listing breaks the "same listing" promise, so a filter would be added to both.
+- **Does the same view show the clearance questions?** (the operator's) `Prompts` carries questions that expire, and
+  a person watching their tasks is the person who should see one; or it makes this view two things at once.

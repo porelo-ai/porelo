@@ -1,6 +1,7 @@
 # B10 — What An Egress Set Can Express
 
-**Status:** soon; decided, not built.
+**Status:** Analyzed.
+**Size:** L - four separate pieces in core, shield, the task's wiring and the daemon, and `Sets()` grows two fields.
 
 **What must be true.** An operator who needs a destination that cannot be written as a host name
 gets it supported or refused with a reason, never silently unreachable, and can tell when two
@@ -89,6 +90,43 @@ The set contents were adapted from the project acknowledged in the
 empty local repository through a logging proxy, which saw `repo.maven.apache.org` and, for
 snapshots, `central.sonatype.com`.
 
+## Plan
+
+Read in the code at `30c8169b`. The four decisions are independent and are built as four commits, in this order.
+
+**1. Addresses in a project.** `Egress` (`core/.../project/Egress.java`) is `(sets, domains, refused)`;
+`ProjectSchema` lists `egress` as `sets`, `domains`, `refused`, and `ProjectReader` reads them at `egress.get(...)`.
+`NftRuleset.allowV4` and `allowV6` (`shield/.../NftRuleset.java`) already take an address or a network on the
+allowed ports.
+
+- `Egress` gains `addresses`; `ProjectSchema` gains the key with its description; `ProjectReader` validates each
+  as an IPv4 or IPv6 address or CIDR and refuses `0.0.0.0/0` and `::/0` with the reason. A repository's addresses
+  are added to the project's, as `Project` merges its sets and domains.
+- `TaskRunner` (`apps/app-base/.../TaskRunner.java`), where the ruleset is built, calls `allowV4`/`allowV6` for
+  each; `EgressControl.reachable` (`apps/app-egress/...`) and the `Egress` reply list them beside the hosts.
+- Red first: `ProjectReaderTest` with `0.0.0.0/0` accepted; then an acceptance scenario in `.../shield/` that
+  declares a network and reaches an address in it.
+
+**2. Refused lookups shown.** dnsmasq already logs every query (`DnsPolicy`: `log-queries`, `log-facility=-`), and
+the hook writes it to the task's `dnsmasq.log` (`hooks/.../SupervisorHook.java`, `LOG_FILE`). `ShieldWatchCommand`
+already reads that log to name an address. A reader of it in `shield` (beside `ResolvedNames`) returns the names
+answered NXDOMAIN; where they are shown is the question below. Red first: a test feeding a captured `dnsmasq.log`
+with one refused query, which goes red when the name is missing.
+
+**3. A fingerprint per set.** `EgressSet` (`shield/.../EgressSet.java`) is `(name, label, domains)`, read by
+`EgressSetDirectory`. It gains `fingerprint`: sha256 over the sorted, lower-cased domains, so comments and order do
+not change it. `Sets()` (`daemon/.../EgressMethods.java`) and `sokar shield sets` show it, and the egress report
+(`EgressReport`) names it beside each set. Red first: two directories holding `maven` with different domains whose
+fingerprints agree.
+
+**4. A set that cannot be complete.** The set's YAML gains `complete: false` and `incomplete_reason`; `EgressSet`
+carries both, `Sets()` replies with them, and `egress/os-packages-fedora.yaml` moves its comment into them. The way
+out - a `baseurl` pinned in the project's `image.snippet` - goes into `doc/project-file.md` beside the egress keys.
+Red first: the listing of `os-packages-fedora` without `complete: false`.
+
+Contract: `Sets()` and `Egress` grow optional fields in `25-egress.varlink`, which only ever grows;
+`InterfaceDescriptionTest` holds them to the registration. The interface reads them (sokar-frontend).
+
 ## Acceptance
 
 - A destination that cannot be expressed as a host name is either supported or refused with a
@@ -105,9 +143,9 @@ snapshots, `central.sonatype.com`.
 
 ## To be checked
 
-- **Where refused lookups are shown.** They exist in the resolver's log, per task. `task list` is a
-  table with no room for them, there is no `task show`, and the daemon's `Task` fields are
-  settled (what `task status` says is in [Commands](../../doc/commands.md#task)) - so this is a question about a surface
-  rather than about data. A method of its own, a field on `Task`, or a line in the egress report:
-  the choice decides whether an operator sees them while a task runs or afterwards, and only the
-  first is any use for the case that motivated it.
+- **Where refused lookups are shown** (Agent Core's, with Agent Frontend's view). They exist in the resolver's log,
+  per task. `task list` is a table with no room for them, and the daemon's `Task` fields are settled (what `task
+  status` says is in [Commands](../../doc/commands.md#task)) - so this is a question about a surface rather than
+  about data. A method of its own, a field on `Task`, or a line in the egress report: the choice decides whether an
+  operator sees them while a task runs or afterwards, and only the first is any use for the case that motivated it.
+  `Tail` already serves the task's `dnsmasq.log`, which may be enough for the terminal.

@@ -1,6 +1,7 @@
 # B122 — No Direct Chat Between Tasks
 
-**Status:** now.
+**Status:** Analyzed.
+**Size:** M - `app-messaging` and the start's check in `app-task`, the mailbox guide and `doc/messages.md`.
 
 **What must be true.** Two tasks never talk in a direct chat: a direct chat exists only between a
 task and a person who joined the project's conversation, so what tasks say to each other is said
@@ -20,6 +21,33 @@ installation declared that way, and a message with `"via": "direct"`, makes a ch
 the operator is not in. The default `others: deny` holds it back until a project allows it; nothing
 forbids it.
 
+## Plan
+
+Read in the code at `30c8169b`:
+
+- **Where the gap is.** `ProjectReader` (`core/.../project/ProjectReader.java`) reads a peer's address as
+  `<transport>:<rest>` and leaves the rest to the transport (`Mail.Peer`). `MessageDispatch.dispatch`
+  (`apps/app-messaging/.../MessageDispatch.java`) writes the peer's destination beside a queued message.
+  `TransportSend` takes any destination starting with `@` as a person, and sends it into a direct chat when the
+  message says `"via": "direct"`. Neither asks whether the account is one of the persons in
+  `Conversations.members(context, project)` (person to account, kept by `TaskConversations`).
+- **The core cannot refuse it alone**: whether an account is a person of the conversation is known on the host, not
+  in the file. So the check is in `app-messaging`: a peer whose address names an account (`@` after the colon, as
+  `TransportSend` already reads it) is accepted only when that account is a value of `members`.
+- **Refused where the file is read for work**: `StartCheck` (`apps/app-task/.../StartCheck.java`), which reads the
+  project file for every start, and `TalkPeersCommand.listed`, which shows the peer, name the peer and why. A task
+  already running meets the same check at its next dispatch.
+- **Refused where a message leaves the task**: `MessageDispatch.dispatch` holds a message with `"via": "direct"` whose
+  peer is not a person who joined, with the reason, before a destination is written; `TransportSend` checks again
+  that a direct destination is a member's account, so a destination queued before the change never reaches a direct
+  chat.
+
+Steps: the check beside `Conversations.members`; `MessageDispatch` and `TransportSend` use it; `StartCheck` and
+`TalkPeersCommand` refuse; `MailboxGuide` and `doc/messages.md` say a direct chat is only with a person, and why.
+
+Red first: `TransportSendTest` - a message with `"via": "direct"` queued for another task's account is handed to the
+stand-in transport with `--to` that account.
+
 ## Acceptance
 
 - A peer whose address names an account is accepted only for a person who joined the project's
@@ -33,3 +61,8 @@ forbids it.
   directly. Seen to fail: the existing direct-chat scenarios.
 - The mailbox guide and `doc/messages.md` say that a direct chat is only ever with a person, and
   why.
+
+## To be checked
+
+- Whether a project file naming a person's account who has not joined the conversation yet is refused at the
+  start, or its peer only held until they join (Agent Core's).

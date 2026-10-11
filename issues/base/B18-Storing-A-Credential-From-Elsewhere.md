@@ -1,6 +1,7 @@
 # B18 — Storing A Credential From Elsewhere
 
-**Status:** later; whether to build it is parked, `sokar vault login` is built from the CLI, `Login` held open as nice to have.
+**Status:** Analyzed.
+**Size:** M - one daemon method carrying a secret, a test that hunts the value everywhere, and docs; not `Login`.
 
 **What must be true.** A person at an interface can store a credential in a machine's vault, the
 reply never carries the value back, and nothing keeps a copy.
@@ -219,6 +220,37 @@ never carries a value"* is a property somebody can verify by reading the interfa
 After this it becomes a property that every future logging change, error message and streamed reply
 has to preserve. That is a worse kind of guarantee, accepted knowingly.
 
+## Plan
+
+Read in the code at `30c8169b`. Whether to build `StoreCredential` is still parked (see Why); this is the plan for when
+it is not.
+
+**Already built, so not part of this:**
+
+- `Providers()` (`40-agent.varlink`) and `ImportCredential(agent, dryRun)` (`30-vault.varlink`), which moves no
+  secret, and `Credentials()`, which answers names, kinds and lengths.
+- `vault put` reads a typed credential without echo (`VaultPutCommand`, `Console.readPassword`, and standard input
+  only when it is a pipe), so the CLI criterion holds.
+- `sokar vault login` (`VaultLoginCommand`, `AgentLogin`), the login in a throwaway container with the browser shim.
+- **The salt is the vault's, not the write's.** `VaultFile` keeps the salt the file was written with and only makes
+  a new one for a new vault or a new slot, so a `vault put` no longer pays a full Argon2id derivation.
+
+**`StoreCredential`, if it is built:**
+
+1. `30-vault.varlink`: `StoreCredential(name, value, type)` -> `(outcome, storedAs, kind, length, detail)`, outcomes
+   `STORED`, `REPLACED`, `VAULT_LOCKED`, `UNBROKERABLE`, `REFUSED`. The daemon resolves `storedAs` with the same rule
+   `vault put` uses (provider name, falling back to the agent's), so the CLI and the method cannot differ.
+2. `daemon/.../VaultMethods.java` registers it, writes through the vault the daemon already holds the reads of, and
+   wipes its copy; no reply, error or log line takes the parameters. The varlink layer (`VarlinkServer`) must not log
+   a request that carries `value` - checked there, not trusted.
+3. Red first, in `SokarDaemonTest`: store through every outcome, failures included, with a marker value, then
+   search the daemon's log, `failures.log`, every reply and every error for it; and a store into a locked vault
+   answered `STORED`.
+4. `doc/credentials.md` and `doc/commands.md`: the obligation on a client not to keep what it sent.
+
+**`Login`** stays later and is its own issue if it is ever built: a field in the agent manifest (`agents/api`,
+read by every agent repository), so L.
+
 ## Acceptance
 
 - A credential can be stored over the contract, and the reply names it — name, kind and length —
@@ -238,15 +270,13 @@ has to preserve. That is a worse kind of guarantee, accepted knowingly.
 
 ## To be checked
 
-- **Whether the vault must be salted anew on every write.** A salt must be random per vault; the encryption's
-  uniqueness comes from the nonce, which is fresh per write already. Salting anew forces a full Argon2id derivation -
-  64 MiB, three passes - on every `sokar vault put`, for no benefit found.
-- **Whether a forced-command ssh account should be served at all**, or written down as a dead end: it is the one
-  case where entering a secret at the node denies a capability rather than a convenience.
-
-- **Whether the daemon should refuse to store a credential with no expiry**, or merely say so.
-  The lifetime argument above says the long-lived key is the problem; refusing one outright would
-  break every provider that only issues those.
-- **Whether `Import` should be preferred in the interface**, since it moves no secret at all. It
-  looks like the better default wherever the agent can log itself in, with typing as the fallback
-  rather than the first offer.
+- **Whether to build `StoreCredential` at all** (the operator's). Parked since the passphrase half was settled;
+  everything above waits on it.
+- **Whether a forced-command ssh account should be served at all** (the operator's), or written down as a dead end:
+  it is the one case where entering a secret at the node denies a capability rather than a convenience.
+- **Whether the daemon should refuse to store a credential with no expiry** (the operator's), or merely say so.
+  The lifetime argument above says the long-lived key is the problem; refusing one outright would break every
+  provider that only issues those.
+- **Whether `Import` should be preferred in the interface** (Agent Frontend's), since it moves no secret at all. It
+  looks like the better default wherever the agent can log itself in, with typing as the fallback rather than the
+  first offer.

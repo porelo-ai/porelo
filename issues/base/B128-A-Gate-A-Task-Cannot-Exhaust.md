@@ -1,6 +1,7 @@
 # B128 — A Gate A Task Cannot Exhaust
 
-**Status:** implemented here; the acceptance run on the Ubuntu VM is open.
+**Status:** Review.
+**Size:** M - `GitHttpServer` in `gate`, the gate's scope in `app-task`, `doc/security.md` and tests.
 
 **What must be true.** What a task's agent can make its gate do on the host is bounded: how many requests it serves
 at once, how much of a push it holds in memory, and how much memory, how many processes and how much CPU the gate and
@@ -17,7 +18,23 @@ processes); and a request's body is read into memory whole, up to 1 GiB. No reso
 found. So a few parallel large pushes, or many small requests at once, take memory and processes from `sokard`, from
 every other task and from the machine. They reach no data and no key, but they can stop the machine's work.
 
-The same holds for every class with a gate: `guarded` today, and `online` once it pushes through the host (B127).
+The same holds for every class with a gate: `guarded` today, and `online` once it pushes through the host ([B127](README.md#b127)).
+
+## Plan
+
+Built and on `origin/main` (`80419bbe`; released in 0.4.1), read in the code at `30c8169b`:
+
+- `GitHttpServer` (`gate/src/main/java/org/fuin/sokar/gate/GitHttpServer.java`) serves at most `AT_ONCE` (4)
+  requests, a semaphore; one beyond is answered `503` with `Retry-After` at once. A request's body is spooled to a
+  file beside the mirror, not held in memory, and the size limit stays.
+- `GateWiring` (`apps/app-task/.../GateWiring.java`) starts each task's gate in a scope of its own
+  (`Scope.around`) with `MemoryMax=1G`, `TasksMax=256` and `CPUWeight=50`; every `git` it starts is its child and in
+  that scope.
+- `doc/security.md`, "What a task can make its gate take", says it.
+
+**Answered:** four requests at once; one scope per task's gate, not one slice for all gates.
+
+The acceptance run on the Ubuntu VM is green on `30c8169b` (220 scenarios); the operator's test is left.
 
 ## Acceptance
 
@@ -29,8 +46,3 @@ The same holds for every class with a gate: `guarded` today, and `online` once i
   limit and a CPU weight below `sokard`'s, the way a task's container has them; exceeding one ends what exceeded it,
   never `sokard` or another task. Seen to fail: a gate whose `git` processes are not in its scope.
 - `doc/security.md` says what a task can make its gate take on the host, and where that ends.
-
-## To be checked
-
-- How many requests at once a gate needs for an agent that fetches and pushes in parallel (a guess: four).
-- Whether the scope is one per task or one slice for all gates.

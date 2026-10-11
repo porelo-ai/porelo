@@ -1,6 +1,8 @@
 # B41 — What a Packaged Agent Installs
 
-**Status:** later.
+**Status:** Analyzed.
+**Size:** M - one contract change (the `Agent` type says what a package ships), one reader shared by the daemon and the
+CLI, and its tests.
 
 **What must be true.** An operator asking `sokar agents --supply-chain` about a packaged agent is
 told what that agent's package ships, read from the bill that package installed.
@@ -23,6 +25,37 @@ truthfully: `sokar-pi` covers its Node tree through the Maven-plus-npm graph, an
 `sokar-claude-code` and `sokar-omp` record the CLI their image fetches, with the publisher's
 SHA-256 and `sokar:delivery=fetched-at-image-build`.
 
+## Plan
+
+Read in today's code. `AgentsCommand` (`apps/app-agents/src/main/java/org/fuin/sokar/app/AgentsCommand.java`) prints
+`installs:` from `definition.version()` and each `InstallArtifact`; the daemon's `AgentMethods`
+(`daemon/src/main/java/org/fuin/sokar/daemon/AgentMethods.java`) maps the same artifacts into the `Agent` type of
+`daemon/src/main/resources/varlink/org.fuin.sokar.Tasks1/40-agent.varlink`. A packaged agent's binary is
+`AgentDirectory.PACKAGED/<package>` (`/usr/libexec/sokar/agents`) and its bill is
+`/usr/share/sokar/sbom/<package>.cdx.json` - `agents/pom.xml` installs both under `${project.artifactId}`. So the
+bill's path follows from the executable's file name: no agent name, and no change in the agent repositories.
+`dist/package-check`'s `Bill` already parses these bills with Sokar's own JSON reader.
+
+The question of who reads the file is taken as the `TaskInventory` precedent says: one class answers it, the CLI
+uses it in its own process, and the daemon serializes the same answer for a remote client.
+
+Steps, in order:
+
+1. Red first: `PackagedBillTest` in `apps/app-model` with a bill of three components, one carrying
+   `sokar:delivery=fetched-at-image-build`; then a missing bill and an unreadable one, each `UNVERIFIED` with a
+   reason; then an agent outside the packaged directory, which has no bill to read and says so.
+2. `PackagedBill` in `apps/app-model`, beside `TaskInventory`: for an `InstalledAgent`, the components (name,
+   version, purl, shipped or fetched at image build) or the reason they cannot be read.
+3. Contract: `Agent` gains `ships: []ShippedComponent` and `shipsUnverified: string` ("" when the bill was read),
+   filled by `AgentMethods` from `PackagedBill` and described in `40-agent.varlink`. The interface is told on the
+   channel.
+4. `AgentsCommand --supply-chain` renders from the same reader: a count of shipped and fetched components, the list
+   under `--verbose`, `UNVERIFIED - <reason>` for a missing or unreadable bill.
+5. `AgentIsolationTest` (`apps/app`) already refuses an agent's name in Sokar's sources, which covers the last
+   criterion.
+
+The check against an installed `sokar-pi` is made on the fedora VM by hand; no acceptance leg installs a package.
+
 ## Acceptance
 
 - For an agent whose package carries its payload, `--supply-chain` names what that package ships,
@@ -40,28 +73,10 @@ SHA-256 and `sokar:delivery=fetched-at-image-build`.
 
 ## To be checked
 
-- **Who reads the file.** A remote client has no filesystem, and the daemon hands out paths rather
-  than taking them on trust. Whether the CLI reads the bill locally or the daemon reports its
-  contents is the same question that shaped `TaskInventory`, and it should be answered the same
-  way rather than freshly.
-
-  **What that precedent says**, recorded here so it is not argued from scratch again:
-  `TaskInventory` exists because *"the CLI renders this and the daemon serializes it, so that
-  'what tasks are there' is answered in one place. Two implementations of the same question are
-  how a feature comes to exist in one and not the other, and how they come to disagree about
-  something an operator is reading to decide what to stop."* Every clause holds here with the noun
-  swapped, and it weighs more: a supply-chain answer exists to be trusted, so two implementations
-  disagreeing about what an agent ships is worse than two disagreeing about a task list. Following
-  it means the daemon reads the bill and returns components as data, the CLI renders them, and
-  `UNVERIFIED` with a reason stays the answer for a missing or unreadable file - which a remote
-  client has to be told rather than infer from an empty list. Written down as the precedent rather
-  than as the decision; taking it is still this requirement's to do.
-- Whether an operator wants the whole component list or only what a person would act on. A Node
-  tree is 162 entries; `sokar agents --supply-chain` printing 162 lines per agent would be a
-  listing nobody reads. **This one narrows once the first is settled:** if the daemon
-  returns components as data, how many to print is the renderer's decision and may differ between
-  the CLI and an interface without either being wrong.
+- **How much an operator wants printed** (the operator's). A Node tree is 162 entries. The plan prints counts and the
+  list only under `--verbose`; since the daemon returns the components as data, an interface may choose differently
+  without either being wrong.
 
 **Guideline points, 2026-10-09:** a review of security guidelines counts this as its item F9,
-answering NCSC/CISA secure development, OWASP LLM03, Sysdig 6, AISVS C06.
+answering NCSC/CISA secure development, OWASP `LLM03`, Sysdig 6, AISVS `C06`.
 

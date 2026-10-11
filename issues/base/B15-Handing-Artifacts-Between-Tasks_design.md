@@ -1,18 +1,18 @@
 # B15 — Handing Artifacts Between Tasks, design
 
-How [B15](B15-Handing-Artifacts-Between-Tasks.md) would be built. **Nothing here exists yet**: every
+How [B15](README.md#b15) would be built. **Nothing here exists yet**: every
 class, path, method and file below is a proposal, and none of it has been measured. Facts about the
 running system are quoted from the code and marked where it matters.
 
-It shares its policy with [B14](B14-Talking-Between-Tasks.md)'s design, deliberately. Its record is its
-own: B14 records in a hash-chained log on each host.
+It shares its policy with [B14](README.md#b14)'s design, deliberately. Its record is its
+own: [B14](README.md#b14) records in a hash-chained log on each host.
 Where that is so, this document points there rather than restating it — two versions of one decision
 is the failure `TaskInventory` and `TaskControl` exist to prevent.
 
 ## Scope of the first version
 
-**This design predates [B15](B15-Handing-Artifacts-Between-Tasks.md)'s decision that artifacts travel
-through the project's message transport.** It treats podman's store as the storage, which B15 no
+**This design predates [B15](README.md#b15)'s decision that artifacts travel
+through the project's message transport.** It treats podman's store as the storage, which [B15](README.md#b15) no
 longer has. What below is Sokar's - the drop directory, ingest, the record, the policy, delivery, the
 daemon's interface - stays Sokar's; storing and fetching bytes move to the message transport's
 artifact verbs, the record below is plain rather than chained, the quota per project gives way to a
@@ -86,7 +86,7 @@ sentence without qualification.
 
 ## Why a drop directory rather than a protocol
 
-B14 needs the agent to take part in a second repository and to read what arrives there mid-run, which
+[B14](README.md#b14) needs the agent to take part in a second repository and to read what arrives there mid-run, which
 is a convention it has to be told about. **Producing a file is less than that.** Every agent can write a file, so the mechanism can be a
 convention instead of a capability:
 
@@ -146,7 +146,7 @@ and never has to know which way it arrived.
 4. **`podman artifact add` the copy.** The digest is the store's own, so nothing hashes twice, and a
    failure here is a failure to store rather than a half-stored artifact.
 5. **Journal, then publish.** The entry is appended before the artifact is visible anywhere. A
-   journal that cannot be written means the artifact is not published — the same ordering B14 uses,
+   journal that cannot be written means the artifact is not published — the same ordering [B14](README.md#b14) uses,
    and for the same reason.
 6. **Receipt.** A line is written into `out/.receipts/<name>.json` giving the digest, so the agent
    knows what was stored. Nothing about it is committed into the work; the gate shows it from the
@@ -205,8 +205,8 @@ means the record can be read by tooling nobody here wrote.
 
 **The statement is not wrapped in a signed DSSE envelope**, which is how in-toto is usually carried.
 The chain is the integrity mechanism here and no key goes near a container. An envelope becomes
-worth adding under exactly the condition B14 names: a record that leaves the machine which produced
-it — which is why B14, whose record does, signs on the host.
+worth adding under exactly the condition [B14](README.md#b14) names: a record that leaves the machine which produced
+it — which is why [B14](README.md#b14), whose record does, signs on the host.
 
 `event` is `put`, `hand`, `receive`, `withdraw` or `refused`. **A refusal is recorded too**: a
 policy that only writes down what it allowed cannot answer the question anybody actually asks after
@@ -248,7 +248,7 @@ in order:
 
 Refusals are **outcomes, not errors**, as `SetEgress` and `WidenTask` already answer.
 
-**If B14 is built, rules 1 to 3 are `TalkPolicy`'s and must be shared rather than copied.** They are
+**If [B14](README.md#b14) is built, rules 1 to 3 are `TalkPolicy`'s and must be shared rather than copied.** They are
 the same sentence about the same file.
 
 ## The daemon's interface
@@ -397,7 +397,7 @@ requirement, and no store answers them.
 - **Scanning artifacts.** Sokar has no scanner and should not grow one. The guarantees are
   provenance, non-execution, declaration and a record.
 - **Signing.** The digest is an integrity property and says nothing about authorship, authorship
-  comes from the transport, and a key an agent can reach is a key it can copy. B14 signs on the host
+  comes from the transport, and a key an agent can reach is a key it can copy. [B14](README.md#b14) signs on the host
   only because its record leaves the machine; this one does not.
 - **Cross-machine.** The daemon binds no network interface in any configuration.
 - **Expiry.**

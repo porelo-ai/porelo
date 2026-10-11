@@ -1,6 +1,7 @@
 # B23 — Secrets In This Process's Memory
 
-**Status:** later; the vault's single all-credentials `String` removed, the rest open.
+**Status:** Implementing.
+**Size:** L - hardening is a few lines, but a credential as bytes changes every caller in vault, supervisor and apps.
 
 **What must be true.** A credential's plaintext exists in as few places, and for as short a time, as the platform
 allows - and what cannot be achieved is written down rather than implied.
@@ -84,6 +85,41 @@ it would be asserting something the platform does not offer.
 - `VaultFile` does not clear a device's wrapping key after enrolling, nor the master key when
   `enroll`, `revoke` or a change in `update` throws.
 
+## Plan
+
+Read in the code at `30c8169b`. Built: the vault document is written into a buffer the vault owns and wiped. The
+rest is open, in this order, cheapest first.
+
+**1. Hardening applied (S, its own commit).** `ProcessHardening` (`core/.../hardening/ProcessHardening.java`) has
+`disableDumping()` and `dropPrivilegeEscalation()`, and still no caller; only `DoctorCommand` reads `dumpable()` and
+`noNewPrivileges()`. Call both first thing in `VaultServeCommand.call`, `VaultAgentCommand.call` and
+`VaultRelayCommand.call` (`apps/app-vault/...`), and in the daemon's start (`DaemonCommand`, `SokarDaemon`), which
+now holds the vault's reads. `doctor` then reports the hardening of those processes, read from
+`/proc/<pid>/status` of each running one, not of itself - or drops the three lines (below). Red first: an
+acceptance step reading `Dumpable` of the running broker and daemon, which reads `1` today.
+
+**2. The passphrase path closed (S).** `KernelKeyring` (`vault/.../KernelKeyring.java`) turns the passphrase into a
+`String` when storing (`new String(passphrase).getBytes`) and when reading; encode from the `char[]` through a
+`CharBuffer` instead, and zero the native segments before the arena closes. `VaultFile.enroll`, `revoke` and
+`update` clear the wrapping key and the master key in `finally`. Red first: a test that reads the buffers after
+`enroll` throws.
+
+**3. A credential as bytes (L).** The one place this already holds is the passphrase: `char[]` from
+`Console.readPassword` through `PassphraseTiers` to the kernel keyring, with the byte buffers wiped. `VaultEntry`
+(`vault/.../VaultEntry.java`) is `record VaultEntry(String value, ...)`; it becomes a holder of a `byte[]` that it
+hands out as a copy and can wipe, and the JSON reading in `VaultFile` parses values into it without a `String`.
+About thirty-five callers read `.value()` - the broker (`VaultProxy`, `TokenPurchase`, `DeviceGrant`, `CodeGrant`
+in `supervisor/...`), the wiring, the import, the listing - and each holds the bytes only as long as it needs them.
+The broker's last copy is the HTTP header: `java.net.http` takes a `String`, so that path keeps one and says so in
+the code and in `doc/credentials.md`. Red first: an architecture test that finds `VaultEntry.value` typed `String`.
+
+**4. The documentation** (`doc/credentials.md`): erasure is not achieved in a managed runtime, and why; what is
+achieved is fewer copies and shorter lifetimes.
+
+**The cost is spread rather than deep.** Changing `VaultEntry` touches every caller that reads a credential, and each
+has to be careful in a way it currently is not; that is why step 3 is done on purpose rather than alongside
+something else.
+
 ## Acceptance
 
 - No structure holds more than one credential's plaintext at a time. Seen to fail: a test that stores two
@@ -98,26 +134,12 @@ it would be asserting something the platform does not offer.
   not apply. Seen to fail: `/proc/<pid>/status` of the broker, the ssh-agent or the relay shows dumpable `1`, or
   `doctor` reports hardening those processes do not have.
 
-## The shape
-
-**The one place this is already true is the passphrase**, which is `char[]` from
-`Console.readPassword` through `PassphraseTiers` to the kernel keyring, with the byte buffers
-wiped. That is the shape the rest would take.
-
-**The cost is spread rather than deep.** `VaultEntry` holding bytes changes every caller that reads
-a credential - the broker, the wiring, the import, the listing - and each of those has to be
-careful in a way it currently does not. That is why this is worth doing on purpose rather than
-alongside something else.
-
 ## To be checked
 
-- **Whether `doctor` should report hardening at all while nothing applies it**, or say plainly
-  that it is not applied. Printing the state of something nobody sets is how a line that looks
+- **Whether `doctor` should report hardening at all** (Agent Core's), or report the broker's and the daemon's state
+  as read from `/proc`. Printing the state of its own process, which nothing hardens, is how a line that looks
   like a warning survives for months.
-- **Whether the broker can avoid a `String` at all.** It reads the real credential per request and
-  puts it in an HTTP header, and the HTTP machinery takes strings. It may be that the last copy is
-  unavoidable there, in which case this requirement should say so about that path specifically.
-- **Whether it is worth it against the threat it addresses.** A heap dump of the daemon requires
-  the ability to read the daemon's memory - which is the same uid that can read the vault file and
-  the passphrase in the keyring. The honest case for this is defence in depth and crash artifacts,
-  not a boundary somebody is being kept outside of.
+- **Whether step 3 is worth it against the threat it addresses** (the operator's). A heap dump of the daemon
+  requires the ability to read the daemon's memory - the same uid that can read the vault file and the passphrase
+  in the keyring. The case for it is defence in depth and crash artifacts, which step 1 already covers for core
+  dumps.

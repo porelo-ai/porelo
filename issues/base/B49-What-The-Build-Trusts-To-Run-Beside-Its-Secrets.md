@@ -1,6 +1,8 @@
 # B49 — What The Build Trusts To Run Beside Its Secrets
 
-**Status:** soon; built in this repository, the agent repositories and the interface open.
+**Status:** Implementing.
+**Size:** S - what is left here is one workflow step and two checks by a person; the other repositories' share is
+theirs.
 
 **What must be true.** Nothing runs beside this product's credentials, in any of its repositories' builds, that was
 fetched by a name its owner may repoint.
@@ -86,6 +88,26 @@ and it is why this finding is the same in every repository.
     the action's pinned commit, but it is downloaded without a checksum. That is what remains here.
   - `Publish` reads Artifactory's package indexes with `curl`, and runs nothing it reads.
 
+## Plan
+
+Built and on main, as "How it is built here" says: every `uses:` in `.github/workflows` and
+`.github/actions/pinned-jdk/action.yml` names a commit with its version; `.github/dependabot.yml`; `check-actions`
+bound to the root POM's `validate` (`pom.xml`, execution `check-actions`, `sokar-release` from sokar-buildtools,
+`release/src/main/java/org/fuin/sokar/release/CheckActions.java`); the Maven wrapper by `distributionSha256Sum`; the
+signing key imported by our own step.
+
+Left here, in order:
+
+1. The JFrog CLI, which `jfrog/setup-jfrog-cli` downloads without a checksum into `Publish` (`build.yml`) and into
+   `artifactory-smoke.yml`. Replace the action by a composite action of our own, `.github/actions/pinned-jf`, that
+   downloads `jf` at a fixed version and checks a pinned SHA-256 before it runs, as `pinned-jdk` does for GraalVM.
+   Build-info publishing is already off (`disable-auto-build-publish: true`), so nothing the action did is lost.
+   Red first: one branch run with a wrong checksum fails the job before `jf` runs.
+2. The hand check of `Publish` after this pinning: a person reads each step and the commit each pin names.
+3. Dependabot's first grouped pull request, reviewed by a person before it lands.
+
+The agent repositories and the interface pin, add the same `dependabot.yml` and run `check-actions` themselves.
+
 ## Acceptance
 
 - `grep` over every workflow in every repository finds no third-party `uses:` naming a tag or a
@@ -108,3 +130,8 @@ and it is why this finding is the same in every repository.
   themselves. Sokar is believed to fetch nothing this way and that has not been proved, which is
   exactly why it is a criterion rather than a note. Open: the JFrog CLI download in `Publish`, pinned by version
   only. Seen to fail: a download in a credential-holding job whose checksum is changed still runs.
+
+## To be checked
+
+- **Whether `Publish` keeps the JFrog CLI at all** (Agent Core's). It speaks to Artifactory's REST interface, which
+  `curl` and the access token reach without a download; dropping it removes the last thing fetched by a name.
