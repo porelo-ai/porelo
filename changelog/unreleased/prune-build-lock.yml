@@ -1,0 +1,2 @@
+title: prune no longer offers the build lock of a project that exists, nor anything of a project whose image build holds its lock
+type: fixed

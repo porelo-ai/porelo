@@ -37,6 +37,9 @@ import org.jspecify.annotations.Nullable;
  */
 public final class Prune {
 
+    /** What the lock beside a project's build context is called after the project. */
+    private static final String BUILD_LOCK = ".build.lock";
+
     /** The login image and its build context: an agent's, never a project's. */
     static final String LOGIN = "sokar-login";
 
@@ -380,11 +383,19 @@ public final class Prune {
             }
         }
         final Path builds = directoryOf(context.paths().tasks().buildContext("x"));
-        for (final String project : names(builds)) {
-            if (!LOGIN.equals(project) && !remaining.contains(project)
-                    && !named.contains("build " + builds.resolve(project))) {
-                remove(builds.resolve(project), "BUILD", "its build context", apply, removes, keeps);
+        for (final String entry : names(builds)) {
+            // Beside each context lies the lock an image build holds, '<project>.build.lock': a file of the project,
+            // never a project of its own name. Read as one, it was offered while a task of the project ran.
+            final String project = entry.endsWith(BUILD_LOCK) ? entry.substring(0, entry.length() - BUILD_LOCK.length())
+                    : entry;
+            final Path lock = builds == null ? null : builds.resolve(project + BUILD_LOCK);
+            if (LOGIN.equals(project) || remaining.contains(project) || named.contains("build " + builds.resolve(entry))
+                    // An image build of it is under way: nothing of it goes while it is.
+                    || lock != null && java.nio.file.Files.exists(lock) && !FileLocks.free(lock)) {
+                continue;
             }
+            remove(builds.resolve(entry), "BUILD", entry.endsWith(BUILD_LOCK) ? "its build lock" : "its build context",
+                    apply, removes, keeps);
         }
     }
 

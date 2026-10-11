@@ -59,4 +59,26 @@ final class FileLocks {
             here.unlock();
         }
     }
+
+    /**
+     * Says whether nobody holds a lock file now, without waiting: a lock that is held - by this process or another -
+     * marks what is in use, which nothing may remove.
+     *
+     * @param lock The lock file.
+     * @return {@code true} when it could be taken this moment; {@code false} when it is held or cannot be opened.
+     */
+    public static boolean free(final Path lock) {
+        if (HELD.containsKey(lock.toAbsolutePath().normalize())
+                && HELD.get(lock.toAbsolutePath().normalize()).isLocked()) {
+            return false;
+        }
+        try (FileChannel channel = FileChannel.open(lock, StandardOpenOption.WRITE);
+                FileLock taken = channel.tryLock()) {
+            return taken != null;
+        } catch (final java.nio.channels.OverlappingFileLockException ex) {
+            return false;
+        } catch (final IOException ex) {
+            return false;
+        }
+    }
 }

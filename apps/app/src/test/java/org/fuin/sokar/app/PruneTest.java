@@ -86,6 +86,52 @@ class PruneTest {
     }
 
     @Test
+    void theBuildLockOfAProjectThatExistsIsNeverLeftOver() throws IOException {
+
+        // Listed as "build …/default.build.lock - its build context" while a task of 'default' ran: the lock beside
+        // the context was read as a project called "default.build.lock".
+        final SokarContext context = context();
+        final Path file = Files.createDirectories(dir.resolve("readable")).resolve("project.yml");
+        Files.writeString(file, "project:\n  name: \"kept\"\n  security_class: \"guarded\"\n"
+                + "image:\n  base_image: \"ubuntu:24.04\"\n");
+        Files.createDirectories(context.paths().projects().projectRegistry());
+        Files.writeString(context.paths().projects().projectRegistry().resolve("kept"), file + "\n");
+        final Path build = Files.createDirectories(context.paths().tasks().buildContext("kept"));
+        final Path lock = Files.writeString(build.resolveSibling("kept.build.lock"), "");
+
+        final Prune.Result found = new Prune(context).run(true, false);
+
+        assertThat(java.util.stream.Stream.concat(found.removes().stream(), found.keeps().stream())
+                .map(Prune.Item::name)).noneMatch(name -> name.contains("kept"));
+        assertThat(lock).exists();
+        assertThat(build).exists();
+    }
+
+    @Test
+    void theBuildLockOfAProjectThatIsGoneGoesWithItsContextUnlessSomebodyHoldsIt() throws Exception {
+        final SokarContext context = context();
+        leftOver(context, "gone");
+        final Path build = context.paths().tasks().buildContext("gone");
+        final Path lock = Files.writeString(build.resolveSibling("gone.build.lock"), "");
+
+        // Held, as an image build holds it: neither it nor its context is touched while it is.
+        try (java.nio.channels.FileChannel channel = java.nio.channels.FileChannel.open(lock,
+                java.nio.file.StandardOpenOption.WRITE)) {
+            final java.nio.channels.FileLock held = channel.lock();
+            try {
+                assertThat(new Prune(context).run(false, false).removes()).extracting(Prune.Item::name)
+                        .noneMatch(name -> name.endsWith(".build.lock"));
+            } finally {
+                held.release();
+            }
+        }
+
+        new Prune(context).run(true, false);
+
+        assertThat(lock).as("not held any more, it goes with its project").doesNotExist();
+    }
+
+    @Test
     void aProjectWithARunningTaskOrAReadableFileIsNeverOrphaned() throws IOException {
         final SokarContext context = context();
         leftOver(context, "busy");
