@@ -1,4 +1,4 @@
-# B138 — A Cost And Token Ceiling Per Task
+# B138 — A Token Ceiling Per Task
 
 **Status:** Estimated; blocked by sokar [B148](README.md#b148).
 **Size:** M - the project file, the start, the per-task proxy and a refusal the agent reads; tokens only.

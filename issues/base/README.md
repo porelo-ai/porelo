@@ -57,6 +57,10 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="b175"></a>[B175](B175-The-Profile-That-May-Bind-The-Socket.md) | L | `sokar` [B135](README.md#b135) | On an AppArmor machine a task connects only to a socket one of Sokar's binaries bound, by a task profile that refuses any other peer, as the SELinux domain does on SELinux machines. | 2 |
+| <a id="b176"></a>[B176](B176-Comment-Threads-That-Follow-A-New-Push.md) | M | `sokar` [B166](README.md#b166) | A thread on waiting work moves to a new push's commit where its lines are unchanged, else stays and says why; each commented commit pinned under a hidden ref; `Thread` gains `from` and `stays`. | 1 |
+| <a id="b177"></a>[B177](B177-A-Cost-Ceiling-Where-The-Provider-Reports-Cost.md) | M | `sokar` [B138](README.md#b138) | A dollar ceiling per task from `limits.cost`, enforced by the broker from the cost the provider reports (`reports_cost` in the provider file); a task whose provider reports none is refused at its start. | - |
+| <a id="b178"></a>[B178](B178-A-Credential-With-No-Expiry-Said-So.md) | M | - | Storing a credential with no end says so (`vault put`, `vault login`, `ImportCredential`), and `vault list` and `Credentials()` mark it with `noExpiry`. | 1 |
 | <a id="b122"></a>[B122](B122-No-Direct-Chat-Between-Tasks.md) | M | - | Peers at an account accepted only for joined persons: checked at the start, in `talk peers`, in the dispatch and again at the send. | - |
 | <a id="b173"></a>[B173](B173-An-Agents-Sign-In-Kept-Without-A-Person.md) | S | - | `vault login <agent> --credentials-from <dir>`: an agent's sign-in read through its extractor and kept renewable without a person; `--token-url` on loopback only, for a kit's stand-in token endpoint. | - |
 | <a id="b121"></a>[B121](B121-A-Message-Record-Without-A-Chain.md) | M | `sokar` [B154](README.md#b154) | Drop `previous` and `hash` from `MessageRecord`, remove `sokar talk verify`, its rows and scenario, and update the docs and the decision. | - |
@@ -79,15 +83,6 @@ from its side, as *blocked by*.
 | <a id="b116"></a>[B116](B116-A-Log-Read-Back-In-Windows.md) | M | - | `Tail` gets `before` to read back in windows, and a cap per line reported in `cut`. | - |
 | <a id="b165"></a>[B165](B165-A-Port-Of-A-Task-On-Loopback-Only.md) | M | - | `sokar task port`: a two-half relay, in the task's namespace and on host loopback only, over a `0700` socket, with `ports.log`, docs and a scenario. | - |
 
-## Accepted
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="b175"></a>[B175](B175-The-Profile-That-May-Bind-The-Socket.md) | - | - | On an AppArmor machine only Sokar's binaries bind the sockets a task connects to, as the SELinux domain does on SELinux machines. |
-| <a id="b176"></a>[B176](B176-Comment-Threads-That-Follow-A-New-Push.md) | - | - | A thread on waiting work moves with a new push to the lines it was on, or stays on its commit and says so. |
-| <a id="b177"></a>[B177](B177-A-Cost-Ceiling-Where-The-Provider-Reports-Cost.md) | - | - | A ceiling in money beside the token ceiling, only for providers that report each answer's cost. |
-| <a id="b178"></a>[B178](B178-A-Credential-With-No-Expiry-Said-So.md) | - | - | Storing a credential with no expiry says so, and the credential list marks it. |
-
 ## Idea
 
 | # | Size | Blocked by | What it covers |
@@ -105,7 +100,7 @@ from its side, as *blocked by*.
 | <a id="b171"></a>[B171](B171-Forge-Review-Comments-To-And-From-A-Task.md) | L | `sokar` [B166](README.md#b166) | A `Review1` reader contract, a pull request matched by the gate's branch, a reviewer list, a queue for what goes out, a write token, rate limits. |
 | <a id="b172"></a>[B172](B172-A-Task-That-Reviews.md) | M | `sokar` [B166](README.md#b166) | `role` in the task profile, `--role reviewer --review` on its own project's other tasks only, a gate that shows the reviewed ref and refuses every push, the comment's origin. |
 | <a id="b160"></a>[B160](B160-A-Project-Followed-From-A-File-Over-The-Socket.md) | M | - | Follow from a file over the socket: a path against home, a bundle uploaded in parts (1 GiB), `Followed` gains `fromFile` and `uploaded`; [F104](https://github.com/sokar-ai/sokar-frontend/blob/main/issues/README.md#f104) waits on it. |
-| <a id="b138"></a>[B138](B138-A-Cost-And-Token-Ceiling-Per-Task.md) | M | `sokar` [B148](README.md#b148) | A token ceiling per task in `Limits` and `--token-limit`, enforced by the broker with a status agents do not retry, `task limit` to raise it. |
+| <a id="b138"></a>[B138](B138-A-Token-Ceiling-Per-Task.md) | M | `sokar` [B148](README.md#b148) | A token ceiling per task in `Limits` and `--token-limit`, enforced by the broker with a status agents do not retry, `task limit` to raise it. |
 | <a id="b139"></a>[B139](B139-An-Alert-On-What-Looks-Wrong.md) | L | - | Baselines first, then alerts on body size, clearance attempts and odd DNS names, to the desktop and `Watch`; per project alert only or stop with the token revoked. |
 | <a id="b140"></a>[B140](B140-A-Secret-Scan-Of-The-Workspace-At-Start.md) | M | - | A host-side `git grep` of the checked-out tree for known credential forms at start, warn or refuse per project, false findings acknowledged in a host-side list the agent cannot write. |
 | <a id="b141"></a>[B141](B141-New-Dependencies-Checked-Before-Review.md) | XL | - | Review names new Maven and npm dependencies and checks registry existence, age and look-alike names; a finding holds the approve until a person confirms it; splits into names (M), registry check and hold (L), look-alike (S). |

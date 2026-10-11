@@ -13,11 +13,11 @@ a release.
 Grouped by state, as in [the base set](../base/README.md); within a group ordered by what to do next. [P09](README.md#p09) concerns
 providers as a class, the others one provider each.
 
-## Accepted
+## Analyzed
 
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="p10"></a>[P10](P10-A-Native-Agent-Reaching-A-Provider-It-Does-Not-Know.md) | - | - | A native agent told the resolved dialect, `provider.knows: any`, reaches a provider it does not know through the broker. |
+| # | Size | Blocked by | What it covers | Open questions |
+|---|---|---|---|---|
+| <a id="p10"></a>[P10](P10-A-Native-Agent-Reaching-A-Provider-It-Does-Not-Know.md) | M | `sokar` [P09](README.md#p09) | A native agent is told the resolved dialect in `SetupContext`, so it can register a provider it does not know with that wire format; a definition key saying so lifts [P09](#p09)'s refusal for such a provider. | 1 |
 
 ## Estimated
 
