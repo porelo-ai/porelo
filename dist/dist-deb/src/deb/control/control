@@ -6,7 +6,7 @@ Version: [[sokar.package.version]]
 Section: admin
 Priority: optional
 Architecture: amd64
-Maintainer: fuin.org <info@fuin.org>
+Maintainer: Michael Schnell <michael@fuin.org>
 Homepage: https://github.com/sokar-ai/sokar
 # Podman 5, as the setup script demands: a plain apt install on a release offering 4 would fail 'sokar doctor'.
 # The C library and zlib at the floor the binaries were measured to need: jdeb does not read them.

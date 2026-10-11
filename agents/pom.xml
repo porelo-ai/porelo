@@ -214,7 +214,7 @@
                             <architecture>x86_64</architecture>
                             <group>Applications/System</group>
                             <license>GPL-3.0-or-later</license>
-                            <packager>fuin.org</packager>
+                            <packager>Michael Schnell &lt;michael@fuin.org&gt;</packager>
                             <requires>
                                 <require>sokar</require>
                             </requires>

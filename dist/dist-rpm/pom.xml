@@ -84,7 +84,7 @@ Where SELinux is enforcing, a task container cannot reach sokar's sockets until 
                             <architecture>x86_64</architecture>
                             <group>Applications/System</group>
                             <license>GPL-3.0-or-later</license>
-                            <packager>fuin.org</packager>
+                            <packager>Michael Schnell &lt;michael@fuin.org&gt;</packager>
                             <requires>
                                 <!-- Podman 5 as setup demands, with Fedora's epoch: without one rpm reads epoch 0 and 5:4.9 passes. -->
                                 <require>podman &gt;= 5:5.0</require>

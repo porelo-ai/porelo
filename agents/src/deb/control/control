@@ -6,7 +6,7 @@ Version: [[agent.package.version]]
 Section: utils
 Priority: optional
 Architecture: amd64
-Maintainer: fuin.org <info@fuin.org>
+Maintainer: Michael Schnell <michael@fuin.org>
 Homepage: https://github.com/sokar-ai/sokar
 Depends: sokar
 # No 'Provides: sokar-agent': that is what offers an agent to a person, and the stub is only for the suite.
