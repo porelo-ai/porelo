@@ -1,10 +1,16 @@
 # B23 — Secrets In This Process's Memory
 
 **Status:** Implementing.
-**Size:** L - hardening is a few lines, but a credential as bytes changes every caller in vault, supervisor and apps.
+**Size:** S - the hardening applied and the passphrase path closed; a credential as bytes was dropped on 2026-10-11.
 
 **What must be true.** A credential's plaintext exists in as few places, and for as short a time, as the platform
 allows - and what cannot be achieved is written down rather than implied.
+
+**A credential stays a `String` in memory, decided 2026-10-11.** Turning it into bytes is dropped: whoever reads the
+daemon's memory runs as the same uid that reads the vault file and the keyring, and core dumps of the processes
+that hold a secret are turned off by step 1. It is recorded as an accepted risk in
+[doc/decisions.md](../../doc/decisions.md#secrets-in-the-daemons-memory-stay-strings), which also states that
+erasure is not achieved in a managed runtime, and why. This issue covers steps 1 and 2.
 
 ## Why
 
@@ -78,7 +84,7 @@ So the achievable goal is **fewer copies and shorter lifetimes**, never erasure.
 promising otherwise would be the kind of claim this project's own notes warn about, and any test of
 it would be asserting something the platform does not offer.
 
-### Found by B76's reading of `sokar-vault`
+### Found by [B76](README.md#b76)'s reading of `sokar-vault`
 
 - `KernelKeyring` makes a `String` of the passphrase when storing and reading it, and leaves its
   native buffers unzeroed when the arena closes.
@@ -87,8 +93,8 @@ it would be asserting something the platform does not offer.
 
 ## Plan
 
-Read in the code at `30c8169b`. Built: the vault document is written into a buffer the vault owns and wiped. The
-rest is open, in this order, cheapest first.
+Read in the code at `30c8169b`. Built: the vault document is written into a buffer the vault owns and wiped. Two
+steps are open, in this order, cheapest first.
 
 **1. Hardening applied (S, its own commit).** `ProcessHardening` (`core/.../hardening/ProcessHardening.java`) has
 `disableDumping()` and `dropPrivilegeEscalation()`, and still no caller; only `DoctorCommand` reads `dumpable()` and
@@ -104,38 +110,27 @@ acceptance step reading `Dumpable` of the running broker and daemon, which reads
 `update` clear the wrapping key and the master key in `finally`. Red first: a test that reads the buffers after
 `enroll` throws.
 
-**3. A credential as bytes (L).** The one place this already holds is the passphrase: `char[]` from
-`Console.readPassword` through `PassphraseTiers` to the kernel keyring, with the byte buffers wiped. `VaultEntry`
-(`vault/.../VaultEntry.java`) is `record VaultEntry(String value, ...)`; it becomes a holder of a `byte[]` that it
-hands out as a copy and can wipe, and the JSON reading in `VaultFile` parses values into it without a `String`.
-About thirty-five callers read `.value()` - the broker (`VaultProxy`, `TokenPurchase`, `DeviceGrant`, `CodeGrant`
-in `supervisor/...`), the wiring, the import, the listing - and each holds the bytes only as long as it needs them.
-The broker's last copy is the HTTP header: `java.net.http` takes a `String`, so that path keeps one and says so in
-the code and in `doc/credentials.md`. Red first: an architecture test that finds `VaultEntry.value` typed `String`.
-
-**4. The documentation** (`doc/credentials.md`): erasure is not achieved in a managed runtime, and why; what is
-achieved is fewer copies and shorter lifetimes.
-
-**The cost is spread rather than deep.** Changing `VaultEntry` touches every caller that reads a credential, and each
-has to be careful in a way it currently is not; that is why step 3 is done on purpose rather than alongside
-something else.
+**Dropped, 2026-10-11: a credential as bytes.** `VaultEntry.value()` stays a `String`, and so do its callers and
+the broker's HTTP header. The accepted risk, with what would change it, is in
+[doc/decisions.md](../../doc/decisions.md#secrets-in-the-daemons-memory-stay-strings); that entry is also the
+documentation that erasure is not achieved, and why.
 
 ## Acceptance
 
 - No structure holds more than one credential's plaintext at a time. Seen to fail: a test that stores two
   credentials and inspects the serialized vault document's buffer finds both values in one `String`.
-- A credential's value is not an immutable object on the paths that read, write and broker it. Seen to fail: a
-  check of `VaultEntry` and its callers finds the value typed `String`.
 - Every buffer holding plaintext is overwritten when the work that needed it is done. Seen to fail: a test reading
   the buffer after the operation finds the plaintext still in it.
 - Where a guard cannot be tested, the code says so rather than looking covered.
-- The documentation states that erasure is not achieved, and why.
+- The documentation states that erasure is not achieved, and why, and records a credential kept as a `String` in
+  memory as an accepted risk. Seen to fail: `doc/decisions.md` has no entry giving its exposure, why it stays and
+  what would change it.
 - **A process holding a credential cannot be core-dumped**, and nothing reports hardening it does
-  not apply. Seen to fail: `/proc/<pid>/status` of the broker, the ssh-agent or the relay shows dumpable `1`, or
-  `doctor` reports hardening those processes do not have.
+  not apply. Seen to fail: `/proc/<pid>/status` of the daemon, the broker, the ssh-agent or the relay shows
+  dumpable `1`, or `doctor` reports hardening those processes do not have.
 
 ## To be checked
 
-- **Whether `doctor` should report hardening at all** (Agent Core's), or report the broker's and the daemon's state
+- **Whether `doctor` should report hardening at all** or report the broker's and the daemon's state
   as read from `/proc`. Printing the state of its own process, which nothing hardens, is how a line that looks
   like a warning survives for months.

@@ -92,6 +92,9 @@ gate and in which no hook runs. Two things to know about the shortcut:
 - **The agent's own working copy cannot be offered instead.** It stays inside the container on
   purpose. A bind-mounted one would let the agent write `.git/hooks/`, which then run with the
   privileges of whoever next runs git in that directory.
+- **An editor attached to the container is not made to work.** It would need the editor vendor's hosts or an
+  editor server copied in. `sokar gate checkout` is the way to look at the work, and the pre-push guard of
+  `sokar gate protect` catches the hand push.
 
 ### online
 

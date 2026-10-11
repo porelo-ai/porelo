@@ -7,6 +7,10 @@
 task's message reaches a task of the same project on another machine with the same guarantees it has on one:
 signed on the host, filtered, attributed against a key list, delivered once.
 
+**Closing a group, decided 2026-10-11:** while a group is closed, every message to it is refused at once with the
+reason "group closed", and nothing is queued. That is what sets it apart from holding, which keeps the message
+until it is released. A group is closed and reopened at any time, without a commit.
+
 Built and measured on one machine, over a transport that keeps a conversation ([B86](README.md#b86)): the mailbox, the signature,
 the sluice both ways, dispatch, delivery against a key list, the record, duplicate suppression, bounces, budgets,
 holding and releasing with the four modes, `sokar talk`, and the daemon's message methods. A message addressing
@@ -37,10 +41,14 @@ The split, each an issue of its own when it is started:
 
 1. **Groups (M).** `mail.groups.<group>: [peer, ...]` in `ProjectSchema`, `ProjectReader` and `Mail`; a group name
    in `metadata.to` resolves in `MessageDispatch` to its members, each queued over its own transport, the sender's
-   receipt naming each; `Moderation` takes a group name and holds, releases or closes all its members' traffic, and
-   `Moderate` and `sokar talk hold` accept it. Red first: a test in `MessageDispatchTest` sending to a two-member
-   group, red while it is refused as addressing more than one peer; then one holding the group and asserting on what
-   reaches each member's inbox.
+   receipt naming each; `Moderation` takes a group name and holds or releases all its members' traffic, and
+   `Moderate` and `sokar talk hold` accept it. Closing is a state of its own beside held: `Moderation` keeps it with
+   the group's other control state, on the host and not in `project.yml`, so closing and reopening need no commit;
+   `Moderate` grows an optional `closed`, and `sokar talk` a way to close and reopen. A message to a closed group
+   is refused in `MessageDispatch` before anything is queued, its sender told "group closed". Red first: a test in
+   `MessageDispatchTest` sending to a two-member group, red while it is refused as addressing more than one peer;
+   then one holding the group and asserting on what reaches each member's inbox; then one closing it and asserting
+   the refusal and an empty queue, and one reopening it and asserting the next message is delivered.
 2. **Trust confirmed once (M).** An arrival signed by a key no list names is held with its fingerprint (as today it
    is held unattributed); `Release` gains `trustKey`, which writes the key into the account's `allowed_signers` for
    that peer; a key that changes for a known peer is held with both fingerprints. Contract: `Release` grows one
@@ -59,6 +67,9 @@ The split, each an issue of its own when it is started:
   peer.
 - A group can be held, released and closed while it runs; a held message reaches no reader and its sender is
   told. Seen to fail: a member reading a message sent while the group was held.
+- A message to a closed group is refused at once with the reason "group closed", and nothing is queued; reopening
+  the group takes no commit, and the next message is delivered. Seen to fail: a message sent while the group was
+  closed is queued or delivered after it reopens, or closing or reopening changes `project.yml`.
 - Inside a group, the keys that may speak for a peer come from a directory signed by an operator key and carried
   in the project repository; a directory signed by any other key, or older than the one in force, is refused.
 - A peer outside the group is confirmed once by a person; a changed key is held with both fingerprints and asked
@@ -74,5 +85,5 @@ The split, each an issue of its own when it is started:
 
 ## To be checked
 
-- **Whether a confirmed key is the account's or the project's** (Agent Core's). The account's `allowed_signers` is
+- **Whether a confirmed key is the account's or the project's** The account's `allowed_signers` is
   per machine and survives the project; a key in the project repository is signed and travels to every machine.

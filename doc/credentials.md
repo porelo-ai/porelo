@@ -311,6 +311,9 @@ Whether the rule should stay is an open design question; until it is decided, th
 the unlocked vault, the daemon's socket and the deploy keys, and building or testing the work there runs the
 agent's code with all of it. Fetch the waiting work into your own clone (`sokar gate pending` says how) and open
 it in your IDE's safe mode; run it only in a container on the machine.
+Attaching an editor to the task's container is not made to work either: it would need the editor vendor's
+hosts or an editor server copied in. Open the work with `sokar gate checkout`, and let `sokar gate protect`'s
+pre-push guard catch a hand push.
 
 ### A login from a laptop
 

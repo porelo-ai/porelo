@@ -64,11 +64,9 @@ sleep is there so a live tail does not spin - not a bug to fix in passing.
 
 ## Notes
 
-**How long a clearance prompt should wait is this requirement's question now.** The watcher gives
-an operator 60 seconds, which was never measured against anybody. What the silence costs is
-smaller than it was - an expired question is recorded, replaced on screen by a notice saying the
-destination stays blocked, and can still be answered afterwards through `Decide` - but the answer
-has to reach somebody, and who can be reached is decided here rather than by the prompt.
+**A clearance prompt waits 60 seconds, decided 2026-10-11.** Nothing is measured for it. An expired question
+is recorded, replaced on screen by a notice saying the destination stays blocked, and can still be answered
+afterwards through `Decide`; whoever wants a longer wait sets it with `shield watch --timeout`.
 
 Notifications are the part this constrains that is not yet settled; the interface's requirement for them in
 [its own set](https://github.com/sokar-ai/sokar-frontend/blob/main/issues/README.md) is retired:
@@ -90,8 +88,8 @@ Read in the code at `30c8169b`:
   (`credentials-commands.feature` relies on it), and scenarios already speak varlink through `sokar daemon connect`
   (`task-unattended.feature`, `credential-several.feature`). `ssh localhost` on the machine is a real ssh hop.
 - **What stays as it is.** The tail's rate is `TAIL_INTERVAL` (200 ms) with `MAX_CHUNK` (64 KiB) in `SokarDaemon`;
-  the clearance prompt's wait is `shield watch --timeout` (`ShieldWatchCommand`, `DesktopPrompt`), 60 s by default.
-  Neither is changed here.
+  the clearance prompt's wait is `shield watch --timeout` (`ShieldWatchCommand`, `DesktopPrompt`), 60 s by default,
+  which stays as decided 2026-10-11. Neither is changed here.
 - **The client half is the interface's.** Showing a cut tunnel as a disconnection and reconnecting without a
   restart are sokar-frontend's, by its `doc/decisions.md`; the last two criteria are checked there.
 
@@ -114,6 +112,9 @@ Steps:
   `ssh host sokar daemon connect` needs any further setup on the far machine.
 - The daemon binds no network interface in any configuration. Seen to fail: a check of the daemon's
   open sockets finds anything but its unix socket.
+- A clearance question nobody answers in time is not lost: the wait stays 60 s, an expired question is answered
+  later through `Decide`, and `shield watch --timeout` sets a longer wait. Decided 2026-10-11, so nothing is
+  measured for it. Seen to fail: an expired question can no longer be answered through `Decide`.
 - Tunnel loss is shown as disconnection, never as an empty fleet. Seen to fail: cutting the tunnel
   under a fleet watch leaves the client showing no tasks without saying it is disconnected.
 - Reconnection recovers without restarting the client. Seen to fail: after the tunnel comes back,

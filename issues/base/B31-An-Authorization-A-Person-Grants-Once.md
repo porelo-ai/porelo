@@ -279,6 +279,16 @@ app: an access token, no refresh token, no expiry.
   forgotten with the place to revoke it named). Not measured: a Copilot request through the broker, which needs an
   account with Copilot.
 
+### Decided, the real service, 2026-10-11
+
+- **The real service is GitHub.** The grant is measured with GitHub's device flow, and the hour-long MCP session
+  with GitHub's remote MCP server, both with the operator's own GitHub account.
+- **The person signs in once, at the terminal.** `sokar vault authorize <entry>` shows GitHub's link and code, and
+  the grant lands in that account's vault. Every run after that spends it; none asks again.
+- **Nothing of the account goes into a committed file.** The entry's client id, the grant and the account's name
+  stay in the account's vault. A test or scenario names only the entry, and a result written here says what held
+  and for how long, never which account.
+
 ## Plan
 
 Read in the code at `30c8169b`. Built and on main: everything under "As built" above - `DeviceGrant`, `CodeGrant`,
@@ -300,9 +310,11 @@ Steps:
 3. **Removal (S).** `vault remove` (`VaultRemoveCommand`) deletes the registration at the service where it offers
    that (RFC 7592, the registration access token), after revoking the grant, and keeps the entry with the same
    advice as today where the service cannot be told.
-4. **Runs on the VM.** A real device grant against a service the VM can reach, and an MCP session through the
-   broker held open for an hour against a real server; their results written here. Neither changes code unless it
-   breaks.
+4. **Runs against GitHub on the VM.** The entry for GitHub's device flow is set up in the account's vault there,
+   and the operator runs `sokar vault authorize <entry>` once at the terminal and signs in with their own GitHub
+   account. Then, with no further sign-in: a task spends the grant, and a task with GitHub's remote MCP server as a
+   destination holds one MCP session through the broker for an hour. The run names only the entry; the results
+   written here say what held, not which account. Neither changes code unless it breaks.
 5. `doc/credentials.md`: an entry may name only a service; what is registered and where it is kept.
 
 ## Acceptance
@@ -339,6 +351,10 @@ Steps:
 - An MCP session through the broker holds: every method, `Mcp-Session-Id` both ways, and server-sent events
   passed as they arrive. Seen to fail: `VaultProxyTest`'s small event followed by a pause reaches the agent only
   after the pause.
+- Against the real service, GitHub: one sign-in at the terminal through its device flow, then a session with
+  GitHub's remote MCP server held through the broker for an hour. Seen to fail: a second run asks for a sign-in
+  again, the session ends or stalls before the hour, or a committed file holds the client id, a token or the
+  account's name.
 
 ## To be checked
 
@@ -347,4 +363,4 @@ Steps:
   `Accept`, and `text/event-stream` chunk by chunk with no bound on the body. **It held an answer back until its
   first 8 KiB had arrived**, so a server that sent a small event and then waited reached the agent only after the
   pause (measured: 3 s held for a 3 s pause, `VaultProxyTest`); it now passes the first bytes as soon as they
-  arrive. Step 4 is what is left (Agent Core's).
+  arrive. Step 4, against GitHub's remote MCP server, is what is left.

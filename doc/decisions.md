@@ -41,6 +41,7 @@ would change the answer.
 | Clearing the vault is `clear`, not `delete` | `vault clear` lists, then acts on `--yes`, like the other clears; `remove` is for one entry | [entry](#clearing-the-vault-is-clear-not-delete) |
 | A cached passphrase is reported gone only when it is gone | `vault lock` answers cleared, nothing cached or unknown, and exits non-zero on unknown | [entry](#a-cached-passphrase-is-reported-gone-only-when-it-is-gone) |
 | The passphrase cache does not outlive a login, and a foreign keyring reads as empty | one mechanism, the kernel keyring; another user namespace would read it as empty | [entry](#the-passphrase-cache-does-not-outlive-a-login-and-a-foreign-keyring-reads-as-empty) |
+| Secrets in the daemon's memory stay strings | accepted: whoever reads that memory reads the vault file and the keyring too | [entry](#secrets-in-the-daemons-memory-stay-strings) |
 | **Projects and following** | | |
 | A project file describes constraints, not instructions | no prompt or standing instruction belongs in `project.yml` | [entry](#a-project-file-describes-constraints-not-instructions) |
 | A project exists by being followed | Sokar never writes a project file; follow is the only way in and does the whole check | [entry](#a-project-exists-by-being-followed) |
@@ -374,6 +375,23 @@ running as the operator, in the operator's namespace; the hooks do not touch the
 `PrivateUsers=yes`, or a reader under a container runtime, which would need the passphrase carried by a path rather
 than the keyring; or a deployment that needs the cache across logins, which would make a chain of stores worth its
 explanation.
+
+## Secrets in the daemon's memory stay strings
+
+A credential read from the vault is a `String` in the daemon and the broker: `VaultEntry.value()`, every caller that
+reads it, and the HTTP header the broker sends. It is not turned into bytes that could be wiped. The vault document
+and the passphrase are the exceptions, held in buffers that are overwritten when the work is done. **The exposure:**
+a `String` cannot be cleared; it lives until the collector reaches it, and a heap dump or a core dump shows it. Even
+bytes would not be erased for certain, since a moving collector leaves the old copy behind. **Why it stays:** reading
+another process's memory takes the same uid that already reads the vault file and the passphrase in the kernel
+keyring, so wiping the copies in memory keeps nobody out who is not in already. A core dump is the copy that is
+written somewhere without anybody asking; core dumps of the processes that hold a secret are turned off with
+`prctl(PR_SET_DUMPABLE, 0)` (`ProcessHardening.disableDumping`). That call has no caller yet, and neither
+`sokard.service` nor the code sets a core size limit, so until it is made a core dump of those processes is
+possible. **What would change the answer:** a process that holds secrets running under a uid of its own, so that
+reading its memory is no longer the same as reading the vault; a core dump that cannot be turned off; or an HTTP
+client that takes a header as bytes, which would make the change much cheaper than the thirty-odd callers it touches
+today.
 
 ## A project file describes constraints, not instructions
 

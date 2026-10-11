@@ -1,7 +1,7 @@
 # B13 — Unreviewed Work Leaving By The Side Door
 
 **Status:** Implementing.
-**Size:** S - the guard, `gate checkout` and the marking are on main; left are a hand-push scenario and a decision.
+**Size:** S - the guard, `gate checkout` and the marking are on main; left is a hand-push scenario.
 
 **What must be true.** A person who carries an agent's unreviewed work to the upstream by hand hears about it at the
 moment they push, and the gate never records that work as something it is not.
@@ -29,7 +29,7 @@ Measured rather than assumed, because the first guess was wrong:
 
 - **The working copy is not on the host.** `/workspace` lives inside the container - `git init` in
   the image, remote `sokar` pointing at the gate. Only the vault and ssh sockets are bind-mounted.
-  So an IDE attached to the *container* is as constrained as the agent: no credential, no route.
+  So a shell in the *container* is as constrained as the agent: no credential, no route.
 - **The mirror is on the host**, at `~/.local/share/sokar/mirrors/<project>.git`, holding every
   pushed branch under `refs/sokar/incoming/`. It is an ordinary bare repository owned by the
   operator, and anything they can run can read it.
@@ -83,9 +83,13 @@ order to let a person look at its work, which is the wrong trade.
 There is a way in that needs no network at all: copy the server in with `podman cp`, or bake it
 into the image. Both vendors support a server installed by hand.
 
-**So today the safe way to inspect the work is the inconvenient one, and the unsafe way - fetch the
-branch out of the mirror into your own checkout - is the convenient one.** That is the shape of the
+**So the safe way to inspect the work was the inconvenient one, and the unsafe way - fetch the
+branch out of the mirror into your own checkout - the convenient one.** That is the shape of the
 accident this requirement is about: it is not carelessness, it is the only path that works.
+
+**Attaching an editor to the container is not made to work, decided 2026-10-11.** No editor vendor's hosts
+are declared for it, and no editor server is copied into the container or baked into the image. The way to look
+at the work is `sokar gate checkout`, and the way a hand push is caught is the pre-push guard of `gate protect`.
 
 ### And it leaves the gate saying something untrue
 
@@ -260,9 +264,11 @@ Read in the code at `30c8169b`; the built parts are on `origin/main`.
   its check to a `pre-push` somebody else wrote, when asked, and `--remove` takes only its own lines out again.
 - **Not covered end to end: the already-upstream marking.** No scenario pushes an incoming ref to the upstream by
   hand and then reads `gate pending` and `gate reject`.
-- **Not built: an upstream review branch.** `GateMode` (`gate/.../GateMode.java`) has `OFFLINE`, `GATEKEEPING` and
-  `ONLINE`; none sends work to a review branch on the upstream, so the last criterion's negative half holds today
-  and its positive half (an opt-in setting) does not exist.
+- **Not offered: an upstream review branch, decided 2026-10-11.** Approved work goes back to the checkout the task
+  was started from (`sokar approve`), and Sokar gets no write access to an upstream for review. No project setting
+  opts into one, so the last criterion keeps only the review on the machine.
+- **Not made to work: an editor attached to the container, decided 2026-10-11.** `gate checkout` and the pre-push
+  guard are the way; nothing declares an editor vendor's hosts or copies an editor server into the container.
 
 Steps:
 
@@ -270,9 +276,6 @@ Steps:
    incoming ref is pushed to the upstream's default branch by hand with plain git, the daemon's `SyncUpstream`
    measures it (`UpstreamSync`), then `gate pending` shows the push marked as already upstream, and `gate reject`
    without `--force` refuses and names `--force`.
-2. Whether the opt-in upstream review branch is built at all (below). If not, the last criterion keeps only its
-   negative half and this file says so; if so, it becomes an issue of its own (a project key, a `GateMode` path and
-   a scenario - M), not part of this one.
 
 ## Acceptance
 
@@ -292,16 +295,13 @@ Steps:
 - Whatever is installed into an operator's own repository is asked for, reversible, and says what
   it did when it fires. Seen to fail: `gate protect` overwrites a `pre-push` it did not write, or `--remove`
   leaves its own hook behind.
-- Nothing here weakens the case where it already works: an IDE attached to the container stays as
-  constrained as the agent. Seen to fail: a command run in the container reaches a forge or finds a credential.
-- **Work can be reviewed on the machine, without a forge.** Sending it to a review branch on an
-  upstream instead is possible only where the project opts in with a setting of its own, named when
-  this is built. A `guarded` project does not do it otherwise. Seen to fail: a checkout made by `gate checkout` has a remote
-  that reaches the upstream (its test runs against a gate that has one), or a `guarded` project without that
-  opt-in sends work to an upstream review branch.
+- Nothing here weakens the case where it already works: whatever runs in the container stays as constrained as
+  the agent. Seen to fail: a command run in the container reaches a forge or finds a credential.
+- **Work is reviewed on the machine, without a forge.** Seen to fail: a checkout made by `gate checkout` has a
+  remote that reaches the upstream (its test runs against a gate that has one).
 
 ## To be checked
 
-- **Whether the mirror should be harder to fetch from** (Agent Core's). Making it unreadable would break `gate
+- **Whether the mirror should be harder to fetch from** Making it unreadable would break `gate
   review`, which is how anybody looks at the work at all. Probably nothing to do here, but it is the other end of
   the same path.
