@@ -6,8 +6,9 @@ Everything `project.yml` can say, and what each key is for.
 built-in project `default`, which uses Sokar's own settings. Write a project file when you want other
 settings.
 
-**It lives in the project's own git repository, committed.** A machine gets it with
-`sokar project follow <name> <url>`; Sokar never writes one. That command names anything wrong with
+**It lives in a git repository, committed: the code's own, or one of its own that names the code repositories
+under `repositories`.** A machine gets it with `sokar project follow <name> <url or local path>`, and reads a commit,
+never the working tree; Sokar never writes one. That command names anything wrong with
 the file, such as an egress set this machine does not have.
 
 **Only `project.name`, `project.security_class` and `image.base_image` are required.** Everything else
@@ -104,6 +105,14 @@ egress:
 
   # Any other host by name. Ports 80 and 443 only.
   domains: ["nexus.corp.example"]
+
+  # Only what a task reaches WHILE IT RUNS needs a set or a domain. The image is built on the host,
+  # outside the task's firewall, so packages a 'snippet' installs need none; the gate fetches and
+  # pushes on the host, so the task's own git needs none. A company's mirror is a domain, not a set.
+  # What each set opens: os-packages-debian and -fedora the distributions' package mirrors;
+  # git-hosting github.com, gitlab.com, bitbucket.org, codeberg.org; maven Maven Central; nodejs,
+  # python, go, rust their package registries; containers the container registries.
+  # 'sokar shield sets --verbose' lists every host.
 
   # Names that must never resolve, whatever allows them; also wins under an allowed parent.
   # It refuses a name, not an address: a host sharing an allowed address stays reachable there.

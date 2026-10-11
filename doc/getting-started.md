@@ -257,8 +257,14 @@ work is its base. What waits for review is never touched.
 ## 8. A project of your own
 
 You need one for settings of your own: more hosts to reach, another security class, a
-conversation between tasks. **You write `project.yml` at the root of your repository and commit it.** Sokar writes no
-project file anywhere. Only `name`, `security_class` and `base_image` are required:
+conversation between tasks. **You write `project.yml` and commit it**, in one of two places:
+
+- **In the code's repository**, at its root, when the team keeps it there.
+- **In a repository of your own**, which names the code repositories under `repositories:` with their `upstream:`.
+  Nothing is committed to the team's repository, so this is how one developer uses Sokar alone. See
+  [a project file beside the code](#a-project-file-beside-the-code).
+
+Sokar writes no project file anywhere. Only `name`, `security_class` and `base_image` are required:
 
 ```yaml
 project:
@@ -268,10 +274,13 @@ project:
 image:
   base_image: "ubuntu:24.04"
 egress:
-  sets: [os-packages-debian, git-hosting]
+  sets: [maven]      # only what a task reaches while it runs
 ```
 
-Every key is in [the project file](project-file.md).
+Every key is in [the project file](project-file.md). **A project needs only the hosts its tasks reach at run time.**
+The image is built on the host, outside the task's firewall, so what a `snippet` installs needs no set; the gate
+fetches and pushes on the host, so the task's own git needs none either. A company's mirror is a `domains:` entry,
+not a set.
 
 **A machine gets the project by following that repository:**
 
@@ -298,6 +307,35 @@ The security class decides where work may go. A task cannot raise it.
 
 See [security](security.md) for what each class keeps out, and [running Sokar](running.md)
 for the gate's mirror and its seeding.
+
+### A project file beside the code
+
+The project file in a repository of your own, naming the company's repository it works on:
+
+```yaml
+project:
+  name: "payments"
+  security_class: "guarded"
+image:
+  base_image: "ubuntu:24.04"
+repositories:
+  backend:
+    upstream: "git@git.corp.example:team/backend.git"
+egress:
+  domains: ["nexus.corp.example"]
+```
+
+```
+git init ~/payments-project && cd ~/payments-project     # project.yml in it
+git add project.yml && git commit -S -m "The payments project"
+sokar project follow payments ~/payments-project --signed-by "ssh-ed25519 AAAA..."
+sokar task start --project payments --repository backend
+```
+
+- **A commit is followed, never the working tree.** An edit to `project.yml` is read once it is committed; until then
+  the machine keeps the last commit it applied.
+- The task works on `backend`, fetched from its `upstream` on the host; approved work goes back there as
+  `sokar/<task>`. The project's own repository holds only the file, and no task is started in it.
 
 ### Working alone, with no forge
 
