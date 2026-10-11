@@ -157,6 +157,9 @@ Where clearing stops, `clear` offers to stop the tasks that run with a token fro
 only `--force` clears, naming it, no by default; `vault remove` of a token only its service can revoke offers to forget
 it here all the same, no by default; `credentials forget` offers to remove the secret it leaves in the vault, as
 `vault remove` does.
+A missing secret is asked and stored where a refusal named `sokar vault put`: `credentials check` asks an ssh key's
+path, or has `vault put` ask a token without echo, then checks again; `vault login` of an agent with no login of its
+own, and `vault authorize` of a provider reached with a key, store the key with `vault put` at once.
 
 **`task logs`** shows the files of the gate, broker, relay, resolver and clearance watcher, not the
 agent's output. `events.jsonl` is what the firewall blocked: look there when a task starts and then

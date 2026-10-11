@@ -170,6 +170,12 @@ terminal, no terminal, `--no-input` and `--yes`.
   clear what only `--force` clears, naming it, no by default and never by `--yes`; `vault remove` of a token only the
   service revokes offers to forget it all the same; `credentials forget` offers `vault remove` of the secret it leaves
   (`DestructiveOfferTest`).
+- **Secrets asked and stored:** `credentials check` stores a missing value through `vault put` - an ssh key from a path
+  asked (`Offer.text`), a token typed into `vault put` - and checks again; `vault login` of an agent with no login
+  and `vault authorize` of a provider reached with a key run `vault put` (`StoreOfferTest`). Left as messages: grant
+  settings not built in, which are four URLs and are what `vault put`'s `--setting` options are for; `sokar setup`
+  makes the vault at a terminal already; `doctor` and the `default` project's empty listing are reports, and a start
+  in a checkout already takes its repository.
 - **A task from before a restart:** `task resume` and `task attach` offer to copy its workspace to `./recovered`
   (never into a folder that is there), then to remove the task, no by default (`RecoverOfferTest`). The interface's
   start detail keeps the two commands, for a person with no terminal, and names `task resume` beside them. A task chosen from a list: `TaskTarget` already asks.

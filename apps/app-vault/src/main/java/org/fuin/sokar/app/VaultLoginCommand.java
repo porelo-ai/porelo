@@ -114,8 +114,35 @@ public class VaultLoginCommand implements Callable<Integer>, SokarFactory.Contex
         if (result.outcome() == AgentLogin.Outcome.PREVIEWED) {
             return 0;
         }
+        // An agent with no login of its own takes a key: asked here by 'sokar vault put' itself, without echo, rather
+        // than sending the person to type it.
+        if (result.outcome() == AgentLogin.Outcome.UNSUPPORTED && agentName != null && Offer.atTerminal()) {
+            final String entry = keyEntry(agentName);
+            err.println("sokar: " + result.detail());
+            if (new Offer(Offer.Asker.terminal(), false, false, err).confirm("'" + agentName + "' signs in with a key",
+                    "Store its key as '" + entry + "' now, as 'sokar vault put " + entry + "' does?", "", false)) {
+                err.flush();
+                return context.exec().applyAsInt(java.util.List.of(SokarBinary.path(), "vault", "put", entry));
+            }
+            err.flush();
+            return 69;
+        }
         err.println("sokar: " + result.detail());
         err.flush();
         return result.outcome() == AgentLogin.Outcome.FAILED ? 70 : 69;
+    }
+
+    /**
+     * Returns where an agent's key belongs: its provider's name, where it names a default one, else its own.
+     *
+     * @param agent The agent.
+     * @return The vault entry.
+     */
+    private String keyEntry(final String agent) {
+        try (var installed = context.agents()) {
+            return installed.find(agent).map(found -> found.definition().provider() == null
+                    || found.definition().provider().defaultProvider() == null ? agent
+                            : found.definition().provider().defaultProvider()).orElse(agent);
+        }
     }
 }

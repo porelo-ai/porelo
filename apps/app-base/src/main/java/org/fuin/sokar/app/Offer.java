@@ -199,4 +199,24 @@ public final class Offer {
         }
         return chosen;
     }
+
+    /**
+     * Asks a person for a line of text - a path, an address - where a refusal would ask for it as an option, or refuses
+     * as before. Never answered by {@code --yes}: there is no harmless default for what a person has to say.
+     *
+     * @param missing What is missing, as the refusal says it.
+     * @param question What is asked.
+     * @param command The command a person would type, named where nobody answers.
+     * @return The answer, trimmed, or {@code null} when none came - said with the command.
+     */
+    public @Nullable String text(final String missing, final String question, final String command) {
+        final PrintWriter said = java.util.Objects.requireNonNull(err, "no writer to say a refusal on");
+        final String answer = noInput ? null : asker.ask(missing + ". " + question);
+        if (answer == null || answer.isBlank()) {
+            said.println("sokar: " + missing + "; run '" + command + "'");
+            said.flush();
+            return null;
+        }
+        return answer.strip();
+    }
 }

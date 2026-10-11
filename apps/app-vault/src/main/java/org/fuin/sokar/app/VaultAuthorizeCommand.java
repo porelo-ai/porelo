@@ -143,6 +143,18 @@ public class VaultAuthorizeCommand implements Callable<Integer>, SokarFactory.Co
         }
         final GrantEntry.Choice choice = GrantEntry.choose(provider, agents, agentName,
                 Offer.atTerminal() ? new Offer(Offer.Asker.terminal(), false, false, err) : Offer.NOBODY);
+        if (choice.refusal() != null && provider.grant().isEmpty() && Offer.atTerminal()) {
+            // A provider reached with a key has nothing to authorize: the key is asked by 'sokar vault put' itself.
+            err.println("sokar: " + choice.refusal());
+            if (new Offer(Offer.Asker.terminal(), false, false, err).confirm("'" + provider.name()
+                    + "' is reached with a key", "Store it now, as 'sokar vault put " + provider.name() + "' does?", "",
+                    false)) {
+                err.flush();
+                return context.exec().applyAsInt(java.util.List.of(SokarBinary.path(), "vault", "put", provider.name()));
+            }
+            err.flush();
+            return 2;
+        }
         if (choice.refusal() != null) {
             err.println("sokar: " + choice.refusal());
             err.flush();
