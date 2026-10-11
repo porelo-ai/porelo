@@ -88,6 +88,12 @@ from its side, as *blocked by*.
 | <a id="b177"></a>[B177](B177-A-Cost-Ceiling-Where-The-Provider-Reports-Cost.md) | - | - | A ceiling in money beside the token ceiling, only for providers that report each answer's cost. |
 | <a id="b178"></a>[B178](B178-A-Credential-With-No-Expiry-Said-So.md) | - | - | Storing a credential with no expiry says so, and the credential list marks it. |
 
+## Idea
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="b179"></a>[B179](B179-A-Code-Beside-Why-A-Release-Cannot-Go.md) | - | - | A code beside `detail` when a release is answered `NOT_DELIVERABLE`, so a client can say what to do per case. |
+
 ## Estimated
 
 | # | Size | Blocked by | What it covers |
