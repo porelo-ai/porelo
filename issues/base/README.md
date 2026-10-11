@@ -62,6 +62,7 @@ from its side, as *blocked by*.
 | <a id="b171"></a>[B171](B171-Forge-Review-Comments-To-And-From-A-Task.md) | L | `sokar` [B166](README.md#b166) | A `Review1` reader contract, a pull request matched by the gate's branch, a reviewer list, a queue for what goes out, a write token, rate limits. | 1 |
 | <a id="b172"></a>[B172](B172-A-Task-That-Reviews.md) | M | `sokar` [B166](README.md#b166) | `role` in the task profile, `--role reviewer --review`, a gate that shows the reviewed ref and refuses every push, the comment's origin. | 1 |
 | <a id="b173"></a>[B173](B173-An-Agents-Sign-In-Kept-Without-A-Person.md) | S | - | `vault login <agent> --credentials-from <dir>`: an agent's sign-in read through its extractor and kept renewable without a person; `--token-url` on loopback only, for a kit's stand-in token endpoint. | - |
+| <a id="b174"></a>[B174](B174-A-Running-Tasks-Commits-And-Their-Diff.md) | M | - | `TaskCommits` and `TaskDiff`: a running task's commits no remote holds and their diff, cut at a file boundary; a stopped task's list from its note. | - |
 | <a id="b121"></a>[B121](B121-A-Message-Record-Without-A-Chain.md) | M | `sokar` [B154](README.md#b154) | Drop `previous` and `hash` from `MessageRecord`, remove `sokar talk verify`, its rows and scenario, and update the docs and the decision. | - |
 | <a id="b160"></a>[B160](B160-A-Project-Followed-From-A-File-Over-The-Socket.md) | M | - | Follow from a file over the socket: a path against home, a bundle uploaded in parts (1 GiB), `Followed` gains `fromFile` and `uploaded`; [F104](https://github.com/sokar-ai/sokar-frontend/blob/main/issues/README.md#f104) waits on it. | 1 |
 | <a id="b138"></a>[B138](B138-A-Cost-And-Token-Ceiling-Per-Task.md) | M | `sokar` [B148](README.md#b148) | A token ceiling per task in `Limits` and `--token-limit`, enforced by the broker with a status agents do not retry, `task limit` to raise it. | 1 |
@@ -121,12 +122,6 @@ from its side, as *blocked by*.
 | <a id="b168"></a>[B168](B168-A-Recording-Of-Each-Session.md) | M | - | A session recording by a read-only tmux control-mode client run from the host, a `.cast` outside the task, `task replay`, its checksum in the record. | 1 |
 | <a id="b169"></a>[B169](B169-Containers-Inside-A-Task.md) | L | - | The nested-container assessment first (user namespaces, seccomp, network mode, limits) measured on both legs; then an opt-in `image.nested_containers`. | 2 |
 | <a id="b170"></a>[B170](B170-A-Devcontainer-File-As-Image-Source.md) | L | - | `image.devcontainer`: a JSONC reader takes `image` and `containerEnv` and lists the rest as ignored; features a second step, fetched pinned. | 2 |
-
-## Idea
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="b174"></a>[B174](B174-A-Running-Tasks-Commits-And-Their-Diff.md) | - | - | A running task's commits and their diff, asked of the daemon before the work reaches the gate; for the interface's account of what a piece did. |
 
 ## Two things that dissolved rather than becoming requirements
 
