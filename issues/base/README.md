@@ -9,48 +9,49 @@ do next; the number is only the file's identity. A group with nothing in it is l
 in its own file; a row says what it covers and, from Implementing on, how far it is.
 
 **Open questions** counts the items in the file's own *Open questions* section: what only the operator decides -
-product, scope, an account, money, risk. It is what waits on the operator. What can be found out by reading, measuring
-or asking another agent stands under *To be checked* and is not counted.
+product, scope, an account, money, risk. It is what waits on the operator, and only *Analyzed* has the column: from Estimated on an issue has no
+open question. What can be found out by reading, measuring or asking another agent stands under *To be checked* and
+is not counted.
 
 **Blocked by** names the issue that has to land first. An issue in another repository that waits for a row here says so
 from its side, as *blocked by*.
 
 ## Review
 
-| # | Size | Blocked by | What it covers | Open questions |
-|---|---|---|---|---|
-| <a id="b157"></a>[B157](B157-Doctor-Says-Its-Findings-In-Colour.md) | S | - | Doctor colours its findings; `--color` and `NO_COLOR` work, no colour when piped; on `main`. | - |
-| <a id="b126"></a>[B126](B126-One-Source-For-A-Repository-Both-Ways.md) | L | - | One source per repository both ways; built on `main`, the walk is left. | - |
-| <a id="b127"></a>[B127](B127-An-Online-Task-Pushes-Through-The-Host.md) | L | - | An online task's push goes through the gate as `sokar/<task>`; on `main`, green on the VM, the operator's test is left. | - |
-| <a id="b128"></a>[B128](B128-A-Gate-A-Task-Cannot-Exhaust.md) | M | - | The gate's limits: 4 requests at once, a push spooled to disk, a scope per gate; on `main`, green on the VM, the operator's test is left. | - |
-| <a id="b162"></a>[B162](B162-Task-List-Names-What-It-Leaves-Out.md) | M | - | Task list, status, logs and the daemon name containers that look like tasks but have no recorded id; on `main`. | - |
-| <a id="b161"></a>[B161](B161-Doctor-As-Data.md) | S | - | `sokar doctor --json` from the same probe list as the text; on `main`. | - |
-| <a id="b146"></a>[B146](B146-One-Stop-Of-Every-Task-On-A-Node.md) | M | - | `task stop --all` and panic stop everything and journal it in `stops.log`; on `main`, the operator's test is left. | - |
-| <a id="b132"></a>[B132](B132-A-Subscription-Granted-With-One-Command.md) | M | - | `vault authorize <provider>` makes the grant from the provider and the agent; `task start` names and offers the command. | - |
-| <a id="b131"></a>[B131](B131-The-Oldest-System-A-Package-Promises.md) | M | - | Packages declare their glibc and zlib floor, `check-linkage` fails a build above it, runners pinned, Debian 13 and Fedora 43 in the package check. | - |
-| <a id="b130"></a>[B130](B130-Two-Refusals-By-Name.md) | M | - | `BranchExists` and `EarlierWorkWaits` as named refusals; daemon, CLI, interface and plugin built. | - |
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="b157"></a>[B157](B157-Doctor-Says-Its-Findings-In-Colour.md) | S | - | Doctor colours its findings; `--color` and `NO_COLOR` work, no colour when piped; on `main`. |
+| <a id="b126"></a>[B126](B126-One-Source-For-A-Repository-Both-Ways.md) | L | - | One source per repository both ways; built on `main`, the walk is left. |
+| <a id="b127"></a>[B127](B127-An-Online-Task-Pushes-Through-The-Host.md) | L | - | An online task's push goes through the gate as `sokar/<task>`; on `main`, green on the VM, the operator's test is left. |
+| <a id="b128"></a>[B128](B128-A-Gate-A-Task-Cannot-Exhaust.md) | M | - | The gate's limits: 4 requests at once, a push spooled to disk, a scope per gate; on `main`, green on the VM, the operator's test is left. |
+| <a id="b162"></a>[B162](B162-Task-List-Names-What-It-Leaves-Out.md) | M | - | Task list, status, logs and the daemon name containers that look like tasks but have no recorded id; on `main`. |
+| <a id="b161"></a>[B161](B161-Doctor-As-Data.md) | S | - | `sokar doctor --json` from the same probe list as the text; on `main`. |
+| <a id="b146"></a>[B146](B146-One-Stop-Of-Every-Task-On-A-Node.md) | M | - | `task stop --all` and panic stop everything and journal it in `stops.log`; on `main`, the operator's test is left. |
+| <a id="b132"></a>[B132](B132-A-Subscription-Granted-With-One-Command.md) | M | - | `vault authorize <provider>` makes the grant from the provider and the agent; `task start` names and offers the command. |
+| <a id="b131"></a>[B131](B131-The-Oldest-System-A-Package-Promises.md) | M | - | Packages declare their glibc and zlib floor, `check-linkage` fails a build above it, runners pinned, Debian 13 and Fedora 43 in the package check. |
+| <a id="b130"></a>[B130](B130-Two-Refusals-By-Name.md) | M | - | `BranchExists` and `EarlierWorkWaits` as named refusals; daemon, CLI, interface and plugin built. |
 
 ## Implementing
 
-| # | Size | Blocked by | What it covers | Open questions |
-|---|---|---|---|---|
-| <a id="b120"></a>[B120](B120-A-Wake-Waits-For-Rest-That-Holds.md) | S | - | The two-look wake and the second Enter are on `main`; left: the agent repositories' wake scenarios on both legs. | - |
-| <a id="b158"></a>[B158](B158-A-Refusal-That-Knows-The-Next-Command-Offers-It.md) | M | - | A refusal offers its remedy command; built for vault login, a start's credential refusals and resume's shut vault; a resume test is left. | - |
-| <a id="b137"></a>[B137](B137-An-Offline-Project-Never-Connects.md) | S | - | An offline project never connects; left: an acceptance round trip that follows a bundle, restores, backs up and refuses a `file://` follow. | - |
-| <a id="b102"></a>[B102](B102-A-Vault-Cleared-In-One-Step.md) | S | - | `vault clear` is on `main`; left: a scenario in `vault-commands.feature` and the walk with a homeserver on a rented machine. | - |
-| <a id="b76"></a>[B76](B76-The-Code-Checked-Against-The-Skills-It-Was-Written-Without.md) | L | - | Ten open findings against the house skills (vault tests, netlink, nft hang, app, kit), and the modules added since that were never read. | - |
-| <a id="b125"></a>[B125](B125-What-A-Daemon-Costs-And-On-Which-Threads.md) | M | - | Left: no loops for exited tasks, never-started containers listed, the idle measurement on the two-CPU VM, and the run on virtual threads. | - |
-| <a id="b79"></a>[B79](B79-A-Daemon-That-Answers-Nothing.md) | S | - | Platform threads and the thread dump are built; left: runs on the two-CPU VM after SIGKILL, both thread kinds, reading a dump on a hang. | - |
-| <a id="b13"></a>[B13](B13-Unreviewed-Work-Leaving-By-The-Side-Door.md) | S | - | Guard, checkout and already-upstream marking on `main`; left: a hand-push acceptance scenario and the decision on an upstream review branch. | 2 |
-| <a id="b49"></a>[B49](B49-What-The-Build-Trusts-To-Run-Beside-Its-Secrets.md) | S | - | Pins, Dependabot and `check-actions` are on `main`; left: a checksum-pinned JFrog CLI step, the hand check of `Publish`, the first Dependabot review. | - |
-| <a id="b31"></a>[B31](B31-An-Authorization-A-Person-Grants-Once.md) | M | - | Left: dynamic client registration against a stand-in, then a real grant and an hour-long MCP stream on the VM. | 1 |
-| <a id="b46"></a>[B46](B46-The-Conversation-A-Restart-Loses.md) | M | - | Session continuation and `--restarted` are built; left: a real-reboot `@restart` scenario on a rented machine, a stub that remembers a word, one decision. | 1 |
-| <a id="b134"></a>[B134](B134-A-Task-Terminal-As-The-Terminal-Outside.md) | M | - | The task's tmux matches the terminal outside; left: Pi's measurement, a kit step and scenario per key, then the joint test. | - |
-| <a id="b133"></a>[B133](B133-A-Shut-Vault-Opened-Where-It-Is-Needed.md) | S | - | A shut vault asks for its passphrase at a terminal instead of refusing; left: one scenario that starts a task on a shut vault. | - |
-| <a id="b129"></a>[B129](B129-An-Agent-Found-By-Its-Description.md) | S | - | Agents found by an `agents.d/<name>.yaml` description; left: the stub packaged that way and the package check proving it. | - |
-| <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `sokar` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). | 1 |
-| <a id="b06"></a>[B06](B06-Remote-Access.md) | M | - | Remote use over ssh; both shapes built; left: a daemon-socket check and a real `ssh localhost` hop in the acceptance suite. | 1 |
-| <a id="b23"></a>[B23](B23-Secrets-In-This-Process-Memory.md) | L | - | `ProcessHardening` applied (no caller yet), keyring and vault-file buffers closed, a `VaultEntry` value as bytes for every caller, the limits documented. | 1 |
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="b120"></a>[B120](B120-A-Wake-Waits-For-Rest-That-Holds.md) | S | - | The two-look wake and the second Enter are on `main`; left: the agent repositories' wake scenarios on both legs. |
+| <a id="b158"></a>[B158](B158-A-Refusal-That-Knows-The-Next-Command-Offers-It.md) | M | - | A refusal offers its remedy command; built for vault login, a start's credential refusals and resume's shut vault; a resume test is left. |
+| <a id="b137"></a>[B137](B137-An-Offline-Project-Never-Connects.md) | S | - | An offline project never connects; left: an acceptance round trip that follows a bundle, restores, backs up and refuses a `file://` follow. |
+| <a id="b102"></a>[B102](B102-A-Vault-Cleared-In-One-Step.md) | S | - | `vault clear` is on `main`; left: a scenario in `vault-commands.feature` and the walk with a homeserver on a rented machine. |
+| <a id="b76"></a>[B76](B76-The-Code-Checked-Against-The-Skills-It-Was-Written-Without.md) | L | - | Ten open findings against the house skills (vault tests, netlink, nft hang, app, kit), and the modules added since that were never read. |
+| <a id="b125"></a>[B125](B125-What-A-Daemon-Costs-And-On-Which-Threads.md) | M | - | Left: no loops for exited tasks, never-started containers listed, the idle measurement on the two-CPU VM, and the run on virtual threads. |
+| <a id="b79"></a>[B79](B79-A-Daemon-That-Answers-Nothing.md) | S | - | Platform threads and the thread dump are built; left: runs on the two-CPU VM after SIGKILL, both thread kinds, reading a dump on a hang. |
+| <a id="b13"></a>[B13](B13-Unreviewed-Work-Leaving-By-The-Side-Door.md) | S | - | Guard, checkout and already-upstream marking on `main`; left: a hand-push acceptance scenario and the decision on an upstream review branch. |
+| <a id="b49"></a>[B49](B49-What-The-Build-Trusts-To-Run-Beside-Its-Secrets.md) | S | - | Pins, Dependabot and `check-actions` are on `main`; left: a checksum-pinned JFrog CLI step, the hand check of `Publish`, the first Dependabot review. |
+| <a id="b31"></a>[B31](B31-An-Authorization-A-Person-Grants-Once.md) | M | - | Left: dynamic client registration against a stand-in, then a real grant and an hour-long MCP stream on the VM. |
+| <a id="b46"></a>[B46](B46-The-Conversation-A-Restart-Loses.md) | M | - | Session continuation and `--restarted` are built; left: a real-reboot `@restart` scenario on a rented machine, a stub that remembers a word, one decision. |
+| <a id="b134"></a>[B134](B134-A-Task-Terminal-As-The-Terminal-Outside.md) | M | - | The task's tmux matches the terminal outside; left: Pi's measurement, a kit step and scenario per key, then the joint test. |
+| <a id="b133"></a>[B133](B133-A-Shut-Vault-Opened-Where-It-Is-Needed.md) | S | - | A shut vault asks for its passphrase at a terminal instead of refusing; left: one scenario that starts a task on a shut vault. |
+| <a id="b129"></a>[B129](B129-An-Agent-Found-By-Its-Description.md) | S | - | Agents found by an `agents.d/<name>.yaml` description; left: the stub packaged that way and the package check proving it. |
+| <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `sokar` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
+| <a id="b06"></a>[B06](B06-Remote-Access.md) | M | - | Remote use over ssh; both shapes built; left: a daemon-socket check and a real `ssh localhost` hop in the acceptance suite. |
+| <a id="b23"></a>[B23](B23-Secrets-In-This-Process-Memory.md) | L | - | `ProcessHardening` applied (no caller yet), keyring and vault-file buffers closed, a `VaultEntry` value as bytes for every caller, the limits documented. |
 
 ## Analyzed
 

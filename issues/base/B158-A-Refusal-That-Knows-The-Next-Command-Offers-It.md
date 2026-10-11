@@ -28,7 +28,7 @@ shut vault, and [B132](README.md#b132) for a grant missing at a task's start.
   - a task's start refused for a missing grant, sign-in or key: `Grant it first with 'sokar vault authorize …'`,
     `Sign in first with 'sokar vault login …'`, `Store its key first with 'sokar vault put …'` (`TaskLaunch`);
   - `task resume` of a task whose vault is shut, `Unlock it with 'sokar vault unlock'` (`TaskResumeCommand`), where
-    B133 has not reached yet.
+    [B133](README.md#b133) has not reached yet.
 - Not of this kind, and left as refusals: `task remove` of a running task (stopping is a decision), and a start whose
   name has earlier work waiting (approve or reject is a review, not a command to run).
 
