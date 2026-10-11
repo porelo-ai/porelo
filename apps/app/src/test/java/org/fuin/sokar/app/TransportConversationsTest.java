@@ -307,10 +307,10 @@ class TransportConversationsTest {
     @Test
     void anAddressIsATasksShortOrFullNameOrAPersons() {
         final Map<String, String> tasks = Map.of("sokar-p-review", "@review");
-        final Map<String, String> people = Map.of("michi", "@michi");
+        final Map<String, String> people = Map.of("alice", "@alice");
         assertThat(TransportConversations.addressOf("review", "p", tasks, people)).isEqualTo("@review");
         assertThat(TransportConversations.addressOf("sokar-p-review", "p", tasks, people)).isEqualTo("@review");
-        assertThat(TransportConversations.addressOf("michi", "p", tasks, people)).isEqualTo("@michi");
+        assertThat(TransportConversations.addressOf("alice", "p", tasks, people)).isEqualTo("@alice");
         assertThat(TransportConversations.addressOf("nobody", "p", tasks, people)).isNull();
     }
 
@@ -454,7 +454,7 @@ class TransportConversationsTest {
             runner.answering("setup", "{\"account\":{\"ADMIN\":\"a-1\"},\"secrets\":{\"POLLER\":\"p-1\"},"
                     + "\"conversation\":\"!room-p\",\"reaches\":[\"127.0.0.1:18008\"]}");
             runner.answering("enroll", "{\"secrets\":{\"TASK\":\"t-1\"}}");
-            runner.answering(" poll ", "", "skipped 1 encrypted message from @michi:localhost");
+            runner.answering(" poll ", "", "skipped 1 encrypted message from @alice:localhost");
             final Mailbox review = mailbox("sokar-p-review");
             assertThat(new TaskConversations(context).enroll(project("guarded"), "sokar-p-review")).isNull();
 

@@ -121,7 +121,7 @@ class HandInsTest {
         final byte[] content = "the build log\n".getBytes(StandardCharsets.UTF_8);
 
         final HandIns.Progress progress = handIns.part(TASK, "build.log", content.length, sha256(content), 0,
-                content, "michi");
+                content, "alice");
 
         assertThat(progress.received()).isEqualTo(content.length);
         assertThat(progress.file()).isNotNull();
@@ -130,7 +130,7 @@ class HandInsTest {
         assertThat(handIns.summary(TASK).files()).singleElement().satisfies(file -> {
             assertThat(file.name()).isEqualTo("build.log");
             assertThat(file.bytes()).isEqualTo(content.length);
-            assertThat(file.by()).isEqualTo("michi");
+            assertThat(file.by()).isEqualTo("alice");
             assertThat(file.run()).isEqualTo(RUN);
             assertThat(file.at()).isEqualTo("2026-10-06T10:00:00Z");
         });
@@ -143,16 +143,16 @@ class HandInsTest {
         final String sha = sha256(content);
 
         final HandIns.Progress first = handIns.part(TASK, "big.bin", content.length, sha, 0,
-                Arrays.copyOfRange(content, 0, 4_000), "michi");
+                Arrays.copyOfRange(content, 0, 4_000), "alice");
 
         assertThat(first.received()).isEqualTo(4_000);
         assertThat(first.file()).isNull();
         assertThat(container.resolve("sokar/files/big.bin")).doesNotExist();
         assertThat(ran).as("nothing reaches the task before it is complete").isEmpty();
 
-        handIns.part(TASK, "big.bin", content.length, sha, 4_000, Arrays.copyOfRange(content, 4_000, 9_000), "michi");
+        handIns.part(TASK, "big.bin", content.length, sha, 4_000, Arrays.copyOfRange(content, 4_000, 9_000), "alice");
         final HandIns.Progress last = handIns.part(TASK, "big.bin", content.length, sha, 9_000,
-                Arrays.copyOfRange(content, 9_000, 10_000), "michi");
+                Arrays.copyOfRange(content, 9_000, 10_000), "alice");
 
         assertThat(last.file()).isNotNull();
         assertThat(container.resolve("sokar/files/big.bin")).hasBinaryContent(content);
@@ -162,10 +162,10 @@ class HandInsTest {
     void aPartOutOfOrderSaysWhereToGoOn() throws IOException {
         final byte[] content = bytes(1_000);
         final String sha = sha256(content);
-        handIns.part(TASK, "x.bin", content.length, sha, 0, Arrays.copyOfRange(content, 0, 300), "michi");
+        handIns.part(TASK, "x.bin", content.length, sha, 0, Arrays.copyOfRange(content, 0, 300), "alice");
 
         assertThatThrownBy(() -> handIns.part(TASK, "x.bin", content.length, sha, 600,
-                Arrays.copyOfRange(content, 600, 1_000), "michi"))
+                Arrays.copyOfRange(content, 600, 1_000), "alice"))
                 .isInstanceOfSatisfying(HandIns.Refused.class, refused -> {
                     assertThat(refused.error()).isEqualTo("PartOutOfOrder");
                     assertThat(refused.parameters()).containsEntry("received", 300L).containsEntry("name", "x.bin");
@@ -173,12 +173,12 @@ class HandInsTest {
 
         // Resumed where it said, it completes.
         assertThat(handIns.part(TASK, "x.bin", content.length, sha, 300, Arrays.copyOfRange(content, 300, 1_000),
-                "michi").file()).isNotNull();
+                "alice").file()).isNotNull();
     }
 
     @Test
     void aFirstPartThatDoesNotStartAtZeroIsOutOfOrderToo() {
-        assertThatThrownBy(() -> handIns.part(TASK, "x.bin", 10, "0".repeat(64), 5, new byte[5], "michi"))
+        assertThatThrownBy(() -> handIns.part(TASK, "x.bin", 10, "0".repeat(64), 5, new byte[5], "alice"))
                 .isInstanceOfSatisfying(HandIns.Refused.class, refused -> {
                     assertThat(refused.error()).isEqualTo("PartOutOfOrder");
                     assertThat(refused.parameters()).containsEntry("received", 0L);
@@ -188,7 +188,7 @@ class HandInsTest {
     @Test
     void aSecondFileOfTheSameNameWhileOneIsInFlightIsRefused() throws IOException {
         final byte[] content = bytes(1_000);
-        handIns.part(TASK, "x.bin", content.length, sha256(content), 0, Arrays.copyOfRange(content, 0, 100), "michi");
+        handIns.part(TASK, "x.bin", content.length, sha256(content), 0, Arrays.copyOfRange(content, 0, 100), "alice");
 
         final byte[] other = bytes(2_000);
         final String otherSha = sha256(other);
@@ -203,7 +203,7 @@ class HandInsTest {
     @Test
     void aHandInNobodyContinuesIsDroppedAfterTenMinutes() throws IOException {
         final byte[] content = bytes(1_000);
-        handIns.part(TASK, "x.bin", content.length, sha256(content), 0, Arrays.copyOfRange(content, 0, 100), "michi");
+        handIns.part(TASK, "x.bin", content.length, sha256(content), 0, Arrays.copyOfRange(content, 0, 100), "alice");
         try (var parts = Files.list(paths.containerState(TASK).resolveSibling("hand-in").resolve(TASK))) {
             for (final Path part : parts.toList()) {
                 Files.setLastModifiedTime(part, java.nio.file.attribute.FileTime.from(now));
@@ -221,7 +221,7 @@ class HandInsTest {
     void aFileOverTheLimitIsRefusedBeforeAnyByteIsKept() throws IOException {
         Files.writeString(paths.containerState(TASK).resolve(HandIns.LIMIT_FILE), "1000");
 
-        assertThatThrownBy(() -> handIns.part(TASK, "big.bin", 1_001, "0".repeat(64), 0, new byte[10], "michi"))
+        assertThatThrownBy(() -> handIns.part(TASK, "big.bin", 1_001, "0".repeat(64), 0, new byte[10], "alice"))
                 .isInstanceOfSatisfying(HandIns.Refused.class, refused -> {
                     assertThat(refused.error()).isEqualTo("FileTooLarge");
                     assertThat(refused.parameters()).containsEntry("bytes", 1_001L).containsEntry("limit", 1_000L);
@@ -239,7 +239,7 @@ class HandInsTest {
     void contentThatDoesNotHashToWhatWasSaidIsNotPlaced() throws IOException {
         final byte[] content = bytes(500);
 
-        assertThatThrownBy(() -> handIns.part(TASK, "x.bin", content.length, "0".repeat(64), 0, content, "michi"))
+        assertThatThrownBy(() -> handIns.part(TASK, "x.bin", content.length, "0".repeat(64), 0, content, "alice"))
                 .isInstanceOfSatisfying(HandIns.Refused.class, refused -> {
                     assertThat(refused.error()).isEqualTo("FileDiffers");
                     assertThat(refused.parameters()).containsEntry("expected", "0".repeat(64));
@@ -262,20 +262,20 @@ class HandInsTest {
     void aSecondFileOfTheSameNameReplacesTheFirstAndIsTakenBackOnce() throws IOException {
         final byte[] first = "one".getBytes(StandardCharsets.UTF_8);
         final byte[] second = "two".getBytes(StandardCharsets.UTF_8);
-        handIns.part(TASK, "spec.txt", first.length, sha256(first), 0, first, "michi");
-        handIns.part(TASK, "spec.txt", second.length, sha256(second), 0, second, "michi");
+        handIns.part(TASK, "spec.txt", first.length, sha256(first), 0, first, "alice");
+        handIns.part(TASK, "spec.txt", second.length, sha256(second), 0, second, "alice");
 
         assertThat(container.resolve("sokar/files/spec.txt")).hasBinaryContent(second);
         assertThat(handIns.summary(TASK).files()).singleElement()
                 .satisfies(file -> assertThat(file.sha256()).isEqualTo(sha256(second)));
 
-        handIns.takeBack(TASK, "spec.txt", "michi");
+        handIns.takeBack(TASK, "spec.txt", "alice");
 
         assertThat(container.resolve("sokar/files/spec.txt")).doesNotExist();
         assertThat(handIns.summary(TASK).files()).isEmpty();
         assertThat(handIns.record(TASK)).extracting(HandIns.Entry::event)
                 .containsExactly(HandIns.GIVEN, HandIns.REPLACED, HandIns.TAKEN_BACK);
-        assertThatThrownBy(() -> handIns.takeBack(TASK, "spec.txt", "michi"))
+        assertThatThrownBy(() -> handIns.takeBack(TASK, "spec.txt", "alice"))
                 .isInstanceOfSatisfying(HandIns.Refused.class,
                         refused -> assertThat(refused.error()).isEqualTo("NoSuchFile"));
     }
@@ -283,7 +283,7 @@ class HandInsTest {
     @Test
     void theRecordOutlivesTheTaskAndTellsTwoRunsOfOneNameApart() throws IOException {
         final byte[] content = "x".getBytes(StandardCharsets.UTF_8);
-        handIns.part(TASK, "a.txt", content.length, sha256(content), 0, content, "michi");
+        handIns.part(TASK, "a.txt", content.length, sha256(content), 0, content, "alice");
 
         // The task is removed: its runtime state goes. A later task gets the same name and a new container.
         deleteTree(paths.containerState(TASK));
@@ -302,7 +302,7 @@ class HandInsTest {
     void aWholeFileFromThisMachineIsPlacedTheSameWay() throws IOException {
         final Path source = Files.write(dir.resolve("screenshot.png"), bytes(3_000));
 
-        final HandIns.HandedFile file = handIns.give(TASK, "screenshot.png", source, "michi");
+        final HandIns.HandedFile file = handIns.give(TASK, "screenshot.png", source, "alice");
 
         assertThat(container.resolve("sokar/files/screenshot.png")).hasSameBinaryContentAs(source);
         assertThat(file.sha256()).isEqualTo(HandIns.sha256Of(source));

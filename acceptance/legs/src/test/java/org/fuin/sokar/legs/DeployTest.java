@@ -65,26 +65,26 @@ class DeployTest {
         final Path deb = deb();
         machine.answer("bash -lc 'command -v sokar'", "/usr/bin/sokar\n");
         machine.answer("echo \"/run/user", "/run/user/1001/sokar/sokard.sock\n");
-        machine.answer("sokar agents", "NAME  FROM\nstub  /home/claude/.local/share/sokar/agents\n");
+        machine.answer("sokar agents", "NAME  FROM\nstub  /home/somebody/.local/share/sokar/agents\n");
 
-        final int code = Deploy.deploy("claude@192.168.122.174", repository, "7.1", false, machine, run -> 0, out);
+        final int code = Deploy.deploy("somebody@192.0.2.10", repository, "7.1", false, machine, run -> 0, out);
 
         assertThat(code).as(text()).isZero();
         assertThat(machine.uploads).containsEntry(deb, STAGING + "/" + deb.getFileName());
         assertThat(machine.commands).contains("sudo dpkg -i --force-downgrade '" + STAGING + "/" + deb.getFileName() + "'",
-                Deploy.lingerCommand("claude"));
+                Deploy.lingerCommand("somebody"));
         assertThat(text()).contains("socket   /run/user/1001/sokar/sokard.sock").contains("agents it can run: stub");
     }
 
     @Test
     void refusesToGoOnWhenAnotherSokarShadowsThePackage() throws IOException {
         deb();
-        machine.answer("bash -lc 'command -v sokar'", "/home/claude/.local/bin/sokar\n");
+        machine.answer("bash -lc 'command -v sokar'", "/home/somebody/.local/bin/sokar\n");
 
-        final int code = Deploy.deploy("claude@host", repository, "7.1", true, machine, run -> 0, out);
+        final int code = Deploy.deploy("somebody@host", repository, "7.1", true, machine, run -> 0, out);
 
         assertThat(code).isEqualTo(1);
-        assertThat(text()).contains("PATH finds /home/claude/.local/bin/sokar, not the package at /usr/bin/sokar");
+        assertThat(text()).contains("PATH finds /home/somebody/.local/bin/sokar, not the package at /usr/bin/sokar");
         assertThat(machine.commands).noneMatch(command -> command.contains("systemctl"));
     }
 
@@ -92,7 +92,7 @@ class DeployTest {
     void installsNothingWhenTheBuildFails() throws IOException {
         deb();
 
-        final int code = Deploy.deploy("claude@host", repository, "7.1", false, machine, run -> 1, out);
+        final int code = Deploy.deploy("somebody@host", repository, "7.1", false, machine, run -> 1, out);
 
         assertThat(code).isEqualTo(1);
         assertThat(machine.uploads).isEmpty();
@@ -104,7 +104,7 @@ class DeployTest {
         deb();
         final List<String> built = new ArrayList<>();
 
-        Deploy.deploy("claude@host", repository, null, false, machine, run -> {
+        Deploy.deploy("somebody@host", repository, null, false, machine, run -> {
             built.add(run);
             return 1;
         }, out);
@@ -117,7 +117,7 @@ class DeployTest {
         deb();
         machine.fail("sudo dpkg -i");
 
-        final int code = Deploy.deploy("claude@host", repository, "7.1", true, machine, run -> 0, out);
+        final int code = Deploy.deploy("somebody@host", repository, "7.1", true, machine, run -> 0, out);
 
         assertThat(code).isEqualTo(1);
         assertThat(text()).contains("failed (1): sudo dpkg -i");
@@ -129,7 +129,7 @@ class DeployTest {
         deb();
         machine.answer("LC_ALL=C apt-cache madison", "     sokar | 0.1.0~snapshot.180 | https://x snapshots/main amd64 Packages\n");
 
-        final int code = Deploy.deploy("claude@host", repository, null, true, machine, run -> 0, out);
+        final int code = Deploy.deploy("somebody@host", repository, null, true, machine, run -> 0, out);
 
         assertThat(code).isEqualTo(1);
         assertThat(machine.uploads).isEmpty();
@@ -141,16 +141,16 @@ class DeployTest {
         final Path deb = deb();
         accountRunsItsOwn();
 
-        final int code = Deploy.deploy("core@host", repository, "7.1", true, Deploy.Scope.ACCOUNT, machine, run -> 0, out);
+        final int code = Deploy.deploy("alice@host", repository, "7.1", true, Deploy.Scope.ACCOUNT, machine, run -> 0, out);
 
         assertThat(code).as(text()).isZero();
         assertThat(machine.uploads).containsEntry(deb, STAGING + "/" + deb.getFileName());
         // Nothing machine-wide: no package manager, and so nothing another account runs changes.
         assertThat(machine.commands).noneMatch(command -> command.contains("dpkg -i") || command.contains("dpkg -r"));
         assertThat(machine.commands).anyMatch(command -> command.startsWith("set -e; d=$(mktemp -d); dpkg-deb -x"));
-        assertThat(text()).contains("PATH finds  /home/core/.local/bin/sokar")
-                .contains("daemon runs /home/core/.local/bin/sokard")
-                .contains("hook        /home/core/.local/bin/sokar-hook-nft")
+        assertThat(text()).contains("PATH finds  /home/alice/.local/bin/sokar")
+                .contains("daemon runs /home/alice/.local/bin/sokard")
+                .contains("hook        /home/alice/.local/bin/sokar-hook-nft")
                 .contains("the package: 0.1.0~snapshot.182.1");
     }
 
@@ -160,10 +160,10 @@ class DeployTest {
         accountRunsItsOwn();
         machine.answer("readlink", "/usr/bin/sokard\n");
 
-        final int code = Deploy.deploy("core@host", repository, "7.1", true, Deploy.Scope.ACCOUNT, machine, run -> 0, out);
+        final int code = Deploy.deploy("alice@host", repository, "7.1", true, Deploy.Scope.ACCOUNT, machine, run -> 0, out);
 
         assertThat(code).isEqualTo(1);
-        assertThat(text()).contains("daemon runs /usr/bin/sokard").contains("not everything names /home/core/.local/bin/");
+        assertThat(text()).contains("daemon runs /usr/bin/sokard").contains("not everything names /home/alice/.local/bin/");
     }
 
     @Test
@@ -173,7 +173,7 @@ class DeployTest {
         accountRunsItsOwn();
         machine.answer("LC_ALL=C apt-cache madison", "     sokar | 0.1.0~snapshot.180 | https://x snapshots/main amd64 Packages\n");
 
-        final int code = Deploy.deploy("core@host", repository, null, true, Deploy.Scope.ACCOUNT, machine, run -> 0, out);
+        final int code = Deploy.deploy("alice@host", repository, null, true, Deploy.Scope.ACCOUNT, machine, run -> 0, out);
 
         assertThat(code).as(text()).isZero();
     }
@@ -192,18 +192,18 @@ class DeployTest {
     @Test
     void readsTheExecutablesTheHookDescriptorsName() {
         assertThat(Deploy.hookPaths("""
-                {"version":"1.0.0","hook":{"path":"/home/core/.local/bin/sokar-hook-nft","args":["x"]}}
+                {"version":"1.0.0","hook":{"path":"/home/alice/.local/bin/sokar-hook-nft","args":["x"]}}
                 {"version": "1.0.0", "hook": {"path" : "/usr/libexec/sokar/hooks/sokar-hook-reader"}}
-                """)).containsExactly("/home/core/.local/bin/sokar-hook-nft", "/usr/libexec/sokar/hooks/sokar-hook-reader");
+                """)).containsExactly("/home/alice/.local/bin/sokar-hook-nft", "/usr/libexec/sokar/hooks/sokar-hook-reader");
     }
 
     private void accountRunsItsOwn() {
         machine.answer("dpkg-query -W", "0.1.0~snapshot.182.1");
-        machine.answer("echo \"$HOME\"", "/home/core\n");
-        machine.answer("bash -lc 'command -v sokar'", "/home/core/.local/bin/sokar\n");
-        machine.answer("readlink", "/home/core/.local/bin/sokard\n");
+        machine.answer("echo \"$HOME\"", "/home/alice\n");
+        machine.answer("bash -lc 'command -v sokar'", "/home/alice/.local/bin/sokar\n");
+        machine.answer("readlink", "/home/alice/.local/bin/sokard\n");
         machine.answer("cat \"$HOME\"/.config/containers/oci/hooks.d",
-                "{\"hook\":{\"path\":\"/home/core/.local/bin/sokar-hook-nft\"}}");
+                "{\"hook\":{\"path\":\"/home/alice/.local/bin/sokar-hook-nft\"}}");
         machine.answer("echo \"/run/user", "/run/user/1008/sokar/sokard.sock\n");
     }
 
@@ -292,7 +292,7 @@ class DeployTest {
         final Path deb = deb();
         machine.fail("set -e; d=$(mktemp -d); dpkg-deb -x");
 
-        Deploy.deploy("matrix@host", repository, "7.1", true, Deploy.Scope.ACCOUNT, machine, run -> 0, out);
+        Deploy.deploy("bob@host", repository, "7.1", true, Deploy.Scope.ACCOUNT, machine, run -> 0, out);
 
         assertThat(machine.uploads).containsEntry(deb, STAGING + "/" + deb.getFileName());
         assertThat(machine.commands).contains("rm -rf '" + STAGING + "'");
@@ -307,8 +307,8 @@ class DeployTest {
         stub.toFile().setExecutable(true);
         accountRunsItsOwn();
 
-        Deploy.deploy("core@host", repository, "7.1", true, Deploy.Scope.ACCOUNT, machine, run -> 0, out);
-        Deploy.deploy("core@host", repository, "7.1", true, machine, run -> 0, out);
+        Deploy.deploy("alice@host", repository, "7.1", true, Deploy.Scope.ACCOUNT, machine, run -> 0, out);
+        Deploy.deploy("alice@host", repository, "7.1", true, machine, run -> 0, out);
 
         assertThat(machine.commands).as("each deploy asks for a directory of its own")
                 .filteredOn(command -> command.startsWith("mktemp -d")).hasSize(2)
@@ -331,7 +331,7 @@ class DeployTest {
         Files.writeString(builds.resolve("README.md"), "not a reader");
         accountRunsItsOwn();
 
-        assertThat(Deploy.deploy("core@host", repository, "7.1", true, Deploy.Scope.ACCOUNT, machine, run -> 0, out))
+        assertThat(Deploy.deploy("alice@host", repository, "7.1", true, Deploy.Scope.ACCOUNT, machine, run -> 0, out))
                 .as(text()).isZero();
 
         assertThat(machine.uploads).containsKeys(builds.resolve("github"), builds.resolve("stub-forge"))

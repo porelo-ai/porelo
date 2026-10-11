@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 class ScopeTest {
 
     private static final Map<String, String> SESSION = Map.of("XDG_RUNTIME_DIR", "/run/user/1008",
-            "PATH", "/home/core/.local/bin:/usr/bin");
+            "PATH", "/home/alice/.local/bin:/usr/bin");
 
     @Test
     void runsATasksProcessesInAScopeOfTheirOwnWhenThereIsAUserManager() {

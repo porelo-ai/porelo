@@ -103,7 +103,7 @@ public final class MailboxGuide {
                   "messageId": "a-unique-id-of-yours",
                   "role": "@ROLE@",
                   "parts": [ { "text": "What you have to say." } ],
-                  "metadata": { "to": "michi", "via": "room" }
+                  "metadata": { "to": "alice", "via": "room" }
                 }
                 ```
 

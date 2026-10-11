@@ -23,7 +23,7 @@ class GitCredentialNamesTest {
                 .isEqualTo(GitCredentialNames.Kind.TOKEN);
         // A directory on this machine is opened by neither, and saying otherwise would send
         // somebody to store a credential that changes nothing.
-        assertThat(GitCredentialNames.kindOf("/home/michi/git/acme"))
+        assertThat(GitCredentialNames.kindOf("/home/alice/git/acme"))
                 .isEqualTo(GitCredentialNames.Kind.NONE);
     }
 
@@ -34,7 +34,7 @@ class GitCredentialNamesTest {
                 .isEqualTo("gitlab.company.example");
         assertThat(GitCredentialNames.hostOf("https://someone@forge.example:8443/x.git"))
                 .isEqualTo("forge.example");
-        assertThat(GitCredentialNames.hostOf("/home/michi/git/acme")).isNull();
+        assertThat(GitCredentialNames.hostOf("/home/alice/git/acme")).isNull();
     }
 
     @Test
@@ -46,7 +46,7 @@ class GitCredentialNamesTest {
                 .containsExactly("git.ssh.github.com", "git.ssh", "ssh.default");
         assertThat(GitCredentialNames.candidatesFor("https://github.com/acme/x.git"))
                 .containsExactly("git.token.github.com", "git.token");
-        assertThat(GitCredentialNames.candidatesFor("/home/michi/git/acme")).isEmpty();
+        assertThat(GitCredentialNames.candidatesFor("/home/alice/git/acme")).isEmpty();
     }
 
     @Test

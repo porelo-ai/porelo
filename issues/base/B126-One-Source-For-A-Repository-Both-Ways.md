@@ -35,7 +35,7 @@ Built and on `origin/main` (`10dcaaf0`, with fixes in `b5625490`), read in the c
   at the gate, names what each task of that checkout holds (`UnhandedWork`).
 - `doc/commands.md` says which source a task has and where its work goes.
 
-Left: the walk in `walk9`, the operator's.
+Left: the walk on the test machine, the operator's.
 
 ## Acceptance
 

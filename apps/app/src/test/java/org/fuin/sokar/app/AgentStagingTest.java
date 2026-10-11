@@ -31,8 +31,8 @@ class AgentStagingTest {
     @Test
     void readsARelativeSourceBesideTheAgentBinary() {
         // So a copy of the agent in one account's directory ships its own tree, not the machine's.
-        assertThat(AgentStaging.source(Path.of("/home/core/.local/share/sokar/agents/sokar-agent-a"), "a/tree.tar.gz"))
-                .isEqualTo(Path.of("/home/core/.local/share/sokar/agents/a/tree.tar.gz"));
+        assertThat(AgentStaging.source(Path.of("/home/alice/.local/share/sokar/agents/sokar-agent-a"), "a/tree.tar.gz"))
+                .isEqualTo(Path.of("/home/alice/.local/share/sokar/agents/a/tree.tar.gz"));
     }
 
     @Test

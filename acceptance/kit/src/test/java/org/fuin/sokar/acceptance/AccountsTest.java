@@ -58,7 +58,7 @@ class AccountsTest {
     @Test
     void refusesSeveralAccountsThatWouldAllDriveOneOperatorsSokar() {
         System.setProperty(Accounts.USERS, "build,accept2");
-        System.setProperty("sokar.acceptance.as", "michi");
+        System.setProperty("sokar.acceptance.as", "alice");
 
         assertThatThrownBy(Accounts::configured).hasMessageContaining("cannot be combined");
     }

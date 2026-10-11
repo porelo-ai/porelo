@@ -154,9 +154,9 @@ class MessageReleaseTest {
             throws IOException {
 
         // Released, queued, run without the task's account and held again, for ever: each release was for nothing.
-        final Mailbox mailbox = held(dir, "m-1.json", "{\"messageId\":\"m-1\",\"metadata\":{\"to\":\"michi\"}}");
+        final Mailbox mailbox = held(dir, "m-1.json", "{\"messageId\":\"m-1\",\"metadata\":{\"to\":\"alice\"}}");
         final org.fuin.sokar.core.project.Mail mail = new org.fuin.sokar.core.project.Mail(java.util.List.of(
-                new org.fuin.sokar.core.project.Mail.Peer("michi", "matrix:", "external")),
+                new org.fuin.sokar.core.project.Mail.Peer("alice", "matrix:", "external")),
                 java.util.Map.of("matrix", java.util.Map.of()));
 
         final MessageRelease.Result result = new MessageRelease().enrolledIn(java.util.Set.of())

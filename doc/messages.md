@@ -143,7 +143,7 @@ A message is one JSON object (A2A 1.0):
   "messageId": "a-unique-id-of-yours",
   "role": "ROLE_AGENT",
   "parts": [ { "text": "What you have to say." } ],
-  "metadata": { "to": "michi", "via": "room" }
+  "metadata": { "to": "alice", "via": "room" }
 }
 ```
 

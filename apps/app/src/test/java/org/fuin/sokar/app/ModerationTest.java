@@ -150,11 +150,11 @@ class ModerationTest {
     void aPersonInTheConversationIsWatchedAsTheRoomIs(@TempDir final Path dir)
             throws IOException {
 
-        // A direct chat with michi leaves the machine as a message to the room does (2026-10-04).
+        // A direct chat with alice leaves the machine as a message to the room does (2026-10-04).
         final Moderation moderation = new Moderation(dir.resolve("moderation").resolve("p.json"),
-                guarded(new Mail.Rules(null, Mail.PROMPT, null), READER), java.util.Set.of("michi"));
+                guarded(new Mail.Rules(null, Mail.PROMPT, null), READER), java.util.Set.of("alice"));
 
-        assertThat(moderation.peer("michi").mode()).as("the room's written rule").isEqualTo(Mail.PROMPT);
+        assertThat(moderation.peer("alice").mode()).as("the room's written rule").isEqualTo(Mail.PROMPT);
         assertThat(moderation.peer("sokar-p-2").mode()).as("a task of the project still talks freely")
                 .isEqualTo(Mail.ALLOW);
     }

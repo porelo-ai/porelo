@@ -35,7 +35,7 @@ class EveryoneReadsTheRoomTest {
     private static final Map<String, String> ACCOUNTS = Map.of("sokar-p-writer", "@sokar-p-writer:localhost",
             "sokar-p-review", "@sokar-p-review:localhost");
 
-    private static final Map<String, String> PEOPLE = Map.of("michi", "@michi:localhost");
+    private static final Map<String, String> PEOPLE = Map.of("alice", "@alice:localhost");
 
     private static void person(final Path inbound, final String name, final String json) throws IOException {
         Files.createDirectories(inbound);
@@ -47,7 +47,7 @@ class EveryoneReadsTheRoomTest {
         final Mailbox writer = mailbox("sokar-p-writer");
         final Mailbox review = mailbox("sokar-p-review");
         final Path inbound = dir.resolve("inbound");
-        person(inbound, "t1--matrix-person-a.json", "{\"sender\":\"@michi:localhost\","
+        person(inbound, "t1--matrix-person-a.json", "{\"sender\":\"@alice:localhost\","
                 + "\"to\":[\"@sokar-p-writer:localhost\"],\"body\":\"look at the failing test\",\"eventId\":\"$e1\","
                 + "\"at\":\"2026-10-04T07:30:00Z\"}");
         final Map<String, String> handed = new LinkedHashMap<>();
@@ -59,9 +59,9 @@ class EveryoneReadsTheRoomTest {
             final Path arrived = each.inbound().resolve("t1--matrix-person-a.json");
             assertThat(arrived).as("every agent reads the room").exists();
             assertThat(each.inbound().resolve("t1--matrix-person-a.json" + MessageDelivery.PERSON_SUFFIX))
-                    .hasContent("michi");
+                    .hasContent("alice");
             assertThat(arrived).content().contains("\"role\":\"ROLE_USER\"").contains("look at the failing test")
-                    .contains("\"from\":\"michi\"").contains("\"to\":[\"writer\"]").contains("\"via\":\"room\"");
+                    .contains("\"from\":\"alice\"").contains("\"to\":[\"writer\"]").contains("\"via\":\"room\"");
         }
         try (var left = Files.list(inbound)) {
             assertThat(left).isEmpty();
@@ -73,7 +73,7 @@ class EveryoneReadsTheRoomTest {
         final Mailbox writer = mailbox("sokar-p-writer");
         final Mailbox review = mailbox("sokar-p-review");
         final Path inbound = dir.resolve("inbound");
-        person(inbound, "t2--matrix-person-b.json", "{\"sender\":\"@michi:localhost\",\"direct\":true,"
+        person(inbound, "t2--matrix-person-b.json", "{\"sender\":\"@alice:localhost\",\"direct\":true,"
                 + "\"to\":[\"@sokar-p-writer:localhost\"],\"body\":\"just between us\",\"eventId\":\"$e2\"}");
 
         TransportConversations.handOut(inbound, members(writer, review), ACCOUNTS, PEOPLE, new LinkedHashMap<>(),
@@ -121,8 +121,8 @@ class EveryoneReadsTheRoomTest {
     void aPersonsWordsReachTheAgentUnsignedAndUnfilteredAndAreRecordedAsTheirs() throws IOException {
         final Mailbox writer = mailbox("sokar-p-writer");
         Files.writeString(writer.inbound().resolve("t1--matrix-person-a.json"), "{\"messageId\":\"person-$e1\","
-                + "\"role\":\"ROLE_USER\",\"parts\":[{\"text\":\"hi\"}],\"metadata\":{\"from\":\"michi\"}}");
-        Files.writeString(writer.inbound().resolve("t1--matrix-person-a.json" + MessageDelivery.PERSON_SUFFIX), "michi");
+                + "\"role\":\"ROLE_USER\",\"parts\":[{\"text\":\"hi\"}],\"metadata\":{\"from\":\"alice\"}}");
+        Files.writeString(writer.inbound().resolve("t1--matrix-person-a.json" + MessageDelivery.PERSON_SUFFIX), "alice");
         // A filter that would refuse anything: a person's words never meet it.
         final org.fuin.sokar.testing.FakeCommandRunner refusing = new org.fuin.sokar.testing.FakeCommandRunner()
                 .failing("", 1, "refused");
@@ -132,7 +132,7 @@ class EveryoneReadsTheRoomTest {
 
         assertThat(outcome.held()).isEmpty();
         assertThat(outcome.delivered()).singleElement().satisfies(delivered -> {
-            assertThat(delivered.peer()).isEqualTo("michi");
+            assertThat(delivered.peer()).isEqualTo("alice");
             assertThat(delivered.id()).isEqualTo("person-$e1");
         });
         assertThat(writer.inboxNew().resolve("t1--matrix-person-a.json")).exists();

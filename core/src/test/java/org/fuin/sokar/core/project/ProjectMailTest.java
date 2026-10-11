@@ -34,7 +34,7 @@ class ProjectMailTest {
                 mail:
                   peers:
                     reviewer:
-                      address: "local:/home/michi/.local/state/sokar/mail/sokar-p-r/inbound"
+                      address: "local:/home/alice/.local/state/sokar/mail/sokar-p-r/inbound"
                       trust: "vouched"
                 """);
 

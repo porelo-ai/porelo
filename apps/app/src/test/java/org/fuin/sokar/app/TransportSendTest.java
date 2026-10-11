@@ -134,12 +134,12 @@ class TransportSendTest {
     @Test
     void the_line_a_person_reads_is_the_text_and_nothing_else() {
 
-        // The operator in walk 10, 2026-10-04: "sokar-…-writer to michi:" in front of a direct answer "makes no
+        // The operator in walk 10, 2026-10-04: "sokar-…-writer to alice:" in front of a direct answer "makes no
         // sense". The account that posts it says who wrote it, and a mention says whom it is for.
         assertThat(TransportSend.shown("""
-                {"messageId":"m-1","contextId":"c-1","parts":[{"text":"Hello michi."},{"text":"Second."},
-                 {"mediaType":"image/png","data":"iVBOR"}],"metadata":{"kind":"question","from":"michi","to":"michi"}}
-                """, "sokar-p-foo")).isEqualTo("Hello michi.\n\nSecond.\n\n[image/png]");
+                {"messageId":"m-1","contextId":"c-1","parts":[{"text":"Hello alice."},{"text":"Second."},
+                 {"mediaType":"image/png","data":"iVBOR"}],"metadata":{"kind":"question","from":"alice","to":"alice"}}
+                """, "sokar-p-foo")).isEqualTo("Hello alice.\n\nSecond.\n\n[image/png]");
     }
 
     @Test
@@ -150,12 +150,12 @@ class TransportSendTest {
         // was written to privately".
         final Mailbox mailbox = queued(dir);
         Files.writeString(mailbox.queueActive("local").resolve("m-1.json"),
-                "{\"messageId\":\"m-1\",\"metadata\":{\"to\":\"michi\",\"via\":\"room\"}}");
-        Files.writeString(mailbox.queueActive("local").resolve("m-1.json.to"), "@michi:localhost");
+                "{\"messageId\":\"m-1\",\"metadata\":{\"to\":\"alice\",\"via\":\"room\"}}");
+        Files.writeString(mailbox.queueActive("local").resolve("m-1.json.to"), "@alice:localhost");
         Files.writeString(mailbox.queueActive("local").resolve("m-2.json"),
-                "{\"messageId\":\"m-2\",\"metadata\":{\"to\":\"michi\",\"via\":\"direct\"}}");
+                "{\"messageId\":\"m-2\",\"metadata\":{\"to\":\"alice\",\"via\":\"direct\"}}");
         Files.writeString(mailbox.queueActive("local").resolve("m-2.json.sig"), "-----BEGIN SSH SIGNATURE-----");
-        Files.writeString(mailbox.queueActive("local").resolve("m-2.json.to"), "@michi:localhost");
+        Files.writeString(mailbox.queueActive("local").resolve("m-2.json.to"), "@alice:localhost");
         runner.answering("describe", "{\"scheme\":\"local\",\"mention\":true}");
         runner.answering("send", "{}");
 
@@ -165,8 +165,8 @@ class TransportSendTest {
         final java.util.List<String> sends = runner.invocations().stream().map(command -> command.arguments())
                 .filter(arguments -> arguments.contains("send")).map(arguments -> String.join(" ", arguments)).toList();
         assertThat(sends).anySatisfy(line -> assertThat(line).contains("m-1.json.sig --to !room:localhost")
-                .contains("--mention @michi:localhost"));
-        assertThat(sends).anySatisfy(line -> assertThat(line).contains("m-2.json.sig --to @michi:localhost")
+                .contains("--mention @alice:localhost"));
+        assertThat(sends).anySatisfy(line -> assertThat(line).contains("m-2.json.sig --to @alice:localhost")
                 .doesNotContain("--mention"));
     }
 
@@ -195,7 +195,7 @@ class TransportSendTest {
         final Mailbox mailbox = queued(dir);
         Files.writeString(mailbox.queueActive("local").resolve("m-1.json"),
                 "{\"messageId\":\"m-1\",\"metadata\":{\"via\":\"direct\"}}");
-        Files.writeString(mailbox.queueActive("local").resolve("m-1.json.to"), "@michi:localhost");
+        Files.writeString(mailbox.queueActive("local").resolve("m-1.json.to"), "@alice:localhost");
         Files.writeString(mailbox.queueActive("local").resolve("m-2.json"), "{\"messageId\":\"m-2\"}");
         Files.writeString(mailbox.queueActive("local").resolve("m-2.json.sig"), "-----BEGIN SSH SIGNATURE-----");
         Files.writeString(mailbox.queueActive("local").resolve("m-2.json.to"), "");
@@ -206,6 +206,6 @@ class TransportSendTest {
 
         assertThat(runner.invocations()).filteredOn(command -> command.arguments().contains("send"))
                 .extracting(command -> command.arguments().get(command.arguments().indexOf("--to") + 1))
-                .containsExactlyInAnyOrder("@michi:localhost", "!room:localhost");
+                .containsExactlyInAnyOrder("@alice:localhost", "!room:localhost");
     }
 }

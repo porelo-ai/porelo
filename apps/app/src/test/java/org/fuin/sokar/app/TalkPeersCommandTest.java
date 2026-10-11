@@ -33,9 +33,9 @@ class TalkPeersCommandTest {
         // listed, so a person reading the list could not tell they were there.
         final List<Mail.Peer> listed = TalkPeersCommand.listed(new Mail(List.of(new Mail.Peer("ops",
                 "mail:ops@example.org", Mail.Peer.EXTERNAL)), Map.of("matrix", Map.of())),
-                Map.of("michi", "@michi:localhost"));
+                Map.of("alice", "@alice:localhost"));
 
-        assertThat(listed).extracting(Mail.Peer::name).containsExactly("ops", Mail.PEOPLE, "michi");
-        assertThat(listed.get(2).destination()).isEqualTo("@michi:localhost");
+        assertThat(listed).extracting(Mail.Peer::name).containsExactly("ops", Mail.PEOPLE, "alice");
+        assertThat(listed.get(2).destination()).isEqualTo("@alice:localhost");
     }
 }
