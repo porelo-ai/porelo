@@ -2,7 +2,8 @@
 name: Build
 run-name: "${{ github.workflow }} · ${{ github.ref_name }}: ${{ github.event.head_commit.message || github.event.pull_request.title || github.workflow }}"
 
-# A push that only touches documentation builds nothing; the Shared rules check checks it.
+# A push that only touches documentation builds nothing; the documents are checked locally before every
+# hand-over and by the Shared rules check once a day.
 on:
   push:
     branches: ['**']
