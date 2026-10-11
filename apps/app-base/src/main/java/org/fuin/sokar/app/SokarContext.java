@@ -292,8 +292,43 @@ public record SokarContext(CommandRunner runner, SokarPaths paths,
      * @param err Where a wrong passphrase is said.
      */
     public void openIfShut(final boolean needed, final boolean unlock, final java.io.PrintWriter err) {
-        if (needed && vault().exists() && opener().isEmpty()) {
+        if (!needed || !vault().exists()) {
+            return;
+        }
+        // A kept passphrase that no longer opens the vault - changed elsewhere, or a vault replaced - is dropped and
+        // asked again, rather than every command failing in words that read like a damaged vault.
+        // At a terminal only: checking costs one key derivation, and only a person there can be asked again.
+        if (Offer.atTerminal() && !ASKED.containsKey(paths.vault().vaultFile().toAbsolutePath())
+                && org.fuin.sokar.vault.KernelKeyring.available()
+                && stale(new org.fuin.sokar.vault.PassphraseTiers(org.fuin.sokar.vault.KernelKeyring.source(
+                        paths.vault().vaultKeyringKey())).passphrase(), typed -> vault().accepts(typed))) {
+            new org.fuin.sokar.vault.KernelKeyring(paths.vault().vaultKeyringKey()).forget();
+            err.println("sokar: the passphrase kept in this account's keyring no longer opens " + vault().path()
+                    + "; it was dropped");
+            err.flush();
+        }
+        if (opener().isEmpty()) {
             openerAsking(unlock, err);
+        }
+    }
+
+    /**
+     * Says whether a kept passphrase no longer opens the vault.
+     *
+     * @param kept The passphrase kept, if any.
+     * @param accepts Whether the vault takes a passphrase.
+     * @return {@code true} when one is kept and the vault refuses it.
+     */
+    static boolean stale(final java.util.Optional<char[]> kept, final java.util.function.Predicate<char[]> accepts) {
+        if (kept.isEmpty()) {
+            return false;
+        }
+        try {
+            return !accepts.test(kept.get());
+        } catch (final RuntimeException ex) {
+            return false;
+        } finally {
+            java.util.Arrays.fill(kept.get(), '\0');
         }
     }
 

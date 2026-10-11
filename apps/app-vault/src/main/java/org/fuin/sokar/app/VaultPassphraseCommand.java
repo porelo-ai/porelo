@@ -112,8 +112,8 @@ public class VaultPassphraseCommand implements Callable<Integer>, SokarFactory.C
             // The cached one is now the WRONG one, so it goes. Not a courtesy: leaving it turns
             // the next command into a failure that reads like a damaged vault.
             if (KernelKeyring.available()) {
-                final KernelKeyring.Forgotten forgotten =
-                        new KernelKeyring(context.paths().vault().vaultKeyringKey()).forget();
+                final KernelKeyring.Forgotten forgotten = VaultLockCommand.forgetRetried(
+                        () -> new KernelKeyring(context.paths().vault().vaultKeyringKey()).forget());
                 if (forgotten == KernelKeyring.Forgotten.CLEARED) {
                     // Kept where the old one was: the person just typed it twice, and 'vault unlock' would only ask it a
                     // third time.

@@ -1,0 +1,2 @@
+title: vault lock and vault passphrase retry a keyring that did not answer, and a kept passphrase that no longer opens the vault is dropped and asked again at a terminal
+type: changed

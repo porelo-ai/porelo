@@ -181,6 +181,11 @@ terminal, no terminal, `--no-input` and `--yes`.
   is there aside under a dated name, never over another (`RestoreOfferTest`). Left a message: a held message to a task
   not in the conversation - the remedy is restarting the task, which interrupts its agent mid-work, and a release is
   often asked from the interface, with no terminal to ask at.
+- **(b), the rest:** `vault lock` and `vault passphrase` retry a keyring that did not answer, three times
+  (`VaultLockCommand.forgetRetried`); at a terminal a kept passphrase that no longer opens the vault is dropped and
+  asked again (`SokarContext.stale`, `KeyringRetryTest`). Left a message: restarting only the helper that follows a
+  task's builds - it needs the branch, upstream and credential its launch had, and a listing that restarted it would
+  act where it only reads.
 - **A task from before a restart:** `task resume` and `task attach` offer to copy its workspace to `./recovered`
   (never into a folder that is there), then to remove the task, no by default (`RecoverOfferTest`). The interface's
   start detail keeps the two commands, for a person with no terminal, and names `task resume` beside them. A task chosen from a list: `TaskTarget` already asks.

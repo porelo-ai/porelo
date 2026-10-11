@@ -163,6 +163,8 @@ own, and `vault authorize` of a provider reached with a key, store the key with 
 `gate protect` in a repository whose pre-push hook is somebody else's offers to append the check to it, no by default;
 `--remove` then takes out only those lines. `gate restore` where a mirror is already offers to move it aside under a
 dated name, never over another, and restores.
+Without asking: `vault lock` and `vault passphrase` ask a keyring that did not answer again, three times, before they
+say so; and at a terminal, a passphrase kept in the keyring that no longer opens the vault is dropped and asked again.
 
 **`task logs`** shows the files of the gate, broker, relay, resolver and clearance watcher, not the
 agent's output. `events.jsonl` is what the firewall blocked: look there when a task starts and then

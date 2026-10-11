@@ -54,9 +54,10 @@ public class VaultLockCommand implements Callable<Integer>, SokarFactory.Context
         // Both ways in, not only the passphrase: a device's share held here opens the vault as well, and
         // forgetting the passphrase must not silently keep a device's way in. Measured: with a share held,
         // 'lock' said "locked" while every command still opened the vault.
+        // A keyring that did not answer is asked again before that is said: it most often answers the second time.
         final KernelKeyring.Forgotten passphrase =
-                new KernelKeyring(context.paths().vault().vaultKeyringKey()).forget();
-        final KernelKeyring.Forgotten share = VaultShare.forget(context.paths());
+                forgetRetried(() -> new KernelKeyring(context.paths().vault().vaultKeyringKey()).forget());
+        final KernelKeyring.Forgotten share = forgetRetried(() -> VaultShare.forget(context.paths()));
         final KernelKeyring.Forgotten forgotten = passphrase == KernelKeyring.Forgotten.UNKNOWN
                 || share == KernelKeyring.Forgotten.UNKNOWN ? KernelKeyring.Forgotten.UNKNOWN
                 : passphrase == KernelKeyring.Forgotten.CLEARED || share == KernelKeyring.Forgotten.CLEARED
@@ -90,5 +91,25 @@ public class VaultLockCommand implements Callable<Integer>, SokarFactory.Context
     @Override
     public Integer call() {
         return lock(context, spec.commandLine().getOut());
+    }
+
+    /**
+     * Forgets through the keyring, asking again when it did not answer: three tries, a moment apart.
+     *
+     * @param forget One try.
+     * @return The first answer that is not {@code UNKNOWN}, or {@code UNKNOWN} after three.
+     */
+    static KernelKeyring.Forgotten forgetRetried(final java.util.function.Supplier<KernelKeyring.Forgotten> forget) {
+        KernelKeyring.Forgotten answer = forget.get();
+        for (int tries = 1; answer == KernelKeyring.Forgotten.UNKNOWN && tries < 3; tries++) {
+            try {
+                Thread.sleep(200);
+            } catch (final InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                return answer;
+            }
+            answer = forget.get();
+        }
+        return answer;
     }
 }
