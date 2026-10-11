@@ -55,7 +55,9 @@ public class TalkPassCommand implements Callable<Integer>, SokarFactory.ContextA
         }
         // The task knows its own project, recorded on the container; asking for it again would be
         // asking somebody to repeat what the machine already knows.
-        final String project = projectName != null ? projectName : new TaskInventory(context).projectOf(container);
+        final String known = projectName != null ? projectName : new TaskInventory(context).projectOf(container);
+        final String project = known != null ? known : ProjectSource.chosen(context, Offer.atTerminal()
+                ? new Offer(Offer.Asker.terminal(), false, false, err) : Offer.NOBODY, "sokar talk pass --project <name>");
         if (project == null) {
             err.println("sokar: " + container + " names no project; say which, with --project");
             err.flush();

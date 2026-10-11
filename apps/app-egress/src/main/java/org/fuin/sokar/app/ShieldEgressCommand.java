@@ -101,6 +101,9 @@ public class ShieldEgressCommand implements Callable<Integer>, SokarFactory.Cont
             return widen(task, out, err);
         }
         if (projectName == null) {
+            projectName = ProjectSource.chosen(context, offer(err), "sokar shield egress --project <name>");
+        }
+        if (projectName == null) {
             // Required for every path but one: a running task names its own project, and asking
             // for it again would be asking somebody to repeat what the machine already knows.
             err.println("sokar: say which project, with --project - or which running task, with"
@@ -260,7 +263,8 @@ public class ShieldEgressCommand implements Callable<Integer>, SokarFactory.Cont
      * @return Exit code.
      */
     private int show(EgressControl control, PrintWriter out, PrintWriter err) {
-        final String name = projectName;
+        final String name = projectName != null ? projectName
+                : ProjectSource.chosen(context, offer(err), "sokar shield egress --project <name>");
         if (name == null) {
             // Showing is about a project, so there is nothing to show without one.
             err.println("sokar: say which project, with --project.");
@@ -358,5 +362,12 @@ public class ShieldEgressCommand implements Callable<Integer>, SokarFactory.Cont
             out.printf("%-14s %-" + width + "s  %s%n", label, entry.getKey(), entry.getValue());
             label = "";
         }
+    }
+
+    /** Who is asked which project: this process's terminal, or nobody without one. */
+    Offer.Asker asker = Offer.atTerminal() ? Offer.Asker.terminal() : Offer.Asker.NOBODY;
+
+    private Offer offer(final PrintWriter err) {
+        return asker == Offer.Asker.NOBODY ? Offer.NOBODY : new Offer(asker, false, false, err);
     }
 }

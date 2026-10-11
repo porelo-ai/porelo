@@ -64,7 +64,9 @@ public class TalkHoldCommand implements Callable<Integer>, SokarFactory.ContextA
         }
         // A name, like every other command since projects stopped being pointed at by file; this one
         // still read project.yml from wherever it was run, which was nowhere a task's project lives.
-        final String name = projectName != null ? projectName : new TaskInventory(context).projectOf(container);
+        final String known = projectName != null ? projectName : new TaskInventory(context).projectOf(container);
+        final String name = known != null ? known : ProjectSource.chosen(context, Offer.atTerminal()
+                ? new Offer(Offer.Asker.terminal(), false, false, err) : Offer.NOBODY, "sokar talk hold --project <name>");
         if (name == null) {
             err.println("sokar: " + container + " names no project; say which, with --project");
             err.flush();

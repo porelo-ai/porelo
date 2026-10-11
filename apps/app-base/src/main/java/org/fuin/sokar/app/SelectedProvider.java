@@ -38,6 +38,40 @@ public record SelectedProvider(ProviderDefinition definition, ProviderRoute rout
         return choice.selection();
     }
 
+    /**
+     * Returns the declared providers an agent can drive, by name.
+     *
+     * @param declared Providers found on this machine, by name.
+     * @param agent The agent's own definition.
+     * @return Their names, sorted; empty when the agent is not brokered.
+     */
+    public static java.util.List<String> drivable(final Map<String, ProviderDefinition> declared,
+            final AgentDefinition agent) {
+        if (agent.provider() == null) {
+            return java.util.List.of();
+        }
+        return declared.entrySet().stream().filter(entry -> agent.provider().canDrive(entry.getValue()))
+                .map(Map.Entry::getKey).sorted().toList();
+    }
+
+    /**
+     * Asks a person which provider to use for an agent that names no default, from those it can drive, where a start
+     * would otherwise be refused for want of {@code --provider}.
+     *
+     * @param declared Providers found on this machine, by name.
+     * @param agent The agent's own definition.
+     * @param offer Who is asked.
+     * @return The provider chosen, or {@code null} when nobody chose one - the refusal stands.
+     */
+    public static @Nullable String pick(final Map<String, ProviderDefinition> declared, final AgentDefinition agent,
+            final Offer offer) {
+        if (offer == Offer.NOBODY) {
+            return null;
+        }
+        return offer.choose("'" + agent.name() + "' names no default provider", drivable(declared, agent),
+                "sokar task start --provider <name>");
+    }
+
     /** Why an agent cannot be pointed at a provider. */
     public enum Refusal {
 

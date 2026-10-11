@@ -141,7 +141,8 @@ public class VaultAuthorizeCommand implements Callable<Integer>, SokarFactory.Co
                 installed.find(agent).ifPresent(found -> agents.add(found.definition()));
             }
         }
-        final GrantEntry.Choice choice = GrantEntry.choose(provider, agents, agentName);
+        final GrantEntry.Choice choice = GrantEntry.choose(provider, agents, agentName,
+                Offer.atTerminal() ? new Offer(Offer.Asker.terminal(), false, false, err) : Offer.NOBODY);
         if (choice.refusal() != null) {
             err.println("sokar: " + choice.refusal());
             err.flush();

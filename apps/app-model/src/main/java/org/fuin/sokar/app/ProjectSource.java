@@ -149,4 +149,27 @@ public final class ProjectSource {
         all.addAll(new ProjectRegistry(context.paths().projects().projectRegistry()).all().keySet());
         return java.util.List.copyOf(all);
     }
+
+    /**
+     * Asks which project, from those this machine has, where a command would refuse for want of {@code --project}.
+     *
+     * @param context The machine.
+     * @param offer Who is asked.
+     * @param command The command a person would type, named where nobody is asked.
+     * @return The project chosen, or {@code null} when nobody chose one - the refusal stands.
+     */
+    public static @org.jspecify.annotations.Nullable String chosen(final SokarContext context, final Offer offer,
+            final String command) {
+        if (offer == Offer.NOBODY) {
+            return null;
+        }
+        // 'default' first, as every machine has it; the others by name, so the numbers are the same each time.
+        final java.util.List<String> listed = new java.util.ArrayList<>(names(context));
+        final boolean hasDefault = listed.remove(DefaultProject.NAME);
+        java.util.Collections.sort(listed);
+        if (hasDefault) {
+            listed.addFirst(DefaultProject.NAME);
+        }
+        return offer.choose("say which project", listed, command);
+    }
 }

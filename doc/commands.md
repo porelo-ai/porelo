@@ -148,6 +148,9 @@ list what would go and then ask whether to remove it, no by default, where they 
 after naming it. Each takes `--no-input`; without a terminal each refuses as before. A start refused because earlier
 work of its name waits at the gate offers the next free name (`NAME-2` …), and one with no agent to run, or no gate for
 the agent to hand work back through, offers a shell in the task instead; on a yes the start goes on that way.
+Where an option names one of several - the provider for an agent that names no default, the agent for
+`vault authorize` when several sign in, the project for `shield egress`, `talk pass` and `talk hold` - a terminal is
+shown them by number and asked for one, instead of being sent back to add the option.
 
 **`task logs`** shows the files of the gate, broker, relay, resolver and clearance watcher, not the
 agent's output. `events.jsonl` is what the firewall blocked: look there when a task starts and then

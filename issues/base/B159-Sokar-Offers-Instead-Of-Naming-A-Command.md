@@ -162,8 +162,11 @@ terminal, no terminal, `--no-input` and `--yes`.
 - **Task start, another way to start:** earlier work of the name waiting at the gate offers the next free name,
   checked against the gate and the containers there; no agent, or no gate for an agent, offers a shell in the task;
   on a yes `task start` starts again that way, at most a few times (`StartInsteadOfferTest`).
-- **Not yet:** a provider chosen from a list - refused only for an agent that names no default provider, and every
-  agent today names one; a task chosen from a list - `TaskTarget` asks already at a terminal; a workspace from
+- **Picked from a list:** the provider when the agent names no default, from those it can drive
+  (`SelectedProvider.pick`, `SelectedProviderTest`); the agent for `vault authorize` when several sign in
+  (`GrantEntryTest`); the project for `shield egress`, `talk pass`, `talk hold`, `default` first and the rest by name
+  (`ProjectSource.chosen`, `ProjectChoiceTest`).
+- **Not yet:** a task chosen from a list - `TaskTarget` asks already at a terminal; a workspace from
   before a restart copied to `./recovered` (`TaskResumeCommand`).
 - **Task start, hooks:** nothing to offer. A start already registers missing and outdated hooks without asking;
   `DANGLING` means the hook binaries are not where this Sokar has them, which neither `sokar setup` nor anything Sokar

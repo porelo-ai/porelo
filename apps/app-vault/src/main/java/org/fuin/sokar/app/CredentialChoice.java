@@ -162,9 +162,14 @@ final class CredentialChoice {
             InstalledAgent agent) {
         if (!providerResolved) {
             providerResolved = true;
+            // An agent that names no default asks which, from the providers it can drive, where it would refuse.
+            final String asked = agent == null || providerName != null || offer == Offer.NOBODY
+                    || agent.definition().provider() == null
+                    || agent.definition().provider().defaultProvider() != null ? null
+                            : SelectedProvider.pick(context.providers(), agent.definition(), offer);
             provider = agent == null ? null
                     : SelectedProvider.choose(context.providers(), agent.definition(),
-                            providerName);
+                            asked != null ? asked : providerName);
         }
         return provider;
     }

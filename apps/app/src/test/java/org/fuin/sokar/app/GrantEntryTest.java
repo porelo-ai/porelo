@@ -94,4 +94,15 @@ class GrantEntryTest {
         assertThat(GrantEntry.choose(COPILOT, two, "pi").agent()).isEqualTo("pi");
         assertThat(GrantEntry.choose(COPILOT, two, "claude").refusal()).contains("claude");
     }
+
+    @Test
+    void atATerminalSeveralAgentsAreOfferedByNumberInsteadOfAskingForAgent() {
+        final List<AgentDefinition> two = List.of(agent("omp", SIGNS_IN), agent("pi", SIGNS_IN));
+        final java.io.StringWriter said = new java.io.StringWriter();
+
+        assertThat(GrantEntry.choose(COPILOT, two, null, new Offer(question -> "2", false, false,
+                new java.io.PrintWriter(said, true))).agent()).isEqualTo("pi");
+        assertThat(said.toString()).contains("1  omp").contains("2  pi");
+        assertThat(GrantEntry.choose(COPILOT, two, null, Offer.NOBODY).refusal()).contains("--agent");
+    }
 }

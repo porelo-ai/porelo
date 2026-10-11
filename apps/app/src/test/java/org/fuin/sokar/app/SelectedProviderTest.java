@@ -140,6 +140,26 @@ class SelectedProviderTest {
     }
 
     @Test
+    void anAgentWithNoDefaultIsOfferedTheProvidersItCanDriveByNumber() {
+
+        // It was refused with "one has to be chosen with --provider", and the person typed the start again.
+        final AgentDefinition anthropicOnly = agent("""
+                provider:
+                  dialect: anthropic-messages
+                  endpoint: url
+                """);
+        final java.io.StringWriter said = new java.io.StringWriter();
+        final java.util.List<String> drivable = SelectedProvider.drivable(shipped(), anthropicOnly);
+
+        assertThat(drivable).isNotEmpty().allSatisfy(name -> assertThat(anthropicOnly.provider()
+                .canDrive(shipped().get(name))).isTrue()).isSorted();
+        assertThat(SelectedProvider.pick(shipped(), anthropicOnly, new Offer(question -> "1", false, false,
+                new java.io.PrintWriter(said, true)))).isEqualTo(drivable.get(0));
+        assertThat(said.toString()).contains("1  " + drivable.get(0));
+        assertThat(SelectedProvider.pick(shipped(), anthropicOnly, Offer.NOBODY)).isNull();
+    }
+
+    @Test
     void theDialectDecidesThePathTheAgentIsGiven() {
 
         final AgentDefinition openai = agent("""

@@ -49,6 +49,21 @@ final class GrantEntry {
      */
     static Choice choose(final ProviderDefinition provider, final List<AgentDefinition> agents,
             final @Nullable String agentName) {
+        return choose(provider, agents, agentName, Offer.NOBODY);
+    }
+
+    /**
+     * Chooses the entry for a provider from the agents installed, asking which agent where several sign in to it and
+     * none was named.
+     *
+     * @param provider The provider the person names.
+     * @param agents The agents installed here.
+     * @param agentName The agent the person named with {@code --agent}, or {@code null}.
+     * @param offer Who is asked which agent.
+     * @return The entry and its agent, or why there is none.
+     */
+    static Choice choose(final ProviderDefinition provider, final List<AgentDefinition> agents,
+            final @Nullable String agentName, final Offer offer) {
         final Map<String, String> grant = provider.grant();
         if (grant.isEmpty()) {
             return Choice.refused("'" + provider.name() + "' is reached with a key, which nothing grants; store it with"
@@ -68,6 +83,14 @@ final class GrantEntry {
                 return Choice.refused("'" + agentName + "' does not sign in to '" + provider.name() + "'; these do: "
                         + names(signing));
             }
+        } else if (signing.size() > 1 && offer != Offer.NOBODY) {
+            final String asked = offer.choose("several agents sign in to '" + provider.name() + "', each with its own"
+                    + " app", signing.stream().map(AgentDefinition::name).toList(),
+                    "sokar vault authorize " + provider.name() + " --agent <name>");
+            if (asked == null) {
+                return Choice.refused("no agent was chosen to sign in to '" + provider.name() + "'");
+            }
+            chosen = signing.stream().filter(agent -> agent.name().equals(asked)).findFirst().orElseThrow();
         } else if (signing.size() > 1) {
             return Choice.refused("several agents sign in to '" + provider.name() + "', each with its own app: "
                     + names(signing) + "; name one with --agent");
