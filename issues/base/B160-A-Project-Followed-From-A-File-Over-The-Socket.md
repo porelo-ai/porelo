@@ -1,6 +1,6 @@
 # B160 — A Project Followed From A File Over The Socket
 
-**Status:** Analyzed. Blocks `sokar-frontend` [F104](https://github.com/sokar-ai/sokar-frontend/blob/main/issues/README.md#f104).
+**Status:** Estimated. Blocks `sokar-frontend` [F104](https://github.com/sokar-ai/sokar-frontend/blob/main/issues/README.md#f104).
 **Size:** M - one contract change (a method, a parameter, two fields), the daemon, hand-in's part code shared, docs.
 
 **What must be true.** A client follows a project from a file as `sokar project follow NAME FILE` does: from a path on

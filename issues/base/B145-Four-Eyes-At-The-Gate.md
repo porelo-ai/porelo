@@ -1,6 +1,6 @@
 # B145 — Four Eyes At The Gate
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** L - a node has one operator today, so a second person's approval needs a design first: a signature from
 another person, made elsewhere and checked at the gate; touches task record, project file, gate, daemon contract.
 

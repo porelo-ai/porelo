@@ -1,6 +1,6 @@
 # B141 — New Dependencies Checked Before Review
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** XL - manifests of two ecosystems, a registry check each over the network, a hold on the approve and two
 contract changes; splits in three issues below.
 

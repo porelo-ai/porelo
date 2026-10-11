@@ -1,6 +1,6 @@
 # B171 — Forge Review Comments To And From A Task
 
-**Status:** Analyzed; blocked by sokar [B166](README.md#b166). Blocks the forge readers' `Review1` (`sokar-build-github` [GH02](https://github.com/sokar-ai/sokar-build-github/blob/main/issues/README.md#gh02)).
+**Status:** Estimated; blocked by sokar [B166](README.md#b166). Blocks the forge readers' `Review1` (`sokar-build-github` [GH02](https://github.com/sokar-ai/sokar-build-github/blob/main/issues/README.md#gh02)).
 **Size:** L - crosses repositories: a new reader contract (`Review1`) every forge reader implements, the project
 file, a release flow in the CLI, the daemon, the interface and the IDE plugin, a second token, docs and acceptance.
 

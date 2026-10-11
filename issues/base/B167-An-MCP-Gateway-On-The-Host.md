@@ -1,6 +1,6 @@
 # B167 — An MCP Gateway On The Host
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** L - the broker taught a protocol, a tool list kept per tool for `sokar-project` [PJ15](https://github.com/sokar-ai/sokar-project/blob/main/issues/README.md#pj15),
 agents' MCP settings in their own repositories, docs and an acceptance step.
 

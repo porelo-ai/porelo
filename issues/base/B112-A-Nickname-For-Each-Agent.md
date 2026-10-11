@@ -1,6 +1,6 @@
 # B112 — A Nickname For Each Agent
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** M - the label's rules, name resolution, the agent card, and two transport verbs a contract already names.
 
 **What must be true.** A person can call each agent by a nickname given when its work starts: it is

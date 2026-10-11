@@ -1,6 +1,6 @@
 # B41 — What a Packaged Agent Installs
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** M - one contract change (the `Agent` type says what a package ships), one reader shared by the daemon and the
 CLI, and its tests.
 

@@ -1,6 +1,6 @@
 # B100 — A Task Can Be Looked At
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** XL - an image layer, a published port Sokar has never made, a credential, [B95](README.md#b95)'s container and the
 interface; splits in three below.
 

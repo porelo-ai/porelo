@@ -1,6 +1,6 @@
 # B153 — Unused Slots And Keys Reported
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** M - a new account-wide settings file and its reader, a last-use record for deploy keys, a lock flag on a
 keyslot, a doctor probe, one contract field, docs.
 

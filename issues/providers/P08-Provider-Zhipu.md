@@ -1,6 +1,6 @@
 # P08 — Provider Zhipu
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** S - two provider files, a test reading them, rows in `doc/credentials.md`, and a live scenario in an agent
 repository; nothing in the broker changes.
 

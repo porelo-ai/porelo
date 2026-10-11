@@ -1,6 +1,6 @@
 # B142 — A Misuse Test Suite As A Release Condition
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** L - attack scenarios of three kinds and their steps in the acceptance kit, a documents test, and a
 check in the release workflow.
 

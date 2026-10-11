@@ -1,6 +1,6 @@
 # B138 — A Cost And Token Ceiling Per Task
 
-**Status:** Analyzed; blocked by sokar [B148](README.md#b148).
+**Status:** Estimated; blocked by sokar [B148](README.md#b148).
 **Size:** M - the project file, the start, the per-task proxy and a refusal the agent reads; tokens only.
 
 **What must be true.** A task cannot spend more than its project allows: the broker stops forwarding to the provider

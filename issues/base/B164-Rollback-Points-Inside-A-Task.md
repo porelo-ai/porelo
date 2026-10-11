@@ -1,6 +1,6 @@
 # B164 — Rollback Points Inside A Task
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** L - a helper per task, a host-side store, a destructive command, the agents' session files and the contract.
 
 **What must be true.** After each step of the agent, the task's workspace is kept as a state on the host; going back to

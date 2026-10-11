@@ -1,6 +1,6 @@
 # B143 — Sokar In A Data Protection And ISDS Concept
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** S - one new page, a link and a navigation entry, and one documents test.
 
 **What must be true.** A documentation page says what Sokar provides technically for a data protection and information security concept, what the organisation still has to regulate, and what to back up (the vault file, the journal).

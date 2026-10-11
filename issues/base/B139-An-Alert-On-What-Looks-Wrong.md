@@ -1,6 +1,6 @@
 # B139 — An Alert On What Looks Wrong
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** L - thresholds need a measured baseline first; three watchers, a contract event and containment.
 
 **What must be true.** Sokar raises an alert on anomalies a person should see - very large prompt bodies, many clearance

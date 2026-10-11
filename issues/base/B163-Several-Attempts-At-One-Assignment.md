@@ -1,6 +1,6 @@
 # B163 — Several Attempts At One Assignment
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** L - the start, the gate's review and approve, the daemon's contract and docs; a group to design first.
 
 **What must be true.** `sokar task start --attempts N -P "…"` starts N tasks on the same assignment, from the same commit,

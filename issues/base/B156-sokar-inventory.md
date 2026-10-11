@@ -1,6 +1,6 @@
 # B156 — sokar inventory
 
-**Status:** Analyzed; blocked by sokar [B148](README.md#b148).
+**Status:** Estimated; blocked by sokar [B148](README.md#b148).
 **Size:** M - one command and its daemon method over records others write; the models need [B148](README.md#b148)'s record first.
 
 **What must be true.** `sokar inventory` lists the agents, providers, models, credentials and their last use on this

@@ -1,6 +1,6 @@
 # B117 — What Clearing Leaves For A Person
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** M - a record of handed-out keys in `app-model`, the clear's listing in `app-project`, a scenario, a doc.
 
 **What must be true.** A person who clears a project or this account learns of every deploy key this machine ever

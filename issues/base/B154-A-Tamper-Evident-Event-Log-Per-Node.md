@@ -1,6 +1,6 @@
 # B154 — A Tamper-Evident Event Log Per Node
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** L - a new record written from many commands, its anchor in the user's journal, an optional copy sent off the
 machine, and a log that `sokar clear` leaves.
 

@@ -1,6 +1,6 @@
 # B144 — AI Provenance In The Commit
 
-**Status:** Analyzed; blocked by sokar [B148](README.md#b148).
+**Status:** Estimated; blocked by sokar [B148](README.md#b148).
 **Size:** L - a new merge path for every approve in `gate`, a reader of the broker's record, a project setting for a
 fast-forward, the daemon's approve, docs and an acceptance step.
 

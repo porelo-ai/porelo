@@ -1,6 +1,6 @@
 # B172 — A Task That Reviews
 
-**Status:** Analyzed; blocked by sokar [B166](README.md#b166).
+**Status:** Estimated; blocked by sokar [B166](README.md#b166).
 **Size:** M - a role in the task's record, the gate's per-task server read-only for it, [B166](README.md#b166)'s origin, a start option,
 docs and an acceptance step; no contract beyond [B166](README.md#b166)'s.
 

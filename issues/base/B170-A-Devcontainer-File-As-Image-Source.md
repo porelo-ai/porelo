@@ -1,6 +1,6 @@
 # B170 — A Devcontainer File As Image Source
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** M - the image and a Dockerfile build from the mirror; features are not fetched, which leaves out a format
 and a registry fetch of their own.
 

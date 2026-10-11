@@ -1,6 +1,6 @@
 # P09 — A Native Agent And A Provider It Does Not Know
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** M - one change of `sokar-agent-api`, which the agent repositories read and take, a new refusal at the start,
 `sokar agents --verbose`, docs and an acceptance step.
 

@@ -1,6 +1,6 @@
 # B40 — The Domain That May Bind The Socket
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** L - a domain of Sokar's own is a design to decide first, the module gains file contexts, and the agent and
 build binaries bind labelled sockets too.
 

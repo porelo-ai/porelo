@@ -1,6 +1,6 @@
 # B155 — The Logs Checked And Documented
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** M - one documentation page over every log, a test per process that holds a secret, file rights checked,
 and `task.log` cut after a period.
 

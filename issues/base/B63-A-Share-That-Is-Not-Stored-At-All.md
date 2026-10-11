@@ -1,6 +1,6 @@
 # B63 — A Share That Is Not Stored At All
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** XL - a measurement, FIDO2 at the machine, TPM2, and what the node proves are four pieces; split as the plan
 says.
 

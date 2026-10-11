@@ -1,6 +1,6 @@
 # B30 — Credentials The Broker Has To Fetch
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** L - three pieces in the broker and the vault, each with a stand-in service, and one run on a rented machine.
 
 **What must be true.** A task uses a credential authenticated by a key rather than a secret -

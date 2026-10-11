@@ -1,6 +1,6 @@
 # B168 — A Recording Of Each Session
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** M - not small: tmux runs inside the task as the agent, so the recording needs a reader on the host the
 agent cannot steer, a format, a replay command, keeping and removing, docs and an acceptance step.
 

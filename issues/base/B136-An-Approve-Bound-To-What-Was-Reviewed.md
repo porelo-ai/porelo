@@ -1,6 +1,6 @@
 # B136 — An Approve Bound To What Was Reviewed
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** M - the gate's two commands, the daemon's `Approve` with a contract note, enrolment, docs, a scenario.
 
 **What must be true.** What `sokar gate approve` forwards is the commit the person read, on the command line as in

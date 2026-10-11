@@ -1,6 +1,6 @@
 # B51 — The tests that run nowhere
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** M - a JUnit condition, one test class run on the fedora leg, and a report across legs that touches the leg
 driver and the workflow.
 

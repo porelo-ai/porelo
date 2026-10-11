@@ -1,6 +1,6 @@
 # B48 — The Overview That Stays Open
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** M - the CLI only and no contract change, but it splits the listing, adds a stream reader and needs a terminal
 acceptance step.
 

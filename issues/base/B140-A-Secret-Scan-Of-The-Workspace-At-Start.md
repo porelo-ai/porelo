@@ -1,6 +1,6 @@
 # B140 — A Secret Scan Of The Workspace At Start
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** M - a scan in the gate, the start, a project setting, an acknowledgement file and docs.
 
 **What must be true.** When a task starts, its workspace is scanned for credentials, and a found one is named to the person before the agent works.

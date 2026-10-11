@@ -1,6 +1,6 @@
 # B50 — Whose Business The Files Sokar Leaves Behind Are
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** M - several modules (paths, gate, registry, doctor), a correction of existing machines, and acceptance runs
 under two umasks.
 

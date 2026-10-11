@@ -1,6 +1,6 @@
 # B147 — A Wall-Clock Limit For Unattended Runs
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** M - a project key, a stop that really ends the run and waits for an attached person, and a reason in the
 status across `core`, `runtime`, `app-task` and the daemon's contract; one measurement first.
 

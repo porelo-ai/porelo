@@ -1,6 +1,6 @@
 # B98 — The Image A Signature Names
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** M - the core model, the image build and start, `project`, `follow` and `doctor`, and the default project.
 
 **What must be true.** A signed project's image is the image it names: an operator is told when a

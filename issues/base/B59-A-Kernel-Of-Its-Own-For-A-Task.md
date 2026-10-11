@@ -1,6 +1,6 @@
 # B59 — A Kernel Of Its Own For A Task
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** XL - an experiment, a doctor probe and an adoption that would change the hooks; split as the plan says.
 
 **What must be true.** Whether a task can run under a runtime that gives it its own kernel is measured rather than

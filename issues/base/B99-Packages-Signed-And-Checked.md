@@ -1,6 +1,6 @@
 # B99 — Packages Signed And Checked
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** L - crosses seven repositories on one day; Sokar's part is CI signing, one shared check, setup and docs.
 
 **What must be true.** An operator installing Sokar or an agent gets only packages, and a setup script, whose

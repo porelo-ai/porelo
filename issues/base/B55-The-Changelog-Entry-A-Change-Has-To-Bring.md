@@ -1,6 +1,6 @@
 # B55 — The Changelog Entry A Change Has To Bring
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** L - crosses repositories: the check is proposed to logchange first, otherwise built as a fuinorg plugin of
 its own, then bound in `sokar-parent` and given a step of its own in `sokar-frontend`.
 

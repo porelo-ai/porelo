@@ -1,6 +1,6 @@
 # B166 — Line Comments Sent Back To The Agent
 
-**Status:** Analyzed. The first of the code-comment area; the forge ([B171](README.md#b171)) and the reviewer role ([B172](README.md#b172)) build on it.
+**Status:** Estimated. The first of the code-comment area; the forge ([B171](README.md#b171)) and the reviewer role ([B172](README.md#b172)) build on it.
 **Size:** L - a contract three other repositories read (`Tasks1`, the message schema), a store on the host, the CLI,
 the message path, docs and an acceptance step.
 

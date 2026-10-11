@@ -1,6 +1,6 @@
 # B169 — Containers Inside A Task
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** L - an assessment to write and measure first, which decides whether anything is built; the build after it
 touches the task's hardening, the image, the project file, `doctor` and the acceptance suite.
 

@@ -1,6 +1,6 @@
 # P07 — Provider xAI
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** S - a provider file, a test reading it, a row in `doc/credentials.md`, and a live scenario in an agent
 repository; the subscription account is measured apart and stays refused until it is.
 
