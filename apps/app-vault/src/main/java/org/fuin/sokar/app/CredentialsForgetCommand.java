@@ -38,8 +38,9 @@ public class CredentialsForgetCommand implements Callable<Integer>, SokarFactory
         final PrintWriter out = spec.commandLine().getOut();
         final PrintWriter err = spec.commandLine().getErr();
         final String left;
+        final CredentialDeclarations declarations = new CredentialDeclarations(context);
         try {
-            left = new CredentialDeclarations(context).forget(match);
+            left = declarations.forget(match);
         } catch (final java.io.IOException ex) {
             err.println("sokar: cannot write the record: " + ex.getMessage());
             err.flush();
@@ -51,10 +52,29 @@ public class CredentialsForgetCommand implements Callable<Integer>, SokarFactory
             return 70;
         }
         out.println("forgot     " + match);
+        final String inVault = declarations.leftInVault();
+        if (inVault != null && removeToo(inVault, Offer.atTerminal()
+                ? new Offer(Offer.Asker.terminal(), false, false, err) : Offer.NOBODY)) {
+            out.flush();
+            return context.exec().applyAsInt(java.util.List.of(SokarBinary.path(), "vault", "remove", inVault));
+        }
         if (!left.isEmpty()) {
             out.println("           " + left);
         }
         out.flush();
         return 0;
+    }
+
+    /**
+     * Asks whether to remove the secret a forgotten declaration leaves in the vault, as 'sokar vault remove' does - which
+     * then asks what it asks about revoking it. No by default.
+     *
+     * @param id The vault entry.
+     * @param offer Who is asked.
+     * @return Whether to remove it.
+     */
+    static boolean removeToo(final String id, final Offer offer) {
+        return offer != Offer.NOBODY && offer.confirm("'" + id + "' is still in the vault",
+                "Remove it too, as 'sokar vault remove' does?", "the vault entry '" + id + "'", true);
     }
 }

@@ -166,6 +166,10 @@ terminal, no terminal, `--no-input` and `--yes`.
   (`SelectedProvider.pick`, `SelectedProviderTest`); the agent for `vault authorize` when several sign in
   (`GrantEntryTest`); the project for `shield egress`, `talk pass`, `talk hold`, `default` first and the rest by name
   (`ProjectSource.chosen`, `ProjectChoiceTest`).
+- **Clearing and the vault, destructive:** `clear` offers to stop the tasks holding a token from the vault, then to
+  clear what only `--force` clears, naming it, no by default and never by `--yes`; `vault remove` of a token only the
+  service revokes offers to forget it all the same; `credentials forget` offers `vault remove` of the secret it leaves
+  (`DestructiveOfferTest`).
 - **A task from before a restart:** `task resume` and `task attach` offer to copy its workspace to `./recovered`
   (never into a folder that is there), then to remove the task, no by default (`RecoverOfferTest`). The interface's
   start detail keeps the two commands, for a person with no terminal, and names `task resume` beside them. A task chosen from a list: `TaskTarget` already asks.

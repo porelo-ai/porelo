@@ -153,6 +153,10 @@ Where an option names one of several - the provider for an agent that names no d
 shown them by number and asked for one, instead of being sent back to add the option.
 A task started before the machine restarted cannot come back; `task resume` and `task attach` on it offer to copy
 its workspace to `./recovered` (`recovered-2` … where that is taken), and then to remove the task, no by default.
+Where clearing stops, `clear` offers to stop the tasks that run with a token from the vault, and then to clear what
+only `--force` clears, naming it, no by default; `vault remove` of a token only its service can revoke offers to forget
+it here all the same, no by default; `credentials forget` offers to remove the secret it leaves in the vault, as
+`vault remove` does.
 
 **`task logs`** shows the files of the gate, broker, relay, resolver and clearance watcher, not the
 agent's output. `events.jsonl` is what the firewall blocked: look there when a task starts and then

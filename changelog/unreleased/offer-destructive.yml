@@ -1,0 +1,2 @@
+title: clear offers to stop tasks holding a vault token and to clear what only --force clears, vault remove to forget a token only its service revokes, and credentials forget to remove the secret it leaves, each no by default
+type: changed

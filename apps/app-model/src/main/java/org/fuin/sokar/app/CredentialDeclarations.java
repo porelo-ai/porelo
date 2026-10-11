@@ -388,6 +388,19 @@ public final class CredentialDeclarations {
         return credential;
     }
 
+    /** The vault entry the last forget left behind, or {@code null}. */
+    private @Nullable String leftInVault;
+
+    /**
+     * Returns the vault entry the last {@link #forget} left behind: a secret is removed by a person, not by forgetting
+     * the declaration that used it.
+     *
+     * @return Its id, or {@code null} when it left none.
+     */
+    public @Nullable String leftInVault() {
+        return leftInVault;
+    }
+
     /**
      * Forgets the record for a destination.
      *
@@ -410,6 +423,7 @@ public final class CredentialDeclarations {
             return null;
         }
         write(kept);
+        leftInVault = gone.source() == Credential.Source.VAULT ? gone.id() : null;
         // The secret is NOT removed: a key in somebody's ~/.ssh is theirs, and a vault entry is
         // removed by a person at the machine. Naming what is left lets an interface offer that
         // second step instead of implying the secret is gone.

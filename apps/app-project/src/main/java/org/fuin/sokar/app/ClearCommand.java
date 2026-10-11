@@ -52,10 +52,29 @@ public class ClearCommand implements Callable<Integer>, SokarFactory.ContextAwar
         context.openIfShut(true, false, spec.commandLine().getErr());
         final boolean listOnly = dryRun || !yes;
         final PrintWriter out = spec.commandLine().getOut();
-        final boolean asking = !dryRun && !yes && !noInput && asker != Offer.Asker.NOBODY;
-        final Clearing.Result listed = new Clearing(context).account(listOnly, force);
-        final int code = render(listed, listOnly, !dryRun && !yes && !asking, out);
-        if (!asking || listed.items().isEmpty() || listed.refused()) {
+        final boolean asking = !dryRun && !noInput && asker != Offer.Asker.NOBODY;
+        final Offer offer = asking ? new Offer(asker, false, false, new PrintWriter(out, true)) : Offer.NOBODY;
+        boolean forced = force;
+        Clearing.Result listed = new Clearing(context).account(listOnly, forced);
+        int code = render(listed, listOnly, !dryRun && !yes && !asking, out);
+        // What a refusal would send a person to do first is offered instead, each once: the running tasks that hold a
+        // token from the vault stopped, then what only --force clears, no by default.
+        if (listed.refused() && asking) {
+            final java.util.List<String> stopped = stopFirst(refusals(listed), offer);
+            for (final String task : stopped) {
+                new TaskControl(context).stop(task);
+            }
+            if (!stopped.isEmpty()) {
+                listed = new Clearing(context).account(listOnly, forced);
+                code = render(listed, listOnly, false, out);
+            }
+            if (listed.refused() && forceAnyway(refusals(listed), offer)) {
+                forced = true;
+                listed = new Clearing(context).account(listOnly, true);
+                code = render(listed, listOnly, false, out);
+            }
+        }
+        if (!asking || yes || listed.items().isEmpty() || listed.refused()) {
             return code;
         }
         // What a second command with --yes would clear is asked here instead, no by default.
@@ -65,7 +84,41 @@ public class ClearCommand implements Callable<Integer>, SokarFactory.ContextAwar
             out.flush();
             return code;
         }
-        return render(new Clearing(context).account(false, force), false, false, out);
+        return render(new Clearing(context).account(false, forced), false, false, out);
+    }
+
+    private static java.util.List<Clearing.Item> refusals(final Clearing.Result result) {
+        return result.items().stream().filter(item -> item.status() == Clearing.Status.NOT_REMOVED).toList();
+    }
+
+    /**
+     * Asks whether to stop the running tasks that hold a token from the vault, which a clearing will not clear past.
+     *
+     * @param refused What the clearing did not remove.
+     * @param offer Who is asked.
+     * @return The tasks to stop; empty when there are none, or nobody said yes.
+     */
+    static java.util.List<String> stopFirst(final java.util.List<Clearing.Item> refused, final Offer offer) {
+        final java.util.List<String> tasks = refused.stream().filter(item -> item.kind().equals("task"))
+                .map(Clearing.Item::what).toList();
+        if (tasks.isEmpty() || offer == Offer.NOBODY || !offer.confirm("these tasks run with a token from the vault: "
+                + String.join(", ", tasks), "Stop them now, as 'sokar task stop' does?", "", false)) {
+            return java.util.List.of();
+        }
+        return tasks;
+    }
+
+    /**
+     * Asks whether to clear what only {@code --force} clears, naming it first, no by default and never by {@code --yes}.
+     *
+     * @param refused What the clearing did not remove.
+     * @param offer Who is asked.
+     * @return Whether to clear it all the same.
+     */
+    static boolean forceAnyway(final java.util.List<Clearing.Item> refused, final Offer offer) {
+        return !refused.isEmpty() && offer != Offer.NOBODY && offer.confirm("clearing stops at what only --force clears",
+                "Clear it all the same?", String.join("; ", refused.stream().map(item -> item.kind() + " " + item.what()
+                        + (item.why().isEmpty() ? "" : " (" + item.why() + ")")).toList()), true);
     }
 
     /**

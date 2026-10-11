@@ -76,6 +76,10 @@ public class VaultRemoveCommand implements Callable<Integer>, SokarFactory.Conte
             // application's owner, which this machine is not. Forgetting it here leaves it working there, so that is
             // done only when the person says they know.
             final String where = revokedWhere(context.credentials().get(name));
+            if (!withoutRevoking && withoutRevokingAfterAll(name, where, Offer.atTerminal()
+                    ? new Offer(Offer.Asker.terminal(), false, false, err) : Offer.NOBODY)) {
+                withoutRevoking = true;
+            }
             if (!withoutRevoking) {
                 err.println("sokar: '" + name + "' holds a token that does not expire, and nothing here can revoke it:"
                         + " only the application's owner can. Revoke it " + where + ", then run 'sokar vault remove "
@@ -166,5 +170,18 @@ public class VaultRemoveCommand implements Callable<Integer>, SokarFactory.Conte
         } catch (TokenPurchase.Refused | IllegalArgumentException ex) {
             return ex.getMessage();
         }
+    }
+
+    /**
+     * Asks whether to forget a token here that only the service can revoke, no by default: it goes on working there.
+     *
+     * @param name The vault entry.
+     * @param where Where it is revoked.
+     * @param offer Who is asked.
+     * @return Whether to forget it without revoking it.
+     */
+    static boolean withoutRevokingAfterAll(final String name, final String where, final Offer offer) {
+        return offer != Offer.NOBODY && offer.confirm("'" + name + "' holds a token that nothing here can revoke",
+                "Forget it here all the same?", "the token, which works there until it is revoked " + where, true);
     }
 }
