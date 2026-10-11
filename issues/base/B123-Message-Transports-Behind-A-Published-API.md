@@ -1,6 +1,6 @@
 # B123 — Message Transports Behind A Published API
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** XL - a new published library, the host's client, a stub, and a move in another repository; splits below.
 
 **What must be true.** A message transport is written against a published, versioned Java API, as an agent is - a

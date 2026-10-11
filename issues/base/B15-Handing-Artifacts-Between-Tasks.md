@@ -1,6 +1,6 @@
 # B15 — Handing Artifacts Between Tasks
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** XL - a contract grown in the transport's repository, a way out of a task, delivery, a record and a gate check.
 
 **What must be true.** What a task builds can reach another task of the project wherever that task

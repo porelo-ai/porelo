@@ -1,6 +1,6 @@
 # B95 — A Container To Try Waiting Work In
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** XL - a command, a streaming Varlink method, a third kind of container and an IDE; splits in two below.
 
 **What must be true.** A reviewer can run a build or tests against waiting work, and later attach an

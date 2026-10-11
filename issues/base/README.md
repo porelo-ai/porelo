@@ -63,7 +63,6 @@ from its side, as *blocked by*.
 | <a id="b148"></a>[B148](B148-Token-Counting-Per-Task.md) | L | - | The broker reads usage and models from JSON and SSE answers into a per-task `usage/<task>.jsonl` kept after removal, shown in task status and the contract. | - |
 | <a id="b150"></a>[B150](B150-The-Whole-Diff-In-Review.md) | M | - | The daemon's `Review` fails above the 4 MiB message limit today: cut at a file boundary, said with `cut` in the contract; `files` is never cut. | - |
 | <a id="b108"></a>[B108](B108-The-Narrowed-Message-Schema-Enforced.md) | M | - | One JSON Schema the filter enforces and the guide and docs are made from; the host does not check the shape again. | - |
-| <a id="b95"></a>[B95](B95-A-Container-To-Try-Waiting-Work-In.md) | XL | - | `gate try` and a streaming `Try` in a container without gate or vault; the IDE split into an issue of its own. | - |
 | <a id="b118"></a>[B118](B118-An-Attached-Agent-Said-At-Rest-Or-Working.md) | M | - | A new `AT_REST` activity, judged from the screen reads the listing already makes with the wake's two-look rule; the stub agent gets an `at_rest`. | - |
 | <a id="b119"></a>[B119](B119-A-Loop-Seen-In-An-Unattended-Tasks-Log.md) | S | - | The kit's `LoopWatch` also counts a declared failure marker in each task's `task.log`, from a per-step baseline. | - |
 | <a id="b10"></a>[B10](B10-What-An-Egress-Set-Can-Express.md) | L | - | Egress addresses in `project.yml`, refused lookups shown, set fingerprints, `complete: false` for sets; four commits, and `Sets()` grows. | - |
@@ -73,11 +72,9 @@ from its side, as *blocked by*.
 | <a id="b135"></a>[B135](B135-The-SELinux-Module-Loaded-By-The-Package.md) | M | - | The packages load and remove the SELinux module in their maintainer scripts; the package check reads them; one run on an enforcing Fedora. | - |
 | <a id="b151"></a>[B151](B151-The-Providers-A-Project-Allows.md) | M | - | `providers:` in `project.yml`; the start check refuses a provider not on the list, naming the allowed ones, for the CLI and the daemon. | - |
 | <a id="b152"></a>[B152](B152-Say-What-Offline-Still-Reaches.md) | S | - | Wording on how-it-works, project-file, faq, reach, corporate-security and index; a documents test checks that each `offline` description names the provider. | - |
-| <a id="b123"></a>[B123](B123-Message-Transports-Behind-A-Published-API.md) | XL | - | `sokar-transport-api` and its contract `Transport1`; splits into the library, the stub, the host client, the Matrix move and the end of the command-line contract. | - |
 | <a id="b101"></a>[B101](B101-A-Mode-A-Start-Asks-For-By-Name.md) | M | - | Named modes and a thinking level in the agent definition, `--mode` and `--thinking` at start, both listed in `agents`. | - |
 | <a id="b86"></a>[B86](B86-Messages-Over-Matrix-The-Sokar-Half.md) | M | `sokar-message-matrix` [MX12](https://github.com/sokar-ai/sokar-message-matrix/blob/main/issues/README.md#mx12) | The transport account kept per homeserver, not per scheme; a registration token by `vault put`; docs; a walk on two machines. | - |
 | <a id="b38"></a>[B38](B38-How-Far-Something-That-Got-Through-Can-Get.md) | L | `sokar` [B26](README.md#b26) | An origin field in the agent definition, applied by hand-in to every delivery, and a `podman diff` count kept at removal. | - |
-| <a id="b15"></a>[B15](B15-Handing-Artifacts-Between-Tasks.md) | XL | - | Artifacts over the message transport; splits into the design redone, a gate blob threshold, transport verbs, a drop directory, delivery by hand-in, withdrawal. | - |
 | <a id="b56"></a>[B56](B56-Programs-Sokar-Runs-That-Could-Be-Calls.md) | S | - | The table of programs Sokar runs completed, and a source-scanning test that fails on an unlisted one; each replacement its own issue. | - |
 | <a id="b116"></a>[B116](B116-A-Log-Read-Back-In-Windows.md) | M | - | `Tail` gets `before` to read back in windows, and a cap per line reported in `cut`. | - |
 | <a id="b165"></a>[B165](B165-A-Port-Of-A-Task-On-Loopback-Only.md) | M | - | `sokar task port`: a two-half relay, in the task's namespace and on host loopback only, over a `0700` socket, with `ports.log`, docs and a scenario. | - |
@@ -95,6 +92,9 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b95"></a>[B95](B95-A-Container-To-Try-Waiting-Work-In.md) | XL | - | `gate try` and a streaming `Try` in a container without gate or vault; the IDE split into an issue of its own. |
+| <a id="b123"></a>[B123](B123-Message-Transports-Behind-A-Published-API.md) | XL | - | `sokar-transport-api` and its contract `Transport1`; splits into the library, the stub, the host client, the Matrix move and the end of the command-line contract. |
+| <a id="b15"></a>[B15](B15-Handing-Artifacts-Between-Tasks.md) | XL | - | Artifacts over the message transport; splits into the design redone, a gate blob threshold, transport verbs, a drop directory, delivery by hand-in, withdrawal. |
 | <a id="b166"></a>[B166](B166-Line-Comments-Sent-Back-To-The-Agent.md) | L | - | Comments as the sixth kind `comment` of the narrowed schema; `Comment`, `Comments`, `ResolveThread` in the gate's contract; a store, delivery at reject, replies. |
 | <a id="b171"></a>[B171](B171-Forge-Review-Comments-To-And-From-A-Task.md) | L | `sokar` [B166](README.md#b166) | A `Review1` reader contract, a pull request matched by the gate's branch, a reviewer list, a queue for what goes out, a write token, rate limits. |
 | <a id="b172"></a>[B172](B172-A-Task-That-Reviews.md) | M | `sokar` [B166](README.md#b166) | `role` in the task profile, `--role reviewer --review` on its own project's other tasks only, a gate that shows the reviewed ref and refuses every push, the comment's origin. |
