@@ -160,6 +160,9 @@ it here all the same, no by default; `credentials forget` offers to remove the s
 A missing secret is asked and stored where a refusal named `sokar vault put`: `credentials check` asks an ssh key's
 path, or has `vault put` ask a token without echo, then checks again; `vault login` of an agent with no login of its
 own, and `vault authorize` of a provider reached with a key, store the key with `vault put` at once.
+`gate protect` in a repository whose pre-push hook is somebody else's offers to append the check to it, no by default;
+`--remove` then takes out only those lines. `gate restore` where a mirror is already offers to move it aside under a
+dated name, never over another, and restores.
 
 **`task logs`** shows the files of the gate, broker, relay, resolver and clearance watcher, not the
 agent's output. `events.jsonl` is what the firewall blocked: look there when a task starts and then

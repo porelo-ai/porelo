@@ -177,4 +177,28 @@ class GateProtectCommandTest {
         assertThat(work.resolve(".git").resolve("hooks").resolve("pre-push"))
                 .as("a worktree shares the hooks of the repository it belongs to").exists();
     }
+
+    @Test
+    void theCheckIsAppendedToSomebodyElsesHookOnAYesAndRemovedFromItAlone(@TempDir Path root) throws Exception {
+
+        // It said "add 'sokar gate check --quiet' to it" and left the person to edit the file.
+        final String theirs = "#!/bin/sh\necho theirs\n";
+        final String appended = GateProtectCommand.appended(theirs);
+        assertThat(appended).startsWith(theirs).contains("sokar gate check --quiet");
+        assertThat(GateProtectCommand.withoutAppended(appended)).isEqualTo(theirs);
+        assertThat(GateProtectCommand.withoutAppended(theirs)).isNull();
+        assertThat(GateProtectCommand.appendOffer(Path.of("x/pre-push"), new Offer(question -> "", false, false,
+                new PrintWriter(new java.io.StringWriter(), true)))).as("their file: no by default").isFalse();
+        assertThat(GateProtectCommand.appendOffer(Path.of("x/pre-push"), new Offer(question -> "y", false, false,
+                new PrintWriter(new java.io.StringWriter(), true)))).isTrue();
+
+        final Path work = repository(root);
+        final Path hook = work.resolve(".git").resolve("hooks").resolve("pre-push");
+        Files.createDirectories(hook.getParent());
+        Files.writeString(hook, appended);
+
+        assertThat(run(root, "gate", "protect", "--repo", work.toString(), "--remove")).isZero();
+        assertThat(hook).as("their hook stays").exists();
+        assertThat(Files.readString(hook)).isEqualTo(theirs);
+    }
 }

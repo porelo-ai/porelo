@@ -55,6 +55,19 @@ public class GateRestoreCommand implements Callable<Integer>, SokarFactory.Conte
             final Project project = GateSupport.byName(context, projectName);
             final GitGate gate = GateSupport.gate(context, project,
                     GateSupport.repository(project, repository), null, null);
+            final java.nio.file.Path mirror = gate.mirror();
+            if (java.nio.file.Files.isDirectory(mirror.resolve("objects")) && moveAside(mirror, Offer.atTerminal()
+                    ? new Offer(Offer.Asker.terminal(), false, false, err) : Offer.NOBODY)) {
+                final java.nio.file.Path aside = aside(mirror, java.time.LocalDate.now());
+                try {
+                    java.nio.file.Files.move(mirror, aside);
+                } catch (final java.io.IOException ex) {
+                    err.println("sokar: cannot move " + mirror + " aside: " + ex.getMessage());
+                    err.flush();
+                    return 70;
+                }
+                out.println("aside     " + mirror + " is now " + aside + "; nothing in it was removed");
+            }
             gate.restore(bundle);
             out.println("restored  " + gate.mirror() + " from " + bundle);
             out.println("pending   " + gate.pending().size() + " push(es) recovered");
@@ -65,5 +78,34 @@ public class GateRestoreCommand implements Callable<Integer>, SokarFactory.Conte
             err.flush();
             return 70;
         }
+    }
+
+    /**
+     * Asks whether to move a mirror that is there aside before restoring over its place. It removes nothing, so yes by
+     * default.
+     *
+     * @param mirror The mirror.
+     * @param offer Who is asked.
+     * @return Whether to move it aside.
+     */
+    static boolean moveAside(final java.nio.file.Path mirror, final Offer offer) {
+        return offer != Offer.NOBODY && offer.confirm("a mirror is already at " + mirror,
+                "Move it aside under a dated name and restore?", "", false);
+    }
+
+    /**
+     * Returns where a mirror goes aside: its name with the day, and a number where that is taken.
+     *
+     * @param mirror The mirror.
+     * @param day Today.
+     * @return A path nothing is at.
+     */
+    static java.nio.file.Path aside(final java.nio.file.Path mirror, final java.time.LocalDate day) {
+        final String base = mirror.getFileName() + ".aside-" + day;
+        java.nio.file.Path target = mirror.resolveSibling(base);
+        for (int n = 2; java.nio.file.Files.exists(target); n++) {
+            target = mirror.resolveSibling(base + "-" + n);
+        }
+        return target;
     }
 }

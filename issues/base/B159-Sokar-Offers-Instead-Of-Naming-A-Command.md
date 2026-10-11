@@ -176,6 +176,11 @@ terminal, no terminal, `--no-input` and `--yes`.
   settings not built in, which are four URLs and are what `vault put`'s `--setting` options are for; `sokar setup`
   makes the vault at a terminal already; `doctor` and the `default` project's empty listing are reports, and a start
   in a checkout already takes its repository.
+- **The gate:** `gate protect` appends its check to somebody else's pre-push hook on a yes, no by default, and
+  `--remove` takes out only those lines (`GateProtectCommandTest`, seen red first); `gate restore` moves a mirror that
+  is there aside under a dated name, never over another (`RestoreOfferTest`). Left a message: a held message to a task
+  not in the conversation - the remedy is restarting the task, which interrupts its agent mid-work, and a release is
+  often asked from the interface, with no terminal to ask at.
 - **A task from before a restart:** `task resume` and `task attach` offer to copy its workspace to `./recovered`
   (never into a folder that is there), then to remove the task, no by default (`RecoverOfferTest`). The interface's
   start detail keeps the two commands, for a person with no terminal, and names `task resume` beside them. A task chosen from a list: `TaskTarget` already asks.

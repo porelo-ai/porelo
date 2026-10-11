@@ -90,9 +90,14 @@ public class GateProtectCommand implements Callable<Integer>, SokarFactory.Conte
 
         if (remove) {
             try {
-                if (Files.isRegularFile(hookFile)
-                        && Files.readString(hookFile, StandardCharsets.UTF_8)
-                                .contains("sokar-gate-protect")) {
+                final String present = Files.isRegularFile(hookFile)
+                        ? Files.readString(hookFile, StandardCharsets.UTF_8) : null;
+                final String without = present == null ? null : withoutAppended(present);
+                if (without != null) {
+                    // Appended to somebody else's hook: only the lines it added go, the rest is theirs.
+                    Files.writeString(hookFile, without, StandardCharsets.UTF_8);
+                    out.println("removed   the check from " + hookFile + "; the rest of it is left as it was");
+                } else if (present != null && present.contains("sokar-gate-protect")) {
                     Files.delete(hookFile);
                     out.println("removed   " + hookFile);
                 } else {
@@ -113,6 +118,14 @@ public class GateProtectCommand implements Callable<Integer>, SokarFactory.Conte
             Files.createDirectories(hookFile.getParent());
             if (Files.isRegularFile(hookFile) && !Files.readString(hookFile, StandardCharsets.UTF_8)
                     .contains("sokar-gate-protect")) {
+                if (appendOffer(hookFile, Offer.atTerminal() ? new Offer(Offer.Asker.terminal(), false, false, err)
+                        : Offer.NOBODY)) {
+                    Files.writeString(hookFile, appended(Files.readString(hookFile, StandardCharsets.UTF_8)),
+                            StandardCharsets.UTF_8);
+                    out.println("appended  the check to " + hookFile + "; 'sokar gate protect --remove' takes it out again");
+                    out.flush();
+                    return 0;
+                }
                 err.println("sokar: " + hookFile + " already exists and is not ours - it was left"
                         + " alone. Move it aside, or add 'sokar gate check --quiet' to it.");
                 err.flush();
@@ -148,5 +161,50 @@ public class GateProtectCommand implements Callable<Integer>, SokarFactory.Conte
         out.println("note      hooks are per clone: a fresh clone of this repository has none");
         out.flush();
         return 0;
+    }
+
+    /** Where the lines added to somebody else's hook begin and end. */
+    private static final String BEGIN_APPENDED = "# sokar-gate-protect: appended";
+
+    private static final String END_APPENDED = "# sokar-gate-protect: end";
+
+    /**
+     * Returns somebody else's hook with the check appended: run after what it does, and stopping the push when it fails.
+     *
+     * @param theirs The hook as it is.
+     * @return The hook with the check at its end.
+     */
+    static String appended(final String theirs) {
+        return theirs + (theirs.endsWith("\n") ? "" : "\n") + BEGIN_APPENDED + "\n"
+                + "sokar gate check --quiet \"$@\" || exit $?\n" + END_APPENDED + "\n";
+    }
+
+    /**
+     * Returns somebody else's hook without the lines {@link #appended} added.
+     *
+     * @param hook The hook.
+     * @return The hook as it was before, or {@code null} when nothing was appended to it.
+     */
+    static @org.jspecify.annotations.Nullable String withoutAppended(final String hook) {
+        final int begin = hook.indexOf(BEGIN_APPENDED + "\n");
+        final int end = hook.indexOf(END_APPENDED + "\n");
+        if (begin < 0 || end < begin) {
+            return null;
+        }
+        return hook.substring(0, begin) + hook.substring(end + END_APPENDED.length() + 1);
+    }
+
+    /**
+     * Asks whether to append the check to somebody else's hook. Their file changes, so no by default, naming it - and
+     * saying that a hook which exits before its end never reaches the check.
+     *
+     * @param hookFile The hook.
+     * @param offer Who is asked.
+     * @return Whether to append it.
+     */
+    static boolean appendOffer(final Path hookFile, final Offer offer) {
+        return offer != Offer.NOBODY && offer.confirm(hookFile + " is somebody else's pre-push hook",
+                "Append 'sokar gate check' to its end?", hookFile + " (two lines at its end; a hook that exits earlier"
+                        + " never reaches them)", true);
     }
 }
