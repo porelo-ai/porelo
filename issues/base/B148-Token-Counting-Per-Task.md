@@ -2,11 +2,13 @@
 
 **Status:** open.
 
-**What must be true.** The broker counts each task's tokens per request, from the provider's own answer, and keeps the counts structured per task.
+**What must be true.** The broker counts each task's tokens per request, from the provider's own answer, and keeps the counts structured per task - with, for each request, the model asked for and the model the provider answered with.
 
 ## Why
 
-Nothing counts what a task used; a ceiling (B138) and an inventory (B156) need the count first.
+Nothing counts what a task used; a ceiling (B138) and an inventory (B156) need the count first, and the models a
+task's work was made with (B144) need the record of which model answered, whatever the agent was told at its launch
+or switched to during its work.
 
 **Guideline points it answers:** AISVS 12.1.3, 12.2.5. From a review of security guidelines, 2026-10-09.
 
