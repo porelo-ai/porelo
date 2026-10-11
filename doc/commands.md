@@ -484,7 +484,9 @@ as none.
 
 ## panic
 
-`sokar panic [--dry-run]` stops every running task and helper. Nothing is removed; everything can be
+`sokar panic [--dry-run]`, or `sokar task stop --all`, stops every running task and helper. Each stop of everything
+is one line in `stops.log` in the state directory - when, who, from where (`cli` or the daemon), what stopped and what
+survived - written even when nothing ran; the daemon's `Panic` answers that line as `journalled`. Nothing is removed; everything can be
 started again.
 
 ## daemon

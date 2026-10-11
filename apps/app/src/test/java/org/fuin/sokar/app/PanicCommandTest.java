@@ -136,4 +136,44 @@ class PanicCommandTest {
         assertThat(runner.lines()).noneMatch(line -> line.contains("not-sokar-at-all"));
         assertThat(out.toString()).contains("stopped   1 of 1 tasks");
     }
+
+    @Test
+    void taskStopAllStopsEveryRunningTaskAndJournalsOneLineWithWhoAndWhen(@TempDir Path dir) throws IOException {
+
+        // A stop of everything left no record of who stopped what, when: only each task's own logs, which say nothing
+        // of the others.
+        final SokarContext context = context(dir);
+        runner.answering("ps", "sokar-uc-shell-1\tUp 4 minutes\nsokar-uc-build-2\tUp 2 hours\n");
+        stateOf("sokar-uc-shell-1");
+        stateOf("sokar-uc-build-2");
+
+        assertThat(execute(context, "task", "stop", "--all")).isZero();
+
+        assertThat(runner.lines()).anyMatch(line -> line.startsWith("podman stop") && line.endsWith("sokar-uc-shell-1"))
+                .anyMatch(line -> line.startsWith("podman stop") && line.endsWith("sokar-uc-build-2"));
+        final java.util.List<String> journal = Files.readAllLines(context.paths().stopJournal());
+        assertThat(journal).singleElement().asString().contains("via=cli").contains("sokar-uc-shell-1")
+                .contains("sokar-uc-build-2").contains("user=" + System.getProperty("user.name"))
+                .containsPattern("^\\d{4}-\\d{2}-\\d{2}T");
+    }
+
+    @Test
+    void aStopWithNothingRunningIsJournalledToo(@TempDir Path dir) throws IOException {
+        final SokarContext context = context(dir);
+        runner.answering("ps", "");
+
+        assertThat(execute(context, "panic")).isZero();
+
+        assertThat(Files.readAllLines(context.paths().stopJournal())).singleElement().asString()
+                .contains("stopped=none");
+    }
+
+    @Test
+    void allBesideATaskNameIsRefused(@TempDir Path dir) {
+        final SokarContext context = context(dir);
+        runner.answering("ps", "");
+
+        assertThat(execute(context, "task", "stop", "sokar-uc-shell-1", "--all")).isEqualTo(2);
+        assertThat(context.paths().stopJournal()).doesNotExist();
+    }
 }

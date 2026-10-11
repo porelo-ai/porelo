@@ -1,6 +1,6 @@
 # B146 — One Stop Of Every Task On A Node
 
-**Status:** open.
+**Status:** built.
 
 **What must be true.** One command stops every task of an account on a machine at once, and the stop is journalled.
 
@@ -13,6 +13,16 @@ An incident needs everything stopped now; today each task is stopped by name.
 ## The shape
 
 `sokar task stop --all`, also as a daemon method; each task's work kept as `task stop` keeps it; one journal line with who and when.
+
+## Built
+
+- `sokar task stop --all`, the same operation as `sokar panic`, refused beside a task name; each task stopped as
+  `task stop` stops it (`TaskPanic`).
+- One line per stop of everything in `stops.log` in the state directory: time, user, host, `via=cli|daemon`, what
+  stopped, what survived - written even when nothing ran; a failed write never holds the stop back
+  (`PanicCommandTest`, seen red first).
+- The daemon's `Panic` answers the line as `journalled` (`SokarDaemonTest`).
+- Tokens stay in the vault, as `task stop` keeps them: `doc/decisions.md`, "A stop of every task keeps its tokens".
 
 ## Acceptance
 

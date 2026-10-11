@@ -591,7 +591,10 @@ method Panic(
   # to kill by hand, and they are named rather than counted.
   surviving: []string,
   # Whether this only listed what would happen.
-  previewed: bool
+  previewed: bool,
+  # The line written to the account's stop journal, stops.log: when, who, from where, what stopped and what
+  # survived. Empty for a dry run, or when it could not be written - the stop happened all the same.
+  journalled: string
 )
 
 # Drops the cached vault passphrase, so the next thing that needs it has to ask.

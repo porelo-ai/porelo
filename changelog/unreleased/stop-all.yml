@@ -1,0 +1,2 @@
+title: sokar task stop --all stops every task as panic does, and each stop of everything is one line in stops.log, also answered by the daemon's Panic
+type: added

@@ -619,3 +619,11 @@ first place as a change about money.
 `issues/base/README.md` is not split per area. Two agents adding a requirement each meet in one line of it, and that
 conflict is resolved by keeping both lines; splitting the index would trade that for a document nobody can read as a
 whole.
+
+## A stop of every task keeps its tokens
+
+`sokar task stop --all` (and `sokar panic`) stops every task as `task stop` stops one, and so keeps each task's tokens in
+the vault: a stopped task is brought back with its work, and a resume needs them. Ending what a token grants is a step
+of its own - `sokar vault lock`, and `sokar vault remove` of an entry, which revokes at the service where it can. Folding
+revocation into the stop would make the one command reached for in doubt destroy what a calm look afterwards would
+keep.

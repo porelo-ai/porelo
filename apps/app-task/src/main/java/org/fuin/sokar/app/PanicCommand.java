@@ -51,7 +51,8 @@ public class PanicCommand implements Callable<Integer>, SokarFactory.ContextAwar
         final TaskPanic.Result result = new TaskPanic(context).panic(dryRun);
 
         if (result.tasks().isEmpty()) {
-            out.println("nothing is running");
+            out.println("nothing is running" + (result.journalled().isEmpty() ? "" : "; journalled in "
+                    + context.paths().stopJournal()));
             out.flush();
             return 0;
         }
@@ -73,6 +74,8 @@ public class PanicCommand implements Callable<Integer>, SokarFactory.ContextAwar
         // looking for work that is still exactly where it was.
         out.println("kept      every workspace, log and unpushed commit; 'sokar task list' shows"
                 + " them, 'sokar task attach <name>' offers to bring one back");
+        out.println(result.journalled().isEmpty() ? "journal   could not be written to " + context.paths().stopJournal()
+                : "journal   " + context.paths().stopJournal());
         out.flush();
 
         if (!surviving.isEmpty()) {

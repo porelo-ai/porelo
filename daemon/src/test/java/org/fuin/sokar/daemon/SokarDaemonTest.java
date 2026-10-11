@@ -343,6 +343,22 @@ class SokarDaemonTest {
     }
 
     @Test
+    void aPanicThroughTheDaemonIsJournalledAndSaysTheLine(@TempDir Path dir) throws Exception {
+        runner.answering("ps", "");
+        final SokarContext context = context(dir);
+
+        servingContext(context, dir, socket -> {
+            try (VarlinkClient client = new VarlinkClient(socket)) {
+                final Map<String, Object> reply = client.call(SokarDaemon.INTERFACE + ".Panic", Map.of());
+
+                assertThat((String) reply.get("journalled")).contains("via=daemon").contains("stopped=none");
+            }
+        });
+        assertThat(java.nio.file.Files.readAllLines(context.paths().stopJournal())).singleElement().asString()
+                .contains("via=daemon");
+    }
+
+    @Test
     void saysWhatStartingEachTaskWouldDo(@TempDir Path dir) throws Exception {
 
         // Answered per task in the listing rather than by a call per row: an interface drawing

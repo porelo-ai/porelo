@@ -215,6 +215,16 @@ public record SokarPaths(XdgPaths xdg, Path binaryDirectory, Path packagedHooks,
     }
 
     /**
+     * Returns the record of every stop of all tasks at once: one line each, with when, who, from where, what stopped
+     * and what survived.
+     *
+     * @return The file.
+     */
+    public Path stopJournal() {
+        return xdg.state().resolve("stops.log");
+    }
+
+    /**
      * Returns where the files of a task's own files: its record, its state, its session, its clearance journal and its image's build context are.
      *
      * @return Their locations.

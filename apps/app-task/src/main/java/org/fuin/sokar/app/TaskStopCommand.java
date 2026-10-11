@@ -43,6 +43,10 @@ public class TaskStopCommand implements Callable<Integer>, SokarFactory.ContextA
             description = "Container name, as shown by 'sokar task list'. Default: the task started from the checkout you stand in.")
     private @org.jspecify.annotations.Nullable String container;
 
+    @picocli.CommandLine.Option(names = "--all", description = "Stops every running task and its helpers, as 'sokar"
+            + " panic' does, and journals it.")
+    private boolean all;
+
     @Spec
     private CommandSpec spec;
 
@@ -55,6 +59,18 @@ public class TaskStopCommand implements Callable<Integer>, SokarFactory.ContextA
 
     @Override
     public Integer call() {
+        if (all) {
+            if (container != null) {
+                spec.commandLine().getErr().println("sokar: name a task or --all, not both");
+                spec.commandLine().getErr().flush();
+                return 2;
+            }
+            // The same operation as 'sokar panic', and the same words: one stop of everything, however it is asked.
+            final PanicCommand panic = new PanicCommand();
+            panic.setContext(context);
+            return new picocli.CommandLine(panic).setOut(spec.commandLine().getOut())
+                    .setErr(spec.commandLine().getErr()).execute();
+        }
         final TaskTarget.Found found = TaskTarget.resolve(context, container, java.nio.file.Path.of("."),
                 TaskTarget.console(spec.commandLine().getOut()));
         if (found.container() == null) {

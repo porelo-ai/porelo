@@ -49,7 +49,7 @@ public final class TaskPanic {
      * @param surviving Every helper that outlived its stop, across all tasks.
      * @param previewed Whether this only listed what would happen.
      */
-    public record Result(List<Stopped> tasks, List<String> surviving, boolean previewed) {
+    public record Result(List<Stopped> tasks, List<String> surviving, boolean previewed, String journalled) {
 
         /** @return How many tasks stopped with nothing left running. */
         public int clean() {
@@ -75,6 +75,17 @@ public final class TaskPanic {
      * @return What happened, or would have.
      */
     public Result panic(boolean preview) {
+        return panic(preview, "cli");
+    }
+
+    /**
+     * Stops every running task, or reports what that would stop, and journals a stop - even of nothing.
+     *
+     * @param preview Whether to list rather than stop.
+     * @param via What asked: {@code cli} or {@code daemon}.
+     * @return What happened, or would have, and the journal's line; empty for a preview or when it could not be written.
+     */
+    public Result panic(boolean preview, String via) {
 
         final List<TaskInventory.Task> running = new TaskInventory(context).tasks().stream()
                 .filter(TaskInventory.Task::running)
@@ -83,7 +94,7 @@ public final class TaskPanic {
         if (preview) {
             return new Result(running.stream()
                     .map(task -> new Stopped(task.name(), task.helpers(), List.of())).toList(),
-                    List.of(), true);
+                    List.of(), true, "");
         }
 
         final TaskControl control = new TaskControl(context);
@@ -98,6 +109,33 @@ public final class TaskPanic {
             stopped.add(new Stopped(task.name(), result.helpers(), result.surviving()));
             surviving.addAll(result.surviving());
         }
-        return new Result(List.copyOf(stopped), List.copyOf(surviving), false);
+        return new Result(List.copyOf(stopped), List.copyOf(surviving), false,
+                journal(via, stopped.stream().map(Stopped::name).toList(), surviving));
+    }
+
+    /**
+     * Writes one line for a stop of everything. A failed write never holds a stop back: the tasks are stopped already,
+     * and the line is answered empty.
+     */
+    private String journal(final String via, final List<String> stopped, final List<String> surviving) {
+        String host;
+        try {
+            host = java.nio.file.Files.readString(java.nio.file.Path.of("/proc/sys/kernel/hostname")).strip();
+        } catch (final java.io.IOException | RuntimeException ex) {
+            host = "unknown";
+        }
+        final String line = java.time.Instant.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS)
+                + " user=" + System.getProperty("user.name") + " host=" + host + " via=" + via
+                + " stopped=" + (stopped.isEmpty() ? "none" : String.join(",", stopped))
+                + " surviving=" + (surviving.isEmpty() ? "none" : String.join(",", surviving));
+        try {
+            final java.nio.file.Path file = context.paths().stopJournal();
+            java.nio.file.Files.createDirectories(file.getParent());
+            java.nio.file.Files.writeString(file, line + "\n", java.nio.file.StandardOpenOption.CREATE,
+                    java.nio.file.StandardOpenOption.APPEND);
+            return line;
+        } catch (final java.io.IOException ex) {
+            return "";
+        }
     }
 }

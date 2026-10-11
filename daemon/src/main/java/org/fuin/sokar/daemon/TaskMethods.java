@@ -110,11 +110,12 @@ final class TaskMethods {
             //
             // It stops and never removes: every workspace, log and unpushed commit survives, and
             // Start brings a task back with the work it had.
-            final TaskPanic.Result result = new TaskPanic(context).panic(flag(parameters, "dryRun"));
+            final TaskPanic.Result result = new TaskPanic(context).panic(flag(parameters, "dryRun"), "daemon");
             final Map<String, Object> answer = new LinkedHashMap<>();
             answer.put("tasks", result.tasks().stream().map(TaskPanic.Stopped::asMap).toList());
             answer.put("surviving", result.surviving());
             answer.put("previewed", result.previewed());
+            answer.put("journalled", result.journalled());
             replies.last(answer);
         });
 
