@@ -46,8 +46,11 @@ The agents that can reach it are listed in
 - Which provider a task used is answerable afterwards from the task's own record. Seen to fail: the task's record
   after a request to it does not name Google.
 
+## Open questions
+
+- Whether the account sign-in can be brokered: unverified, and measurable only with an account (the operator's).
+
 ## To be checked
 
 - Whether `x-goog-api-key` is taken on the `openai` path too, or that path needs `Authorization: Bearer` - one
   header per credential type is all a provider file can say today (Agent Core's, measured with a key).
-- Whether the account sign-in can be brokered: unverified, and measurable only with an account (the operator's).

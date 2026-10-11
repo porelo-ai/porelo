@@ -48,9 +48,12 @@ and for the daemon's `Review` (`daemon/.../GateMethods.java`, `35-gate.varlink`)
 - Seen to fail first, then green: the behaviour above, in a test of the module that carries it.
 - The documentation page that describes the area says it.
 
-## To be checked
+## Open questions
 
 - Which ecosystems and registries first; the proposal is Maven Central and npm (the operator's).
 - Whether a finding only marks the review or also holds the approve back until a person confirms it (the operator's).
+
+## To be checked
+
 - Where the list of well-known names comes from and how it stays current (Agent Core's).
 - How the interface shows a new dependency and its finding (Agent Frontend's).

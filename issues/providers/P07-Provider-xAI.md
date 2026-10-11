@@ -43,7 +43,7 @@ The agents that can reach it are listed in
   arrive at xAI; a search of the container for the real credential goes red when it is found; a
   test that reads the task's record afterwards goes red when it does not name the provider.
 
-## To be checked
+## Open questions
 
 - Whether the subscription account its own agent uses can be brokered: unverified, and measurable only with an
   account (the operator's).

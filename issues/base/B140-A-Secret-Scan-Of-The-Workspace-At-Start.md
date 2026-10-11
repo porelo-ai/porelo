@@ -41,10 +41,13 @@ finding today - then with the finding, its path and line, and no byte of the key
 - Seen to fail first, then green: the behaviour above, in a test of the module that carries it.
 - The documentation page that describes the area says it.
 
+## Open questions
+
+- How a false finding is acknowledged for a project: the file in the repository planned above, which the agent can
+  also write, or a list kept on the host beside the project (the operator's).
+- Whether the scan covers the history the task receives too, or the checked-out tree alone (the operator's).
+
 ## To be checked
 
 - Which detector: Sokar's own list of credential forms, as planned, or a library that keeps one, a dependency to
   add (Agent Core's).
-- How a false finding is acknowledged for a project: the file in the repository planned above, which the agent can
-  also write, or a list kept on the host beside the project (the operator's).
-- Whether the scan covers the history the task receives too, or the checked-out tree alone (the operator's).

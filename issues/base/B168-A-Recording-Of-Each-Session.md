@@ -53,8 +53,11 @@ and the gap is recorded.
 - Seen to fail first, then green: what a stub agent printed plays back in order after the task is removed.
 - `doc/commands.md` says it, and what it may hold (anything the agent printed, secrets included where it printed them).
 
-## To be checked
+## Open questions
 
 - How long recordings are kept by default, and their size limit: kept until removed and capped at 64 MiB per session
   in this plan, the rest cut and said (the operator's).
+
+## To be checked
+
 - Whether an unattended run is recorded the same way, when its output is already in its log (Agent Core's).

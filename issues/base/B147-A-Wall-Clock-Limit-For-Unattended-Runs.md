@@ -54,9 +54,12 @@ limit.
 - Seen to fail first, then green: the behaviour above, in a test of the module that carries it.
 - The documentation page that describes the area says it.
 
-## To be checked
+## Open questions
 
 - The limit applies to the run a start with a prompt makes. Whether a person attached to the task holds the stop
   back (the operator's).
 - Whether `--minutes` may go above the project's limit (the operator's).
+
+## To be checked
+
 - Whether every image Sokar builds carries `timeout`, or Sokar brings its own into the container (Agent Core's).

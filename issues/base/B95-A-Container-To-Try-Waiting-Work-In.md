@@ -93,4 +93,3 @@ compared before and after.
 
 **Guideline points, 2026-10-09:** a review of security guidelines counts this as its item F7,
 answering the source document's "same SAST/DAST gates for AI code" (§3), Checkmarx, LinkedIn 11.
-

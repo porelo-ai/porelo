@@ -54,6 +54,10 @@ the bought token; `CredentialScan` already keeps a token field in a response fro
   authorization server the broker trusts, and keeps working past the bought token's end. Seen to fail: a
   503 naming the authorization server, or a second exchange before the first token is a minute from its end.
 
+## Open questions
+
+- **Which service is the first to need a key-based kind** (the operator's). Steps 2 and 3 wait for one.
+
 ## To be checked
 
 - **What a task that loses its bought token mid-run sees** (Agent Core's). A purchase failing at start is refused
@@ -61,4 +65,3 @@ the bought token; `CredentialScan` already keeps a token field in a response fro
   same case; a bought token has nobody to ask.
 - **Whether a stored credential that carries an end and nothing to renew it with should be named before a task needs
   it** (Agent Core's): a `vault check` for the kinds that carry the date.
-- **Which service is the first to need a key-based kind** (the operator's). Steps 2 and 3 wait for one.

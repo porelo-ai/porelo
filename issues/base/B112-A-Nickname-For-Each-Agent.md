@@ -64,8 +64,11 @@ Steps:
   card goes red when `you` is missing either name; a test with a transport that does not declare `"display": true`
   goes red when it is asked; a test of a message to a nickname goes red when its metadata carries the nickname.
 
-## To be checked
+## Open questions
 
 - Whether a label that cannot be a nickname is refused, or kept as a caption with no `@` (the operator's).
+
+## To be checked
+
 - Whether a nickname must also be unique across a project's tasks on other machines, which this machine cannot
   see (Agent Core's, with [B86](README.md#b86)).

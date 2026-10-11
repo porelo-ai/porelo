@@ -155,6 +155,6 @@ Steps:
   names and outcomes; what is open is whether a task id alone is enough.
 - **What the two caps actually are** (Agent Core's). Decided that there are two; the numbers should come from what a
   busy machine really writes rather than from a round figure.
-- **Whether trimming and a hash chain can live in one file** (the operator's). [B154](README.md#b154) wants every line provable;
+- **Whether trimming and a hash chain can live in one file** (Agent Core's). [B154](README.md#b154) wants every line provable;
   [B26](README.md#b26) wants the file bounded. Trimming a chain needs the first kept line's predecessor hash kept as an anchor, or the
   chain restarts at each trim and says so.

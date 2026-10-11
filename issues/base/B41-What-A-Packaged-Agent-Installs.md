@@ -71,7 +71,7 @@ The check against an installed `sokar-pi` is made on the fedora VM by hand; no a
 - Nothing added here names an agent. The bill's path follows from the package, so it stays data.
   Seen to fail: an agent's name appears in the code added for this.
 
-## To be checked
+## Open questions
 
 - **How much an operator wants printed** (the operator's). A Node tree is 162 entries. The plan prints counts and the
   list only under `--verbose`; since the daemon returns the components as data, an interface may choose differently
@@ -79,4 +79,3 @@ The check against an installed `sokar-pi` is made on the fedora VM by hand; no a
 
 **Guideline points, 2026-10-09:** a review of security guidelines counts this as its item F9,
 answering NCSC/CISA secure development, OWASP `LLM03`, Sysdig 6, AISVS `C06`.
-

@@ -340,11 +340,14 @@ Steps:
   passed as they arrive. Seen to fail: `VaultProxyTest`'s small event followed by a pause reaches the agent only
   after the pause.
 
-## To be checked
+## Open questions
 
 - **Which real service to measure against** (the operator's). A real grant has not run on a VM because no device
   authorization service is reachable from it, and the hour-long MCP stream needs a real server; both need a service
   and an account somebody holds.
+
+## To be checked
+
 - **Whether the broker carries an MCP session for an hour** - measured 2026-10-01 against a stand-in, with one
   defect fixed: it passes every method (GET and DELETE as well as POST), the `Mcp-Session-Id` header both ways,
   `Accept`, and `text/event-stream` chunk by chunk with no bound on the body. **It held an answer back until its

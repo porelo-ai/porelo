@@ -44,9 +44,12 @@ reaching the stand-in provider; then `ProjectReaderTest` for `limits.tokens`.
 - Seen to fail first, then green: the behaviour above, in a test of the module that carries it.
 - The documentation page that describes the area says it.
 
-## To be checked
+## Open questions
 
 - How cost is known per provider and model, and whether a cost ceiling follows the token ceiling at all; the plan
   builds tokens only (the operator's).
+
+## To be checked
+
 - Whether the daemon's contract gets a call to raise the ceiling, for the interface, or the CLI alone first
   (Agent Core's).

@@ -47,10 +47,13 @@ other signers; with a second principal's signature over the reviewed commit, it 
 - Seen to fail first, then green: the behaviour above, in a test of the module that carries it.
 - The documentation page that describes the area says it.
 
-## To be checked
+## Open questions
 
 - Whether a node may need a second person at all, against "the operator is the only one who approves" (the
   operator's).
+
+## To be checked
+
 - How a person is identified on one machine and across machines; the proposal is the signing key's principal in the
-  project's allowed signers (the operator's).
+  project's allowed signers (Agent Core's).
 - How the second signature reaches the node: a file, a message between nodes, or the interface (Agent Core's).

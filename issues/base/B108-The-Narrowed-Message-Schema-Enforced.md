@@ -75,6 +75,6 @@ Steps:
   direct are told another way (Agent Core's, with sokar-message-sluice's agent).
 - How a person is named in `metadata.from`: their Matrix id, or a plain name the host maps (Agent Core's, with
   sokar-message-sluice's agent).
-- The Sokar messaging extension's URI (the operator's).
+- The Sokar messaging extension's URI (Agent Core's).
 - Whether a message from before is refused or converted: [SL23](https://github.com/sokar-ai/sokar-message-sluice/blob/main/issues/README.md#sl23) refuses it, since the filter never rewrites a
   message; whether the host converts what sits in an outbox on the day of the switch (Agent Core's).

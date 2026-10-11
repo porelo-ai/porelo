@@ -92,20 +92,10 @@ It splits into three issues:
   ruleset does not start - under either runtime. Seen to fail: a task whose ruleset load is made to fail starts,
   under either runtime.
 
-## To be checked
+## Open questions
 
-- **Nested virtualisation** on the libvirt test machines and on rented ones (Agent Core's, measured). Without it,
-  this cannot be tested where everything else is tested, and that alone may end the experiment.
-- **Whether the guest is the better home for the ruleset anyway** (Agent Core's). A ruleset the workload cannot
-  reach around, loaded by something the workload cannot stop, is the property that matters; which kernel holds it
-  is not.
 - **What a second wall is worth here** (the operator's). Rootless, no capabilities and `no-new-privileges` already
   remove the usual ladder; the gain is against kernel bugs, and the cost is the four mechanisms above.
-- **This is the rehearsal for `sokar-project` [PJ25](https://github.com/sokar-ai/sokar-project/blob/main/issues/README.md#pj25)**, Sokar on Apple Containers (Agent Project's). A container on
-  macOS always has a kernel of its own, so that requirement asks the same questions: where per-container egress
-  filtering lives and whether it fails closed, whether a host socket reaches the workload, whether the host's
-  loopback can be mapped in for the gate, and how much is genuinely shared. Answering them here costs one Linux
-  machine with KVM and the acceptance suite that already runs.
 - **Snapshot and restore** (the operator's). A task comes back after a machine restart through `task start
   --restarted`, and its conversation with it where [B46](README.md#b46) ([index](README.md)) can. A runtime that can freeze and
   restore a workload would change what those can promise, and it is not available through podman today.
@@ -113,3 +103,15 @@ It splits into three issues:
 **Guideline points, 2026-10-09:** a review of security guidelines counts this as its item F8,
 answering OpenSSF tip 2, OWASP AI Agent Cheat Sheet §9.
 
+## To be checked
+
+- **Nested virtualisation** on the libvirt test machines and on rented ones (Agent Core's, measured). Without it,
+  this cannot be tested where everything else is tested, and that alone may end the experiment.
+- **Whether the guest is the better home for the ruleset anyway** (Agent Core's). A ruleset the workload cannot
+  reach around, loaded by something the workload cannot stop, is the property that matters; which kernel holds it
+  is not.
+- **This is the rehearsal for `sokar-project` [PJ25](https://github.com/sokar-ai/sokar-project/blob/main/issues/README.md#pj25)**, Sokar on Apple Containers (Agent Project's). A container on
+  macOS always has a kernel of its own, so that requirement asks the same questions: where per-container egress
+  filtering lives and whether it fails closed, whether a host socket reaches the workload, whether the host's
+  loopback can be mapped in for the gate, and how much is genuinely shared. Answering them here costs one Linux
+  machine with KVM and the acceptance suite that already runs.

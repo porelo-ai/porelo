@@ -80,10 +80,13 @@ scenario that connects without the password and is refused, and one with it that
 - The view is authenticated beyond being on loopback. Seen to fail: a viewer without the credential
   connects.
 
-## To be checked
+## Open questions
 
 - How the view is switched on: per project in `project.yml` (the plan's leaning), or per task at its start
   (the operator's).
 - Whether a one-time VNC password is enough beyond loopback, given that VNC's own password check is weak; the relay
   could ask for a token first instead (the operator's).
+
+## To be checked
+
 - Which VNC server goes into the image, and whether it can listen on a Unix socket only (Agent Core's, measured).

@@ -268,7 +268,7 @@ read by every agent repository), so L.
   unbrokerable kind goes red when the reply says stored; a test that types a credential at the CLI
   goes red when it is echoed.
 
-## To be checked
+## Open questions
 
 - **Whether to build `StoreCredential` at all** (the operator's). Parked since the passphrase half was settled;
   everything above waits on it.
@@ -277,6 +277,9 @@ read by every agent repository), so L.
 - **Whether the daemon should refuse to store a credential with no expiry** (the operator's), or merely say so.
   The lifetime argument above says the long-lived key is the problem; refusing one outright would break every
   provider that only issues those.
+
+## To be checked
+
 - **Whether `Import` should be preferred in the interface** (Agent Frontend's), since it moves no secret at all. It
   looks like the better default wherever the agent can log itself in, with typing as the fallback rather than the
   first offer.

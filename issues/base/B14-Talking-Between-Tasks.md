@@ -72,10 +72,13 @@ The split, each an issue of its own when it is started:
   held.
 - A message retried by the transport between machines is delivered once.
 
-## To be checked
+## Open questions
 
 - **Whether a group is closed for good or only held** (the operator's). The criteria say held, released and closed;
   `Moderation` knows held and released. Closed could be removing the group from `project.yml`, which needs nothing
   new.
+
+## To be checked
+
 - **Whether a confirmed key is the account's or the project's** (Agent Core's). The account's `allowed_signers` is
   per machine and survives the project; a key in the project repository is signed and travels to every machine.

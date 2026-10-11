@@ -119,6 +119,11 @@ Steps:
 - Reconnection recovers without restarting the client. Seen to fail: after the tunnel comes back,
   the client shows nothing new until it is restarted.
 
+## Open questions
+
+- **How long a clearance prompt waits for somebody who is not at the machine** (the operator's). 60 seconds was
+  never measured against anybody; see Notes.
+
 ## To be checked
 
 - **What a client should do when a stream is cut** (Agent Frontend's). The daemon's streams fail loudly rather than
@@ -134,5 +139,3 @@ Steps:
   rather than checking it, and is only available where the provider offers one.
 - **Which of the two shapes an interface should use** (Agent Frontend's). Both exist and both work; the trade is
   measured above.
-- **How long a clearance prompt waits for somebody who is not at the machine** (the operator's). 60 seconds was
-  never measured against anybody; see Notes.

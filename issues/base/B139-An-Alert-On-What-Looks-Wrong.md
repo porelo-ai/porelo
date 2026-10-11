@@ -48,9 +48,12 @@ Red first: a `VaultProxy` test with a body above a threshold of 1 KiB that is fo
 - Seen to fail first, then green: the behaviour above, in a test of the module that carries it.
 - The documentation page that describes the area says it.
 
+## Open questions
+
+- Whether a project may choose freeze at all, since a paused agent holds its session and its tokens' lifetimes run
+  on (the operator's).
+
 ## To be checked
 
 - Near [B26](README.md#b26) and [B38](README.md#b38): whether alerts go into [B26](README.md#b26)'s machine-wide record once it exists, or stay per task (Agent
   Core's). Which baselines are measured is step 1 of the plan.
-- Whether a project may choose freeze at all, since a paused agent holds its session and its tokens' lifetimes run
-  on (the operator's).

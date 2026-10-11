@@ -46,7 +46,7 @@ Left, in order:
 - In the same scenario, an agent whose definition declares no session id reports a fresh session after the
   reboot, and nothing claims a continuation.
 
-## To be checked
+## Open questions
 
 - **What a task started with a prompt and left to run should be after a reboot** (the operator's). Its agent's work
   is gone; bringing the container back does not bring the work back, and presenting it as resumed is worse than

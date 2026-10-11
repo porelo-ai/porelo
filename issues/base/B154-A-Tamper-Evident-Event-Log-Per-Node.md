@@ -53,10 +53,13 @@ Steps:
 - Seen to fail first, then green: the behaviour above, in a test of the module that carries it.
 - The documentation page that describes the area says it.
 
-## To be checked
+## Open questions
 
 - Where the chain's anchor is kept: the user's systemd journal as planned, a key in the vault that signs each line
   (the account can open the vault, so it proves less), or a copy sent off the machine (the operator's).
 - Whether the log outlives `sokar clear` of the account (the operator's).
+
+## To be checked
+
 - It replaces what [B121](README.md#b121) removes from the message record; near [B26](README.md#b26), whose machine-wide history may be the same file
   (Agent Core's).

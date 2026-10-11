@@ -112,10 +112,13 @@ It splits into four issues:
   machine's state after an unlock goes red when the share's bytes are found; the reboot test goes
   red when the same token no longer opens the slot.
 
-## To be checked
+## Open questions
 
 - **Whether the node can tell what protected an unlock** (the operator's, after the measurement), or the product
   must stop presenting a `FIDO2` or `TPM2` slot as different from a `USER_SCOPED` one.
+
+## To be checked
+
 - **How a token behaves in this codebase** (Agent Core's): whether a native image can call libfido2 and tpm2-tss
   without carrying half of them, and what a token that is absent looks like from Java - measured first, as the
   Notes say.

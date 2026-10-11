@@ -46,6 +46,6 @@ The refusal first, because it is small and makes the failure honest; the reach s
 - Until step 6 is built: the same start is refused before the task starts, with the reason. Seen to fail: the start
   succeeding.
 
-## To be checked
+## Open questions
 
 - Whether step 6, the reach, is wanted at all, or the refusal is the end of it (the operator's).

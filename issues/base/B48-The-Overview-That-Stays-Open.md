@@ -117,16 +117,19 @@ Steps, in order:
 - The rendering is the same code that prints the one-shot listing, proven by a test that changes
   the listing's format and sees both change. Seen to fail: that test, when only one of the two changes.
 
-## To be checked
+## Open questions
 
 - **Is it a flag or a verb?** (the operator's) `sokar task list --watch` reads as the listing that keeps going, and
   the house already has `sokar shield watch` as a verb. A flag keeps the two renderings obviously the same thing; a
   verb is easier to give its own options later. Decide once - the two will not be reconciled afterwards.
-- **Does it need the daemon?** (the operator's) `sokar task list` builds its answer in this process and works where
-  nothing runs but podman. Consuming `Watch` makes the watching form need a daemon, which an operator meets as an
-  error message. The plan states it plainly and falls back to one listing; the other choice is polling its own
-  inventory, as the second change detector point 2 refuses.
 - **Does it belong to one project or to the machine?** (the operator's) A filter in the watching form and not in the
   listing breaks the "same listing" promise, so a filter would be added to both.
 - **Does the same view show the clearance questions?** (the operator's) `Prompts` carries questions that expire, and
   a person watching their tasks is the person who should see one; or it makes this view two things at once.
+
+## To be checked
+
+- **Does it need the daemon?** (Agent Core's) `sokar task list` builds its answer in this process and works where
+  nothing runs but podman. Consuming `Watch` makes the watching form need a daemon, which an operator meets as an
+  error message. The plan states it plainly and falls back to one listing; the other choice is polling its own
+  inventory, as the second change detector point 2 refuses.

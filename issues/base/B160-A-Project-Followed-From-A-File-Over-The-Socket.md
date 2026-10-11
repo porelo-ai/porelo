@@ -50,8 +50,10 @@ The answers to the two questions, as planned:
 - **Size limit and parts:** a bundle comes in parts, as a hand-in does, never in one call. The limit is 1 GiB
   (1 073 741 824 bytes), a constant said in the contract; the parts are written to disk as they come, never held in
   memory. A larger one is refused as `BundleTooLarge(bytes, limit)` before any byte is kept. The progress the
-  interface shows is `received` against `bytes`, which every part answers.
-- **How "followed from a file" is told:** `Followed` gains `fromFile: bool`, computed by
+  interface shows is `received` against `bytes`, which every part answers. A part that does not start at `received`
+  is refused as `PartOutOfOrder(expected, offset)`; neither error is resumed - a client starts the upload over.
+- **How "followed from a file" is told:** `Followed`, and `Project` as `Projects` and `WatchProjects` answer it, gain
+  `fromFile: bool`, so a project followed yesterday still says so; computed by
   `FollowedProjects.fromAFile(url)` on the machine, so a client never parses `url`; and `uploaded: bool`, true when
   the file is one a client handed over, whose `url` is then the absolute path where the daemon keeps it. A client
   shows "followed from a file", offers "follow again from a newer file" for it, and no refresh from an address.
@@ -61,7 +63,8 @@ Steps:
 1. Red first, in `daemon` (`SokarDaemonTest`): `Follow` with a relative path follows the file under the account's
    home; a bundle sent in three parts through `PutBundle` and then `Follow` with `uploaded: true` follows an offline
    project; a bundle over the limit is refused as `BundleTooLarge`; a bundle signed by another key is refused as for
-   a path; `Following` says `fromFile` and `uploaded`.
+   a path; a part out of order is refused as `PartOutOfOrder`; `Following` says `fromFile` and `uploaded`, and
+   `Projects` says `fromFile`.
 2. Extract the part assembly of `HandIns` (offset, sha256, abandonment, the lock per name) into one class in
    `app-model` that both use; `HandIns` keeps its own limit, record and placement.
 3. `PutBundle(project, bytes, sha256, offset, part) -> (received, held: bool)` writes under
@@ -71,8 +74,8 @@ Steps:
    follow applied, never before. A relative `url` that `fromAFile` calls a path is resolved against the account's
    home and recorded absolute.
 5. The comment on `Follow` says `url` may be an absolute path on the machine (a bundle or a directory) read once and
-   never fetched in the background; `Followed` gets the two fields; `InterfaceDescriptionTest` holds the method, the
-   parameter, the fields and the error.
+   never fetched in the background; `Followed` gets the two fields and `Project` gets `fromFile`;
+   `InterfaceDescriptionTest` holds the method, the parameter, the fields and both errors.
 6. `doc/commands.md` beside `project follow`, and the varlink page, say both ways.
 
 ## Acceptance
@@ -82,8 +85,6 @@ Steps:
   a path.
 - `InterfaceDescriptionTest` holds the new parameter and the refusal.
 
-## To be checked
+## Open questions
 
 - Whether 1 GiB is the right limit for a bundle, or whether it comes from a setting (the operator's).
-- Whether `fromFile` and `uploaded` are what the interface needs to show the source, or it wants one `source` word
-  (Agent Frontend's).

@@ -97,7 +97,7 @@ Steps, in order:
 - The policy states which domain each rule is for and why, so a later reader can tell a decision
   from an accident. Seen to fail: a rule in the policy without that statement.
 
-## To be checked
+## Open questions
 
 - **Whether `chcon` is an acceptable answer for a binary from a build tree** (the operator's). Without it a developer's
   build cannot serve a task on an enforcing machine, which is worse than today; with it, the label is lost again on

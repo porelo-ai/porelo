@@ -87,12 +87,15 @@ Steps, in order:
   its own. Seen to fail: a repository needs a script of its own beside the plugin configuration for
   the check to run.
 
+## Open questions
+
+- **Which repositories adopt logchange besides Sokar, and how** (the operator's). The three agent repositories keep
+  a changelog and inherit `org.fuin:pom`, so the parent POM would be the one place; `sokar-frontend` has no parent
+  POM and would need its own.
+
 ## To be checked
 
 - **What logchange's maintainers want** (logchange's maintainers'): a goal or a `lint` option, and what a waiver
   looks like in their model, where entries are files rather than lines.
 - **Where "what ships or builds" is defined** (Agent Core's): by convention, or configured per project with editor
   settings and the licence exempt by default.
-- **Which repositories adopt logchange besides Sokar, and how** (the operator's). The three agent repositories keep
-  a changelog and inherit `org.fuin:pom`, so the parent POM would be the one place; `sokar-frontend` has no parent
-  POM and would need its own.

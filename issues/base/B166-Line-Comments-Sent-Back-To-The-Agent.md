@@ -118,9 +118,12 @@ Steps:
   anchor is refused; the agent's reply appears in the thread, marked as the agent's.
 - `doc/commands.md` and `doc/messages.md` say it.
 
-## To be checked
+## Open questions
 
 - Whether threads should later move with a new push of the same task to the lines they were on, rather than stay on
   the commit they name, as the first step does (the operator's).
+
+## To be checked
+
 - Whether [B108](README.md#b108) is built first, or this issue writes [B108](README.md#b108)'s schema document with the sixth kind in it (Agent
   Core's).

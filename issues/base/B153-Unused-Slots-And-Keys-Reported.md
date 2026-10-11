@@ -52,10 +52,13 @@ Steps:
 - Seen to fail first, then green: the behaviour above, in a test of the module that carries it.
 - The documentation page that describes the area says it.
 
-## To be checked
+## Open questions
 
 - The period and its default (45 days is what the guideline names), and where it is set: there is no account-wide
   setting file today (the operator's).
 - Whether locking is on by default or only reported (the operator's).
+
+## To be checked
+
 - [B117](README.md#b117) lists every deploy key at a clearing; whether its list shows the last use from the same record
   (Agent Core's).

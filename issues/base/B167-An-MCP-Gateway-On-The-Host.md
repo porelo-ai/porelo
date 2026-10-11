@@ -57,11 +57,14 @@ missing is reading the traffic, a server without a key, and the agents being poi
   are in the journal; the server's token is not in the task.
 - `doc/faq.md` and `doc/corporate-security.md` move the gap from "not covered" to what is covered.
 
-## To be checked
+## Open questions
 
 - Whether stdio servers are in scope at all, started on the host for a task, or HTTP only as this plan says (the
   operator's).
 - What the gateway does with a tool list that changed since the last start beyond journaling it: hold the task, ask
   the person, or refuse the call (the operator's, together with [PJ15](https://github.com/sokar-ai/sokar-project/blob/main/issues/README.md#pj15) in `sokar-project`).
+
+## To be checked
+
 - Whether the agents' MCP settings come through `SetupContext` or through a file Sokar writes into the task (Agent
   Core's, with the agent repositories).

@@ -46,10 +46,13 @@ in `acceptance/legs/.../Leg.java` could leave them out and the release would sti
 - Seen to fail first, then green: the behaviour above, in a test of the module that carries it.
 - The documentation page that describes the area says it.
 
-## To be checked
+## Open questions
 
 - Which scenarios first (the operator's).
 - How a found hole is handled before the release; the proposal is that the release waits and a scenario is never
   marked skipped to let one go (the operator's).
+
+## To be checked
+
 - Whether misuse scenarios that need a forge or a restart run in the release legs, given that restarts are kept off
   the shared test machine (Agent Core's).

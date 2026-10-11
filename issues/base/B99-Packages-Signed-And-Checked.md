@@ -91,11 +91,13 @@ Steps in Sokar, in order:
 **Guideline points, 2026-10-09:** a review of security guidelines counts this as its item F9,
 answering NCSC/CISA secure development, OWASP `LLM03`, Sysdig 6, AISVS `C06`.
 
-## To be checked
+## Open questions
 
 - Which key signs the packages: the one the Debian repository's metadata is signed with, or a new one, and who
   holds its private half (the operator's).
 - The day every repository switches signing on (the operator's).
-- Whether the RPM repository's metadata is signed as the Debian one's is, which `repo_gpgcheck=1` needs
-  (the operator's, read in the package repository's settings).
 
+## To be checked
+
+- Whether the RPM repository's metadata is signed as the Debian one's is, which `repo_gpgcheck=1` needs
+  (Agent Core's, read in the package repository's settings).

@@ -85,9 +85,12 @@ Steps, in order:
 - The build reports, across the legs of a matrix, which conditional tests were satisfied nowhere. Seen to fail: a
   matrix in which both legs skip the same conditional test passes without naming it.
 
-## To be checked
+## Open questions
 
 - **Whether a leg runs unit tests on the rented machine** (the operator's), rather than the driver running them on
   the host - a change to what a leg is for, so a decision.
+
+## To be checked
+
 - **Where the report across legs lives** (Agent Core's): in this repository's workflow, or as a command of
   `sokar-release` that the agent repositories could run too.

@@ -74,13 +74,15 @@ Red first: a test beside `ApproveOfferTest` in `apps/app` - a pending push moved
 - `gate review`'s last lines name the full commit and the bound approve line.
 - `--commit` with the commit that waits forwards it, as now; with another, `MovedSinceReview` as now.
 
-## To be checked
+## Open questions
 
 - Whether a stopped task is reason enough to approve without asking, since nothing can move its ref any more
   (the operator's). The plan asks anyway: a stopped task can be started again before the answer.
+
+## To be checked
+
 - How the interface answers `CommitNotNamed` where it sends no commit to a Sokar it thinks too old to take one
   (Agent Frontend's).
 
 **Guideline points, 2026-10-09:** a review of security guidelines counts this as its item `F20`,
 answering AISVS 9.2.8, OWASP AI Agent Cheat Sheet §1/§4.
-

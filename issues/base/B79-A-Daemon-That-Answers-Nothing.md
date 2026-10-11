@@ -55,4 +55,4 @@ Nothing goes red first in code: the red is a hang caught with its dump.
   read from the runs above).
 - On the fedora VM the daemon once started a second `sokar-agent-stub serve` on the socket the first one held;
   whether that is the same fault or another (Agent Core's).
-- How many runs without a hang are enough to say the mitigation holds (the operator's).
+- How many runs without a hang are enough to say the mitigation holds (Agent Core's).

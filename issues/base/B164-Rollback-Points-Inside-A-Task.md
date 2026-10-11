@@ -62,7 +62,7 @@ Steps:
   files exactly and leaves the later states listed.
 - `doc/commands.md` says it, and what is not restored.
 
-## To be checked
+## Open questions
 
 - How many states are kept, and what they cost on disk for a large workspace (the operator's).
 - Whether a rewind may stop and restart the agent's session itself, or the person stops it first (the operator's).

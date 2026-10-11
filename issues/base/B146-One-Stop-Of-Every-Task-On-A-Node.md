@@ -38,6 +38,4 @@ An incident needs everything stopped now; today each task is stopped by name.
 - Seen to fail first, then green: the behaviour above, in a test of the module that carries it.
 - The documentation page that describes the area says it.
 
-## To be checked
 
-- None.

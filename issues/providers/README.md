@@ -19,9 +19,9 @@ providers as a class, the others one provider each.
 |---|---|---|---|---|
 | <a id="p09"></a>[P09](P09-A-Native-Agent-And-A-Provider-It-Does-Not-Know.md) | M | - | A native agent is paired with every provider today and fails inside the task: `provider.knows` in the agent API and an `UNKNOWN_TO_AGENT` refusal. | 1 |
 | <a id="p05"></a>[P05](P05-Provider-OpenAI.md) | S | - | `providers/openai.yaml` (`api.openai.com`, `openai` under `/v1`, Bearer), the sign-in kept unbrokerable; a test, a doc row, a live scenario. | 1 |
-| <a id="p06"></a>[P06](P06-Provider-Google.md) | S | - | `providers/google.yaml`: its own format under `/v1beta` and `openai` under `/v1beta/openai`, `x-goog-api-key`. | 2 |
+| <a id="p06"></a>[P06](P06-Provider-Google.md) | S | - | `providers/google.yaml`: its own format under `/v1beta` and `openai` under `/v1beta/openai`, `x-goog-api-key`. | 1 |
 | <a id="p07"></a>[P07](P07-Provider-xAI.md) | S | - | `providers/xai.yaml` (`api.x.ai`, `openai` under `/v1`, Bearer), the subscription kept unbrokerable; a test, a doc row, a live scenario. | 1 |
-| <a id="p08"></a>[P08](P08-Provider-Zhipu.md) | S | - | Two provider files, `zhipu` and `zai`: the upstream belongs to the provider file, so no upstream per credential is needed. | 2 |
+| <a id="p08"></a>[P08](P08-Provider-Zhipu.md) | S | - | Two provider files, `zhipu` and `zai`: the upstream belongs to the provider file, so no upstream per credential is needed. | 1 |
 
 ## Notes
 

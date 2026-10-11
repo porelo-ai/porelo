@@ -34,6 +34,4 @@ Does not leave at all"), `corporate-security.md` ("`offline` work never leaves")
 - Seen to fail first, then green: the behaviour above, in a test of the module that carries it.
 - The documentation page that describes the area says it.
 
-## To be checked
 
-- None.

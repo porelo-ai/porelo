@@ -40,6 +40,6 @@ messaging key and allowed signers (`MessagingPaths`); a mirror through `sokar ga
 - Seen to fail first, then green: the behaviour above, in a test of the module that carries it.
 - The documentation page that describes the area says it.
 
-## To be checked
+## Open questions
 
 - Whether the page follows the headings of one named guidance, or its own (the operator's).

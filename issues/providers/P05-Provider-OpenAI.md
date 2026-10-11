@@ -49,6 +49,6 @@ A provider is data (`doc/credentials.md`, "Model providers"): nothing in the bro
 - Which provider a task used is answerable afterwards from the task's own record. Seen to fail: the
   record of a task that used it does not name OpenAI.
 
-## To be checked
+## Open questions
 
 - Whether the account sign-in can be brokered: unverified, and measurable only with an account (the operator's).

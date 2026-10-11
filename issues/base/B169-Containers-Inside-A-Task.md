@@ -51,7 +51,7 @@ is not.
 - If built: seen to fail first, then green - a container started in a task reaches a declared host and is refused an
   undeclared one, exactly like the task.
 
-## To be checked
+## Open questions
 
 - Whether the assessment ends in "not without [B59](README.md#b59)" (the operator's, once the assessment is written).
 - Whether a project of the class `guarded` may open it at all, or only a less strict class (the operator's).

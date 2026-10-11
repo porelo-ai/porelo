@@ -62,7 +62,7 @@ start; `DefaultProject` writes `ubuntu:24.04` (`BASE_IMAGE`); `Podman.imageRecip
   changed; a test of a followed project with a tag-only image goes red when the start is silent about it; a test
   of a freshly created default project goes red when its `base_image` has no digest.
 
-## To be checked
+## Open questions
 
 - Whether to require podman's signature policy (`policy.json`) for a project that names a signed image, or the
   digest alone (the operator's).
@@ -71,4 +71,3 @@ start; `DefaultProject` writes `ubuntu:24.04` (`BASE_IMAGE`); `Podman.imageRecip
 
 **Guideline points, 2026-10-09:** a review of security guidelines counts this as its item F9,
 answering NCSC/CISA secure development, OWASP `LLM03`, Sysdig 6, AISVS `C06`.
-

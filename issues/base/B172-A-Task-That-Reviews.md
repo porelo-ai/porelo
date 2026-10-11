@@ -52,9 +52,12 @@ that server shows and takes, and what origin the host gives its comments.
   reviewer's, and its push and an approve in its name are refused.
 - `doc/commands.md` says the role.
 
-## To be checked
+## Open questions
 
 - Whether a reviewer may review its own project's other tasks only, as this plan says, or any waiting work on the
   machine (the operator's).
+
+## To be checked
+
 - What "an approve in its name" in the acceptance means when no task can call approve: a test that the task's
-  channels carry none, or nothing to test (the operator's).
+  channels carry none, or nothing to test (Agent Core's).

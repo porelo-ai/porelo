@@ -111,12 +111,15 @@ Steps, in order:
   reported; `sokar doctor`'s test goes red when a loosened path is not named; the socket test goes
   red when the socket's mode changes.
 
+## Open questions
+
+- **Whether `~/sokar/reviews` is owner-only too** (the operator's). It sits in the home, where a person may mean to
+  share a review; the log files and the state directories are in the plan.
+
 ## To be checked
 
 - **What `podman build` writes into the build directory** (Agent Core's): measured after a build, and whether it
   needs a pass afterwards or a directory outside the data directory.
-- **Whether `~/sokar/reviews` is owner-only too** (the operator's). It sits in the home, where a person may mean to
-  share a review; the log files and the state directories are in the plan.
 - **Whether anything under the data directory is bind-mounted into a task** (Agent Core's). A container's account
   maps to a subordinate uid, so an owner-only file there would be unreadable to it; a search of the mounts answers
   it before step 3.

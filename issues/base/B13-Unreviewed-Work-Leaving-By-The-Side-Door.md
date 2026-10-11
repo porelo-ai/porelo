@@ -300,15 +300,18 @@ Steps:
   that reaches the upstream (its test runs against a gate that has one), or a `guarded` project without that
   opt-in sends work to an upstream review branch.
 
-## To be checked
+## Open questions
 
 - **Whether sending work to a review branch on the upstream is offered at all** (the operator's). Nothing does it
   today. If it is wanted, it needs a project setting of its own and a name; if not, the last criterion drops its
   positive half.
-- **Whether the mirror should be harder to fetch from** (Agent Core's). Making it unreadable would break `gate
-  review`, which is how anybody looks at the work at all. Probably nothing to do here, but it is the other end of
-  the same path.
 - **Whether attaching an editor to the container should be made to work anyway** (the operator's). It is possible
   and currently blocked by the egress rules, and the workaround - declaring an editor vendor's hosts - widens the
   agent's reach for a person's benefit, which is backwards. `podman cp` places the server with no egress at all.
   `gate checkout` exists now, which makes this matter less.
+
+## To be checked
+
+- **Whether the mirror should be harder to fetch from** (Agent Core's). Making it unreadable would break `gate
+  review`, which is how anybody looks at the work at all. Probably nothing to do here, but it is the other end of
+  the same path.

@@ -43,7 +43,7 @@ is empty today.
 - A clear that would remove work waiting at the gate or a task's unpushed work says which, by task and project,
   in the listing before anything is removed. Seen to fail: a listing without `--yes` that does not name it.
 
-## To be checked
+## Open questions
 
 - Whether `--force` is still needed to clear unreviewed work, as removing one task needs it, or the confirmation
   naming that work is enough (the operator's).

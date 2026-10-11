@@ -67,8 +67,11 @@ host and hands verdicts into the task; the reader is a separate executable answe
   released; with the release switched off it goes out after the sluice; the journal names each.
 - `doc/project-file.md` says the account list and the switch; `doc/build-readers.md` says `Review1`.
 
-## To be checked
+## Open questions
 
 - The rate limits out: 10 a task an hour and 60 a project an hour in this plan (the operator's).
+
+## To be checked
+
 - Whether a review's top-level body, anchored to no line, is delivered as a comment of its own, which [B166](README.md#b166)'s model
   has no anchor for (Agent Core's, with [GH02](https://github.com/sokar-ai/sokar-build-github/blob/main/issues/README.md#gh02)'s agent).

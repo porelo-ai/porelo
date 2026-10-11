@@ -45,8 +45,11 @@ Steps:
 - Seen to fail first, then green: the behaviour above, in a test of the module that carries it.
 - The documentation page that describes the area says it.
 
-## To be checked
+## Open questions
 
 - Which fields an organisation's register needs beyond those above, such as the account and the projects a
   credential serves (the operator's).
+
+## To be checked
+
 - Whether the models of tasks already removed count, which needs [B154](README.md#b154)'s log to carry the model (Agent Core's).

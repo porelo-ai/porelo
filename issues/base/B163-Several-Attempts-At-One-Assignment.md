@@ -56,7 +56,7 @@ Steps:
   approving one leaves nothing of the others waiting.
 - `doc/commands.md` says it.
 
-## To be checked
+## Open questions
 
 - Whether N attempts may share one credential's rate limit, and how a limit reached by one is said (the operator's).
 - The highest N a machine is allowed, by default (the operator's).

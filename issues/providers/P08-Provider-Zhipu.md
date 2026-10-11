@@ -44,9 +44,12 @@ The agents that can reach it are listed in
 - Which provider a task used is answerable afterwards from the task's own record. Seen to fail: the
   record of a task that used it does not name Zhipu.
 
-## To be checked
+## Open questions
 
 - Whether a key made on one host works on the other, which would let one vault entry serve both (the operator's,
   measured with an account).
+
+## To be checked
+
 - Whether the anthropic-compatible path takes the key as `Authorization: Bearer` or as `x-api-key` - one header per
   credential type is all a provider file says today (Agent Core's, measured with a key).

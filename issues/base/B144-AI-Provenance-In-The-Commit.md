@@ -67,10 +67,13 @@ daemon's `Approve` (`GateMethods`, `35-gate.varlink`) call them. The task's agen
 - A second approve of the same task names only the models of the requests since the first.
 - `doc/how-it-works.md` says what the trailers hold and where they come from.
 
-## To be checked
+## Open questions
 
 - **A merge or a linear history:** a branch protected for linear history refuses the merge. Whether a project chooses
   between a merge with provenance and a fast-forward without, and what the default is (the operator's).
+
+## To be checked
+
 - Whether a squash or a rebase downstream keeps them: a squash only if its message does, a rebase drops merge commits;
-  whether the page only says so or Sokar offers more (the operator's).
-- The trailer names (the operator's).
+  whether the page only says so or Sokar offers more (Agent Core's).
+- The trailer names (Agent Core's).

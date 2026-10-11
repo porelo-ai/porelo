@@ -46,7 +46,7 @@ Steps:
 - Seen to fail first, then green: the behaviour above, in a test of the module that carries it.
 - The documentation page that describes the area says it.
 
-## To be checked
+## Open questions
 
 - Whether `task.log`, which carries the agent's words and so prompt contents, is kept as long as the task, or cut
   shorter (the operator's).

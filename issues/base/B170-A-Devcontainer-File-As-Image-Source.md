@@ -50,7 +50,7 @@ review already ranks `.devcontainer/` as dangerous (`gate/.../ReviewRanking.java
   image; the port is named as ignored.
 - `doc/project-file.md` says it.
 
-## To be checked
+## Open questions
 
 - Which of the file's features are taken in the first step: none in this plan, only `image` and `containerEnv`; and
   whether `build.dockerfile` is taken as a second way to the image (the operator's).

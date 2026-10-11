@@ -45,8 +45,11 @@ with the host's network, and the agent reaches it through the relay in its own n
 - Seen to fail first, then green: the behaviour above, in a test of the module that carries it.
 - The documentation page that describes the area says it.
 
-## To be checked
+## Open questions
 
 - Whether the template is for a model on this machine only, or also one on the organisation's network over https
   (the operator's).
+
+## To be checked
+
 - Which port and path the template ships with, given that servers differ (Agent Core's).

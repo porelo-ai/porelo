@@ -134,12 +134,15 @@ something else.
   not apply. Seen to fail: `/proc/<pid>/status` of the broker, the ssh-agent or the relay shows dumpable `1`, or
   `doctor` reports hardening those processes do not have.
 
+## Open questions
+
+- **Whether step 3 is worth it against the threat it addresses** (the operator's). A heap dump of the daemon
+  requires the ability to read the daemon's memory - the same uid that can read the vault file and the passphrase
+  in the keyring. The case for it is defence in depth and crash artifacts, which step 1 already covers for core
+  dumps.
+
 ## To be checked
 
 - **Whether `doctor` should report hardening at all** (Agent Core's), or report the broker's and the daemon's state
   as read from `/proc`. Printing the state of its own process, which nothing hardens, is how a line that looks
   like a warning survives for months.
-- **Whether step 3 is worth it against the threat it addresses** (the operator's). A heap dump of the daemon
-  requires the ability to read the daemon's memory - the same uid that can read the vault file and the passphrase
-  in the keyring. The case for it is defence in depth and crash artifacts, which step 1 already covers for core
-  dumps.

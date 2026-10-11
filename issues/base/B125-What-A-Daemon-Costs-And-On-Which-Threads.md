@@ -73,12 +73,12 @@ What is left, in this order:
   30 tasks with none, so the direct-chat loops are what is left to count (Agent Core's).
 - Whether a native call (`podman`, `git`, `ssh`, a transport adapter) pins a carrier in today's
   GraalVM native image, measured rather than taken from the JDK's documentation (Agent Core's).
-- Whether `matrix`'s `0.4.0~snapshot.309` daemon, with its vault shut, shows the same turning threads
-  after the fix, or that account is simply moved to a current build (the operator's).
+- Whether a second account's `0.4.0~snapshot.309` daemon on the test machine, with its vault shut, shows the same
+  turning threads after the fix, or that account is simply moved to a current build (Agent Core's).
 
 ## Measured, 2026-10-07
 
-The native build `5956eb3f` in the account `core` on the Ubuntu VM (6 vCPUs, 11 GB), every other account's
+The native build `5956eb3f` in one account on the Ubuntu VM (6 vCPUs, 11 GB), every other account's
 `sokard` stopped, no heavy run on the host (its load1: median 2.1, max 4.8). Each step started N stub tasks at once,
 each working (a line on the screen, a commit every 3 s, a push every tenth step), and sampled `sokard` every 5 s for
 10 minutes, with one `List`, `Credentials` and `Following` call over `varlinkctl` (about 100 ms of which is
@@ -117,7 +117,7 @@ most +0.18 MB/min).
 
 ## Second round, measured 2026-10-07
 
-The native build `7c078c0c` in `core`, platform threads, the host's load1 median 2.2 (max 3.9). Each stub task
+The native build `7c078c0c` in the same account, platform threads, the host's load1 median 2.2 (max 3.9). Each stub task
 worked as in the first round, and at every step also sent a streamed request through its credential proxy to a fake
 provider on the VM (TLS with a certificate trusted through `~/.config/sokar/ca-certificates.pem`, about 4 s per
 answer, one in twenty refused with 429) and wrote 8 MiB to its disk.
