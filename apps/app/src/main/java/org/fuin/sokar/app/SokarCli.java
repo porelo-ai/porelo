@@ -61,6 +61,7 @@ public class SokarCli implements Callable<Integer> {
     }
 
     public static void main(String[] args) {
+        quietLogging();
         try {
             System.exit(commandLine(SokarContext.real())
                     .execute(args));
@@ -72,6 +73,20 @@ public class SokarCli implements Callable<Integer> {
             System.err.println("sokar: the current directory no longer exists - cd to one that "
                     + "does. Nothing was read or written.");
             System.exit(2);
+        }
+    }
+
+    /**
+     * Keeps the logging facade a library brings in from warning that nothing is bound to it.
+     * <p>
+     * The D-Bus client of the clearance watcher logs through SLF4J, and nothing here binds it: nobody reads what it
+     * would log. Unsilenced, every {@code clearance.log} began with three warnings about a missing provider, and a log
+     * that opens with warnings teaches a person to skip its first lines (found on 2026-10-13). SLF4J's own switch,
+     * set before anything logs; a value somebody set is left alone.
+     */
+    static void quietLogging() {
+        if (System.getProperty("slf4j.internal.verbosity") == null) {
+            System.setProperty("slf4j.internal.verbosity", "ERROR");
         }
     }
 

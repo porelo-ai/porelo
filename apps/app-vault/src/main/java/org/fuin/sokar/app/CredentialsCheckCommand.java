@@ -8,10 +8,15 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
 
-/** Says which credential a destination would use, without connecting to it. */
+/**
+ * Says which credential a destination would use and, for git, whether the destination accepts it.
+ * <p>
+ * It said only what would be used, and a key the forge refused was found at the next start, folded into the gate's
+ * failure (found on 2026-10-13). For git it now reads the destination as a start does, so a person can check first.
+ */
 @Command(name = "check",
         mixinStandardHelpOptions = true,
-        description = "Says which credential a URL would use, and whether it would work.")
+        description = "Says which credential a URL would use and, for git, reads it with that credential.")
 public class CredentialsCheckCommand implements Callable<Integer>, SokarFactory.ContextAware {
 
     @Parameters(index = "0", paramLabel = "<url>", description = "Where something would connect.")
@@ -20,6 +25,10 @@ public class CredentialsCheckCommand implements Callable<Integer>, SokarFactory.
     @Option(names = "--purpose", paramLabel = "<what>",
             description = "What for. Default: ${DEFAULT-VALUE}")
     private String purpose = "git";
+
+    @Option(names = "--no-connect",
+            description = "Only says which credential would be used, and does not connect.")
+    private boolean noConnect;
 
     @Spec
     private CommandSpec spec;
@@ -42,7 +51,7 @@ public class CredentialsCheckCommand implements Callable<Integer>, SokarFactory.
             out.println(check.outcome().name().toLowerCase(java.util.Locale.ROOT)
                     + "      " + check.detail());
             out.flush();
-            return 0;
+            return read(out, err);
         }
         err.println(check.outcome().name().toLowerCase(java.util.Locale.ROOT)
                 + "      " + check.detail());
@@ -59,11 +68,38 @@ public class CredentialsCheckCommand implements Callable<Integer>, SokarFactory.
             if (again.outcome() == CredentialDeclarations.Outcome.READY) {
                 out.println("ready      " + again.detail());
                 out.flush();
-                return 0;
+                return read(out, err);
             }
         }
         if (!check.storeCommand().isEmpty()) {
             err.println("           " + check.storeCommand());
+        }
+        err.flush();
+        return 70;
+    }
+
+    /**
+     * Reads a git destination with the credential it would be given, as the gate does.
+     *
+     * @param out Where a read is said.
+     * @param err Where why not is said.
+     * @return 0 when it was read or there is nothing to read, 70 when it could not be.
+     */
+    private int read(final PrintWriter out, final PrintWriter err) {
+        if (noConnect || !"git".equals(purpose) || !UpstreamProbe.remote(url)) {
+            return 0;
+        }
+        final UpstreamProbe.Answer answer = UpstreamProbe.probe(context, new VaultGitCredentials(context, "check"),
+                url);
+        if (answer == null) {
+            out.println("read       " + url);
+            out.flush();
+            return 0;
+        }
+        err.println(answer.cause().name().toLowerCase(java.util.Locale.ROOT).replace('_', ' ') + "  "
+                + answer.detail());
+        if (!answer.fix().isEmpty()) {
+            err.println("           " + answer.fix());
         }
         err.flush();
         return 70;

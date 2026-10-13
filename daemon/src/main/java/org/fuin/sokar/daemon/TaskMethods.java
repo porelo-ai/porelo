@@ -213,6 +213,27 @@ final class TaskMethods {
                     .stream().map(TaskInventory.Log::asMap).toList()));
         });
 
+        server.method("LogArchive", (parameters, replies) -> {
+            final String task = text(parameters, "task");
+            if (!ContainerName.isTask(task)) {
+                throw new VarlinkException(INTERFACE + ".NoSuchTask", Map.of("task", task));
+            }
+            // A daemon has no current directory: written where an interface can offer to save it from.
+            final java.nio.file.Path archives = context.paths().xdg().state().resolve("archives");
+            final java.nio.file.Path target = archives.resolve(org.fuin.sokar.app.TaskLogArchive.defaultName(
+                    task.substring("sokar-".length()), java.time.Instant.now()));
+            final List<String> files;
+            try {
+                java.nio.file.Files.createDirectories(archives, java.nio.file.attribute.PosixFilePermissions
+                        .asFileAttribute(java.nio.file.attribute.PosixFilePermissions.fromString("rwx------")));
+                files = org.fuin.sokar.app.TaskLogsCommand.archive(context, task, target, flag(parameters,
+                        "withAgentOutput"));
+            } catch (java.io.IOException ex) {
+                throw new VarlinkException(INTERFACE + ".Failed", Map.of("message", String.valueOf(ex.getMessage())));
+            }
+            replies.last(Map.of("path", target.toString(), "files", files));
+        });
+
         server.method("WorkHeld", (parameters, replies) -> {
             final String task = text(parameters, "task");
             if (!ContainerName.isTask(task)) {
@@ -446,6 +467,13 @@ final class TaskMethods {
                 System.out.println(startLine(text(parameters, "task"), "", code));
                 throw new VarlinkException(INTERFACE + ".EarlierWorkWaits", Map.of("task", text(parameters, "task"),
                         "commit", earlier.commit(), "subject", earlier.subject()));
+            }
+            final org.fuin.sokar.app.UpstreamProbe.Answer unreadable = launch.unreadableUpstream();
+            if (existing == null && code != 0 && unreadable != null) {
+                // Typed, as CanStart answers it, so an interface shows the cause and its fix; nothing was made.
+                System.out.println(startLine(text(parameters, "task"), "", code));
+                throw new VarlinkException(INTERFACE + ".UpstreamUnreadable", Map.of("cause", unreadable.cause().name(),
+                        "detail", unreadable.detail(), "fix", unreadable.fix()));
             }
             // The one trace a start leaves on the machine: what was output went to the caller only.
             final String container = java.util.Objects.requireNonNullElse(started.get(), "");

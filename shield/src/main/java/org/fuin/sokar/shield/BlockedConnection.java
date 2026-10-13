@@ -12,9 +12,25 @@ import org.fuin.sokar.wire.Json;
  * @param protocol IP protocol number, 6 for TCP and 17 for UDP.
  * @param destination Destination address, as text.
  * @param port Destination port, or zero when the protocol has none.
- * @param at When the event was read.
+ * @param at When the packet was stopped: the kernel's time where the log carried one, else when it was read.
+ * @param sourcePort Source port, or zero when the protocol has none. What tells a retry of one attempt, which keeps
+ *        it, from a second attempt, which gets a port of its own.
  */
-public record BlockedConnection(String prefix, int protocol, String destination, int port, Instant at) {
+public record BlockedConnection(String prefix, int protocol, String destination, int port, Instant at,
+        int sourcePort) {
+
+    /**
+     * Constructor for an event whose source port is not known.
+     *
+     * @param prefix Log prefix.
+     * @param protocol IP protocol number.
+     * @param destination Destination address.
+     * @param port Destination port.
+     * @param at When it was stopped.
+     */
+    public BlockedConnection(String prefix, int protocol, String destination, int port, Instant at) {
+        this(prefix, protocol, destination, port, at, 0);
+    }
 
     /** IP protocol number for TCP. */
     public static final int TCP = 6;
@@ -116,6 +132,9 @@ public record BlockedConnection(String prefix, int protocol, String destination,
         map.put("destination", destination);
         map.put("port", Integer.valueOf(port));
         map.put("at", at.toString());
+        if (sourcePort > 0) {
+            map.put("sourcePort", Integer.valueOf(sourcePort));
+        }
         return Json.write(map);
     }
 }

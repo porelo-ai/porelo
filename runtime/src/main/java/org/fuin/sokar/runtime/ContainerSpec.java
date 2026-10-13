@@ -249,6 +249,12 @@ public class ContainerSpec {
             arguments.add("--dns");
             arguments.add(address);
         });
+        if (!resolvers.isEmpty()) {
+            // '.' is podman's "no search domain". Without it the host's search line was copied in: the task learned
+            // the internal domains of the place it ran in, and every name it asked was asked once per domain too
+            // (found on 2026-10-13).
+            arguments.add("--dns-search=.");
+        }
 
         annotations.forEach((key, value) -> {
             arguments.add("--annotation");

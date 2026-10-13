@@ -151,4 +151,32 @@ class NflogMessageTest {
                 .contains("\"destination\":\"1.1.1.1\"")
                 .contains("\"port\":443");
     }
+
+    @Test
+    void readsTheSourcePortThatTellsARetryFromANewAttempt() throws IOException {
+
+        assertThat(parseAll()).filteredOn(event -> event.protocol() == BlockedConnection.TCP).isNotEmpty()
+                .allSatisfy(event -> assertThat(event.sourcePort()).isPositive());
+    }
+
+    @Test
+    void stampsAPacketWithTheKernelsTimeWhereTheLogCarriesOne() throws IOException {
+
+        // The kernel batches logged packets, and the time a batch was read made a SYN and its retry two drops at one
+        // instant (found on 2026-10-13). One captured message, with the kernel's timestamp attribute added.
+        final byte[] first = captured().get(0);
+        final java.nio.ByteBuffer original = java.nio.ByteBuffer.wrap(first).order(java.nio.ByteOrder.nativeOrder());
+        final int length = original.getInt(0);
+        final java.nio.ByteBuffer stamped = java.nio.ByteBuffer.allocate(length + 20)
+                .order(java.nio.ByteOrder.nativeOrder());
+        stamped.put(first, 0, length);
+        stamped.putShort((short) 20).putShort((short) 3);
+        stamped.order(java.nio.ByteOrder.BIG_ENDIAN).putLong(1_791_905_487L).putLong(250_000L);
+        stamped.order(java.nio.ByteOrder.nativeOrder()).putInt(0, length + 20);
+
+        assertThat(NflogMessage.parse(stamped.array(), Instant.EPOCH)).singleElement()
+                .extracting(BlockedConnection::at).isEqualTo(Instant.ofEpochSecond(1_791_905_487L, 250_000_000L));
+        assertThat(NflogMessage.parse(first, Instant.EPOCH)).first().extracting(BlockedConnection::at)
+                .as("no timestamp in the log: the time it was read").isEqualTo(Instant.EPOCH);
+    }
 }

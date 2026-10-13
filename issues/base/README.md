@@ -31,6 +31,12 @@ from its side, as *blocked by*.
 | <a id="b131"></a>[B131](B131-The-Oldest-System-A-Package-Promises.md) | M | - | Packages declare their glibc and zlib floor, `check-linkage` fails a build above it, runners pinned, Debian 13 and Fedora 43 in the package check. |
 | <a id="b130"></a>[B130](B130-Two-Refusals-By-Name.md) | M | - | `BranchExists` and `EarlierWorkWaits` as named refusals; daemon, CLI, interface and plugin built. |
 | <a id="b180"></a>[B180](B180-Trust-A-Host-On-Its-Own-Port.md) | M | - | `trust-host` asks and records a host on the port its upstream uses, so a forge on its own SSH port can be trusted and started. |
+| <a id="b182"></a>[B182](B182-A-Vault-Entry-A-Declaration-Names-Is-Used.md) | S | - | `vault put` says `used for <match>` instead of warning that nothing will find an entry a declaration reads, and warns when the kind does not fit. |
+| <a id="b181"></a>[B181](B181-An-Upstream-Read-Before-A-Start.md) | M | - | A start reads the upstream as the gate's clone would before creating anything, names why it cannot (host key, refused key, no such repository, unreachable) with the fix, and offers that fix instead of a shell; `credentials check` connects. |
+| <a id="b183"></a>[B183](B183-A-Tasks-Logs-Kept-In-One-Archive.md) | M | - | `task logs TASK --zip [FILE]`: the task's logs, its status, files and talk log as text, checksums, owner-only; the agent's own output only on request; later the task's entries from the account's event log. |
+| <a id="b188"></a>[B188](B188-No-Search-Domains-Of-The-Host-In-A-Task.md) | S | - | `--dns-search=.` on every task with its own resolver: no host search domains, one lookup per name. |
+| <a id="b187"></a>[B187](B187-No-Logging-Warning-From-The-Clearance-Watcher.md) | S | - | The binary sets SLF4J's own verbosity to errors only, so `clearance.log` no longer starts with three warnings. |
+| <a id="b186"></a>[B186](B186-One-Line-For-One-Dropped-Connection.md) | S | - | Not two readers: the kernel batches logged packets and the reader stamps a batch with one time, so a SYN and its retry read as two identical drops. Kernel timestamp, `queue-threshold 1`, source port, a retry within ten seconds is not a second line. |
 
 ## Implementing
 
@@ -53,6 +59,12 @@ from its side, as *blocked by*.
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `sokar` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
 | <a id="b06"></a>[B06](B06-Remote-Access.md) | M | - | Remote use over ssh; both shapes built; left: a daemon-socket check and a real `ssh localhost` hop in the acceptance suite. |
 | <a id="b23"></a>[B23](B23-Secrets-In-This-Process-Memory.md) | S | - | `ProcessHardening` applied (no caller yet), keyring and vault-file buffers closed; a credential as bytes dropped, kept as an accepted risk. |
+
+## Backlog
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `sokar clear`; written by approve, reject, clearance, hand-in, credentials and project changes. |
 
 ## Analyzed
 
@@ -94,6 +106,8 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b184"></a>[B184](B184-Only-What-Sokar-Delivered-Counts-As-A-Message.md) | M | - | A message in the inbox counts only when the account running Sokar owns it (root inside); the host reads the inbox without following links and names a planted file; the guide and the agent kit check the owner. |
+| <a id="b185"></a>[B185](B185-A-Bound-On-What-A-Task-Writes-To-This-Disk.md) | M | - | The daemon measures a task's box and writable layer and pauses it over `limits.disk` (10 GiB), `limits.mailbox` (256 MiB) or under `limits.disk_free` (2 GiB), each settable in `project.yml`, and says how to go on. |
 | <a id="b95"></a>[B95](B95-A-Container-To-Try-Waiting-Work-In.md) | XL | - | `gate try` and a streaming `Try` in a container without gate or vault; the IDE split into an issue of its own. |
 | <a id="b123"></a>[B123](B123-Message-Transports-Behind-A-Published-API.md) | XL | - | `sokar-transport-api` and its contract `Transport1`; splits into the library, the stub, the host client, the Matrix move and the end of the command-line contract. |
 | <a id="b15"></a>[B15](B15-Handing-Artifacts-Between-Tasks.md) | XL | - | Artifacts over the message transport; splits into the design redone, a gate blob threshold, transport verbs, a drop directory, delivery by hand-in, withdrawal. |
@@ -107,7 +121,6 @@ from its side, as *blocked by*.
 | <a id="b141"></a>[B141](B141-New-Dependencies-Checked-Before-Review.md) | XL | - | Review names new Maven and npm dependencies and checks registry existence, age and look-alike names; a finding holds the approve until a person confirms it; splits into names (M), registry check and hold (L), look-alike (S). |
 | <a id="b144"></a>[B144](B144-AI-Provenance-In-The-Commit.md) | L | `sokar` [B148](README.md#b148) | A merge commit at every approve, with AI-Model/Agent/Provider/Task trailers read from the broker's usage record since the last approve; a project may choose a fast-forward without them. |
 | <a id="b149"></a>[B149](B149-A-Local-Provider-Template.md) | M | - | http only for loopback upstreams, a broker route with no credential, and two templates: `providers/local.yaml` on `127.0.0.1` and `providers/organisation.yaml` over https; the task reaches the host port through the broker. |
-| <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `sokar clear`; written by approve, reject, clearance, hand-in, credentials and project changes. |
 | <a id="b136"></a>[B136](B136-An-Approve-Bound-To-What-Was-Reviewed.md) | M | - | `gate review` names the full commit; a plain `gate approve` asks (default no) or refuses with exit 70; the daemon refuses an empty commit; enrolment alike. |
 | <a id="b98"></a>[B98](B98-The-Image-A-Signature-Names.md) | M | - | A warning on a tag-only `base_image`, a followed tag-only project refused until allowed once, the base digest as an image label, a changed digest noted at start, an optional per-project signature policy, the default project pinned. |
 | <a id="b99"></a>[B99](B99-Packages-Signed-And-Checked.md) | L | - | RPMs and the setup script signed in CI with the Debian repository's key, one shared `check-signed` in the release tools, a version pointer, `gpgcheck=1` everywhere from the next joint release. |

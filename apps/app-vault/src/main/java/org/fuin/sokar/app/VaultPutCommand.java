@@ -225,6 +225,48 @@ public class VaultPutCommand implements Callable<Integer>, SokarFactory.ContextA
     }
 
     /**
+     * What the declarations make of a vault entry.
+     *
+     * @param matches The destinations whose declaration reads it, in the order they are declared.
+     * @param misfit Why what was stored does not fit one of them, or {@code null} when it does.
+     */
+    record Use(java.util.List<String> matches, @Nullable String misfit) {
+    }
+
+    /**
+     * Finds the declarations that read a vault entry, and whether what was stored fits them.
+     *
+     * @param name The entry.
+     * @param type What was stored - {@code ssh-key} for a private key - or {@code null} when not stated.
+     * @param declared Every declaration on this machine.
+     * @return The destinations, empty when none reads it.
+     */
+    static Use useOf(final String name, final @Nullable String type,
+            final java.util.Collection<org.fuin.sokar.core.credential.Credential> declared) {
+        final java.util.List<String> matches = new java.util.ArrayList<>();
+        String misfit = null;
+        for (final org.fuin.sokar.core.credential.Credential credential : declared) {
+            if (credential.source() != org.fuin.sokar.core.credential.Credential.Source.VAULT
+                    || !credential.id().equals(name)) {
+                continue;
+            }
+            matches.add(credential.match());
+            final boolean wantsKey = credential.kind() == org.fuin.sokar.core.credential.Credential.Kind.SSH_KEY;
+            final boolean isKey = "ssh-key".equals(type);
+            // Said now rather than at a start days later, which refuses it as unusable.
+            // A private key is always recognised, so one stated as nothing is no key; a token is not, so no kind stated
+            // is no sign of a misfit there.
+            if (misfit == null && wantsKey != isKey && (type != null || wantsKey)) {
+                misfit = credential.match() + " is declared to take " + (wantsKey ? "an ssh key" : "a "
+                        + credential.kind().name().toLowerCase(java.util.Locale.ROOT).replace('_', '-'))
+                        + ", and what was stored is " + (isKey ? "an ssh key" : type == null ? "no ssh key" : "a " + type)
+                        + " - a start will refuse it";
+            }
+        }
+        return new Use(java.util.List.copyOf(matches), misfit);
+    }
+
+    /**
      * Says so when nothing will look this credential up, or when its kind cannot be brokered.
      * <p>
      * Checked here as well as at task start, because storing is where the choice is made and a
@@ -232,9 +274,28 @@ public class VaultPutCommand implements Callable<Integer>, SokarFactory.ContextA
      * was given: the commonest way to get this wrong is to type the agent's name instead of the
      * provider's.
      *
+     * @param out Where the destinations it is used for are said.
      * @param err Where to report.
      */
-    private void warnIfNothingWillUseIt(PrintWriter err) {
+    private void warnIfNothingWillUseIt(PrintWriter out, PrintWriter err) {
+        // A declaration that reads this entry asks for it by that name: warning that nothing would find it was untrue
+        // right after 'credentials declare ... --vault <name>' (found on 2026-10-13).
+        java.util.List<org.fuin.sokar.core.credential.Credential> declared;
+        try {
+            declared = context.credentialRegistry().all();
+        } catch (RuntimeException ex) {
+            // A registry that cannot be read is the start's to report; here it only means nothing is known to use it.
+            declared = java.util.List.of();
+        }
+        final Use use = useOf(name, type, declared);
+        if (!use.matches().isEmpty()) {
+            out.println("used for  " + String.join(", ", use.matches()));
+            out.flush();
+            if (use.misfit() != null) {
+                err.println("sokar: " + use.misfit());
+                err.flush();
+            }
+        }
         if (GitCredentialNames.isOne(name)) {
             // Not a provider's name and not meant to be: these are read by the git commands this
             // machine runs. Warning that "no provider is declared" for one sent people looking
@@ -242,6 +303,9 @@ public class VaultPutCommand implements Callable<Integer>, SokarFactory.ContextA
             return;
         }
         final var provider = context.providers().get(name);
+        if (provider == null && !use.matches().isEmpty()) {
+            return;
+        }
         if (provider == null) {
             // Not refused: a credential may be stored before its provider is declared, and an
             // operator may have names of their own. Said once, so a typo is findable.
@@ -418,7 +482,7 @@ public class VaultPutCommand implements Callable<Integer>, SokarFactory.ContextA
         out.println("stored    " + name + " (" + (type == null ? "kind not stated" : type) + ", "
                 + stored.length() + " characters)");
         entry.settings().forEach((setting, text) -> out.println("setting   " + setting + " = " + text));
-        warnIfNothingWillUseIt(err);
+        warnIfNothingWillUseIt(out, err);
         final String suspicious = entry.suspicious();
         if (suspicious != null) {
             err.println("sokar: check what you stored - " + suspicious);

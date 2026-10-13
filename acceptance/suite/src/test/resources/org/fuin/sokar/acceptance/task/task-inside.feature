@@ -27,6 +27,9 @@ Feature: Being inside a task, the way a person is
     And I run "ls -A /workspace"
     Then the terminal shows "README.md"
     And the terminal shows ".git"
+    # No search domain of the host: it named the place the task runs in, and multiplied every lookup.
+    When I run "echo search-lines-$(grep -c '^search' /etc/resolv.conf)"
+    Then the terminal shows "search-lines-0"
     When I run "exit"
     Then the terminal shows "ready$"
     And a script runs "sokar task remove sokar-accept-shell --force"

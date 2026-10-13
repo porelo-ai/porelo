@@ -69,3 +69,28 @@ Feature: An unattended run, started at the terminal and through the daemon
     Then its output contains '"refusedDomains":["example.net"]'
     And its output contains "started: sokar-unattended-viadaemon"
     And its output contains "the daemon ran the agent, not only the container"
+
+  Scenario: a task's logs are kept in one archive readable by the account only, without the agent's words unasked
+    When a script runs:
+      """
+      sokar task start archived --project unattended --repository unattended --agent stub --clearance deny -P "say hello and stop" >/dev/null 2>&1
+      base=$(mktemp -d); cd "$base"
+      sokar task logs sokar-unattended-archived --zip > "$base/said" 2>&1; echo "zip exit $?"
+      archive=$(ls sokar-logs-unattended-archived-*.zip)
+      stat -c '%a' "$archive" | sed 's/^/mode: /'
+      unzip -Z1 "$archive" | sed 's/^/entry: /'
+      mkdir out && (cd out && unzip -q "../$archive" && cd unattended-archived && sha256sum -c --quiet SHA256SUMS && echo "sums hold")
+      sokar task logs sokar-unattended-archived --zip "$archive" > /dev/null 2>&1; echo "again exit $?"
+      sokar task logs sokar-unattended-archived --zip with-agent.zip --with-agent-output > /dev/null 2>&1
+      unzip -Z1 with-agent.zip | grep -c 'task.log$' | sed 's/^/agent output when asked: /'
+      sokar task remove sokar-unattended-archived --force >/dev/null 2>&1
+      """
+    Then it exits zero
+    And its output contains "zip exit 0"
+    And its output contains "mode: 600"
+    And its output contains "entry: unattended-archived/status.txt"
+    And its output contains "entry: unattended-archived/SHA256SUMS"
+    And its output does not contain "entry: unattended-archived/task.log"
+    And its output contains "sums hold"
+    And its output contains "again exit 70"
+    And its output contains "agent output when asked: 1"

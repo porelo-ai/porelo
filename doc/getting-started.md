@@ -381,8 +381,9 @@ firewall does not allow yet. You get a desktop notification with Allow and Deny,
 destination. `--clearance` on `task start` sets `prompt` (default), `allow`, `deny` or `off`.
 **Without a desktop session use one of the last three**; `prompt` does not start without one.
 
-Every drop is logged in `events.jsonl` in the task's state directory
-(`/run/user/<uid>/sokar/<container>/`, cleared when your session ends), and every decision in
+Every connection attempt the firewall stops is one line in `events.jsonl` in the task's state directory
+(`/run/user/<uid>/sokar/<container>/`, cleared when your session ends): when it was stopped, where it went, and its
+source port. A client sending the same attempt again is not a second line. Every decision is in
 `~/.local/state/sokar/clearance/<container>.jsonl`, which outlives the task. A resumed task
 does not ask again what you already answered. The full picture is in
 [what a task can reach](reach.md).

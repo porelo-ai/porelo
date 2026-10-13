@@ -37,6 +37,9 @@ public final class NflogMessage {
     /** Attribute holding the captured packet. */
     private static final int NFULA_PAYLOAD = 9;
 
+    /** Attribute holding when the kernel stamped the packet: seconds and microseconds, both big-endian 64 bit. */
+    private static final int NFULA_TIMESTAMP = 3;
+
     private NflogMessage() {
         throw new UnsupportedOperationException("Utility class");
     }
@@ -76,6 +79,9 @@ public final class NflogMessage {
 
         String prefix = "";
         byte[] payload = null;
+        // The packet's own time where the kernel gave one: the kernel sends logged packets in batches, and the time a
+        // batch was read made a SYN and its retry look like two drops at the same instant (found on 2026-10-13).
+        Instant stamped = at;
 
         int offset = start;
         while (offset + 4 <= end) {
@@ -98,12 +104,19 @@ public final class NflogMessage {
                 prefix = new String(datagram, valueStart, textLength, StandardCharsets.UTF_8);
             } else if (type == NFULA_PAYLOAD && valueLength > 0) {
                 payload = java.util.Arrays.copyOfRange(datagram, valueStart, valueStart + valueLength);
+            } else if (type == NFULA_TIMESTAMP && valueLength >= 16) {
+                final ByteBuffer time = ByteBuffer.wrap(datagram, valueStart, 16).order(ByteOrder.BIG_ENDIAN);
+                final long seconds = time.getLong();
+                final long micros = time.getLong();
+                if (seconds > 0 && micros >= 0 && micros < 1_000_000) {
+                    stamped = Instant.ofEpochSecond(seconds, micros * 1_000);
+                }
             }
 
             offset += align(attributeLength);
         }
 
-        return payload == null ? Optional.empty() : packet(prefix, payload, at);
+        return payload == null ? Optional.empty() : packet(prefix, payload, stamped);
     }
 
     private static Optional<BlockedConnection> packet(String prefix, byte[] payload, Instant at) {
@@ -138,19 +151,20 @@ public final class NflogMessage {
             return Optional.empty();
         }
 
-        final int port = port(packet, payload, headerLength, protocol);
+        final int port = port(packet, payload, headerLength, protocol, 2);
         final String destination = text(address);
         return destination == null ? Optional.empty()
-                : Optional.of(new BlockedConnection(prefix, protocol, destination, port, at));
+                : Optional.of(new BlockedConnection(prefix, protocol, destination, port, at,
+                        port(packet, payload, headerLength, protocol, 0)));
     }
 
-    private static int port(ByteBuffer packet, byte[] payload, int headerLength, int protocol) {
+    /** Reads a port: offset 0 is the source, 2 the destination. Zero for a protocol without ports. */
+    private static int port(ByteBuffer packet, byte[] payload, int headerLength, int protocol, int offset) {
         final boolean hasPorts = protocol == BlockedConnection.TCP || protocol == BlockedConnection.UDP;
         if (!hasPorts || headerLength + 4 > payload.length) {
             return 0;
         }
-        // Source port first, then destination.
-        return Short.toUnsignedInt(packet.getShort(headerLength + 2));
+        return Short.toUnsignedInt(packet.getShort(headerLength + offset));
     }
 
     @Nullable

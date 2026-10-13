@@ -87,6 +87,22 @@ Feature: The credentials commands
     Then it exits zero
     And its output contains "password=a-token-for-the-acceptance-run"
 
+  Scenario: a vault entry a declaration reads is said to be used there, not to be found by nothing
+    # A name of the person's own, neither a provider's nor one git looks for: only the declaration asks for it.
+    Given a vault of this scenario's own, unlocked with the passphrase "acceptance"
+    When a script runs:
+      """
+      sokar credentials forget https://forge.invalid/declared/ >/dev/null 2>&1
+      sokar credentials declare https://forge.invalid/declared/ --kind token --vault forge-declared >/dev/null
+      printf 'a-token-for-the-acceptance-run' | sokar vault put forge-declared --type token 2>&1 | sed 's/^/first: /'
+      sokar credentials forget https://forge.invalid/declared/ >/dev/null
+      printf 'a-token-for-the-acceptance-run' | sokar vault put forge-declared --type token 2>&1 | sed 's/^/again: /'
+      """
+    Then it exits zero
+    And its output contains "first: used for  https://forge.invalid/declared/"
+    And its output does not contain "first: sokar: no provider 'forge-declared'"
+    And its output contains "again: sokar: no provider 'forge-declared' is declared"
+
   Scenario: a credential declared against the vault is ready, and forgetting it leaves the value
     # The record half, with no value involved at any point - the property that lets an interface do
     # the same over a socket no secret may cross.
@@ -96,7 +112,7 @@ Feature: The credentials commands
       printf 'a-token-for-the-acceptance-run' | sokar vault put git.token.forge.invalid --type token >/dev/null
       sokar credentials forget https://forge.invalid/acme/ >/dev/null 2>&1
       sokar credentials declare https://forge.invalid/acme/ --kind token --vault git.token.forge.invalid \
-          && sokar credentials check https://forge.invalid/acme/x.git \
+          && sokar credentials check --no-connect https://forge.invalid/acme/x.git \
           && sokar credentials forget https://forge.invalid/acme/
       """
     Then it exits zero

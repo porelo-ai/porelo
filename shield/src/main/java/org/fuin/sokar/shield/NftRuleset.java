@@ -225,7 +225,8 @@ public class NftRuleset {
         lines.add("");
         lines.add("        # Everything that reaches this point is dropped by the chain policy.");
         lines.add("        # It is logged first, which is what the clearance prompt is built on.");
-        lines.add("        log prefix \"" + DROP_PREFIX + " \" group " + NFLOG_GROUP);
+        // Sent at once, not held for a batch: the prompt sees a stopped connection when it happens.
+        lines.add("        log prefix \"" + DROP_PREFIX + " \" group " + NFLOG_GROUP + " queue-threshold 1");
         lines.add("    }");
         lines.add("}");
 

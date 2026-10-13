@@ -55,6 +55,21 @@ public final class StartCheck {
          */
         UNKNOWN_HOST_KEY,
 
+        /**
+         * The upstream's host refused what this machine offered, and there is no mirror yet for the task to start
+         * from. {@code detail} says which credential was tried and what stores the one it accepts.
+         */
+        UPSTREAM_KEY_REFUSED,
+
+        /** The upstream's host answered and has no such repository, or none the credential may read. No mirror. */
+        UPSTREAM_NOT_FOUND,
+
+        /** The upstream's host could not be reached, and there is no mirror yet to start from. */
+        UPSTREAM_UNREACHABLE,
+
+        /** The upstream could not be read for another reason; {@code detail} carries git's own words. No mirror. */
+        UPSTREAM_UNREADABLE,
+
         /** A repository was named and the project has none of that name. */
         UNKNOWN_REPOSITORY,
 
@@ -253,7 +268,8 @@ public final class StartCheck {
                 providerName, credentialType);
         final Result chosen = withRepository(withCredentials(context, rest, projectFile, credentials), projectFile,
                 repository, needsRepository);
-        return needsRepository ? withHost(context, chosen, projectFile, repository) : chosen;
+        return needsRepository ? withUpstream(context, withHost(context, chosen, projectFile, repository), projectFile,
+                repository) : chosen;
     }
 
     /**
@@ -420,6 +436,73 @@ public final class StartCheck {
                 "this machine has never met " + host + ", where the repository is, so it stops rather than"
                         + " deciding for you. See what it offers with 'sokar credentials trust-host " + host
                         + "', confirm one against what its owner publishes, and start again.", host);
+    }
+
+    /**
+     * Refuses a start whose upstream cannot be read when there is no mirror yet, so the cause is said before anything
+     * is made rather than folded into "no git gate for this task" after it.
+     * <p>
+     * Asked last and only when everything else is ready: it reaches the network, and a lent key may be in the vault,
+     * which the vault's own question opens first. With a mirror there the start goes on from it and says why the
+     * upstream could not be read, so this answers ready.
+     *
+     * @param context The machine.
+     * @param rest What everything else answered.
+     * @param projectFile The project file, or {@code null}.
+     * @param repository The chosen repository, or {@code null}.
+     * @return The answer.
+     */
+    static Result withUpstream(SokarContext context, Result rest, @Nullable Path projectFile,
+            @Nullable String repository) {
+        if (rest.outcome() != Outcome.READY || projectFile == null || repository == null || repository.isBlank()) {
+            return rest;
+        }
+        final UpstreamProbe.Finding finding;
+        try {
+            final org.fuin.sokar.core.project.Project project = org.fuin.sokar.core.project.ProjectReader.read(
+                    projectFile);
+            final org.fuin.sokar.core.project.Repository chosen = project.repository(repository);
+            // With a mirror there the start goes on from it whatever the upstream says, so the answer is ready and
+            // the network is not asked: a dialog asks this every few seconds.
+            finding = chosen == null || UpstreamProbe.mirrored(context, project, chosen) ? null
+                    : UpstreamProbe.forStart(context, project, chosen, null);
+        } catch (RuntimeException ex) {
+            return rest;
+        }
+        if (finding == null || !finding.refuses()) {
+            return rest;
+        }
+        final UpstreamProbe.Answer answer = finding.answer();
+        final Outcome outcome = switch (answer.cause()) {
+            case UNKNOWN_HOST_KEY -> Outcome.UNKNOWN_HOST_KEY;
+            case KEY_REFUSED -> Outcome.UPSTREAM_KEY_REFUSED;
+            case NOT_FOUND -> Outcome.UPSTREAM_NOT_FOUND;
+            case UNREACHABLE -> Outcome.UPSTREAM_UNREACHABLE;
+            case UNREADABLE -> Outcome.UPSTREAM_UNREADABLE;
+        };
+        final String upstream = String.valueOf(projectUpstream(projectFile, repository));
+        return new Result(outcome, rest.agent(), rest.provider(), rest.credential(), said(answer),
+                answer.cause() == UpstreamProbe.Cause.UNKNOWN_HOST_KEY ? HostKeys.nameOf(upstream) : "");
+    }
+
+    /**
+     * Says an answer as one sentence with its fix.
+     *
+     * @param answer Why the upstream could not be read.
+     * @return The sentence.
+     */
+    public static String said(UpstreamProbe.Answer answer) {
+        return answer.detail() + (answer.fix().isEmpty() ? "" : " Then: '" + answer.fix() + "'") + ".";
+    }
+
+    private static @Nullable String projectUpstream(Path projectFile, String repository) {
+        try {
+            final org.fuin.sokar.core.project.Repository chosen = org.fuin.sokar.core.project.ProjectReader.read(
+                    projectFile).repository(repository);
+            return chosen == null ? null : chosen.upstream();
+        } catch (RuntimeException ex) {
+            return null;
+        }
     }
 
     /**

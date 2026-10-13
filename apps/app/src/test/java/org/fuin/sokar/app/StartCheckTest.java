@@ -428,4 +428,34 @@ class StartCheckTest {
         assertThat(StartCheck.unknownHostOf(context, "git@forge.example.org:project/backend.git"))
                 .as("a key on 7999 says nothing about 22").isEqualTo("forge.example.org");
     }
+
+    @Test
+    void anUpstreamThatRefusedTheKeyIsSaidBeforeAnythingIsMadeUnlessAMirrorIsThere(@TempDir Path dir)
+            throws Exception {
+
+        // The refused key surfaced from the gate's clone as "no git gate for this task", after the task was half made,
+        // and a shell was offered that fixed nothing about it (found on 2026-10-13).
+        final FakeCommandRunner runner = new FakeCommandRunner()
+                .failing("uc/backend.git", 128, "git@forge.example.org: Permission denied (publickey).");
+        final SokarContext plain = context(dir);
+        final SokarContext context = new SokarContext(runner, plain.paths(), arguments -> 0);
+        final Path project = upstreams(dir);
+        final Path known = FollowCredential.knownHostsFile(context);
+        Files.createDirectories(known.getParent());
+        Files.writeString(known, "forge.example.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample\n");
+
+        final StartCheck.Result refused = StartCheck.withUpstream(context, READY, project, "backend");
+
+        assertThat(refused.outcome()).isEqualTo(StartCheck.Outcome.UPSTREAM_KEY_REFUSED);
+        assertThat(refused.detail()).contains("refused this machine").contains("Then: 'sokar vault put git.ssh.");
+        assertThat(StartCheck.withUpstream(context, READY, project, "web")).as("https, read the same way")
+                .isEqualTo(READY);
+
+        final org.fuin.sokar.core.project.Project read = org.fuin.sokar.core.project.ProjectReader.read(project);
+        Files.createDirectories(GateSupport.mirror(context, read, read.repository("backend")).resolve("objects"));
+        final int asked = runner.invocations().size();
+        assertThat(StartCheck.withUpstream(context, READY, project, "backend")).as("it starts from the mirror")
+                .isEqualTo(READY);
+        assertThat(runner.invocations()).as("and the network is not asked").hasSize(asked);
+    }
 }

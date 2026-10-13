@@ -52,6 +52,16 @@ public class TaskLogsCommand implements Callable<Integer>, SokarFactory.ContextA
             description = "Keeps printing as the log grows. Ends with Ctrl-C.")
     private boolean follow;
 
+    @Option(names = "--zip", arity = "0..1", paramLabel = "FILE", fallbackValue = "",
+            description = "Writes every log of the task, and what Sokar says about it, into one archive readable by"
+                    + " you only. Default FILE: sokar-logs-<task>-<UTC time>.zip here. An existing file is refused.")
+    private @Nullable String zip;
+
+    @Option(names = "--with-agent-output",
+            description = "With --zip: also what the agent itself printed (task.log), which may hold confidential"
+                    + " data.")
+    private boolean withAgentOutput;
+
     @Spec
     private CommandSpec spec;
 
@@ -126,6 +136,15 @@ public class TaskLogsCommand implements Callable<Integer>, SokarFactory.ContextA
             Suggests.offer(err, this);
             err.flush();
             return 69;
+        }
+
+        if (zip != null) {
+            return archive(out, err, container, logs);
+        }
+        if (withAgentOutput) {
+            err.println("sokar: --with-agent-output goes with --zip");
+            err.flush();
+            return 64;
         }
 
         if (log == null) {
@@ -218,5 +237,84 @@ public class TaskLogsCommand implements Callable<Integer>, SokarFactory.ContextA
             out.flush();
             return from + buffer.position();
         }
+    }
+
+    /**
+     * Writes the archive {@code --zip} asks for.
+     *
+     * @param out Where its path is said.
+     * @param err Where why not is said.
+     * @param container The task.
+     * @param logs The task's logs.
+     * @return 0 when it was written.
+     */
+    private int archive(final PrintWriter out, final PrintWriter err, final String container,
+            final List<TaskInventory.Log> logs) {
+        final String name = container.substring("sokar-".length());
+        final java.nio.file.Path target = zip == null || zip.isBlank()
+                ? java.nio.file.Path.of(TaskLogArchive.defaultName(name, java.time.Instant.now()))
+                : java.nio.file.Path.of(zip);
+        try {
+            final List<String> kept = archive(context, container, target, withAgentOutput);
+            if (logs.isEmpty()) {
+                // Not an error: a restart took them, or nothing wrote one. What Sokar says about the task is in it.
+                out.println("no logs for " + container + " - either nothing wrote one, or the machine has restarted"
+                        + " since it ran; the archive holds what Sokar says about the task");
+            }
+            out.println("written   " + target.toAbsolutePath() + " (" + kept.size() + " files, readable by you only)");
+            out.flush();
+            return 0;
+        } catch (final java.nio.file.FileAlreadyExistsException ex) {
+            err.println("sokar: " + target + " is already there; nothing was written. Name another file.");
+        } catch (final IOException ex) {
+            err.println("sokar: the archive could not be written: " + ex.getMessage());
+        }
+        err.flush();
+        return 70;
+    }
+
+    /**
+     * Writes a task's archive: its logs and what Sokar says about it. The CLI and the daemon both write it here.
+     *
+     * @param context The machine.
+     * @param container The task.
+     * @param target Where; must not exist yet.
+     * @param withAgentOutput Whether what the agent printed goes in.
+     * @return The file names in the archive.
+     * @throws IOException If it cannot be written, {@link java.nio.file.FileAlreadyExistsException} for a target
+     *         that is there.
+     */
+    public static List<String> archive(final SokarContext context, final String container,
+            final java.nio.file.Path target, final boolean withAgentOutput) throws IOException {
+        final java.nio.file.Path state = context.paths().tasks().containerState(container);
+        return TaskLogArchive.write(target, container.substring("sokar-".length()),
+                new TaskInventory(context).logs(container).stream().map(each -> state.resolve(each.name())).toList(),
+                said(context, container), withAgentOutput);
+    }
+
+    /**
+     * Returns what Sokar says about a task, rendered by the commands that say it, in this process.
+     *
+     * @param context The machine.
+     * @param container The task.
+     * @return File name to text, in order.
+     */
+    static java.util.Map<String, String> said(final SokarContext context, final String container) {
+        final java.util.Map<String, String> said = new java.util.LinkedHashMap<>();
+        said.put("status.txt", rendered(context, new TaskStatusCommand(), container));
+        said.put("files.txt", rendered(context, new TaskFilesCommand(), container));
+        said.put("talk.txt", rendered(context, new TalkLogCommand(), container));
+        return said;
+    }
+
+    private static String rendered(final SokarContext context, final Object command, final String container) {
+        final java.io.StringWriter text = new java.io.StringWriter();
+        final PrintWriter writer = new PrintWriter(text, true);
+        // The same code a person runs, so the archive cannot say something the command would not. Its refusal is kept
+        // as well: a stopped task has no answer from its container, and an empty file would hide why.
+        final int code = new picocli.CommandLine(command, new SokarFactory(context)).setOut(writer).setErr(writer)
+                .execute(container);
+        writer.flush();
+        return text + (code == 0 ? "" : "(exit " + code + ")\n");
     }
 }

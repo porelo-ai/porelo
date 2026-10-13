@@ -261,7 +261,7 @@ vault" from "nothing is configured, store one".
 sokar credentials declare "ssh://github.com" --kind ssh-key --vault github-work
 sokar vault put github-work < ~/.ssh/id_ed25519      # the value, separately
 sokar credentials declare "ssh://github.com" --kind ssh-key --agent   # or: use my own ssh-agent
-sokar credentials check git@github.com:acme/x.git    # what would be used, without connecting
+sokar credentials check git@github.com:acme/x.git    # what would be used, and whether it reads
 ```
 
 - **The kind is said, not guessed:** `ssh-key`, `token`, `basic` or `oauth`.

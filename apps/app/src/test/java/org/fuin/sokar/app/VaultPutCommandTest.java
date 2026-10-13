@@ -151,4 +151,50 @@ class VaultPutCommandTest {
         assertThat(VaultPutCommand.grantValue("s3cret", "oauth-device")).isEqualTo("s3cret");
         assertThat(VaultPutCommand.grantValue("", "api-key")).as("a key is never empty").isEmpty();
     }
+
+    private static org.fuin.sokar.core.credential.Credential declared(final String match,
+            final org.fuin.sokar.core.credential.Credential.Kind kind, final String entry) {
+        return new org.fuin.sokar.core.credential.Credential(entry, kind, match, null, "git",
+                org.fuin.sokar.core.credential.Credential.Source.VAULT);
+    }
+
+    @Test
+    void anEntryADeclarationReadsIsSaidToBeUsedThere() {
+
+        // Right after 'credentials declare ssh://forge.example.org --kind ssh-key --vault forge-work', storing the key
+        // warned that nothing would find it (found on 2026-10-13).
+        final VaultPutCommand.Use use = VaultPutCommand.useOf("forge-work", "ssh-key", java.util.List.of(
+                declared("ssh://forge.example.org", org.fuin.sokar.core.credential.Credential.Kind.SSH_KEY,
+                        "forge-work"),
+                declared("https://forge.example.org", org.fuin.sokar.core.credential.Credential.Kind.TOKEN,
+                        "other")));
+
+        assertThat(use.matches()).containsExactly("ssh://forge.example.org");
+        assertThat(use.misfit()).isNull();
+    }
+
+    @Test
+    void anEntryNoDeclarationReadsIsUsedNowhere() {
+
+        assertThat(VaultPutCommand.useOf("forge-work", "ssh-key", java.util.List.of(
+                declared("ssh://forge.example.org", org.fuin.sokar.core.credential.Credential.Kind.SSH_KEY,
+                        "forge-other"))).matches()).isEmpty();
+    }
+
+    @Test
+    void whatDoesNotFitItsDeclarationIsSaidWhenItIsStored() {
+
+        // A start refuses it days later as unusable; storing is where the mistake is made.
+        final var forKey = java.util.List.of(declared("ssh://forge.example.org",
+                org.fuin.sokar.core.credential.Credential.Kind.SSH_KEY, "forge-work"));
+        final var forToken = java.util.List.of(declared("https://forge.example.org",
+                org.fuin.sokar.core.credential.Credential.Kind.TOKEN, "forge-work"));
+
+        assertThat(VaultPutCommand.useOf("forge-work", "token", forKey).misfit())
+                .contains("declared to take an ssh key").contains("a token");
+        assertThat(VaultPutCommand.useOf("forge-work", null, forKey).misfit()).contains("no ssh key");
+        assertThat(VaultPutCommand.useOf("forge-work", "ssh-key", forToken).misfit())
+                .contains("declared to take a token").contains("an ssh key");
+        assertThat(VaultPutCommand.useOf("forge-work", null, forToken).misfit()).isNull();
+    }
 }

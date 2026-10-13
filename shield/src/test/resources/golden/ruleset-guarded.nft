@@ -46,6 +46,6 @@ table inet sokar {
 
         # Everything that reaches this point is dropped by the chain policy.
         # It is logged first, which is what the clearance prompt is built on.
-        log prefix "sokar-drop " group 1
+        log prefix "sokar-drop " group 1 queue-threshold 1
     }
 }

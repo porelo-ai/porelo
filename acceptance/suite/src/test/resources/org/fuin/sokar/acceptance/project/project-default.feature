@@ -150,3 +150,67 @@ Feature: Work starts without a project, in the project every machine has
     And its output contains "recorded on its port: 1"
     And its output contains "after trusting: "
     And its output does not contain 'after trusting: "outcome":"UNKNOWN_HOST_KEY"'
+
+  Scenario: an upstream that refuses the key is said before anything is made, and reads once the key is stored
+    # An sshd of this scenario's own, run as this account on a high port, admits only a key made here and serves a
+    # bare repository. The account's own keys are not admitted, so what a start offers by default is refused.
+    Given the environment variable "SOKAR_ACCEPTANCE_FAKE_CREDENTIAL" is set
+    And a vault of this scenario's own, unlocked with the passphrase "acceptance"
+    And the vault holds the value of "SOKAR_ACCEPTANCE_FAKE_CREDENTIAL" as "anthropic" of kind "api-key"
+    And a daemon of this scenario's own
+    When a script runs:
+      """
+      base=$(mktemp -d); port=$(( 20000 + RANDOM % 20000 ))
+      repo="drefused$(basename "$base" | tr 'A-Z' 'a-z' | tr -dc 'a-z0-9')"
+      known="${XDG_STATE_HOME:-$HOME/.local/state}/sokar/known_hosts"
+      git init -q --bare --initial-branch=main "$base/$repo.git"
+      git init -q --initial-branch=main "$base/seed"
+      git -C "$base/seed" -c user.name=T -c user.email=t@example.org commit -q --allow-empty -m 'first'
+      git -C "$base/seed" push -q "$base/$repo.git" HEAD:main
+      ssh-keygen -q -t ed25519 -N '' -f "$base/host_key"
+      ssh-keygen -q -t ed25519 -N '' -C "sokar-acceptance-$repo" -f "$base/key"
+      cp "$base/key.pub" "$base/authorized_keys"
+      printf 'Port %s\nListenAddress 127.0.0.1\nHostKey %s/host_key\nPidFile %s/sshd.pid\nUsePAM no\nStrictModes no\nAuthorizedKeysFile %s/authorized_keys\n' \
+          "$port" "$base" "$base" "$base" > "$base/sshd_config"
+      # Taken back whatever happens below.
+      trap 'kill "$(cat "$base/sshd.pid" 2>/dev/null)" 2>/dev/null; sokar project default remove "$repo" > /dev/null 2>&1
+          sokar vault remove git.ssh.127.0.0.1 > /dev/null 2>&1; sed -i "/^\[127\.0\.0\.1\]:$port /d" "$known" 2>/dev/null' EXIT
+      /usr/sbin/sshd -f "$base/sshd_config" -E "$base/sshd.log" || cat "$base/sshd.log"
+      for i in $(seq 1 20); do ssh-keyscan -T 2 -p "$port" 127.0.0.1 2>/dev/null | grep -q ed25519 && break; sleep 0.5; done
+      sokar credentials trust-host "127.0.0.1:$port" \
+          --fingerprint "$(ssh-keygen -lf "$base/host_key.pub" | awk '{ print $2 }')" > /dev/null
+      origin="ssh://$USER@127.0.0.1:$port$base/$repo.git"
+      sokar project default add "$origin" --name "$repo" > /dev/null
+      ask() { printf '%s\0' "$1" | timeout 60 sokar daemon connect 2>/dev/null | tr '\0' '\n' | head -1; }
+      can_start() {
+          ask "{\"method\":\"org.fuin.sokar.Tasks1.CanStart\",\"parameters\":{\"project\":\"default\",\"agent\":\"stub\",\"repository\":\"$repo\"}}"
+      }
+      can_start | grep -oE '"outcome":"[A-Z_]+"' | sed 's/^/before storing: /'
+      (cd "$base" && timeout 300 sokar task start early -p default -r "$repo" --agent stub --detach --clearance deny \
+          > "$base/early" 2>&1; echo "refused start exit $?")
+      grep -o "refused this machine" "$base/early"
+      grep -o "nothing was created" "$base/early"
+      grep -c "Start a shell" "$base/early" | sed 's/^/shell offered: /'
+      podman container exists sokar-default-early && echo "a container exists" || echo "no container"
+      sokar credentials check "$origin" > "$base/check" 2>&1; echo "check before storing exit $?"
+      # Nothing stored yet: it says so, with the command that stores it, before it would connect.
+      head -1 "$base/check" | awk '{ print $1 }' | sed 's/^/check said: /'
+      grep -c "sokar vault put git.ssh.127.0.0.1" "$base/check" | sed 's/^/store command named: /'
+      sokar vault put git.ssh.127.0.0.1 --from-file "$base/key" > /dev/null 2>&1
+      sokar credentials check "$origin" > "$base/check" 2>&1; echo "check after storing exit $?"
+      grep -o "^read " "$base/check"
+      can_start | grep -oE '"outcome":"[A-Z_]+"' | sed 's/^/after storing: /'
+      """
+    Then it exits zero
+    And its output contains 'before storing: "outcome":"UPSTREAM_KEY_REFUSED"'
+    And its output contains "refused start exit 69"
+    And its output contains "refused this machine"
+    And its output contains "nothing was created"
+    And its output contains "shell offered: 0"
+    And its output contains "no container"
+    And its output contains "check before storing exit 70"
+    And its output does not contain "check said: ready"
+    And its output contains "store command named: 1"
+    And its output contains "check after storing exit 0"
+    And its output contains "read "
+    And its output contains 'after storing: "outcome":"READY"'

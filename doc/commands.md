@@ -98,6 +98,7 @@ takes `sokar approve TASK`; `--yes` answers for a script.
 | `sokar task list` | Lists the tasks, with how long each has been in its state. |
 | `sokar task status TASK` | Everything known about one task, including unpushed work. |
 | `sokar task logs TASK [LOG]` | Shows what the task's helpers on this machine wrote. |
+| `sokar task logs TASK --zip [FILE] [--with-agent-output]` | Keeps the task's logs, its status, files and talk log in one archive readable by you only, with `SHA256SUMS`. |
 | `sokar task attach TASK` | Opens a shell in a running task. Leaving it does not end it. |
 | `sokar task stop TASK` | Stops a task and its helpers. Container and workspace stay. |
 | `sokar task remove TASK` | Removes a stopped task: container, state and workspace. |
@@ -119,7 +120,11 @@ takes `sokar approve TASK`; `--yes` answers for a script.
 - A running task is refused; use `attach`.
 - **What is missing is offered, not only named.** At a terminal a start asks what it would otherwise tell you
   to type: at a host this machine never met, it shows the keys the host offers and asks whether to trust its
-  key (no by default, compare it with what the host's owner publishes). A credential the agent lacks is
+  key (no by default, compare it with what the host's owner publishes). Before anything is made, the start
+  reads the repository's upstream with the credential the gate will use. If the host refuses it, has no such
+  repository or cannot be reached, the start says which, with the command that fixes it, and makes nothing. Where
+  nothing is stored for a refused ssh host, it asks for the path of a key to store, and reads the upstream again.
+  With a mirror already there, it says why and starts from what the mirror holds. A credential the agent lacks is
   offered the same way: the command the refusal would name - `vault authorize`, `vault login` or `vault put`,
   which asks a key without echo - runs on this terminal, and the start goes on once the credential is there.
   With several agents installed and none named, it lists them and asks which, by number; without a terminal it
@@ -168,8 +173,10 @@ say so; and at a terminal, a passphrase kept in the keyring that no longer opens
 
 **`task logs`** shows the files of the gate, broker, relay, resolver and clearance watcher, not the
 agent's output. `events.jsonl` is what the firewall blocked: look there when a task starts and then
-does nothing. The logs **do not survive a restart**. Unpushed work is only known while the task runs,
-or from the note `task stop` leaves.
+does nothing. The logs **do not survive a restart**: `--zip` keeps them, with what `task status`, `task files` and
+`talk log` say about the task, in `sokar-logs-<task>-<UTC time>.zip` here or in the file you name. It is readable by
+you only, never overwrites a file, and `sha256sum -c SHA256SUMS` checks it. What the agent itself printed goes in only
+with `--with-agent-output`. Unpushed work is only known while the task runs, or from the note `task stop` leaves.
 
 **`task status`** says what was recorded when the task was created: its agent and provider, its mode
 (`shell`, `agent` or `unattended`, kept when a stopped task is brought back), the branch its work goes
@@ -313,7 +320,7 @@ Which secret a destination uses, and where it lives. Nothing here prints a value
 |---|---|
 | `sokar credentials list` | Lists the credentials this machine connects out with. |
 | `sokar credentials declare MATCH --kind=KIND` | Records a destination's credential: `--vault`, `--file`, `--env` or `--agent`. |
-| `sokar credentials check URL` | Says which credential a URL would use, and whether it works. |
+| `sokar credentials check URL [--no-connect]` | Says which credential a URL would use and, for git, reads the URL with it as a start does: a refused key, a missing repository or a host out of reach is named with its fix. `--no-connect` only says what would be used. |
 | `sokar credentials forget MATCH` | Forgets a record. The value is left alone. |
 | `sokar credentials deploy-key PROJECT [-r REPOSITORY] [--read-only \| --write] [--new]` | Creates a deploy key: secret half into the vault, public half printed once for the forge. |
 | `sokar credentials keys` | Lists this account's ssh keys without reading them. |

@@ -639,6 +639,22 @@ type StartOutcome (
   # 'hostKeys' says what it offers now, as Follow answers it: a person confirms one with TrustHostKey
   # against what its owner publishes, then asks again. Before, the start went ahead without a gate.
   UNKNOWN_HOST_KEY,
+  # The chosen repository's upstream was read as the gate's clone would read it, and could not be,
+  # with no mirror yet for the task to start from. Asked last, once everything else is ready, because
+  # it reaches the network. 'detail' says what was tried and ends with the command that fixes it.
+  # With a mirror there, the start goes on from it and Start prints why among its output lines:
+  # CanStart answers READY and does not ask the network. A successful read counts for 30 seconds,
+  # so a dialog that asks again while a person chooses does not reach the upstream each time; a
+  # refusal is never kept, so asking again after a fix sees it.
+  # The host refused what was offered: no key it accepts, or a token it does not. 'detail' names
+  # what was offered - nothing stored, or which vault entry.
+  UPSTREAM_KEY_REFUSED,
+  # The host answered and has no such repository, or none the credential may read.
+  UPSTREAM_NOT_FOUND,
+  # Nothing answered: no route, no such name, a timeout of ten seconds.
+  UPSTREAM_UNREACHABLE,
+  # Anything else; 'detail' carries git's own last line.
+  UPSTREAM_UNREADABLE,
   # Nothing is installed to run. A task with no agent can still be started as a plain shell, so
   # this is not "the machine is broken".
   NO_AGENT,
@@ -807,6 +823,15 @@ method Prepare(
 # what removal does.
 method Logs(task: string) -> (logs: []Log)
 
+# Keeps a task's logs, and what Sokar says about it, in one archive on this machine.
+#
+# Written under $XDG_STATE_HOME/sokar/archives/, readable by the account only, as
+# 'sokar task logs <task> --zip' writes it: the helpers' logs and events.jsonl, the task's
+# status, files and talk log as text, and SHA256SUMS. A daemon has no current directory, so it is
+# written there and 'path' says where; an interface offers to save it from there. What the agent
+# itself printed (task.log) goes in only with 'withAgentOutput', since it may hold confidential data.
+method LogArchive(task: string, withAgentOutput: ?bool) -> (path: string, files: []string)
+
 # What a task holds that never reached the gate.
 #
 # Asked for ONE task, never on a listing. Every other field about a task comes from one 'ps' and
@@ -941,6 +966,12 @@ error NoSuchFile(task: string, name: string)
 # Start refuses a repository reached over ssh at a host this machine never met, before anything is
 # made: CanStart answers the same as UNKNOWN_HOST_KEY. detail says what to do.
 error UnknownHostKey(host: string, hostKeys: []HostKey, detail: string)
+
+# Start refuses a repository whose upstream cannot be read when there is no mirror yet to start from,
+# before anything is made: CanStart answers the same as UPSTREAM_<cause>. 'cause' is KEY_REFUSED,
+# NOT_FOUND, UNREACHABLE or UNREADABLE, or UNKNOWN_HOST_KEY for a host whose key changed since it was
+# trusted; 'fix' is the command that helps, or "".
+error UpstreamUnreadable(cause: string, detail: string, fix: string)
 
 # Start of a guarded or offline task whose name's earlier work still waits at the gate: nothing was created. 'commit'
 # and 'subject' are that work's. Approve or reject it first, or start under another name.

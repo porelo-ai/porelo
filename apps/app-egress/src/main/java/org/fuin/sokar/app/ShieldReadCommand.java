@@ -36,7 +36,8 @@ public class ShieldReadCommand implements Callable<Integer> {
     private int count;
 
     @Option(names = "--all",
-            description = "Reports every dropped packet, including multicast and link-local noise.")
+            description = "Reports every dropped packet, including multicast and link-local noise and the retries of"
+                    + " one connection attempt.")
     private boolean all;
 
     @Option(names = "--report-to", paramLabel = "<socket>",
@@ -56,10 +57,15 @@ public class ShieldReadCommand implements Callable<Integer> {
                 org.fuin.sokar.wire.varlink.VarlinkClient client = connect()) {
 
             final int[] seen = { 0 };
+            final org.fuin.sokar.shield.RetryFold fold = new org.fuin.sokar.shield.RetryFold();
             reader.readUntilStopped(event -> {
                 if (!all && !event.worthAsking()) {
                     // Router solicitations and multicast listener reports are dropped by the
                     // default-deny chain too. Passing them on would bury the events that matter.
+                    return;
+                }
+                if (!all && !fold.isNew(event)) {
+                    // A retry of an attempt already said: one attempt is one line.
                     return;
                 }
                 if (client == null) {

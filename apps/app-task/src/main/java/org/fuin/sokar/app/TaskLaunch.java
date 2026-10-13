@@ -408,6 +408,9 @@ public final class TaskLaunch {
      * @return The exit code.
      */
     /** Who is offered a remedy where the start would name a command: nobody, unless a terminal is there. */
+    /** Why the upstream could not be read, when that refused this start. */
+    private UpstreamProbe.@Nullable Answer unreadableUpstream;
+
     private Offer offer = Offer.NOBODY;
 
     /** What a start returns when the person took another way to start: {@link #retry()} says which. */
@@ -492,6 +495,78 @@ public final class TaskLaunch {
                         return false;
                     }
                 }, () -> HostKeys.known(context, host)), err);
+    }
+
+    /**
+     * Returns why the upstream could not be read, when that is what refused this start.
+     *
+     * @return The answer, or {@code null} when the start was not refused for it.
+     */
+    public UpstreamProbe.@Nullable Answer unreadableUpstream() {
+        return unreadableUpstream;
+    }
+
+    /**
+     * Reads the upstream of the repository this start is for, as the gate will.
+     *
+     * @param project The project.
+     * @return What is in the way, or {@code null} when nothing is.
+     */
+    UpstreamProbe.@Nullable Finding upstreamFinding(final Project project) {
+        final String upstream = request.upstream();
+        if (project.securityClass() == org.fuin.sokar.core.project.SecurityClass.OFFLINE && upstream != null) {
+            // Refused as itself when the workspace is opened: an offline project takes no --upstream.
+            return null;
+        }
+        try {
+            return UpstreamProbe.forStart(context, project, GateSupport.repository(project, request.repository()),
+                    upstream);
+        } catch (final RuntimeException ex) {
+            // A repository that is not there is refused as itself, by the check before this one.
+            return null;
+        }
+    }
+
+    /**
+     * Offers to store a key for an upstream that refused this machine with nothing stored for it, and reads it again.
+     * <p>
+     * Only where nothing is stored: with a key declared and refused, which key the forge expects is the forge's to
+     * know, so nothing is offered that could only be a guess. Never taken by {@code --yes}: there is no harmless
+     * default for a path.
+     *
+     * @param finding What the first read found.
+     * @param project The project.
+     * @param err Where it is asked and said.
+     * @return What a second read found, or the first finding when nothing was stored.
+     */
+    UpstreamProbe.@Nullable Finding storeRefusedKey(final UpstreamProbe.Finding finding, final Project project,
+            final PrintWriter err) {
+        final String url = request.upstream() != null && !request.upstream().isBlank() ? request.upstream()
+                : GateSupport.repository(project, request.repository()).upstream();
+        if (offer == Offer.NOBODY || url == null || finding.answer().cause() != UpstreamProbe.Cause.KEY_REFUSED
+                || GitCredentialNames.kindOf(url) != GitCredentialNames.Kind.KEY) {
+            return finding;
+        }
+        final CredentialDeclarations.Check check = new CredentialDeclarations(context).check(url, "git");
+        if (check.outcome() == CredentialDeclarations.Outcome.READY
+                || check.outcome() == CredentialDeclarations.Outcome.VAULT_LOCKED) {
+            return finding;
+        }
+        final java.util.List<String> names = GitCredentialNames.candidatesFor(url);
+        final String entry = check.credential() != null ? check.credential().id() : names.isEmpty() ? null
+                : names.get(0);
+        if (entry == null) {
+            return finding;
+        }
+        final String path = offer.text(finding.answer().detail(), "Path of a private key to store as '" + entry
+                + "' for it ('sokar credentials keys' lists this account's):",
+                "sokar vault put " + entry + " --from-file <the private key file>");
+        if (path == null) {
+            return finding;
+        }
+        // The command's own code, on this terminal: it asks for the vault's passphrase where it has to.
+        context.exec().applyAsInt(java.util.List.of(SokarBinary.path(), "vault", "put", entry, "--from-file", path));
+        return upstreamFinding(project);
     }
 
     public int launch(PrintWriter out, PrintWriter err, AfterStart after) {
@@ -686,6 +761,27 @@ public final class TaskLaunch {
                 err.flush();
                 return 69;
             }
+            // The upstream read as the gate's clone will read it, before anything is made: a refused key surfaced from the
+            // clone as "no git gate for this task", after the task was half made (found on 2026-10-13).
+            if (!request.noGate() && !request.dryRun()) {
+                UpstreamProbe.Finding finding = upstreamFinding(project);
+                if (finding != null && finding.refuses()) {
+                    finding = storeRefusedKey(finding, project, err);
+                }
+                if (finding != null && finding.refuses()) {
+                    unreadableUpstream = finding.answer();
+                    err.println("sokar: " + StartCheck.said(finding.answer()));
+                    err.println("sokar: nothing was created");
+                    err.flush();
+                    return 69;
+                }
+                if (finding != null) {
+                    // A mirror is there, so the task starts from it, as a refresh that fails already lets it.
+                    err.println("sokar: " + StartCheck.said(finding.answer()) + " This task starts from what the"
+                            + " mirror holds, which may be behind, and approved work cannot go back until it is fixed.");
+                    err.flush();
+                }
+            }
             // The same words and the same rule CanStart answers with, so a check and a start cannot disagree.
             final String undeclared = StartCheck.undeclared(context, request.projectFile(), request.credentials());
             if (undeclared != null) {
@@ -824,11 +920,8 @@ public final class TaskLaunch {
                 err.flush();
                 return 65;
             }
-            if (gated && workspace == null && request.mode() == org.fuin.sokar.wire.TaskMode.AGENT
-                    && (retry = shellInstead("there is no gate for the agent to hand its work back through", offer))
-                            != null) {
-                return RETRY;
-            }
+            // No shell offered in its place: a shell without a gate has an empty workspace and fixes nothing about what
+            // stopped the gate, which is said above.
             if (gated && workspace == null && request.mode() != org.fuin.sokar.wire.TaskMode.SHELL) {
                 // An agent's work leaves through the gate. Started without one, it has an empty workspace and
                 // nowhere to hand back what it does - which is how a task in 'default' whose origin was over ssh

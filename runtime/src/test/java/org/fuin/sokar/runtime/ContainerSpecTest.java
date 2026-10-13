@@ -88,4 +88,14 @@ class ContainerSpecTest {
                 .containsSequence("--cpus", "1.5")
                 .containsSequence("--pids-limit", "512");
     }
+
+    @Test
+    void givesATaskWithItsOwnResolverNoSearchDomainOfTheHost() {
+
+        // The host's search line was copied into the task: it learned internal domain names, and a refused name was
+        // asked once per domain.
+        assertThat(new ContainerSpec("box", "ubuntu:24.04").resolver("10.88.0.53").toArguments())
+                .containsSequence("--dns", "10.88.0.53").contains("--dns-search=.");
+        assertThat(arguments()).as("no resolver of its own, nothing about DNS").doesNotContain("--dns-search=.");
+    }
 }

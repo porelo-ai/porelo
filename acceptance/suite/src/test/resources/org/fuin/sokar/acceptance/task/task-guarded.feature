@@ -57,6 +57,9 @@ Feature: A task in a guarded project, from its image to what it hands back
         1|124) echo "an undeclared address is closed" ;;
         *) echo "the probe could not run (exit $rc)" ;;
       esac
+      # One attempt is one line, however often its SYN went out again in those five seconds; it read as two.
+      sleep 1
+      grep -c '"destination":"1.1.1.1","port":443' {state}/events.jsonl | sed 's/^/lines for the one attempt: /'
       # The upstream resolver is for Sokar's resolver alone: asked directly, it carried data out in query names.
       pid=$(podman inspect --format '{{.State.Pid}}' {task})
       up=$(podman unshare nsenter --target "$pid" --net nft list ruleset | awk '/skuid 0/ && /dport 53/ { print $3; exit }')
@@ -71,6 +74,7 @@ Feature: A task in a guarded project, from its image to what it hands back
     Then its output contains "NoNewPrivs:1"
     And its output contains "CapEff:0000000000000000"
     And its output contains "the firewall hook ran when the container was created"
+    And its output contains "lines for the one attempt: 1"
     And its output contains "the upstream resolver is named in the firewall"
     And its output contains "the upstream resolver is closed to the agent"
     And its output contains "an undeclared address is closed"
