@@ -82,13 +82,13 @@ from its side, as *blocked by*.
 | <a id="b56"></a>[B56](B56-Programs-Sokar-Runs-That-Could-Be-Calls.md) | S | - | The table of programs Sokar runs completed, and a source-scanning test that fails on an unlisted one; each replacement its own issue. | - |
 | <a id="b116"></a>[B116](B116-A-Log-Read-Back-In-Windows.md) | M | - | `Tail` gets `before` to read back in windows, and a cap per line reported in `cut`. | - |
 | <a id="b165"></a>[B165](B165-A-Port-Of-A-Task-On-Loopback-Only.md) | M | - | `sokar task port`: a two-half relay, in the task's namespace and on host loopback only, over a `0700` socket, with `ports.log`, docs and a scenario. | - |
+| <a id="b180"></a>[B180](B180-Trust-A-Host-On-Its-Own-Port.md) | M | - | `trust-host` asks and records a host on the port its upstream uses, so a forge on its own SSH port can be trusted and started. | - |
 
 ## Idea
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b179"></a>[B179](B179-A-Code-Beside-Why-A-Release-Cannot-Go.md) | - | - | A code beside `detail` when a release is answered `NOT_DELIVERABLE`, so a client can say what to do per case. |
-| <a id="b180"></a>[B180](B180-Trust-A-Host-On-Its-Own-Port.md) | - | - | `trust-host` asks and records a host on the port its upstream uses, so a forge on its own SSH port can be trusted and started. |
 
 ## Estimated
 
