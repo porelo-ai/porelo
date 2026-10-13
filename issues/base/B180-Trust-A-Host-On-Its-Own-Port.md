@@ -1,6 +1,6 @@
 # B180 — Trust A Host On Its Own Port
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** M - one way to name a host with its port in `HostKeys`, used by the command, the start check, the offer at
 task start, the workspace set-up, the reconcile and the daemon's two host calls, unit tests for every form of address,
 and an acceptance case against an sshd of the scenario's own on a high port; the daemon's contract keeps its shape.
