@@ -428,7 +428,8 @@ public final class StartCheck {
      * @param context Where this machine's known hosts are.
      * @param projectFile The project file, or {@code null}.
      * @param repository The repository, or {@code null} for the project's own.
-     * @return The host, or {@code null} when there is no such question.
+     * @return The host as {@code trust-host} takes it, {@code host:port} off port 22, or {@code null} when there is
+     *         no such question.
      */
     public static @Nullable String unknownHost(SokarContext context, @Nullable Path projectFile,
             @Nullable String repository) {
@@ -453,29 +454,20 @@ public final class StartCheck {
      *
      * @param context Where this machine's known hosts are.
      * @param upstream The address.
-     * @return The host, or {@code null} when there is no such question.
+     * @return The host as {@code trust-host} takes it, {@code host:port} off port 22, or {@code null} when there is
+     *         no such question.
      */
     static @Nullable String unknownHostOf(SokarContext context, String upstream) {
         if (!overSsh(upstream)) {
             return null;
         }
-        final String said = upstream.strip();
-        final String host = !said.contains("://") && said.matches("[^/:@]+:.*") ? said.substring(0, said.indexOf(':'))
-                : GitCredentialNames.hostOf(upstream);
-        if (host == null) {
+        // On its own port, as ssh looks it up, and named with it: a line for port 22 says nothing about another one,
+        // and a hint without the port sent a person to trust the wrong service.
+        final HostKeys.Address address = HostKeys.Address.ofUpstream(upstream);
+        if (address == null) {
             return null;
         }
-        // On its own port, as ssh writes it: a line for port 22 says nothing about another one.
-        int port = -1;
-        if (upstream.strip().startsWith("ssh://")) {
-            try {
-                port = java.net.URI.create(upstream.strip()).getPort();
-            } catch (IllegalArgumentException ex) {
-                port = -1;
-            }
-        }
-        final String entry = port > 0 && port != 22 ? "[" + host + "]:" + port : host;
-        return HostKeys.known(context, entry) ? null : host;
+        return HostKeys.known(context, address.name()) ? null : address.name();
     }
 
     private static boolean overSsh(String upstream) {

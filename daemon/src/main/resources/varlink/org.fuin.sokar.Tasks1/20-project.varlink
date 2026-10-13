@@ -96,6 +96,9 @@ type Project (
 # machine refuses to decide it - attended or not, because a timer that learns a host at three in
 # the morning has answered the question this refuses to answer.
 method HostKeys(
+  # The host on its port, as a person types it: 'forge.example.org', and off port 22
+  # 'forge.example.org:7999' or '[2001:db8::1]:7999' - ssh remembers a host on another port
+  # as another host. A port of 22 written out is the same as none. Answered in that form.
   host: string
 ) -> (
   host: string,
@@ -110,6 +113,7 @@ method HostKeys(
 # only if it still offers that one - which is what stops a key that arrived between being shown
 # and being confirmed from being the one written down.
 method TrustHostKey(
+  # As HostKeys takes it: with its port off port 22.
   host: string,
   # SHA256:..., exactly as HostKeys gave it.
   fingerprint: string
@@ -573,7 +577,7 @@ method Follow(
   # The commit turned away, or "". Never the same as 'commit'.
   refused: string,
   # With UNKNOWN_HOST_KEY and HOST_KEY_CHANGED: the host, spelled exactly as TrustHostKey wants
-  # it, so a client passes it back unchanged. Answered rather than left to be read off the address
+  # it - with its port off port 22 - so a client passes it back unchanged. Answered rather than left to be read off the address
   # again - 'user@host:path', a port, and an alias in somebody's ssh config are three readings of
   # one thing. "" otherwise.
   #

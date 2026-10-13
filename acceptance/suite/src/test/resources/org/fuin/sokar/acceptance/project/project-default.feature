@@ -107,3 +107,46 @@ Feature: Work starts without a project, in the project every machine has
     And its output contains "approve exit 0"
     And its output contains "arrived: acceptance: work for an ssh origin"
     And its output contains "key left allowed: 0"
+
+  Scenario: a host whose ssh is on its own port is trusted there and named with its port
+    # A forge on its own port, as a self-hosted one is: an sshd of this scenario's own, run as this account on a high
+    # port with a host key made for it, so a key shown can only have come from that port. Nothing is fetched from it.
+    Given a daemon of this scenario's own
+    When a script runs:
+      """
+      base=$(mktemp -d); port=$(( 20000 + RANDOM % 20000 ))
+      repo="dport$(basename "$base" | tr 'A-Z' 'a-z' | tr -dc 'a-z0-9')"
+      known="${XDG_STATE_HOME:-$HOME/.local/state}/sokar/known_hosts"
+      ssh-keygen -q -t ed25519 -N '' -f "$base/host_key"
+      printf 'Port %s\nListenAddress 127.0.0.1\nHostKey %s/host_key\nPidFile %s/sshd.pid\nUsePAM no\n' \
+          "$port" "$base" "$base" > "$base/sshd_config"
+      # Taken back whatever happens below.
+      trap 'kill "$(cat "$base/sshd.pid" 2>/dev/null)" 2>/dev/null; sokar project default remove "$repo" > /dev/null 2>&1
+          sed -i "/^\[127\.0\.0\.1\]:$port /d" "$known" 2>/dev/null' EXIT
+      /usr/sbin/sshd -f "$base/sshd_config" -E "$base/sshd.log" || cat "$base/sshd.log"
+      for i in $(seq 1 20); do ssh-keyscan -T 2 -p "$port" 127.0.0.1 2>/dev/null | grep -q ed25519 && break; sleep 0.5; done
+      its_own=$(ssh-keygen -lf "$base/host_key.pub" | awk '{ print $2 }')
+      the_machines=$(ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub | awk '{ print $2 }')
+      sokar project default add "ssh://git@127.0.0.1:$port/$repo.git" --name "$repo" > /dev/null
+      ask() { printf '%s\0' "$1" | timeout 60 sokar daemon connect 2>/dev/null | tr '\0' '\n' | head -1; }
+      can_start() {
+          ask "{\"method\":\"org.fuin.sokar.Tasks1.CanStart\",\"parameters\":{\"project\":\"default\",\"agent\":\"stub\",\"repository\":\"$repo\"}}"
+      }
+      can_start | grep -oE '"(outcome|host)":"[^"]*"' | sed "s/:$port\"/:PORT\"/; s/^/before trusting: /"
+      sokar credentials trust-host "127.0.0.1:$port" > "$base/shown"
+      grep -c "$its_own" "$base/shown" | sed 's/^/shown its own key: /'
+      grep -c "$the_machines" "$base/shown" | sed 's/^/shown the key on port 22: /'
+      sokar credentials trust-host "127.0.0.1:$port" --fingerprint "$its_own" > /dev/null
+      echo "trust exit $?"
+      grep -c "^\[127\.0\.0\.1\]:$port ssh-ed25519 " "$known" | sed 's/^/recorded on its port: /'
+      can_start | grep -oE '"outcome":"[A-Z_]+"' | sed 's/^/after trusting: /'
+      """
+    Then it exits zero
+    And its output contains 'before trusting: "outcome":"UNKNOWN_HOST_KEY"'
+    And its output contains 'before trusting: "host":"127.0.0.1:PORT"'
+    And its output contains "shown its own key: 1"
+    And its output contains "shown the key on port 22: 0"
+    And its output contains "trust exit 0"
+    And its output contains "recorded on its port: 1"
+    And its output contains "after trusting: "
+    And its output does not contain 'after trusting: "outcome":"UNKNOWN_HOST_KEY"'

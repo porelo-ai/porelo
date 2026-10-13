@@ -728,7 +728,8 @@ method CanStart(
   storeCommand: []string,
   # Prose for a person, always set. Never parsed.
   detail: string,
-  # With UNKNOWN_HOST_KEY: the host, spelled exactly as TrustHostKey wants it. "" otherwise.
+  # With UNKNOWN_HOST_KEY: the host, spelled exactly as TrustHostKey wants it - with its port off
+  # port 22. "" otherwise.
   host: string,
   # With UNKNOWN_HOST_KEY: what that host offers right now. Empty otherwise.
   hostKeys: []HostKey

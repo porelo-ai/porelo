@@ -27,8 +27,9 @@ import picocli.CommandLine.Spec;
         description = "Shows the keys a host offers, and records the one you confirm.")
 public class CredentialsTrustHostCommand implements Callable<Integer>, SokarFactory.ContextAware {
 
-    @Parameters(index = "0", paramLabel = "<host>",
-            description = "The host, as it appears in the address - 'github.com'.")
+    @Parameters(index = "0", paramLabel = "<host>[:<port>]",
+            description = "The host, as it appears in the address - 'github.com', or 'forge.example.org:7999'"
+                    + " for one whose ssh is on a port other than 22.")
     private String host;
 
     @Option(names = "--fingerprint", paramLabel = "<SHA256:...>",
@@ -49,6 +50,14 @@ public class CredentialsTrustHostCommand implements Callable<Integer>, SokarFact
     public Integer call() {
         final PrintWriter out = spec.commandLine().getOut();
         final PrintWriter err = spec.commandLine().getErr();
+        // On its own port, and from here on named as every hint names it: a key on 22 is another service's.
+        try {
+            host = HostKeys.Address.of(host).name();
+        } catch (final IllegalArgumentException ex) {
+            err.println("sokar: " + ex.getMessage() + ".");
+            err.flush();
+            return 64;
+        }
 
         if (fingerprint == null) {
             final List<HostKeys.Offered> offered = HostKeys.offeredBy(context, host);

@@ -56,11 +56,132 @@ public final class HostKeys {
         }
     }
 
+    /**
+     * A host as ssh reaches it: a name or an address, and the port.
+     * <p>
+     * <strong>The port is part of whom this machine has met.</strong> ssh remembers a host on port 22 by its bare name
+     * and on any other port as {@code [host]:port}, so a key confirmed for one says nothing about the other - and
+     * asking port 22 about a forge on 7999 asks a different service, or nobody.
+     *
+     * @param host The name or address, without brackets.
+     * @param port The port.
+     */
+    public record Address(String host, int port) {
+
+        /** The port ssh uses when an address names none. */
+        public static final int SSH = 22;
+
+        /**
+         * Reads a host as a person types it and every hint prints it: {@code forge.example.org},
+         * {@code forge.example.org:7999} or {@code [2001:db8::1]:7999}.
+         * <p>
+         * A port of 22 written out is the same as none. An address with more than one colon and no brackets is an IPv6
+         * address on port 22, never split at its colons.
+         *
+         * @param name What was typed.
+         * @return The address.
+         * @throws IllegalArgumentException For no host, a host that would be read as an option, or a port that is no
+         *         port.
+         */
+        public static Address of(final String name) {
+            final String said = name.strip();
+            final String host;
+            final @Nullable String port;
+            if (said.startsWith("[")) {
+                final int close = said.indexOf(']');
+                if (close < 0 || close < said.length() - 1 && said.charAt(close + 1) != ':') {
+                    throw new IllegalArgumentException("'" + said + "' is not a host - write it as [address]:port");
+                }
+                host = said.substring(1, close);
+                port = close < said.length() - 1 ? said.substring(close + 2) : null;
+            } else if (said.indexOf(':') >= 0 && said.indexOf(':') == said.lastIndexOf(':')) {
+                host = said.substring(0, said.indexOf(':'));
+                port = said.substring(said.indexOf(':') + 1);
+            } else {
+                host = said;
+                port = null;
+            }
+            // Handed to ssh-keyscan as an argument: a leading dash would be read as an option.
+            if (host.isEmpty() || host.startsWith("-") || host.chars().anyMatch(Character::isWhitespace)) {
+                throw new IllegalArgumentException("'" + said + "' is not a host");
+            }
+            return new Address(host, port == null ? SSH : portOf(said, port));
+        }
+
+        private static int portOf(final String said, final String port) {
+            if (!port.matches("[0-9]{1,5}") || Integer.parseInt(port) < 1 || Integer.parseInt(port) > 65535) {
+                throw new IllegalArgumentException("'" + said + "' names no port - write it as host:port");
+            }
+            return Integer.parseInt(port);
+        }
+
+        /**
+         * Returns the host an address reaches, when git reaches it over ssh.
+         * <p>
+         * {@code ssh://[user@]host[:port]/path} with its port, and {@code [user@]host:path}, which is always port 22.
+         *
+         * @param upstream The address.
+         * @return The host, or {@code null} for an address git does not reach over ssh.
+         */
+        public static @Nullable Address ofUpstream(final @Nullable String upstream) {
+            if (upstream == null) {
+                return null;
+            }
+            final String said = upstream.strip();
+            try {
+                if (said.startsWith("ssh://")) {
+                    final String rest = said.substring("ssh://".length());
+                    final String authority = rest.indexOf('/') < 0 ? rest : rest.substring(0, rest.indexOf('/'));
+                    return of(authority.substring(authority.lastIndexOf('@') + 1));
+                }
+                // 'user@host:path' and 'host:path' alike: git reads both as ssh.
+                final java.util.regex.Matcher scp = java.util.regex.Pattern.compile("(?:[^/@:]+@)?([^/:@]+):.*")
+                        .matcher(said);
+                return !said.contains("://") && scp.matches() ? new Address(of(scp.group(1)).host(), SSH) : null;
+            } catch (final IllegalArgumentException ex) {
+                return null;
+            }
+        }
+
+        /**
+         * Returns the host as a person types it: the bare name on port 22, {@code host:port} on another.
+         *
+         * @return The name {@link #of} reads back.
+         */
+        public String name() {
+            if (port == SSH) {
+                return host;
+            }
+            return (host.contains(":") ? "[" + host + "]" : host) + ":" + port;
+        }
+
+        /**
+         * Returns the name ssh looks the host up by in {@code known_hosts}.
+         *
+         * @return The bare host on port 22, {@code [host]:port} on another.
+         */
+        public String entry() {
+            return port == SSH ? host : "[" + host + "]:" + port;
+        }
+    }
+
     /** What git says when it has not met the host. */
     private static final String UNKNOWN = "Host key verification failed";
 
     /** What ssh says when it has met the host and the key is not the one it remembers. */
     private static final String CHANGED = "REMOTE HOST IDENTIFICATION HAS CHANGED";
+
+    /**
+     * Returns the host of an address as {@code trust-host} takes it, so a hint can be typed back as it is printed.
+     *
+     * @param url The address.
+     * @return {@code host:port} off port 22, the bare host on it, and for an address not reached over ssh its host as
+     *         the credentials name it.
+     */
+    public static String nameOf(final @Nullable String url) {
+        final Address address = Address.ofUpstream(url);
+        return address != null ? address.name() : String.valueOf(GitCredentialNames.hostOf(url));
+    }
 
     /**
      * Tells whether git failed over the host's key rather than over a credential.
@@ -86,12 +207,18 @@ public final class HostKeys {
      * Returns the keys a host offers right now.
      *
      * @param context The machine.
-     * @param host The host, without a user or a port.
+     * @param host The host as {@link Address#of} reads it, on its port.
      * @return What it offered, empty when it could not be reached.
+     * @throws IllegalArgumentException For a host that is no host.
      */
     public static List<Offered> offeredBy(final SokarContext context, final String host) {
-        final CommandResult scanned = context.runner().run(
-                Command.of("ssh-keyscan", "-T", "10", host));
+        final Address address = Address.of(host);
+        final List<String> scan = new ArrayList<>(List.of("ssh-keyscan", "-T", "10"));
+        if (address.port() != Address.SSH) {
+            scan.addAll(List.of("-p", String.valueOf(address.port())));
+        }
+        scan.add(address.host());
+        final CommandResult scanned = context.runner().run(Command.of(scan));
         if (!scanned.successful() && scanned.standardOutput().isBlank()) {
             return List.of();
         }
@@ -107,7 +234,8 @@ public final class HostKeys {
             }
             final String fingerprint = fingerprintOf(fields[2]);
             if (!fingerprint.isEmpty()) {
-                offered.add(new Offered(fields[1], fingerprint, stripped));
+                // Under the name ssh will look up, whatever the scan printed: what is written is what a fetch asks for.
+                offered.add(new Offered(fields[1], fingerprint, address.entry() + " " + fields[1] + " " + fields[2]));
             }
         }
         return List.copyOf(offered);
@@ -122,7 +250,7 @@ public final class HostKeys {
      * being shown and being confirmed from being the one that is written.
      *
      * @param context The machine.
-     * @param host The host.
+     * @param host The host as {@link Address#of} reads it, on its port.
      * @param fingerprint What the person confirmed, {@code SHA256:...}.
      * @return What was recorded, or {@code null} when the host offers no such key now.
      * @throws IOException If the file cannot be written.
@@ -151,10 +279,11 @@ public final class HostKeys {
      * Tells whether this machine already remembers a key for a host.
      *
      * @param context The machine.
-     * @param host The host.
+     * @param host The host as {@link Address#of} reads it, on its port: a key for port 22 says nothing about another.
      * @return {@code true} when something is recorded for it.
      */
     public static boolean known(final SokarContext context, final String host) {
+        final String entry = Address.of(host).entry();
         final Path file = FollowCredential.knownHostsFile(context);
         if (!Files.isRegularFile(file)) {
             return false;
@@ -163,7 +292,7 @@ public final class HostKeys {
             return Files.readAllLines(file, StandardCharsets.UTF_8).stream()
                     // By the names in the first field, exactly: as a prefix, '[forge.example.org.evil]:22' counted for
                     // forge.example.org.
-                    .anyMatch(line -> java.util.Arrays.asList(line.strip().split("\\s+")[0].split(",")).contains(host));
+                    .anyMatch(line -> java.util.Arrays.asList(line.strip().split("\\s+")[0].split(",")).contains(entry));
         } catch (final IOException ex) {
             return false;
         }

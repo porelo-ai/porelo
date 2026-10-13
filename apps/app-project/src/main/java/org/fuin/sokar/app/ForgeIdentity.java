@@ -99,6 +99,11 @@ public final class ForgeIdentity {
                 command.addAll(java.util.List.of("-i", offered.id(),
                         "-o", "IdentitiesOnly=yes"));
             }
+            // On the address's own port: a forge on 7999 is not the service that answers on 22.
+            final HostKeys.Address address = HostKeys.Address.ofUpstream(url);
+            if (address != null && address.port() != HostKeys.Address.SSH) {
+                command.addAll(java.util.List.of("-p", String.valueOf(address.port())));
+            }
             command.addAll(java.util.List.of("-T", (user == null ? "git" : user) + "@" + host));
             final CommandResult asked = context.runner().run(Command.of(command)
                     .withEnvironment(credential.environment()));

@@ -330,7 +330,7 @@ public final class Reconcile {
                     // Asked before anything about credentials: git failing on the host's key says
                     // nothing at all about what this machine holds, and answering NO_CREDENTIAL
                     // there sent somebody to store a key they had just stored.
-                    final String host = GitCredentialNames.hostOf(followed.url());
+                    final String host = HostKeys.nameOf(followed.url());
                     if (HostKeys.changed(said)) {
                         return new Result(Outcome.HOST_KEY_CHANGED, followed.commit(),
                                 host + " answered with a different key from the one this machine"

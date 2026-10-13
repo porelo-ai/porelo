@@ -244,7 +244,7 @@ final class ProjectMethods {
             // that re-parsed it would have to know about 'user@host:path', a port, and an alias
             // in somebody's ssh config - three readings of one thing, two of them ours already.
             final String host = aboutTheHost
-                    ? String.valueOf(org.fuin.sokar.app.GitCredentialNames.hostOf(url)) : "";
+                    ? org.fuin.sokar.app.HostKeys.nameOf(url) : "";
             final java.util.List<Map<String, Object>> offered = aboutTheHost
                     ? org.fuin.sokar.app.HostKeys.offeredBy(context, host)
                             .stream().map(org.fuin.sokar.app.HostKeys.Offered::asMap).toList()
@@ -270,7 +270,7 @@ final class ProjectMethods {
         server.method("HostKeys", (parameters, replies) -> {
             // What a host offers, so a person can compare it with what they were told. Shown,
             // never recorded: recording is TrustHostKey, and it takes the fingerprint back.
-            final String host = address(parameters, "host");
+            final String host = hostName(parameters);
             replies.last(Map.of("host", host,
                     "known", org.fuin.sokar.app.HostKeys.known(context, host),
                     "keys", org.fuin.sokar.app.HostKeys.offeredBy(context, host).stream()
@@ -282,7 +282,7 @@ final class ProjectMethods {
             // compared it with what they were told out of band. Asking the host again here is not
             // a second opinion - it stops a key that arrived in between from being the one
             // written down.
-            final String host = address(parameters, "host");
+            final String host = hostName(parameters);
             final org.fuin.sokar.app.HostKeys.Offered recorded;
             try {
                 recorded = org.fuin.sokar.app.HostKeys.trust(context, host,
@@ -451,5 +451,20 @@ final class ProjectMethods {
 
         server.method("CheckProjectFile", (parameters, replies) -> replies.last(
                 org.fuin.sokar.app.ProjectFileCheck.check(context, text(parameters, "text")).asMap()));
+    }
+
+    /**
+     * Reads the host a call names, on its port, as every answer names it.
+     *
+     * @param parameters What the call carried.
+     * @return {@code host}, or {@code host:port} off port 22.
+     * @throws VarlinkException {@code InvalidParameter} for a value that is no host.
+     */
+    private static String hostName(final Map<String, Object> parameters) {
+        try {
+            return org.fuin.sokar.app.HostKeys.Address.of(address(parameters, "host")).name();
+        } catch (IllegalArgumentException ex) {
+            throw new VarlinkException("org.varlink.service.InvalidParameter", Map.of("parameter", "host"));
+        }
     }
 }

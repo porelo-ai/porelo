@@ -1,6 +1,7 @@
 package org.fuin.sokar.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -124,5 +125,69 @@ class HostKeysTest {
         assertThat(HostKeys.refusedTheHost(
                 "ssh_askpass: exec(/usr/bin/ssh-askpass): No such file or directory\n"
                         + "Host key verification failed.")).isTrue();
+    }
+
+    @Test
+    void aForgeOnItsOwnPortIsAskedThereAndRecordedUnderTheNameSshLooksUp(@TempDir final Path dir) throws IOException {
+
+        // ssh-keyscan asked port 22 and the bare name was written, so a fetch from port 7999 never found it and the
+        // start kept saying it had never met the forge (found on 2026-10-13).
+        final SokarContext context = context(dir);
+        runner.answering("ssh-keyscan", "[forge.example.org]:7999" + ED25519.substring("github.com".length()) + "\n");
+        final String chosen = HostKeys.offeredBy(context, "forge.example.org:7999").get(0).fingerprint();
+
+        HostKeys.trust(context, "forge.example.org:7999", chosen);
+
+        assertThat(runner.invocations()).allSatisfy(scan -> assertThat(scan.arguments())
+                .containsSubsequence("-p", "7999", "forge.example.org").doesNotContain("forge.example.org:7999"));
+        assertThat(Files.readString(FollowCredential.knownHostsFile(context), StandardCharsets.UTF_8))
+                .startsWith("[forge.example.org]:7999 ssh-ed25519 ");
+        assertThat(HostKeys.known(context, "forge.example.org:7999")).isTrue();
+        assertThat(HostKeys.known(context, "forge.example.org")).as("a key on 7999 says nothing about 22").isFalse();
+    }
+
+    @Test
+    void aKeyForPort22SaysNothingAboutAnotherPort(@TempDir final Path dir) throws IOException {
+
+        final SokarContext context = context(dir);
+        hostOffers(ED25519);
+
+        HostKeys.trust(context, "github.com:22", HostKeys.offeredBy(context, "github.com").get(0).fingerprint());
+
+        assertThat(runner.invocations()).allSatisfy(scan -> assertThat(scan.arguments()).doesNotContain("-p"));
+        assertThat(HostKeys.known(context, "github.com")).as("22 written out is the same as none").isTrue();
+        assertThat(HostKeys.known(context, "github.com:2222")).isFalse();
+    }
+
+    @Test
+    void readsAHostAsAPersonTypesItAndAsEveryAddressNamesIt() {
+
+        assertThat(HostKeys.Address.of("forge.example.org:7999").entry()).isEqualTo("[forge.example.org]:7999");
+        assertThat(HostKeys.Address.of("forge.example.org:22").name()).isEqualTo("forge.example.org");
+        assertThat(HostKeys.Address.of("[2001:db8::1]:7999").name()).isEqualTo("[2001:db8::1]:7999");
+        assertThat(HostKeys.Address.of("2001:db8::1")).as("never split at an IPv6 address's colons")
+                .isEqualTo(new HostKeys.Address("2001:db8::1", 22));
+
+        assertThat(HostKeys.nameOf("ssh://git@forge.example.org:7999/project/backend.git"))
+                .isEqualTo("forge.example.org:7999");
+        assertThat(HostKeys.nameOf("ssh://git@forge.example.org:22/project/backend.git")).isEqualTo("forge.example.org");
+        assertThat(HostKeys.nameOf("ssh://forge.example.org/project/backend.git")).isEqualTo("forge.example.org");
+        assertThat(HostKeys.nameOf("git@forge.example.org:project/backend.git")).isEqualTo("forge.example.org");
+        assertThat(HostKeys.nameOf("ssh://git@[2001:db8::1]:7999/project/backend.git"))
+                .isEqualTo("[2001:db8::1]:7999");
+        assertThat(HostKeys.Address.ofUpstream("https://forge.example.org/project/backend.git")).isNull();
+    }
+
+    @Test
+    void refusesWhatIsNoHostBeforeAnythingIsAsked() {
+
+        // Handed to ssh-keyscan as an argument: a leading dash would be read as one of its options.
+        assertThatThrownBy(() -> HostKeys.Address.of("-oProxyCommand=x")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> HostKeys.Address.of("forge.example.org:ssh"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("host:port");
+        assertThatThrownBy(() -> HostKeys.Address.of("forge.example.org:70000"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> HostKeys.Address.of(":7999")).isInstanceOf(IllegalArgumentException.class);
+        assertThat(runner.invocations()).isEmpty();
     }
 }

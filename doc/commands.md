@@ -317,7 +317,7 @@ Which secret a destination uses, and where it lives. Nothing here prints a value
 | `sokar credentials forget MATCH` | Forgets a record. The value is left alone. |
 | `sokar credentials deploy-key PROJECT [-r REPOSITORY] [--read-only \| --write] [--new]` | Creates a deploy key: secret half into the vault, public half printed once for the forge. |
 | `sokar credentials keys` | Lists this account's ssh keys without reading them. |
-| `sokar credentials trust-host HOST [--fingerprint=SHA256:...]` | Shows a host's keys and records the one you confirm. |
+| `sokar credentials trust-host HOST[:PORT] [--fingerprint=SHA256:...]` | Shows a host's keys and records the one you confirm. Name the port when its ssh is not on 22 - `forge.example.org:7999` - as the hint at a start does. |
 
 **Deploy keys**: read-only for the project's own repository, write for a work repository. Running it
 again prints the same key; `--new` replaces it. `project unfollow` forgets these keys and names each

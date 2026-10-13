@@ -1,6 +1,6 @@
 # B180 — Trust A Host On Its Own Port
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** M - one way to name a host with its port in `HostKeys`, used by the command, the start check, the offer at
 task start, the workspace set-up, the reconcile and the daemon's two host calls, unit tests for every form of address,
 and an acceptance case against an sshd of the scenario's own on a high port; the daemon's contract keeps its shape.
@@ -66,9 +66,20 @@ Steps:
    - `StartCheckTest` with a 7999 upstream expects the hint `sokar credentials trust-host forge.example.org:7999`.
 2. `HostKeys`, the command, `StartCheck`, `TaskLaunch`, `WorkspaceSetup`, `Reconcile` and the daemon's two calls as
    above; `doc/commands.md` says the port for `trust-host`.
-3. **Acceptance:** in `credentials-commands.feature`, a scenario starts an sshd of its own as the account, on a high
+3. **Acceptance:** in `project-default.feature`, where an upstream can be added to `default` without a project of
+   its own, a scenario starts an sshd of its own as the account, on a high
    port with a host key made for it. It then checks three things:
    - `trust-host localhost:<port>` shows that key's fingerprint and not the machine's own;
    - with that fingerprint the key is recorded under `[localhost]:<port>`;
    - the start check of an `ssh://` upstream on that port no longer says the machine has never met it.
 4. Reactor, documents and the suite on the VM (`not @restart`).
+
+## As built
+
+- `HostKeys.Address` reads a host as a person types it and as an address names it; `HostKeys.nameOf` gives the name
+  every hint prints. The scan's lines are recorded under `Address.entry()`, whatever the scan printed.
+- The start check, the offer at task start, `CanStart`, `Start`'s `UnknownHostKey`, the workspace set-up, the reconcile
+  and a follow's `host` all name the host with its port. `HostKeys` and `TrustHostKey` refuse a name that is no host as
+  `InvalidParameter`.
+- Found on the way: `ForgeIdentity.ask`, which asks a forge whom a key belongs to, also went to port 22. It now passes
+  the address's port to ssh.

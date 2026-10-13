@@ -340,6 +340,8 @@ class StartCheckTest {
                     upstream: "git@forge.example.org:uc/backend.git"
                   web:
                     upstream: "https://forge.example.org/uc/web.git"
+                  own-port:
+                    upstream: "ssh://git@forge.example.org:7999/uc/own-port.git"
                 """);
         return project;
     }
@@ -398,8 +400,32 @@ class StartCheckTest {
 
         assertThat(StartCheck.unknownHostOf(context, "git@forge.example.org:o/r.git")).isEqualTo("forge.example.org");
         assertThat(StartCheck.unknownHostOf(context, "ssh://git@other.example.org:2222/o/r.git"))
-                .isEqualTo("other.example.org");
+                .isEqualTo("other.example.org:2222");
         assertThat(StartCheck.unknownHostOf(context, "forge.example.org:o/r.git")).isEqualTo("forge.example.org");
         assertThat(StartCheck.unknownHostOf(context, "git@other.example.org:o/r.git")).isNull();
+    }
+
+    @Test
+    void aHostOnItsOwnPortIsNamedWithItSoTheHintCanBeTypedBack(@TempDir Path dir) throws Exception {
+
+        // The hint named the bare host, trust-host asked port 22 and wrote the bare name, and the start still said it
+        // had never met the forge on 7999 (found on 2026-10-13).
+        final SokarContext context = context(dir);
+        final String upstream = "ssh://git@forge.example.org:7999/project/backend.git";
+
+        assertThat(StartCheck.unknownHostOf(context, upstream)).isEqualTo("forge.example.org:7999");
+        assertThat(StartCheck.unknownHostOf(context, "ssh://git@forge.example.org:22/project/backend.git"))
+                .as("22 written out is the same as none").isEqualTo("forge.example.org");
+        final StartCheck.Result refused = StartCheck.withHost(context, READY, upstreams(dir), "own-port");
+        assertThat(refused.host()).isEqualTo("forge.example.org:7999");
+        assertThat(refused.detail()).contains("'sokar credentials trust-host forge.example.org:7999'");
+
+        final Path known = FollowCredential.knownHostsFile(context);
+        Files.createDirectories(known.getParent());
+        Files.writeString(known, "[forge.example.org]:7999 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample\n");
+
+        assertThat(StartCheck.unknownHostOf(context, upstream)).isNull();
+        assertThat(StartCheck.unknownHostOf(context, "git@forge.example.org:project/backend.git"))
+                .as("a key on 7999 says nothing about 22").isEqualTo("forge.example.org");
     }
 }

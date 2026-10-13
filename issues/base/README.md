@@ -30,6 +30,7 @@ from its side, as *blocked by*.
 | <a id="b132"></a>[B132](B132-A-Subscription-Granted-With-One-Command.md) | M | - | `vault authorize <provider>` makes the grant from the provider and the agent; `task start` names and offers the command. |
 | <a id="b131"></a>[B131](B131-The-Oldest-System-A-Package-Promises.md) | M | - | Packages declare their glibc and zlib floor, `check-linkage` fails a build above it, runners pinned, Debian 13 and Fedora 43 in the package check. |
 | <a id="b130"></a>[B130](B130-Two-Refusals-By-Name.md) | M | - | `BranchExists` and `EarlierWorkWaits` as named refusals; daemon, CLI, interface and plugin built. |
+| <a id="b180"></a>[B180](B180-Trust-A-Host-On-Its-Own-Port.md) | M | - | `trust-host` asks and records a host on the port its upstream uses, so a forge on its own SSH port can be trusted and started. |
 
 ## Implementing
 
@@ -52,7 +53,6 @@ from its side, as *blocked by*.
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `sokar` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
 | <a id="b06"></a>[B06](B06-Remote-Access.md) | M | - | Remote use over ssh; both shapes built; left: a daemon-socket check and a real `ssh localhost` hop in the acceptance suite. |
 | <a id="b23"></a>[B23](B23-Secrets-In-This-Process-Memory.md) | S | - | `ProcessHardening` applied (no caller yet), keyring and vault-file buffers closed; a credential as bytes dropped, kept as an accepted risk. |
-| <a id="b180"></a>[B180](B180-Trust-A-Host-On-Its-Own-Port.md) | M | - | `trust-host` asks and records a host on the port its upstream uses, so a forge on its own SSH port can be trusted and started. |
 
 ## Analyzed
 

@@ -154,7 +154,7 @@ final class WorkspaceSetup {
             if (HostKeys.refusedTheHost(said)) {
                 // Answered as the question it is, as a follow answers it: git's own words name no way on, and a person
                 // new to Sokar met them on the first task in 'default' (2026-10-01).
-                final String host = GitCredentialNames.hostOf(String.valueOf(GateSupport.repository(project, repository)
+                final String host = HostKeys.nameOf(String.valueOf(GateSupport.repository(project, repository)
                         .upstream()));
                 err.println("sokar: " + (HostKeys.changed(said)
                         ? host + " answered with a different key from the one this machine remembers - nothing was"
