@@ -88,6 +88,7 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b179"></a>[B179](B179-A-Code-Beside-Why-A-Release-Cannot-Go.md) | - | - | A code beside `detail` when a release is answered `NOT_DELIVERABLE`, so a client can say what to do per case. |
+| <a id="b180"></a>[B180](B180-Trust-A-Host-On-Its-Own-Port.md) | - | - | `trust-host` asks and records a host on the port its upstream uses, so a forge on its own SSH port can be trusted and started. |
 
 ## Estimated
 
