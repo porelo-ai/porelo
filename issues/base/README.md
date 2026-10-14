@@ -72,7 +72,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="b195"></a>[B195](B195-Sokar-Renamed-Porelo-Here.md) | L | - | One scripted commit: paths moved and `sokar` replaced by `porelo` but for released changelog entries and outside names; artifacts, varlink interfaces, `porelod`, packages, paths, variables, nft and SELinux names, the message signature namespace; images redrawn, signed fixtures signed again; red first a test refusing the old word; both legs. | - |
 | <a id="b175"></a>[B175](B175-The-Profile-That-May-Bind-The-Socket.md) | L | `sokar` [B135](README.md#b135) | On an AppArmor machine a task connects only to a socket one of Sokar's binaries bound, by a task profile that refuses any other peer, as the SELinux domain does on SELinux machines. | 2 |
 | <a id="b176"></a>[B176](B176-Comment-Threads-That-Follow-A-New-Push.md) | M | `sokar` [B166](README.md#b166) | A thread on waiting work moves to a new push's commit where its lines are unchanged, else stays and says why; each commented commit pinned under a hidden ref; `Thread` gains `from` and `stays`. | 1 |
 | <a id="b177"></a>[B177](B177-A-Cost-Ceiling-Per-Task.md) | M | `sokar` [B138](README.md#b138), [B191](README.md#b191) | A dollar ceiling per task from `limits.cost`, counted by the broker from the cost the provider reports, else at list price from the price table; a model with no price refuses the ceiling at the start or fail closed, never $0; under a subscription it caps list-price value. | - |
@@ -118,6 +117,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b195"></a>[B195](B195-Sokar-Renamed-Porelo-Here.md) | L | - | One scripted commit: paths moved and `sokar` replaced by `porelo` but for released changelog entries and outside names; artifacts, varlink interfaces, `porelod`, packages, paths, variables, nft and SELinux names, the message signature namespace; images redrawn, signed fixtures signed again; red first a test refusing the old word; both legs. |
 | <a id="b184"></a>[B184](B184-Only-What-Sokar-Delivered-Counts-As-A-Message.md) | M | - | A message in the inbox counts only when the account running Sokar owns it (root inside); the host reads the inbox without following links and names a planted file; the guide and the agent kit check the owner. |
 | <a id="b185"></a>[B185](B185-A-Bound-On-What-A-Task-Writes-To-This-Disk.md) | M | - | The daemon measures a task's box and writable layer and pauses it over `limits.disk` (10 GiB), `limits.mailbox` (256 MiB) or under `limits.disk_free` (2 GiB), each settable in `project.yml`, and says how to go on. |
 | <a id="b95"></a>[B95](B95-A-Container-To-Try-Waiting-Work-In.md) | XL | - | `gate try` and a streaming `Try` in a container without gate or vault; the IDE split into an issue of its own. |
