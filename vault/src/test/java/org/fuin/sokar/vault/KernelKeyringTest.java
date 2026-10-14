@@ -3,6 +3,13 @@ package org.fuin.sokar.vault;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import java.lang.foreign.Arena;
+import java.lang.foreign.FunctionDescriptor;
+import java.lang.foreign.Linker;
+import java.lang.foreign.MemorySegment;
+import java.lang.foreign.SymbolLookup;
+import java.lang.foreign.ValueLayout;
+import java.lang.invoke.MethodHandle;
 import java.time.Duration;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -90,8 +97,29 @@ class KernelKeyringTest {
         assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
 
         keyring.store("secret".toCharArray());
+        // A new, empty session keyring for this process alone: the link store() made is gone, as after a logout,
+        // and the operator's own session keyring is not touched.
+        joinANewSessionKeyring();
+
         assertThat(keyring.read()).isPresent();
         assertThat(keyring.forget()).isEqualTo(KernelKeyring.Forgotten.CLEARED);
+    }
+
+    private static void joinANewSessionKeyring() {
+        final Linker linker = Linker.nativeLinker();
+        final SymbolLookup keyutils =
+                SymbolLookup.libraryLookup("libkeyutils.so.1", Arena.global());
+        final MethodHandle join = linker.downcallHandle(
+                keyutils.find("keyctl_join_session_keyring").orElseThrow(),
+                FunctionDescriptor.of(ValueLayout.JAVA_INT,
+                        ValueLayout.ADDRESS));
+        final int serial;
+        try {
+            serial = (int) join.invokeExact(MemorySegment.NULL);
+        } catch (final Throwable ex) {
+            throw new IllegalStateException("Could not join a new session keyring", ex);
+        }
+        assertThat(serial).as("the new session keyring's serial").isPositive();
     }
 
     @Test

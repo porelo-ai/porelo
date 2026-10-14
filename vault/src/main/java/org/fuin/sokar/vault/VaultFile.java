@@ -87,13 +87,27 @@ public class VaultFile {
 
     private final SecureRandom random = new SecureRandom();
 
+    /** Runs after the new content is durable and before it replaces the file; a seam so a test can fail there. */
+    private final Runnable beforeReplace;
+
     /**
      * Constructor.
      *
      * @param file Path of the vault file.
      */
     public VaultFile(Path file) {
+        this(file, () -> { });
+    }
+
+    /**
+     * Constructor for tests.
+     *
+     * @param file Path of the vault file.
+     * @param beforeReplace Runs between writing the temporary file and moving it over the vault.
+     */
+    VaultFile(Path file, Runnable beforeReplace) {
         this.file = file;
+        this.beforeReplace = beforeReplace;
     }
 
     /**
@@ -751,16 +765,23 @@ public class VaultFile {
             Files.createDirectories(directory);
             final Path temporary = Files.createTempFile(directory, ".vault", ".tmp",
                     PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
-            try (FileChannel channel = FileChannel.open(temporary,
-                    java.nio.file.StandardOpenOption.WRITE)) {
-                channel.write(ByteBuffer.wrap(header));
-                channel.write(ByteBuffer.wrap(cipherText));
-                // Without the force() the rename can be durable while the content is not, which
-                // on a crash leaves an empty vault where a good one used to be.
-                channel.force(true);
+            try {
+                try (FileChannel channel = FileChannel.open(temporary,
+                        java.nio.file.StandardOpenOption.WRITE)) {
+                    channel.write(ByteBuffer.wrap(header));
+                    channel.write(ByteBuffer.wrap(cipherText));
+                    // Without the force() the rename can be durable while the content is not, which
+                    // on a crash leaves an empty vault where a good one used to be.
+                    channel.force(true);
+                }
+                beforeReplace.run();
+                Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING,
+                        StandardCopyOption.ATOMIC_MOVE);
+            } catch (IOException | RuntimeException ex) {
+                // A failed write left every credential, encrypted, in a second file beside the vault, one per failure.
+                Files.deleteIfExists(temporary);
+                throw ex;
             }
-            Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING,
-                    StandardCopyOption.ATOMIC_MOVE);
             // The rename itself has to reach the disk too. force() above makes the CONTENT
             // durable; on a filesystem that needs the directory synced, a crash between the move
             // and the next flush can leave the old name pointing at nothing - which for a vault

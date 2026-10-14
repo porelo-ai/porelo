@@ -1,0 +1,2 @@
+title: A vault write that fails after its new content is on disk no longer leaves that content, encrypted, in a second file beside the vault
+type: fixed

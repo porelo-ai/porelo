@@ -3,11 +3,18 @@ package org.fuin.sokar.vault;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.RandomAccessFile;
+import java.io.UncheckedIOException;
+import java.nio.channels.FileLock;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -36,10 +43,10 @@ class VaultFileTest {
      */
     private static void patchHeader(Path file, String from, String to) throws IOException {
         final byte[] content = Files.readAllBytes(file);
-        final String raw = new String(content, java.nio.charset.StandardCharsets.ISO_8859_1);
+        final String raw = new String(content, StandardCharsets.ISO_8859_1);
         assertThat(raw).as("the header should contain " + from).contains(from);
         final byte[] patched = raw.replace(from, to)
-                .getBytes(java.nio.charset.StandardCharsets.ISO_8859_1);
+                .getBytes(StandardCharsets.ISO_8859_1);
         final java.nio.ByteBuffer buffer = java.nio.ByteBuffer.wrap(patched);
         buffer.position(12);
         buffer.putInt(buffer.getInt(12) + (patched.length - content.length));
@@ -137,7 +144,7 @@ class VaultFileTest {
         final Path file = dir.resolve("vault.bin");
         new VaultFile(file).write(ENTRIES, PASSPHRASE);
 
-        final String raw = new String(Files.readAllBytes(file), java.nio.charset.StandardCharsets.ISO_8859_1);
+        final String raw = new String(Files.readAllBytes(file), StandardCharsets.ISO_8859_1);
         assertThat(raw).doesNotContain("ghp_example").doesNotContain("github.token");
     }
 
@@ -276,6 +283,57 @@ class VaultFileTest {
     }
 
     @Test
+    void anUpdateWaitsForAnotherProcessHoldingTheLock(@TempDir Path dir) throws Exception {
+
+        // Threads of one process are kept apart by a lock in memory; only the file lock keeps two processes apart,
+        // and two `sokar` processes storing at once are the case it exists for.
+        final Path file = dir.resolve("vault.bin");
+        final VaultFile vault = new VaultFile(file);
+        vault.write(ENTRIES, PASSPHRASE);
+
+        final Process holder = new ProcessBuilder(Path.of(System.getProperty("java.home"), "bin", "java").toString(),
+                "-cp", System.getProperty("java.class.path"), LockHolder.class.getName(),
+                file.resolveSibling("vault.bin.lock").toString())
+                .redirectError(ProcessBuilder.Redirect.INHERIT).start();
+        try {
+            assertThat(new BufferedReader(new InputStreamReader(holder.getInputStream(),
+                    StandardCharsets.UTF_8)).readLine()).as("the other process").isEqualTo("locked");
+
+            final CompletableFuture<Void> update = CompletableFuture.runAsync(
+                    () -> vault.update(PASSPHRASE, entries -> {
+                        entries.put("third", VaultEntry.of("3"));
+                        return entries;
+                    }));
+            Thread.sleep(1_000);
+            assertThat(update).as("the update while the other process holds the lock").isNotDone();
+
+            holder.getOutputStream().close();
+            update.get(30, TimeUnit.SECONDS);
+        } finally {
+            holder.destroyForcibly().waitFor();
+        }
+        assertThat(vault.read(PASSPHRASE)).containsEntry("third", VaultEntry.of("3"));
+    }
+
+    /** Takes the lock a vault's update takes, says so, and holds it until its input closes. */
+    static final class LockHolder {
+
+        private LockHolder() {
+        }
+
+        public static void main(final String[] args) throws IOException {
+            try (RandomAccessFile file = new RandomAccessFile(args[0], "rw");
+                    FileLock lock = file.getChannel().lock()) {
+                System.out.println("locked");
+                System.out.flush();
+                while (System.in.read() != -1) {
+                    // Held until the test closes the stream.
+                }
+            }
+        }
+    }
+
+    @Test
     void leavesTheOldVaultIntactIfWritingFails(@TempDir Path dir) {
 
         final VaultFile vault = new VaultFile(dir.resolve("sub/vault.bin"));
@@ -286,6 +344,29 @@ class VaultFileTest {
         })).isInstanceOf(IllegalStateException.class);
 
         assertThat(vault.read(PASSPHRASE)).isEqualTo(ENTRIES);
+    }
+
+    @Test
+    void leavesTheOldVaultAndNoSecondCopyIfReplacingFails(@TempDir Path dir) throws IOException {
+
+        // Fails where only the atomic replacement protects the vault: the new content is written and durable,
+        // and has not yet replaced the file.
+        final Path file = dir.resolve("vault.bin");
+        new VaultFile(file).write(ENTRIES, PASSPHRASE);
+        final VaultFile failing = new VaultFile(file, () -> {
+            throw new UncheckedIOException(new IOException("No space left on device"));
+        });
+
+        assertThatThrownBy(() -> failing.update(PASSPHRASE, entries -> {
+            entries.put("third", VaultEntry.of("3"));
+            return entries;
+        })).hasRootCauseMessage("No space left on device");
+
+        assertThat(new VaultFile(file).read(PASSPHRASE)).isEqualTo(ENTRIES);
+        try (var left = Files.list(dir)) {
+            assertThat(left.map(path -> path.getFileName().toString()))
+                    .as("files beside the vault").containsExactlyInAnyOrder("vault.bin", "vault.bin.lock");
+        }
     }
 
     @Test

@@ -1,7 +1,7 @@
 # B76 — The Code Checked Against The Skills It Was Written Without
 
 **Status:** Implementing.
-**Size:** L - ten open findings in five modules, and three modules added on 2026-10-08 that were never read.
+**Size:** L - seven open findings in four modules, and three modules added on 2026-10-08 that were never read.
 
 **What must be true.** Every Java module has been read against the skills that apply to it, and
 each finding is either fixed with a test that was watched to fail, or declined with the reason
@@ -156,9 +156,18 @@ Declined, with the reason:
 - **A header with many passphrase slots** makes opening run Argon2 once per slot, past the cost cap.
   Writing such a header needs the account the vault belongs to, which can already do worse.
 
-Still to do in this module: three tests that do not prove their guard - the keyring's session-link
-case never removes the link, the failed-write case throws before anything is written, and nothing
-tests two processes against the file lock.
+Three tests that did not prove their guard, each now seen red with its guard undone, read against
+`test-quality` and `concurrency-review` 2026.906.3:
+
+- **The keyring's session-link case never removed the link.** It leaves for a new, empty session keyring of
+  its own process before reading, so only the search of `@u` can find the key; the operator's session keyring
+  is not touched.
+- **The failed-write case threw before anything was written.** A seam now fails after the new content is
+  durable and before it replaces the vault - which found that **a failed replacement left every credential,
+  encrypted, in a `.vault*.tmp` beside the vault**, one per failure. The temporary file is deleted on any
+  failure.
+- **Nothing tested two processes against the file lock.** A second JVM holds the lock, and an update waits
+  until it lets go.
 
 ### `sokard`
 
@@ -428,22 +437,19 @@ lines since their reading; they are read again only where a finding below touche
 
 In order, credentials and threads first, one commit per module:
 
-1. **`sokar-vault`'s three tests that do not prove their guard** (`vault/src/test/...`): the keyring's
-   session-link case removes the link, the failed-write case fails after the temporary file is written, and a
-   second process (a forked JVM) holds the file lock while the first waits.
-2. **`sokar-shield`'s netlink socket** (`shield/.../NetlinkSocket.java`): the descriptor is closed when `bind`
+1. **`sokar-shield`'s netlink socket** (`shield/.../NetlinkSocket.java`): the descriptor is closed when `bind`
    fails. Red first: a test with a bind that fails, through a seam for the downcall, sees `close` not called.
-3. **`sokar-hooks`' hung `nft`** (`hooks/.../NftHook.java`, which waits 30 seconds today): the program it runs
+2. **`sokar-hooks`' hung `nft`** (`hooks/.../NftHook.java`, which waits 30 seconds today): the program it runs
    comes through a seam, the hook's own limit is below the runtime's, and the hook log says it timed out. Red
    first: a fake `nft` that sleeps, and a hook log without the word.
-4. **`sokar` (app)**: a message id delivered twice across passes is recognised against the held record as well
+3. **`sokar` (app)**: a message id delivered twice across passes is recognised against the held record as well
    (`MessageRecord`, `TransportConversations`); the message watch says when it falls back to the pass for lack
    of inotify watches (`MessageWatch`, one line in `doc/messages.md`); a test meets pruning and lending one
    token (`FollowCredential`).
-5. **The acceptance kit**: `ends within N seconds` takes the expected end as part of the step, or the kit's
+4. **The acceptance kit**: `ends within N seconds` takes the expected end as part of the step, or the kit's
    README says it asserts the limit only. The remote command's limit is `sokar-buildtools`'; it is written
    there as an issue and leaves this list.
-6. **The new modules**, read against the same skills: `builds/api` and `builds/stub` (security-audit,
+5. **The new modules**, read against the same skills: `builds/api` and `builds/stub` (security-audit,
    java-code-review, concurrency-review, test-quality), `dist/package-check` and `acceptance/legs`
    (test-quality, security-audit, java-code-review). Each gets its row in *Done so far* and a section here.
 
