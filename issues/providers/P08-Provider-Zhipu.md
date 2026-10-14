@@ -52,6 +52,9 @@ The agents that can reach it are listed in
 - Whether a key made on one host is taken on the other is measured with both hosts' keys, and `doc/credentials.md`
   says what was found. Seen to fail: the documentation claims one key serves both, or that it does not, with no
   measurement behind it, or anything of the accounts in a committed file.
+- Its live scenario records one streamed answer of each format it serves and adds it as a fixture of the
+  broker's usage reading ([B148](../base/README.md#b148)). Seen to fail: the fixture's line lacks a count the
+  provider sent, or the agent's answer differs from the provider's beyond the added usage chunk.
 
 ## To be checked
 

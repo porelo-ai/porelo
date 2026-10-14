@@ -6,8 +6,8 @@
 **What must be true.** A task cannot spend more than its project allows: the broker stops forwarding to the provider
 once a task's token ceiling is reached, and says so to the task and to the person.
 
-A ceiling in money is out of scope here and will be an issue of its own: it can hold only where the provider reports
-the cost of each answer, as a router service does, and a token ceiling holds for every provider.
+A ceiling in money is out of scope here and is [B177](README.md#b177)'s, from the cost a provider reports or a list
+price; a token ceiling needs neither.
 
 ## Why
 
@@ -33,7 +33,12 @@ memory, cpus, pids, hand-in size. `doc/corporate-security.md` says "It does not 
    <n> is reached`, and nothing goes to the provider. Which status each agent gives up on is measured with the stub
    and the Pi family first. A request already forwarded is let finish, so one answer can pass the ceiling; the docs
    say so. The refusal is written to `vault.log` and once to the daemon, which shows it in `task status` and to the
-   interface as the task's state.
+   interface as the task's state. **An answer whose count is `null`** in [B148](README.md#b148)'s record: a
+   `complete` one stops the counting fail closed - the next request is refused, saying an answer's count could not
+   be read, until `task limit` raises or lifts the ceiling - and a task whose provider file says `stream_usage: false`
+   is refused the ceiling at its start; an `aborted` one counts what it has, and three in a row with no count refuse
+   the next request, so closing every stream before its end does not escape the ceiling while a person's interrupt
+   does not stop the task.
 3. **Raising it for a running task.** `sokar task limit <task> --tokens <m>` writes the new ceiling where `vault
    serve` reads it (a file in the task's state directory on the host, read per request). Only a person on the host
    raises it, above the project's too; the task has no way to that file.

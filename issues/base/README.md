@@ -65,6 +65,8 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `sokar clear`; written by approve, reject, clearance, hand-in, credentials and project changes. |
+| <a id="b189"></a>[B189](B189-Values-Handed-To-A-Task-At-Its-Start.md) | L | - | Values a project declares in `parameters:`, handed to a start by `--set`, `--set-file` or `--set-env`, checked by `StartCheck`, kept in `parameters.json`, shown with their origin by `task status` and `Task`, set in the container and usable as `{name}` in settings. |
+| <a id="b190"></a>[B190](B190-A-Tasks-Branch-Named-By-The-Projects-Scheme.md) | L | `sokar` [B189](README.md#b189) | `branch.template` and `branch.pattern` or `--branch` name a task's forge branch, kept in `task.json`; the gate passes on and keeps out of its mirror by them, an existing upstream branch refused at an online start, a guarded approval onto it by default and only within the pattern. |
 
 ## Analyzed
 
@@ -72,12 +74,13 @@ from its side, as *blocked by*.
 |---|---|---|---|---|
 | <a id="b175"></a>[B175](B175-The-Profile-That-May-Bind-The-Socket.md) | L | `sokar` [B135](README.md#b135) | On an AppArmor machine a task connects only to a socket one of Sokar's binaries bound, by a task profile that refuses any other peer, as the SELinux domain does on SELinux machines. | 2 |
 | <a id="b176"></a>[B176](B176-Comment-Threads-That-Follow-A-New-Push.md) | M | `sokar` [B166](README.md#b166) | A thread on waiting work moves to a new push's commit where its lines are unchanged, else stays and says why; each commented commit pinned under a hidden ref; `Thread` gains `from` and `stays`. | 1 |
-| <a id="b177"></a>[B177](B177-A-Cost-Ceiling-Where-The-Provider-Reports-Cost.md) | M | `sokar` [B138](README.md#b138) | A dollar ceiling per task from `limits.cost`, enforced by the broker from the cost the provider reports (`reports_cost` in the provider file); a task whose provider reports none is refused at its start. | - |
+| <a id="b177"></a>[B177](B177-A-Cost-Ceiling-Per-Task.md) | M | `sokar` [B138](README.md#b138), [B191](README.md#b191) | A dollar ceiling per task from `limits.cost`, counted by the broker from the cost the provider reports, else at list price from the price table; a model with no price refuses the ceiling at the start or fail closed, never $0; under a subscription it caps list-price value. | - |
 | <a id="b178"></a>[B178](B178-A-Credential-With-No-Expiry-Said-So.md) | M | - | Storing a credential with no end says so (`vault put`, `vault login`, `ImportCredential`), and `vault list` and `Credentials()` mark it with `noExpiry`. | 1 |
 | <a id="b122"></a>[B122](B122-No-Direct-Chat-Between-Tasks.md) | M | - | Peers at an account accepted only for joined persons: checked at the start, in `talk peers`, in the dispatch and again at the send. | - |
 | <a id="b173"></a>[B173](B173-An-Agents-Sign-In-Kept-Without-A-Person.md) | S | - | `vault login <agent> --credentials-from <dir>`: an agent's sign-in read through its extractor and kept renewable without a person; `--token-url` on loopback only, for a kit's stand-in token endpoint. | - |
 | <a id="b121"></a>[B121](B121-A-Message-Record-Without-A-Chain.md) | M | `sokar` [B154](README.md#b154) | Drop `previous` and `hash` from `MessageRecord`, remove `sokar talk verify`, its rows and scenario, and update the docs and the decision. | - |
-| <a id="b148"></a>[B148](B148-Token-Counting-Per-Task.md) | L | - | The broker reads usage and models from JSON and SSE answers into a per-task `usage/<task>.jsonl` kept after removal, shown in task status and the contract. | - |
+| <a id="b148"></a>[B148](B148-Token-Counting-Per-Task.md) | L | - | The broker reads four answer formats, streamed or not, into a per-task `usage/<task>.jsonl` kept after removal: agent, provider, models, five counts (`null` when not reported), tools, how it ended, a reported cost; asks for the streamed Chat Completions count; sums in `task status` and `Usage`. | - |
+| <a id="b191"></a>[B191](B191-What-A-Task-Cost-At-List-Prices.md) | L | `sokar` [B148](README.md#b148) | Price files per provider with their date, a task, agent and model priced at list prices, unpriced requests counted, a declared subscription and what it saved, in `task status`, `sokar usage` and `Cost`. | - |
 | <a id="b150"></a>[B150](B150-The-Whole-Diff-In-Review.md) | M | - | The daemon's `Review` fails above the 4 MiB message limit today: cut at a file boundary, said with `cut` in the contract; `files` is never cut. | - |
 | <a id="b108"></a>[B108](B108-The-Narrowed-Message-Schema-Enforced.md) | M | - | One JSON Schema the filter enforces and the guide and docs are made from; the host does not check the shape again. | - |
 | <a id="b118"></a>[B118](B118-An-Attached-Agent-Said-At-Rest-Or-Working.md) | M | - | A new `AT_REST` activity, judged from the screen reads the listing already makes with the wake's two-look rule; the stub agent gets an `at_rest`. | - |
@@ -95,6 +98,14 @@ from its side, as *blocked by*.
 | <a id="b56"></a>[B56](B56-Programs-Sokar-Runs-That-Could-Be-Calls.md) | S | - | The table of programs Sokar runs completed, and a source-scanning test that fails on an unlisted one; each replacement its own issue. | - |
 | <a id="b116"></a>[B116](B116-A-Log-Read-Back-In-Windows.md) | M | - | `Tail` gets `before` to read back in windows, and a cap per line reported in `cut`. | - |
 | <a id="b165"></a>[B165](B165-A-Port-Of-A-Task-On-Loopback-Only.md) | M | - | `sokar task port`: a two-half relay, in the task's namespace and on host loopback only, over a `0700` socket, with `ports.log`, docs and a scenario. | - |
+
+## Accepted
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="b192"></a>[B192](B192-An-Image-Chosen-Per-Repository.md) | - | `sokar` [B170](README.md#b170) | A task started on one repository of a project gets that repository's own image, built from its devcontainer file. |
+| <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | - | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own. |
+| <a id="b194"></a>[B194](B194-A-File-Handed-In-At-Every-Start.md) | - | - | A host file such as `.AGENTS.md` handed into an agent's task read-only at every start; a changed copy written on the host only after approval. |
 
 ## Idea
 

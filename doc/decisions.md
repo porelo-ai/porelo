@@ -17,16 +17,35 @@ would change the answer.
 | Every class pushes through its gate | no key, socket or route to the upstream in any container; an online task's gate passes its own branch on at once | [entry](#every-class-pushes-through-its-gate) |
 | A build is read from the host, never by the task | an online task is handed its builds' verdicts and logs; no forge token, route or verb in it | [entry](#a-build-is-read-from-the-host-never-by-the-task) |
 | Build readers are packages behind a versioned API | `sokar-build-api` and `org.fuin.sokar.Build1`; each forge in a repository of its own; nothing in `sokar` names one | [entry](#build-readers-are-packages-behind-a-versioned-api) |
+| A stop of every task keeps its tokens | `task stop --all` and `panic` stop as `task stop` does; revoking is `vault lock` or `vault remove`, a step of its own | [entry](#a-stop-of-every-task-keeps-its-tokens) |
+| Nested containers never in a guarded project | `guarded` never sets them; only on a task's own kernel where the assessment says so | [entry](#nested-containers-never-in-a-guarded-project) |
+| A devcontainer file's features are not fetched | its image or Dockerfile is used, each feature named as not installed; nothing runs at build that the project file does not name | [entry](#a-devcontainer-files-features-are-not-fetched) |
+| Several attempts share one credential | not split or queued; a reached limit said per attempt; five attempts by default | [entry](#several-attempts-share-one-credential) |
+| A reviewer task reviews only its own project | another project's waiting work is never read | [entry](#a-reviewer-task-reviews-only-its-own-project) |
+| A time limit does not cut off a person who is watching | a start may shorten the limit, never lengthen it; an attached person is warned and the stop waits for their detach | [entry](#a-time-limit-does-not-cut-off-a-person-who-is-watching) |
+| What carries an agent's words is kept for a period | `task.log` and a session's recording cut after 30 days, even while the task lives; a setting | [entry](#what-carries-an-agents-words-is-kept-for-a-period) |
+| A kernel of its own for a task is measured before it is decided | adopted only on measured answers: it works, the ruleset still fails closed, its cost | [entry](#a-kernel-of-its-own-for-a-task-is-measured-before-it-is-decided) |
+| A view of a task is guarded by Sokar's token, not by VNC's password | switched on per project, only through Sokar's relay, a strong one-time token before a byte reaches VNC | [entry](#a-view-of-a-task-is-guarded-by-sokars-token-not-by-vncs-password) |
 | **The machine and the daemon** | | |
 | A weaker machine is reported, not refused | `DEGRADED` exits zero and starts tasks; only `MISSING` fails | [entry](#a-weaker-machine-is-reported-not-refused) |
 | Doctor diagnoses and never repairs | each check names the next action; nothing runs a fix as root | [entry](#doctor-diagnoses-and-never-repairs) |
 | The daemon restarts itself after an update; the package does not | it sees its binary replaced and asks the account's systemd; tasks keep running | [entry](#the-daemon-restarts-itself-after-an-update-the-package-does-not) |
+| Sokar offers what it would tell a person to type | one `Offer` helper: the command's own code, the precondition checked again, a destructive step defaults to no, nothing asked without a terminal | [entry](#sokar-offers-what-it-would-tell-a-person-to-type) |
+| Account-wide settings live in one file | `$XDG_CONFIG_HOME/sokar/config.yml`; missing means every default, an unknown key refused by name | [entry](#account-wide-settings-live-in-one-file) |
+| Unused access is reported, and locked only on request | a slot or deploy key unused for 45 days named by `doctor`; locking is a setting, off by default | [entry](#unused-access-is-reported-and-locked-only-on-request) |
+| The event log is anchored in the user's journal and outlives a clearing | each line's hash in the user's journal, sent off the machine only by a setting; `sokar clear` keeps it | [entry](#the-event-log-is-anchored-in-the-users-journal-and-outlives-a-clearing) |
 | **Egress, the shield and the review** | | |
 | Port 53 to the upstream is the resolver's alone | matched by the resolver's uid 0 in the namespace; the agent's direct query is dropped and logged | [entry](#port-53-to-the-upstream-is-the-resolvers-alone) |
 | Sokar does not claim to detect a prompt injection | it bounds what a convinced agent is worth; each guard says control or accident-catcher | [entry](#sokar-does-not-claim-to-detect-a-prompt-injection) |
 | The provider channel is documented, not bounded and not alerted on | an open path by construction; stated, recorded, no alert | [entry](#the-provider-channel-is-documented-not-bounded-and-not-alerted-on) |
 | What is dangerous by kind is a fixed list that ships with Sokar | never in the repository it judges, never per project | [entry](#what-is-dangerous-by-kind-is-a-fixed-list-that-ships-with-sokar) |
 | The instruction is shown, never compared | the review shows what was asked and matches no file against it | [entry](#the-instruction-is-shown-never-compared) |
+| An MCP server reaches a task only over HTTP, through the gateway on the host | no stdio server on the host; one in the container is named as not covered; only new or changed tools held | [entry](#an-mcp-server-reaches-a-task-only-over-http-through-the-gateway-on-the-host) |
+| An alert either only tells or stops the task; it never freezes it | per project: tell a person, the default, or also stop the task and revoke its tokens | [entry](#an-alert-either-only-tells-or-stops-the-task-it-never-freezes-it) |
+| A false secret finding is acknowledged on the host, never in the repository | an owner-only list beside the project, each entry lapsing when its text changes; the tree is scanned, not its history | [entry](#a-false-secret-finding-is-acknowledged-on-the-host-never-in-the-repository) |
+| A new dependency with a finding waits for a person | the approve asks for each, bound to the reviewed commit, and without a terminal is refused; Maven Central and npm first | [entry](#a-new-dependency-with-a-finding-waits-for-a-person) |
+| An approve lands as a merge carrying provenance; a fast-forward is a project's choice | models, agent and provider from the broker, never the agent; a fast-forward gives up the provenance | [entry](#an-approve-lands-as-a-merge-carrying-provenance-a-fast-forward-is-a-projects-choice) |
+| The owner approves alone unless a project asks for a second person | four eyes is a project setting; the approve then needs another signer's signature | [entry](#the-owner-approves-alone-unless-a-project-asks-for-a-second-person) |
 | **The vault and credentials** | | |
 | A provider is a declaration; an agent is a package | providers are YAML data paired with agents by dialect; the vault is keyed by provider | [entry](#a-provider-is-a-declaration-an-agent-is-a-package) |
 | A service that is not a model provider is a destination | its own kind and file, not a widened provider; a provider resolves as one too | [entry](#a-service-that-is-not-a-model-provider-is-a-destination) |
@@ -42,6 +61,10 @@ would change the answer.
 | A cached passphrase is reported gone only when it is gone | `vault lock` answers cleared, nothing cached or unknown, and exits non-zero on unknown | [entry](#a-cached-passphrase-is-reported-gone-only-when-it-is-gone) |
 | The passphrase cache does not outlive a login, and a foreign keyring reads as empty | one mechanism, the kernel keyring; another user namespace would read it as empty | [entry](#the-passphrase-cache-does-not-outlive-a-login-and-a-foreign-keyring-reads-as-empty) |
 | Secrets in the daemon's memory stay strings | accepted: whoever reads that memory reads the vault file and the keyring too | [entry](#secrets-in-the-daemons-memory-stay-strings) |
+| A task's spending is capped in tokens, and in money where a price is known | tokens for every provider, the streamed count asked for; money from the reported cost, else the dated list price; no price refuses the money ceiling, never $0; under a subscription it caps list-price value | [entry](#a-tasks-spending-is-capped-in-tokens-and-in-money-where-a-price-is-known) |
+| A credential is entered only in a terminal | no method of the daemon's contract takes a secret; a forced-command account is not served | [entry](#a-credential-is-entered-only-in-a-terminal) |
+| A credential with no expiry is stored and named | accepted, never refused; the store says so and the list marks it | [entry](#a-credential-with-no-expiry-is-stored-and-named) |
+| A storage class Sokar cannot prove is shown as user-scoped | stronger only by a slot the node enrolled or evidence it checks; a client's claim is recorded and shown as user-scoped | [entry](#a-storage-class-sokar-cannot-prove-is-shown-as-user-scoped) |
 | **Projects and following** | | |
 | A project file describes constraints, not instructions | no prompt or standing instruction belongs in `project.yml` | [entry](#a-project-file-describes-constraints-not-instructions) |
 | A project exists by being followed | Sokar never writes a project file; follow is the only way in and does the whole check | [entry](#a-project-exists-by-being-followed) |
@@ -52,6 +75,7 @@ would change the answer.
 | A project may be followed without a signing key | `--unverified` is allowed per project, as a loudly reported state, not an error | [entry](#a-project-may-be-followed-without-a-signing-key) |
 | Where a followed project's file comes from | only the verified clone; nothing in force means no task, never a fallback to a local file | [entry](#where-a-followed-projects-file-comes-from) |
 | Clearing names what only a person's credentials can remove, and never attempts it | forge deploy keys and `machine-signers` lines are answered, not removed; the vault stays | [entry](#clearing-names-what-only-a-persons-credentials-can-remove-and-never-attempts-it) |
+| A digest pins an image; a tag-only image in a followed project needs a person's consent once | a followed tag-only project waits for one consent, then the digest is kept and a change said at every start | [entry](#a-digest-pins-an-image-a-tag-only-image-in-a-followed-project-needs-a-persons-consent-once) |
 | **Messages** | | |
 | A task holds no key and sees no address | one mailbox in the container; a host-side signing key, distinct from the login key | [entry](#a-task-holds-no-key-and-sees-no-address) |
 | No model decides what a message may contain | rules accept or refuse, a person holds; a classifier may only ever hold | [entry](#no-model-decides-what-a-message-may-contain) |
@@ -72,8 +96,14 @@ would change the answer.
 | Sokar is split into modules by area, not into repositories | `app-<area>` modules with enforced dependencies; one build, one package, one contract on the wire | [entry](#sokar-is-split-into-modules-by-area-not-into-repositories) |
 | The build tooling lives in its own repository; the acceptance kit stays | `sokar-buildtools` from Central at `sokar.buildtools.version`; the kit changes with the product | [entry](#the-build-tooling-lives-in-its-own-repository-the-acceptance-kit-stays) |
 | Which machine types a leg rents | snapshots at the smallest disk; `cpx42` first for speed, three fallbacks; nothing enforces it | [entry](#which-machine-types-a-leg-rents) |
+| A developer's build labels itself | `chcon` after each build where SELinux is on; no build path in the shipped policy | [entry](#a-developers-build-labels-itself) |
+| A release waits for the misuse suite, and a found hole is never skipped | every misuse scenario ran and passed; a red one holds the release and is never tagged or filtered out | [entry](#a-release-waits-for-the-misuse-suite-and-a-found-hole-is-never-skipped) |
+| Every Sokar repository gets the changelog check from its parent | bound once in `sokar-parent`; a repository not built with Maven runs it as a workflow step | [entry](#every-sokar-repository-gets-the-changelog-check-from-its-parent) |
+| A leg runs only the unit tests that need its machine | unit tests on the build host, except those only the target can run, which fail it when skipped | [entry](#a-leg-runs-only-the-unit-tests-that-need-its-machine) |
+| One key signs everything a machine installs from Sokar | packages, setup script and repository metadata with one key held by the owner; the publishing repositories switch on together | [entry](#one-key-signs-everything-a-machine-installs-from-sokar) |
 | **The documentation** | | |
 | The issue index stays one table per section | a conflict there is resolved by keeping both lines; split, nobody could read it whole | [entry](#the-issue-index-stays-one-table-per-section) |
+| The data protection page follows the federal ISDS concept template | in the template's chapters, each saying what Sokar provides and what the organisation regulates | [entry](#the-data-protection-page-follows-the-federal-isds-concept-template) |
 
 ## A task is the container whose id Sokar recorded
 
@@ -761,12 +791,17 @@ that setting. The log is the account's history, not a project's, so `sokar clear
 `task.log` holds the agent's own words and so may hold personal and confidential data. It is cut 30 days after it was
 written, even while its task lives, and so is a session's recording; the account's settings may change the period.
 
-## A task's spending is capped in tokens, not in money
+## A task's spending is capped in tokens, and in money where a price is known
 
-Every provider's answer carries a token count, so a token ceiling holds for every provider the broker forwards to; a
-price does not, and one computed from a price list on the host goes stale. The ceiling is enforced in the task's
-broker, which the agent cannot bypass. A ceiling in money may follow, only for providers that report each answer's
-cost, as an addition to the token ceiling.
+A token ceiling holds for every provider the broker forwards to: the broker reads the count from each answer, and on
+a streamed Chat Completions request, whose answer carries none unless asked (`stream_options.include_usage`), it asks
+for it, whatever the agent sent, so an agent cannot leave its own use uncounted. A ceiling in money may be set beside
+it. It is counted from the cost the provider reports where it does, else at list price from Sokar's price table, which
+is data carrying the date its prices were taken: a price changes without a release, and a stale one shows its date
+rather than hiding. A model with no price refuses the money ceiling - at the start where that is known, else fail
+closed at the first answer it cannot price - and is never counted as $0. Under a subscription the ceiling caps the
+list-price value of what was used, not the money paid; there it bounds a looping agent, not a bill. Both ceilings
+hold in the task's broker, which the agent cannot bypass.
 
 ## An alert either only tells or stops the task; it never freezes it
 

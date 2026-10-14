@@ -54,3 +54,6 @@ A provider is data (`doc/credentials.md`, "Model providers"): nothing in the bro
 - The account sign-in is measured with the account provided for it, and is either brokered or stays refused with
   what was measured written beside the refusal. Seen to fail: `unbrokerable` lifted with no measurement behind it, or
   anything of the account in a committed file.
+- Its live scenario records one streamed answer of each format it serves and adds it as a fixture of the
+  broker's usage reading ([B148](../base/README.md#b148)). Seen to fail: the fixture's line lacks a count the
+  provider sent, or the agent's answer differs from the provider's beyond the added usage chunk.

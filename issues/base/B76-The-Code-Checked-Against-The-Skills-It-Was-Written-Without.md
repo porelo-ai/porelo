@@ -35,6 +35,19 @@ its author thought of. The skills are a second author's list of what to think of
 directory. Reading is enough: download each package as `AGENTS.md` *How to get them* says, check its
 SHA-256 against the repository's, unpack it anywhere, and read `SKILL.md`.
 
+**The versions read against from now on**, each zip checked against its SHA-256 before it is unpacked; a newer
+version taken while this is open is named in the commit that reads with it:
+
+    graal               2026.910.3  b24ec6272fb13490e32977c21d4543869a7e85ed474fdc0ff34022fbddd88bf6
+    java-code-review    2026.906.3  802f86339442ed9fa9d5bca14b6d16e1f6420ae92a047b18bba11239e32c698b
+    test-quality        2026.906.3  9c5d23ad7a6d9c6f5c3679f3cc44a7fcc2fb3cc1c0f0d0ba4a2c0f7812428bad
+    security-audit      2026.906.3  a46fd1be07bd539b955291537dea0f24f65a2f8b15d40d50a6a9098bbd992747
+    concurrency-review  2026.906.3  3a0aab612f25483a3fe777eb18fbcc434e936b19298708bf88beff8b22d79e56
+    clean-code          2026.906.3  5cf777a24630298b4b801c934f599722978c21aeac53d61683243908fc041c7b
+    solid-principles    2026.906.3  bd47cdab9126dde76cf1703472167a1c88c85306a4e0263a8f2db4c462740cf5
+
+The readings listed below were made before versions were recorded; which they used is not on record.
+
 ## The shape
 
 **Every Java module in this repository**, read against:
