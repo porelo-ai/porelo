@@ -102,6 +102,44 @@ started inside the container is not checked.
 See [why you should use Porelo](corporate-security.md) for the other questions a security officer
 asks.
 
+## Why not lock the agent into a devcontainer?
+
+**Because a devcontainer is built to make a developer at home in a container, not to keep anything in it.** It is
+a good way to describe a build environment, and Porelo uses it as one: a task's image can come from the repository's
+devcontainer file ([decisions](decisions.md#a-devcontainer-files-features-are-not-fetched)). As a cage for an agent it
+fails where a cage matters:
+
+- **The agent can edit its own cage.** The devcontainer file lives in the repository the agent works on. Mounts,
+  capabilities, `--privileged`, extra run arguments and the commands run at create and at start are all in it, and
+  the next rebuild takes whatever the agent wrote. Porelo's limits live in the project file and on the host, where
+  a task cannot write.
+- **What it builds is chosen by whoever edits that file.** A feature is a script from a registry, run as root while
+  the image builds. Porelo installs none of them and names each one as not installed.
+- **The network is open.** A devcontainer reaches every host its machine reaches, and every name resolves. Porelo
+  gives each task a firewall that refuses everything not named for its project, and a resolver that answers only
+  those names; a task whose firewall cannot be loaded does not start
+  ([egress](how-it-works.md#egress-nothing-is-reachable-unless-named)).
+- **The credentials come along.** The tooling around a devcontainer forwards your ssh agent and your git
+  credentials into it and passes tokens as environment variables, so the agent holds the real keys and can use them
+  for anything, anywhere. In Porelo the container holds a phantom token, worthless outside that one task, and the
+  real credential is added on the host on the way out
+  ([vault and broker](how-it-works.md#the-vault-and-the-broker-the-container-never-holds-the-credential)).
+- **The workspace is your checkout.** The container writes straight into the directory on your disk, `.git`
+  included: a hook it plants there runs on your host, as you, at your next commit. In Porelo the agent works on a
+  copy cloned from the gate, never on your working directory, and its work leaves only as a branch you review and
+  approve
+  ([the gate](how-it-works.md#the-gate-work-leaves-only-after-review)).
+- **The runtime is often the machine's.** A devcontainer commonly runs under a container daemon with root rights or
+  is handed its socket, and whoever reaches that socket owns the machine. A Porelo task runs rootless under your own
+  account, with a hook that checks every start, and confined by SELinux where the system enforces it.
+- **Nothing is written down.** A devcontainer keeps no record of what the agent tried to reach or what it was
+  refused. Porelo logs every blocked connection per task, and every message that crossed between tasks in a record
+  that can be checked afterwards.
+
+A devcontainer stays the right answer for what it was made for: you, in your editor, with a reproducible toolchain.
+For an agent that should not leave, keep the devcontainer file as the image's recipe and let Porelo build the room
+around it.
+
 ## How do I work on several repositories at once in one task?
 
 **A task works on exactly one repository.** For one agent to work across several, make them one:
