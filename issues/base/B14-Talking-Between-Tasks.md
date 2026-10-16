@@ -1,6 +1,6 @@
 # B14 — Talking Between Tasks
 
-**Status:** Implementing; blocked by sokar [B86](README.md#b86).
+**Status:** Implementing; blocked by porelo [B86](README.md#b86).
 **Size:** XL - groups, trust confirmed once and two machines are three pieces; the plan splits them.
 
 **What must be true.** A person can address a group of peers as one - held, released and closed as one - and a
@@ -13,7 +13,7 @@ until it is released. A group is closed and reopened at any time, without a comm
 
 Built and measured on one machine, over a transport that keeps a conversation ([B86](README.md#b86)): the mailbox, the signature,
 the sluice both ways, dispatch, delivery against a key list, the record, duplicate suppression, bounces, budgets,
-holding and releasing with the four modes, `sokar talk`, and the daemon's message methods. A message addressing
+holding and releasing with the four modes, `porelo talk`, and the daemon's message methods. A message addressing
 more than one peer is refused with a reason today. How groups would be built is
 [B14-Talking-Between-Tasks_design.md](B14-Talking-Between-Tasks_design.md).
 
@@ -42,9 +42,9 @@ The split, each an issue of its own when it is started:
 1. **Groups (M).** `mail.groups.<group>: [peer, ...]` in `ProjectSchema`, `ProjectReader` and `Mail`; a group name
    in `metadata.to` resolves in `MessageDispatch` to its members, each queued over its own transport, the sender's
    receipt naming each; `Moderation` takes a group name and holds or releases all its members' traffic, and
-   `Moderate` and `sokar talk hold` accept it. Closing is a state of its own beside held: `Moderation` keeps it with
+   `Moderate` and `porelo talk hold` accept it. Closing is a state of its own beside held: `Moderation` keeps it with
    the group's other control state, on the host and not in `project.yml`, so closing and reopening need no commit;
-   `Moderate` grows an optional `closed`, and `sokar talk` a way to close and reopen. A message to a closed group
+   `Moderate` grows an optional `closed`, and `porelo talk` a way to close and reopen. A message to a closed group
    is refused in `MessageDispatch` before anything is queued, its sender told "group closed". Red first: a test in
    `MessageDispatchTest` sending to a two-member group, red while it is refused as addressing more than one peer;
    then one holding the group and asserting on what reaches each member's inbox; then one closing it and asserting

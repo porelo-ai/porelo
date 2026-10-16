@@ -1,6 +1,6 @@
 # Requirements
 
-What Sokar must do, in sets. Each set has its own index, its own numbering and its own
+What Porelo must do, in sets. Each set has its own index, its own numbering and its own
 order — importance is decided inside a category, not across them, because the people working on
 one rarely need to rank it against another.
 
@@ -9,10 +9,10 @@ one rarely need to rank it against another.
 | [**Base**](base/README.md) | The product below the interface: the CLI, the daemon, and the guarantees they make. | `B`… |
 | [**Providers**](providers/README.md) | Which providers exist, and how a task reaches one without ever holding its credential. | `P05`… |
 
-An `A` number cited here - an agent that has no repository yet - is `sokar-project`'s, and an `F` number is
-`sokar-frontend`'s, in
-[its own index](https://github.com/sokar-ai/sokar-frontend/blob/main/issues/README.md); what connects the two
-repositories is the daemon's contract, `daemon/src/main/resources/varlink/org.fuin.sokar.Tasks1/`.
+An `A` number cited here - an agent that has no repository yet - is `porelo-project`'s, and an `F` number is
+`porelo-frontend`'s, in
+[its own index](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md); what connects the two
+repositories is the daemon's contract, `daemon/src/main/resources/varlink/org.fuin.porelo.Tasks1/`.
 
 ## How to read one
 
@@ -33,7 +33,7 @@ in git.
 ## Agents and providers side by side
 
 Which agents can be brokered at all, what each costs and which to build next is
-[the comparison of agents and providers](https://github.com/sokar-ai/sokar-project/blob/main/doc/agents-and-providers.md) in `sokar-project`, since it spans agents that
+[the comparison of agents and providers](https://github.com/porelo-ai/porelo-project/blob/main/doc/agents-and-providers.md) in `porelo-project`, since it spans agents that
 have no repository here.
 
 ## Why agents and providers are separate sets

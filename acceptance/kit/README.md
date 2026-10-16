@@ -2,8 +2,8 @@
 
 Drives a real machine over ssh from a Cucumber scenario - as a person at a terminal, and as a
 script that nobody is watching - and reports where GitHub shows it. Published to Maven Central as
-`org.fuin.sokar:sokar-acceptance-kit`, so a repository that is not this one resolves it in test
-scope with no checkout of Sokar.
+`org.fuin.porelo:porelo-acceptance-kit`, so a repository that is not this one resolves it in test
+scope with no checkout of Porelo.
 
 Two consumers today: [this repository's own suite](../suite/README.md), and each agent repository's
 acceptance suite. What they share is everything here; what differs is their feature files.
@@ -15,9 +15,9 @@ it.
 
 ```xml
 <dependency>
-    <groupId>org.fuin.sokar</groupId>
-    <artifactId>sokar-acceptance-kit</artifactId>
-    <version>${sokar.version}</version>
+    <groupId>org.fuin.porelo</groupId>
+    <artifactId>porelo-acceptance-kit</artifactId>
+    <version>${porelo.version}</version>
     <scope>test</scope>
 </dependency>
 ```
@@ -29,25 +29,25 @@ A JUnit suite that names the kit's glue package, and your own beside it if you h
 @IncludeEngines("cucumber")
 @SelectClasspathResource("org/example/acceptance")
 @ConfigurationParameter(key = "cucumber.glue",
-        value = "org.fuin.sokar.acceptance, org.example.acceptance")
+        value = "org.fuin.porelo.acceptance, org.example.acceptance")
 public class AcceptanceIT { }
 ```
 
-Failsafe, with these system properties. The suite is off unless `sokar.acceptance.host` is given,
+Failsafe, with these system properties. The suite is off unless `porelo.acceptance.host` is given,
 so an ordinary build is unaffected:
 
 | property | meaning |
 |---|---|
-| `sokar.acceptance.host` | The machine. Naming one is what turns the suite on. |
-| `sokar.acceptance.user` | Who to connect as. |
-| `sokar.acceptance.key` | Private key file. Or `SOKAR_ACCEPTANCE_KEY` in the environment, holding the key itself - which is how CI does it, so that no key is ever written to a filesystem. |
-| `sokar.acceptance.as` | Whose Sokar to drive, when it is not the connecting user. |
-| `sokar.acceptance.features` | Where feature files live, repository-relative, so an annotation lands on the right line. Default `src/test/resources/`. |
-| `cucumber.plugin` | Include `org.fuin.sokar.acceptance.GitHubReport` for the two GitHub surfaces below. |
+| `porelo.acceptance.host` | The machine. Naming one is what turns the suite on. |
+| `porelo.acceptance.user` | Who to connect as. |
+| `porelo.acceptance.key` | Private key file. Or `PORELO_ACCEPTANCE_KEY` in the environment, holding the key itself - which is how CI does it, so that no key is ever written to a filesystem. |
+| `porelo.acceptance.as` | Whose Porelo to drive, when it is not the connecting user. |
+| `porelo.acceptance.features` | Where feature files live, repository-relative, so an annotation lands on the right line. Default `src/test/resources/`. |
+| `cucumber.plugin` | Include `org.fuin.porelo.acceptance.GitHubReport` for the two GitHub surfaces below. |
 
 ## Two vocabularies
 
-Steps live in three classes - `TerminalSteps` for the machine and the terminal, `SokarSteps` for the
+Steps live in three classes - `TerminalSteps` for the machine and the terminal, `PoreloSteps` for the
 vault and task setup a scenario needs before the thing it is about, `PackageSteps` for what a
 package put on the machine - and the difference between the two halves is the point:
 
@@ -96,13 +96,13 @@ what repeated and where, rather than waiting out its time:
 
       Given a tool failure on the screen looks like "✘ Write"
 
-- **when one line has scrolled by more often than `sokar.acceptance.repeats` allows** (25 if unset),
+- **when one line has scrolled by more often than `porelo.acceptance.repeats` allows** (25 if unset),
   declared or not. Lines without a letter or a digit, such as the bottom edge of a box, do not count.
 
 A wait whose answer is not on the terminal, such as an agent's reply held for a person, runs its check
 again under the same watch instead of looping in a script of its own:
 
-    Then within 240 seconds a script running "sokar talk held | grep -q 5555" exits zero
+    Then within 240 seconds a script running "porelo talk held | grep -q 5555" exits zero
 
 or `within 240 seconds this script exits zero:` with the script as a doc string. It tries every three
 seconds.
@@ -125,7 +125,7 @@ public class ClaudeSteps {
 
     @Then("the agent answers")
     public void theAgentAnswers() throws IOException {
-        world.terminal().await("SOKARLIVE", Duration.ofSeconds(240));
+        world.terminal().await("PORELOLIVE", Duration.ofSeconds(240));
     }
 }
 ```
@@ -143,7 +143,7 @@ local run either prints workflow commands nobody can see or silently writes noth
   ::error file=<features>/<path>.feature,line=<scenario line>,title=<scenario>::<message>
   ```
 
-  The file is repository-relative (`sokar.acceptance.features` plus the classpath path), the line is
+  The file is repository-relative (`porelo.acceptance.features` plus the classpath path), the line is
   the **scenario's**, not a step's - the sentence somebody wrote is what they have to change - and
   the message is the step's own, capped at 900 characters with `... (see the run log)`, because
   GitHub truncates an uncapped one at a point nobody chose. Newlines, `%`, commas and colons are

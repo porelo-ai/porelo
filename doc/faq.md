@@ -10,7 +10,7 @@ egress:
   domains: ["nexus.corp.example"]     # a private mirror, if you have one
 ```
 
-`sokar shield sets` lists the sets. Use `domains` for a host no set covers.
+`porelo shield sets` lists the sets. Use `domains` for a host no set covers.
 
 A task may reach only what comes from these four places, printed when the task starts:
 
@@ -30,7 +30,7 @@ A task may reach only what comes from these four places, printed when the task s
 
 **Declaring a forge weakens the gate.** In a `guarded` project the gate holds because the container
 has no credential for the upstream, not because the upstream is unreachable. An agent that finds a
-usable token in the work tree can push anyway. Sokar warns about this at task start.
+usable token in the work tree can push anyway. Porelo warns about this at task start.
 
 **Seed the image too.** The image build is not behind the firewall, so you can pre-fetch
 dependencies there. It makes builds fast and is the only option for an `offline` project:
@@ -61,10 +61,10 @@ Could not resolve host: repo.maven.apache.org
 The clearance prompt is for a name that did resolve to an address not yet allowed, such as a bare
 IP address. See [DNS](security.md).
 
-## Why does the `dnsmasq nftset` line in `sokar doctor` matter?
+## Why does the `dnsmasq nftset` line in `porelo doctor` matter?
 
 Without nftset support, a declared domain resolves but nothing connects, and no error says why. If
-`sokar doctor` shows anything but `yes`, install dnsmasq 2.87 or later with nftset support before
+`porelo doctor` shows anything but `yes`, install dnsmasq 2.87 or later with nftset support before
 your first task.
 
 ## Can I use a proxy or a mirror instead?
@@ -76,10 +76,10 @@ your first task.
 - **At image build time: either works**, since the build is not behind the firewall. Use this for
   an air-gapped machine.
 
-## How is Sokar protected against tool poisoning (an MCP server's rug pull)?
+## How is Porelo protected against tool poisoning (an MCP server's rug pull)?
 
 **Tool poisoning** hides instructions in a tool's description or answers. **A rug pull** changes a
-tool after it was approved. Sokar does not read tool definitions, but it limits what a poisoned tool
+tool after it was approved. Porelo does not read tool definitions, but it limits what a poisoned tool
 can make an agent do:
 
 1. **No real key in the container.** The task's token is worthless elsewhere; the broker on the
@@ -95,11 +95,11 @@ can make an agent do:
 5. **The agent cannot change what a project may reach.** A followed project's configuration applies
    only when signed with its pinned key. A project followed `--unverified` is marked as such.
 
-**Not covered:** Sokar does not read MCP traffic, so a changed tool set goes unnoticed. A poisoned
+**Not covered:** Porelo does not read MCP traffic, so a changed tool set goes unnoticed. A poisoned
 tool can still send data to its own MCP server, which is an allowed destination. An MCP server
 started inside the container is not checked.
 
-See [why you should use Sokar](corporate-security.md) for the other questions a security officer
+See [why you should use Porelo](corporate-security.md) for the other questions a security officer
 asks.
 
 ## How do I work on several repositories at once in one task?

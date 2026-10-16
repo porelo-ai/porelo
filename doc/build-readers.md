@@ -1,13 +1,13 @@
 # Writing a build reader
 
-A build reader tells Sokar what a forge built: where a branch points, and what the build of a commit did. It is an
-executable of its own, installed on the host, which Sokar starts and asks over a socket; it never runs inside a
+A build reader tells Porelo what a forge built: where a branch points, and what the build of a commit did. It is an
+executable of its own, installed on the host, which Porelo starts and asks over a socket; it never runs inside a
 task. What a task sees of it is in [being told what the build did](running.md#being-told-what-the-build-of-a-push-did).
-This page is for whoever writes one for a forge Sokar does not read yet.
+This page is for whoever writes one for a forge Porelo does not read yet.
 
 ## What it is built on
 
-`sokar-build-api` on Central, and `sokar-wire` beside it: nothing else of Sokar's. A reader implements one
+`porelo-build-api` on Central, and `porelo-wire` beside it: nothing else of Porelo's. A reader implements one
 interface, `BuildReader`, and its main method is one line:
 
 ```java
@@ -17,19 +17,19 @@ public static void main(String[] arguments) {
 ```
 
 `BuildMain` answers `describe` with the forge's name and the protocol version, and `serve <socket>` with the
-varlink interface `org.fuin.sokar.Build1`. Sokar refuses a reader whose protocol version it does not know, and one
+varlink interface `org.fuin.porelo.Build1`. Porelo refuses a reader whose protocol version it does not know, and one
 that reads another forge than the project names, before it asks it anything.
 
 ## What it answers
 
 - **`forge()`**: the name a project file gives under `builds.forge`, and the name the executable is installed
-  under: `/usr/libexec/sokar/builds/<forge>`, or `~/.local/share/sokar/builds/<forge>` for one account.
+  under: `/usr/libexec/porelo/builds/<forge>`, or `~/.local/share/porelo/builds/<forge>` for one account.
 - **`head(target, branch)`**: the commit a branch points at, "" when the forge has no such branch.
 - **`look(target, commit, logs)`**: what the build of one commit did, across everything the forge ran for it.
 
 `target` carries the repository as the project file names it (the reader takes it apart: only it knows how its
 forge spells a repository), the API's address ("" for the forge's own) and the token. **A reader keeps no secret**:
-Sokar reads the token from the vault and hands it over the owner-only socket in each call. A reader never writes
+Porelo reads the token from the vault and hands it over the owner-only socket in each call. A reader never writes
 it anywhere, and never sends it to any host but the forge's API - a log behind a redirect to storage is fetched
 without it.
 
@@ -51,14 +51,14 @@ without it.
 
 ## When the forge will not answer
 
-Not a verdict but a refusal, each its own error, so Sokar tells them apart and so does the task:
+Not a verdict but a refusal, each its own error, so Porelo tells them apart and so does the task:
 
-| Refusal | When | What Sokar does |
+| Refusal | When | What Porelo does |
 |---|---|---|
 | `RateLimited` | the forge's limit is used up; `retryAfter` says for how long | asks again after it |
 | `CredentialRefused` | the forge does not take the token, or it lacks the scope | asks again in 10 minutes |
 | `NoSuchRepository` | the forge shows the token no such repository | asks again in 10 minutes |
 | `Unreachable` | the forge did not answer, or answered something that is not an answer | asks again next round |
 
-A reader that cannot be started, or fails, is a fault of the installation, and Sokar says so in the task's
+A reader that cannot be started, or fails, is a fault of the installation, and Porelo says so in the task's
 `buildProblem`.

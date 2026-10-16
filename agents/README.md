@@ -1,14 +1,14 @@
 # Agents
 
-An agent is **its own native binary and its own package**. Sokar finds it by
-scanning a directory and talks varlink to it. Nothing in Sokar names an agent,
-and nothing lists them — an agent installed after Sokar shipped works with the
+An agent is **its own native binary and its own package**. Porelo finds it by
+scanning a directory and talks varlink to it. Nothing in Porelo names an agent,
+and nothing lists them — an agent installed after Porelo shipped works with the
 binary that is already there.
 
 ```
 agents/
-├── api/          sokar-agent-api       the agent contract; both sides link it
-└── stub/         sokar-agent-stub      → the agent the acceptance suite drives
+├── api/          porelo-agent-api       the agent contract; both sides link it
+└── stub/         porelo-agent-stub      → the agent the acceptance suite drives
 ```
 
 The two modules here: [api](api/README.md), the contract, and [stub](stub/README.md), the agent the acceptance
@@ -20,30 +20,30 @@ to either:
 
 | Agent | Repository |
 |---|---|
-| Claude Code | [sokar-claude-code](https://github.com/sokar-ai/sokar-claude-code) |
-| Pi | [sokar-pi](https://github.com/sokar-ai/sokar-pi) |
-| Oh My Pi | [sokar-omp](https://github.com/sokar-ai/sokar-omp) |
+| Claude Code | [porelo-claude-code](https://github.com/porelo-ai/porelo-claude-code) |
+| Pi | [porelo-pi](https://github.com/porelo-ai/porelo-pi) |
+| Oh My Pi | [porelo-omp](https://github.com/porelo-ai/porelo-omp) |
 
 The stub stays. Without an agent in the tree the acceptance suite would have nothing
 to drive, and a suite that cannot run is one that quietly stops being maintained.
 
 ```
-$ sokar agents
+$ porelo agents
 no agents installed. Looked in:
-  ~/.local/share/sokar/agents
-  /usr/libexec/sokar/agents
+  ~/.local/share/porelo/agents
+  /usr/libexec/porelo/agents
 
-$ sudo apt install sokar-agent-claude
-$ sokar agents
+$ sudo apt install porelo-agent-claude
+$ porelo agents
 NAME         BINARY           LABEL                  FROM
-claude       claude           Claude Code            /usr/libexec/sokar/agents/sokar-agent-claude
+claude       claude           Claude Code            /usr/libexec/porelo/agents/porelo-agent-claude
 ```
 
-No rebuild. No re-sign. The `sokar` binary contains no occurrence of the string
+No rebuild. No re-sign. The `porelo` binary contains no occurrence of the string
 `claude` — checkable with `strings`.
 
 An agent developed outside this repository needs nothing from it but the
-published `sokar-agent-api`.
+published `porelo-agent-api`.
 
 ## Onboarding a new agent
 
@@ -56,16 +56,16 @@ installs. Names are not unique in this field, and an agent that only says "Pi" o
 
 ### 1. `agents/<name>/pom.xml`
 
-Copy an existing one. Two dependencies: `sokar-agent-api`, and `sokar-wire` for
-`Json`. Those are the only Sokar artifacts on Maven Central, so they are also the
+Copy an existing one. Two dependencies: `porelo-agent-api`, and `porelo-wire` for
+`Json`. Those are the only Porelo artifacts on Maven Central, so they are also the
 only ones an agent in its own repository can resolve. **Do not add a dependency on
 another agent** — the build will reject it.
 
 Declare **two** things:
 
-- **its own `<version>`**, not Sokar's. This is the package version, and it is
-  what makes the agent releasable on its own schedule. Sokar's dependencies still
-  resolve because the root POM pins them with `${sokar.version}` rather than
+- **its own `<version>`**, not Porelo's. This is the package version, and it is
+  what makes the agent releasable on its own schedule. Porelo's dependencies still
+  resolve because the root POM pins them with `${porelo.version}` rather than
   `${project.version}` — a parent's `${project.version}` is interpolated against
   the module that inherits it, so it would resolve to *your* version and find
   nothing.
@@ -167,10 +167,10 @@ be written down is a gap somebody notices; a missing field is a habit.
 ```
 
 A relative `source` is read beside the agent's binary, so a copy of the agent in
-one account's `~/.local/share/sokar/agents` ships its own tree, and `..` is
+one account's `~/.local/share/porelo/agents` ships its own tree, and `..` is
 refused. **A declared tree that is not there refuses the task**: an image built
 without it would start a task with no tool in it.
-`sokar agents --supply-chain` lists every artifact and marks the unverified ones,
+`porelo agents --supply-chain` lists every artifact and marks the unverified ones,
 so an audit reads the roster rather than the build logs.
 
 **`ready_marker` is what a check of the agent waits for**, attached, to prove it reached work
@@ -178,18 +178,18 @@ with nothing asked first. The acceptance kit's step *"the … agent reaches work
 anything"* types nothing and waits for this text, within `ready_within_seconds` or the kit's
 default. Any question before it - a trust dialog, a login, a setup wizard - blocks it, so the step
 fails the day a release adds one, including one nobody has seen. An agent whose ready screen has no
-stable text declares none, and the step then fails saying it cannot tell. `sokar agents --verbose`
+stable text declares none, and the step then fails saying it cannot tell. `porelo agents --verbose`
 shows what each agent declares.
 
-**`session_id` is how a task that comes back continues its conversation.** Sokar records the
+**`session_id` is how a task that comes back continues its conversation.** Porelo records the
 session a task's agent was running - from an unattended run's records, or from the agent's own
 session files when an attached task stops - and starting the task again passes `resume_flag` and the
 id, and says it did. An agent that declares nothing starts fresh and says so; nothing is guessed. It
 needs `supports_resume`. A session id is an identifier, not a credential, so it may be on a command
 line; it is kept with the task and forgotten when the task is removed.
 
-**`waiting` is how Sokar tells a person the agent is waiting for them**, read from outside and
-never by a rule of Sokar's own. For an attached task Sokar reads the screen tmux draws every few
+**`waiting` is how Porelo tells a person the agent is waiting for them**, read from outside and
+never by a rule of Porelo's own. For an attached task Porelo reads the screen tmux draws every few
 seconds, and a `screen` rule that matches makes the task read as *waiting*. A `not_its_screen` rule
 that matches - a pager open over the agent - keeps the last reading rather than reporting on the
 pager. For a finished unattended run, `last_message` names the record whose text is shown as what it
@@ -197,31 +197,31 @@ said last. Rules are literals, not expressions, and bounded when the manifest is
 list, 200 characters each, 50 lines of region; a declaration past them is refused. An agent that
 declares nothing is shown as *cannot say*, never as *not waiting*. A declaration read for a day
 without matching once is shown as *unproven*: the wording probably changed with the agent's version.
-Prove it in the agent's own repository, at the version it pins, with the kit's *"sokar shows the …
+Prove it in the agent's own repository, at the version it pins, with the kit's *"porelo shows the …
 agent in task … waiting for a person"* after driving the agent to a question - and *"… not waiting
 for a person"* while it works.
 
 **`at_rest` is when a message or a file may wake the agent.** When a message names a task whose agent rests at its
-prompt, or a file arrives in its `/sokar/files`, Sokar types one line of its own into its terminal saying so - only
+prompt, or a file arrives in its `/porelo/files`, Porelo types one line of its own into its terminal saying so - only
 while the screen matches `at_rest`, and never while a `waiting` rule says a question to a person is open, since the
 line would interrupt its work or answer the question. **An agent is typed into only when it declares both**: one
 with `at_rest` and no `waiting` rule cannot say when a question is open, so it is never woken and finds what arrived
 when it looks, as its guide tells it. **The rest must hold:** the screen is read twice, about a second and a half
 apart, and both must match. **The line must leave the input box:** a screen that still matches `at_rest` a moment
-after the line was typed means the agent took the Enter while it drew something; Sokar presses Enter once more and
+after the line was typed means the agent took the Enter while it drew something; Porelo presses Enter once more and
 says so in its journal, and a line still standing after that is said as not delivered and only submitted, never typed
 again, at the next try. `shows` and `lacks` may not both be empty. The values above are
 Claude Code's own: each agent declares what its screen shows, measured at the version it pins.
 
-**`instructions` is how a task's agent is told what Sokar gives it there.** Sokar writes one guide - `/sokar/files`
-and what arrives there, the builds of its pushes, and its mailbox where it has one - to `/run/sokar/guide/README.md`,
+**`instructions` is how a task's agent is told what Porelo gives it there.** Porelo writes one guide - `/porelo/files`
+and what arrives there, the builds of its pushes, and its mailbox where it has one - to `/run/porelo/guide/README.md`,
 read-only in the task, and adds these arguments, with the guide's path for `{file}`, on every way of starting the
 agent - attended, unattended, continued - behind whatever turns its prompts off. A task made before this version
-has its mailbox's guide, `/run/sokar/mail/README.md`, instead, and an agent that declares nothing is not told. The flag is the
-agent's own, so it is declared, never guessed. The guide is the same for every task of one Sokar version, so a
+has its mailbox's guide, `/run/porelo/mail/README.md`, instead, and an agent that declares nothing is not told. The flag is the
+agent's own, so it is declared, never guessed. The guide is the same for every task of one Porelo version, so a
 provider that caches a prompt by its beginning keeps caching it.
 
-### 3. `agents/<name>/src/main/java/org/fuin/sokar/agent/impl/<name>/<Name>Agent.java`
+### 3. `agents/<name>/src/main/java/org/fuin/porelo/agent/impl/<name>/<Name>Agent.java`
 
 ```java
 public final class ExampleAgent extends YamlAgent {
@@ -234,7 +234,7 @@ public final class ExampleAgent extends YamlAgent {
 That is the whole class, unless the agent needs behavior the definition cannot
 express — see *When YAML is not enough*.
 
-### 4. `agents/<name>/src/main/resources/META-INF/services/org.fuin.sokar.agent.api.Agent`
+### 4. `agents/<name>/src/main/resources/META-INF/services/org.fuin.porelo.agent.api.Agent`
 
 One line: the fully qualified class name. This is how `ServiceLoader` finds it,
 and native-image resolves it at build time with no metadata of any kind
@@ -249,9 +249,9 @@ public static void main(String[] args) {
 ```
 
 Copy the `native` profile from `agents/stub/pom.xml` and change the image
-name. The binary answers two modes: `serve <socket>` for Sokar, and `describe`
-for a human — `sokar-agent-example describe | jq` is what to reach for when
-Sokar will not use an agent that looks installed.
+name. The binary answers two modes: `serve <socket>` for Porelo, and `describe`
+for a human — `porelo-agent-example describe | jq` is what to reach for when
+Porelo will not use an agent that looks installed.
 
 ### 6. `agents/pom.xml`
 
@@ -266,14 +266,14 @@ anywhere that lists agents.
 The one piece of documentation an agent must ship, because nothing else can hold
 it: **which credentials the agent accepts, and where an operator gets each one.**
 
-Sokar cannot answer that. It knows the variable a credential goes in, because the
-definition declares it, and `sokar agents --verbose` prints what an agent needs to
+Porelo cannot answer that. It knows the variable a credential goes in, because the
+definition declares it, and `porelo agents --verbose` prints what an agent needs to
 reach — but the difference between an API key and a subscription token, which
 console issues it, and which `--credential-type` matches, is knowledge about a
-vendor. Put it beside the vendor's adapter, not in Sokar's own documentation,
+vendor. Put it beside the vendor's adapter, not in Porelo's own documentation,
 for the same reason the code lives here.
 
-[sokar-claude-code](https://github.com/sokar-ai/sokar-claude-code)'s own README is the
+[porelo-claude-code](https://github.com/porelo-ai/porelo-claude-code)'s own README is the
 worked example — it left this repository with the adapter it documents. Cover at least:
 
 - each credential kind, the `--credential-type` that selects it, and where to get
@@ -292,16 +292,16 @@ answers the question an operator actually has:
 
 - **build** — unit tests, the native binary, the `.deb` and the `.rpm`. On a pinned
   `ubuntu-24.04` runner, never `ubuntu-latest`: a native image links glibc dynamically, so it must
-  be compiled against the oldest glibc it has to run on. 24.04 is not a machine Sokar runs on -
+  be compiled against the oldest glibc it has to run on. 24.04 is not a machine Porelo runs on -
   it needs podman 5, which 24.04 does not ship - but it is where the binary is compiled, because
-  one built there starts anywhere a newer Sokar does.
+  one built there starts anywhere a newer Porelo does.
 - **publish** — the packages to Artifactory, and a check that they are *indexed* rather than
   merely stored. A `.deb` uploaded without `deb.distribution`, `deb.component` and
   `deb.architecture` is accepted and never appears in the index, with no error anywhere.
 - **acceptance** — a matrix of `ubuntu` and `fedora` on rented Hetzner machines, installing
-  **from the package repository** rather than from a build tree, driven by `sokar-machines acceptance`
-  from `sokar-buildtools`. Ubuntu **26.04** and Fedora 44: the two differ in package format and security
-  module, and both have podman 5. The server is destroyed in a `finally`, and `sokar-machines sweep --mine`
+  **from the package repository** rather than from a build tree, driven by `porelo-machines acceptance`
+  from `porelo-buildtools`. Ubuntu **26.04** and Fedora 44: the two differ in package format and security
+  module, and both have podman 5. The server is destroyed in a `finally`, and `porelo-machines sweep --mine`
   deletes what a killed run left.
 
 Everything before the third job proves the code is right; only the third proves that what an
@@ -315,7 +315,7 @@ red with no information.
 No native-image metadata. `ServiceLoader` classes are resolved by native-image on
 its own, but the resources those classes read are not — an unregistered
 definition means the agent is discovered and then fails to construct, with
-`No agent definition at /agent/<name>.yaml`. `sokar-agent-api` registers the glob
+`No agent definition at /agent/<name>.yaml`. `porelo-agent-api` registers the glob
 `agent/*.yaml` once, and resource registration is a pattern over the whole
 classpath, so it covers every agent that will ever exist.
 
@@ -334,7 +334,7 @@ Override a method on `Agent`, **in your own module**:
 `EnvFileExtractor` and `JsonFieldExtractor` in the agent API already cover most
 credential layouts. Reach for an override only when they do not.
 
-Sokar asks `ended` line by line from the end of the task's log, once the log has been quiet for a while; the first
+Porelo asks `ended` line by line from the end of the task's log, once the log has been quiet for a while; the first
 line answered for is how the run ended.
 
 **Never** add a branch outside your module that tests an agent's name. That is
@@ -349,33 +349,33 @@ Every agent gets a `.deb` and an `.rpm` from the shared `dist` profile in
 
 ```
 mvn -Pnative,dist verify
-  → target/sokar-agent-claude_1.0.0~SNAPSHOT_amd64.deb
-  → target/sokar-agent-claude-1.0.0~SNAPSHOT-1.x86_64.rpm
+  → target/porelo-agent-claude_1.0.0~SNAPSHOT_amd64.deb
+  → target/porelo-agent-claude-1.0.0~SNAPSHOT-1.x86_64.rpm
 ```
 
-Both install one file, `/usr/libexec/sokar/agents/<name>`, which is where Sokar
+Both install one file, `/usr/libexec/porelo/agents/<name>`, which is where Porelo
 looks. Nothing is registered and no post-install script runs: installing the
 package is the whole integration.
 
 ### An agent of another vendor, under its own names
 
-A vendor's package need not carry Sokar's name. The package's name is free, the
+A vendor's package need not carry Porelo's name. The package's name is free, the
 executable may live anywhere, and one small file is the whole registration:
-`/usr/share/sokar/agents.d/<name>.yaml`, naming the executable by its absolute path:
+`/usr/share/porelo/agents.d/<name>.yaml`, naming the executable by its absolute path:
 
 ```yaml
 executable: /opt/acme/bin/coder
 ```
 
-Nothing else goes in it: the agent describes itself when Sokar asks it, as every
-agent does. A file in `~/.local/share/sokar/agents.d/` wins over the system's of
+Nothing else goes in it: the agent describes itself when Porelo asks it, as every
+agent does. A file in `~/.local/share/porelo/agents.d/` wins over the system's of
 the same name, so a person can try their own build without root. A description
 whose path is not absolute, not a regular file or not executable is not taken;
-`sokar agents` and `sokar doctor` name the file and why. The `sokar-agent-*`
+`porelo agents` and `porelo doctor` name the file and why. The `porelo-agent-*`
 files above are still found as before.
 
 **The package version is the agent module's own version**, and nothing else.
-Sokar's release line does not appear in the artifact — that is the point of
+Porelo's release line does not appear in the artifact — that is the point of
 shipping agents separately. An agent released against an unchanged CLI is still
 an upgrade, which a version keyed on the CLI alone could not express.
 
@@ -383,11 +383,11 @@ The **CLI version lives in the description**, so the package still answers what
 an image build will fetch:
 
 ```
-$ dpkg -l | grep sokar-agent
-ii  sokar-agent-claude  1.0.0~SNAPSHOT  amd64  Sokar agent for Claude Code 2.1.236
+$ dpkg -l | grep porelo-agent
+ii  porelo-agent-claude  1.0.0~SNAPSHOT  amd64  Porelo agent for Claude Code 2.1.236
 
-$ dpkg -s sokar-agent-claude | grep ^Description
-Description: Sokar agent for Claude Code 2.1.236
+$ dpkg -s porelo-agent-claude | grep ^Description
+Description: Porelo agent for Claude Code 2.1.236
 ```
 
 `agent.cli.version` is written once, in the agent's `pom.xml`, and filtered into
@@ -400,12 +400,12 @@ release and `apt` would refuse to upgrade from a snapshot to the real thing.
 
 ## Protocol versions
 
-`AgentProtocol.VERSION` is the contract. Sokar and the agents ship as separate
+`AgentProtocol.VERSION` is the contract. Porelo and the agents ship as separate
 packages, so an untested combination is a matter of time: an agent states which
-version it speaks, and Sokar refuses one it does not know rather than reading a
+version it speaks, and Porelo refuses one it does not know rather than reading a
 field that means something else now.
 
-Raise it when a change would make an older Sokar misread a newer agent, or the
+Raise it when a change would make an older Porelo misread a newer agent, or the
 reverse. Adding an optional field does not qualify; renaming or removing one
 does.
 
@@ -415,10 +415,10 @@ A broken agent is reported against its own name and the others keep working —
 one bad package must not make the machine look as though it has no agents.
 
 ```
-$ sokar agents
-claude       claude           Claude Code            …/sokar-agent-claude
-sokar: sokar-agent-broken is installed but unusable:
-       …/sokar-agent-broken exited without becoming ready, saying: config file missing
+$ porelo agents
+claude       claude           Claude Code            …/porelo-agent-claude
+porelo: porelo-agent-broken is installed but unusable:
+       …/porelo-agent-broken exited without becoming ready, saying: config file missing
 ```
 
 A binary that died and one that hung are different problems, and the message
@@ -426,10 +426,10 @@ says which.
 
 ## Enforcement
 
-`AgentIsolationTest` in `sokar-app` runs three checks:
+`AgentIsolationTest` in `porelo-app` runs three checks:
 
-1. No class outside `org.fuin.sokar.agent..` depends on an agent implementation.
-2. `sokar-app` sees the agent API package and nothing else agent-shaped.
+1. No class outside `org.fuin.porelo.agent..` depends on an agent implementation.
+2. `porelo-app` sees the agent API package and nothing else agent-shaped.
 3. **No agent name appears as a string literal outside `agents/`.** ArchUnit
    reads types and members, not constant-pool literals, so this one is a source
    scan. It takes the list of names from the `agent/*.yaml` files themselves, so

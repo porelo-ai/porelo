@@ -38,7 +38,7 @@ Steps:
 ## As built
 
 The switch is a different one from the plan, with the same effect and less to keep. Instead of naming SLF4J's
-no-operation provider, which needs a reflection entry, `SokarCli.main` sets SLF4J's own
+no-operation provider, which needs a reflection entry, `PoreloCli.main` sets SLF4J's own
 `slf4j.internal.verbosity=ERROR` before anything logs:
 
 - SLF4J 2.0.17 reports the missing provider at `WARN` through its `Reporter`, so the warning is not said, and it falls
@@ -46,5 +46,5 @@ no-operation provider, which needs a reflection entry, `SokarCli.main` sets SLF4
 - Nothing is instantiated by name, so the native image needs no new entry.
 - A value somebody set is left alone.
 
-`SokarCliTest` asks for a logger with no provider bound and finds nothing said on standard error.
+`PoreloCliTest` asks for a logger with no provider bound and finds nothing said on standard error.
 

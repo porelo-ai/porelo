@@ -10,8 +10,8 @@ commit's id, subject and time - and the diff of one of them or of all together, 
 gate. Today the contract gives only counts (`WorkHeld.unpushedCommits`, `AgentEnded.unpushed`), so the interface
 cannot say in words what a piece of work did until it is pushed.
 
-Asked for by `sokar-frontend`'s
-[F112](https://github.com/sokar-ai/sokar-frontend/blob/main/issues/README.md#f112), which is blocked by it. Accepted
+Asked for by `porelo-frontend`'s
+[F112](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md#f112), which is blocked by it. Accepted
 2026-10-11.
 
 ## Plan
@@ -31,15 +31,15 @@ Asked for by `sokar-frontend`'s
   every file - as [B150](README.md#b150) plans for `Review`, with the same helper.
 - **The stop's note** (`unhanded-work`, `UnhandedWork.VERSION` 2) keeps the list beside the counts; version 1 notes
   still read, with an empty list and `readable` as before.
-- **The command line:** `sokar task commits <task>` prints the list, and `--diff [<commit>]` the diff; the same code.
-- **Red first:** `UnhandedWorkTest` - a census with three commits gives the list and the counts; `SokarDaemonTest`
+- **The command line:** `porelo task commits <task>` prints the list, and `--diff [<commit>]` the diff; the same code.
+- **Red first:** `UnhandedWorkTest` - a census with three commits gives the list and the counts; `PoreloDaemonTest`
   with a stand-in podman - `TaskCommits` of a running task, of a stopped one from its note, `TaskDiff` of an unknown
   commit refused before podman is asked; `InterfaceDescriptionTest` holds both methods, the type and the errors.
 - **Docs:** the contract's comments, `doc/` where `WorkHeld` is described.
 
 ## Acceptance
 
-- In `task-session.feature` (or its own), a task makes two commits; `sokar task commits` lists both with their
+- In `task-session.feature` (or its own), a task makes two commits; `porelo task commits` lists both with their
   subjects, newest first; `--diff` of the first shows its change and not the second's; the task pushes, and the list
   is empty.
 - A stopped task's list is read from its note and says when it was true.

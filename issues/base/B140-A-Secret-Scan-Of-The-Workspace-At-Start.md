@@ -20,9 +20,9 @@ bare mirror (`TaskWorkspace.cloneScript`, seeded in `WorkspaceSetup`), so what i
 has; `TaskLaunch` runs its checks (`StartCheck.unknownHost`, `StartCheck.undeclared`) before the container is made.
 Nothing scans the tree today; `CredentialScan` in `supervisor/` watches provider answers, not the workspace.
 
-1. **The scan, in the gate:** `SecretScan` in `gate/src/main/java/org/fuin/sokar/gate/` runs `git grep -I -n -E` over
-   the tree of the commit the task will check out, in the bare mirror, with Sokar's own list of known credential forms:
-   private key headers, and the prefixes of the forges' and providers' tokens Sokar already knows (GitHub's, the
+1. **The scan, in the gate:** `SecretScan` in `gate/src/main/java/org/fuin/porelo/gate/` runs `git grep -I -n -E` over
+   the tree of the commit the task will check out, in the bare mirror, with Porelo's own list of known credential forms:
+   private key headers, and the prefixes of the forges' and providers' tokens Porelo already knows (GitHub's, the
    providers under `providers/`). It answers `Finding(path, line, kind)`; the matched text is dropped where git's output
    is read and never kept, printed or journalled. The history the task receives is not scanned: a credential removed in
    an earlier commit is not found, and the docs say so.
@@ -33,8 +33,8 @@ Nothing scans the tree today; `CredentialScan` in `supervisor/` watches provider
 3. **A false finding:** acknowledged in a list kept on the host beside the project, never in the repository, so the
    agent cannot add to it: `ProjectPaths.secretsKnown(project)`, `<state>/secrets-known/<project>.json`, owner-only,
    as `MessagingPaths.moderation` keeps a person's decisions about a project's peers. Each entry is `path:line` with
-   a hash of the matched text, so it holds only while that text stays. `sokar project secret-known -p <project>
-   <path>:<line>` adds one, and `sokar task start` names that command for each finding. Nothing in the repository
+   a hash of the matched text, so it holds only while that text stays. `porelo project secret-known -p <project>
+   <path>:<line>` adds one, and `porelo task start` names that command for each finding. Nothing in the repository
    acknowledges a finding.
 4. **Docs:** `doc/how-it-works.md` and `doc/faq.md` (the token in the work tree, and that the history is not
    scanned), `doc/project-file.md` (`secrets:`), `doc/commands.md` (`project secret-known`).
@@ -51,5 +51,5 @@ finding today - then with the finding, its path and line, and no byte of the key
 
 ## To be checked
 
-- Which detector: Sokar's own list of credential forms, as planned, or a library that keeps one, a dependency to
+- Which detector: Porelo's own list of credential forms, as planned, or a library that keeps one, a dependency to
   add (Agent Core's).

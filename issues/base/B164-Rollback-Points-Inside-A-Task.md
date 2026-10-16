@@ -18,7 +18,7 @@ together, and that is much asked for.
   as work; what makes a step is the agent's turn ending, as the activity reading of [B120](README.md#b120) already knows it.
 - The last 20 states are kept by default; a project may set another number, or keep every state until the task ends.
   The oldest goes when a newer one is kept, and every state goes with the task.
-- `sokar task rewind TASK [--to <n>]` lists the states, and restores one after a question with what is lost (asked
+- `porelo task rewind TASK [--to <n>]` lists the states, and restores one after a question with what is lost (asked
   as a destructive step: no by default).
 - A running agent session is not restored over: the rewind offers to stop and restart the agent's session itself,
   default no. Declined, nothing is restored, and it says to stop the session first.
@@ -52,7 +52,7 @@ Steps:
    oldest first - the ref deleted and the repository pruned - and the numbers of the states kept do not change.
 3. Who notices the turn's end: a helper per task beside the gate and the clearance watcher (`TaskHelpers`), polling
    `AgentWaiting`/`AgentEnding` as the listing does; a turn that ends while the helper is down is not a state.
-4. `TaskRewindCommand` (`sokar task rewind TASK [--to <n>]`): without `--to`, lists the states with time and
+4. `TaskRewindCommand` (`porelo task rewind TASK [--to <n>]`): without `--to`, lists the states with time and
    files changed; with it, names what is lost - the files changed since, the later turns of the conversation - and
    asks as a destructive step, default no, never taken by `--yes`. Where the agent's session runs, it then offers
    through `Offer` to stop and restart it, default no; declined, it restores nothing and says to stop the session

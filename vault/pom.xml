@@ -6,27 +6,27 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.fuin.sokar</groupId>
-        <artifactId>sokar</artifactId>
-        <version>0.4.2-SNAPSHOT</version>
+        <groupId>org.fuin.porelo</groupId>
+        <artifactId>porelo</artifactId>
+        <version>0.5.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>sokar-vault</artifactId>
-    <name>Sokar Vault</name>
-    <description>Sokar - Credential store (VAULT)</description>
+    <artifactId>porelo-vault</artifactId>
+    <name>Porelo Vault</name>
+    <description>Porelo - Credential store (VAULT)</description>
 
     <dependencies>
 
         <!-- compile -->
 
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-core</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-core</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-wire</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-wire</artifactId>
         </dependency>
 
         <dependency>
@@ -37,8 +37,8 @@
         <!-- test -->
 
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-testing</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-testing</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -47,7 +47,7 @@
     <profiles>
 
         <!-- Runs the tests under the tracing agent, which records the libkeyutils downcalls the
-             kernel-keyring tier makes. Unlike the netlink calls in sokar-shield these are
+             kernel-keyring tier makes. Unlike the netlink calls in porelo-shield these are
              observable: binding a key needs no capability a test process lacks. -->
 
         <profile>
@@ -68,11 +68,11 @@
             </build>
         </profile>
 
-        <!-- -Pnative,ffm-check -Dagent=true fails on an unregistered downcall; -Dsokar.ffm.update=true adds it. -->
+        <!-- -Pnative,ffm-check -Dagent=true fails on an unregistered downcall; -Dporelo.ffm.update=true adds it. -->
         <profile>
             <id>ffm-check</id>
             <properties>
-                <sokar.ffm.skip>false</sokar.ffm.skip>
+                <porelo.ffm.skip>false</porelo.ffm.skip>
             </properties>
             <build>
                 <plugins>

@@ -1,6 +1,6 @@
 # B172 — A Task That Reviews
 
-**Status:** Estimated; blocked by sokar [B166](README.md#b166).
+**Status:** Estimated; blocked by porelo [B166](README.md#b166).
 **Size:** M - a role in the task's record, the gate's per-task server read-only for it, [B166](README.md#b166)'s origin, a start option,
 docs and an acceptance step; no contract beyond [B166](README.md#b166)'s.
 
@@ -16,7 +16,7 @@ it reviews.
 
 ## The shape
 
-- `sokar task start --role reviewer` with what to review: waiting work, a branch, or a pull request's head.
+- `porelo task start --role reviewer` with what to review: waiting work, a branch, or a pull request's head.
 - A reviewer reviews only other tasks of its own project: never its own work, never another project's.
 - The gate puts those commits into the task's mirror, read-only. The task's pushes are refused.
 - Its comments appear in the review beside the person's, marked with their origin (task and role), through [B166](README.md#b166)'s
@@ -33,7 +33,7 @@ that server shows and takes, and what origin the host gives its comments.
 1. **Red first:** a test in `gate` that a server made for a reviewer answers a `receive-pack` with a refusal in git's
    own protocol, and shows the reviewed ref in its advertisement.
 2. **The role in the task's record:** `wire/.../TaskProfile.java` gains `role` (`developer` by default, `reviewer`),
-   with a version bump as for the provider; `sokar task status` and `task list` show it.
+   with a version bump as for the provider; `porelo task status` and `task list` show it.
 3. **The start:** `--role reviewer --review <pending name>` (or `--review-branch <branch>`) in the start options,
    checked by `StartCheck`: the pending push must exist in the same project and be another task's; one of another
    project is refused as not found, naming no other project. The pull request's head is [B171](README.md#b171)'s step

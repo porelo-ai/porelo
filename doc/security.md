@@ -15,7 +15,7 @@ work takes.
 | | offline | guarded (default) | online |
 |---|---|---|---|
 | **In** | cloned from the mirror, seeded once on the host and never fetched again | cloned from the mirror, which the host fetches into from the upstream at the task's start | as guarded, and the gate fetches again before each fetch of the agent |
-| **Out** | into the mirror; off the machine only by hand | `sokar gate approve` | the gate passes the task's own branch on at once |
+| **Out** | into the mirror; off the machine only by hand | `porelo gate approve` | the gate passes the task's own branch on at once |
 | **Credential in the container** | none | none | none |
 | **Review** | by hand, out of the mirror | at the gate, before the upstream | none, unless somebody does it on the forge afterwards |
 
@@ -32,7 +32,7 @@ route to the upstream, not for the agent and not for a person inside the contain
 repository on the host:
 
 ```
-$XDG_DATA_HOME/sokar/mirrors/<project>.git     # ~/.local/share/sokar/mirrors/<project>.git by default
+$XDG_DATA_HOME/porelo/mirrors/<project>.git     # ~/.local/share/porelo/mirrors/<project>.git by default
 ```
 
 Any further repository of the project has its own beside it, at
@@ -42,14 +42,14 @@ answered on the host, by a person.
 
 **Getting a history in.** Nothing here connects out, not even the host: an offline project names no
 `upstream`, a start of its task takes no `--upstream`, and the project itself is followed only from a file,
-`sokar project follow NAME FILE`, a bundle of its repository or a directory on this machine, which is never
+`porelo project follow NAME FILE`, a bundle of its repository or a directory on this machine, which is never
 fetched again. The mirror is seeded from one of these:
 
-1. `sokar gate restore`, from a bundle carried here by whatever means a disconnected machine has;
+1. `porelo gate restore`, from a bundle carried here by whatever means a disconnected machine has;
 2. the followed project's own repository, from the file it was followed from, and the task's start says
    so (`seed ... (the followed clone)`);
 3. the checkout you are standing in. Committed history only, since a bare clone has no working tree.
-   Sokar prints that it seeds from there rather than doing it silently, because the seed decides what
+   Porelo prints that it seeds from there rather than doing it silently, because the seed decides what
    the agent believes the project is.
 
 A mirror that already exists is never re-seeded.
@@ -57,11 +57,11 @@ A mirror that already exists is never re-seeded.
 **Getting changed work out.** The agent's push lands in the mirror, so the work is on the host the
 moment the task ends. From there:
 
-- `sokar gate checkout <name> --project <project>` opens waiting work as a copy you can read;
-- `sokar gate backup <file> --project <project>` writes the whole mirror, pending pushes included,
+- `porelo gate checkout <name> --project <project>` opens waiting work as a copy you can read;
+- `porelo gate backup <file> --project <project>` writes the whole mirror, pending pushes included,
   as one bundle, a single file to carry to a machine that has a route;
 - or fetch from the mirror into your own checkout, since it is an ordinary git repository:
-  `git fetch ~/.local/share/sokar/mirrors/<project>.git`.
+  `git fetch ~/.local/share/porelo/mirrors/<project>.git`.
 
 **What the class is for.** A project whose upstream must not be reachable from a task, because the
 code is sensitive, the agent is not trusted with a route, or the machine has none. Also a project
@@ -74,15 +74,15 @@ machine unless a person moves it. That is the guarantee, not a gap in it.
 
 The default, and the one the gate was built for. The agent clones from a gate on this machine and
 pushes to it; it never reaches the upstream itself. The gate, on the host, brings the mirror up to the
-upstream's branches when a task starts and on `sokar task refresh`, where the mirror was cloned from
+upstream's branches when a task starts and on `porelo task refresh`, where the mirror was cloned from
 that upstream; one seeded from a checkout stays as it was seeded. The work waits under
-`refs/sokar/incoming/<task>` until somebody reads and approves it, and the approve is what forwards
+`refs/porelo/incoming/<task>` until somebody reads and approves it, and the approve is what forwards
 it.
 
 ![guarded: the agent clones from and pushes to the local gate, which alone fetches from the upstream; the operator reviews and approves, and only the approve reaches the upstream — while a dashed path shows work leaving past the approval](images/security-classes-guarded.svg)
 
 The dashed path is not a hole in the container. It is a person with their own key, fetching the
-agent's branch into their own checkout and pushing it. Nothing stops that, so `sokar gate checkout`
+agent's branch into their own checkout and pushing it. Nothing stops that, so `porelo gate checkout`
 makes the safe way the convenient one: it opens the waiting work as a copy whose only remote is the
 gate and in which no hook runs. Two things to know about the shortcut:
 
@@ -93,8 +93,8 @@ gate and in which no hook runs. Two things to know about the shortcut:
   purpose. A bind-mounted one would let the agent write `.git/hooks/`, which then run with the
   privileges of whoever next runs git in that directory.
 - **An editor attached to the container is not made to work.** It would need the editor vendor's hosts or an
-  editor server copied in. `sokar gate checkout` is the way to look at the work, and the pre-push guard of
-  `sokar gate protect` catches the hand push.
+  editor server copied in. `porelo gate checkout` is the way to look at the work, and the pre-push guard of
+  `porelo gate protect` catches the hand push.
 
 ### online
 
@@ -103,7 +103,7 @@ gate and in which no hook runs. Two things to know about the shortcut:
 The agent works against the gate on this machine, as in `guarded`: it clones from it and pushes to
 it, and its container holds no key, no socket of one, and no route to the upstream. What differs is
 what the gate does with a push. It passes the task's own branch on to the upstream at once, as
-`sokar/<task>`, with the key the host lends for it, and the agent's push succeeds only when the
+`porelo/<task>`, with the key the host lends for it, and the agent's push succeeds only when the
 upstream took it; a refusal by the forge fails the agent's push with the forge's words. The gate
 refuses a push to any other branch, a tag, a deletion and any other repository; a push with force
 to the task's own branch goes through, since an agent that rebases needs it. The gate fetches from
@@ -135,14 +135,14 @@ token - and the agent holds that token. What it can make the gate do is bounded:
   writes it. Neither is ever in memory whole.
 - **A scope of its own.** The gate and every `git` it starts run in a systemd scope with
   `MemoryMax=1G`, `TasksMax=256` and half the default CPU weight. Exceeding one ends what exceeded
-  it, never `sokard` or another task.
+  it, never `porelod` or another task.
 
 An agent that sends requests in a loop or pushes as much as it can slows down its own gate and
 nothing else.
 
 ## The firewall
 
-Every task container has its own packet filter. Nothing Sokar does touches the host's own firewall,
+Every task container has its own packet filter. Nothing Porelo does touches the host's own firewall,
 and two tasks on one machine, or two people in two accounts, never share a rule. A machine-wide
 filter would have to be the union of everything every task may do, the opposite of what a
 per-project declaration is for.
@@ -152,7 +152,7 @@ per-project declaration is for.
 The rules live inside the container's network namespace. They are put there from outside, and
 nothing inside can reach them. The guarantee is all three facts together:
 
-1. **Generated on the host, before the container exists.** Sokar renders the complete nftables
+1. **Generated on the host, before the container exists.** Porelo renders the complete nftables
    ruleset from the project's security class and its declared egress, and writes it to a file. The
    component that loads it makes no policy decision of its own, so an operator can read the ruleset
    before anything runs.
@@ -171,7 +171,7 @@ host.
 ### Fail-closed
 
 **If the ruleset cannot be loaded, the container does not start.** A task that comes up without its
-egress policy is exactly what Sokar exists to prevent, and it would look normal to the operator.
+egress policy is exactly what Porelo exists to prevent, and it would look normal to the operator.
 There is no window in which the agent runs and the filter does not.
 
 ### What the rules say
@@ -185,16 +185,16 @@ There is no window in which the agent runs and the filter does not.
 - **An allowed address is allowed for every name it serves.** The filter matches addresses, not
   names. If a declared host sits behind a shared CDN address, every other site at that address is
   reachable on 80 and 443 as well.
-- **DNS reaches the upstream resolvers only from Sokar's own resolver.** Port 53 to an upstream is
+- **DNS reaches the upstream resolvers only from Porelo's own resolver.** Port 53 to an upstream is
   opened for the resolver's sockets alone; the agent's own query to an upstream is dropped and logged
   like any other. See [a resolver of the agent's own](#a-resolver-of-the-agents-own) below.
-- **Drops are logged.** Every dropped packet is recorded through NFLOG with Sokar's own prefix. That
+- **Drops are logged.** Every dropped packet is recorded through NFLOG with Porelo's own prefix. That
   turns a block into an audit trail and into the clearance question an operator can answer.
 
 ### Who may change it
 
 Only the operator, from the host. A clearance approval adds one element to an existing set
-(`nft add element inet sokar allowed_v4 …`) rather than reloading the ruleset; a reload would drop
+(`nft add element inet porelo allowed_v4 …`) rather than reloading the ruleset; a reload would drop
 conntrack state and kill every connection the task already had. It goes in the same way:
 `podman unshare nsenter --target <pid> --net nft …`. The `podman unshare` is needed because a
 rootless container's namespaces belong to the operator's user namespace.
@@ -211,7 +211,7 @@ Every task container has its own DNS resolver, and it is the layer that blocks f
 
 ### Where the resolver sits
 
-A dnsmasq of Sokar's own runs inside the container's network namespace, on `127.0.0.1:53`, and the
+A dnsmasq of Porelo's own runs inside the container's network namespace, on `127.0.0.1:53`, and the
 container's `resolv.conf` points at it.
 
 - **Its configuration is generated on the host** from the security class and the declared domains,
@@ -219,7 +219,7 @@ container's `resolv.conf` points at it.
 - **An OCI hook starts it** at `createRuntime`, in the container's namespace. It is reaped when the
   container is gone.
 - **It answers only the container**, on loopback (`listen-address=127.0.0.1`, `bind-interfaces`).
-- **It ignores the host's `resolv.conf`** (`no-resolv`, `no-hosts`). Sokar chooses which upstream
+- **It ignores the host's `resolv.conf`** (`no-resolv`, `no-hosts`). Porelo chooses which upstream
   resolvers allowed queries go to.
 
 ### What resolves
@@ -248,7 +248,7 @@ would resolve and then be dropped, and the operator would get a clearance prompt
 project already declared.
 
 dnsmasq must be built with `--nftset`. One built without it fails silently: names resolve and every
-declared host is then dropped. `sokar doctor` checks for it.
+declared host is then dropped. `porelo doctor` checks for it.
 
 ### A resolver of the agent's own
 
@@ -261,7 +261,7 @@ prompt for a bare address.
 the ruleset opens port 53 to the upstream resolvers - for the resolver's own sockets only. It runs in
 the task's namespace as that namespace's root; the agent runs as its own user, and its packets to the
 upstream on port 53 are dropped like any other. So a name the agent wants answered goes through
-Sokar's resolver, which answers only what the project declared, and logs what it was asked.
+Porelo's resolver, which answers only what the project declared, and logs what it was asked.
 
 What this rests on: nothing the agent runs is the namespace's root. A command an operator runs in the
 container as root (`podman exec --user root`) could ask the upstream directly. What remains, by
@@ -285,7 +285,7 @@ agent can resolve nothing at all, and the hook records why.
 
 ## What is accepted rather than solved
 
-**A unix socket can be taken from a live process, in a window.** Before binding, Sokar connects to
+**A unix socket can be taken from a live process, in a window.** Before binding, Porelo connects to
 the path and refuses to continue if something answers, so a socket another process is already
 serving is not removed. The check and the unlink are still two steps, and another process of the
 same user can bind in between. The sequence is not race-free. Closing it needs a per-run directory

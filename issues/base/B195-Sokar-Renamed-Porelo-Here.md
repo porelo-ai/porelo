@@ -1,6 +1,6 @@
 # B195 — Sokar Renamed Porelo Here
 
-**Status:** Estimated.
+**Status:** Implementing.
 **Size:** L - a script is a day; the rest is the whole reactor, the native build, the acceptance on Ubuntu and an
 enforcing Fedora, and reading the diff for the exceptions; contracts that four other repositories read change.
 
@@ -72,6 +72,25 @@ What others read:
 2. The whole reactor, the documents, the native build, the package check, and the acceptance on the ubuntu VM and
    an enforcing Fedora, on accounts with no Sokar state.
 3. Published as a snapshot, for the repositories built on it.
+
+## What the rename found
+
+- **A container name holds 64 characters, no longer 65:** `/run/user/<uid>/porelo/` is a byte longer, and the longest
+  socket path must still fit 107 bytes (`ContainerName.MAX_LENGTH`, its test, `doc/commands.md`).
+- **Fixed by the script as literal edits**, each failing if its text is not found: the Shared Area's markers, taken from
+  the build tools byte for byte; the Debian pool `pool/main/p/porelo`; the versions; the task image's recipe hash in
+  a golden file; the vault test's header offset, which follows the magic `PORELOVLT`, a byte longer.
+- **The captured NFLOG datagrams** carry the drop prefix with a length header: a converter rewrites the prefix
+  attribute with the kernel's length and padding, every other byte as captured; with the prefix unchanged it gives
+  the same file.
+- **No signed fixture to sign again:** every signature in the tests is made while the test runs.
+- **Kept, as agreed in the channel:** the changelog entry for `0.5.0` and one sentence in `doc/commands.md` on the
+  deploy keys Sokar left at a forge, beside `changelog/v*`, `CHANGELOG.md`, this issue and its row.
+- **Open:** `doc/images/porelo.xcf` is renamed as it was; the word drawn in it is redrawn by the operator before the
+  window ends.
+- **The legs:** the `porelo=ci` images are built from this repository's `main`, so the Fedora image, which loads the
+  SELinux policy, can only be built after this commit is pushed; its leg is run again then. The local Fedora VM
+  cannot take the package (no root there), so the enforcing Fedora acceptance is that CI leg.
 
 ## Acceptance
 

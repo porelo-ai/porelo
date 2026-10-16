@@ -16,7 +16,7 @@
     <rect x="34" y="62" width="150" height="42" rx="6" fill="none" stroke="#57606a"/>
     <text x="109" y="88" font-size="12.5" text-anchor="middle" fill="#24292f">Operator</text>
     <rect x="238" y="62" width="300" height="42" rx="6" fill="none" stroke="#57606a"/>
-    <text x="388" y="80" font-size="11.5" text-anchor="middle" fill="#24292f" font-family="'IBM Plex Mono',monospace">sokar vault put anthropic</text>
+    <text x="388" y="80" font-size="11.5" text-anchor="middle" fill="#24292f" font-family="'IBM Plex Mono',monospace">porelo vault put anthropic</text>
     <text x="388" y="96" font-size="10.5" text-anchor="middle" fill="#57606a">the value on standard input, never in an argument</text>
     <path d="M 190 83 L 232 83" stroke="#57606a" stroke-width="1.6" fill="none" marker-end="url(#e-ink)"/>
     <path d="M 544 83 L 694 83" stroke="#57606a" stroke-width="1.6" fill="none" marker-end="url(#e-ink)"/>
@@ -26,7 +26,7 @@
     <text x="109" y="156" font-size="12.5" text-anchor="middle" fill="#24292f">Agent's own login</text>
     <text x="109" y="171" font-size="10.5" text-anchor="middle" fill="#57606a">a browser, somewhere</text>
     <rect x="238" y="136" width="300" height="42" rx="6" fill="none" stroke="#57606a"/>
-    <text x="388" y="154" font-size="11.5" text-anchor="middle" fill="#24292f" font-family="'IBM Plex Mono',monospace">sokar vault import claude</text>
+    <text x="388" y="154" font-size="11.5" text-anchor="middle" fill="#24292f" font-family="'IBM Plex Mono',monospace">porelo vault import claude</text>
     <text x="388" y="170" font-size="10.5" text-anchor="middle" fill="#57606a">reads the config file the agent just wrote</text>
     <path d="M 190 157 L 232 157" stroke="#57606a" stroke-width="1.6" fill="none" marker-end="url(#e-ink)"/>
     <path d="M 544 157 L 694 157" stroke="#57606a" stroke-width="1.6" fill="none" marker-end="url(#e-ink)"/>
@@ -35,7 +35,7 @@
     <rect x="34" y="210" width="150" height="42" rx="6" fill="none" stroke="#57606a"/>
     <text x="109" y="236" font-size="12.5" text-anchor="middle" fill="#24292f">Operator</text>
     <rect x="238" y="210" width="300" height="42" rx="6" fill="none" stroke="#57606a"/>
-    <text x="388" y="228" font-size="11.5" text-anchor="middle" fill="#24292f" font-family="'IBM Plex Mono',monospace">sokar vault put ssh.default</text>
+    <text x="388" y="228" font-size="11.5" text-anchor="middle" fill="#24292f" font-family="'IBM Plex Mono',monospace">porelo vault put ssh.default</text>
     <text x="388" y="244" font-size="10.5" text-anchor="middle" fill="#57606a">an ed25519 seed, for signing pushes</text>
     <path d="M 190 231 L 232 231" stroke="#57606a" stroke-width="1.6" fill="none" marker-end="url(#e-ink)"/>
     <path d="M 544 231 L 694 231" stroke="#57606a" stroke-width="1.6" fill="none" marker-end="url(#e-ink)"/>

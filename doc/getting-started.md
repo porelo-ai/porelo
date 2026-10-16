@@ -9,11 +9,11 @@ Both are marked. Everything else is the same.
 
 For every command with a line each, see [commands](commands.md). For the whole setup as one
 block to paste, see
-[the README](https://github.com/sokar-ai/sokar/blob/main/README.md#getting-started).
+[the README](https://github.com/porelo-ai/porelo/blob/main/README.md#getting-started).
 
 ## Before you start
 
-**Sokar runs on Linux only.** It is built on kernel machinery: an nftables ruleset inside the
+**Porelo runs on Linux only.** It is built on kernel machinery: an nftables ruleset inside the
 container's network namespace, OCI hooks, user namespaces and the kernel keyring. On macOS or
 Windows all of that would sit on the far side of a virtual machine.
 
@@ -21,8 +21,8 @@ Windows all of that would sit on the far side of a virtual machine.
 
 **Podman 5 or newer is required.** Podman 4 has no `pasta`, which maps your machine's
 loopback into a container. Without it the git gate would have to listen on every interface,
-on your local network. Sokar refuses to start a task rather than run with less, and
-`sokar doctor` says so. **Ubuntu 24.04 LTS cannot provide it**: it ships 4.9.3, and a stable
+on your local network. Porelo refuses to start a task rather than run with less, and
+`porelo doctor` says so. **Ubuntu 24.04 LTS cannot provide it**: it ships 4.9.3, and a stable
 release never changes a package's major version. Ubuntu 25.10 and 26.04, Debian 13 and
 Fedora 43 and 44 ship podman 5.
 
@@ -30,13 +30,13 @@ Fedora 43 and 44 ship podman 5.
 library and zlib their binaries need (glibc 2.34 today), and the build refuses a binary that
 needs more, or a floor above Debian 13's glibc 2.41, so a package that installs also starts.
 
-Sokar calls `podman`, `nft`, `dnsmasq`, `git` and `nsenter`. The packages declare them, so
+Porelo calls `podman`, `nft`, `dnsmasq`, `git` and `nsenter`. The packages declare them, so
 the package manager pulls them in.
 
 ## 1. Install
 
-Two packages: `sokar` is the tool, `sokar-agent-claude` is one agent. Sokar finds agents at
-runtime, so a new agent needs no new release of Sokar.
+Two packages: `porelo` is the tool, `porelo-agent-claude` is one agent. Porelo finds agents at
+runtime, so a new agent needs no new release of Porelo.
 
 `releases` holds the released versions, and the lines below follow them. To follow every build of
 `main` as well, see [snapshots](#snapshots).
@@ -45,18 +45,18 @@ runtime, so a new agent needs no new release of Sokar.
 
 ```
 sudo apt install -y ca-certificates curl gnupg
-curl -fsSL https://fuinorg.jfrog.io/artifactory/api/security/keypair/sokar-packages/public -o /tmp/sokar.asc
-gpg --show-keys --with-colons /tmp/sokar.asc \
+curl -fsSL https://fuinorg.jfrog.io/artifactory/api/security/keypair/porelo-packages/public -o /tmp/porelo.asc
+gpg --show-keys --with-colons /tmp/porelo.asc \
   | grep -q '^fpr:::::::::10EDAF73ECE5BB29A2E63E9C6B488A9326920DBE:' \
-  && sudo gpg --dearmor -o /usr/share/keyrings/sokar.gpg < /tmp/sokar.asc
-echo "deb [signed-by=/usr/share/keyrings/sokar.gpg] https://fuinorg.jfrog.io/artifactory/sokar-dist-deb releases main" \
-  | sudo tee /etc/apt/sources.list.d/sokar.list
+  && sudo gpg --dearmor -o /usr/share/keyrings/porelo.gpg < /tmp/porelo.asc
+echo "deb [signed-by=/usr/share/keyrings/porelo.gpg] https://fuinorg.jfrog.io/artifactory/porelo-dist-deb releases main" \
+  | sudo tee /etc/apt/sources.list.d/porelo.list
 sudo apt update
-sudo apt install sokar sokar-agent-claude
+sudo apt install porelo porelo-agent-claude
 ```
 
 - **Check the key before trusting it.** Its fingerprint is
-  `10EDAF73ECE5BB29A2E63E9C6B488A9326920DBE` (Sokar Packages, RSA 4096, made 2026-09-06, valid to
+  `10EDAF73ECE5BB29A2E63E9C6B488A9326920DBE` (Porelo Packages, RSA 4096, made 2026-09-06, valid to
   2031-09-05). The line before `gpg --dearmor` installs it only when the downloaded key has exactly that
   fingerprint; when it does not, nothing is installed and `apt update` refuses the repository. The fingerprint
   is written here, on a page served from elsewhere than the key, so one compromised server cannot change both.
@@ -66,29 +66,29 @@ sudo apt install sokar sokar-agent-claude
 ### Fedora and RHEL
 
 ```
-sudo tee /etc/yum.repos.d/sokar.repo <<'EOF'
-[sokar]
-name=Sokar
-baseurl=https://fuinorg.jfrog.io/artifactory/sokar-dist-rpm/releases
+sudo tee /etc/yum.repos.d/porelo.repo <<'EOF'
+[porelo]
+name=Porelo
+baseurl=https://fuinorg.jfrog.io/artifactory/porelo-dist-rpm/releases
 enabled=1
 gpgcheck=0
 EOF
-sudo dnf install sokar sokar-agent-claude
+sudo dnf install porelo porelo-agent-claude
 ```
 
 - **`gpgcheck=0` is deliberate, and temporary.** The repository metadata is signed; the RPMs
   are not yet, so `dnf` would refuse them. Once they are, this becomes `gpgcheck=1` with a
   `gpgkey=` line.
 
-**From a local build**, see [building](build.md). It produces Sokar and no agent; the Claude
-Code agent is built in [sokar-claude-code](https://github.com/sokar-ai/sokar-claude-code).
+**From a local build**, see [building](build.md). It produces Porelo and no agent; the Claude
+Code agent is built in [porelo-claude-code](https://github.com/porelo-ai/porelo-claude-code).
 
 ## 2. Set up your account
 
 Once per user:
 
 ```
-sokar setup
+porelo setup
 ```
 
 It registers podman's hooks for your account, starts the daemon (and starts it with your
@@ -97,8 +97,8 @@ cannot become it. Each step runs only if it is not done yet, so running it again
 
 - **The vault needs a terminal**, because only you may type its passphrase. Without one (a
   script, `ssh` without `-t`) `setup` does the rest and says the vault is left for later.
-  Then run `sokar vault init` at a terminal.
-- `sokar setup --hooks-only` registers the hooks and nothing else. A task start also
+  Then run `porelo vault init` at a terminal.
+- `porelo setup --hooks-only` registers the hooks and nothing else. A task start also
   registers or updates them when they are missing or old, and says so.
 - The package cannot do this for you. Podman reads hooks per user, and an install script
   running as root does not know whose configuration to write.
@@ -106,7 +106,7 @@ cannot become it. Each step runs only if it is not done yet, so running it again
 ## 3. Check the machine
 
 ```
-sokar doctor
+porelo doctor
 ```
 
 It says where everything lives and what is missing, with the command that fixes it. Read it
@@ -127,11 +127,11 @@ Nothing more: `selinux policy` reads `not needed - this machine does not run SEL
 
 ### Fedora and RHEL
 
-`doctor` reports one more line until Sokar's SELinux policy is installed:
+`doctor` reports one more line until Porelo's SELinux policy is installed:
 
 ```
 selinux policy      MISSING - a task cannot reach the vault proxy
-                    -> sudo /usr/share/sokar/selinux/install-selinux-policy.sh
+                    -> sudo /usr/share/porelo/selinux/install-selinux-policy.sh
 ```
 
 Run that command. It compiles and loads the policy on your machine, because a compiled module
@@ -144,15 +144,15 @@ authenticate with **nothing in the audit log**.
 > [!WARNING]
 > **Never log in from inside a task.** If an agent there offers a login prompt or a sign-in
 > URL, something is wrong. A login inside the container would mint a fresh key there, which
-> is the one thing Sokar exists to prevent. Authenticate on your machine and store the result.
+> is the one thing Porelo exists to prevent. Authenticate on your machine and store the result.
 
 Three ways in:
 
 | Your situation | Command |
 |---|---|
-| the agent is already signed in on this machine | `sokar vault import claude` - **prefer this**; it copies what is there and logs in nowhere |
-| anything else, even with nothing installed | `sokar vault login claude` - runs the agent's own login for you |
-| you have an API key | `sokar vault put anthropic --type api-key` - asks for it without echoing it |
+| the agent is already signed in on this machine | `porelo vault import claude` - **prefer this**; it copies what is there and logs in nowhere |
+| anything else, even with nothing installed | `porelo vault login claude` - runs the agent's own login for you |
+| you have an API key | `porelo vault put anthropic --type api-key` - asks for it without echoing it |
 
 **`vault login`** builds a throwaway image with the agent and runs the agent's own login in
 it, on your terminal, then stores the credential and removes the container. There is no
@@ -163,16 +163,16 @@ and points to `vault import`, since a second sign-in may revoke the first; `--fo
 anyway.
 
 **`vault put`**: type or paste the key at the prompt. A pipe puts it in your shell history.
-If you must pipe (a script), run `sokar vault unlock` first, because a piped `put` has no
+If you must pipe (a script), run `porelo vault unlock` first, because a piped `put` has no
 terminal to ask for the passphrase; use `printf '%s'`, not `echo`, whose newline would become
 part of the key. Never pass a credential as a command-line argument.
 
 **Which kind.** Claude Code takes an API key (`--type api-key`) or a subscription token
 (`--type oauth`); the wrong one fails like a wrong key. The kind is stored with the
-credential, so no task repeats it. The name is the provider's: `sokar providers` lists them.
+credential, so no task repeats it. The name is the provider's: `porelo providers` lists them.
 
-**A lost passphrase cannot be recovered.** `sokar vault clear --force --yes` removes the vault unread,
-`sokar vault init` makes a new one, and you store your credentials again.
+**A lost passphrase cannot be recovered.** `porelo vault clear --force --yes` removes the vault unread,
+`porelo vault init` makes a new one, and you store your credentials again.
 Unlocking, locking and automation without a prompt are in [credentials](credentials.md).
 
 ## 5. Start a task
@@ -180,13 +180,13 @@ Unlocking, locking and automation without a prompt are in [credentials](credenti
 In a checked-out repository with an `origin`:
 
 ```
-sokar task start
+porelo task start
 ```
 
 With no project named, the repository goes into `default`, the project every machine has. Its
-settings are Sokar's and cannot be changed: class `guarded`, base image `ubuntu:24.04` with curl, git, ssh,
+settings are Porelo's and cannot be changed: class `guarded`, base image `ubuntu:24.04` with curl, git, ssh,
 tmux and `python3` (no pip), and no egress beyond what the agent needs. The task is named after the repository (`myproject`, then
-`myproject-2`, ...); `sokar task start <name>` chooses another name.
+`myproject-2`, ...); `porelo task start <name>` chooses another name.
 
 It builds the image, starts the container, starts the agent and reports what it wired up:
 
@@ -195,10 +195,10 @@ task           myproject
 project        default
 security class guarded
 agent     claude 2.1.236
-vault     /run/user/1000/sokar/sokar-default-myproject/vault.sock -> https://api.anthropic.com
-token     ANTHROPIC_API_KEY=sokar_pt_lYyo...
+vault     /run/user/1000/porelo/porelo-default-myproject/vault.sock -> https://api.anthropic.com
+token     ANTHROPIC_API_KEY=porelo_pt_lYyo...
 provider  api.anthropic.com reachable; the credential is not, only a task-scoped token
-container sokar-default-myproject
+container porelo-default-myproject
 gate      http://host.containers.internal:38359/myproject.git
 workspace /workspace ready
 ```
@@ -212,15 +212,15 @@ Four of these lines are the security model:
 - **`gate`**: where the agent pushes, on your own machine.
 
 **Commit before you start.** The task takes your checkout's committed history, local commits
-included; uncommitted changes stay behind. Your remote is yours: Sokar neither pulls from it nor
+included; uncommitted changes stay behind. Your remote is yours: Porelo neither pulls from it nor
 pushes to it.
 
 - When the agent exits you get a shell in the workspace. `--attach shell` skips the agent;
   `-P "your prompt"` runs it without a terminal.
-- The container is kept when you leave. `sokar task start` puts you back in,
-  `sokar task list` shows tasks, `sokar task remove <name>` removes one. `--rm` removes it on
+- The container is kept when you leave. `porelo task start` puts you back in,
+  `porelo task list` shows tasks, `porelo task remove <name>` removes one. `--rm` removes it on
   exit, except after a failure: a failed task is always kept so you can look at it.
-- **If something goes wrong and you do not know what**, `sokar panic` stops every task and
+- **If something goes wrong and you do not know what**, `porelo panic` stops every task and
   every helper. It removes nothing; everything can be resumed.
 
 ## 6. Hand the work back
@@ -229,20 +229,20 @@ Inside the container, `/workspace` is a clone from the gate with a remote alread
 
 ```
 git add -A && git commit -m "what the agent did"
-git push sokar HEAD:"$SOKAR_TASK_REF"
+git push porelo HEAD:"$PORELO_TASK_REF"
 ```
 
-The push lands under `refs/sokar/incoming/`, never on a branch. Nothing has left your machine.
+The push lands under `refs/porelo/incoming/`, never on a branch. Nothing has left your machine.
 
 ## 7. Review and approve
 
 Back on your machine, from any directory:
 
 ```
-sokar gate pending                           # what waits, in every project
-sokar gate review  -p default myproject      # the full diff
-sokar gate reject  -p default myproject      # discard it
-sokar gate approve -p default myproject      # push it to the upstream
+porelo gate pending                           # what waits, in every project
+porelo gate review  -p default myproject      # the full diff
+porelo gate reject  -p default myproject      # discard it
+porelo gate approve -p default myproject      # push it to the upstream
 ```
 
 **`approve` is the only command that sends anything anywhere.** It pushes to the repository's
@@ -261,10 +261,10 @@ conversation between tasks. **You write `project.yml` and commit it**, in one of
 
 - **In the code's repository**, at its root, when the team keeps it there.
 - **In a repository of your own**, which names the code repositories under `repositories:` with their `upstream:`.
-  Nothing is committed to the team's repository, so this is how one developer uses Sokar alone. See
+  Nothing is committed to the team's repository, so this is how one developer uses Porelo alone. See
   [a project file beside the code](#a-project-file-beside-the-code).
 
-Sokar writes no project file anywhere. Only `name`, `security_class` and `base_image` are required:
+Porelo writes no project file anywhere. Only `name`, `security_class` and `base_image` are required:
 
 ```yaml
 project:
@@ -285,8 +285,8 @@ not a set.
 **A machine gets the project by following that repository:**
 
 ```
-sokar project follow myproject <git-url> --signed-by "ssh-ed25519 AAAA..."
-sokar task start --project myproject --repository myproject
+porelo project follow myproject <git-url> --signed-by "ssh-ed25519 AAAA..."
+porelo task start --project myproject --repository myproject
 ```
 
 - `follow` fetches the file, checks the commit's signature against the key you gave, and only
@@ -294,7 +294,7 @@ sokar task start --project myproject --repository myproject
 - **`--signed-by` must come from a person** - a colleague, a wiki - never from the repository
   it verifies. `--unverified` follows without a key and says so wherever the project is shown.
 - `--repository` names which of the project's repositories the task works on. A project with
-  only its own repository has one, named after the project. Leave it out and Sokar refuses and
+  only its own repository has one, named after the project. Leave it out and Porelo refuses and
   prints the line to type.
 
 The security class decides where work may go. A task cannot raise it.
@@ -302,10 +302,10 @@ The security class decides where work may go. A task cannot raise it.
 | Class | The container's `origin` | How work reaches your real remote |
 |---|---|---|
 | `offline` | the gate on your machine | never |
-| `guarded` | the gate on your machine | you review, then `sokar gate approve` |
+| `guarded` | the gate on your machine | you review, then `porelo gate approve` |
 | `online` | the gate on your machine | the gate passes the task's own branch on to your remote at once, unreviewed |
 
-See [security](security.md) for what each class keeps out, and [running Sokar](running.md)
+See [security](security.md) for what each class keeps out, and [running Porelo](running.md)
 for the gate's mirror and its seeding.
 
 ### A project file beside the code
@@ -328,14 +328,14 @@ egress:
 ```
 git init ~/payments-project && cd ~/payments-project     # project.yml in it
 git add project.yml && git commit -S -m "The payments project"
-sokar project follow payments ~/payments-project --signed-by "ssh-ed25519 AAAA..."
-sokar task start --project payments --repository backend
+porelo project follow payments ~/payments-project --signed-by "ssh-ed25519 AAAA..."
+porelo task start --project payments --repository backend
 ```
 
 - **A commit is followed, never the working tree.** An edit to `project.yml` is read once it is committed; until then
   the machine keeps the last commit it applied.
 - The task works on `backend`, fetched from its `upstream` on the host; approved work goes back there as
-  `sokar/<task>`. The project's own repository holds only the file, and no task is started in it.
+  `porelo/<task>`. The project's own repository holds only the file, and no task is started in it.
 
 ### Working alone, with no forge
 
@@ -343,10 +343,10 @@ Your code's own repository on this machine can be the whole setup. Commit `proje
 into it, follow the path, and approve onto a branch of its own:
 
 ```
-sokar project follow myproject ~/myproject --signed-by "ssh-ed25519 AAAA..."   # or --unverified
-sokar task start --project myproject --repository myproject
-sokar gate approve -p myproject myproject --upstream ~/myproject --branch sokar/myproject
-git -C ~/myproject merge sokar/myproject
+porelo project follow myproject ~/myproject --signed-by "ssh-ed25519 AAAA..."   # or --unverified
+porelo task start --project myproject --repository myproject
+porelo gate approve -p myproject myproject --upstream ~/myproject --branch porelo/myproject
+git -C ~/myproject merge porelo/myproject
 ```
 
 Approving onto the branch you have checked out there fails: git does not let a push move
@@ -366,14 +366,14 @@ Could not resolve host: repo.maven.apache.org
 The declaration is reviewed and applies to everyone. See what is declared and widen it:
 
 ```
-sokar shield sets                                # the curated host lists, e.g. maven, nodejs
-sokar shield egress                              # what this project may reach, and who decided
-sokar shield egress --add-set maven --dry-run    # the hosts it would open, writing nothing
-sokar shield egress --add-set maven --add-domain nexus.corp.example
+porelo shield sets                                # the curated host lists, e.g. maven, nodejs
+porelo shield egress                              # what this project may reach, and who decided
+porelo shield egress --add-set maven --dry-run    # the hosts it would open, writing nothing
+porelo shield egress --add-set maven --add-domain nexus.corp.example
 ```
 
 The change applies to the next task. Only ports 80 and 443 open; declaring a forge does not
-open ssh. A project in `default` uses Sokar's settings: to reach more, make a project of your
+open ssh. A project in `default` uses Porelo's settings: to reach more, make a project of your
 own.
 
 **The clearance prompt** is for the other case: a name that resolved to an address the
@@ -382,34 +382,34 @@ destination. `--clearance` on `task start` sets `prompt` (default), `allow`, `de
 **Without a desktop session use one of the last three**; `prompt` does not start without one.
 
 Every connection attempt the firewall stops is one line in `events.jsonl` in the task's state directory
-(`/run/user/<uid>/sokar/<container>/`, cleared when your session ends): when it was stopped, where it went, and its
+(`/run/user/<uid>/porelo/<container>/`, cleared when your session ends): when it was stopped, where it went, and its
 source port. A client sending the same attempt again is not a second line. Every decision is in
-`~/.local/state/sokar/clearance/<container>.jsonl`, which outlives the task. A resumed task
+`~/.local/state/porelo/clearance/<container>.jsonl`, which outlives the task. A resumed task
 does not ask again what you already answered. The full picture is in
 [what a task can reach](reach.md).
 
-## Removing Sokar
+## Removing Porelo
 
 **Clean up your account before removing the package:**
 
 ```
-systemctl --user disable --now sokard
-sokar setup --uninstall
+systemctl --user disable --now porelod
+porelo setup --uninstall
 ```
 
 The first stops the daemon. The second removes the hook descriptors and podman drop-in from
 your home, naming each file. No package can remove them, so removing the package first leaves
 them pointing at binaries that are gone. Then:
 
-- Debian and Ubuntu: `sudo apt purge sokar 'sokar-agent-*'`
-- Fedora and RHEL: `sudo dnf remove sokar 'sokar-agent-*'`
+- Debian and Ubuntu: `sudo apt purge porelo 'porelo-agent-*'`
+- Fedora and RHEL: `sudo dnf remove porelo 'porelo-agent-*'`
 
 **What is left is yours**, and the packages do not remove it: the vault
-(`~/.local/share/sokar/vault.bin`, not recoverable; `sokar vault clear` removes it before you
-uninstall), the mirrors (`~/.local/share/sokar/mirrors/`), the followed projects
-(`~/.local/share/sokar/projects/`) and agents you installed yourself
-(`~/.local/share/sokar/agents/`). **Check the mirrors first:** an unreviewed push exists only
-there, and `sokar gate pending` still answers while the package is installed.
+(`~/.local/share/porelo/vault.bin`, not recoverable; `porelo vault clear` removes it before you
+uninstall), the mirrors (`~/.local/share/porelo/mirrors/`), the followed projects
+(`~/.local/share/porelo/projects/`) and agents you installed yourself
+(`~/.local/share/porelo/agents/`). **Check the mirrors first:** an unreviewed push exists only
+there, and `porelo gate pending` still answers while the package is installed.
 
 ## Snapshots
 
@@ -420,35 +420,35 @@ manager installs whichever is newer: the latest build, and a release on the day 
 
 ```
 sudo apt install -y ca-certificates curl gnupg
-curl -fsSL https://fuinorg.jfrog.io/artifactory/api/security/keypair/sokar-packages/public -o /tmp/sokar.asc
-gpg --show-keys --with-colons /tmp/sokar.asc \
+curl -fsSL https://fuinorg.jfrog.io/artifactory/api/security/keypair/porelo-packages/public -o /tmp/porelo.asc
+gpg --show-keys --with-colons /tmp/porelo.asc \
   | grep -q '^fpr:::::::::10EDAF73ECE5BB29A2E63E9C6B488A9326920DBE:' \
-  && sudo gpg --dearmor -o /usr/share/keyrings/sokar.gpg < /tmp/sokar.asc
-sudo tee /etc/apt/sources.list.d/sokar.list <<'EOF'
-deb [signed-by=/usr/share/keyrings/sokar.gpg] https://fuinorg.jfrog.io/artifactory/sokar-dist-deb releases main
-deb [signed-by=/usr/share/keyrings/sokar.gpg] https://fuinorg.jfrog.io/artifactory/sokar-dist-deb snapshots main
+  && sudo gpg --dearmor -o /usr/share/keyrings/porelo.gpg < /tmp/porelo.asc
+sudo tee /etc/apt/sources.list.d/porelo.list <<'EOF'
+deb [signed-by=/usr/share/keyrings/porelo.gpg] https://fuinorg.jfrog.io/artifactory/porelo-dist-deb releases main
+deb [signed-by=/usr/share/keyrings/porelo.gpg] https://fuinorg.jfrog.io/artifactory/porelo-dist-deb snapshots main
 EOF
 sudo apt update
-sudo apt install sokar sokar-agent-claude
+sudo apt install porelo porelo-agent-claude
 ```
 
 ### Fedora and RHEL
 
 ```
-sudo tee /etc/yum.repos.d/sokar.repo <<'EOF'
-[sokar]
-name=Sokar
-baseurl=https://fuinorg.jfrog.io/artifactory/sokar-dist-rpm/releases
+sudo tee /etc/yum.repos.d/porelo.repo <<'EOF'
+[porelo]
+name=Porelo
+baseurl=https://fuinorg.jfrog.io/artifactory/porelo-dist-rpm/releases
 enabled=1
 gpgcheck=0
 
-[sokar-snapshots]
-name=Sokar snapshots
-baseurl=https://fuinorg.jfrog.io/artifactory/sokar-dist-rpm/snapshots
+[porelo-snapshots]
+name=Porelo snapshots
+baseurl=https://fuinorg.jfrog.io/artifactory/porelo-dist-rpm/snapshots
 enabled=1
 gpgcheck=0
 EOF
-sudo dnf install sokar sokar-agent-claude
+sudo dnf install porelo porelo-agent-claude
 ```
 
 - **The same file as for releases, with the snapshot source added**, so it replaces the file from
@@ -458,5 +458,5 @@ sudo dnf install sokar sokar-agent-claude
   build to the next and on to the release.
 - **Going back to releases only:** remove the snapshot line or section. That installs nothing older
   by itself: `0.4.2~snapshot.267` stays until a release above it comes. To go back at once:
-  `sudo apt install --allow-downgrades sokar=<release> sokar-agent-claude=<release>`, or
-  `sudo dnf downgrade sokar sokar-agent-claude`.
+  `sudo apt install --allow-downgrades porelo=<release> porelo-agent-claude=<release>`, or
+  `sudo dnf downgrade porelo porelo-agent-claude`.

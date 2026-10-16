@@ -18,7 +18,7 @@
     <text x="109" y="88" font-size="13" text-anchor="middle" fill="#24292f">Operator</text>
     <rect x="240" y="60" width="160" height="46" rx="6" fill="none" stroke="#57606a"/>
     <text x="320" y="82" font-size="13" text-anchor="middle" fill="#24292f">Gate + mirror</text>
-    <text x="320" y="98" font-size="10.5" text-anchor="middle" fill="#57606a" font-family="'IBM Plex Mono',monospace">refs/sokar/incoming/…</text>
+    <text x="320" y="98" font-size="10.5" text-anchor="middle" fill="#57606a" font-family="'IBM Plex Mono',monospace">refs/porelo/incoming/…</text>
     <rect x="470" y="34" width="210" height="140" rx="8" fill="none" stroke="#e0a281"/>
     <text x="484" y="54" font-size="11" fill="#a8480f" font-family="'IBM Plex Mono',monospace">CONTAINER</text>
     <rect x="492" y="66" width="166" height="42" rx="6" fill="none" stroke="#a8480f"/>

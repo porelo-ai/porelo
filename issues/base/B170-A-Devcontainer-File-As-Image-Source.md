@@ -5,7 +5,7 @@
 and a registry fetch of their own.
 
 **What must be true.** Where a repository has `.devcontainer/devcontainer.json`, a task's base image and tools can be
-taken from it; what Sokar does not take - ports, mounts, privileges - is ignored and said.
+taken from it; what Porelo does not take - ports, mounts, privileges - is ignored and said.
 
 ## Why
 

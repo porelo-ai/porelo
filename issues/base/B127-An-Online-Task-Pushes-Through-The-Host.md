@@ -8,7 +8,7 @@ gate on the host, and with no credential and no socket of one in its container. 
 upstream and fetches from it again whenever the agent fetches. A push of the agent goes into the gate and, while the
 push is still running, the host passes the task's branch on to the upstream with the key the vault lends for it. The
 agent's push succeeds only when that one did. The two classes differ only in what the host does with a push: `guarded`
-keeps it until a person approves it, `online` passes it on at once. Sokar is the go-between, and the agent cannot reach
+keeps it until a person approves it, `online` passes it on at once. Porelo is the go-between, and the agent cannot reach
 more at the forge than its own branch.
 
 ## Why
@@ -33,13 +33,13 @@ repository, and since an online task whose fetch fails is refused at its start, 
 ## Plan
 
 Built and on `origin/main` (`b5625490`, `14962fa3`, the documents in `9ae41550`; released in 0.4.1):
-`GateServeCommand --pass-on` (`apps/app-gate/...`) passes the task's own incoming ref on as `sokar/<task>`;
+`GateServeCommand --pass-on` (`apps/app-gate/...`) passes the task's own incoming ref on as `porelo/<task>`;
 `GitHttpServer.passOn` (`gate/...`) refuses every other ref before anything reaches the forge; `GitGate.passOn`
 pushes with force with the key `GitCredentials` lends, and `GitGate.refresh` fetches from the upstream before an
-agent's fetch. **Answered:** the branch at the forge is `sokar/<task>`, as `approve` names it.
+agent's fetch. **Answered:** the branch at the forge is `porelo/<task>`, as `approve` names it.
 
 The acceptance run on the Ubuntu VM is green on `30c8169b` (220 scenarios), `task-builds.feature` with its `file://`
-upstream included. `doc/` and `README.md` name an ssh-agent only for `sokar vault agent`, which serves a command on the
+upstream included. `doc/` and `README.md` name an ssh-agent only for `porelo vault agent`, which serves a command on the
 host, for an ssh key declared `--agent` in `doc/credentials.md`, and in the decision's history. The operator's test is
 left.
 
@@ -68,7 +68,7 @@ left.
 - **A local upstream:** an online project whose upstream is a `file://` repository on the host starts a task that
   holds its history and whose push arrives there. The builds scenario (`task-builds.feature`) runs on it again.
 - **What follows a push stays:** the build helper follows the branch the host passed on, and its verdicts arrive in
-  `/sokar/files` as before.
+  `/porelo/files` as before.
 - **The documents say it for all three classes:** wherever a document says that no credential is in a container, or
   names the ssh-agent socket as the exception, it says "none" for every class, and where `online` work goes says that
   it goes through the host. Today these are `doc/security.md` (the table of the classes, its row "Credential in the

@@ -9,7 +9,7 @@ line's length and says how much it cut.
 
 ## Plan
 
-Read in the code on 2026-10-11 (`daemon/.../TaskMethods.java`, `SokarDaemon.java`, `15-task.varlink`):
+Read in the code on 2026-10-11 (`daemon/.../TaskMethods.java`, `PoreloDaemon.java`, `15-task.varlink`):
 
 - `Tail(task, log, last?, formatted?)` answers `lines` and `offset`, the byte position its first line starts at -
   already there "so a client can later ask for what lies before it", but nothing takes a position to read back

@@ -15,7 +15,7 @@ to them; a chat between two tasks would not be.
 
 Within a project this already holds: every task of the project is reached through its conversation,
 and a direct chat is used only to answer a person who wrote directly. The gap is a peer declared in
-the project file with an address of an account, `<transport>:@account`, which `sokar talk peers`
+the project file with an address of an account, `<transport>:@account`, which `porelo talk peers`
 shows as "a direct chat with" it. Nothing checks that the account is a person, so a task of another
 installation declared that way, and a message with `"via": "direct"`, makes a chat between two tasks
 the operator is not in. The default `others: deny` holds it back until a project allows it; nothing

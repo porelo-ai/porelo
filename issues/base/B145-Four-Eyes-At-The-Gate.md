@@ -19,7 +19,7 @@ started a task is recorded, and an approve by that principal alone is refused, n
 
 ## Plan
 
-**Today.** A node is one OS user (`doc/running.md`, "A Sokar node is an OS user"), and the glossary in
+**Today.** A node is one OS user (`doc/running.md`, "A Porelo node is an OS user"), and the glossary in
 `doc/how-it-works.md` says the operator is the only one who can approve at its gate. So on one node the person who
 started a task and the one who approves are always the same. `TaskProfile` (`wire/.../TaskProfile.java`) records the
 agent, mode, provider and start time, not who started it. A signed approve (`GitGate.approveSigned`) already signs
@@ -34,8 +34,8 @@ one machine and across machines.
 2. The task records who started it: `TaskProfile` version 5 with `startedBy`, the principal of the starting
    account's signing key.
 3. A second approval is a signature over the reviewed commit by another principal of the project's signers
-   (`ssh-keygen -Y sign`, a namespace of Sokar's own), made on that person's machine with a new
-   `sokar gate co-sign`, and handed to the node; `Approve` (`35-gate.varlink`) and `gate approve` take it.
+   (`ssh-keygen -Y sign`, a namespace of Porelo's own), made on that person's machine with a new
+   `porelo gate co-sign`, and handed to the node; `Approve` (`35-gate.varlink`) and `gate approve` take it.
 4. `GitGate` checks it with `ssh-keygen -Y verify` before anything is pushed; without one from a principal other
    than `startedBy`, the approve is refused and names the other signers.
 5. `doc/how-it-works.md` (the gate, and the glossary's "the only one who can approve", which then holds only for a

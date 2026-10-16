@@ -9,7 +9,7 @@ themselves existed, without anything a container wrote being read.
 
 ## Why
 
-Every host-side log Sokar keeps belongs to one task, lives on tmpfs, and is gone when that task or
+Every host-side log Porelo keeps belongs to one task, lives on tmpfs, and is gone when that task or
 that session is.
 
 ### What exists, so that this is not built over something already there
@@ -32,7 +32,7 @@ rather than assumes, because which files exist depends on what the task started.
 
 **Three things are missing, and only the third is the reason for this file.**
 
-- **The CLI cannot read any of them.** `sokar task` has nine subcommands and none opens a log. The
+- **The CLI cannot read any of them.** `porelo task` has nine subcommands and none opens a log. The
   contract is ahead of the terminal here, which is backwards for a tool whose first audience is at
   the machine.
 - **Nothing is machine-wide.** Only `failures.log` and the clearance records live outside a task,
@@ -58,7 +58,7 @@ The per-task logs stay. They are the detail. What is missing is the spine.
 place it happens, and each one is a decision about what is worth saying. That is the cost, and it
 is the reason to argue the event list before writing any of it.
 
-**A node is an OS user with a `sokard`,** so this is per user rather than per machine, and two
+**A node is an OS user with a `porelod`,** so this is per user rather than per machine, and two
 users on one host have two journals. Confirmed with the interface, whose machine list is keyed the
 same way, so the two map one to one. **If this ever becomes host-wide it must be said loudly** - it
 would be the single place where the two sides' meanings of "machine" diverge.
@@ -85,19 +85,19 @@ happened here last night" has nowhere to look today, and that is true with no in
   scars: **it is absent for an event that belongs to the machine rather than a task**, and absence
   must not render as an unknown task; and where a kind is cheap - gate, broker, clearance - it is
   carried beside the name, so the spine can say which log without naming a file.
-- **`sokar task logs` is built now, separately.** It needs nothing from this requirement.
+- **`porelo task logs` is built now, separately.** It needs nothing from this requirement.
 
 ## Plan
 
 Read in the code at `30c8169b`.
 
-**What is there now.** `sokar task logs` is built (`apps/app-task/.../TaskLogsCommand.java`), so the first missing
+**What is there now.** `porelo task logs` is built (`apps/app-task/.../TaskLogsCommand.java`), so the first missing
 thing above is gone. A task's state directory is still `xdg.runtime()/<container>` (`TaskPaths`), so the seven
-files still die at a reboot. Account-wide and durable, under `xdg.state()` (`SokarPaths`): `failures.log`,
+files still die at a reboot. Account-wide and durable, under `xdg.state()` (`PoreloPaths`): `failures.log`,
 `stops.log` (each `task stop --all` and `panic`, with who and when), `grants.log` (whom a task acted as, [B31](README.md#b31)), the
 clearance journals, and the message record (`MessageRecord`, the one hash chain). None of them is a spine.
 
-**One log, not two.** [B154](README.md#b154) plans `EventLog` in `apps/app-model`, `$XDG_STATE_HOME/sokar/events.jsonl`, with the
+**One log, not two.** [B154](README.md#b154) plans `EventLog` in `apps/app-model`, `$XDG_STATE_HOME/porelo/events.jsonl`, with the
 daemon's `Events()`. This journal is that file: whichever of the two is built first creates `EventLog`, and the
 other adds to it. What [B26](README.md#b26) adds is its event list, the cursor and the caps.
 
@@ -113,7 +113,7 @@ Steps:
    `GateApproveCommand`, `GateRejectCommand` and the daemon's same calls), a clearance decision (`ClearanceHub`), a
    credential brokered for a task (the broker, once per credential per task rather than per request), and
    `failures.log`'s writer.
-4. `Events(after: ?string)` in a new `55-events.varlink`, streaming with `more`; `sokar events [--follow]` reading
+4. `Events(after: ?string)` in a new `55-events.varlink`, streaming with `more`; `porelo events [--follow]` reading
    the same file through the same reader, so both show the same order. `InterfaceDescriptionTest` holds them.
 5. An acceptance scenario: events recorded, the runtime directory cleared and the task removed, the journal still
    answers - without a reboot, which the shared machine must not do.

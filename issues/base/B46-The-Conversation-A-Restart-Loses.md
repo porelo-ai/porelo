@@ -11,7 +11,7 @@ plainly instead of presenting itself as resumed.
 **A task started with a prompt and left to run is brought back stopped, decided 2026-10-11.** Its session is
 kept, and it is shown as interrupted by the restart. The next run of it continues the conversation. It is never
 restarted on its own and never shown as running. A task somebody drove at a terminal is brought back by
-`sokar task start --restarted`, as before.
+`porelo task start --restarted`, as before.
 
 ## Plan
 
@@ -23,7 +23,7 @@ Built and on main:
   takes it from a run's records; `TaskControl` takes it from the session files when an attached task stops. Starting
   a task continues it and says `session continuing <id>`, or that a fresh one starts because the agent does not say
   how to continue one.
-- `sokar task start --restarted` (`TaskRunCommand.restarted`) brings every task back through the same start, and
+- `porelo task start --restarted` (`TaskRunCommand.restarted`) brings every task back through the same start, and
   opens the vault once for all of them. The gate token is in the vault, so a reboot always asks for it once.
 - `agent-session.feature` proves continuation across a stop and a start, unattended and attached;
   `task-reboot-reproduced.feature` reproduces what a reboot leaves; `task-restart.feature` (`@restart`) reboots, but
@@ -32,10 +32,10 @@ Built and on main:
 Left, in order:
 
 1. Red first: a new `@restart` feature beside `task-restart.feature`, with a vault of its own whose tokens are kept.
-   An unattended task and an attached task on the stub; the machine reboots; `sokar task start --restarted`; each
+   An unattended task and an attached task on the stub; the machine reboots; `porelo task start --restarted`; each
    is asked for something only its earlier turn holds. It fails today, because the stub has nothing to remember.
 2. The stub (`agents/stub/src/main/resources/agent/stub.yaml`) remembers a word: the first run writes it into its
-   session file under `.sokar-stub-sessions`, and a resumed run prints it back. Today `stub: continued` is printed
+   session file under `.porelo-stub-sessions`, and a resumed run prints it back. Today `stub: continued` is printed
    for any `--resume`, which a fresh session handed a stale id would print too.
 3. In the same feature, an agent definition without `session_id`, staged by the scenario, reports a fresh session
    after the reboot.
@@ -44,7 +44,7 @@ Left, in order:
    start it, and says it stays stopped, interrupted by the restart, with its session kept. `TaskInventory` gives
    such a task a start detail of its own, not `RESTARTED` ("brings it back whole"), so `task list` names it under
    its own line as interrupted by the restart, and never as running. `TaskSession` keeps its id; nothing removes
-   it. The next `sokar task start NAME` continues the conversation through the `record` and `key` route of
+   it. The next `porelo task start NAME` continues the conversation through the `record` and `key` route of
    `SessionIds`, and says `session continuing <id>`. In the feature of step 1 the unattended task is asserted that
    way: stopped and shown as interrupted after `--restarted`, then asked at its next start for what only its
    earlier turn holds.

@@ -6,15 +6,15 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.fuin.sokar</groupId>
-        <artifactId>sokar</artifactId>
-        <version>0.4.2-SNAPSHOT</version>
+        <groupId>org.fuin.porelo</groupId>
+        <artifactId>porelo</artifactId>
+        <version>0.5.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>sokar-bom</artifactId>
+    <artifactId>porelo-bom</artifactId>
     <packaging>pom</packaging>
-    <name>Sokar BOM</name>
-    <description>Sokar - The versions a repository that builds against Sokar needs, named once (BOM)</description>
+    <name>Porelo BOM</name>
+    <description>Porelo - The versions a repository that builds against Porelo needs, named once (BOM)</description>
 
     <!-- Only what crosses the repository boundary. Anything an agent or a suite in another
          repository has to agree with this one about is here; nothing this build uses only for
@@ -23,26 +23,26 @@
         <dependencies>
 
             <!-- What this repository publishes for others to build against, released together with it - and
-                 nothing else: JUnit, the build tools and third-party versions are sokar-parent's. -->
+                 nothing else: JUnit, the build tools and third-party versions are porelo-parent's. -->
             <dependency>
-                <groupId>org.fuin.sokar</groupId>
-                <artifactId>sokar-agent-api</artifactId>
-                <version>${sokar.version}</version>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-agent-api</artifactId>
+                <version>${porelo.version}</version>
             </dependency>
             <dependency>
-                <groupId>org.fuin.sokar</groupId>
-                <artifactId>sokar-build-api</artifactId>
-                <version>${sokar.version}</version>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-build-api</artifactId>
+                <version>${porelo.version}</version>
             </dependency>
             <dependency>
-                <groupId>org.fuin.sokar</groupId>
-                <artifactId>sokar-wire</artifactId>
-                <version>${sokar.version}</version>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-wire</artifactId>
+                <version>${porelo.version}</version>
             </dependency>
             <dependency>
-                <groupId>org.fuin.sokar</groupId>
-                <artifactId>sokar-acceptance-kit</artifactId>
-                <version>${sokar.version}</version>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-acceptance-kit</artifactId>
+                <version>${porelo.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -51,7 +51,7 @@
         <pluginManagement>
             <plugins>
                 <!-- Deployed to Central beside the agent API: a repository that is not this one imports
-                     it first and never names a Sokar version, or a JUnit one, again. Opted in on the two
+                     it first and never names a Porelo version, or a JUnit one, again. Opted in on the two
                      plugins rather than by the properties every other published module sets: this pom's
                      properties are published with it, and a repository that took it as its parent then
                      inherited 'publish me'. -->

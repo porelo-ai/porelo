@@ -7,53 +7,53 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.fuin.sokar</groupId>
-        <artifactId>sokar-parent</artifactId>
-        <version>0.1.4-SNAPSHOT</version>
+        <groupId>org.fuin.porelo</groupId>
+        <artifactId>porelo-parent</artifactId>
+        <version>0.2.0-SNAPSHOT</version>
         <relativePath/>
     </parent>
 
-    <groupId>org.fuin.sokar</groupId>
-    <artifactId>sokar</artifactId>
-    <version>0.4.2-SNAPSHOT</version>
+    <groupId>org.fuin.porelo</groupId>
+    <artifactId>porelo</artifactId>
+    <version>0.5.0-SNAPSHOT</version>
     <packaging>pom</packaging>
-    <name>Sokar</name>
+    <name>Porelo</name>
     <description>Sandboxing AI agents in YOLO mode using Podman and Java/GraalVM (PARENT)</description>
 
     <!-- Without the inherit.append.path attributes Maven appends each child's artifactId,
-         so a module would advertise .../sokar-agents/sokar-agent-api/ in its published pom -
+         so a module would advertise .../porelo-agents/porelo-agent-api/ in its published pom -
          a path that does not exist. One repository, one url. The project one belongs on
          <project> and the scm ones on <scm>: they are fields of different model objects. -->
 
-    <url>https://github.com/sokar-ai/sokar/</url>
+    <url>https://github.com/porelo-ai/porelo/</url>
 
     <scm child.scm.url.inherit.append.path="false"
          child.scm.connection.inherit.append.path="false"
          child.scm.developerConnection.inherit.append.path="false">
-        <url>https://github.com/sokar-ai/sokar/</url>
-        <connection>scm:git:git://github.com/sokar-ai/sokar.git</connection>
-        <developerConnection>scm:git:git@github.com:sokar-ai/sokar.git</developerConnection>
+        <url>https://github.com/porelo-ai/porelo/</url>
+        <connection>scm:git:git://github.com/porelo-ai/porelo.git</connection>
+        <developerConnection>scm:git:git@github.com:porelo-ai/porelo.git</developerConnection>
     </scm>
 
     <issueManagement>
         <system>GitHub Issues</system>
-        <url>https://github.com/sokar-ai/sokar/issues</url>
+        <url>https://github.com/porelo-ai/porelo/issues</url>
     </issueManagement>
 
     <properties>
 
-        <!-- Nothing is published unless a module opts in, as sokar-parent sets it. Sokar ships as binaries and
+        <!-- Nothing is published unless a module opts in, as porelo-parent sets it. Porelo ships as binaries and
              packages; the only artifacts anyone resolves from Maven are the agent API and what it drags in, so
              every other module would be publishing an internal for people to depend on. The Java release, the build
-             tools' version and the plugin and library versions every Sokar repository shares come from there too. -->
+             tools' version and the plugin and library versions every Porelo repository shares come from there too. -->
 
-        <!-- Sokar's own release line. Every internal module except an agent is on it.
+        <!-- Porelo's own release line. Every internal module except an agent is on it.
              A literal, deliberately: writing ${project.version} here would reintroduce
              the very bug this exists to avoid. Maven assembles inheritance BEFORE it
              interpolates, so a parent's ${project.version} is evaluated against the
              module that inherits it - and an agent module is on a different version.
              Kept equal to <version> above by maven-enforcer-plugin below. -->
-        <sokar.version>0.4.2-SNAPSHOT</sokar.version>
+        <porelo.version>0.5.0-SNAPSHOT</porelo.version>
         <!-- What distinguishes one snapshot package from the next.
              Without it every build of main produced 0.1.0~SNAPSHOT, which is the SAME version -
              so 'apt upgrade' saw nothing to do and somebody who installed yesterday stayed on it
@@ -62,14 +62,14 @@
              build and above the old flat ~SNAPSHOT, so an existing install upgrades cleanly.
              Verified against dpkg and rpm themselves, including 9 < 10, which is a numeric
              comparison in both and not a lexical one. -->
-        <sokar.snapshot.run>0</sokar.snapshot.run>
+        <porelo.snapshot.run>0</porelo.snapshot.run>
         <!-- The C library and zlib the native binaries need, measured with readelf, which both packages declare by
              hand: jdeb and the rpm plugin do not read a binary. dist-check holds the binaries to them. -->
         <package.glibc.floor>2.34</package.glibc.floor>
         <package.zlib.floor>1.2.2</package.zlib.floor>
         <!-- The oldest system supported, Debian 13's glibc: a floor above it drops that system, so it is refused. -->
         <package.glibc.ceiling>2.41</package.glibc.ceiling>
-        <!-- The command line 'exec:exec@machines' gives sokar-machines, such as 'jdk' or 'sweep'. -->
+        <!-- The command line 'exec:exec@machines' gives porelo-machines, such as 'jdk' or 'sweep'. -->
         <machines.args></machines.args>
         <!-- Appended to a package version when this is NOT a CI build. Empty here; the
              'local-package' profile at the end of this file sets it.
@@ -85,14 +85,14 @@
              '+local.<stamp>' sorts ABOVE the run it names and BELOW the next one, so a local
              package replaces the published build it was made from and the next CI build takes the
              machine back. Verified against dpkg itself, in dist/package-check. -->
-        <sokar.snapshot.suffix></sokar.snapshot.suffix>
+        <porelo.snapshot.suffix></porelo.snapshot.suffix>
         <!-- The FFM check runs only in a module whose ffm-check profile turns it on. -->
-        <sokar.ffm.skip>true</sokar.ffm.skip>
+        <porelo.ffm.skip>true</porelo.ffm.skip>
         <!-- The CPU check runs only in a native profile, which names its images here and turns it on. -->
-        <sokar.cpu.skip>true</sokar.cpu.skip>
-        <sokar.cpu.images></sokar.cpu.images>
+        <porelo.cpu.skip>true</porelo.cpu.skip>
+        <porelo.cpu.images></porelo.cpu.images>
         <picocli.version>4.7.7</picocli.version>
-        <!-- picocli injects these fields, so NullAway takes them as initialised; added to sokar-parent's NullAway. -->
+        <!-- picocli injects these fields, so NullAway takes them as initialised; added to porelo-parent's NullAway. -->
         <nullaway.args>-XepOpt:NullAway:ExcludedFieldAnnotations=picocli.CommandLine.Option,picocli.CommandLine.Parameters,picocli.CommandLine.Spec,picocli.CommandLine.ParentCommand,picocli.CommandLine.Mixin</nullaway.args>
         <!-- A pure-Java zstd decoder, so the broker can read a compressed request it must check for a token grant;
              an agent compresses its requests with zstd, and the JDK has no codec for it. -->
@@ -200,153 +200,153 @@
             <!-- Modules -->
 
             <dependency>
-                <groupId>org.fuin.sokar</groupId>
-                <artifactId>sokar-wire</artifactId>
-                <version>${sokar.version}</version>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-wire</artifactId>
+                <version>${porelo.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.fuin.sokar</groupId>
-                <artifactId>sokar-core</artifactId>
-                <version>${sokar.version}</version>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-core</artifactId>
+                <version>${porelo.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.fuin.sokar</groupId>
-                <artifactId>sokar-testing</artifactId>
-                <version>${sokar.version}</version>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-testing</artifactId>
+                <version>${porelo.version}</version>
                 <scope>test</scope>
             </dependency>
 
             <dependency>
-                <groupId>org.fuin.sokar</groupId>
-                <artifactId>sokar-runtime</artifactId>
-                <version>${sokar.version}</version>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-runtime</artifactId>
+                <version>${porelo.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.fuin.sokar</groupId>
-                <artifactId>sokar-shield</artifactId>
-                <version>${sokar.version}</version>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-shield</artifactId>
+                <version>${porelo.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.fuin.sokar</groupId>
-                <artifactId>sokar-clearance</artifactId>
-                <version>${sokar.version}</version>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-clearance</artifactId>
+                <version>${porelo.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.fuin.sokar</groupId>
-                <artifactId>sokar-vault</artifactId>
-                <version>${sokar.version}</version>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-vault</artifactId>
+                <version>${porelo.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.fuin.sokar</groupId>
-                <artifactId>sokar-gate</artifactId>
-                <version>${sokar.version}</version>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-gate</artifactId>
+                <version>${porelo.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.fuin.sokar</groupId>
-                <artifactId>sokar-supervisor</artifactId>
-                <version>${sokar.version}</version>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-supervisor</artifactId>
+                <version>${porelo.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.fuin.sokar</groupId>
-                <artifactId>sokar-agent-api</artifactId>
-                <version>${sokar.version}</version>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-agent-api</artifactId>
+                <version>${porelo.version}</version>
             </dependency>
             <dependency>
-                <groupId>org.fuin.sokar</groupId>
-                <artifactId>sokar-build-api</artifactId>
-                <version>${sokar.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.fuin.sokar</groupId>
-                <artifactId>sokar-app</artifactId>
-                <version>${sokar.version}</version>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-build-api</artifactId>
+                <version>${porelo.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.fuin.sokar</groupId>
-                <artifactId>sokar-app-base</artifactId>
-                <version>${sokar.version}</version>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-app</artifactId>
+                <version>${porelo.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.fuin.sokar</groupId>
-                <artifactId>sokar-app-model</artifactId>
-                <version>${sokar.version}</version>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-app-base</artifactId>
+                <version>${porelo.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.fuin.sokar</groupId>
-                <artifactId>sokar-app-agents</artifactId>
-                <version>${sokar.version}</version>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-app-model</artifactId>
+                <version>${porelo.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.fuin.sokar</groupId>
-                <artifactId>sokar-app-vault</artifactId>
-                <version>${sokar.version}</version>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-app-agents</artifactId>
+                <version>${porelo.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.fuin.sokar</groupId>
-                <artifactId>sokar-app-messaging</artifactId>
-                <version>${sokar.version}</version>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-app-vault</artifactId>
+                <version>${porelo.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.fuin.sokar</groupId>
-                <artifactId>sokar-app-egress</artifactId>
-                <version>${sokar.version}</version>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-app-messaging</artifactId>
+                <version>${porelo.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.fuin.sokar</groupId>
-                <artifactId>sokar-app-task</artifactId>
-                <version>${sokar.version}</version>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-app-egress</artifactId>
+                <version>${porelo.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.fuin.sokar</groupId>
-                <artifactId>sokar-app-project</artifactId>
-                <version>${sokar.version}</version>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-app-task</artifactId>
+                <version>${porelo.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.fuin.sokar</groupId>
-                <artifactId>sokar-app-gate</artifactId>
-                <version>${sokar.version}</version>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-app-project</artifactId>
+                <version>${porelo.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.fuin.sokar</groupId>
-                <artifactId>sokard</artifactId>
-                <version>${sokar.version}</version>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-app-gate</artifactId>
+                <version>${porelo.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.fuin.sokar</groupId>
-                <artifactId>sokar-hooks</artifactId>
-                <version>${sokar.version}</version>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelod</artifactId>
+                <version>${porelo.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.fuin.sokar</groupId>
-                <artifactId>sokar-dist-deb</artifactId>
-                <version>${sokar.version}</version>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-hooks</artifactId>
+                <version>${porelo.version}</version>
             </dependency>
 
             <dependency>
-                <groupId>org.fuin.sokar</groupId>
-                <artifactId>sokar-dist-rpm</artifactId>
-                <version>${sokar.version}</version>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-dist-deb</artifactId>
+                <version>${porelo.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-dist-rpm</artifactId>
+                <version>${porelo.version}</version>
             </dependency>
 
         </dependencies>
@@ -359,8 +359,8 @@
 
             <plugins>
 
-                <!-- The FFM check, where a module's ffm-check profile sets sokar.ffm.skip to false, and the
-                     CPU check, where a native profile sets sokar.cpu.skip to false. -->
+                <!-- The FFM check, where a module's ffm-check profile sets porelo.ffm.skip to false, and the
+                     CPU check, where a native profile sets porelo.cpu.skip to false. -->
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-help-plugin</artifactId>
@@ -378,13 +378,13 @@
                                 <goal>java</goal>
                             </goals>
                             <configuration>
-                                <skip>${sokar.ffm.skip}</skip>
-                                <mainClass>org.fuin.sokar.ffmcheck.ForeignRegistrations</mainClass>
+                                <skip>${porelo.ffm.skip}</skip>
+                                <mainClass>org.fuin.porelo.ffmcheck.ForeignRegistrations</mainClass>
                                 <includeProjectDependencies>false</includeProjectDependencies>
                                 <includePluginDependencies>true</includePluginDependencies>
                                 <arguments>
                                     <argument>${project.build.directory}/native/agent-output</argument>
-                                    <argument>${project.basedir}/src/main/resources/META-INF/native-image/org.fuin.sokar/${project.artifactId}/reachability-metadata.json</argument>
+                                    <argument>${project.basedir}/src/main/resources/META-INF/native-image/org.fuin.porelo/${project.artifactId}/reachability-metadata.json</argument>
                                 </arguments>
                             </configuration>
                         </execution>
@@ -398,27 +398,27 @@
                                 <goal>java</goal>
                             </goals>
                             <configuration>
-                                <skip>${sokar.cpu.skip}</skip>
-                                <mainClass>org.fuin.sokar.cpucheck.CpuFloor</mainClass>
+                                <skip>${porelo.cpu.skip}</skip>
+                                <mainClass>org.fuin.porelo.cpucheck.CpuFloor</mainClass>
                                 <includeProjectDependencies>false</includeProjectDependencies>
                                 <includePluginDependencies>true</includePluginDependencies>
                                 <arguments>
                                     <argument>${project.build.directory}</argument>
-                                    <argument>${sokar.cpu.images}</argument>
+                                    <argument>${porelo.cpu.images}</argument>
                                 </arguments>
                             </configuration>
                         </execution>
                     </executions>
                     <dependencies>
                         <dependency>
-                            <groupId>org.fuin.sokar</groupId>
-                            <artifactId>sokar-ffm-check</artifactId>
-                            <version>${sokar.buildtools.version}</version>
+                            <groupId>org.fuin.porelo</groupId>
+                            <artifactId>porelo-ffm-check</artifactId>
+                            <version>${porelo.buildtools.version}</version>
                         </dependency>
                         <dependency>
-                            <groupId>org.fuin.sokar</groupId>
-                            <artifactId>sokar-cpu-check</artifactId>
-                            <version>${sokar.buildtools.version}</version>
+                            <groupId>org.fuin.porelo</groupId>
+                            <artifactId>porelo-cpu-check</artifactId>
+                            <version>${porelo.buildtools.version}</version>
                         </dependency>
                     </dependencies>
                 </plugin>
@@ -458,7 +458,7 @@
                              systemd user manager, task processes would otherwise go into scopes of
                              their own here and not on a CI runner, and a test would pass on one. -->
                         <environmentVariables>
-                            <SOKAR_TASK_SCOPES>off</SOKAR_TASK_SCOPES>
+                            <PORELO_TASK_SCOPES>off</PORELO_TASK_SCOPES>
                             <!-- And git as a runner has it: a developer's global configuration signed
                                  every commit a test made, with a key that needs a passphrase, and the
                                  tests failed whenever its agent did not hold it (2026-10-04). -->
@@ -466,10 +466,10 @@
                             <GIT_CONFIG_NOSYSTEM>1</GIT_CONFIG_NOSYSTEM>
                         </environmentVariables>
                         <!-- And with nothing installed, on every machine: an agent, a filter or a
-                             transport the sokar packages put under /usr would otherwise be found by
+                             transport the porelo packages put under /usr would otherwise be found by
                              the tests on a developer's machine that has them and not on a runner. -->
                         <systemPropertyVariables>
-                            <sokar.packaged.root>${project.build.directory}/no-packages</sokar.packaged.root>
+                            <porelo.packaged.root>${project.build.directory}/no-packages</porelo.packaged.root>
                         </systemPropertyVariables>
                     </configuration>
                 </plugin>
@@ -493,7 +493,7 @@
                                  host's generation - v3 on any recent machine - and such a binary will not
                                  start on an older CPU or a VM that hides AVX2. Spelled as the level, not
                                  'compatibility', which is the tool's alias and the tool's to redefine.
-                                 sokar-cpu-check holds every image to the exact set. -->
+                                 porelo-cpu-check holds every image to the exact set. -->
                             <buildArg>-march=x86-64</buildArg>
                         </buildArgs>
                     </configuration>
@@ -515,12 +515,12 @@
                  behind on 0.1.0~snapshot.9011 and nothing could say so.
 
                  Here rather than in the dist profile, because the answer has to exist in an
-                 ordinary build too - app filters it into sokar-version.properties at
+                 ordinary build too - app filters it into porelo-version.properties at
                  process-resources, and validate runs first.
 
                  Per-module by design: regex-property resolves ${project.version} against the
                  project it runs in. Agent modules are on their own version line and compute
-                 'agent.package.version' for themselves; this one is Sokar's. -->
+                 'agent.package.version' for themselves; this one is Porelo's. -->
 
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
@@ -537,17 +537,17 @@
                             <!-- '~' sorts below everything in both dpkg and rpm, so
                                  0.1.0~snapshot.N is older than 0.1.0. Left as '-SNAPSHOT' it
                                  sorts ABOVE the release and apt refuses the upgrade. -->
-                            <name>sokar.package.version</name>
+                            <name>porelo.package.version</name>
                             <value>${project.version}</value>
                             <regex>-SNAPSHOT$</regex>
-                            <replacement>~snapshot.${sokar.snapshot.run}${sokar.snapshot.suffix}</replacement>
+                            <replacement>~snapshot.${porelo.snapshot.run}${porelo.snapshot.suffix}</replacement>
                             <failIfNoMatch>false</failIfNoMatch>
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
 
-            <!-- sokar.version duplicates <version> above, and the duplication is load-bearing:
+            <!-- porelo.version duplicates <version> above, and the duplication is load-bearing:
                  a parent's ${project.version} is interpolated against the module that inherits
                  it, and agent modules are deliberately on their own version line. This turns
                  the two drifting apart into a build failure here, rather than a resolution
@@ -564,7 +564,7 @@
                 <artifactId>maven-enforcer-plugin</artifactId>
                 <executions>
                     <execution>
-                        <id>enforce-sokar-version-property</id>
+                        <id>enforce-porelo-version-property</id>
                         <phase>validate</phase>
                         <inherited>false</inherited>
                         <goals>
@@ -574,8 +574,8 @@
                             <rules>
                                 <requireProperty>
                                     <property>project.version</property>
-                                    <regex>\Q${sokar.version}\E</regex>
-                                    <regexMessage>The root &lt;version&gt; and the sokar.version property in pom.xml have drifted apart. Bump both.</regexMessage>
+                                    <regex>\Q${porelo.version}\E</regex>
+                                    <regexMessage>The root &lt;version&gt; and the porelo.version property in pom.xml have drifted apart. Bump both.</regexMessage>
                                 </requireProperty>
                             </rules>
                         </configuration>
@@ -626,7 +626,7 @@
                         <id>cpu-check</id>
                         <phase>none</phase>
                     </execution>
-                    <!-- Any other sokar-machines command, in a JVM of its own: it exits with the command's code. -->
+                    <!-- Any other porelo-machines command, in a JVM of its own: it exits with the command's code. -->
                     <execution>
                         <id>machines</id>
                         <goals>
@@ -637,10 +637,10 @@
                             <includeProjectDependencies>false</includeProjectDependencies>
                             <includePluginDependencies>true</includePluginDependencies>
                             <executableDependency>
-                                <groupId>org.fuin.sokar</groupId>
-                                <artifactId>sokar-machines</artifactId>
+                                <groupId>org.fuin.porelo</groupId>
+                                <artifactId>porelo-machines</artifactId>
                             </executableDependency>
-                            <commandlineArgs>-classpath %classpath org.fuin.sokar.machines.Main ${machines.args}</commandlineArgs>
+                            <commandlineArgs>-classpath %classpath org.fuin.porelo.machines.Main ${machines.args}</commandlineArgs>
                         </configuration>
                     </execution>
                     <!-- Every workflow step pinned by commit, refused in the build rather than found in review. -->
@@ -655,10 +655,10 @@
                             <includeProjectDependencies>false</includeProjectDependencies>
                             <includePluginDependencies>true</includePluginDependencies>
                             <executableDependency>
-                                <groupId>org.fuin.sokar</groupId>
-                                <artifactId>sokar-release</artifactId>
+                                <groupId>org.fuin.porelo</groupId>
+                                <artifactId>porelo-release</artifactId>
                             </executableDependency>
-                            <commandlineArgs>-classpath %classpath org.fuin.sokar.release.Main check-actions ${maven.multiModuleProjectDirectory}/.github</commandlineArgs>
+                            <commandlineArgs>-classpath %classpath org.fuin.porelo.release.Main check-actions ${maven.multiModuleProjectDirectory}/.github</commandlineArgs>
                         </configuration>
                     </execution>
                     <!-- The shared blocks of AGENTS.md carry the hash of their text, so a copy edited on its own fails here. -->
@@ -673,10 +673,10 @@
                             <includeProjectDependencies>false</includeProjectDependencies>
                             <includePluginDependencies>true</includePluginDependencies>
                             <executableDependency>
-                                <groupId>org.fuin.sokar</groupId>
-                                <artifactId>sokar-release</artifactId>
+                                <groupId>org.fuin.porelo</groupId>
+                                <artifactId>porelo-release</artifactId>
                             </executableDependency>
-                            <commandlineArgs>-classpath %classpath org.fuin.sokar.release.Main check-shared ${maven.multiModuleProjectDirectory}/AGENTS.md</commandlineArgs>
+                            <commandlineArgs>-classpath %classpath org.fuin.porelo.release.Main check-shared ${maven.multiModuleProjectDirectory}/AGENTS.md</commandlineArgs>
                         </configuration>
                     </execution>
                     <!-- A release builds and packages with no snapshot: run on a tag, on the effective pom
@@ -691,10 +691,10 @@
                             <includeProjectDependencies>false</includeProjectDependencies>
                             <includePluginDependencies>true</includePluginDependencies>
                             <executableDependency>
-                                <groupId>org.fuin.sokar</groupId>
-                                <artifactId>sokar-release</artifactId>
+                                <groupId>org.fuin.porelo</groupId>
+                                <artifactId>porelo-release</artifactId>
                             </executableDependency>
-                            <commandlineArgs>-classpath %classpath org.fuin.sokar.release.Main check-releases ${maven.multiModuleProjectDirectory}/target/effective-pom.xml --requires org.fuin.sokar:sokar-release --requires org.fuin.sokar:sokar-machines</commandlineArgs>
+                            <commandlineArgs>-classpath %classpath org.fuin.porelo.release.Main check-releases ${maven.multiModuleProjectDirectory}/target/effective-pom.xml --requires org.fuin.porelo:porelo-release --requires org.fuin.porelo:porelo-machines</commandlineArgs>
                         </configuration>
                     </execution>
                     <!-- The deploy dry run of every push, read: every module through the publishing plugin, and no
@@ -709,10 +709,10 @@
                             <includeProjectDependencies>false</includeProjectDependencies>
                             <includePluginDependencies>true</includePluginDependencies>
                             <executableDependency>
-                                <groupId>org.fuin.sokar</groupId>
-                                <artifactId>sokar-release</artifactId>
+                                <groupId>org.fuin.porelo</groupId>
+                                <artifactId>porelo-release</artifactId>
                             </executableDependency>
-                            <commandlineArgs>-classpath %classpath org.fuin.sokar.release.Main check-deploy ${maven.multiModuleProjectDirectory}/target/deploy-dry-run.log</commandlineArgs>
+                            <commandlineArgs>-classpath %classpath org.fuin.porelo.release.Main check-deploy ${maven.multiModuleProjectDirectory}/target/deploy-dry-run.log</commandlineArgs>
                         </configuration>
                     </execution>
                     <!-- No page or file cites an issue in a way that goes stale once the issue is finished and deleted. -->
@@ -727,10 +727,10 @@
                             <includeProjectDependencies>false</includeProjectDependencies>
                             <includePluginDependencies>true</includePluginDependencies>
                             <executableDependency>
-                                <groupId>org.fuin.sokar</groupId>
-                                <artifactId>sokar-release</artifactId>
+                                <groupId>org.fuin.porelo</groupId>
+                                <artifactId>porelo-release</artifactId>
                             </executableDependency>
-                            <commandlineArgs>-classpath %classpath org.fuin.sokar.release.Main check-citations ${maven.multiModuleProjectDirectory}</commandlineArgs>
+                            <commandlineArgs>-classpath %classpath org.fuin.porelo.release.Main check-citations ${maven.multiModuleProjectDirectory}</commandlineArgs>
                         </configuration>
                     </execution>
                     <!-- Every module has a README.md beside its pom.xml, linking its submodules. -->
@@ -745,10 +745,10 @@
                             <includeProjectDependencies>false</includeProjectDependencies>
                             <includePluginDependencies>true</includePluginDependencies>
                             <executableDependency>
-                                <groupId>org.fuin.sokar</groupId>
-                                <artifactId>sokar-release</artifactId>
+                                <groupId>org.fuin.porelo</groupId>
+                                <artifactId>porelo-release</artifactId>
                             </executableDependency>
-                            <commandlineArgs>-classpath %classpath org.fuin.sokar.release.Main check-readmes ${maven.multiModuleProjectDirectory}</commandlineArgs>
+                            <commandlineArgs>-classpath %classpath org.fuin.porelo.release.Main check-readmes ${maven.multiModuleProjectDirectory}</commandlineArgs>
                         </configuration>
                     </execution>
                     <!-- Every page of doc/ is in mkdocs.yml's navigation once, and every link on it can be followed on the site. -->
@@ -763,28 +763,28 @@
                             <includeProjectDependencies>false</includeProjectDependencies>
                             <includePluginDependencies>true</includePluginDependencies>
                             <executableDependency>
-                                <groupId>org.fuin.sokar</groupId>
-                                <artifactId>sokar-release</artifactId>
+                                <groupId>org.fuin.porelo</groupId>
+                                <artifactId>porelo-release</artifactId>
                             </executableDependency>
-                            <commandlineArgs>-classpath %classpath org.fuin.sokar.release.Main check-doc-site ${maven.multiModuleProjectDirectory}/doc ${maven.multiModuleProjectDirectory}/mkdocs.yml</commandlineArgs>
+                            <commandlineArgs>-classpath %classpath org.fuin.porelo.release.Main check-doc-site ${maven.multiModuleProjectDirectory}/doc ${maven.multiModuleProjectDirectory}/mkdocs.yml</commandlineArgs>
                         </configuration>
                     </execution>
                 </executions>
                 <dependencies>
                     <dependency>
-                        <groupId>org.fuin.sokar</groupId>
-                        <artifactId>sokar-machines</artifactId>
-                        <version>${sokar.buildtools.version}</version>
+                        <groupId>org.fuin.porelo</groupId>
+                        <artifactId>porelo-machines</artifactId>
+                        <version>${porelo.buildtools.version}</version>
                     </dependency>
                     <dependency>
-                        <groupId>org.fuin.sokar</groupId>
-                        <artifactId>sokar-release</artifactId>
-                        <version>${sokar.buildtools.version}</version>
+                        <groupId>org.fuin.porelo</groupId>
+                        <artifactId>porelo-release</artifactId>
+                        <version>${porelo.buildtools.version}</version>
                     </dependency>
                 </dependencies>
             </plugin>
 
-            <!-- Every module flattened as sokar-parent manages it, so a published pom names no parent. -->
+            <!-- Every module flattened as porelo-parent manages it, so a published pom names no parent. -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>flatten-maven-plugin</artifactId>
@@ -827,7 +827,7 @@
 
     <profiles>
         <profile>
-            <!-- Not a CI build. Keyed on the same signal 'org.fuin.sokar.machines' uses to tell
+            <!-- Not a CI build. Keyed on the same signal 'org.fuin.porelo.machines' uses to tell
                  one from the other, so the two cannot come to disagree about what local means. -->
             <id>local-package</id>
             <activation>
@@ -836,7 +836,7 @@
                 </property>
             </activation>
             <properties>
-                <sokar.snapshot.suffix>+local.${maven.build.timestamp}</sokar.snapshot.suffix>
+                <porelo.snapshot.suffix>+local.${maven.build.timestamp}</porelo.snapshot.suffix>
             </properties>
         </profile>
         <profile>

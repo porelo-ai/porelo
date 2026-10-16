@@ -1,21 +1,21 @@
 # B160 — A Project Followed From A File Over The Socket
 
-**Status:** Estimated. Blocks `sokar-frontend` [F104](https://github.com/sokar-ai/sokar-frontend/blob/main/issues/README.md#f104).
+**Status:** Estimated. Blocks `porelo-frontend` [F104](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md#f104).
 **Size:** M - one contract change (a method, a parameter, two fields), the daemon, hand-in's part code shared, docs.
 
-**What must be true.** A client follows a project from a file as `sokar project follow NAME FILE` does: from a path on
+**What must be true.** A client follows a project from a file as `porelo project follow NAME FILE` does: from a path on
 the machine, and from a bundle the person has on their own computer, which the client hands over in the call itself.
 
 ## Why
 
 Since [B137](README.md#b137) an offline project is followed only from a file, and the interface follows only from an address. So an
-offline project cannot be made from the interface at all. Two pieces are missing on Sokar's side, found on 2026-10-10:
+offline project cannot be made from the interface at all. Two pieces are missing on Porelo's side, found on 2026-10-10:
 
 - `Follow(name, url, ...)` already passes `url` to the same `Reconcile` as the command, so a path counts as a file.
   But the daemon does not make a relative path absolute, as the command does, and the contract does not say that `url`
   may be a path.
 - A bundle the person has on the computer the client runs on cannot reach the machine outside a task: `HandIn` writes
-  only into a running task's `/sokar/files`.
+  only into a running task's `/porelo/files`.
 
 ## The shape
 
@@ -34,7 +34,7 @@ offline project cannot be made from the interface at all. Two pieces are missing
 
 Read in today's code:
 
-- `Follow` (`daemon/.../ProjectMethods.java`) passes `url` as it came (`SokarDaemon.address` refuses only a leading
+- `Follow` (`daemon/.../ProjectMethods.java`) passes `url` as it came (`PoreloDaemon.address` refuses only a leading
   `-`) to `FollowSignedBy.follow`, the class the command uses. `ProjectFollowCommand` makes a path absolute against
   its working directory first; the daemon does not.
 - Whether a source is a file is told by its form alone, `FollowedProjects.fromAFile(url)`: no scheme and no host
@@ -63,7 +63,7 @@ How it is built:
 
 Steps:
 
-1. Red first, in `daemon` (`SokarDaemonTest`): `Follow` with a relative path follows the file under the account's
+1. Red first, in `daemon` (`PoreloDaemonTest`): `Follow` with a relative path follows the file under the account's
    home; a bundle sent in three parts through `PutBundle` and then `Follow` with `uploaded: true` follows an offline
    project; a bundle over the limit is refused as `BundleTooLarge`, and with a lower `bundle.max_bytes` in the
    settings a smaller one is refused naming that limit; a bundle signed by another key is refused as for

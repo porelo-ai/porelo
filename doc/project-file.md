@@ -3,19 +3,19 @@
 Everything `project.yml` can say, and what each key is for.
 
 **You do not need one to begin.** A task started in a checkout with no project named runs in the
-built-in project `default`, which uses Sokar's own settings. Write a project file when you want other
+built-in project `default`, which uses Porelo's own settings. Write a project file when you want other
 settings.
 
 **It lives in a git repository, committed: the code's own, or one of its own that names the code repositories
-under `repositories`.** A machine gets it with `sokar project follow <name> <url or local path>`, and reads a commit,
-never the working tree; Sokar never writes one. That command names anything wrong with
+under `repositories`.** A machine gets it with `porelo project follow <name> <url or local path>`, and reads a commit,
+never the working tree; Porelo never writes one. That command names anything wrong with
 the file, such as an egress set this machine does not have.
 
 **Only `project.name`, `project.security_class` and `image.base_image` are required.** Everything else
 has a default that suits most projects.
 
 **A project is not a repository.** It is a named unit of work over one or more repositories: its own,
-which holds this file, and any it lists under `repositories`. `sokar project list` shows them. A project that
+which holds this file, and any it lists under `repositories`. `porelo project list` shows them. A project that
 lists repositories works only in those: its own repository holds the file, its planning and its issues, and no
 task is started there. A project that lists none works in its own.
 
@@ -23,7 +23,7 @@ task is started there. A project that lists none works in its own.
 project:
 
   # Required. Lower-case letters, digits and hyphens, at most 63 characters.
-  # A task's container is named 'sokar-<name>-<task>'.
+  # A task's container is named 'porelo-<name>-<task>'.
   name: "myproject"
 
   # Optional. For people; shown where the project is listed.
@@ -48,7 +48,7 @@ project:
   #   - "ssh-ed25519 AAAA... you@example.org"
 
 # Optional. The repositories this project's agents change.
-# A task works on exactly one, chosen with 'sokar task start --repository <name>' or by the
+# A task works on exactly one, chosen with 'porelo task start --repository <name>' or by the
 # checkout it is started in; there is no default. Each has its own mirror, gate and review branch.
 repositories:
 
@@ -57,7 +57,7 @@ repositories:
     upstream: "git@github.com:you/backend.git"
     description: "The thing that talks to the payment provider"
     # Optional. The issue prefixes this repository owns, each one or more capital letters and named
-    # by no other repository. A task on it is told them in SOKAR_ISSUE_PREFIXES ("B,P").
+    # by no other repository. A task on it is told them in PORELO_ISSUE_PREFIXES ("B,P").
     issues: ["B", "P"]
 
   frontend:
@@ -76,7 +76,7 @@ repositories:
 
 image:
 
-  # Required. What the task image is built from. Sokar adds curl, git, ssh, tmux and python3 with
+  # Required. What the task image is built from. Porelo adds curl, git, ssh, tmux and python3 with
   # apt, apk or dnf; a base without them must ship curl, git, ssh and tmux itself, and builds
   # without python3 if it has neither it nor a package manager.
   base_image: "ubuntu:24.04"
@@ -100,7 +100,7 @@ image:
 # Optional. What the task may reach. A name not allowed here does not resolve at all.
 egress:
 
-  # Curated sets by name. 'sokar shield sets' lists what this machine has.
+  # Curated sets by name. 'porelo shield sets' lists what this machine has.
   sets: [os-packages-debian, git-hosting, maven]
 
   # Any other host by name. Ports 80 and 443 only.
@@ -112,7 +112,7 @@ egress:
   # What each set opens: os-packages-debian and -fedora the distributions' package mirrors;
   # git-hosting github.com, gitlab.com, bitbucket.org, codeberg.org; maven Maven Central; nodejs,
   # python, go, rust their package registries; containers the container registries.
-  # 'sokar shield sets --verbose' lists every host.
+  # 'porelo shield sets --verbose' lists every host.
 
   # Names that must never resolve, whatever allows them; also wins under an allowed parent.
   # It refuses a name, not an address: a host sharing an allowed address stays reachable there.
@@ -123,7 +123,7 @@ limits:
   memory: "8g"     # "none" opts out
   pids: 2048       # process count; stops a fork bomb
   cpus: "2.0"      # unset means no CPU limit
-  hand_in: "64m"   # the largest file 'sokar task give' may hand to a running task
+  hand_in: "64m"   # the largest file 'porelo task give' may hand to a running task
 
 # Optional. Whom the project's tasks may write to. Tasks of one project reach each other by task
 # name without being listed, and a project with a conversation has 'people', the people in it,
@@ -166,7 +166,7 @@ credentials:
 
 # Optional, and for an ONLINE project only - this example is guarded, which refuses it. The forge
 # that builds what a task pushes, and the vault entry it is read with; each build's verdict, and
-# the log of each failed job, arrive in the task's /sokar/files.
+# the log of each failed job, arrive in the task's /porelo/files.
 # builds:
 #   forge: github
 #   credential: github-actions
@@ -176,7 +176,7 @@ credentials:
 
 ## How the file reaches a machine: following
 
-A machine **follows** a project's repository: `sokar project follow <project> <git-url> --signed-by "<key>"`.
+A machine **follows** a project's repository: `porelo project follow <project> <git-url> --signed-by "<key>"`.
 It pulls; nothing pushes to it. One project failing to fetch does not stop the others. `--signed-by` can
 be given once for each key you sign with: every one is pinned, and a commit signed by any of them is
 accepted. Which projects a
@@ -207,7 +207,7 @@ follow their own.
 
 ### When a machine does not apply a commit
 
-`sokar project following` lists each followed project with the commit in force and how its last try
+`porelo project following` lists each followed project with the commit in force and how its last try
 ended. A commit that was turned away is named on a line of its own, `refused <commit> signed by
 <fingerprint>`, beside the commit still in force: the project goes on running what it had, and what
 was rejected is a separate question from what is running. Only a key's fingerprint is shown, never
@@ -221,12 +221,12 @@ anything from the vault.
 | `unreadable` | The commit or the repository could not be read. | Read `detail`. |
 | `rewritten` | Signed, but not a descendant of the commit in force. | Only if you know somebody with the key rewrote the history: follow again with `--accept-rewrite`. |
 | `unreachable` | The repository could not be reached. | Look at the network or the URL. It may answer on the next try by itself. |
-| `vault_locked` | This account's vault is shut, so the credential a private repository needs is out of reach. | `sokar vault unlock`. Nothing is wrong with the network or the URL. Reported only where a vault exists. |
+| `vault_locked` | This account's vault is shut, so the credential a private repository needs is out of reach. | `porelo vault unlock`. Nothing is wrong with the network or the URL. Reported only where a vault exists. |
 | `no_credential` | The vault is open and holds no key for a repository that needs one. | Store the credential the detail names. |
 | `unusable` | The commit verifies, and its `project.yml` does not read as a project, or names an egress set this machine does not have. | Fix the file and commit again. |
 
 `unreachable`, `unreadable` and `failed` (anything else, said in the detail) may clear on the next try
-by themselves; every other refusal waits for a person, and nothing changes until somebody acts. `sokar
+by themselves; every other refusal waits for a person, and nothing changes until somebody acts. `porelo
 doctor` reports the same outcomes for every followed project that is not up to date, and names the
 commit each project is in force at; a machine with no key pinned does not break, it quietly stops
 following, so that is named too.
@@ -246,7 +246,7 @@ comes from you: the repository supplies the bytes, you supply which key they mus
 - **`--unverified` skips the signature check, not the reading.** A file that does not read as a
   project is still refused.
 - **Unverified is per project.** It is shown in `project following`, as
-  `unverified - whoever can push there decides what tasks here may reach`, and in `sokar doctor`,
+  `unverified - whoever can push there decides what tasks here may reach`, and in `porelo doctor`,
   which reports it as degraded rather than failing, since somebody asked for it. A project followed
   without a key changes nothing about what is reported for one followed with a key.
 
@@ -262,19 +262,19 @@ first parent, so the hand-on and the commit signed only by the new key may arriv
 are pinned only with a commit that is applied, never before. A file that names no `signers` keeps the
 keys pinned at the follow. `project follow` says which keys it pinned and unpinned, by fingerprint.
 
-## A key Sokar does not know
+## A key Porelo does not know
 
 **A key that is clearly a mistake is refused.** That is a key under the wrong section, or one within
 two letters of a real key. The error says where it belongs:
 
     project.yml: 'mail.upstream' is not a setting; it belongs under 'project:'
 
-**A key Sokar no longer reads is refused by name**, with what decides instead, so a file that carries it does not look
+**A key Porelo no longer reads is refused by name**, with what decides instead, so a file that carries it does not look
 as if it still did something: `unread_work_may_leave` is gone, and how closely a message is watched is set by
 `mail.rules` and a peer's `mode`.
 
 **Any other unknown key is accepted with a warning** from `task start`, so a file written for a newer
-Sokar still runs on an older one. Sokar does not check the names under `credentials` and
+Porelo still runs on an older one. Porelo does not check the names under `credentials` and
 `repositories`, or anything under `mail.transports.<scheme>` (the transport checks that).
 
 ## machine-signers, beside this file
@@ -284,14 +284,14 @@ The public keys a project's machines sign messages with live in `machine-signers
 every machine verifies: each commit must be signed by the pinned key and descend from the one in force,
 so a removed signer cannot be restored by replaying an older commit.
 
-- `sokar project enroll PROJECT` puts this machine's key up for review in the project's gate
+- `porelo project enroll PROJECT` puts this machine's key up for review in the project's gate
   (`--remove` takes it back). The review marks a signer list as dangerous.
-- `sokar gate approve enroll-<machine> --signed` merges it, signed with the approver's own git signing
+- `porelo gate approve enroll-<machine> --signed` merges it, signed with the approver's own git signing
   key. The machine never holds that key; without one configured it refuses.
 - **The trust anchor is a person's step:** the signing key is given once, out of band, to
   `project follow --signed-by`. It is never read from the repository it verifies.
 
-On each machine the same two kinds of key are kept apart by name, in `~/.config/sokar/`:
+On each machine the same two kinds of key are kept apart by name, in `~/.config/porelo/`:
 `machine-signers` holds the message keys of other machines it accepts messages from, and
 `project-signers` the keys pinned with `--signed-by`, whose commits a followed project's configuration
 is taken from. A person's key is never a machine's, and the other way round.
@@ -303,13 +303,13 @@ the signer's email there all the same; it is what `git log --show-signature` pri
 ## Deploy keys
 
 **One deploy key per machine per repository.** The private half stays in the machine's vault; the
-public half is registered at the forge as `sokar <machine> <project>/<repository>`. The key for the
+public half is registered at the forge as `porelo <machine> <project>/<repository>`. The key for the
 project's own repository is **read-only**; only work repositories get write access. Unfollowing a
 project forgets its keys here and names each one to remove at the forge.
 
 ## What is not in here
 
-- **Agents and providers.** They are chosen per run: `sokar task start --agent claude --provider openrouter`.
+- **Agents and providers.** They are chosen per run: `porelo task start --agent claude --provider openrouter`.
 - **Secrets.** Everyone who can read the repository reads this file. Credentials live in the vault;
   `credentials:` only names vault entries. See [authentication](credentials.md).
-- **Paths.** Where the workspace, state and gate mirror live is Sokar's choice; `sokar doctor` shows it.
+- **Paths.** Where the workspace, state and gate mirror live is Porelo's choice; `porelo doctor` shows it.

@@ -11,12 +11,12 @@ moment they push, and the gate never records that work as something it is not.
 Asked for after a question nobody had asked: what happens when a person opens the work in their own editor.
 
 The gate is built for the agent. Inside the container there is no credential for any forge, the
-firewall drops port 22 to a declared host, and the only remote the working copy has is Sokar's
+firewall drops port 22 to a declared host, and the only remote the working copy has is Porelo's
 mirror. An agent cannot push past the gate, and that was verified.
 
 **The person can.** A developer opens the project in an IDE over SSH, fetches the agent's branch
 out of the mirror to look at it, likes it, and pushes - with their own key, from their own checkout,
-straight to the upstream. Nothing in Sokar is in that path. The review the gate exists to force did
+straight to the upstream. Nothing in Porelo is in that path. The review the gate exists to force did
 not happen, and nothing recorded that it did not.
 
 This is not a hole in the container. It is the seam between the machine's two halves: the agent's
@@ -28,13 +28,13 @@ from one to the other.
 Measured rather than assumed, because the first guess was wrong:
 
 - **The working copy is not on the host.** `/workspace` lives inside the container - `git init` in
-  the image, remote `sokar` pointing at the gate. Only the vault and ssh sockets are bind-mounted.
+  the image, remote `porelo` pointing at the gate. Only the vault and ssh sockets are bind-mounted.
   So a shell in the *container* is as constrained as the agent: no credential, no route.
-- **The mirror is on the host**, at `~/.local/share/sokar/mirrors/<project>.git`, holding every
-  pushed branch under `refs/sokar/incoming/`. It is an ordinary bare repository owned by the
+- **The mirror is on the host**, at `~/.local/share/porelo/mirrors/<project>.git`, holding every
+  pushed branch under `refs/porelo/incoming/`. It is an ordinary bare repository owned by the
   operator, and anything they can run can read it.
 - **So the path out is: fetch from the mirror into the operator's own checkout, then push that
-  upstream.** Two ordinary git commands, no privilege needed, no warning anywhere. `sokar gate
+  upstream.** Two ordinary git commands, no privilege needed, no warning anywhere. `porelo gate
   approve` is a third command that does the same thing *and* records it - and it is the one that
   can be forgotten.
 - **Agent commits are identifiable.** The working copy is configured with `user.name` `agent` and
@@ -58,13 +58,13 @@ project directory for SELinux is not something a tool should do to them.
 container (`REPO_ROOT=/workspace/...`, seeded from `file:///git-gate/gate.git`) and then builds an
 explicit way in for a person: an sshd baked into the image, the host's public key bind-mounted to
 a drop-in under `/etc/ssh/authorized_keys.d/`, reached over podman's pasta, offered in its
-interface as its own `login <project> <task>` verb. It exists there partly for a reason Sokar does not have - under the
+interface as its own `login <project> <task>` verb. It exists there partly for a reason Porelo does not have - under the
 krun runtime `podman exec` cannot enter the guest at all - and it is a *shell*, not an editor.
 
 **But for reviewing, inside is the wrong place regardless.** The reviewer does not want the agent's
 environment; they want the diff, in their own tools, on the machine they are already connected to.
 And the work is *already on the host*: every pushed branch is in the gate's mirror. What is missing
-is not a way in, it is a way out - nothing turns `refs/sokar/incoming/<task>` into a working copy
+is not a way in, it is a way out - nothing turns `refs/porelo/incoming/<task>` into a working copy
 somebody can open.
 
 ### Whether the safe way is even open
@@ -89,7 +89,7 @@ accident this requirement is about: it is not carelessness, it is the only path 
 
 **Attaching an editor to the container is not made to work, decided 2026-10-11.** No editor vendor's hosts
 are declared for it, and no editor server is copied into the container or baked into the image. The way to look
-at the work is `sokar gate checkout`, and the way a hand push is caught is the pre-push guard of `gate protect`.
+at the work is `porelo gate checkout`, and the way a hand push is caught is the pre-push guard of `gate protect`.
 
 ### And it leaves the gate saying something untrue
 
@@ -97,8 +97,8 @@ Found by asking what a hand push does to the state, which is a different questio
 to the upstream. `approve` is two operations:
 
 ```
-git push <upstream> refs/sokar/incoming/<name>:refs/heads/<branch>
-git update-ref -d refs/sokar/incoming/<name>
+git push <upstream> refs/porelo/incoming/<name>:refs/heads/<branch>
+git update-ref -d refs/porelo/incoming/<name>
 ```
 
 The delete is what empties the queue. A push made by hand does the first and not the second, so the
@@ -143,7 +143,7 @@ The three compose in that order of reliability, and only the last two are worth 
 
 ### The honest framing
 
-The honest framing matters. Sokar cannot stop a determined person from pushing their own commits
+The honest framing matters. Porelo cannot stop a determined person from pushing their own commits
 with their own credentials, and pretending otherwise would produce a feature that is both
 irritating and untrue. What it can do is make the accidental case loud: the moment somebody pushes
 commits an agent wrote and nobody approved, they should hear about it.
@@ -214,8 +214,8 @@ would make the queue cost what a listing must not.
 
 ### Built: the guard, and the two ways it would have been silently absent
 
-`sokar gate check` reads a pre-push hook's input and names the commits an agent authored;
-`sokar gate protect` installs a two-line hook that calls it. Both were written to the measurements
+`porelo gate check` reads a pre-push hook's input and names the commits an agent authored;
+`porelo gate protect` installs a two-line hook that calls it. Both were written to the measurements
 above - and building them turned up two more ways the guard installs cleanly and never fires,
 neither of which any assertion on arguments would have caught.
 
@@ -234,7 +234,7 @@ neither of which any assertion on arguments would have caught.
 Both are in the tests as regressions, with the wrong form asserted beside the right one so the
 reason stays visible rather than becoming a line nobody dares change.
 
-**`sokar gate checkout <name>` is how the work is looked at on the machine.** It materialises the
+**`porelo gate checkout <name>` is how the work is looked at on the machine.** It materialises the
 incoming ref into a new directory, with the mirror as its only remote, `core.hooksPath` pointed at
 an empty directory of its own, and a detached HEAD so nothing looks like work to carry on. Not a
 warning somebody can click past: there is no address that reaches the upstream, so a push from there
@@ -265,7 +265,7 @@ Read in the code at `30c8169b`; the built parts are on `origin/main`.
 - **Not covered end to end: the already-upstream marking.** No scenario pushes an incoming ref to the upstream by
   hand and then reads `gate pending` and `gate reject`.
 - **Not offered: an upstream review branch, decided 2026-10-11.** Approved work goes back to the checkout the task
-  was started from (`sokar approve`), and Sokar gets no write access to an upstream for review. No project setting
+  was started from (`porelo approve`), and Porelo gets no write access to an upstream for review. No project setting
   opts into one, so the last criterion keeps only the review on the machine.
 - **Not made to work: an editor attached to the container, decided 2026-10-11.** `gate checkout` and the pre-push
   guard are the way; nothing declares an editor vendor's hosts or copies an editor server into the container.

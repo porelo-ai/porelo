@@ -2,7 +2,7 @@
 
 What the kinds of credential have in common and where they part, set side by side — the comparison
 no single requirement can hold, the way
-[the comparison of agents and providers](https://github.com/sokar-ai/sokar-project/blob/main/doc/agents-and-providers.md) holds the one that spans
+[the comparison of agents and providers](https://github.com/porelo-ai/porelo-project/blob/main/doc/agents-and-providers.md) holds the one that spans
 agents and providers. The part they share - more than one credential in a task, a route each - and the key kind are
 built and described in [Credentials](../../doc/credentials.md#more-than-one-credential-in-a-task); what is
 left is owned by [B30](README.md#b30) and
@@ -21,7 +21,7 @@ requirement.
 Closed, deliberately. A kind that is not here is a kind nothing has asked for, and the way to add one
 is to argue it in — not to widen an existing kind until it covers something it was not shaped for.
 
-| Kind | What Sokar holds | What Sokar does | What the container gets | Who is involved | Owner |
+| Kind | What Porelo holds | What Porelo does | What the container gets | Who is involved | Owner |
 |---|---|---|---|---|---|
 | **Key** | the value itself | strips, attaches, forwards | a phantom token and an endpoint | nobody | built |
 | **Grant** | a client secret or a key, plus a token URL and scopes | exchanges it for a short-lived token, caches it, renews it | a phantom token and an endpoint | nobody | [B30](README.md#b30) |
@@ -36,7 +36,7 @@ puts a socket there. That is what makes them one subsystem despite being three b
 
 ## The two kinds that are already built, and are the precedent
 
-**Minted** is the git gate token. Sokar issues it, it is scoped to the task, and it is in the
+**Minted** is the git gate token. Porelo issues it, it is scoped to the task, and it is in the
 container's environment in full because there is nothing to protect: it is worth nothing anywhere but
 the gate on this machine. It is the case where the answer to "how do we keep this out of the box" is
 "we do not have to".
@@ -47,7 +47,7 @@ even in principle, and it is the shape `private_key_jwt` and mTLS client authent
 
 Neither is a requirement. Both are here because a new kind should be checked against them first — if
 a proposed mechanism is neither "task-scoped and worthless outside" nor "a socket to something that
-holds it", it is not a variant of anything Sokar does.
+holds it", it is not a variant of anything Porelo does.
 
 ## Shared, and individual
 

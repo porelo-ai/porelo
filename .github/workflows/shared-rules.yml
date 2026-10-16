@@ -26,7 +26,7 @@ jobs:
         uses: ./.github/actions/pinned-jdk
 
       # The root's validate runs check-actions, check-shared, check-citations, check-readmes and check-doc-site,
-      # with sokar-release from Central; the tests tagged documents follow it, so a change to a page runs every test
+      # with porelo-release from Central; the tests tagged documents follow it, so a change to a page runs every test
       # that reads one.
       # Modules in parallel: about a third less time than one after another.
       - name: The documents

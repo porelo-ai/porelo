@@ -13,8 +13,8 @@ is the failure `TaskInventory` and `TaskControl` exist to prevent.
 
 **This design predates [B15](README.md#b15)'s decision that artifacts travel
 through the project's message transport.** It treats podman's store as the storage, which [B15](README.md#b15) no
-longer has. What below is Sokar's - the drop directory, ingest, the record, the policy, delivery, the
-daemon's interface - stays Sokar's; storing and fetching bytes move to the message transport's
+longer has. What below is Porelo's - the drop directory, ingest, the record, the policy, delivery, the
+daemon's interface - stays Porelo's; storing and fetching bytes move to the message transport's
 artifact verbs, the record below is plain rather than chained, the quota per project gives way to a
 limit per artifact, retention is the messaging system's, the gate shows no artifacts, nothing crosses projects, and the design
 is redone along those lines before anything is built.
@@ -26,7 +26,7 @@ a repository manager, expiry, and any inspection of what an artifact contains.
 ## What is reused
 
 The two host-side halves of this — a content-addressed store, and a way to get bytes into a
-container — do not need building. **podman already has both**, and Sokar already requires podman.
+container — do not need building. **podman already has both**, and Porelo already requires podman.
 
 | Need | Reused | Left to build |
 |---|---|---|
@@ -38,7 +38,7 @@ container — do not need building. **podman already has both**, and Sokar alrea
 
 `podman artifact` was experimental when it appeared and **is stable as of podman 5.6**; 5.7 added
 `inspect --format` and artifact lifecycle events. Both acceptance legs are above that floor —
-Ubuntu 26.04 ships podman 5.7.x, Fedora 44 ships 5.8.x — but Sokar today only refuses podman *4*,
+Ubuntu 26.04 ships podman 5.7.x, Fedora 44 ships 5.8.x — but Porelo today only refuses podman *4*,
 so **using this raises the minimum to 5.6**, which needs a `doctor` probe that names it rather than
 a put that fails strangely.
 
@@ -51,22 +51,22 @@ policy, the quota, the record and the refusals below are unchanged by this.
 ```
   task A container                     host                              client
   ┌──────────────────────┐   ┌──────────────────────────────┐        ┌──────────────┐
-  │ agent writes a file  │   │ sokar store serve (A)        │        │ frontend/CLI │
-  │  /run/sokar/out/  ───┼──▶│  1 rename out of reach       │        └──────┬───────┘
+  │ agent writes a file  │   │ porelo store serve (A)        │        │ frontend/CLI │
+  │  /run/porelo/out/  ───┼──▶│  1 rename out of reach       │        └──────┬───────┘
   │                      │   │  2 copy, count, quota        │               │
-  │  /run/sokar/in/   ◀──┼───│  3 podman artifact add       │─── podman's   │ varlink
+  │  /run/porelo/in/   ◀──┼───│  3 podman artifact add       │─── podman's   │ varlink
   │    (read-only)       │   │  4 journal (chained)         │    artifact   │
   └──────────────────────┘   │  5 publish                   │    store      │
-                             │              sokard ◀────────┼───────────────┘
+                             │              porelod ◀────────┼───────────────┘
   task B container           │                │             │
   ┌──────────────────────┐   │        StorePolicy decides   │
-  │  /run/sokar/in/   ◀──┼───│ sokar store serve (B)        │
+  │  /run/porelo/in/   ◀──┼───│ porelo store serve (B)        │
   └──────────────────────┘   └──────────────────────────────┘
 ```
 
 No socket is shared, no directory is shared, and the store is mounted nowhere. Each task has its own
 drop directory and its own inbox, both bind-mounted from **its own** state directory — the same kind
-of mount `/run/sokar/vault.sock` already is.
+of mount `/run/porelo/vault.sock` already is.
 
 ## What gets built, module by module
 
@@ -74,14 +74,14 @@ of mount `/run/sokar/vault.sock` already is.
 |---|---|
 | `store/` (new) | `Artifact`, `ArtifactIndex`, `ArtifactJournal`, `StorePolicy`, `StoreService`, `PutOutcome`, `StoreException`. There is no `ArtifactStore` and no `Digest`: podman holds the bytes and computes the digest. |
 | `core/project` | `Store` record on `Project`; `ProjectReader` learns one key. |
-| `apps/app/` | `StoreCommand` and subcommands, `StoreServeCommand`, `StoreWiring`, `StoreEdit`, one entry in `TaskHelpers`, one method on `SokarPaths`, and one more `Probe` in `DoctorCommand` for the podman floor. |
+| `apps/app/` | `StoreCommand` and subcommands, `StoreServeCommand`, `StoreWiring`, `StoreEdit`, one entry in `TaskHelpers`, one method on `PoreloPaths`, and one more `Probe` in `DoctorCommand` for the podman floor. |
 | `runtime/` | `Podman` learns the `artifact` subcommands; `ContainerSpec` learns `--mount type=artifact`. |
-| `daemon/` | New types and methods on `org.fuin.sokar.Tasks1`. |
+| `daemon/` | New types and methods on `org.fuin.porelo.Tasks1`. |
 | `agents/api` | Nothing. This needs no agent capability at all — see below. |
 
 **A naming note before it causes confusion:** `InstallArtifact` already exists in `agents/api` and
 means something else entirely — a file an agent's installation downloads. The type here is
-`org.fuin.sokar.store.Artifact`, in a different module, and the two should never appear in one
+`org.fuin.porelo.store.Artifact`, in a different module, and the two should never appear in one
 sentence without qualification.
 
 ## Why a drop directory rather than a protocol
@@ -90,15 +90,15 @@ sentence without qualification.
 is a convention it has to be told about. **Producing a file is less than that.** Every agent can write a file, so the mechanism can be a
 convention instead of a capability:
 
-- **`/run/sokar/out/`** — writable, bind-mounted from `SokarPaths.containerState(container)
+- **`/run/porelo/out/`** — writable, bind-mounted from `PoreloPaths.containerState(container)
   .resolve("out")`. The agent writes finished files here. Nothing else reads it but this task's own
   helper.
-- **`/run/sokar/in/`** — mounted read-only, populated by the helper according to the project's
+- **`/run/porelo/in/`** — mounted read-only, populated by the helper according to the project's
   declaration, with a `manifest.json` naming each file, its digest, its size, and which project and
   task it came from.
 
 That is the whole container-side interface: two directories in a place the agent already has, no
-new binary in the image, no MCP, no field in the agent definition, and nothing in Sokar that names
+new binary in the image, no MCP, no field in the agent definition, and nothing in Porelo that names
 an agent.
 
 **The mount is not a shared directory.** Each is under one task's own state directory. Two tasks
@@ -117,8 +117,8 @@ is still on the host.
 ### Delivery: a mount at start, the same directory mid-run
 
 **At container start** an artifact the project already accepts is given to podman directly:
-`--mount type=artifact,src=<ref>,dst=/run/sokar/in/<name>`. Nothing is copied and nothing is
-extracted, and read-only is the runtime's property rather than a permission Sokar has to keep
+`--mount type=artifact,src=<ref>,dst=/run/porelo/in/<name>`. Nothing is copied and nothing is
+extracted, and read-only is the runtime's property rather than a permission Porelo has to keep
 correct. A single blob can be selected by digest where an artifact holds several.
 
 **Mid-run it cannot be.** A mount is decided at `create`/`run`, which is the shape the ruleset and
@@ -157,12 +157,12 @@ something a run spent an hour producing.
 
 ## The store is podman's
 
-Sokar lays out no directory of its own. It owns the **names** and the **index**; podman owns the
+Porelo lays out no directory of its own. It owns the **names** and the **index**; podman owns the
 bytes.
 
-**The reference carries the project** — `sokar/<project>/<name>` — so `podman artifact ls` is
+**The reference carries the project** — `porelo/<project>/<name>` — so `podman artifact ls` is
 readable by a person looking for what a project holds. It is not the authority: podman has no notion
-of a project and cannot be asked to enforce one, so Sokar's own index decides what exists, and the
+of a project and cannot be asked to enforce one, so Porelo's own index decides what exists, and the
 journal below is what it is rebuilt from.
 
 **Nothing in a task can reach the store.** No podman socket is mounted into any container, which is
@@ -171,7 +171,7 @@ load-bearing here, so it is asserted in a test rather than assumed.
 
 **The deduplication nuance, written down because it reads like a contradiction of the
 requirement.** OCI blobs are addressed by digest, so two projects producing identical bytes share
-one blob on disk whether or not Sokar would like them to. The rule the requirement states is about
+one blob on disk whether or not Porelo would like them to. The rule the requirement states is about
 what is *observable*: the index is per project, `Artifacts` never answers across projects, and a
 digest belonging to another project is answered exactly as a digest that exists nowhere. The
 physical deduplication happens; the oracle does not — unless somebody measures free disk, which is
@@ -183,10 +183,10 @@ file carried.
 
 ## The record
 
-**`~/.local/state/sokar/artifacts/<project>.jsonl`**, `0600`, one JSON object per line, chained:
+**`~/.local/state/porelo/artifacts/<project>.jsonl`**, `0600`, one JSON object per line, chained:
 `prev` is the previous line's `hash`, the first line's `prev` is 64
 zeros, `hash` is SHA-256 over the line's canonical `Json.write` serialization with `hash` removed.
-`sokar store verify <project>` walks it and names the first line that does not verify.
+`porelo store verify <project>` walks it and names the first line that does not verify.
 
 **Each line carries an in-toto attestation rather than a shape invented here.** in-toto is
 CNCF-graduated and its subject is exactly this: recording who did what, where and how. A statement
@@ -198,8 +198,8 @@ means the record can be read by tooling nobody here wrote.
 {"seq":12,"prev":"…","hash":"…","statement":{
   "_type":"https://in-toto.io/Statement/v1",
   "subject":[{"name":"build.tar.zst","digest":{"sha256":"9c1e…"}}],
-  "predicateType":"https://sokar.fuin.org/Handover/v1",
-  "predicate":{"event":"put","project":"sokar","task":"sokar-a1b2","bytes":48210114,
+  "predicateType":"https://porelo.fuin.org/Handover/v1",
+  "predicate":{"event":"put","project":"porelo","task":"porelo-a1b2","bytes":48210114,
                "media":"application/zstd","commit":"6e4187a…","at":"2026-09-08T11:02:44Z"}}}
 ```
 
@@ -220,15 +220,15 @@ by running git in the workspace, which nothing does.
 
 ```yaml
 project:
-  name: "sokar"
+  name: "porelo"
   security_class: "guarded"
 store:
   quota: "5g"
   max_artifact: "512m"
   peers:
-    - "sokar-frontend"
+    - "porelo-frontend"
   accepts:
-    - from: "sokar-frontend"
+    - from: "porelo-frontend"
       names: ["coverage-*.json"]
 ```
 
@@ -253,7 +253,7 @@ the same sentence about the same file.
 
 ## The daemon's interface
 
-Additions to `org.fuin.sokar.Tasks1`, which only grows.
+Additions to `org.fuin.porelo.Tasks1`, which only grows.
 
 ```
 type Artifact (
@@ -302,12 +302,12 @@ it would do should be answerable before it is done.
 ## The command line
 
 ```
-sokar store list [--project P]
-sokar store show <digest>
-sokar store hand <digest> --to <project> [--dry-run]
-sokar store withdraw <digest> [--reason ...]
-sokar store verify [--project P]
-sokar store serve ...            # the helper, not for people
+porelo store list [--project P]
+porelo store show <digest>
+porelo store hand <digest> --to <project> [--dry-run]
+porelo store withdraw <digest> [--reason ...]
+porelo store verify [--project P]
+porelo store serve ...            # the helper, not for people
 ```
 
 Rendering only. Every refusal comes from `StorePolicy`, so the CLI and a remote client cannot come
@@ -325,7 +325,7 @@ remotely that the machine's own tooling says is impossible.
 | `task resume` | The recorded command is replayed. `in/` is rebuilt from the record, so a resumed task finds what it had. |
 | A container that never started | `TaskRunner.reapOrphans` covers the helper, since no hook fires for a container that never ran. |
 | `task stop --purge` | The store is **not** touched. It is on the host and outliving the container is the point; removing it is `store withdraw`. |
-| `sokar panic` | The helper is stopped with everything else. Nothing is removed. |
+| `porelo panic` | The helper is stopped with everything else. Nothing is removed. |
 
 ## Failure modes, and what each must do
 
@@ -339,7 +339,7 @@ remotely that the machine's own tooling says is impossible.
 | The receiving project does not accept the name | Refused as `NOT_ACCEPTED` and recorded. | The consumer declares; discovery would be the covert channel. |
 | An artifact is withdrawn after being handed | Removed here, recorded, and the answer says it cannot be recalled from where it went. | Bytes cannot be un-given, and saying otherwise is the dangerous lie. |
 | Two tasks produce identical bytes in one project | One artifact, one set of bytes, both provenances recorded. | Dedup within a project is free and correct. |
-| The same bytes in two projects | One blob on disk, two index entries, and no way to observe the sharing. | The oracle is closed at Sokar's API, not at podman's storage layer. |
+| The same bytes in two projects | One blob on disk, two index entries, and no way to observe the sharing. | The oracle is closed at Porelo's API, not at podman's storage layer. |
 | A hand-over to a task that is already running | Extracted into its `in/`, never mounted. | A mount is decided at create; pretending otherwise produces an artifact nobody can find. |
 | podman is older than 5.6 | `doctor` says so by name and a put refuses. | The artifact suite was experimental before that, and an experimental store is not a record. |
 
@@ -362,7 +362,7 @@ Per the rule that a test nobody has watched fail is a test nobody has checked �
 - Make the journal unwritable and assert the receiving task's `in/` stays empty.
 - Ask for an artifact by a digest belonging to another project and assert the answer is the same as
   for a digest that does not exist anywhere. **The two must be indistinguishable**, or the oracle is
-  back. This is now a test of Sokar's index rather than of its storage, because podman's store does
+  back. This is now a test of Porelo's index rather than of its storage, because podman's store does
   deduplicate across projects.
 - Assert that no podman socket is reachable from inside a task container. It was always true; it is
   now the thing that keeps a per-user store from being a per-machine channel.
@@ -394,7 +394,7 @@ requirement, and no store answers them.
 
 - **Publishing to a repository manager.** Argued in the requirement: it belongs after the gate, as
   the operator's act on something approved, not as a task's.
-- **Scanning artifacts.** Sokar has no scanner and should not grow one. The guarantees are
+- **Scanning artifacts.** Porelo has no scanner and should not grow one. The guarantees are
   provenance, non-execution, declaration and a record.
 - **Signing.** The digest is an integrity property and says nothing about authorship, authorship
   comes from the transport, and a key an agent can reach is a key it can copy. [B14](README.md#b14) signs on the host
@@ -419,8 +419,8 @@ requirement, and no store answers them.
   own quota accounting closely enough might learn that another project holds the same bytes. The fix
   if it matters is to charge a project for what it put rather than for what was stored, which is
   cheap — what is unknown is whether the difference is measurable from inside a task at all.
-- **How the reference is named.** `sokar/<project>/<name>` is readable and it is also a namespace
-  podman does not enforce, so two Sokars sharing a user account would collide. Nothing does that
+- **How the reference is named.** `porelo/<project>/<name>` is readable and it is also a namespace
+  podman does not enforce, so two Porelos sharing a user account would collide. Nothing does that
   today, and the alternative — an opaque reference and a lookup — costs the `podman artifact ls`
   legibility that makes the store debuggable by hand.
 - **Whether the podman floor should be 5.6 or higher.** 5.7 added artifact lifecycle events, which

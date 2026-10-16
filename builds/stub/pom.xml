@@ -6,31 +6,31 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.fuin.sokar</groupId>
-        <artifactId>sokar-builds</artifactId>
-        <version>0.4.2-SNAPSHOT</version>
+        <groupId>org.fuin.porelo</groupId>
+        <artifactId>porelo-builds</artifactId>
+        <version>0.5.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>sokar-build-stub</artifactId>
+    <artifactId>porelo-build-stub</artifactId>
 
-    <!-- On Sokar's version and never shipped: it exists so the tests have a forge to read builds from without
+    <!-- On Porelo's version and never shipped: it exists so the tests have a forge to read builds from without
          one on the network. -->
 
-    <name>Sokar Build Stub</name>
-    <description>Sokar - Build reader used by the tests (BUILD-STUB)</description>
+    <name>Porelo Build Stub</name>
+    <description>Porelo - Build reader used by the tests (BUILD-STUB)</description>
 
     <dependencies>
 
         <!-- compile: the build API, and nothing else. -->
 
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-build-api</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-build-api</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-wire</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-wire</artifactId>
         </dependency>
 
     </dependencies>
@@ -40,8 +40,8 @@
         <profile>
             <id>native</id>
             <properties>
-                <sokar.cpu.skip>false</sokar.cpu.skip>
-                <sokar.cpu.images>sokar-build-stub</sokar.cpu.images>
+                <porelo.cpu.skip>false</porelo.cpu.skip>
+                <porelo.cpu.images>porelo-build-stub</porelo.cpu.images>
             </properties>
             <build>
                 <plugins>
@@ -50,14 +50,14 @@
                         <artifactId>native-maven-plugin</artifactId>
                         <executions>
                             <execution>
-                                <id>build-sokar-build-stub</id>
+                                <id>build-porelo-build-stub</id>
                                 <phase>package</phase>
                                 <goals>
                                     <goal>compile-no-fork</goal>
                                 </goals>
                                 <configuration>
-                                    <imageName>sokar-build-stub</imageName>
-                                    <mainClass>org.fuin.sokar.build.stub.StubReader</mainClass>
+                                    <imageName>porelo-build-stub</imageName>
+                                    <mainClass>org.fuin.porelo.build.stub.StubReader</mainClass>
                                 </configuration>
                             </execution>
                         </executions>

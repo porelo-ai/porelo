@@ -1,6 +1,6 @@
 # The forges a build clones from. Declaring this in a guarded project makes the forge reachable,
 # which is worth knowing: the gate then rests on the container holding no credential for it,
-# rather than on the host being unreachable. Sokar says so when a task starts.
+# rather than on the host being unreachable. Porelo says so when a task starts.
 name: git-hosting
 label: Git hosting
 domains:

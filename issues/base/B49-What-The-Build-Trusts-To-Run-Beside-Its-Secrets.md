@@ -25,7 +25,7 @@ A tag is a name its owner may point anywhere. Fetching `@v7` is a promise to run
 refers to at the moment the job starts - a new release, a retargeted tag, or the work of whoever
 took the account over since the last build.
 
-**What is standing next to those steps is the whole of this product's credentials.** In sokar
+**What is standing next to those steps is the whole of this product's credentials.** In porelo
 alone: `HETZNER_API` and `HETZNER_SSH`, which rent machines and log into them;
 `JF_ACCESS_TOKEN`, which publishes packages people install; `OSS_SONATYPE_TOKEN` and
 `OSS_SONATYPE_USERNAME`, which publish to Central; and `OSS_SONATYPE_GPG_PRIVATE_KEY` with its
@@ -74,7 +74,7 @@ and it is why this finding is the same in every repository.
   `actions/upload-artifact@043fb46… # v7.0.1`, `actions/download-artifact@3e5f45b… # v8.0.1`,
   `jfrog/setup-jfrog-cli@68c0efd… # v5.2.0`, `actions/cache@55cc834… # v6.1.0`. Each commit was read from
   the release tag it stands for.
-- **The check is `sokar-release check-actions [DIRECTORY]`**, default `.github`. It refuses a tag, a
+- **The check is `porelo-release check-actions [DIRECTORY]`**, default `.github`. It refuses a tag, a
   branch, a commit without its version, and a container image without its digest, and says how to pin
   each. Only a step in the repository itself (`./...`) is exempt. Here a unit test runs it over this
   repository's `.github`, so a new step that names a tag fails `Build and unit tests`. An agent
@@ -92,8 +92,8 @@ and it is why this finding is the same in every repository.
 
 Built and on main, as "How it is built here" says: every `uses:` in `.github/workflows` and
 `.github/actions/pinned-jdk/action.yml` names a commit with its version; `.github/dependabot.yml`; `check-actions`
-bound to the root POM's `validate` (`pom.xml`, execution `check-actions`, `sokar-release` from sokar-buildtools,
-`release/src/main/java/org/fuin/sokar/release/CheckActions.java`); the Maven wrapper by `distributionSha256Sum`; the
+bound to the root POM's `validate` (`pom.xml`, execution `check-actions`, `porelo-release` from porelo-buildtools,
+`release/src/main/java/org/fuin/porelo/release/CheckActions.java`); the Maven wrapper by `distributionSha256Sum`; the
 signing key imported by our own step.
 
 Left here, in order:
@@ -111,9 +111,9 @@ The agent repositories and the interface pin, add the same `dependabot.yml` and 
 ## Acceptance
 
 - `grep` over every workflow in every repository finds no third-party `uses:` naming a tag or a
-  branch. Seen to fail: `sokar-release check-actions` over a repository's `.github` refuses it. Here met; open in
+  branch. Seen to fail: `porelo-release check-actions` over a repository's `.github` refuses it. Here met; open in
   the agent repositories and the interface, each for itself: pin, add the same `dependabot.yml`, and run
-  `check-actions` in their build. Theirs to do; the tool is published with `sokar-release`.
+  `check-actions` in their build. Theirs to do; the tool is published with `porelo-release`.
 - Each pin carries the readable version beside it. Seen to fail: `check-actions` refuses a commit without its
   version.
 - Adding a step that names a tag fails a build, and the failure says what to do about it. Seen to fail: the unit
@@ -127,7 +127,7 @@ The agent repositories and the interface pin, add the same `dependabot.yml` and 
   also holds a publishing credential, and pin whatever it finds by digest. An action is not the
   only thing a workflow runs: a release binary downloaded into a publishing job has the same
   trust and none of the ceremony, and the worst case is the one that writes the packages
-  themselves. Sokar is believed to fetch nothing this way and that has not been proved, which is
+  themselves. Porelo is believed to fetch nothing this way and that has not been proved, which is
   exactly why it is a criterion rather than a note. Open: the JFrog CLI download in `Publish`, pinned by version
   only. Seen to fail: a download in a credential-holding job whose checksum is changed still runs.
 

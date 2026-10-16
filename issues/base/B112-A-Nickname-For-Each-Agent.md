@@ -9,19 +9,19 @@ message names it by either its nickname or its task.
 
 ## Why
 
-From walk 10; this is Sokar's side of the window's [F88](https://github.com/sokar-ai/sokar-frontend/blob/main/issues/README.md#f88) in sokar-frontend. Decided: Later.
+From walk 10; this is Porelo's side of the window's [F88](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md#f88) in porelo-frontend. Decided: Later.
 
 ## The shape
 
 Each agent has a nickname, given when its work starts, shown in the window, the room and the direct chat, and named
-with `@`. Sokar's part:
+with `@`. Porelo's part:
 
 - **The nickname is the task's label.** `@label` in the room resolves to that task, as its task name does now.
 - **`agent-card.json` says who the agent itself is:** `"you": {"task": …, "nickname": …}`, so it knows when a message
   names it by either.
 - **The display name in the conversation** goes through the transport: `enroll --display` at enrolment and
   `rename --display` when the nickname changes. Only a transport whose `describe` says `"display": true` is asked.
-  `sokar-message-matrix` has both.
+  `porelo-message-matrix` has both.
 - **`metadata.to` and `metadata.from` stay task names**, so the filter and every record keep one name per task.
 
 ## Plan

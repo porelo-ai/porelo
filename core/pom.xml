@@ -6,22 +6,22 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.fuin.sokar</groupId>
-        <artifactId>sokar</artifactId>
-        <version>0.4.2-SNAPSHOT</version>
+        <groupId>org.fuin.porelo</groupId>
+        <artifactId>porelo</artifactId>
+        <version>0.5.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>sokar-core</artifactId>
-    <name>Sokar Core</name>
-    <description>Sokar - Domain model and config stack (CORE)</description>
+    <artifactId>porelo-core</artifactId>
+    <name>Porelo Core</name>
+    <description>Porelo - Domain model and config stack (CORE)</description>
 
     <dependencies>
 
         <!-- compile -->
 
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-wire</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-wire</artifactId>
         </dependency>
 
         <dependency>
@@ -64,11 +64,11 @@
             </build>
         </profile>
 
-        <!-- -Pnative,ffm-check -Dagent=true fails on an unregistered downcall; -Dsokar.ffm.update=true adds it. -->
+        <!-- -Pnative,ffm-check -Dagent=true fails on an unregistered downcall; -Dporelo.ffm.update=true adds it. -->
         <profile>
             <id>ffm-check</id>
             <properties>
-                <sokar.ffm.skip>false</sokar.ffm.skip>
+                <porelo.ffm.skip>false</porelo.ffm.skip>
             </properties>
             <build>
                 <plugins>

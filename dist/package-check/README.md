@@ -1,4 +1,4 @@
-# package-check - `sokar-dist-package-check`
+# package-check - `porelo-dist-package-check`
 
 Checks this repository's `.deb` and `.rpm` against each other and against a real install. It builds no package itself.
 

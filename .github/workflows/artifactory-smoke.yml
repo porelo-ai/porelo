@@ -19,8 +19,8 @@ jobs:
     env:
       JF_URL: ${{ vars.JF_URL }}
       JF_ACCESS_TOKEN: ${{ secrets.JF_ACCESS_TOKEN }}
-      DEB_REPO: sokar-dist-deb
-      RPM_REPO: sokar-dist-rpm
+      DEB_REPO: porelo-dist-deb
+      RPM_REPO: porelo-dist-rpm
 
     steps:
       - name: The settings exist at all
@@ -84,7 +84,7 @@ jobs:
       - name: The token can write, annotate and delete
         run: |
           set -eu
-          echo "sokar smoke ${GITHUB_RUN_ID}" > smoke.txt
+          echo "porelo smoke ${GITHUB_RUN_ID}" > smoke.txt
           FAILED=0
           for repo in "$DEB_REPO" "$RPM_REPO"; do
               path="$repo/.smoke/${GITHUB_RUN_ID}.txt"

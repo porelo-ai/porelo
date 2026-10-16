@@ -19,7 +19,7 @@ Scenarios in the acceptance suite, tagged, run by the release workflow; each nam
 ## Plan
 
 **Today.** The acceptance suite (`acceptance/suite`, features under
-`src/test/resources/org/fuin/sokar/acceptance/`) checks guarantees one by one: `task-guarded.feature` (no privilege,
+`src/test/resources/org/fuin/porelo/acceptance/`) checks guarantees one by one: `task-guarded.feature` (no privilege,
 the firewall before the start, the phantom token, declared names only, work only through the gate) and
 `task-forged.feature`. The release job `deploy` in `.github/workflows/build.yml` has `needs: [build, legs]`, so a red
 scenario in a leg already holds a release back. Nothing groups the attacks, and nothing shows they ran: a tag filter
@@ -34,7 +34,7 @@ in `acceptance/legs/.../Leg.java` could leave them out and the release would sti
    declared domain, send it to an allowed domain, send a credential header, ask the broker for a new token, push
    upstream from the container); bypassing the approval (call approve through the gate's port, move the ref after the
    review and expect `MovedSinceReview`).
-2. Steps in `acceptance/kit` (`SokarSteps`, `Machine`) to run a command as the agent inside a task and expect a
+2. Steps in `acceptance/kit` (`PoreloSteps`, `Machine`) to run a command as the agent inside a task and expect a
    refusal by name.
 3. Each scenario says the guarantee it attacks and the page that states it (`doc/security.md`, `doc/reach.md`).
    Red first: a test in `acceptance/suite`, tagged `documents`, that reads every `@misuse` scenario and fails when

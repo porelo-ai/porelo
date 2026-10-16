@@ -6,26 +6,26 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.fuin.sokar</groupId>
-        <artifactId>sokar-dist</artifactId>
-        <version>0.4.2-SNAPSHOT</version>
+        <groupId>org.fuin.porelo</groupId>
+        <artifactId>porelo-dist</artifactId>
+        <version>0.5.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>sokar-dist-deb</artifactId>
+    <artifactId>porelo-dist-deb</artifactId>
     <packaging>pom</packaging>
-    <name>Sokar Debian Package</name>
+    <name>Porelo Debian Package</name>
     <description>Sandboxes AI agent tasks in hardened rootless containers</description>
 
     <properties>
         <!-- The package name, which is not the module name: the module builds the package, the
              package is what an operator installs and what an agent package depends on. -->
-        <package.name>sokar</package.name>
-        <hook.install.dir>/usr/libexec/sokar/hooks</hook.install.dir>
+        <package.name>porelo</package.name>
+        <hook.install.dir>/usr/libexec/porelo/hooks</hook.install.dir>
         <!-- Data files an operator can add to, not executables, so share rather than libexec. -->
-        <provider.install.dir>/usr/share/sokar/providers</provider.install.dir>
-        <egress.install.dir>/usr/share/sokar/egress</egress.install.dir>
-        <selinux.install.dir>/usr/share/sokar/selinux</selinux.install.dir>
-        <sbom.install.dir>/usr/share/sokar/sbom</sbom.install.dir>
+        <provider.install.dir>/usr/share/porelo/providers</provider.install.dir>
+        <egress.install.dir>/usr/share/porelo/egress</egress.install.dir>
+        <selinux.install.dir>/usr/share/porelo/selinux</selinux.install.dir>
+        <sbom.install.dir>/usr/share/porelo/sbom</sbom.install.dir>
     </properties>
 
     <!-- Not used for a classpath - this module produces no code. It is here so the reactor builds
@@ -33,16 +33,16 @@
          the packaging silently picks up whatever an earlier build left in target. -->
     <dependencies>
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-app</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-app</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokard</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelod</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-hooks</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-hooks</artifactId>
         </dependency>
     </dependencies>
 
@@ -73,7 +73,7 @@
                                 <configuration>
                                     <projectType>application</projectType>
                                     <outputDirectory>${project.basedir}/../../target</outputDirectory>
-                                    <outputName>sokar.cdx</outputName>
+                                    <outputName>porelo.cdx</outputName>
                                     <!-- Nothing here is deployed to Maven: the package is what ships. -->
                                     <skipNotDeployed>false</skipNotDeployed>
                                     <skipAttach>true</skipAttach>
@@ -97,7 +97,7 @@
                                 </goals>
                                 <configuration>
                                     <name>${package.name}</name>
-                                    <deb>${project.build.directory}/${package.name}_${sokar.package.version}_amd64.deb</deb>
+                                    <deb>${project.build.directory}/${package.name}_${porelo.package.version}_amd64.deb</deb>
                                     <controlDir>${project.basedir}/src/deb/control</controlDir>
                                     <skipPOMs>false</skipPOMs>
                                     <dataSet>
@@ -124,7 +124,7 @@
                                             </mapper>
                                         </data>
                                         <data>
-                                            <src>${project.basedir}/../../apps/app/target/sokar</src>
+                                            <src>${project.basedir}/../../apps/app/target/porelo</src>
                                             <type>file</type>
                                             <mapper>
                                                 <type>perm</type>
@@ -135,7 +135,7 @@
                                             </mapper>
                                         </data>
                                         <data>
-                                            <src>${project.basedir}/../../daemon/target/sokard</src>
+                                            <src>${project.basedir}/../../daemon/target/porelod</src>
                                             <type>file</type>
                                             <mapper>
                                                 <type>perm</type>
@@ -146,7 +146,7 @@
                                             </mapper>
                                         </data>
                                         <data>
-                                            <src>${project.basedir}/../../hooks/target/sokar-hook-nft</src>
+                                            <src>${project.basedir}/../../hooks/target/porelo-hook-nft</src>
                                             <type>file</type>
                                             <mapper>
                                                 <type>perm</type>
@@ -157,7 +157,7 @@
                                             </mapper>
                                         </data>
                                         <data>
-                                            <src>${project.basedir}/../../hooks/target/sokar-hook-supervisor</src>
+                                            <src>${project.basedir}/../../hooks/target/porelo-hook-supervisor</src>
                                             <type>file</type>
                                             <mapper>
                                                 <type>perm</type>
@@ -168,7 +168,7 @@
                                             </mapper>
                                         </data>
                                         <data>
-                                            <src>${project.basedir}/../../hooks/target/sokar-hook-reader</src>
+                                            <src>${project.basedir}/../../hooks/target/porelo-hook-reader</src>
                                             <type>file</type>
                                             <mapper>
                                                 <type>perm</type>
@@ -180,7 +180,7 @@
                                         </data>
                                         <!-- Source, not a compiled module: a .pp is tied to the policy version of the machine that built it. -->
                                         <data>
-                                            <src>${project.basedir}/../../selinux/sokar_socket.te</src>
+                                            <src>${project.basedir}/../../selinux/porelo_socket.te</src>
                                             <type>file</type>
                                             <mapper>
                                                 <type>perm</type>
@@ -206,7 +206,7 @@
                                              excluded from the deb side of the parity check and
                                              not from the rpm side. -->
                                         <data>
-                                            <src>${project.basedir}/../../target/sokar.cdx.json</src>
+                                            <src>${project.basedir}/../../target/porelo.cdx.json</src>
                                             <type>file</type>
                                             <mapper>
                                                 <type>perm</type>
@@ -220,7 +220,7 @@
                                              daemon is the operator's decision, and a package that
                                              started one would start it for every account. -->
                                         <data>
-                                            <src>${project.basedir}/../../systemd/sokard.service</src>
+                                            <src>${project.basedir}/../../systemd/porelod.service</src>
                                             <type>file</type>
                                             <mapper>
                                                 <type>perm</type>
@@ -239,7 +239,7 @@
                                              the two ecosystems differ on purpose. Both are
                                              checked in dist/package-check. -->
                                         <data>
-                                            <src>${project.basedir}/../../apps/app/src/main/resources/completion/sokar</src>
+                                            <src>${project.basedir}/../../apps/app/src/main/resources/completion/porelo</src>
                                             <type>file</type>
                                             <mapper>
                                                 <type>perm</type>
@@ -250,7 +250,7 @@
                                             </mapper>
                                         </data>
                                         <data>
-                                            <src>${project.basedir}/../../apps/app/src/main/resources/completion/_sokar</src>
+                                            <src>${project.basedir}/../../apps/app/src/main/resources/completion/_porelo</src>
                                             <type>file</type>
                                             <mapper>
                                                 <type>perm</type>

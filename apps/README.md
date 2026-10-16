@@ -1,7 +1,7 @@
 # apps
 
 The command line and the daemon's logic, as layers: the shared ground, one module per area, and `app`, which
-assembles them into the `sokar` executable. A module of packaging `pom` that only groups them.
+assembles them into the `porelo` executable. A module of packaging `pom` that only groups them.
 
 - [app-base](app-base/README.md), [app-model](app-model/README.md) - the shared ground.
 - [app-agents](app-agents/README.md), [app-vault](app-vault/README.md), [app-messaging](app-messaging/README.md),

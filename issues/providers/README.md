@@ -3,8 +3,8 @@
 One file per provider, plus those about providers as a class. Each carries its own
 acceptance criteria so it can be judged done or not done.
 
-The providers Sokar ships, each reached through the broker with the
-real credential never entering the container, are in [Credentials](../../doc/credentials.md#the-providers-sokar-ships).
+The providers Porelo ships, each reached through the broker with the
+real credential never entering the container, are in [Credentials](../../doc/credentials.md#the-providers-porelo-ships).
 
 A provider is **data**: an upstream, a header, a prefix and a path, found by scanning a directory.
 That is why there is no code to write for most of these, and why adding one is a file rather than
@@ -17,7 +17,7 @@ providers as a class, the others one provider each.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="p10"></a>[P10](P10-A-Native-Agent-Reaching-A-Provider-It-Does-Not-Know.md) | M | `sokar` [P09](README.md#p09) | A native agent is told the resolved dialect in `SetupContext`, so it can register a provider it does not know with that wire format; a definition key saying so lifts [P09](#p09)'s refusal for such a provider. | 1 |
+| <a id="p10"></a>[P10](P10-A-Native-Agent-Reaching-A-Provider-It-Does-Not-Know.md) | M | `porelo` [P09](README.md#p09) | A native agent is told the resolved dialect in `SetupContext`, so it can register a provider it does not know with that wire format; a definition key saying so lifts [P09](#p09)'s refusal for such a provider. | 1 |
 
 ## Estimated
 
@@ -32,4 +32,4 @@ providers as a class, the others one provider each.
 ## Notes
 
 Which agents can reach which of these, and which of them can be brokered at all, is surveyed in
-[the comparison of agents and providers](https://github.com/sokar-ai/sokar-project/blob/main/doc/agents-and-providers.md) in `sokar-project`.
+[the comparison of agents and providers](https://github.com/porelo-ai/porelo-project/blob/main/doc/agents-and-providers.md) in `porelo-project`.

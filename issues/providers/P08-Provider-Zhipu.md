@@ -20,7 +20,7 @@ upstream: the upstream is the provider file's (`ProviderDefinition.upstream`), n
 provider files, each with its own vault entry.
 
 The agents that can reach it are listed in
-[the comparison](https://github.com/sokar-ai/sokar-project/blob/main/doc/agents-and-providers.md).
+[the comparison](https://github.com/porelo-ai/porelo-project/blob/main/doc/agents-and-providers.md).
 
 ## Plan
 
@@ -31,8 +31,8 @@ The agents that can reach it are listed in
 3. **`providers/zai.yaml`:** the same for `https://api.z.ai`, `token_env: { _default: ZAI_API_KEY }`.
 4. **`doc/credentials.md`:** two rows, and a line that one vendor's two hosts are two providers with their own keys.
 5. **Live:** a scenario in an agent repository given a URL endpoint, as its `openrouter` scenario does, against each
-   host with a fake key; the vendor's own refusal proves the swap, and `sokar task status` names the provider. Not
-   the stub: it is given a socket, and Sokar puts a dialect's path only on a URL endpoint
+   host with a fake key; the vendor's own refusal proves the swap, and `porelo task status` names the provider. Not
+   the stub: it is given a socket, and Porelo puts a dialect's path only on a URL endpoint
    (`CredentialWiring.endpointFor`), so the stub's fixed `/v1/messages` misses `/api/anthropic`.
 6. **The two hosts' keys, measured:** whether a key made on one host is taken on the other, which would let one key
    serve both providers. The two provider files stay either way, since the upstream is the provider file's; what the

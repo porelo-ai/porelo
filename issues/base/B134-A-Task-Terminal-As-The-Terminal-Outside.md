@@ -11,7 +11,7 @@ outside. Where something cannot, it is written down, with why.
 
 On 2026-10-09 it was found that PageUp and PageDown do not scroll in Oh My Pi inside a task, though they do in
 a plain console. It holds for every agent, since each runs in the one tmux session the task image sets up.
-`/etc/sokar/tmux.conf` (`runtime/.../Containerfile.java`) holds `history-limit 10000`, `extended-keys on`,
+`/etc/porelo/tmux.conf` (`runtime/.../Containerfile.java`) holds `history-limit 10000`, `extended-keys on`,
 `terminal-features 'xterm*:extkeys'` and `default-terminal tmux-256color`, and nothing for scrolling, Esc, colours,
 the clipboard or passthrough.
 
@@ -46,10 +46,10 @@ without `extended-keys-format`.
 2. **Then the configuration** that closes what differs, written into `tmux.conf` by `Containerfile`, fitted to the
    image's tmux. An option a tmux lacks is set with `-q`, as `extended-keys` is today, and the measurement says
    what that costs on 3.4.
-3. **A person's own tmux settings, per account:** Sokar's `tmux.conf` ends by loading an optional file of the
-   account, `~/.config/sokar/tmux.conf`, given to the task read-only at its start and read with `source-file -q`
-   after Sokar's settings. Key bindings, the prefix, the mouse and colours can then be set once for all of an
-   account's tasks, with no image rebuilt; without the file nothing changes. What Sokar itself depends on - the
+3. **A person's own tmux settings, per account:** Porelo's `tmux.conf` ends by loading an optional file of the
+   account, `~/.config/porelo/tmux.conf`, given to the task read-only at its start and read with `source-file -q`
+   after Porelo's settings. Key bindings, the prefix, the mouse and colours can then be set once for all of an
+   account's tasks, with no image rebuilt; without the file nothing changes. What Porelo itself depends on - the
    screen it reads for `at_rest`, the lines it types to wake an agent - is set again after the person's file, so a
    setting there cannot break it unawares; which settings those are comes out of the measurement and is written down.
    Decided on 2026-10-09.
@@ -62,13 +62,13 @@ without `extended-keys-format`.
 - A test per key and capability, in the acceptance kit: send the key or sequence into a task's session and read what
   the program inside received, against what a plain terminal delivers. A difference is caught when it comes back.
 - `ContainerfileTest` pins the configuration lines, as it pins today's.
-- A binding set in the account's `~/.config/sokar/tmux.conf` works in a task started after it, and a setting
-  there that Sokar depends on is overridden, each seen in a test.
+- A binding set in the account's `~/.config/porelo/tmux.conf` works in a task started after it, and a setting
+  there that Porelo depends on is overridden, each seen in a test.
 - Seen to fail first: PageUp in a task today, against the measured plain-terminal behaviour.
 
 ## Measured, 2026-10-09
 
-tmux 3.4 with `/etc/sokar/tmux.conf`, behind `podman exec -it` in `ubuntu:24.04`, against the same path without tmux.
+tmux 3.4 with `/etc/porelo/tmux.conf`, behind `podman exec -it` in `ubuntu:24.04`, against the same path without tmux.
 A program in the container logged every byte it received, with the monotonic time the host shares, and wrote
 the sequences an agent writes; a script played the outside terminal (`TERM=xterm-256color`).
 
@@ -93,9 +93,9 @@ whatever that terminal sends in an alternate screen, usually arrow keys, not as 
 
 **Not closed, written down in `doc/running.md`:** the terminal's own scrollback holds nothing of the session; while
 scrolled back in tmux, keys go to tmux; a mouse selection is tmux's; xterm's Shift+Enter arrives as CSI u; images
-need wrapping. **What Sokar depends on**, set again after the account's file: `history-limit` and `default-terminal`.
+need wrapping. **What Porelo depends on**, set again after the account's file: `history-limit` and `default-terminal`.
 
-**As built:** the settings in `Containerfile`, pinned by `ContainerfileTest`; `~/.config/sokar/tmux.conf` copied into
+**As built:** the settings in `Containerfile`, pinned by `ContainerfileTest`; `~/.config/porelo/tmux.conf` copied into
 a task as root after it starts (`TaskRunner`, `AccountTmuxTest`); the order checked in a built image, with a binding
 and `mouse off` from the account's file taking effect and its `history-limit` and `default-terminal` set back.
 **Open:** Pi, and each agent in a real task with a person's own terminal; the acceptance kit's per-key test.
@@ -108,8 +108,8 @@ copy mode, then to the program.
 ## Plan
 
 Built and on main (`e55e8f0d`, `2d669ab1` for Shift+PageDown): the settings in
-`runtime/src/main/java/org/fuin/sokar/runtime/Containerfile.java`, pinned by `ContainerfileTest`; the account's
-`~/.config/sokar/tmux.conf` copied in by `TaskRunner` (`AccountTmuxTest`); `doc/running.md` says what is not closed.
+`runtime/src/main/java/org/fuin/porelo/runtime/Containerfile.java`, pinned by `ContainerfileTest`; the account's
+`~/.config/porelo/tmux.conf` copied in by `TaskRunner` (`AccountTmuxTest`); `doc/running.md` says what is not closed.
 Left, in this order:
 
 1. **Pi measured,** on the Ubuntu VM with the logging program and the script of 2026-10-09, a column beside Claude Code

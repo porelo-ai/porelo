@@ -3,7 +3,7 @@
 **Status:** Implementing.
 **Size:** S - `AgentWake` in `app-messaging`, `Podman.enter` and their unit tests; no contract.
 
-**What must be true.** Sokar types its wake line into a task's session only when the agent's declared `at_rest` has
+**What must be true.** Porelo types its wake line into a task's session only when the agent's declared `at_rest` has
 held on two looks at the screen a short while apart, with no sign of work between them, never into a turn that is
 still running.
 
@@ -11,7 +11,7 @@ still running.
 
 `AgentWake.wake` reads the screen once and types at once when `at_rest` matches. An agent's work line comes and goes
 between its tool calls, so one look can fall into such a gap and take a working agent for one at rest. Seen on
-`sokar-claude-code`'s run `37343923956`, job "Acceptance - fedora" (`sokar` `0.4.1~snapshot.250`, Claude Code 2.1.267):
+`porelo-claude-code`'s run `37343923956`, job "Acceptance - fedora" (`porelo` `0.4.1~snapshot.250`, Claude Code 2.1.267):
 the wake line stood right under the typed prompt, before the agent's first tool call - the instant between Enter and
 its working line matched `at_rest`, which asks for `bypass permissions on` and the absence of `esc to interrupt` - and
 the agent then reported "empty messages that keep interrupting my tool calls" and its tool use was interrupted. The
@@ -28,7 +28,7 @@ when it starts, and the Enter typed after a line is taken by it. The line stays 
 agent never works. `Podman.type` types the wake line and then Enter in the same way, so a wake can be lost the same way:
 typed, never submitted, and nothing says so.
 
-So after typing, Sokar looks at the screen again. If its wake line still stands in the input box, it presses Enter once
+So after typing, Porelo looks at the screen again. If its wake line still stands in the input box, it presses Enter once
 more, as a person would, and says in the journal that it had to. A line that still stands after that is said as a wake
 that did not reach the agent, never as a wake that did.
 
@@ -58,9 +58,9 @@ that did not reach the agent, never as a wake that did.
 ## Plan
 
 Built and on `origin/main` (`3f678c27`): `AgentWake.wake` and `rests`
-(`apps/app-messaging/src/main/java/org/fuin/sokar/app/AgentWake.java`), `Podman.enter`, `WakeLandsTest` and
+(`apps/app-messaging/src/main/java/org/fuin/porelo/app/AgentWake.java`), `Podman.enter`, `WakeLandsTest` and
 `AgentWakeTest`. What is left is no code here:
 
-- The wake scenarios of the agent repositories, on both legs, against a `sokar` snapshot that holds `3f678c27`. A red
+- The wake scenarios of the agent repositories, on both legs, against a `porelo` snapshot that holds `3f678c27`. A red
   one there is read for whether `LOOK` is too short for that agent's work line, before anything else changes.
 - [B118](README.md#b118) takes its rest by this rule; the test of `rests` moves into `app-model` then, and `AgentWake` calls it there.

@@ -6,26 +6,26 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.fuin.sokar</groupId>
-        <artifactId>sokar-dist</artifactId>
-        <version>0.4.2-SNAPSHOT</version>
+        <groupId>org.fuin.porelo</groupId>
+        <artifactId>porelo-dist</artifactId>
+        <version>0.5.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>sokar-dist-check</artifactId>
-    <name>Sokar Package Checks</name>
+    <artifactId>porelo-dist-check</artifactId>
+    <name>Porelo Package Checks</name>
     <description>Reads the packages this build wrote and holds them to the version they must carry</description>
 
     <!-- After both packages and the stub agent's, in the reactor: what it reads must be written first. -->
     <dependencies>
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-dist-deb</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-dist-deb</artifactId>
             <version>${project.version}</version>
             <type>pom</type>
         </dependency>
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-dist-rpm</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-dist-rpm</artifactId>
             <version>${project.version}</version>
             <type>pom</type>
         </dependency>
@@ -65,14 +65,14 @@
                         <configuration>
                             <skipTests>false</skipTests>
                             <systemPropertyVariables>
-                                <!-- The raw parts, not sokar.package.version: the check maps them itself, so a
+                                <!-- The raw parts, not porelo.package.version: the check maps them itself, so a
                                      mistake in the mapping is not the answer it is held to. -->
-                                <sokar.check.projectVersion>${project.version}</sokar.check.projectVersion>
-                                <sokar.check.run>${sokar.snapshot.run}</sokar.check.run>
-                                <sokar.check.suffix>${sokar.snapshot.suffix}</sokar.check.suffix>
-                                <sokar.check.deb>${project.basedir}/../dist-deb/target</sokar.check.deb>
-                                <sokar.check.rpm>${project.basedir}/../dist-rpm/target</sokar.check.rpm>
-                                <sokar.check.stub>${project.basedir}/../../agents/stub/target</sokar.check.stub>
+                                <porelo.check.projectVersion>${project.version}</porelo.check.projectVersion>
+                                <porelo.check.run>${porelo.snapshot.run}</porelo.check.run>
+                                <porelo.check.suffix>${porelo.snapshot.suffix}</porelo.check.suffix>
+                                <porelo.check.deb>${project.basedir}/../dist-deb/target</porelo.check.deb>
+                                <porelo.check.rpm>${project.basedir}/../dist-rpm/target</porelo.check.rpm>
+                                <porelo.check.stub>${project.basedir}/../../agents/stub/target</porelo.check.stub>
                             </systemPropertyVariables>
                         </configuration>
                     </plugin>
@@ -93,18 +93,18 @@
                                     <includeProjectDependencies>false</includeProjectDependencies>
                                     <includePluginDependencies>true</includePluginDependencies>
                                     <executableDependency>
-                                        <groupId>org.fuin.sokar</groupId>
-                                        <artifactId>sokar-release</artifactId>
+                                        <groupId>org.fuin.porelo</groupId>
+                                        <artifactId>porelo-release</artifactId>
                                     </executableDependency>
-                                    <commandlineArgs>-classpath %classpath org.fuin.sokar.release.Main check-linkage --declare libc.so.6=GLIBC:${package.glibc.floor} --declare libz.so.1=ZLIB:${package.zlib.floor} --ceiling GLIBC=${package.glibc.ceiling} ${project.basedir}/../../apps/app/target/sokar ${project.basedir}/../../daemon/target/sokard ${project.basedir}/../../agents/stub/target/sokar-agent-stub ${project.basedir}/../../hooks/target/sokar-hook-nft ${project.basedir}/../../hooks/target/sokar-hook-supervisor ${project.basedir}/../../hooks/target/sokar-hook-reader</commandlineArgs>
+                                    <commandlineArgs>-classpath %classpath org.fuin.porelo.release.Main check-linkage --declare libc.so.6=GLIBC:${package.glibc.floor} --declare libz.so.1=ZLIB:${package.zlib.floor} --ceiling GLIBC=${package.glibc.ceiling} ${project.basedir}/../../apps/app/target/porelo ${project.basedir}/../../daemon/target/porelod ${project.basedir}/../../agents/stub/target/porelo-agent-stub ${project.basedir}/../../hooks/target/porelo-hook-nft ${project.basedir}/../../hooks/target/porelo-hook-supervisor ${project.basedir}/../../hooks/target/porelo-hook-reader</commandlineArgs>
                                 </configuration>
                             </execution>
                         </executions>
                         <dependencies>
                             <dependency>
-                                <groupId>org.fuin.sokar</groupId>
-                                <artifactId>sokar-release</artifactId>
-                                <version>${sokar.buildtools.version}</version>
+                                <groupId>org.fuin.porelo</groupId>
+                                <artifactId>porelo-release</artifactId>
+                                <version>${porelo.buildtools.version}</version>
                             </dependency>
                         </dependencies>
                     </plugin>

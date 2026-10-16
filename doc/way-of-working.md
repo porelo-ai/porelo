@@ -251,12 +251,12 @@ tower is what lets one person keep track of both.
 
 ---
 
-## Where Sokar fits
+## Where Porelo fits
 
-**Sokar is the safe building that the cockpit and the factory work in, with
+**Porelo is the safe building that the cockpit and the factory work in, with
 the control tower on top, and all of it stands on your own machines.**
 
-Sokar is not an AI helper itself. It takes the helpers you already use, such
+Porelo is not an AI helper itself. It takes the helpers you already use, such
 as Claude Code or Pi, and runs every job in a sealed room: no
 internet except what the project allows, no real passwords inside, and
 nothing leaves until you have approved it.
@@ -274,8 +274,8 @@ nothing leaves until you have approved it.
   and the machines it reaches are reached over ssh; answering from a phone is
   where this is going, not where it is.
 
-What Sokar cannot change: each AI company still decides how its helper may
-sign in. If a vendor closes that door, Sokar feels it too.
+What Porelo cannot change: each AI company still decides how its helper may
+sign in. If a vendor closes that door, Porelo feels it too.
 
 ---
 

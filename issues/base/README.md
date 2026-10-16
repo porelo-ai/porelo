@@ -22,10 +22,10 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b157"></a>[B157](B157-Doctor-Says-Its-Findings-In-Colour.md) | S | - | Doctor colours its findings; `--color` and `NO_COLOR` work, no colour when piped; on `main`. |
 | <a id="b126"></a>[B126](B126-One-Source-For-A-Repository-Both-Ways.md) | L | - | One source per repository both ways; built on `main`, the walk is left. |
-| <a id="b127"></a>[B127](B127-An-Online-Task-Pushes-Through-The-Host.md) | L | - | An online task's push goes through the gate as `sokar/<task>`; on `main`, green on the VM, the operator's test is left. |
+| <a id="b127"></a>[B127](B127-An-Online-Task-Pushes-Through-The-Host.md) | L | - | An online task's push goes through the gate as `porelo/<task>`; on `main`, green on the VM, the operator's test is left. |
 | <a id="b128"></a>[B128](B128-A-Gate-A-Task-Cannot-Exhaust.md) | M | - | The gate's limits: 4 requests at once, a push spooled to disk, a scope per gate; on `main`, green on the VM, the operator's test is left. |
 | <a id="b162"></a>[B162](B162-Task-List-Names-What-It-Leaves-Out.md) | M | - | Task list, status, logs and the daemon name containers that look like tasks but have no recorded id; on `main`. |
-| <a id="b161"></a>[B161](B161-Doctor-As-Data.md) | S | - | `sokar doctor --json` from the same probe list as the text; on `main`. |
+| <a id="b161"></a>[B161](B161-Doctor-As-Data.md) | S | - | `porelo doctor --json` from the same probe list as the text; on `main`. |
 | <a id="b146"></a>[B146](B146-One-Stop-Of-Every-Task-On-A-Node.md) | M | - | `task stop --all` and panic stop everything and journal it in `stops.log`; on `main`, the operator's test is left. |
 | <a id="b132"></a>[B132](B132-A-Subscription-Granted-With-One-Command.md) | M | - | `vault authorize <provider>` makes the grant from the provider and the agent; `task start` names and offers the command. |
 | <a id="b131"></a>[B131](B131-The-Oldest-System-A-Package-Promises.md) | M | - | Packages declare their glibc and zlib floor, `check-linkage` fails a build above it, runners pinned, Debian 13 and Fedora 43 in the package check. |
@@ -42,6 +42,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b195"></a>[B195](B195-Sokar-Renamed-Porelo-Here.md) | L | - | One scripted commit: paths moved and `sokar` replaced by `porelo` but for released changelog entries and outside names; artifacts, varlink interfaces, `porelod`, packages, paths, variables, nft and SELinux names, the message signature namespace; images redrawn, signed fixtures signed again; red first a test refusing the old word; both legs. |
 | <a id="b120"></a>[B120](B120-A-Wake-Waits-For-Rest-That-Holds.md) | S | - | The two-look wake and the second Enter are on `main`; left: the agent repositories' wake scenarios on both legs. |
 | <a id="b158"></a>[B158](B158-A-Refusal-That-Knows-The-Next-Command-Offers-It.md) | M | - | A refusal offers its remedy command; built for vault login, a start's credential refusals and resume's shut vault; a resume test is left. |
 | <a id="b137"></a>[B137](B137-An-Offline-Project-Never-Connects.md) | S | - | An offline project never connects; left: an acceptance round trip that follows a bundle, restores, backs up and refuses a `file://` follow. |
@@ -56,7 +57,7 @@ from its side, as *blocked by*.
 | <a id="b134"></a>[B134](B134-A-Task-Terminal-As-The-Terminal-Outside.md) | M | - | The task's tmux matches the terminal outside; left: Pi's measurement, a kit step and scenario per key, then the joint test. |
 | <a id="b133"></a>[B133](B133-A-Shut-Vault-Opened-Where-It-Is-Needed.md) | S | - | A shut vault asks for its passphrase at a terminal instead of refusing; left: one scenario that starts a task on a shut vault. |
 | <a id="b129"></a>[B129](B129-An-Agent-Found-By-Its-Description.md) | S | - | Agents found by an `agents.d/<name>.yaml` description; left: the stub packaged that way and the package check proving it. |
-| <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `sokar` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
+| <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
 | <a id="b06"></a>[B06](B06-Remote-Access.md) | M | - | Remote use over ssh; both shapes built; left: a daemon-socket check and a real `ssh localhost` hop in the acceptance suite. |
 | <a id="b23"></a>[B23](B23-Secrets-In-This-Process-Memory.md) | S | - | `ProcessHardening` applied (no caller yet), keyring and vault-file buffers closed; a credential as bytes dropped, kept as an accepted risk. |
 
@@ -64,23 +65,23 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `sokar clear`; written by approve, reject, clearance, hand-in, credentials and project changes. |
+| <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes. |
 | <a id="b189"></a>[B189](B189-Values-Handed-To-A-Task-At-Its-Start.md) | L | - | Values a project declares in `parameters:`, handed to a start by `--set`, `--set-file` or `--set-env`, checked by `StartCheck`, kept in `parameters.json`, shown with their origin by `task status` and `Task`, set in the container and usable as `{name}` in settings. |
-| <a id="b190"></a>[B190](B190-A-Tasks-Branch-Named-By-The-Projects-Scheme.md) | L | `sokar` [B189](README.md#b189) | `branch.template` and `branch.pattern` or `--branch` name a task's forge branch, kept in `task.json`; the gate passes on and keeps out of its mirror by them, an existing upstream branch refused at an online start, a guarded approval onto it by default and only within the pattern. |
+| <a id="b190"></a>[B190](B190-A-Tasks-Branch-Named-By-The-Projects-Scheme.md) | L | `porelo` [B189](README.md#b189) | `branch.template` and `branch.pattern` or `--branch` name a task's forge branch, kept in `task.json`; the gate passes on and keeps out of its mirror by them, an existing upstream branch refused at an online start, a guarded approval onto it by default and only within the pattern. |
 
 ## Analyzed
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="b175"></a>[B175](B175-The-Profile-That-May-Bind-The-Socket.md) | L | `sokar` [B135](README.md#b135) | On an AppArmor machine a task connects only to a socket one of Sokar's binaries bound, by a task profile that refuses any other peer, as the SELinux domain does on SELinux machines. | 2 |
-| <a id="b176"></a>[B176](B176-Comment-Threads-That-Follow-A-New-Push.md) | M | `sokar` [B166](README.md#b166) | A thread on waiting work moves to a new push's commit where its lines are unchanged, else stays and says why; each commented commit pinned under a hidden ref; `Thread` gains `from` and `stays`. | 1 |
-| <a id="b177"></a>[B177](B177-A-Cost-Ceiling-Per-Task.md) | M | `sokar` [B138](README.md#b138), [B191](README.md#b191) | A dollar ceiling per task from `limits.cost`, counted by the broker from the cost the provider reports, else at list price from the price table; a model with no price refuses the ceiling at the start or fail closed, never $0; under a subscription it caps list-price value. | - |
+| <a id="b175"></a>[B175](B175-The-Profile-That-May-Bind-The-Socket.md) | L | `porelo` [B135](README.md#b135) | On an AppArmor machine a task connects only to a socket one of Porelo's binaries bound, by a task profile that refuses any other peer, as the SELinux domain does on SELinux machines. | 2 |
+| <a id="b176"></a>[B176](B176-Comment-Threads-That-Follow-A-New-Push.md) | M | `porelo` [B166](README.md#b166) | A thread on waiting work moves to a new push's commit where its lines are unchanged, else stays and says why; each commented commit pinned under a hidden ref; `Thread` gains `from` and `stays`. | 1 |
+| <a id="b177"></a>[B177](B177-A-Cost-Ceiling-Per-Task.md) | M | `porelo` [B138](README.md#b138), [B191](README.md#b191) | A dollar ceiling per task from `limits.cost`, counted by the broker from the cost the provider reports, else at list price from the price table; a model with no price refuses the ceiling at the start or fail closed, never $0; under a subscription it caps list-price value. | - |
 | <a id="b178"></a>[B178](B178-A-Credential-With-No-Expiry-Said-So.md) | M | - | Storing a credential with no end says so (`vault put`, `vault login`, `ImportCredential`), and `vault list` and `Credentials()` mark it with `noExpiry`. | 1 |
 | <a id="b122"></a>[B122](B122-No-Direct-Chat-Between-Tasks.md) | M | - | Peers at an account accepted only for joined persons: checked at the start, in `talk peers`, in the dispatch and again at the send. | - |
 | <a id="b173"></a>[B173](B173-An-Agents-Sign-In-Kept-Without-A-Person.md) | S | - | `vault login <agent> --credentials-from <dir>`: an agent's sign-in read through its extractor and kept renewable without a person; `--token-url` on loopback only, for a kit's stand-in token endpoint. | - |
-| <a id="b121"></a>[B121](B121-A-Message-Record-Without-A-Chain.md) | M | `sokar` [B154](README.md#b154) | Drop `previous` and `hash` from `MessageRecord`, remove `sokar talk verify`, its rows and scenario, and update the docs and the decision. | - |
+| <a id="b121"></a>[B121](B121-A-Message-Record-Without-A-Chain.md) | M | `porelo` [B154](README.md#b154) | Drop `previous` and `hash` from `MessageRecord`, remove `porelo talk verify`, its rows and scenario, and update the docs and the decision. | - |
 | <a id="b148"></a>[B148](B148-Token-Counting-Per-Task.md) | L | - | The broker reads four answer formats, streamed or not, into a per-task `usage/<task>.jsonl` kept after removal: agent, provider, models, five counts (`null` when not reported), tools, how it ended, a reported cost; asks for the streamed Chat Completions count; sums in `task status` and `Usage`. | - |
-| <a id="b191"></a>[B191](B191-What-A-Task-Cost-At-List-Prices.md) | L | `sokar` [B148](README.md#b148) | Price files per provider with their date, a task, agent and model priced at list prices, unpriced requests counted, a declared subscription and what it saved, in `task status`, `sokar usage` and `Cost`. | - |
+| <a id="b191"></a>[B191](B191-What-A-Task-Cost-At-List-Prices.md) | L | `porelo` [B148](README.md#b148) | Price files per provider with their date, a task, agent and model priced at list prices, unpriced requests counted, a declared subscription and what it saved, in `task status`, `porelo usage` and `Cost`. | - |
 | <a id="b150"></a>[B150](B150-The-Whole-Diff-In-Review.md) | M | - | The daemon's `Review` fails above the 4 MiB message limit today: cut at a file boundary, said with `cut` in the contract; `files` is never cut. | - |
 | <a id="b108"></a>[B108](B108-The-Narrowed-Message-Schema-Enforced.md) | M | - | One JSON Schema the filter enforces and the guide and docs are made from; the host does not check the shape again. | - |
 | <a id="b118"></a>[B118](B118-An-Attached-Agent-Said-At-Rest-Or-Working.md) | M | - | A new `AT_REST` activity, judged from the screen reads the listing already makes with the wake's two-look rule; the stub agent gets an `at_rest`. | - |
@@ -93,17 +94,17 @@ from its side, as *blocked by*.
 | <a id="b151"></a>[B151](B151-The-Providers-A-Project-Allows.md) | M | - | `providers:` in `project.yml`; the start check refuses a provider not on the list, naming the allowed ones, for the CLI and the daemon. | - |
 | <a id="b152"></a>[B152](B152-Say-What-Offline-Still-Reaches.md) | S | - | Wording on how-it-works, project-file, faq, reach, corporate-security and index; a documents test checks that each `offline` description names the provider. | - |
 | <a id="b101"></a>[B101](B101-A-Mode-A-Start-Asks-For-By-Name.md) | M | - | Named modes and a thinking level in the agent definition, `--mode` and `--thinking` at start, both listed in `agents`. | - |
-| <a id="b86"></a>[B86](B86-Messages-Over-Matrix-The-Sokar-Half.md) | M | `sokar-message-matrix` [MX12](https://github.com/sokar-ai/sokar-message-matrix/blob/main/issues/README.md#mx12) | The transport account kept per homeserver, not per scheme; a registration token by `vault put`; docs; a walk on two machines. | - |
-| <a id="b38"></a>[B38](B38-How-Far-Something-That-Got-Through-Can-Get.md) | L | `sokar` [B26](README.md#b26) | An origin field in the agent definition, applied by hand-in to every delivery, and a `podman diff` count kept at removal. | - |
-| <a id="b56"></a>[B56](B56-Programs-Sokar-Runs-That-Could-Be-Calls.md) | S | - | The table of programs Sokar runs completed, and a source-scanning test that fails on an unlisted one; each replacement its own issue. | - |
+| <a id="b86"></a>[B86](B86-Messages-Over-Matrix-The-Porelo-Half.md) | M | `porelo-message-matrix` [MX12](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx12) | The transport account kept per homeserver, not per scheme; a registration token by `vault put`; docs; a walk on two machines. | - |
+| <a id="b38"></a>[B38](B38-How-Far-Something-That-Got-Through-Can-Get.md) | L | `porelo` [B26](README.md#b26) | An origin field in the agent definition, applied by hand-in to every delivery, and a `podman diff` count kept at removal. | - |
+| <a id="b56"></a>[B56](B56-Programs-Porelo-Runs-That-Could-Be-Calls.md) | S | - | The table of programs Porelo runs completed, and a source-scanning test that fails on an unlisted one; each replacement its own issue. | - |
 | <a id="b116"></a>[B116](B116-A-Log-Read-Back-In-Windows.md) | M | - | `Tail` gets `before` to read back in windows, and a cap per line reported in `cut`. | - |
-| <a id="b165"></a>[B165](B165-A-Port-Of-A-Task-On-Loopback-Only.md) | M | - | `sokar task port`: a two-half relay, in the task's namespace and on host loopback only, over a `0700` socket, with `ports.log`, docs and a scenario. | - |
+| <a id="b165"></a>[B165](B165-A-Port-Of-A-Task-On-Loopback-Only.md) | M | - | `porelo task port`: a two-half relay, in the task's namespace and on host loopback only, over a `0700` socket, with `ports.log`, docs and a scenario. | - |
 
 ## Accepted
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b192"></a>[B192](B192-An-Image-Chosen-Per-Repository.md) | - | `sokar` [B170](README.md#b170) | A task started on one repository of a project gets that repository's own image, built from its devcontainer file. |
+| <a id="b192"></a>[B192](B192-An-Image-Chosen-Per-Repository.md) | - | `porelo` [B170](README.md#b170) | A task started on one repository of a project gets that repository's own image, built from its devcontainer file. |
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | - | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own. |
 | <a id="b194"></a>[B194](B194-A-File-Handed-In-At-Every-Start.md) | - | - | A host file such as `.AGENTS.md` handed into an agent's task read-only at every start; a changed copy written on the host only after approval. |
 
@@ -117,21 +118,20 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b195"></a>[B195](B195-Sokar-Renamed-Porelo-Here.md) | L | - | One scripted commit: paths moved and `sokar` replaced by `porelo` but for released changelog entries and outside names; artifacts, varlink interfaces, `porelod`, packages, paths, variables, nft and SELinux names, the message signature namespace; images redrawn, signed fixtures signed again; red first a test refusing the old word; both legs. |
-| <a id="b184"></a>[B184](B184-Only-What-Sokar-Delivered-Counts-As-A-Message.md) | M | - | A message in the inbox counts only when the account running Sokar owns it (root inside); the host reads the inbox without following links and names a planted file; the guide and the agent kit check the owner. |
+| <a id="b184"></a>[B184](B184-Only-What-Porelo-Delivered-Counts-As-A-Message.md) | M | - | A message in the inbox counts only when the account running Porelo owns it (root inside); the host reads the inbox without following links and names a planted file; the guide and the agent kit check the owner. |
 | <a id="b185"></a>[B185](B185-A-Bound-On-What-A-Task-Writes-To-This-Disk.md) | M | - | The daemon measures a task's box and writable layer and pauses it over `limits.disk` (10 GiB), `limits.mailbox` (256 MiB) or under `limits.disk_free` (2 GiB), each settable in `project.yml`, and says how to go on. |
 | <a id="b95"></a>[B95](B95-A-Container-To-Try-Waiting-Work-In.md) | XL | - | `gate try` and a streaming `Try` in a container without gate or vault; the IDE split into an issue of its own. |
-| <a id="b123"></a>[B123](B123-Message-Transports-Behind-A-Published-API.md) | XL | - | `sokar-transport-api` and its contract `Transport1`; splits into the library, the stub, the host client, the Matrix move and the end of the command-line contract. |
+| <a id="b123"></a>[B123](B123-Message-Transports-Behind-A-Published-API.md) | XL | - | `porelo-transport-api` and its contract `Transport1`; splits into the library, the stub, the host client, the Matrix move and the end of the command-line contract. |
 | <a id="b15"></a>[B15](B15-Handing-Artifacts-Between-Tasks.md) | XL | - | Artifacts over the message transport; splits into the design redone, a gate blob threshold, transport verbs, a drop directory, delivery by hand-in, withdrawal. |
 | <a id="b166"></a>[B166](B166-Line-Comments-Sent-Back-To-The-Agent.md) | L | - | Comments as the sixth kind `comment` of the narrowed schema; `Comment`, `Comments`, `ResolveThread` in the gate's contract; a store, delivery at reject, replies. |
-| <a id="b171"></a>[B171](B171-Forge-Review-Comments-To-And-From-A-Task.md) | L | `sokar` [B166](README.md#b166) | A `Review1` reader contract, a pull request matched by the gate's branch, a reviewer list, a queue for what goes out, a write token, rate limits. |
-| <a id="b172"></a>[B172](B172-A-Task-That-Reviews.md) | M | `sokar` [B166](README.md#b166) | `role` in the task profile, `--role reviewer --review` on its own project's other tasks only, a gate that shows the reviewed ref and refuses every push, the comment's origin. |
-| <a id="b160"></a>[B160](B160-A-Project-Followed-From-A-File-Over-The-Socket.md) | M | - | Follow from a file over the socket: a path against home, a bundle uploaded in parts (1 GiB), `Followed` gains `fromFile` and `uploaded`; [F104](https://github.com/sokar-ai/sokar-frontend/blob/main/issues/README.md#f104) waits on it. |
-| <a id="b138"></a>[B138](B138-A-Token-Ceiling-Per-Task.md) | M | `sokar` [B148](README.md#b148) | A token ceiling per task in `Limits` and `--token-limit`, enforced by the broker with a status agents do not retry, `task limit` to raise it. |
+| <a id="b171"></a>[B171](B171-Forge-Review-Comments-To-And-From-A-Task.md) | L | `porelo` [B166](README.md#b166) | A `Review1` reader contract, a pull request matched by the gate's branch, a reviewer list, a queue for what goes out, a write token, rate limits. |
+| <a id="b172"></a>[B172](B172-A-Task-That-Reviews.md) | M | `porelo` [B166](README.md#b166) | `role` in the task profile, `--role reviewer --review` on its own project's other tasks only, a gate that shows the reviewed ref and refuses every push, the comment's origin. |
+| <a id="b160"></a>[B160](B160-A-Project-Followed-From-A-File-Over-The-Socket.md) | M | - | Follow from a file over the socket: a path against home, a bundle uploaded in parts (1 GiB), `Followed` gains `fromFile` and `uploaded`; [F104](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md#f104) waits on it. |
+| <a id="b138"></a>[B138](B138-A-Token-Ceiling-Per-Task.md) | M | `porelo` [B148](README.md#b148) | A token ceiling per task in `Limits` and `--token-limit`, enforced by the broker with a status agents do not retry, `task limit` to raise it. |
 | <a id="b139"></a>[B139](B139-An-Alert-On-What-Looks-Wrong.md) | L | - | Baselines first, then alerts on body size, clearance attempts and odd DNS names, to the desktop and `Watch`; per project alert only or stop with the token revoked. |
 | <a id="b140"></a>[B140](B140-A-Secret-Scan-Of-The-Workspace-At-Start.md) | M | - | A host-side `git grep` of the checked-out tree for known credential forms at start, warn or refuse per project, false findings acknowledged in a host-side list the agent cannot write. |
 | <a id="b141"></a>[B141](B141-New-Dependencies-Checked-Before-Review.md) | XL | - | Review names new Maven and npm dependencies and checks registry existence, age and look-alike names; a finding holds the approve until a person confirms it; splits into names (M), registry check and hold (L), look-alike (S). |
-| <a id="b144"></a>[B144](B144-AI-Provenance-In-The-Commit.md) | L | `sokar` [B148](README.md#b148) | A merge commit at every approve, with AI-Model/Agent/Provider/Task trailers read from the broker's usage record since the last approve; a project may choose a fast-forward without them. |
+| <a id="b144"></a>[B144](B144-AI-Provenance-In-The-Commit.md) | L | `porelo` [B148](README.md#b148) | A merge commit at every approve, with AI-Model/Agent/Provider/Task trailers read from the broker's usage record since the last approve; a project may choose a fast-forward without them. |
 | <a id="b149"></a>[B149](B149-A-Local-Provider-Template.md) | M | - | http only for loopback upstreams, a broker route with no credential, and two templates: `providers/local.yaml` on `127.0.0.1` and `providers/organisation.yaml` over https; the task reaches the host port through the broker. |
 | <a id="b136"></a>[B136](B136-An-Approve-Bound-To-What-Was-Reviewed.md) | M | - | `gate review` names the full commit; a plain `gate approve` asks (default no) or refuses with exit 70; the daemon refuses an empty commit; enrolment alike. |
 | <a id="b98"></a>[B98](B98-The-Image-A-Signature-Names.md) | M | - | A warning on a tag-only `base_image`, a followed tag-only project refused until allowed once, the base digest as an image label, a changed digest noted at start, an optional per-project signature policy, the default project pinned. |
@@ -139,20 +139,20 @@ from its side, as *blocked by*.
 | <a id="b100"></a>[B100](B100-A-Task-Can-Be-Looked-At.md) | XL | - | A VNC view relayed by the daemon from a socket in the task, switched on per project, a strong token before anything reaches the VNC server; splits into task view, image tools and review view. |
 | <a id="b117"></a>[B117](B117-What-Clearing-Leaves-For-A-Person.md) | M | - | The machine records the deploy keys it hands out, so `clear` names them after an unfollow; unreviewed gate refs and unpushed task work are listed before removal. |
 | <a id="b51"></a>[B51](B51-The-Tests-That-Run-Nowhere.md) | M | - | The SELinux tests on the Fedora rented machine, skips that can never apply say where they run, and a report across legs. |
-| <a id="b55"></a>[B55](B55-The-Changelog-Entry-A-Change-Has-To-Bring.md) | L | - | A check that a change brings a changelog entry, proposed to logchange first, else a plugin of our own, bound in `sokar-parent` for every Maven repository and a step of its own in `sokar-frontend`, keeping the old script's three rules. |
-| <a id="b50"></a>[B50](B50-Whose-Business-The-Files-Sokar-Leaves-Behind-Are.md) | M | - | Data and state directories and `~/sokar/reviews` owner-only at creation, mirrors with `--shared=0600`, and a doctor probe that corrects older machines. |
-| <a id="b40"></a>[B40](B40-The-Domain-That-May-Bind-The-Socket.md) | L | - | Sokar's binaries, the agent and build servers under `/usr/libexec/sokar` too, in their own SELinux domain, the only one that may create or bind `sokar_socket_t`. |
+| <a id="b55"></a>[B55](B55-The-Changelog-Entry-A-Change-Has-To-Bring.md) | L | - | A check that a change brings a changelog entry, proposed to logchange first, else a plugin of our own, bound in `porelo-parent` for every Maven repository and a step of its own in `porelo-frontend`, keeping the old script's three rules. |
+| <a id="b50"></a>[B50](B50-Whose-Business-The-Files-Porelo-Leaves-Behind-Are.md) | M | - | Data and state directories and `~/porelo/reviews` owner-only at creation, mirrors with `--shared=0600`, and a doctor probe that corrects older machines. |
+| <a id="b40"></a>[B40](B40-The-Domain-That-May-Bind-The-Socket.md) | L | - | Porelo's binaries, the agent and build servers under `/usr/libexec/porelo` too, in their own SELinux domain, the only one that may create or bind `porelo_socket_t`. |
 | <a id="b48"></a>[B48](B48-The-Overview-That-Stays-Open.md) | M | - | `task list --watch` (machine-wide, `--project` on both forms) on the daemon's `Watch` stream through the shared listing code, a hint line for waiting clearance questions, ages redrawn locally, the terminal reset on Ctrl-C. |
 | <a id="b30"></a>[B30](B30-Credentials-The-Broker-Has-To-Fetch.md) | L | - | `client_credentials` end to end against a stand-in; then it rests until a service needs `private_key_jwt` or mTLS. |
 | <a id="b142"></a>[B142](B142-A-Misuse-Test-Suite-As-A-Release-Condition.md) | L | - | `@misuse` scenarios of all three kinds (escape, exfiltration by DNS, allowed domains and the broker, approval bypass), each naming its page; a red one holds the release, none is ever skipped, and the release refuses legs that ran fewer than the suite holds. |
-| <a id="b143"></a>[B143](B143-Sokar-In-A-Data-Protection-And-ISDS-Concept.md) | S | - | `doc/data-protection.md` in the chapters of the federal ISDS concept template: what Sokar provides and what the organisation regulates per chapter, what to back up; headings and paths checked by a documents test. |
+| <a id="b143"></a>[B143](B143-Porelo-In-A-Data-Protection-And-ISDS-Concept.md) | S | - | `doc/data-protection.md` in the chapters of the federal ISDS concept template: what Porelo provides and what the organisation regulates per chapter, what to back up; headings and paths checked by a documents test. |
 | <a id="b145"></a>[B145](B145-Four-Eyes-At-The-Gate.md) | L | - | A project four-eyes setting, off by default (the owner approves alone): the starter recorded as a signing-key principal, approve needs another signer's signature, checked with `ssh-keygen -Y verify`. |
 | <a id="b147"></a>[B147](B147-A-Wall-Clock-Limit-For-Unattended-Runs.md) | M | - | `limits.minutes` in the project file, which `--minutes` may only shorten; a deadline inside the container plus a real `task stop`, held back while a person is attached and taken when they detach; the reason in status; measurement first. |
 | <a id="b153"></a>[B153](B153-Unused-Slots-And-Keys-Reported.md) | M | - | Doctor reports device slots and deploy keys unused for 45 days (a setting in a new account-wide `config.yml`); a deploy key's last use recorded where credentials are lent; locked only where the settings ask. |
 | <a id="b155"></a>[B155](B155-The-Logs-Checked-And-Documented.md) | M | - | A `doc/logs.md` page for every log; tests show the broker and gate logs hold no secret and every log file is `rw-------`; `task.log` cut after 30 days (a setting). |
-| <a id="b156"></a>[B156](B156-sokar-inventory.md) | M | `sokar` [B148](README.md#b148) | `sokar inventory` (text, `--json`, a daemon method) lists the account, agents, providers, credentials with the projects they serve, slots, deploy keys, last use and models. |
+| <a id="b156"></a>[B156](B156-porelo-inventory.md) | M | `porelo` [B148](README.md#b148) | `porelo inventory` (text, `--json`, a daemon method) lists the account, agents, providers, credentials with the projects they serve, slots, deploy keys, last use and models. |
 | <a id="b112"></a>[B112](B112-A-Nickname-For-Each-Agent.md) | M | - | The label becomes a one-word nickname, unique in its project: `@label`, `you` in the card, `--display` and `rename`. |
-| <a id="b41"></a>[B41](B41-What-A-Packaged-Agent-Installs.md) | M | - | `--supply-chain` and the daemon's `Agent` list what a package ships, read from `/usr/share/sokar/sbom/<executable>.cdx.json` by one shared reader. |
+| <a id="b41"></a>[B41](B41-What-A-Packaged-Agent-Installs.md) | M | - | `--supply-chain` and the daemon's `Agent` list what a package ships, read from `/usr/share/porelo/sbom/<executable>.cdx.json` by one shared reader. |
 | <a id="b59"></a>[B59](B59-A-Kernel-Of-Its-Own-For-A-Task.md) | XL | - | A kernel of its own for a task; splits into a krun/KVM experiment (M) that also measures snapshot and restore, a doctor probe (S), and an opt-in adoption (L) decided on the measurements and only if the ruleset fails closed. |
 | <a id="b63"></a>[B63](B63-A-Share-That-Is-Not-Stored-At-All.md) | XL | - | A share not stored at all; splits into a token measurement (S), FIDO2 enrolment (L), TPM2 (L), and proving what protected an unlock, an unproven slot shown as USER_SCOPED (L). |
 | <a id="b163"></a>[B163](B163-Several-Attempts-At-One-Assignment.md) | L | - | `--attempts N` (at most 5 by default) starts tasks from one commit as a group, with `gate review <group>` and `gate diff`, a reached rate limit said per attempt; approving one rejects the others. |
@@ -180,8 +180,8 @@ credentials to projects** describes a relation that does not exist, and it is ar
 [B18](README.md#b18); restated correctly it is the agent roster, which
 was already refused.
 
-**And instructions for an agent are not Sokar's business at all.** They live in the repository,
-checked in or not, and Sokar does not know what they are called - `CLAUDE.md`, `AGENTS.md`,
+**And instructions for an agent are not Porelo's business at all.** They live in the repository,
+checked in or not, and Porelo does not know what they are called - `CLAUDE.md`, `AGENTS.md`,
 something an agent invents next year. It cannot merge them, because how an agent combines several
 is that agent's rule and not ours. A team running more than one agent has to agree upfront how
 instructions are stored in their repository; that agreement is theirs to make.
@@ -202,6 +202,6 @@ changes what gets built rather than only how:
   The transport itself is settled - the socket survives an ssh forward, measured - so what is left
   is the half that decides how much of the interface's remote use and notifications is real, and how
   long a clearance prompt should wait for somebody who is not there.
-- Whether the guarantees can be re-derived at all on a second platform (`sokar-project` [PJ25](https://github.com/sokar-ai/sokar-project/blob/main/issues/README.md#pj25)). It decides whether that project offers the same
+- Whether the guarantees can be re-derived at all on a second platform (`porelo-project` [PJ25](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj25)). It decides whether that project offers the same
   product or a weaker one wearing the same name, and it constrains what may be added to the
   daemon's contract.

@@ -19,7 +19,7 @@ container.
 are, which the broker already swaps. The account sign-in is unverified.
 
 The agents that can reach it are listed in
-[the comparison](https://github.com/sokar-ai/sokar-project/blob/main/doc/agents-and-providers.md).
+[the comparison](https://github.com/porelo-ai/porelo-project/blob/main/doc/agents-and-providers.md).
 
 ## Plan
 
@@ -32,9 +32,9 @@ A provider is data (`doc/credentials.md`, "Model providers"): nothing in the bro
    and `auth_prefix` `Authorization` / `Bearer `, `token_env: { _default: OPENAI_API_KEY }`, and
    `unbrokerable: { oauth: ... }` naming the sign-in as not measured, so a sign-in is refused before a start rather
    than failing inside the task.
-3. **`doc/credentials.md`:** a row in "The providers Sokar ships".
+3. **`doc/credentials.md`:** a row in "The providers Porelo ships".
 4. **Live:** a scenario in an agent repository that speaks `openai` or `native`, as its `openrouter` scenario does,
-   with a fake key: OpenAI's own `401` proves the swap, `sokar task status` names `openai`, and the container holds
+   with a fake key: OpenAI's own `401` proves the swap, `porelo task status` names `openai`, and the container holds
    no key. With a real key in the suite's secrets, a model answers.
 5. **The sign-in, measured apart:** whether its token works as a bearer on `api.openai.com` or only on another host
    the agent's own client uses; when measured, its own `upstream` or the `oauth` entries, and `unbrokerable` is

@@ -34,7 +34,7 @@ Read in the code at `30c8169b`:
   `--no-input` - a clear that would remove unreviewed work is still refused without `--force`, and names that work.
 
 Steps: the record in `DeployKeys` with `DeployKeysTest`; `Clearing` reads it; the work items; `Result.asMap` keeps its
-shape (items gain a kind); `doc/commands.md` under `sokar clear`; a scenario in
+shape (items gain a kind); `doc/commands.md` under `porelo clear`; a scenario in
 `acceptance/suite/.../project/` following, keying, unfollowing and clearing a project.
 
 Red first: `ClearingTest` - a project given a key, then unfollowed, then `account(true, false)`: the result's `keys`
@@ -42,10 +42,10 @@ is empty today.
 
 ## Acceptance
 
-- A project is followed, given a deploy key, unfollowed, and then `sokar clear` runs: the key is named `for you`
+- A project is followed, given a deploy key, unfollowed, and then `porelo clear` runs: the key is named `for you`
   with its forge, repository and fingerprint. Seen to fail: the clear answering no key for that project.
 - A clear that would remove work waiting at the gate or a task's unpushed work says which, by task and project,
   in the listing before anything is removed. Seen to fail: a listing without `--yes` that does not name it.
 - At a terminal, the question that names that work clears it on a yes and keeps it on the default no, without
-  `--force`. Without a terminal, `sokar clear --yes` keeps it and names it; with `--force` it clears it. Seen to
+  `--force`. Without a terminal, `porelo clear --yes` keeps it and names it; with `--force` it clears it. Seen to
   fail: a clear without a terminal and without `--force` that removes unreviewed work.

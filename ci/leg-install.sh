@@ -8,19 +8,19 @@
 # tree laid out as a build leaves it.
 set -eu
 bin="$HOME/.local/bin"
-share="$HOME/.local/share/sokar"
+share="$HOME/.local/share/porelo"
 mkdir -p "$bin" "$share/agents" "$share/providers" "$share/egress"
 agents=0
 while read -r binary; do
     [ -n "$binary" ] || continue
     case "$binary" in
-        */sokar-agent-*) cp "$binary" "$share/agents/"; agents=$((agents + 1)) ;;
+        */porelo-agent-*) cp "$binary" "$share/agents/"; agents=$((agents + 1)) ;;
         *) cp "$binary" "$bin/" ;;
     esac
 done < ci/leg-binaries
 [ "$agents" -gt 0 ] || { echo "ci/leg-binaries names no agent, so no scenario that starts a task can run" >&2; exit 1; }
 cp providers/*.yaml "$share/providers/"
 cp egress/*.yaml "$share/egress/"
-if [ -x builds/stub/target/sokar-build-stub ]; then
-    install -D -m 0755 builds/stub/target/sokar-build-stub "$share/builds/stub-forge"
+if [ -x builds/stub/target/porelo-build-stub ]; then
+    install -D -m 0755 builds/stub/target/porelo-build-stub "$share/builds/stub-forge"
 fi

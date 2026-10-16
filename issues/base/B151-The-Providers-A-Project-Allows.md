@@ -18,7 +18,7 @@ An organisation's rules can permit only some providers; today any provider the v
 
 ## Plan
 
-**Today.** `Project` (`core/src/main/java/org/fuin/sokar/core/project/Project.java`) has no provider list.
+**Today.** `Project` (`core/src/main/java/org/fuin/porelo/core/project/Project.java`) has no provider list.
 `StartCheck` (`apps/app-task`) settles agent, provider and credential before anything is made and answers outcomes
 such as "the provider asked for is not declared here"; `TaskLaunch` and the daemon's start both use it.
 
@@ -39,5 +39,5 @@ such as "the provider asked for is not declared here"; `TaskLaunch` and the daem
 
 ## To be checked
 
-- sokar-project [PJ16](https://github.com/sokar-ai/sokar-project/blob/main/issues/README.md#pj16) sets a provider list per machine: whether the two are one check at two levels, and which is
+- porelo-project [PJ16](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj16) sets a provider list per machine: whether the two are one check at two levels, and which is
   built first; a start is refused when either refuses (Agent Core's).

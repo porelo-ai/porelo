@@ -1,0 +1,7 @@
+{
+  "resources": [
+    {
+      "glob": "varlink/org.fuin.porelo.Tasks1/*.varlink"
+    }
+  ]
+}

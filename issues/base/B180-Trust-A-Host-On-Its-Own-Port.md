@@ -9,7 +9,7 @@ and an acceptance case against an sshd of the scenario's own on a high port; the
 the usual port of a self-hosted forge) can be started after the person trusts that host once, the same way as one on
 port 22:
 
-- `sokar credentials trust-host` takes the port (`forge.example.org:7999`), asks the host on that port what it offers,
+- `porelo credentials trust-host` takes the port (`forge.example.org:7999`), asks the host on that port what it offers,
   and records the key under the name ssh looks up for it, `[forge.example.org]:7999`.
 - The question whether a host is known matches that name for a port other than 22, and only the bare name for 22.
 - Every hint that sends the person to `trust-host` - at the start check, the offer at task start, the workspace set-up
@@ -46,7 +46,7 @@ The plan:
     `[host]:port` in each line itself, so `trust` writes what ssh looks up without building it. `known` looks for
     `[host]:port` for a port other than 22 and for the bare host for 22, by the names in the first field, exactly, as
     today.
-- **`sokar credentials trust-host <host>[:<port>]`:** no `--port`, so the hint can be printed as it is and typed back.
+- **`porelo credentials trust-host <host>[:<port>]`:** no `--port`, so the hint can be printed as it is and typed back.
   The help and the reference page say which ports need it. Its output names the host with its port.
 - **The daemon:** `HostKeys` and `TrustHostKey` take the same name in their `host: string`, and `CanStart`'s `host`
   carries it, so a client that passes it back unchanged already works. Only the comments in `20-project.varlink` grow,
@@ -63,7 +63,7 @@ Steps:
      - the scan asked with `-p 7999`;
      - `known` true for a line `[forge.example.org]:7999 ...`, and false for `forge.example.org ...` asked as
        `forge.example.org:7999`, and the other way round.
-   - `StartCheckTest` with a 7999 upstream expects the hint `sokar credentials trust-host forge.example.org:7999`.
+   - `StartCheckTest` with a 7999 upstream expects the hint `porelo credentials trust-host forge.example.org:7999`.
 2. `HostKeys`, the command, `StartCheck`, `TaskLaunch`, `WorkspaceSetup`, `Reconcile` and the daemon's two calls as
    above; `doc/commands.md` says the port for `trust-host`.
 3. **Acceptance:** in `project-default.feature`, where an upstream can be added to `default` without a project of

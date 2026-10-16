@@ -1,5 +1,5 @@
 # GitHub Copilot. Reached with the GitHub token a person grants once through GitHub's device flow, kept on
-# the host and attached by the broker: 'sokar vault authorize github-copilot' makes the entry from the grant
+# the host and attached by the broker: 'porelo vault authorize github-copilot' makes the entry from the grant
 # below and the client id of the installed agent that signs in to Copilot, and starts the flow. Copilot gives
 # that token no expiry and no refresh token, and only the OAuth application's owner can revoke it at GitHub -
 # a person does, under Settings → Applications → Authorized OAuth Apps.

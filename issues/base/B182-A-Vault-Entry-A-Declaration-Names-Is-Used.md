@@ -4,14 +4,14 @@
 **Size:** S - one lookup in `vault put`'s warning, one line of output, unit tests and a step in an existing acceptance
 scenario.
 
-**What must be true.** `sokar vault put <entry>` does not warn that nothing will find the credential when a
+**What must be true.** `porelo vault put <entry>` does not warn that nothing will find the credential when a
 declaration in `credentials.yml` reads it from that vault entry. It says instead which destination it is used for:
 `used for ssh://forge.example.org`. The warning stays for a name that no declaration, no provider and no git name
 asks for.
 
 Today the warning compares the name only with the declared providers. After
-`sokar credentials declare "ssh://forge.example.org" --kind ssh-key --vault forge-work`, then
-`sokar vault put forge-work`, it says that no provider 'forge-work' is declared and that a task will only find the
+`porelo credentials declare "ssh://forge.example.org" --kind ssh-key --vault forge-work`, then
+`porelo vault put forge-work`, it says that no provider 'forge-work' is declared and that a task will only find the
 credential if something asks for it by that name. But the declaration does ask for it by that name. Found in a test
 against a self-hosted forge.
 

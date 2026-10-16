@@ -10,11 +10,11 @@
 
 name: stub
 label: Stub Agent
-binary: sokar-stub-cli
+binary: porelo-stub-cli
 
 git_identity:
-  name: Sokar Stub
-  email: noreply@sokar.invalid
+  name: Porelo Stub
+  email: noreply@porelo.invalid
 
 headless:
   # Positional, like Pi. Nothing here needs a flag the script would have to parse.
@@ -29,22 +29,22 @@ session:
   session_id:
     record: { stub: session }
     key: id
-    directory: ".sokar-stub-sessions"
+    directory: ".porelo-stub-sessions"
     suffix: ".session"
   # What the stub shows once it is at work, attached, having asked nothing - the text a check
-  # waits for. A workspace holding '.sokar-stub-asks' makes it ask one question first, and one
-  # holding '.sokar-stub-covers' makes it draw this text and then a setup question over it, as a
+  # waits for. A workspace holding '.porelo-stub-asks' makes it ask one question first, and one
+  # holding '.porelo-stub-covers' makes it draw this text and then a setup question over it, as a
   # real agent was measured to - which is how a check proves it notices either. One holding
-  # '.sokar-stub-works' makes it work until stopped, for measuring a machine under many tasks: a line
+  # '.porelo-stub-works' makes it work until stopped, for measuring a machine under many tasks: a line
   # on the screen, a commit, and every tenth step a push, once per the seconds the file holds (2 when
   # it is empty). 'load' after the seconds adds, at every step, a streamed request through the provider's
   # socket and 8 MiB written to the disk, for measuring a machine whose agents talk and write.
-  # SOKAR_STUB_WORKSPACE names another workspace, for a test outside a container.
+  # PORELO_STUB_WORKSPACE names another workspace, for a test outside a container.
   ready_marker: "stub: at work, nothing asked"
   ready_within_seconds: 30
   # What waiting for a person looks like in the stub's own output: its question on the screen, and
   # the record an unattended run ends with. Declared here because only the agent knows its wording -
-  # nothing outside agents/ may. The question is the one '.sokar-stub-asks' makes it ask.
+  # nothing outside agents/ may. The question is the one '.porelo-stub-asks' makes it ask.
   waiting:
     screen:
       - contains: "Trust this folder?"
@@ -61,8 +61,8 @@ provider:
   default: anthropic
   dialect: anthropic-messages
   endpoint: socket
-  socket_env: SOKAR_STUB_SOCKET
-  base_url_env: SOKAR_STUB_BASE_URL
+  socket_env: PORELO_STUB_SOCKET
+  base_url_env: PORELO_STUB_BASE_URL
 
 # Resolved on purpose, and granted. IANA holds example.com for exactly this, so it will not
 # move, expire or start redirecting somewhere else.
@@ -79,9 +79,9 @@ refused_domains:
 # Where the stub keeps what its login writes, as a real agent declares its own. Read by the same
 # copy and extractor every agent's login goes through, which is the point: the build logs the stub
 # in end to end, so a break in that chain is found by a run rather than by a person.
-config_dir: "~/.sokar-stub"
+config_dir: "~/.porelo-stub"
 
-# 'sokar-stub-cli login' writes an oauth-typed fixture where config_dir says, then stays a few
+# 'porelo-stub-cli login' writes an oauth-typed fixture where config_dir says, then stays a few
 # seconds as an agent carrying on into its own session does - long enough for the login to be
 # stored while it runs. No account, no network, no secret: the token is a fixture, put together
 # when it runs, so the image build that prints this script never prints the value a check looks for.
@@ -104,20 +104,20 @@ install:
   as_root:
     - "RUN printf '%s\\n' \\"
     - "      '#!/bin/sh' \\"
-    - "      '[ \"$1\" = \"--version\" ] && { echo \"${agent.cli.version} (Sokar stub agent)\"; exit 0; }' \\"
-    - "      '[ \"$1\" = \"login\" ] && { mkdir -p \"$HOME/.sokar-stub\" && umask 077 && t=sokar-stub-fixture && ends=$(( $(date +%s) + 3600 ))000 && echo \"{\\\"stubOauth\\\":{\\\"accessToken\\\":\\\"$t-token\\\",\\\"refreshToken\\\":\\\"$t-refresh\\\",\\\"expiresAt\\\":\\\"$ends\\\",\\\"tokenUrl\\\":\\\"https://example.com/sokar-stub/token\\\",\\\"clientId\\\":\\\"sokar-stub\\\"}}\" > \"$HOME/.sokar-stub/.credentials.json\"; echo \"stub: logged in\"; linger=8; [ -n \"$SOKAR_STUB_LINGER\" ] && linger=$SOKAR_STUB_LINGER; sleep $linger; exit 0; }' \\"
+    - "      '[ \"$1\" = \"--version\" ] && { echo \"${agent.cli.version} (Porelo stub agent)\"; exit 0; }' \\"
+    - "      '[ \"$1\" = \"login\" ] && { mkdir -p \"$HOME/.porelo-stub\" && umask 077 && t=porelo-stub-fixture && ends=$(( $(date +%s) + 3600 ))000 && echo \"{\\\"stubOauth\\\":{\\\"accessToken\\\":\\\"$t-token\\\",\\\"refreshToken\\\":\\\"$t-refresh\\\",\\\"expiresAt\\\":\\\"$ends\\\",\\\"tokenUrl\\\":\\\"https://example.com/porelo-stub/token\\\",\\\"clientId\\\":\\\"porelo-stub\\\"}}\" > \"$HOME/.porelo-stub/.credentials.json\"; echo \"stub: logged in\"; linger=8; [ -n \"$PORELO_STUB_LINGER\" ] && linger=$PORELO_STUB_LINGER; sleep $linger; exit 0; }' \\"
     - "      '[ \"$1\" = \"--resume\" ] && { resumed=\"$2\"; shift 2; }' \\"
     - "      'id=\"$resumed\"; [ -n \"$id\" ] || id=\"s-$$-$(date +%s)\"' \\"
-    - "      '[ -z \"$1\" ] && [ -t 0 ] && { mkdir -p \"$HOME/.sokar-stub-sessions\"; touch \"$HOME/.sokar-stub-sessions/$id.session\"; [ -n \"$resumed\" ] && echo \"stub: continuing $resumed\"; }' \\"
-    - "      '[ -z \"$1\" ] && [ -t 0 ] && [ -e /workspace/.sokar-stub-covers ] && { echo \"stub: at work, nothing asked\"; sleep 1; printf \"\\033[2J\\033[HSetup step 1 of 5 \"; read answer; }' \\"
-    - "      '[ -z \"$1\" ] && [ -t 0 ] && w=/workspace; [ -n \"$SOKAR_STUB_WORKSPACE\" ] && w=$SOKAR_STUB_WORKSPACE; [ -e \"$w/.sokar-stub-works\" ] && { echo \"stub: at work, nothing asked\"; cd \"$w\"; read p load < .sokar-stub-works; [ -n \"$p\" ] || p=2; n=0; while :; do n=$((n+1)); date > .sokar-stub-step; echo \"stub: step $n\"; [ \"$load\" = load ] && { curl -s -o /dev/null --max-time 60 --unix-socket \"$SOKAR_STUB_SOCKET\" -H \"x-api-key: $ANTHROPIC_API_KEY\" -H \"anthropic-version: 2023-06-01\" -H \"content-type: application/json\" -X POST http://api.anthropic.com/v1/messages -d \"{\\\"stream\\\":true}\"; dd if=/dev/zero of=.sokar-stub-disk bs=1M count=8 conv=fsync 2>/dev/null; }; git add .sokar-stub-step >/dev/null 2>&1; git commit -q -m \"stub: step $n\" >/dev/null 2>&1; [ $((n % 10)) -eq 0 ] && git push -q >/dev/null 2>&1; sleep $p; done; }' \\"
-    - "      '[ -z \"$1\" ] && [ -t 0 ] && { [ -e /workspace/.sokar-stub-asks ] && { printf \"Trust this folder? [y/N] \"; read answer; }; echo \"stub: at work, nothing asked\"; exec cat; }' \\"
+    - "      '[ -z \"$1\" ] && [ -t 0 ] && { mkdir -p \"$HOME/.porelo-stub-sessions\"; touch \"$HOME/.porelo-stub-sessions/$id.session\"; [ -n \"$resumed\" ] && echo \"stub: continuing $resumed\"; }' \\"
+    - "      '[ -z \"$1\" ] && [ -t 0 ] && [ -e /workspace/.porelo-stub-covers ] && { echo \"stub: at work, nothing asked\"; sleep 1; printf \"\\033[2J\\033[HSetup step 1 of 5 \"; read answer; }' \\"
+    - "      '[ -z \"$1\" ] && [ -t 0 ] && w=/workspace; [ -n \"$PORELO_STUB_WORKSPACE\" ] && w=$PORELO_STUB_WORKSPACE; [ -e \"$w/.porelo-stub-works\" ] && { echo \"stub: at work, nothing asked\"; cd \"$w\"; read p load < .porelo-stub-works; [ -n \"$p\" ] || p=2; n=0; while :; do n=$((n+1)); date > .porelo-stub-step; echo \"stub: step $n\"; [ \"$load\" = load ] && { curl -s -o /dev/null --max-time 60 --unix-socket \"$PORELO_STUB_SOCKET\" -H \"x-api-key: $ANTHROPIC_API_KEY\" -H \"anthropic-version: 2023-06-01\" -H \"content-type: application/json\" -X POST http://api.anthropic.com/v1/messages -d \"{\\\"stream\\\":true}\"; dd if=/dev/zero of=.porelo-stub-disk bs=1M count=8 conv=fsync 2>/dev/null; }; git add .porelo-stub-step >/dev/null 2>&1; git commit -q -m \"stub: step $n\" >/dev/null 2>&1; [ $((n % 10)) -eq 0 ] && git push -q >/dev/null 2>&1; sleep $p; done; }' \\"
+    - "      '[ -z \"$1\" ] && [ -t 0 ] && { [ -e /workspace/.porelo-stub-asks ] && { printf \"Trust this folder? [y/N] \"; read answer; }; echo \"stub: at work, nothing asked\"; exec cat; }' \\"
     - "      'getent hosts example.com >/dev/null 2>&1 && echo \"stub: example.com resolved\" || echo \"stub: example.com did not resolve\"' \\"
     - "      'getent hosts example.net >/dev/null 2>&1 && echo \"stub: example.net resolved\" || echo \"stub: example.net refused\"' \\"
     - "      'echo \"{\\\"stub\\\":\\\"session\\\",\\\"id\\\":\\\"$id\\\"}\"' \\"
     - "      '[ -n \"$resumed\" ] && echo \"{\\\"stub\\\":\\\"result\\\",\\\"said\\\":\\\"stub: continued\\\"}\" || echo \"{\\\"stub\\\":\\\"result\\\",\\\"said\\\":\\\"stub: finished\\\"}\"' \\"
-    - "      '[ -S \"$SOKAR_STUB_SOCKET\" ] || { echo \"stub: no proxy socket\"; exit 0; }' \\"
-    - "      'curl -s --max-time 30 --unix-socket \"$SOKAR_STUB_SOCKET\" -H \"x-api-key: $ANTHROPIC_API_KEY\" -H \"anthropic-version: 2023-06-01\" -H \"content-type: application/json\" -X POST http://api.anthropic.com/v1/messages -d \"{}\"' \\"
+    - "      '[ -S \"$PORELO_STUB_SOCKET\" ] || { echo \"stub: no proxy socket\"; exit 0; }' \\"
+    - "      'curl -s --max-time 30 --unix-socket \"$PORELO_STUB_SOCKET\" -H \"x-api-key: $ANTHROPIC_API_KEY\" -H \"anthropic-version: 2023-06-01\" -H \"content-type: application/json\" -X POST http://api.anthropic.com/v1/messages -d \"{}\"' \\"
     - "      'echo' \\"
-    - "      > /usr/local/bin/sokar-stub-cli \\"
-    - "    && chmod 0755 /usr/local/bin/sokar-stub-cli"
+    - "      > /usr/local/bin/porelo-stub-cli \\"
+    - "    && chmod 0755 /usr/local/bin/porelo-stub-cli"

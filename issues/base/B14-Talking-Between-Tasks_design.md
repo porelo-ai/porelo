@@ -9,7 +9,7 @@ lifecycle [B86](README.md#b86) adds. What is left to build here is groups, and c
 
 **In short:**
 
-- A task has **a mailbox**, mounted at `/run/sokar/mail`, shaped like a mail client's. Two verbs:
+- A task has **a mailbox**, mounted at `/run/porelo/mail`, shaped like a mail client's. Two verbs:
   write into `outbox/tmp/` and rename into `outbox/new/`; read `inbox/new/` and rename into
   `inbox/cur/`.
 - The host is shaped like **a mail server**: queues whose directory names are the states, the filter
@@ -24,9 +24,9 @@ lifecycle [B86](README.md#b86) adds. What is left to build here is groups, and c
  task container                     host
  ┌───────────────────────────┐      ┌──────────────────────────────────────────────────────┐
  │ agent                     │      │  incoming/ ─▶ message sluice ─▶ queue/<transport>/   │
- │  reads  /run/sokar/mail/  │      │      ▲            │ refuses            │             │
+ │  reads  /run/porelo/mail/  │      │      ▲            │ refuses            │             │
  │         inbox/new,cur     │◀─────┤      │            ▼                    ▼             │
- │  writes /run/sokar/mail/  │      │  deliver/     rejected/        transport adapter     │
+ │  writes /run/porelo/mail/  │      │  deliver/     rejected/        transport adapter     │
  │         outbox/tmp→new    ├─────▶│                                  (own user,          │
  └───────────────────────────┘      │  inbound/  ◀── adapter  ───────   own credential)    │
      no network, no credential      └──────────────────────────────────────────────────────┘
@@ -53,7 +53,7 @@ corrupts it. One file per message is what makes every operation a rename.
 filename-compatible with Maildir, so flags can be added later without moving anything.
 
 ```
-/run/sokar/mail/                  bind-mounted, one per task
+/run/porelo/mail/                  bind-mounted, one per task
 ├─ inbox/  tmp/ new/ cur/         the host writes into tmp/ and renames into new/
 ├─ outbox/ tmp/ new/              the agent writes into tmp/ and renames into new/
 ├─ sent/                          the exact bytes that were sent, written back by the host
@@ -65,7 +65,7 @@ restarted agent reads its own half of the conversation.
 
 **The agent never sees an address.** A recipient is a **peer name**; what `reviewer` resolves to is
 on the host and cannot be reached from inside. **The agent definition gains one field**, reported
-through `describe`: `messaging: maildir` or `messaging: none`. Sokar branches on the field, never on
+through `describe`: `messaging: maildir` or `messaging: none`. Porelo branches on the field, never on
 the agent, and `AgentIsolationTest` fails the build if that is got wrong.
 
 ## On the host
@@ -106,8 +106,8 @@ from 0.3.x and is refused rather than converted. ProtoJSON is the JSON mapping, 
 **Corrected 2026-10-04: what is enforced is not this table.** The host takes `role: "ROLE_AGENT"` (ProtoJSON's
 enum spelling, not `agent`) from a task's outbox and nothing else, requires `messageId`, and delivers only a message
 whose `metadata.to` names exactly one peer. The filter checks the A2A 1.0 envelope: `contextId` is optional,
-`extensions` is an optional list of any URIs (no Sokar extension URI exists), and `metadata` is free. The narrowed
-schema below - fixed kinds with fixed data parts, a Sokar extension URI - is enforced by nothing yet; enforcing it is
+`extensions` is an optional list of any URIs (no Porelo extension URI exists), and `metadata` is free. The narrowed
+schema below - fixed kinds with fixed data parts, a Porelo extension URI - is enforced by nothing yet; enforcing it is
 [B108](README.md#b108), in Soon (2026-10-04). What an agent is told is what is enforced: the mailbox guide, in `doc/messages.md`.
 
 What the narrowed schema allows, and nothing else:
@@ -118,7 +118,7 @@ What the narrowed schema allows, and nothing else:
 | `role` | `agent` when a task writes, `user` when a person does |
 | `contextId` | Required; the conversation this belongs to |
 | `taskId`, `referenceTaskIds` | Absent |
-| `extensions` | Exactly the Sokar messaging extension's URI |
+| `extensions` | Exactly the Porelo messaging extension's URI |
 | `metadata` | `kind`, `to`, `from`, `thread` — and nothing else |
 | `parts` | Exactly one text part within the peer's text limit, and at most one data part whose schema is fixed by `kind`. **No file, raw or url part.** |
 
@@ -141,7 +141,7 @@ Every object is closed: a property the schema does not name is a refusal, not so
   than rewrite it.
 - **One verification path for every transport**, whatever carried the two files.
 - **The key is the daemon user's**, held in that user's state directory at `0600` and never mounted
-  anywhere. Sokar runs as a systemd *user* unit, so two people on one machine have two identities and
+  anywhere. Porelo runs as a systemd *user* unit, so two people on one machine have two identities and
   neither can read the other's key; the boundary is exactly Unix-user strength, as [B13](README.md#b13)
   ([index](README.md)) already says for the guard.
 - **It is not the user's login key.** One lets a machine connect, the other says what it vouches for:
@@ -152,25 +152,25 @@ Every object is closed: a property the schema does not name is a refusal, not so
 **Measured on 2026-09-18, both directions.** The format is OpenSSH's, not a shape of our own, and
 that is only worth claiming if OpenSSH agrees:
 
-    $ ssh-keygen -Y verify -f allowed_signers -I sokar@interop -n sokar-message -s sig < message.json
-    Good "sokar-message" signature for sokar@interop with ED25519 key SHA256:HCbWdFByflN0Qa...
+    $ ssh-keygen -Y verify -f allowed_signers -I porelo@interop -n porelo-message -s sig < message.json
+    Good "porelo-message" signature for porelo@interop with ED25519 key SHA256:HCbWdFByflN0Qa...
 
 One byte changed in the message and the same command answers *"Signature verification failed:
 incorrect signature"*. The other direction holds too: a signature made by `ssh-keygen -Y sign` with a
-key Sokar never saw verifies here, while the wrong namespace, a tampered message and a different key
+key Porelo never saw verifies here, while the wrong namespace, a tampered message and a different key
 each answer false. So a peer can check a message with nothing but `ssh-keygen` and an
-`allowed_signers` file, and a person can sign one without Sokar at all.
+`allowed_signers` file, and a person can sign one without Porelo at all.
 
 **Measured again on 2026-09-18, this time end to end rather than in a harness.** A message written
 into a task's outbox, signed at intake, filtered, queued, carried by the local transport and
 delivered into the peer's inbox was then checked from the outside with nothing but the key line
-`sokar talk key` prints:
+`porelo talk key` prints:
 
-    $ ssh-keygen -Y verify -f allowed_signers -I sender -n sokar-message -s <sig> < <message>
-    Good "sokar-message" signature for sender with ED25519 key SHA256:7Hdo/EiXE13Reg...
+    $ ssh-keygen -Y verify -f allowed_signers -I sender -n porelo-message -s <sig> < <message>
+    Good "porelo-message" signature for sender with ED25519 key SHA256:7Hdo/EiXE13Reg...
 
 So what the pipeline produces - not only what a test produces - is verifiable by somebody with no
-Sokar. The key line is `<principal> ssh-ed25519 <key>` and nothing after it: OpenSSH accepts a
+Porelo. The key line is `<principal> ssh-ed25519 <key>` and nothing after it: OpenSSH accepts a
 trailing comment, measured, but a line reading `sender ssh-ed25519 AAAA... sender` makes a person
 decide which of the two names matters, and neither does.
 
@@ -181,7 +181,7 @@ DKIM says a message left a domain unmodified, not who wrote it.
 
 ```yaml
 peers:
-  reviewer:  { address: "local:sokar-utils4j-review", trust: vouched }
+  reviewer:  { address: "local:porelo-utils4j-review", trust: vouched }
   ops:       { address: "mail:ops@example.org",       trust: external }
 groups:
   release:   [ reviewer, ops ]
@@ -233,16 +233,16 @@ what cannot be verified — never accepting because the list could not be read.
 
 ## The adapter contract
 
-Packages install into a directory Sokar scans, and each describes itself rather than being registered:
+Packages install into a directory Porelo scans, and each describes itself rather than being registered:
 
 ```
-/usr/libexec/sokar/transports/sokar-message-transport-local
+/usr/libexec/porelo/transports/porelo-message-transport-local
 ```
 
 | Verb | What it does |
 |---|---|
 | `describe` | Its scheme, whether it can poll, what it can confirm, its size limit, the credentials it needs, **which hosts it reaches** and **what it attests** |
-| `check` | Validates configuration and credential without sending anything, for `sokar doctor` |
+| `check` | Validates configuration and credential without sending anything, for `porelo doctor` |
 | `send <file> <sig> --to <rest>` | Takes one message from its queue. `<rest>` is the peer's address after the colon, **never a path the host invented**. Exit 0 handed over, 75 temporary (stays in `deferred/`), anything else refuses it back to the sender |
 | `poll --into <inbound>` | Fetches what arrived into that directory, atomically. A transport that needs no polling says so |
 | `receipt` | Optional: what became of a message it sent |
@@ -251,7 +251,7 @@ Packages install into a directory Sokar scans, and each describes itself rather 
 scheme removed and nothing else: `local:/some/inbound` gives `/some/inbound`, and `spool:bob` gives
 `bob`. What that string means is the transport's business - a path for one, an account name for
 another, a branch for a third - and a host that turned `bob` into
-`/var/spool/sokar/drop/bob` would be encoding a layout it does not own and cannot keep in step.
+`/var/spool/porelo/drop/bob` would be encoding a layout it does not own and cannot keep in step.
 The same applies on the way in: `poll` is told **where to put things**, not where to find them,
 because where a transport keeps its own arrivals is the transport's layout too. A transport that
 wants a `--from` for its own tests may have one, as long as it works without it: the host does not
@@ -328,9 +328,9 @@ what passed and in which order.
 
 ## The content check is its own tool
 
-`sokar-message-sluice`, in a repository of its own, where its requirement and design are the
+`porelo-message-sluice`, in a repository of its own, where its requirement and design are the
 filter's frame.
-Sokar decides *who* may say something to *whom*; the sluice decides *what* a message may contain: the
+Porelo decides *who* may say something to *whom*; the sluice decides *what* a message may contain: the
 narrowed schema, encoded payloads (caught by asking whether the text obeys the statistics of English),
 credentials and personal data (a catalogue of pattern, context and checksum), and a payload spread over
 several messages.
@@ -359,7 +359,7 @@ that is actively wrong here: nothing published can be withdrawn.
 
 ## At rest
 
-`0700` directories owned by the account that runs Sokar — the same protection the workspace and the
+`0700` directories owned by the account that runs Porelo — the same protection the workspace and the
 task logs already have. **Refused originals live as long as the task**, with no timer: one lifetime for
 everything a task owns, and `task remove` takes them with the rest.
 
@@ -370,7 +370,7 @@ answer:** tasks living for months, or a `rejected/` too large for anybody to rea
 
 ## The daemon's interface
 
-Additions to `org.fuin.sokar.Tasks1`, which only ever grows. `InterfaceDescriptionTest` fails the build
+Additions to `org.fuin.porelo.Tasks1`, which only ever grows. `InterfaceDescriptionTest` fails the build
 if any of this is registered without appearing in the file, or appears without being registered.
 
 ```
@@ -421,17 +421,17 @@ error NoSuchPeer(name: string)
 
 ## The command line
 
-`sokar talk` mirrors `sokar shield`: the same objects, the same refusals, rendered rather than
+`porelo talk` mirrors `porelo shield`: the same objects, the same refusals, rendered rather than
 re-decided.
 
 ```
-sokar talk peers
-sokar talk log [<peer>] [--follow]
-sokar talk say <peer> [--kind question]    # text on stdin, never in argv
-sokar talk held
-sokar talk release <id> [--refuse] [--trust-key]
-sokar talk hold <peer> [--release]
-sokar talk verify [<task>]
+porelo talk peers
+porelo talk log [<peer>] [--follow]
+porelo talk say <peer> [--kind question]    # text on stdin, never in argv
+porelo talk held
+porelo talk release <id> [--refuse] [--trust-key]
+porelo talk hold <peer> [--release]
+porelo talk verify [<task>]
 ```
 
 **`say` reads the text from standard input**, the way `vault put` does: a process list is
@@ -446,7 +446,7 @@ world-readable, and nobody can promise what an operator will paste into a messag
 | `task stop` | Nothing to reap. The mailbox stays as it is |
 | `task resume` | The same mailbox is mounted again; `inbox/cur/` and `sent/` are still there |
 | A machine restart | The mailbox is in durable state, so it survives; the queues resume where they were |
-| `sokar panic` | Tasks stop with everything else; nothing is handed to a transport; the record stays |
+| `porelo panic` | Tasks stop with everything else; nothing is handed to a transport; the record stays |
 | `task remove` | Refused while something is in flight; otherwise the mailbox goes with the task |
 
 ## Failure modes, and what each must do
@@ -457,7 +457,7 @@ world-readable, and nobody can promise what an operator will paste into a messag
 | A transport cannot reach its destination | The message stays in `deferred/` and the sender is told on its receipt | A message waiting silently reads as ignored |
 | The recipient's `inbound/` exists but `inbound/tmp/` does not | Temporary failure: the message stays in `deferred/` until the host repairs the mailbox | The layout is the host's; a delivery that repaired it would hide a malformed mailbox and deliver into it |
 | A transport's destination does not exist | Refused back to the sender, not retried. The adapter reports only that the destination is gone; the host says which it was - `NO_SUCH_PEER` when the name is not in the peer table, `PEER_GONE` when it is and the mailbox is not | Retrying forever is how a queue dies, and only the side holding the table can tell a typo from a removed task |
-| A peer's mailbox belongs to another Unix user | Refused, enforced rather than documented | Sokar runs as a user unit: two people on one machine are two installations with two signing identities, sharing only a kernel. A file move between them is not a local delivery |
+| A peer's mailbox belongs to another Unix user | Refused, enforced rather than documented | Porelo runs as a user unit: two people on one machine are two installations with two signing identities, sharing only a kernel. A file move between them is not a local delivery |
 | An adapter alters a message's bytes | Verification fails at the far side | The signature is the only thing that can catch it |
 | An arrival cannot be attributed | Held, never delivered, operator told | A task must not act on something nobody can attribute |
 | A message arrives twice | Delivered once | Acting twice on one handover is the expensive failure |

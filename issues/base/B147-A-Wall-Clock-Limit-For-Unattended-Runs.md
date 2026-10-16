@@ -41,7 +41,7 @@ project file has no time limit: `Limits` (`core/.../project/Limits.java`) holds 
 2. `limits.minutes` in `project.yml`: `Limits` gains `minutes` (default 30); `ProjectReader`, `ProjectSchema`,
    `doc/project-file.md`, `DocumentedProjectFileTest`. `--minutes` defaults to the project's value and may only
    shorten it: a value above it is refused before the task starts, naming the project's limit.
-3. The run ends inside the container: the exec wraps the agent's command in a deadline of Sokar's own
+3. The run ends inside the container: the exec wraps the agent's command in a deadline of Porelo's own
    (`Podman.executeArguments`), so it holds even when the host's client dies; the host waits with a margin over it.
    At the deadline the wrapper asks the task's session (`TaskAttachCommand.SESSION`) whether a person is attached.
    If none is, it ends the agent (`TERM`, `KILL` 30 seconds later). If one is, it writes into their session that the
@@ -67,7 +67,7 @@ limit; with a stand-in session that reports a person attached, the task is not s
 
 ## To be checked
 
-- Whether every image Sokar builds carries what the wrapper needs (`timeout` or a shell loop), or Sokar brings its
+- Whether every image Porelo builds carries what the wrapper needs (`timeout` or a shell loop), or Porelo brings its
   own into the container (Agent Core's).
 - How the wrapper tells that a person is attached: the session multiplexer's list of clients, and whether it notices a
   dropped ssh connection as a detach (Agent Core's).

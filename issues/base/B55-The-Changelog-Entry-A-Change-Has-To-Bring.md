@@ -2,7 +2,7 @@
 
 **Status:** Estimated.
 **Size:** L - crosses repositories: the check is proposed to logchange first, otherwise built as a fuinorg plugin of
-its own, then bound in `sokar-parent` and given a step of its own in `sokar-frontend`.
+its own, then bound in `porelo-parent` and given a step of its own in `porelo-frontend`.
 
 **What must be true.** A change to what ships or builds brings a changelog entry, or says on purpose
 that it does not, and the build checks it in every repository that keeps a changelog.
@@ -13,13 +13,13 @@ Nothing is blocked by it: the gap it describes is deliberate for now.
 
 ## Decided
 
-- **logchange is adopted, in Sokar first** - `dev.logchange:logchange-maven-plugin`, its version managed
-  in `sokar-parent`, which every Maven repository of Sokar inherits: Sokar, `sokar-buildtools`, the
-  agent and message repositories and `sokar-frontend`. A change is recorded as **one YAML file per entry** under
+- **logchange is adopted, in Porelo first** - `dev.logchange:logchange-maven-plugin`, its version managed
+  in `porelo-parent`, which every Maven repository of Porelo inherits: Porelo, `porelo-buildtools`, the
+  agent and message repositories and `porelo-frontend`. A change is recorded as **one YAML file per entry** under
   `changelog/unreleased/`, and the generated `CHANGELOG.md` follows Keep a Changelog. An existing
   `CHANGELOG.md` is kept without rewriting by moving it to `changelog/archive.md`.
-- **The check goes into `sokar-parent`**, so every repository inheriting it gets the check from one
-  place; the fuinorg parent POM is not involved. `sokar-frontend` builds its product with Flutter, not
+- **The check goes into `porelo-parent`**, so every repository inheriting it gets the check from one
+  place; the fuinorg parent POM is not involved. `porelo-frontend` builds its product with Flutter, not
   Maven, so it gets a step of its own.
 - **The current changelog check is removed everywhere for now.** That is `check-changelog.py`, 308
   lines, byte-identical in the three agent repositories and run by each one's `build.yml`. No other
@@ -42,7 +42,7 @@ by a commit that only rewrote a URL in the `[Unreleased]:` link line. A new file
    it. Today `lint` checks only that the `changelog` directory exists and that its YAML is valid,
    and nothing in logchange (1.19.16) requires an entry.
 2. **If upstream declines, a small fuinorg plugin**, in its own repository under
-   `github.com/fuinorg`, since the rule puts what is not Sokar-specific there. Either way
+   `github.com/fuinorg`, since the rule puts what is not Porelo-specific there. Either way
    the plugin that repository would have held becomes smaller, or unnecessary.
 
 ## What the check must keep from the old one
@@ -72,13 +72,13 @@ Steps, in order:
 2. Propose a goal, or a `lint` option, to logchange with those cases, and offer the implementation.
 3. If upstream declines, the same goal and tests in a fuinorg plugin in its own repository under
    `github.com/fuinorg`.
-4. `sokar-parent` binds the goal at `validate`, once per repository at its root rather than in every module, with
-   the range from CI (the push's `before` and `after`) and a full-history checkout in the job that runs it. Sokar
-   moves its own `lint` binding there too, and each inheriting repository gets the check with the `sokar-parent`
-   release that carries it; `sokar-buildtools`, still on `0.1.1`, gets it when it moves up.
-5. The agent and message repositories adopt logchange as Sokar did: `changelog/unreleased/`, their `CHANGELOG.md`
-   moved to `changelog/archive.md`, and the check through `sokar-parent`. Each is asked of its repository's agent.
-6. `sokar-frontend`, a step of its own: it keeps a hand-written `CHANGELOG.md` and no `changelog/` today. It adopts
+4. `porelo-parent` binds the goal at `validate`, once per repository at its root rather than in every module, with
+   the range from CI (the push's `before` and `after`) and a full-history checkout in the job that runs it. Porelo
+   moves its own `lint` binding there too, and each inheriting repository gets the check with the `porelo-parent`
+   release that carries it; `porelo-buildtools`, still on `0.1.1`, gets it when it moves up.
+5. The agent and message repositories adopt logchange as Porelo did: `changelog/unreleased/`, their `CHANGELOG.md`
+   moved to `changelog/archive.md`, and the check through `porelo-parent`. Each is asked of its repository's agent.
+6. `porelo-frontend`, a step of its own: it keeps a hand-written `CHANGELOG.md` and no `changelog/` today. It adopts
    the same layout, and its build workflow runs the check as a step of its own beside the Flutter build. Asked of
    its repository's agent, with the dependency named.
 7. Break each rule in turn and watch its case fail.
@@ -92,9 +92,9 @@ Steps, in order:
   matching case fail.
 - It works in a shallow CI clone, and a range it cannot compare fails. Seen to fail: a depth-1 clone
   with an abbreviated SHA in the range passes.
-- A repository that inherits `sokar-parent` gets the check from it, not by writing a check of its own.
+- A repository that inherits `porelo-parent` gets the check from it, not by writing a check of its own.
   Seen to fail: a repository needs a script or a binding of its own beside its parent for the check to run.
-- `sokar-frontend`'s build runs the check as a step of its own. Seen to fail: a push to it that changes what
+- `porelo-frontend`'s build runs the check as a step of its own. Seen to fail: a push to it that changes what
   ships without an entry passes.
 
 ## To be checked

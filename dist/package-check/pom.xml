@@ -6,14 +6,14 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.fuin.sokar</groupId>
-        <artifactId>sokar-dist</artifactId>
-        <version>0.4.2-SNAPSHOT</version>
+        <groupId>org.fuin.porelo</groupId>
+        <artifactId>porelo-dist</artifactId>
+        <version>0.5.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>sokar-dist-package-check</artifactId>
-    <name>Sokar Package Check</name>
-    <description>Sokar - Checking the .deb and the .rpm against each other and against a real install (DIST-PACKAGE-CHECK)</description>
+    <artifactId>porelo-dist-package-check</artifactId>
+    <name>Porelo Package Check</name>
+    <description>Porelo - Checking the .deb and the .rpm against each other and against a real install (DIST-PACKAGE-CHECK)</description>
 
     <!-- Beside the modules whose packages it reads: a regrouping changes the places in Main and meets LayoutTest in
          the same build, and no released tool knows this tree's layout. Run after '-Pnative,dist verify':
@@ -38,19 +38,19 @@
         <check.image.fedora.oldest>registry.fedoraproject.org/fedora:43</check.image.fedora.oldest>
         <check.image.fedora.oldest.digest>sha256:11fdb21721a2f09139b1ee636e9376d0618137743c0de8bfeaa8d1e95cea1dab</check.image.fedora.oldest.digest>
 
-        <sokar.release.min-age>3d</sokar.release.min-age>
-        <sokar.release.pin.ubuntu-image.label>The ubuntu image the .deb is installed in</sokar.release.pin.ubuntu-image.label>
-        <sokar.release.pin.ubuntu-image.property>check.image.ubuntu.digest</sokar.release.pin.ubuntu-image.property>
-        <sokar.release.pin.ubuntu-image.upstream>docker-hub https://hub.docker.com/v2/repositories/library/ubuntu/tags/26.04</sokar.release.pin.ubuntu-image.upstream>
+        <porelo.release.min-age>3d</porelo.release.min-age>
+        <porelo.release.pin.ubuntu-image.label>The ubuntu image the .deb is installed in</porelo.release.pin.ubuntu-image.label>
+        <porelo.release.pin.ubuntu-image.property>check.image.ubuntu.digest</porelo.release.pin.ubuntu-image.property>
+        <porelo.release.pin.ubuntu-image.upstream>docker-hub https://hub.docker.com/v2/repositories/library/ubuntu/tags/26.04</porelo.release.pin.ubuntu-image.upstream>
     </properties>
 
     <dependencies>
 
         <!-- The bill is JSON, and this parser is the tools' own. -->
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-json</artifactId>
-            <version>${sokar.buildtools.version}</version>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-json</artifactId>
+            <version>${porelo.buildtools.version}</version>
         </dependency>
 
         <dependency>
@@ -87,7 +87,7 @@
                             <goal>java</goal>
                         </goals>
                         <configuration>
-                            <mainClass>org.fuin.sokar.packagecheck.Main</mainClass>
+                            <mainClass>org.fuin.porelo.packagecheck.Main</mainClass>
                             <arguments>
                                 <argument>${maven.multiModuleProjectDirectory}</argument>
                             </arguments>

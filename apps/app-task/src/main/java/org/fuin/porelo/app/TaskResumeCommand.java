@@ -1,0 +1,266 @@
+package org.fuin.porelo.app;
+
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Callable;
+import org.fuin.porelo.runtime.ContainerName;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.Model.CommandSpec;
+import picocli.CommandLine.Parameters;
+import picocli.CommandLine.Spec;
+
+/**
+ * Starts a stopped task again, with the workspace it already has.
+ * <p>
+ * The container is started rather than rebuilt, so the agent's work, its branch and its uncommitted
+ * changes are all still there. What has to be started again is everything that lives on the host:
+ * the credential proxy, the git gate and the clearance watcher. None of them can be reconstructed
+ * from the container, so each was written down when the task first ran.
+ * <p>
+ * <strong>The phantom token is adopted, not reissued.</strong> A container's environment is fixed
+ * when it is created, so the token the agent holds cannot be changed - a freshly minted one would
+ * be rejected and would read as a bad credential.
+ */
+@Command(name = "resume",
+        mixinStandardHelpOptions = true,
+        description = "Starts a stopped task again, keeping its workspace.")
+public class TaskResumeCommand implements Callable<Integer>, PoreloFactory.ContextAware, Suggests {
+
+    @Override
+    public java.util.List<String> candidates() {
+        // Only the stopped ones: resuming a running task is answered "already up; nothing to
+        // resume", and offering it as a candidate would be offering a command that does nothing.
+        return TaskCandidates.stopped(context);
+    }
+
+    @Override
+    public String candidateLabel() {
+        return "stopped tasks";
+    }
+
+    @Parameters(index = "0", arity = "0..1", paramLabel = "TASK",
+            description = "Container name, as shown by 'porelo task list'. Default: the task started from the checkout you stand in.")
+    private @org.jspecify.annotations.Nullable String container;
+
+    @Spec
+    private CommandSpec spec;
+
+    private PoreloContext context = PoreloContext.real();
+
+    @Override
+    public void setContext(PoreloContext context) {
+        this.context = context;
+    }
+
+    @Override
+    public Integer call() {
+        final TaskTarget.Found found = TaskTarget.resolve(context, container, java.nio.file.Path.of("."),
+                TaskTarget.console(spec.commandLine().getOut()));
+        if (found.container() == null) {
+            spec.commandLine().getErr().println("porelo: " + found.refusal());
+            if ((Object) this instanceof Suggests suggests) {
+                Suggests.offer(spec.commandLine().getErr(), suggests);
+            }
+            spec.commandLine().getErr().flush();
+            return found.code();
+        }
+        container = found.container();
+        return resume(context, container, spec.commandLine().getOut(),
+                spec.commandLine().getErr(), this);
+    }
+
+    /**
+     * Resumes a task and renders what happened.
+     * <p>
+     * Static, and taking what it needs, because {@code task attach} resumes a stopped task after
+     * asking - and a second rendering of the same outcome would eventually disagree with this
+     * one about what a resumed task did. The same reason `TaskControl` decides and this only
+     * renders: one behaviour, however many ways in.
+     *
+     * @param context What to run against.
+     * @param container Container name.
+     * @param out Where the outcome is written.
+     * @param err Where a refusal is written.
+     * @param suggests Command to offer names from when the name was wrong, or {@code null}.
+     * @return Exit code.
+     */
+    static int resume(PoreloContext context, String container, PrintWriter out, PrintWriter err,
+            @org.jspecify.annotations.Nullable Suggests suggests) {
+        // Decided by TaskControl, which the daemon calls too. This renders, and asks for a shut vault at a terminal:
+        // the decision that needs it is made before anything is started, so it is simply made again once it is open.
+        TaskControl.Resumed result = new TaskControl(context).resume(container);
+        if (result.outcome() == TaskControl.Outcome.NEEDS_VAULT) {
+            context.openIfShut(true, true, err);
+            if (context.opener().isPresent()) {
+                result = new TaskControl(context).resume(container);
+            }
+        }
+        // A task that cannot come back is offered its recovery at a terminal, where the refusal would print the commands.
+        if ((result.outcome() == TaskControl.Outcome.PREDATES_RESTART
+                || result.outcome() == TaskControl.Outcome.TOKENS_NOT_KEPT)
+                && recover(container, Offer.atTerminal() ? new Offer(Offer.Asker.terminal(), false, false, err)
+                        : Offer.NOBODY, context, java.nio.file.Path.of(""), out)) {
+            return 0;
+        }
+        return render(result, container, out, err, suggests);
+    }
+
+    /**
+     * Renders what resuming a task did.
+     *
+     * @param result What TaskControl decided.
+     * @param container Container name.
+     * @param out Where the outcome is written.
+     * @param err Where a refusal is written.
+     * @param suggests Command to offer names from when the name was wrong, or {@code null}.
+     * @return Exit code.
+     */
+    static int render(TaskControl.Resumed result, String container, PrintWriter out, PrintWriter err,
+            @org.jspecify.annotations.Nullable Suggests suggests) {
+
+        switch (result.outcome()) {
+            case NOT_A_TASK -> {
+                err.println("porelo: '" + container + "' is not a task Porelo created");
+                if (suggests != null) {
+                    Suggests.offer(err, suggests);
+                }
+                err.flush();
+                return 64;
+            }
+            case NO_CONTAINER -> {
+                err.println("porelo: there is no container " + container + " to resume");
+                if (suggests != null) {
+                    Suggests.offer(err, suggests);
+                }
+                err.flush();
+                return 69;
+            }
+            case ALREADY_RUNNING -> {
+                out.println("running   " + container + " is already up; nothing to resume");
+                if (result.state() != null) {
+                    out.println("logs      " + result.state());
+                }
+                out.flush();
+                return 0;
+            }
+            case PREDATES_RESTART -> {
+                err.println("porelo: " + container + " was started before this machine restarted,"
+                        + " so it cannot be started again.");
+                err.println("       Its sockets were under $XDG_RUNTIME_DIR, which the system"
+                        + " clears on restart, and the");
+                err.println("       container is bound to one of them. The workspace is still"
+                        + " inside it:");
+                err.println();
+                err.println("         podman cp " + container + ":/workspace ./recovered");
+                err.println();
+                err.println("       Then discard it with 'porelo task remove " + container
+                        + " --force'.");
+                err.flush();
+                return 69;
+            }
+            case NO_HELPERS_RECORDED -> {
+                out.println("helpers   none recorded, so none were started");
+                out.println();
+                out.println("This task was started by a Porelo that did not record its helpers,");
+                out.println("or recorded them in a format this version no longer reads.");
+                out.println("started   " + container + ", with its workspace and nothing else");
+                out.flush();
+                return 0;
+            }
+            case NEEDS_VAULT -> {
+                err.println("porelo: the machine restarted since " + container + " last ran, and bringing it back");
+                err.println("       needs its two tokens from the vault, which is locked.");
+                err.println("       Unlock it with 'porelo vault unlock', then start the task again.");
+                err.flush();
+                return 69;
+            }
+            case TOKENS_NOT_KEPT -> {
+                err.println("porelo: the machine restarted since " + container + " last ran, and its tokens were not");
+                err.println("       kept - the vault was locked or absent when it started - so it cannot come back");
+                err.println("       whole. The workspace is still inside it:");
+                err.println();
+                err.println("         podman cp " + container + ":/workspace ./recovered");
+                err.println();
+                err.println("       Then discard it with 'porelo task remove " + container + " --force'.");
+                err.flush();
+                return 69;
+            }
+            default -> {
+                // Resumed, or resumed with something missing.
+            }
+        }
+
+        if (result.imageDrift() != null) {
+            out.println("image     " + result.imageDrift() + " has been rebuilt since this task"
+                    + " started;");
+            out.println("          the task keeps the one it has. Start a new task to use");
+            out.println("          the new image.");
+        }
+        if (result.restored()) {
+            // Said, because it is the one case where more came back than the container.
+            out.println("restored  what the machine's restart took: its records, its egress and its tokens");
+        }
+        out.println("started   " + container);
+        out.println("helpers   " + result.started() + " of " + result.recorded() + " started");
+        out.println("workspace kept, with everything the agent had done in it");
+        if (!result.refreshed().isEmpty()) {
+            // What the source gained while the task was down, said as 'task refresh' says it.
+            out.println("source    " + result.refreshed());
+        }
+        if (result.state() != null) {
+            out.println("logs      " + result.state());
+        }
+        // Resume brings the task back up; it does not put anybody inside it, and a person who
+        // was told to "go back in" and got their own prompt back reasonably reads that as
+        // broken. Saying the next command is cheaper than making this command block.
+        out.println("attach    porelo task attach " + container);
+        for (final String problem : result.problems()) {
+            err.println("porelo: " + problem);
+        }
+        out.flush();
+        err.flush();
+        return result.outcome() == TaskControl.Outcome.RESUMED ? 0 : 70;
+    }
+
+    /**
+     * Offers what a task that cannot come back would tell a person to type: its workspace copied to {@code ./recovered}
+     * first, then the task removed - the copy asked with yes as the default, the removal with no, after naming what
+     * goes. A folder that is there already is never written into; the next free name is taken.
+     *
+     * @param container The task.
+     * @param offer Who is asked.
+     * @param context The machine.
+     * @param into Where the folder goes: the working directory.
+     * @param out Where to report.
+     * @return Whether the workspace was copied; {@code false} when nobody took it, and the refusal stands.
+     */
+    static boolean recover(final String container, final Offer offer, final PoreloContext context,
+            final java.nio.file.Path into, final PrintWriter out) {
+        if (offer == Offer.NOBODY) {
+            return false;
+        }
+        java.nio.file.Path target = into.resolve("recovered");
+        for (int n = 2; java.nio.file.Files.exists(target); n++) {
+            target = into.resolve("recovered-" + n);
+        }
+        if (!offer.confirm(container + " cannot be started again; its workspace is still inside it",
+                "Copy it to " + target + " now?", "", false)) {
+            return false;
+        }
+        context.podman().copyOut(container, "/workspace", target);
+        out.println("recovered " + container + ":/workspace into " + target);
+        if (offer.confirm("the workspace is copied to " + target, "Remove " + container + " now?",
+                "the container " + container + " and everything else in it", true)) {
+            new TaskControl(context).remove(container, false, true);
+            out.println("removed   " + container);
+        } else {
+            out.println("kept      " + container + "; 'porelo task remove " + container + " --force' discards it");
+        }
+        out.flush();
+        return true;
+    }
+}

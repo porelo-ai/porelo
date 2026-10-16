@@ -19,7 +19,7 @@ container.
 The subscription account is unverified.
 
 The agents that can reach it are listed in
-[the comparison](https://github.com/sokar-ai/sokar-project/blob/main/doc/agents-and-providers.md).
+[the comparison](https://github.com/porelo-ai/porelo-project/blob/main/doc/agents-and-providers.md).
 
 ## Plan
 
@@ -28,9 +28,9 @@ The agents that can reach it are listed in
 2. **`providers/xai.yaml`:** named `xai`, the name the provider-agnostic agents register it under ([P09](README.md#p09));
    `dialects: { openai: "/v1" }`; `Authorization` / `Bearer `; `token_env: { _default: XAI_API_KEY }`;
    `unbrokerable: { oauth: ... }` until the subscription account is measured.
-3. **`doc/credentials.md`:** a row in "The providers Sokar ships".
+3. **`doc/credentials.md`:** a row in "The providers Porelo ships".
 4. **Live:** a scenario in an agent repository speaking `openai` or `native`, as its `openrouter` scenario does, with
-   a fake key: xAI's own refusal proves the swap, `sokar task status` names `xai`, and the container holds no key.
+   a fake key: xAI's own refusal proves the swap, `porelo task status` names `xai`, and the container holds no key.
 5. **The subscription account, measured apart:** whether its token is a bearer on `api.x.ai` or reaches another host;
    then its own entries or a file of its own, and `unbrokerable` is lifted. An account is provided for the
    measurement. What must exist at the service for it: an account with the subscription its own agent signs in with,

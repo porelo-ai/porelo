@@ -31,7 +31,7 @@ start command without end and check each value differently.
           description: "The ticket in the tracker"
           pattern: "[A-Z]+-[0-9]+"                     # a regular expression
           required: false
-          env: "TASK_TICKET"                           # default SOKAR_PARAM_TICKET; 'none' keeps it out of the task
+          env: "TASK_TICKET"                           # default PORELO_PARAM_TICKET; 'none' keeps it out of the task
 
   A key no declaration names is refused, as is a value outside `values` or `pattern`, and a missing `required` one.
 - **Handed in at the start** in four ways:
@@ -53,7 +53,7 @@ start command without end and check each value differently.
 - **Shown with its origin** in `task status` and the daemon's `Task`, as `type=bugfix (environment)`, so a branch's
   name can be traced back.
 - **Seen by the agent, never changed by it**: each value is set in the container under its declaration's `env`,
-  `SOKAR_PARAM_<NAME>` by default, and named in the task guide; `env: none` keeps one out. The variable a value is read
+  `PORELO_PARAM_<NAME>` by default, and named in the task guide; `env: none` keeps one out. The variable a value is read
   from in the caller's shell has the same name as the one the agent sees.
 - **Used by name in other settings** as `{name}`, beside the fixed `{task}`, `{project}` and `{repository}`.
 - **Not secrets**: values stand in the task's record, listings and environment. The documentation says so and points
@@ -65,10 +65,10 @@ start command without end and check each value differently.
 checked against `ProjectSchema` (`SECTIONS`, `KEYS`, `check()`); `DocumentedProjectFileTest` parses the example in
 `doc/project-file.md` and fails on a key the schema does not know. `task start` is `TaskRunCommand`, which builds a
 `TaskLaunch.Request` in its own process; the daemon's `Start` and `CanStart` (`15-task.varlink`) build the same request
-in `SokarDaemon.request()`. `StartCheck` settles everything before anything is made and answers a `StartOutcome`. The
+in `PoreloDaemon.request()`. `StartCheck` settles everything before anything is made and answers a `StartOutcome`. The
 credentials a start names are the precedent for everything here: a repeatable `Map` option, a `credentials` field in
 `Start`, `credentials.json` in the task's state directory, listed in `TaskState.DURABLE` so it outlives a reboot, read
-back by `TaskInventory.describe` into the daemon's `Task`. `SOKAR_ISSUE_PREFIXES` is the precedent for a value put
+back by `TaskInventory.describe` into the daemon's `Task`. `PORELO_ISSUE_PREFIXES` is the precedent for a value put
 into the container's environment (`TaskLaunch.launch`). A container's environment is fixed when it is created, so a
 resume cannot change a value even by mistake; only the record, the guide and `{name}` need it.
 
@@ -94,7 +94,7 @@ resume cannot change a value even by mistake; only the record, the guide and `{n
    `StartOutcome`, `parameters: [string]Given` in `Task`; `InterfaceDescriptionTest` holds the names to the contract.
 7. Record: `parameters.json` beside `credentials.json`, in `TaskState.DURABLE`; read by `TaskInventory.describe`;
    shown by `TaskStatusCommand` one line per value with its origin.
-8. Agent: each value with an `env` into the container's environment next to `SOKAR_ISSUE_PREFIXES`; the guide names
+8. Agent: each value with an `env` into the container's environment next to `PORELO_ISSUE_PREFIXES`; the guide names
    them in a part after the text every task shares, so a provider's cache of the shared beginning still holds;
    `TaskLaunch.informed()` gets the recorded values so a resume writes the same guide.
 9. Docs: `doc/project-file.md`, the `task start` options in `doc/commands.md`, a section in `doc/running.md`.
@@ -115,7 +115,7 @@ resume cannot change a value even by mistake; only the record, the guide and `{n
 - `TaskLaunch.Request.withTask()` passes 17 of 18 components and drops the credentials when a container name is
   adopted as a task name: confirm with a test and fix it in the same change, since the new component goes the same
   way.
-- `TaskInventory` still names `sokar task resume`, which is no command any more: whether the hint the plan's refusal
+- `TaskInventory` still names `porelo task resume`, which is no command any more: whether the hint the plan's refusal
   gives should name `task start` instead.
-- Whether the interface in `sokar-frontend` offers the values at a start: an issue there, raised in the channel once
+- Whether the interface in `porelo-frontend` offers the values at a start: an issue there, raised in the channel once
   the contract is settled.

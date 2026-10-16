@@ -11,7 +11,7 @@ how to let it go on.
 ## Why
 
 A security analysis inside a task found no bound on what the container writes into its mailbox. The box lives on the
-person's own filesystem, under `$XDG_STATE_HOME/sokar/mail/<container>/box`. A process in the container could fill
+person's own filesystem, under `$XDG_STATE_HOME/porelo/mail/<container>/box`. A process in the container could fill
 the host's disk through it.
 
 The finding is real but wider than the mailbox. The container's own writable layer, under the account's
@@ -47,7 +47,7 @@ The plan:
   Each takes a size like `20G` or `512M`. `0` switches that check off for the project.
 - **Over the limit:** the task is paused (`podman pause`), not stopped, so nothing is lost. `task status`, `doctor` and
   the daemon's task answer say why and give the command that goes on with a higher limit
-  (`sokar task resume TASK --disk 30G`) and the one that removes the task. A box over its cap is paused the same way.
+  (`porelo task resume TASK --disk 30G`) and the one that removes the task. A box over its cap is paused the same way.
 - **Where the file system can bound it:** on XFS with project quotas or on btrfs, a start also passes
   `--storage-opt size=` with the limit, so the bound holds between two measurements.
 - **The free space of the machine:** the second line, for a limit set too high. A task is also paused when its disk

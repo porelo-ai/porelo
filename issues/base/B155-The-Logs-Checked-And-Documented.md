@@ -8,7 +8,7 @@ and `task.log` cut after a period.
 
 ## Why
 
-Logs are sensitive data themselves; nobody has checked all of Sokar's at once.
+Logs are sensitive data themselves; nobody has checked all of Porelo's at once.
 
 **Guideline points it answers:** OWASP AI Agent Cheat Sheet §6/§8; NCSC (logs as sensitive data). From a review of security guidelines, 2026-10-09.
 
@@ -26,14 +26,14 @@ The logs, read in the code:
   `relay.log` (`CredentialWiring`), `gate.log` (`GateWiring`, the gate's token in its environment), `clearance.log`
   (`ClearanceWiring`, `RunningClearance`), `workspace.log` (`WorkspaceSetup`), `task.log` (an unattended run's
   output, `TaskLaunch`, `TaskRunCommand` - the agent's own words, so prompt contents), `dnsmasq.log`, `events.jsonl`;
-- per account, in `$XDG_STATE_HOME/sokar`: `failures.log`, `stops.log` (`SokarPaths`), the clearance journals, the
+- per account, in `$XDG_STATE_HOME/porelo`: `failures.log`, `stops.log` (`PoreloPaths`), the clearance journals, the
   hand-in record (`HandIns`), the message record (`MessageRecord`), the build records;
 - the daemon's and the user services' output in the user journal.
 
 Steps:
 
 1. Red first, in `apps/app`: the broker (`TokenBroker` behind `vault serve`) serves a request with a known token and a
-   known phantom token, and the gate (`GateServeCommand`) takes a push with its `SOKAR_GATE_TOKEN`; the test reads
+   known phantom token, and the gate (`GateServeCommand`) takes a push with its `PORELO_GATE_TOKEN`; the test reads
    what each wrote to its output and finds neither secret, nor an `Authorization` header's value. Whatever it finds
    is fixed where it is written, by leaving it out, not by masking after the fact.
 2. The same test asserts each log file is `rw-------` and its directory `rwx------`; where a writer does not set it,

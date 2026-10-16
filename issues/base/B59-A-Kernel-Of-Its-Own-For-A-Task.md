@@ -13,13 +13,13 @@ have measured answers.
 
 A task is a rootless container: every capability dropped, `no-new-privileges` set, an unprivileged
 account inside. What it shares with the machine is the **kernel**. That is stated plainly in
-`doc/how-it-works.md`, and it is the one boundary Sokar cannot make stronger by dropping
+`doc/how-it-works.md`, and it is the one boundary Porelo cannot make stronger by dropping
 anything further: a kernel bug is one boundary away from the host.
 
 A container can also be started with a runtime that puts it in a virtual machine of its own -
 `podman run --runtime krun`, backed by libkrun and KVM. The image stays an OCI image, the workload
 stays a container to everything above it, and underneath it gets its own kernel, with the
-hypervisor as a second wall. **Whether Sokar's containment survives that move is unmeasured, and
+hypervisor as a second wall. **Whether Porelo's containment survives that move is unmeasured, and
 this issue exists to measure it rather than to assume either answer.**
 
 ## What was measured, 2026-09-16
@@ -31,7 +31,7 @@ On the machine this was written on:
   experiment needs no build from source. Other runtimes of the same kind are packaged as well.
 - Both libvirt test machines were powered off, so nothing was measured there. They are themselves
   virtual machines, and so are the rented ones: **nested virtualisation is a precondition on every
-  machine Sokar is currently tested on**, and it is unknown whether it is available there.
+  machine Porelo is currently tested on**, and it is unknown whether it is available there.
 
 ## The shape: what the experiment has to answer
 
@@ -46,7 +46,7 @@ The first two decide whether the rest is worth doing.
 2. **Can the resolver still lie?** `NXDOMAIN` for every undeclared name, and the resolver filling
    the nftables set for the declared ones, both depend on dnsmasq running in the same namespace as
    the workload. Measure what that becomes, including whether the guest resolves over TCP only.
-3. **Do the hooks still run, and what can they still do?** Three of Sokar's four hooks reach inside
+3. **Do the hooks still run, and what can they still do?** Three of Porelo's four hooks reach inside
    the workload's namespaces. A hook that runs on the host while the workload runs under another
    kernel is a different instrument, whatever the runtime reports.
 4. **Do the sockets still arrive?** The vault proxy, the ssh-agent and the clearance socket are unix
@@ -79,9 +79,9 @@ It splits into three issues:
 
 1. **The experiment** (M): first whether the libvirt and rented machines offer nested KVM (`/dev/kvm`, the CPU
    flags). Then, on a machine that does, the stub's image under `podman run --runtime krun`, by hand and with
-   Sokar's hooks registered; questions 1 to 7 answered here, each with its command. No code changes. The
+   Porelo's hooks registered; questions 1 to 7 answered here, each with its command. No code changes. The
    measurements are the input to the decision on adoption; nothing is adopted before they exist.
-2. **The doctor probe** (S): `sokar doctor` says whether `/dev/kvm` is usable and the runtime is installed. Red
+2. **The doctor probe** (S): `porelo doctor` says whether `/dev/kvm` is usable and the runtime is installed. Red
    first: the probe's test on a machine description without `/dev/kvm` expects "not able".
 3. **Adoption** (L), decided on the experiment's answers and only if questions 1 and 2 fail closed: a project
    setting that chooses the runtime, the `offline` class first; `Podman` passes `--runtime`; the ruleset in its new
@@ -96,8 +96,8 @@ It splits into three issues:
 - **The default does not move.** A task keeps its rootless container with the nftables ruleset until
   questions 1 and 2 have an answer that fails closed, and adoption is then **opt-in per project**. Seen to fail: a
   task in a project that has not opted in starts under the KVM-backed runtime.
-- `sokar doctor` says whether this machine can do it at all, rather than a task failing to start
-  with a runtime error. Seen to fail: `sokar doctor` on a machine without `/dev/kvm` or the runtime reports it
+- `porelo doctor` says whether this machine can do it at all, rather than a task failing to start
+  with a runtime error. Seen to fail: `porelo doctor` on a machine without `/dev/kvm` or the runtime reports it
   able.
 - Snapshot and restore are measured: whether a task frozen with its running agent comes back, and what of it
   survives a reboot. Seen to fail: question 7 with no measured answer and command beside it.
@@ -116,7 +116,7 @@ answering OpenSSF tip 2, OWASP AI Agent Cheat Sheet §9.
 - **Whether the guest is the better home for the ruleset anyway** (Agent Core's). A ruleset the workload cannot
   reach around, loaded by something the workload cannot stop, is the property that matters; which kernel holds it
   is not.
-- **This is the rehearsal for `sokar-project` [PJ25](https://github.com/sokar-ai/sokar-project/blob/main/issues/README.md#pj25)**, Sokar on Apple Containers (Agent Project's). A container on
+- **This is the rehearsal for `porelo-project` [PJ25](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj25)**, Porelo on Apple Containers (Agent Project's). A container on
   macOS always has a kernel of its own, so that requirement asks the same questions: where per-container egress
   filtering lives and whether it fails closed, whether a host socket reaches the workload, whether the host's
   loopback can be mapped in for the gate, and how much is genuinely shared. Answering them here costs one Linux

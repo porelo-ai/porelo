@@ -23,9 +23,9 @@ Built, read in the code on 2026-10-11:
   (`wire/.../varlink/VarlinkServer.java`, `ServingThreads`, switched by one variable for a measurement).
 - Every long-lived pass runs on a platform thread of its own (`apps/app-base/.../BackgroundPass.java`, held by
   `BackgroundPassTest`); an agent's handshake waits on a platform thread (`agents/api/.../InstalledAgent.java`).
-- `sokard` is built with `--enable-monitoring=threaddump` (`daemon/pom.xml`), so `SIGQUIT` writes a dump to the
+- `porelod` is built with `--enable-monitoring=threaddump` (`daemon/pom.xml`), so `SIGQUIT` writes a dump to the
   journal without stopping it.
-- Still on virtual threads: a task's log watcher in `SokarDaemon` (one per running task) and the follow
+- Still on virtual threads: a task's log watcher in `PoreloDaemon` (one per running task) and the follow
   credential's server in `FollowCredential`. Neither serves the socket.
 
 What is left, in order:
@@ -34,7 +34,7 @@ What is left, in order:
    projects followed, then the acceptance suite without `@restart`. A small script in the scenario's account
    starts every call with a bound (`GetInfo`, `Agents`, `Start`) and on a call past it sends `SIGQUIT` and keeps
    the journal. Repeated five times with platform threads.
-2. **The same with virtual threads** (`SOKAR_THREADS=virtual`, which `ServingThreads` reads), which [B125](README.md#b125) needs
+2. **The same with virtual threads** (`PORELO_THREADS=virtual`, which `ServingThreads` reads), which [B125](README.md#b125) needs
    anyway: a hang there and none with platform threads is the measurement this issue lacks.
 3. **On a hang**, the dump is read and the waiting frame named here; the fix gets a test that holds the thread
    it waits on, watched to fail.
@@ -53,6 +53,6 @@ Nothing goes red first in code: the red is a hang caught with its dump.
 
 - Whether the first follow pass after a start, with many projects followed, keeps calls waiting (Agent Core's,
   read from the runs above).
-- On the fedora VM the daemon once started a second `sokar-agent-stub serve` on the socket the first one held;
+- On the fedora VM the daemon once started a second `porelo-agent-stub serve` on the socket the first one held;
   whether that is the same fault or another (Agent Core's).
 - How many runs without a hang are enough to say the mitigation holds (Agent Core's).

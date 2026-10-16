@@ -1,7 +1,7 @@
-# The order of sokar's pages: the site at https://sokar-ai.github.io takes this nav as sokar's section, and it is
+# The order of porelo's pages: the site at https://porelo-ai.github.io takes this nav as porelo's section, and it is
 # built there, not here. `mkdocs build --strict` here checks the pages and their links before a push.
 # The pages stay Markdown in doc/, readable and reviewable as they are; nothing about writing one changes.
-site_name: Sokar
+site_name: Porelo
 docs_dir: doc
 theme: readthedocs
 strict: true

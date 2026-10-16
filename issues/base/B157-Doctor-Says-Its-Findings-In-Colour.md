@@ -3,7 +3,7 @@
 **Status:** Review.
 **Size:** S - one command class and its test, a paragraph of `doc/commands.md`.
 
-**What must be true.** `sokar doctor` colours what it found: a failure red, a warning yellow, what is fine green. The
+**What must be true.** `porelo doctor` colours what it found: a failure red, a warning yellow, what is fine green. The
 words stay as they are, so colour is never the only signal - for a reader who cannot tell the colours apart, a screen
 reader, or a log.
 
@@ -26,12 +26,12 @@ line that is fine. Found in the joint test, 2026-10-10: the failing line had to 
 
 Built and on main; only the operator's test is left.
 
-- `DoctorCommand` (`apps/app/src/main/java/org/fuin/sokar/app/DoctorCommand.java`): `--color=auto|always|never`,
+- `DoctorCommand` (`apps/app/src/main/java/org/fuin/porelo/app/DoctorCommand.java`): `--color=auto|always|never`,
   `colours(mode, terminal, NO_COLOR)` decides once per run, `painted(text, state, colour)` colours the probe's name
   and its state word, the notes and the failures line in yellow; `--json` carries no colour.
 - `DoctorColourTest` (seen red first): a terminal stood in gets the codes, a pipe and `NO_COLOR` none, `always` and
   `never` win, the words are the same with colour or without.
-- `doc/commands.md` says it under `sokar doctor`.
+- `doc/commands.md` says it under `porelo doctor`.
 
 ## Acceptance
 

@@ -6,14 +6,14 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.fuin.sokar</groupId>
-        <artifactId>sokar</artifactId>
-        <version>0.4.2-SNAPSHOT</version>
+        <groupId>org.fuin.porelo</groupId>
+        <artifactId>porelo</artifactId>
+        <version>0.5.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>sokar-supervisor</artifactId>
-    <name>Sokar Supervisor</name>
-    <description>Sokar - Per-container services (SUPERVISOR)</description>
+    <artifactId>porelo-supervisor</artifactId>
+    <name>Porelo Supervisor</name>
+    <description>Porelo - Per-container services (SUPERVISOR)</description>
 
     <dependencies>
 
@@ -25,28 +25,28 @@
         </dependency>
 
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-core</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-core</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-wire</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-wire</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-vault</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-vault</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-gate</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-gate</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-clearance</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-clearance</artifactId>
         </dependency>
 
     </dependencies>

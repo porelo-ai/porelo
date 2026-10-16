@@ -13,14 +13,14 @@ A design idea rather than a defect, taken from the reference implementation's 0.
 
 ### Where this project is
 
-`sokar doctor` asks one question about the resolver and answers it with a boolean:
+`porelo doctor` asks one question about the resolver and answers it with a boolean:
 
 ```
 dnsmasq nftset      yes
 ```
 
 Without `nftset` support a declared domain resolves and is then dropped - names work and nothing
-reaches anything - so the check exists and `sokar setup` reports the machine not ready. That is correct and it
+reaches anything - so the check exists and `porelo setup` reports the machine not ready. That is correct and it
 is all there is: a host either has the one dnsmasq this project can use, or it cannot run tasks.
 
 ### What they did
@@ -61,7 +61,7 @@ Read in the code at `30c8169b`.
 
 - **What there is.** `DnsmasqProbe.supportsNftSet` (`shield/.../DnsmasqProbe.java`) parses `dnsmasq --version` into a
   boolean; `DoctorCommand.nftSetSupport` turns it into the probe `dnsmasq nftset` (`yes`, or missing with "install a
-  dnsmasq built with nftset support"). The refusal is at `sokar setup`, not at a task start: it
+  dnsmasq built with nftset support"). The refusal is at `porelo setup`, not at a task start: it
   reports "Not ready yet" for any missing probe (`SetupCommand`, `DoctorCommand.probesFor`); a task start does not
   check. The binary is `dnsmasq` from `PATH` in three places: `DnsmasqProbe.versionCommand`, `DnsPolicy` and
   `SupervisorHook` (`hooks/...`), so the one probed and the one run can differ only by `PATH`.

@@ -1,22 +1,22 @@
 # Decisions
 
-The choices Sokar is built on, each with why it holds and, for an accepted risk, the exposure, why it stays and what
+The choices Porelo is built on, each with why it holds and, for an accepted risk, the exposure, why it stays and what
 would change the answer.
 
 | Subject | What holds | Link |
 |---|---|---|
 | **Tasks and containers** | | |
-| A task is the container whose id Sokar recorded | never by name or label; a container with no record is acted on by nothing | [entry](#a-task-is-the-container-whose-id-sokar-recorded) |
+| A task is the container whose id Porelo recorded | never by name or label; a container with no record is acted on by nothing | [entry](#a-task-is-the-container-whose-id-porelo-recorded) |
 | Waiting for a person is never inferred from silence | working and idle are observed from output; waiting only where something declares it; no status channel out of the container | [entry](#waiting-for-a-person-is-never-inferred-from-silence) |
 | Nothing comes back by itself after a reboot | only `start` brings a task back; no surprise restarts, no vault prompt at boot | [entry](#nothing-comes-back-by-itself-after-a-reboot) |
 | Only the last session is recorded, and a failed continuation is forgotten | a failed continuation is forgotten and the next start is fresh | [entry](#only-the-last-session-is-recorded-and-a-failed-continuation-is-forgotten) |
 | A session id is an identifier, not a credential | it may go on a command line; it authorizes nothing | [entry](#a-session-id-is-an-identifier-not-a-credential) |
 | An image's readiness is judged against the project file alone | `READY` ignores which agent the image was built for; a task with another agent rebuilds only those layers | [entry](#an-images-readiness-is-judged-against-the-project-file-alone) |
-| A file handed to a task goes to /sokar/files, and only in | a root-owned directory of its own in every task; a base image with `/sokar` is refused; nothing comes out | [entry](#a-file-handed-to-a-task-goes-to-sokarfiles-and-only-in) |
-| A task learns of handed-in files from Sokar, not from its prompt | one guide to all of Sokar in the task, and a line at the prompt when a file arrives | [entry](#a-task-learns-of-handed-in-files-from-sokar-not-from-its-prompt) |
+| A file handed to a task goes to /porelo/files, and only in | a root-owned directory of its own in every task; a base image with `/porelo` is refused; nothing comes out | [entry](#a-file-handed-to-a-task-goes-to-porelofiles-and-only-in) |
+| A task learns of handed-in files from Porelo, not from its prompt | one guide to all of Porelo in the task, and a line at the prompt when a file arrives | [entry](#a-task-learns-of-handed-in-files-from-porelo-not-from-its-prompt) |
 | Every class pushes through its gate | no key, socket or route to the upstream in any container; an online task's gate passes its own branch on at once | [entry](#every-class-pushes-through-its-gate) |
 | A build is read from the host, never by the task | an online task is handed its builds' verdicts and logs; no forge token, route or verb in it | [entry](#a-build-is-read-from-the-host-never-by-the-task) |
-| Build readers are packages behind a versioned API | `sokar-build-api` and `org.fuin.sokar.Build1`; each forge in a repository of its own; nothing in `sokar` names one | [entry](#build-readers-are-packages-behind-a-versioned-api) |
+| Build readers are packages behind a versioned API | `porelo-build-api` and `org.fuin.porelo.Build1`; each forge in a repository of its own; nothing in `porelo` names one | [entry](#build-readers-are-packages-behind-a-versioned-api) |
 | A stop of every task keeps its tokens | `task stop --all` and `panic` stop as `task stop` does; revoking is `vault lock` or `vault remove`, a step of its own | [entry](#a-stop-of-every-task-keeps-its-tokens) |
 | Nested containers never in a guarded project | `guarded` never sets them; only on a task's own kernel where the assessment says so | [entry](#nested-containers-never-in-a-guarded-project) |
 | A devcontainer file's features are not fetched | its image or Dockerfile is used, each feature named as not installed; nothing runs at build that the project file does not name | [entry](#a-devcontainer-files-features-are-not-fetched) |
@@ -25,20 +25,20 @@ would change the answer.
 | A time limit does not cut off a person who is watching | a start may shorten the limit, never lengthen it; an attached person is warned and the stop waits for their detach | [entry](#a-time-limit-does-not-cut-off-a-person-who-is-watching) |
 | What carries an agent's words is kept for a period | `task.log` and a session's recording cut after 30 days, even while the task lives; a setting | [entry](#what-carries-an-agents-words-is-kept-for-a-period) |
 | A kernel of its own for a task is measured before it is decided | adopted only on measured answers: it works, the ruleset still fails closed, its cost | [entry](#a-kernel-of-its-own-for-a-task-is-measured-before-it-is-decided) |
-| A view of a task is guarded by Sokar's token, not by VNC's password | switched on per project, only through Sokar's relay, a strong one-time token before a byte reaches VNC | [entry](#a-view-of-a-task-is-guarded-by-sokars-token-not-by-vncs-password) |
+| A view of a task is guarded by Porelo's token, not by VNC's password | switched on per project, only through Porelo's relay, a strong one-time token before a byte reaches VNC | [entry](#a-view-of-a-task-is-guarded-by-porelos-token-not-by-vncs-password) |
 | **The machine and the daemon** | | |
 | A weaker machine is reported, not refused | `DEGRADED` exits zero and starts tasks; only `MISSING` fails | [entry](#a-weaker-machine-is-reported-not-refused) |
 | Doctor diagnoses and never repairs | each check names the next action; nothing runs a fix as root | [entry](#doctor-diagnoses-and-never-repairs) |
 | The daemon restarts itself after an update; the package does not | it sees its binary replaced and asks the account's systemd; tasks keep running | [entry](#the-daemon-restarts-itself-after-an-update-the-package-does-not) |
-| Sokar offers what it would tell a person to type | one `Offer` helper: the command's own code, the precondition checked again, a destructive step defaults to no, nothing asked without a terminal | [entry](#sokar-offers-what-it-would-tell-a-person-to-type) |
-| Account-wide settings live in one file | `$XDG_CONFIG_HOME/sokar/config.yml`; missing means every default, an unknown key refused by name | [entry](#account-wide-settings-live-in-one-file) |
+| Porelo offers what it would tell a person to type | one `Offer` helper: the command's own code, the precondition checked again, a destructive step defaults to no, nothing asked without a terminal | [entry](#porelo-offers-what-it-would-tell-a-person-to-type) |
+| Account-wide settings live in one file | `$XDG_CONFIG_HOME/porelo/config.yml`; missing means every default, an unknown key refused by name | [entry](#account-wide-settings-live-in-one-file) |
 | Unused access is reported, and locked only on request | a slot or deploy key unused for 45 days named by `doctor`; locking is a setting, off by default | [entry](#unused-access-is-reported-and-locked-only-on-request) |
-| The event log is anchored in the user's journal and outlives a clearing | each line's hash in the user's journal, sent off the machine only by a setting; `sokar clear` keeps it | [entry](#the-event-log-is-anchored-in-the-users-journal-and-outlives-a-clearing) |
+| The event log is anchored in the user's journal and outlives a clearing | each line's hash in the user's journal, sent off the machine only by a setting; `porelo clear` keeps it | [entry](#the-event-log-is-anchored-in-the-users-journal-and-outlives-a-clearing) |
 | **Egress, the shield and the review** | | |
 | Port 53 to the upstream is the resolver's alone | matched by the resolver's uid 0 in the namespace; the agent's direct query is dropped and logged | [entry](#port-53-to-the-upstream-is-the-resolvers-alone) |
-| Sokar does not claim to detect a prompt injection | it bounds what a convinced agent is worth; each guard says control or accident-catcher | [entry](#sokar-does-not-claim-to-detect-a-prompt-injection) |
+| Porelo does not claim to detect a prompt injection | it bounds what a convinced agent is worth; each guard says control or accident-catcher | [entry](#porelo-does-not-claim-to-detect-a-prompt-injection) |
 | The provider channel is documented, not bounded and not alerted on | an open path by construction; stated, recorded, no alert | [entry](#the-provider-channel-is-documented-not-bounded-and-not-alerted-on) |
-| What is dangerous by kind is a fixed list that ships with Sokar | never in the repository it judges, never per project | [entry](#what-is-dangerous-by-kind-is-a-fixed-list-that-ships-with-sokar) |
+| What is dangerous by kind is a fixed list that ships with Porelo | never in the repository it judges, never per project | [entry](#what-is-dangerous-by-kind-is-a-fixed-list-that-ships-with-porelo) |
 | The instruction is shown, never compared | the review shows what was asked and matches no file against it | [entry](#the-instruction-is-shown-never-compared) |
 | An MCP server reaches a task only over HTTP, through the gateway on the host | no stdio server on the host; one in the container is named as not covered; only new or changed tools held | [entry](#an-mcp-server-reaches-a-task-only-over-http-through-the-gateway-on-the-host) |
 | An alert either only tells or stops the task; it never freezes it | per project: tell a person, the default, or also stop the task and revoke its tokens | [entry](#an-alert-either-only-tells-or-stops-the-task-it-never-freezes-it) |
@@ -55,7 +55,7 @@ would change the answer.
 | One credential type reaches one variable | `token_env` maps a type to one variable; changed in the reader when an agent needs two | [entry](#one-credential-type-reaches-one-variable) |
 | A bought token is per task and kept in memory | never on disk, never shared; costs one exchange per task per hour | [entry](#a-bought-token-is-per-task-and-kept-in-memory) |
 | A purchase that fails at start is a missing key | unattended and agent runs are refused before a container exists; a shell warns | [entry](#a-purchase-that-fails-at-start-is-a-missing-key) |
-| Sokar does not replace a stored key at its provider | no `vault rotate`; per-provider code is what the split between agents and providers avoids | [entry](#sokar-does-not-replace-a-stored-key-at-its-provider) |
+| Porelo does not replace a stored key at its provider | no `vault rotate`; per-provider code is what the split between agents and providers avoids | [entry](#porelo-does-not-replace-a-stored-key-at-its-provider) |
 | A task's own tokens are kept in the vault | gate and phantom token under `task/<container>/`; a start after a reboot needs the vault | [entry](#a-tasks-own-tokens-are-kept-in-the-vault) |
 | Clearing the vault is `clear`, not `delete` | `vault clear` lists, then acts on `--yes`, like the other clears; `remove` is for one entry | [entry](#clearing-the-vault-is-clear-not-delete) |
 | A cached passphrase is reported gone only when it is gone | `vault lock` answers cleared, nothing cached or unknown, and exits non-zero on unknown | [entry](#a-cached-passphrase-is-reported-gone-only-when-it-is-gone) |
@@ -64,10 +64,10 @@ would change the answer.
 | A task's spending is capped in tokens, and in money where a price is known | tokens for every provider, the streamed count asked for; money from the reported cost, else the dated list price; no price refuses the money ceiling, never $0; under a subscription it caps list-price value | [entry](#a-tasks-spending-is-capped-in-tokens-and-in-money-where-a-price-is-known) |
 | A credential is entered only in a terminal | no method of the daemon's contract takes a secret; a forced-command account is not served | [entry](#a-credential-is-entered-only-in-a-terminal) |
 | A credential with no expiry is stored and named | accepted, never refused; the store says so and the list marks it | [entry](#a-credential-with-no-expiry-is-stored-and-named) |
-| A storage class Sokar cannot prove is shown as user-scoped | stronger only by a slot the node enrolled or evidence it checks; a client's claim is recorded and shown as user-scoped | [entry](#a-storage-class-sokar-cannot-prove-is-shown-as-user-scoped) |
+| A storage class Porelo cannot prove is shown as user-scoped | stronger only by a slot the node enrolled or evidence it checks; a client's claim is recorded and shown as user-scoped | [entry](#a-storage-class-porelo-cannot-prove-is-shown-as-user-scoped) |
 | **Projects and following** | | |
 | A project file describes constraints, not instructions | no prompt or standing instruction belongs in `project.yml` | [entry](#a-project-file-describes-constraints-not-instructions) |
-| A project exists by being followed | Sokar never writes a project file; follow is the only way in and does the whole check | [entry](#a-project-exists-by-being-followed) |
+| A project exists by being followed | Porelo never writes a project file; follow is the only way in and does the whole check | [entry](#a-project-exists-by-being-followed) |
 | A project is named, never pointed at | every command and call takes a project name; no path form exists | [entry](#a-project-is-named-never-pointed-at) |
 | Configuration coming in is checked by its signature, as work going out is checked by a person | only commits signed by a key pinned out of band apply; git verifies; a rewrite waits for a person | [entry](#configuration-coming-in-is-checked-by-its-signature-as-work-going-out-is-checked-by-a-person) |
 | A signing key is never read from the repository it verifies | the anchor comes from the person; a fingerprint only selects a key the person named | [entry](#a-signing-key-is-never-read-from-the-repository-it-verifies) |
@@ -81,33 +81,33 @@ would change the answer.
 | No model decides what a message may contain | rules accept or refuse, a person holds; a classifier may only ever hold | [entry](#no-model-decides-what-a-message-may-contain) |
 | A project's message rules are set once, in its project file | by class (project, room, others), defaults allow, allow, deny; the host keeps only holding a peer | [entry](#a-projects-message-rules-are-set-once-in-its-project-file) |
 | A person's words in the room reach every agent, unfiltered | everything said reaches every task; only the agents' outgoing messages are filtered; an answer goes where it was asked | [entry](#a-persons-words-in-the-room-reach-every-agent-unfiltered) |
-| The mailbox guide is the same for every task of one Sokar version | built from enforced constants only; whom a task reaches is in `agent-card.json` | [entry](#the-mailbox-guide-is-the-same-for-every-task-of-one-sokar-version) |
+| The mailbox guide is the same for every task of one Porelo version | built from enforced constants only; whom a task reaches is in `agent-card.json` | [entry](#the-mailbox-guide-is-the-same-for-every-task-of-one-porelo-version) |
 | Each host keeps its own record; a shared ordered record is given up | hash-chained per host; no shared ordered record across machines | [entry](#each-host-keeps-its-own-record-a-shared-ordered-record-is-given-up) |
 | Refused originals live as long as the task | owner-only, no timer; the exposure is accepted while tasks are short-lived | [entry](#refused-originals-live-as-long-as-the-task) |
 | A project's conversation is one room, and the room is the boundary | tasks that must not read each other belong in two projects | [entry](#a-projects-conversation-is-one-room-and-the-room-is-the-boundary) |
 | Membership is not authorization; the host acts and the signature decides | the host acts for every task; delivery needs a key of that project's peer and a task of that project | [entry](#membership-is-not-authorization-the-host-acts-and-the-signature-decides) |
 | One account per task, deactivated with it | made at start, deactivated at removal; the signature, not the account, carries authorship | [entry](#one-account-per-task-deactivated-with-it) |
-| Sokar knows transports; the transport knows Matrix | a generic lifecycle; no Matrix code or settings parsing in `sokar` | [entry](#sokar-knows-transports-the-transport-knows-matrix) |
-| The homeserver is one endpoint Sokar names, and offline means loopback | the declared URL or the account's own; offline reaches loopback only | [entry](#the-homeserver-is-one-endpoint-sokar-names-and-offline-means-loopback) |
+| Porelo knows transports; the transport knows Matrix | a generic lifecycle; no Matrix code or settings parsing in `porelo` | [entry](#porelo-knows-transports-the-transport-knows-matrix) |
+| The homeserver is one endpoint Porelo names, and offline means loopback | the declared URL or the account's own; offline reaches loopback only | [entry](#the-homeserver-is-one-endpoint-porelo-names-and-offline-means-loopback) |
 | A person joins by an account made for them | the login is printed once, no registration stays open, delivered only once their key is listed | [entry](#a-person-joins-by-an-account-made-for-them) |
-| A machine on a shared server is admitted by a person | Sokar admits nobody; a machine not yet let in starts no task | [entry](#a-machine-on-a-shared-server-is-admitted-by-a-person) |
+| A machine on a shared server is admitted by a person | Porelo admits nobody; a machine not yet let in starts no task | [entry](#a-machine-on-a-shared-server-is-admitted-by-a-person) |
 | Only a transport a peer names is polled | a transport no peer names is never polled; a failure is said once | [entry](#only-a-transport-a-peer-names-is-polled) |
 | **The build and packages** | | |
-| Sokar is split into modules by area, not into repositories | `app-<area>` modules with enforced dependencies; one build, one package, one contract on the wire | [entry](#sokar-is-split-into-modules-by-area-not-into-repositories) |
-| The build tooling lives in its own repository; the acceptance kit stays | `sokar-buildtools` from Central at `sokar.buildtools.version`; the kit changes with the product | [entry](#the-build-tooling-lives-in-its-own-repository-the-acceptance-kit-stays) |
+| Porelo is split into modules by area, not into repositories | `app-<area>` modules with enforced dependencies; one build, one package, one contract on the wire | [entry](#porelo-is-split-into-modules-by-area-not-into-repositories) |
+| The build tooling lives in its own repository; the acceptance kit stays | `porelo-buildtools` from Central at `porelo.buildtools.version`; the kit changes with the product | [entry](#the-build-tooling-lives-in-its-own-repository-the-acceptance-kit-stays) |
 | Which machine types a leg rents | snapshots at the smallest disk; `cpx42` first for speed, three fallbacks; nothing enforces it | [entry](#which-machine-types-a-leg-rents) |
 | A developer's build labels itself | `chcon` after each build where SELinux is on; no build path in the shipped policy | [entry](#a-developers-build-labels-itself) |
 | A release waits for the misuse suite, and a found hole is never skipped | every misuse scenario ran and passed; a red one holds the release and is never tagged or filtered out | [entry](#a-release-waits-for-the-misuse-suite-and-a-found-hole-is-never-skipped) |
-| Every Sokar repository gets the changelog check from its parent | bound once in `sokar-parent`; a repository not built with Maven runs it as a workflow step | [entry](#every-sokar-repository-gets-the-changelog-check-from-its-parent) |
+| Every Porelo repository gets the changelog check from its parent | bound once in `porelo-parent`; a repository not built with Maven runs it as a workflow step | [entry](#every-porelo-repository-gets-the-changelog-check-from-its-parent) |
 | A leg runs only the unit tests that need its machine | unit tests on the build host, except those only the target can run, which fail it when skipped | [entry](#a-leg-runs-only-the-unit-tests-that-need-its-machine) |
-| One key signs everything a machine installs from Sokar | packages, setup script and repository metadata with one key held by the owner; the publishing repositories switch on together | [entry](#one-key-signs-everything-a-machine-installs-from-sokar) |
+| One key signs everything a machine installs from Porelo | packages, setup script and repository metadata with one key held by the owner; the publishing repositories switch on together | [entry](#one-key-signs-everything-a-machine-installs-from-porelo) |
 | **The documentation** | | |
 | The issue index stays one table per section | a conflict there is resolved by keeping both lines; split, nobody could read it whole | [entry](#the-issue-index-stays-one-table-per-section) |
-| The data protection page follows the federal ISDS concept template | in the template's chapters, each saying what Sokar provides and what the organisation regulates | [entry](#the-data-protection-page-follows-the-federal-isds-concept-template) |
+| The data protection page follows the federal ISDS concept template | in the template's chapters, each saying what Porelo provides and what the organisation regulates | [entry](#the-data-protection-page-follows-the-federal-isds-concept-template) |
 
-## A task is the container whose id Sokar recorded
+## A task is the container whose id Porelo recorded
 
-Sokar records the id podman returns at create, in the task's state directory, before the container first starts, and
+Porelo records the id podman returns at create, in the task's state directory, before the container first starts, and
 treats a container as a task only while its live id is that one. Every act on a task - and every context the CLI or
 the daemon builds - goes by that id, and the OCI hooks compare the runtime's id with the record beside the sidecar
 before giving a container a resolver and rules, or reaping helpers after it stops. Names and podman labels do not
@@ -116,36 +116,36 @@ otherwise have tokens restored, the vault relay and the gate started in its name
 task's helpers reaped. A container with no record is not a task, and nothing is adopted by name, since an adoption by
 name is exactly the hole the record closes.
 
-## A file handed to a task goes to /sokar/files, and only in
+## A file handed to a task goes to /porelo/files, and only in
 
-A file handed to a running task appears whole in `/sokar/files`, a directory that holds nothing else in every task
+A file handed to a running task appears whole in `/porelo/files`, a directory that holds nothing else in every task
 from its start, owned by root and readable by the agent, which cannot change or remove it. Not `/workspace`, where
-the agent would commit it and the gate carry it out; not `/run/sokar/`, which is Sokar's machinery and holds the
-credential socket. `/sokar` is Sokar's root: a base image that already has it is refused when the task's image is
+the agent would commit it and the gate carry it out; not `/run/porelo/`, which is Porelo's machinery and holds the
+credential socket. `/porelo` is Porelo's root: a base image that already has it is refused when the task's image is
 built - which every preparation and every start of a changed image does - because a mixed directory would make
 "everything in it was handed in" quietly false. The same holds in every security class, since it carries nothing
 across a boundary that keeps tasks apart. Nothing takes a file out of a task: content leaving is what the gate is
 for. Every hand-in is written down - who, when, which run, the name, the size and the sha256 - in the state
 directory, so it outlives the task, and never the content, which is often the thing kept out of git on purpose.
-The record says what Sokar did: a file copied in with `podman cp` is not in it.
+The record says what Porelo did: a file copied in with `podman cp` is not in it.
 
-## A task learns of handed-in files from Sokar, not from its prompt
+## A task learns of handed-in files from Porelo, not from its prompt
 
 Left to the person's prompt, an agent pushed and never looked at its red build unless somebody remembered to say so
 (2026-10-07). Agent definitions have since come to declare both ways a running agent is told
 something - `instructions`, the file it takes into its standing instructions, and `at_rest`, the screen at which a
 line may be typed - and the mailbox used them first. Files and builds now use the same two:
 
-- **One guide to all of Sokar in the task**, `/run/sokar/guide/README.md`: `/sokar/files` and what arrives there,
+- **One guide to all of Porelo in the task**, `/run/porelo/guide/README.md`: `/porelo/files` and what arrives there,
   the builds of a push among it, and the mailbox's text where the task has one - one file, since a definition has
-  one `{file}`. The same for every task of one Sokar version, as the mailbox's guide is, so a provider's cache of
+  one `{file}`. The same for every task of one Porelo version, as the mailbox's guide is, so a provider's cache of
   the prompt holds. It is mounted from a directory of its own made with the task: a task made before has no such
   mount, and keeps its mailbox's guide.
-- **A line at the prompt** when a file arrives, a verdict among them, and the agent rests there: Sokar's own,
+- **A line at the prompt** when a file arrives, a verdict among them, and the agent rests there: Porelo's own,
   naming the files, typed under the same lock, the same quiet and the same `waiting` rule as a message's, and tried
   at every pass until it lands.
 
-`/sokar/files` is still the same path in every task, so a prompt may still name it. **What would change the
+`/porelo/files` is still the same path in every task, so a prompt may still name it. **What would change the
 answer:** an agent that takes its instructions some other way than a file, or tells a person's question from its
 rest by nothing on its screen.
 
@@ -158,7 +158,7 @@ everything the key may do: push to `main`, push with force, set tags, delete bra
 every other repository it opens. Holding a key and being able to use it unchecked differ little. So every class works
 against the gate on the host, and the container holds no key, no socket of one and no route to the upstream. The
 classes differ in what the gate does with a push: `guarded` keeps it until a person approves it, `online` passes the
-task's own branch on at once, as `sokar/<task>`, with the key the host lends, and fails the agent's push when the
+task's own branch on at once, as `porelo/<task>`, with the key the host lends, and fails the agent's push when the
 forge refuses. Anything but that branch is refused at the gate; a push with force to it goes through, since an agent
 that rebases needs it. Before the agent fetches, the gate fetches from the upstream, at most once every few seconds,
 so an agent fetching in a loop cannot make the host flood the forge with a person's key. A gate that reads the
@@ -168,23 +168,23 @@ upstream from the host can also follow a repository on the same machine, which n
 
 An `online` task learns what the build of its own push did without reaching the forge: a helper on the host follows
 every commit it pushes, asks the forge with a token from the vault, and hands the verdict and the jobs' logs into
-`/sokar/files`. The task asks for nothing and holds nothing it could ask with. A route through the broker with a
+`/porelo/files`. The task asks for nothing and holds nothing it could ask with. A route through the broker with a
 phantom token would have let the agent use the forge's own tools, but **a forge token cannot be scoped to the
 question**: one that reads a repository's builds reads its code and issues too, and an agent that holds a verb uses
 it - opening an issue, closing a pull request - with none of it passing the gate. So the surface is a verdict and
 logs, and nothing else. It is `online` only: in `guarded` the forge builds nothing before a person approves at the
 gate, and waiting for that is waiting for a person, not a build. A log is text an outsider can influence, as is
-everything a task reads; delivering it adds no new kind of input, and Sokar keeps no copy of it - only which builds it
+everything a task reads; delivering it adds no new kind of input, and Porelo keeps no copy of it - only which builds it
 delivered, with each log's size and hash. **The exposure:** one token's rate limit is shared by every task that reads
 with it; the helper waits a limit out and says so in the verdict rather than reading as a failed build.
 
 ## Build readers are packages behind a versioned API
 
 What a forge does differently in kind - GitHub sends a job's log behind a redirect to storage, another forge as an
-archive or a trace per step - is code, and that code is not Sokar's. A forge is read by a **build reader**: an
-executable built on the published `sokar-build-api`, speaking `org.fuin.sokar.Build1` over a socket with a protocol
-version Sokar checks, installed under `/usr/libexec/sokar/builds/<forge>` and found at run time, as an agent is. Each
-lives in a repository of its own - `sokar-build-github` first - and nothing in `sokar` names a forge; the stub reader
+archive or a trace per step - is code, and that code is not Porelo's. A forge is read by a **build reader**: an
+executable built on the published `porelo-build-api`, speaking `org.fuin.porelo.Build1` over a socket with a protocol
+version Porelo checks, installed under `/usr/libexec/porelo/builds/<forge>` and found at run time, as an agent is. Each
+lives in a repository of its own - `porelo-build-github` first - and nothing in `porelo` names a forge; the stub reader
 the tests use is the only one in this tree. The contract fixes what every reader hands over, whatever its forge:
 the verdict across a commit's runs, every job once it is final, and a job's log as plain text, its last 64 KiB.
 **The exposure:** a reader runs on the host with the forge token in each call; it is a package the operator installs,
@@ -233,7 +233,7 @@ comparison.
 
 ## A weaker machine is reported, not refused
 
-`sokar doctor` reports a machine that works less well than it should as `DEGRADED`, names what it costs and exits
+`porelo doctor` reports a machine that works less well than it should as `DEGRADED`, names what it costs and exits
 zero, and nothing refuses to start a task on it. **The exposure:** on a machine using slirp4netns rather than pasta,
 a task's gate binds every interface and is reachable from this machine's network; only the per-task token keeps it
 shut. **Why it stays:** the machine does run tasks, and refusing it is a policy decision rather than something a
@@ -242,8 +242,8 @@ which would make it a refusal at `task start` declared by the project or the mac
 
 ## Doctor diagnoses and never repairs
 
-Neither `sokar doctor` nor the daemon's `Doctor` offers to run a fix. Installing packages or writing under `/etc` is
-root on the node, which is exactly the power Sokar is built around not having. A repair over the daemon's socket
+Neither `porelo doctor` nor the daemon's `Doctor` offers to run a fix. Installing packages or writing under `/etc` is
+root on the node, which is exactly the power Porelo is built around not having. A repair over the daemon's socket
 could not reach the case most worth fixing anyway: a machine that is not ready usually has no daemon to ask. Every
 failed check names the next action instead, for a person to take.
 
@@ -254,7 +254,7 @@ another account's user service would be wrong about the session it runs in. So t
 executable; seen replaced twice (an update replaces the binary, then the unit file a moment later), it asks the
 account's own systemd for `daemon-reload` and `restart --no-block` of the unit it runs in, read from its own control
 group. Running tasks are not touched. A binary removed with nothing in its place is an uninstall, which nothing
-restarts into, and a daemon started by hand is not restarted but says once that it was replaced; `sokar doctor`
+restarts into, and a daemon started by hand is not restarted but says once that it was replaced; `porelo doctor`
 names a daemon running another version than the command.
 
 ## Port 53 to the upstream is the resolver's alone
@@ -273,11 +273,11 @@ forwarded upstream, so a declared domain whose authoritative server the agent co
 asked; the resolver logs those. **What would change the answer:** anything the agent can reach running as the
 namespace's root.
 
-## Sokar does not claim to detect a prompt injection
+## Porelo does not claim to detect a prompt injection
 
-No guard in Sokar is presented as detecting an agent that was convinced by something it read: there is no filter
+No guard in Porelo is presented as detecting an agent that was convinced by something it read: there is no filter
 that separates instructions from content in a text meant for something that follows instructions, and a confident
-answer that is sometimes wrong is worse than an honest "this system does not do that". What Sokar bounds instead is
+answer that is sometimes wrong is worse than an honest "this system does not do that". What Porelo bounds instead is
 what a convinced agent is worth, and every guard says whether it is a control or an accident-catcher.
 
 ## The provider channel is documented, not bounded and not alerted on
@@ -288,10 +288,10 @@ stated as an open path in the operator documentation and the reach document, wit
 There is no alert: a false alarm on a working task is worse than none. **What would change the answer:** a way to
 bound what a request says rather than whom it goes to.
 
-## What is dangerous by kind is a fixed list that ships with Sokar
+## What is dangerous by kind is a fixed list that ships with Porelo
 
 The review's list of files dangerous by kind - CI definitions, build scripts, dependency manifests and lockfiles,
-what runs on checkout, a file made executable, a symbolic link - is Sokar's and fixed. A list inside the repository
+what runs on checkout, a file made executable, a symbolic link - is Porelo's and fixed. A list inside the repository
 could be edited by the very change it is meant to catch; a list per project outside it is one more file nobody
 maintains.
 
@@ -309,7 +309,7 @@ endpoint, the auth header and prefix, the dialects served and how a credential i
 **provider**, because they are the same for every agent reaching it; a provider is therefore a YAML file found by a
 directory scan, with nothing to execute and no package of its own. Whether an endpoint can be redirected belongs to
 both: the provider must offer it and the agent must honor it, so an agent declares the shape of endpoint it can use
-(a socket or a URL) and Sokar satisfies it. Agents and providers are paired by dialect, never by name. The vault is
+(a socket or a URL) and Porelo satisfies it. Agents and providers are paired by dialect, never by name. The vault is
 keyed by provider, since a credential belongs to whoever the account is with; storing it per agent would keep the
 same key twice under names that do not say what it is for.
 
@@ -333,17 +333,17 @@ never names one: a credential belongs to the project, not to the agent.
 One broker serves every credential of a task, with a route per credential. Each credential gets its own task-scoped
 token, and the token - never the request's path - decides which credential is attached and which destination the
 request goes to, so a key held for one service cannot be sent to another at all. In the container each appears as
-`SOKAR_TOKEN_<NAME>` and `SOKAR_URL_<NAME>`, beside the single provider's variables, so a task with one credential
+`PORELO_TOKEN_<NAME>` and `PORELO_URL_<NAME>`, beside the single provider's variables, so a task with one credential
 changes nothing.
 
 ## Where a key goes is declared, never inferred
 
 A stored key is presented where its service expects it, and that place is the service's fact: a header whose name
-the provider or destination declares (`auth_header`, `auth_prefix`), or a query parameter (`auth_query`). Sokar
+the provider or destination declares (`auth_header`, `auth_prefix`), or a query parameter (`auth_query`). Porelo
 guesses neither, since a wrong header name fails like a wrong key and is the first thing such integrations get
 wrong. A consumer is supported only when its endpoint can be configured, so it can be pointed at the proxy: a tool
 with its host compiled in is not, because reaching it would mean intercepting TLS with a certificate authority in the
-image, which Sokar does not do. A key carried in the request body is not rewritten.
+image, which Porelo does not do. A key carried in the request body is not rewritten.
 
 ## One credential type reaches one variable
 
@@ -363,11 +363,11 @@ makes per-task exchanges fail.
 The launch tries the purchase once before anything exists. An unattended or agent run is refused, as for a
 credential the vault does not hold; a shell task warns and starts, since a person is there to fix it.
 
-## Sokar does not replace a stored key at its provider
+## Porelo does not replace a stored key at its provider
 
 There is no `vault rotate` that issues a new key at a provider and revokes the old one. For a bought credential
 every exchange already rotates the token the broker attaches; issuing and revoking a stored key through each
-provider's own API would be per-provider code in Sokar, which the split between agents and providers exists to
+provider's own API would be per-provider code in Porelo, which the split between agents and providers exists to
 avoid. **What would change the answer:** a provider-neutral way to issue and revoke keys.
 
 ## A task's own tokens are kept in the vault
@@ -379,7 +379,7 @@ start after a reboot needs the vault unlocked even for a task with no credential
 
 ## Clearing the vault is `clear`, not `delete`
 
-The vault is removed by `sokar vault clear`, in the same shape as `sokar clear` and `sokar project clear`: it lists
+The vault is removed by `porelo vault clear`, in the same shape as `porelo clear` and `porelo project clear`: it lists
 what would go and acts only on `--yes`. `remove` stays the verb for one entry (`vault remove NAME`). A fourth verb
 for the same act would be one more to learn for nothing it says differently.
 
@@ -401,7 +401,7 @@ a login has no answer. And the kernel user keyring is per user namespace, so a p
 empty keyring and reports "nothing cached" while the passphrase is still cached in the operator's: the false
 statement above, by a route the three outcomes do not catch. **Why it stays:** every reader is the CLI or the daemon
 running as the operator, in the operator's namespace; the hooks do not touch the vault, and the shipped
-`sokard.service` does not change the namespace. **What would change the answer:** a unit file with
+`porelod.service` does not change the namespace. **What would change the answer:** a unit file with
 `PrivateUsers=yes`, or a reader under a container runtime, which would need the passphrase carried by a path rather
 than the keyring; or a deployment that needs the cache across logins, which would make a chain of stores worth its
 explanation.
@@ -417,7 +417,7 @@ another process's memory takes the same uid that already reads the vault file an
 keyring, so wiping the copies in memory keeps nobody out who is not in already. A core dump is the copy that is
 written somewhere without anybody asking; core dumps of the processes that hold a secret are turned off with
 `prctl(PR_SET_DUMPABLE, 0)` (`ProcessHardening.disableDumping`). That call has no caller yet, and neither
-`sokard.service` nor the code sets a core size limit, so until it is made a core dump of those processes is
+`porelod.service` nor the code sets a core size limit, so until it is made a core dump of those processes is
 possible. **What would change the answer:** a process that holds secrets running under a uid of its own, so that
 reading its memory is no longer the same as reading the vault; a core dump that cannot be turned off; or an HTTP
 client that takes a header as bytes, which would make the change much cheaper than the thirty-odd callers it touches
@@ -427,11 +427,11 @@ today.
 
 Everything in `project.yml` bounds what work in the project may do; nothing in it tells an agent what to do. A prompt
 or a standing instruction is the opposite kind of thing: standing instructions live in the repository the agent works
-on and are not Sokar's business.
+on and are not Porelo's business.
 
 ## A project exists by being followed
 
-The only way a project comes to be on a machine is that the machine follows its repository; Sokar writes no
+The only way a project comes to be on a machine is that the machine follows its repository; Porelo writes no
 `project.yml` and offers no call, command or wizard that creates one. A project is created by a commit, in an editor,
 and a second way to have one is a way to have a project the machine never verified. There is no separate
 check-before-writing call either: the machine checks what it is handed when it is handed it, at `follow` (and
@@ -439,12 +439,12 @@ check-before-writing call either: the machine checks what it is handed when it i
 place the same question could be answered differently. That check is the whole check: the name's shape, the security
 class, a base image named at all, an `online` project without an upstream, and an egress set this machine does not
 have, all refused at follow rather than at the first task start, which is minutes later and reads as a broken build.
-The cost is a real first step for somebody trying Sokar (write a file, commit it, follow it), answered by `follow`
+The cost is a real first step for somebody trying Porelo (write a file, commit it, follow it), answered by `follow`
 working against a local repository with no forge, and by the built-in project `default`.
 
 ## A project is named, never pointed at
 
-Every command and every daemon call that takes a project takes its name, as `sokar project list` prints it, and no
+Every command and every daemon call that takes a project takes its name, as `porelo project list` prints it, and no
 command accepts a path to a project file, not even beside the name: two ways to say which project is how one
 project's file comes to live in several places (a working directory, a configuration directory, the followed clone),
 of which only one is verified. A name lets an interface that cannot see the machine's filesystem drive a task from
@@ -485,7 +485,7 @@ others.
 
 ## A project may be followed without a signing key
 
-`sokar project follow --unverified` applies what a project's repository says with no signature checked. **The
+`porelo project follow --unverified` applies what a project's repository says with no signature checked. **The
 exposure:** without a signature the rule is *whoever may push to this repository decides what tasks here may reach*,
 rather than *whoever holds the signing key*. The second set is much smaller: it excludes every CI token with write
 access, every leaked colleague's credential and the forge itself. And an agent working on the project's own
@@ -510,7 +510,7 @@ after something went wrong, when the project has moved on.
 
 ## Clearing names what only a person's credentials can remove, and never attempts it
 
-`sokar clear` and `sokar project clear` remove everything this machine holds for a project or the account, in one
+`porelo clear` and `porelo project clear` remove everything this machine holds for a project or the account, in one
 confirmed step, but a deploy key at a forge and this machine's line in a project's `machine-signers` are answered,
 never removed: the machine holds no forge token and not the person's signing key, and must not. The interface removes
 them with the person's sign-in and one signed commit; the command line prints them. The vault, the person's keys and
@@ -520,7 +520,7 @@ the installed packages stay: clearing is not uninstalling.
 
 Inside the container there is one mailbox directory and nothing else for messages: no socket, no credential, no
 network. A recipient is a peer name; what it resolves to is on the host. Every message is signed on the host with the
-key of the account running Sokar, because a key a task can reach is a key it can copy; the signature says the
+key of the account running Porelo, because a key a task can reach is a key it can copy; the signature says the
 installation vouched, not that the agent typed it. That key is not the user's login key: one lets a machine connect,
 the other says what it vouches for, and revoking one must not invalidate the other.
 
@@ -551,12 +551,12 @@ conversation, arrive as a `ROLE_USER` message from that person, and are counted 
 direct chat with one agent goes to that task alone. An answer goes where it was asked: `metadata.via` (`room` or
 `direct`) is copied into the answer.
 
-## The mailbox guide is the same for every task of one Sokar version
+## The mailbox guide is the same for every task of one Porelo version
 
-The text that tells an agent how its mailbox works (`/run/sokar/mail/README.md`) is built only from the constants the
+The text that tells an agent how its mailbox works (`/run/porelo/mail/README.md`) is built only from the constants the
 host and the filter enforce, never from the task, its project or its peers. It ends the agent's system prompt, and a
 provider caches a prompt by its beginning, so a text that varied per task would cost every task its cache. What does
-vary - whom the task can reach - is a separate file, `/run/sokar/mail/agent-card.json`, names only and never an
+vary - whom the task can reach - is a separate file, `/run/porelo/mail/agent-card.json`, names only and never an
 address, rewritten at every pass, which the guide says to read before writing.
 
 ## Each host keeps its own record; a shared ordered record is given up
@@ -568,7 +568,7 @@ would change the answer:** somebody other than the two peers needing to verify w
 
 ## Refused originals live as long as the task
 
-A message the filter refused is kept, readable only by the account running Sokar, for as long as the task whose
+A message the filter refused is kept, readable only by the account running Porelo, for as long as the task whose
 mailbox it belongs to, with no timer. **The exposure:** that directory holds secrets because the filter worked, so a
 long-lived task accumulates every refused secret behind file permissions and nothing else - the same protection its
 workspace has. **Why it stays:** one lifetime for everything a task owns is simpler to reason about. **What would
@@ -594,34 +594,34 @@ and the operator told. Matrix peers are `external`, so inbound content goes thro
 Each task gets an account of its own when it starts, made with a random password that is thrown away, and only its
 access token lives in the vault until the task is removed; then the account is deactivated. Authorship is carried by
 the signature, not by the account. On the account's own homeserver the provisioning account registers first and so is
-its administrator; on a central one, which has no administrator Sokar holds, each machine acts only on the accounts it
+its administrator; on a central one, which has no administrator Porelo holds, each machine acts only on the accounts it
 made and keeps each task's password beside its token.
 
-## Sokar knows transports; the transport knows Matrix
+## Porelo knows transports; the transport knows Matrix
 
-No Matrix client, room alias, registration flow, admin command or homeserver unit is in `sokar`. Sokar knows
+No Matrix client, room alias, registration flow, admin command or homeserver unit is in `porelo`. Porelo knows
 transports, conversations, identities and opaque secrets, through a generic lifecycle (`setup`, `enroll`, `retire`,
-`join`, `settings`) any transport may offer, so a second transport adds nothing to `sokar`. Project settings under
-`mail.transports.<scheme>` are passed to the transport verbatim and never read by Sokar.
+`join`, `settings`) any transport may offer, so a second transport adds nothing to `porelo`. Project settings under
+`mail.transports.<scheme>` are passed to the transport verbatim and never read by Porelo.
 
-## The homeserver is one endpoint Sokar names, and offline means loopback
+## The homeserver is one endpoint Porelo names, and offline means loopback
 
-The homeserver is the project's declared URL, or the account's own on loopback: a user unit on a port Sokar picks and
+The homeserver is the project's declared URL, or the account's own on loopback: a user unit on a port Porelo picks and
 keeps in the account's state, with no root, so two users never share a server's administrator. The host's egress for
 a project's messages is what the transport's `setup` reports in `reaches`, and nothing else. An `offline` project's
-conversation may reach nothing but loopback: Sokar passes `--loopback-only`, so the transport refuses before it
+conversation may reach nothing but loopback: Porelo passes `--loopback-only`, so the transport refuses before it
 contacts anything else, and checks `reaches` again before a task exists.
 
 ## A person joins by an account made for them
 
-`sokar talk join` has the provisioning account make an account on the project's homeserver, invite it into the room
+`porelo talk join` has the provisioning account make an account on the project's homeserver, invite it into the room
 and print the login once; the person uses any Matrix client. No registration stays open. Their messages are
 delivered only once their key is listed as a peer, as for anyone.
 
 ## A machine on a shared server is admitted by a person
 
 On a central homeserver a person makes the room, names it in the settings and lets each machine's account in from
-their own client; Sokar admits nobody. Until a machine is let in, it starts no task of the project and says whom to
+their own client; Porelo admits nobody. Until a machine is let in, it starts no task of the project and says whom to
 let in and where. Each machine holds its own provisioning account, so one can be revoked alone.
 
 ## Only a transport a peer names is polled
@@ -629,12 +629,12 @@ let in and where. Each machine holds its own provisioning account, so one can be
 A daemon polls a transport only if a peer of one of the account's projects names its scheme, and says a
 misconfiguration (77, 78) once per cause, not every cycle.
 
-## Sokar is split into modules by area, not into repositories
+## Porelo is split into modules by area, not into repositories
 
-So that more than one agent can work in `sokar` at once, `app` is modules by area (`app-<area>`), each registering its
-own daemon methods, describing them in its own part of the one contract `org.fuin.sokar.Tasks1`, and adding file
+So that more than one agent can work in `porelo` at once, `app` is modules by area (`app-<area>`), each registering its
+own daemon methods, describing them in its own part of the one contract `org.fuin.porelo.Tasks1`, and adding file
 locations in its own paths class; the modules' dependencies are the boundaries, so a reference the wrong way does not
-compile. `sokar` stays one build, one package, one push: it is one process, one socket contract and one installation,
+compile. `porelo` stays one build, one package, one push: it is one process, one socket contract and one installation,
 and one repository per command group would only move the bottleneck into ordering pushes. The areas keep one Java
 package across jars, so no access had to be widened and no class renamed; a sub-package per area is a later step if
 it ever pays. The contract stays one interface on the wire, written in parts. **The exposure:** `app-base` and
@@ -643,9 +643,9 @@ first, which makes the meeting visible rather than making it go away.
 
 ## The build tooling lives in its own repository; the acceptance kit stays
 
-`sokar-machines`, the release tool and the FFM, CPU and package checks live in `sokar-buildtools` on their own
-version line, and `sokar` takes them from Central at one property, `sokar.buildtools.version`. They are a separate
-world with a command line as their contract. The acceptance kit stays in `sokar`, because its steps change with the
+`porelo-machines`, the release tool and the FFM, CPU and package checks live in `porelo-buildtools` on their own
+version line, and `porelo` takes them from Central at one property, `porelo.buildtools.version`. They are a separate
+world with a command line as their contract. The acceptance kit stays in `porelo`, because its steps change with the
 product: moved out, most product features would need a kit release first. The cost: a change that needs both is two
 pushes in order, the tooling first.
 
@@ -670,15 +670,15 @@ whole.
 
 ## A stop of every task keeps its tokens
 
-`sokar task stop --all` (and `sokar panic`) stops every task as `task stop` stops one, and so keeps each task's tokens in
+`porelo task stop --all` (and `porelo panic`) stops every task as `task stop` stops one, and so keeps each task's tokens in
 the vault: a stopped task is brought back with its work, and a resume needs them. Ending what a token grants is a step
-of its own - `sokar vault lock`, and `sokar vault remove` of an entry, which revokes at the service where it can. Folding
+of its own - `porelo vault lock`, and `porelo vault remove` of an entry, which revokes at the service where it can. Folding
 revocation into the stop would make the one command reached for in doubt destroy what a calm look afterwards would
 keep.
 
-## Sokar offers what it would tell a person to type
+## Porelo offers what it would tell a person to type
 
-Where something is missing and a refusal would name the command that makes it good, Sokar asks at a terminal and does
+Where something is missing and a refusal would name the command that makes it good, Porelo asks at a terminal and does
 it, through one helper (`Offer`), alike everywhere:
 
 1. **The remedy is the command's own code,** run as that command or called as its function - never a copy of it.
@@ -710,7 +710,7 @@ and the person who could replace it with a shorter-lived one should see that eve
 
 ## A developer's build labels itself
 
-On an SELinux machine only binaries labelled `sokar_exec_t` may bind Sokar's sockets. A binary from a build tree is
+On an SELinux machine only binaries labelled `porelo_exec_t` may bind Porelo's sockets. A binary from a build tree is
 labelled by the build itself, with `chcon`, after each build, where SELinux is enabled and the policy loaded. A file
 context for a build path would name in the shipped policy a path only one person has.
 
@@ -734,12 +734,12 @@ task's own kernel, nested containers are built only there.
 ## A devcontainer file's features are not fetched
 
 A feature is a script from a registry, run as root during the image build and chosen by whoever edits the repository's
-devcontainer file. Sokar takes the file's image, or builds its Dockerfile from the reviewed default branch, and names
+devcontainer file. Porelo takes the file's image, or builds its Dockerfile from the reviewed default branch, and names
 each feature as not installed, so nothing runs at build time that the project file does not name.
 
 ## Several attempts share one credential
 
-The attempts of one start may share one credential and so its rate limit. Sokar does not split or queue them; a
+The attempts of one start may share one credential and so its rate limit. Porelo does not split or queue them; a
 reached limit is said per attempt, naming the credential, so a stalled attempt is not read as a weaker one. Five
 attempts per start is the default ceiling. N attempts use up a subscription's limit about N times as fast; the person
 chose N.
@@ -747,7 +747,7 @@ chose N.
 ## A reviewer task reviews only its own project
 
 A task in the role reviewer reads the waiting work of other tasks of its own project only. Reading another project's
-work would carry code across the line Sokar keeps between projects everywhere else.
+work would carry code across the line Porelo keeps between projects everywhere else.
 
 ## An approve lands as a merge carrying provenance; a fast-forward is a project's choice
 
@@ -772,7 +772,7 @@ session is the oversight the limit stands in for.
 
 Settings that belong to the account rather than to a project - the period after which unused access is reported and
 whether it is locked, how long `task.log` is kept, the largest bundle a client may upload, where the event log is
-copied - go into `$XDG_CONFIG_HOME/sokar/config.yml`. A missing file means every default, an unknown key is refused by
+copied - go into `$XDG_CONFIG_HOME/porelo/config.yml`. A missing file means every default, an unknown key is refused by
 name, and one page lists every key with its default.
 
 ## Unused access is reported, and locked only on request
@@ -784,7 +784,7 @@ default: a lock surprises whoever comes back after a long absence, while a repor
 
 An account's own file cannot be made tamper-proof against that account, so each line's hash also goes to the user's
 systemd journal. Where the settings name a destination, each line is also sent off the machine; nothing leaves without
-that setting. The log is the account's history, not a project's, so `sokar clear` of the account keeps it.
+that setting. The log is the account's history, not a project's, so `porelo clear` of the account keeps it.
 
 ## What carries an agent's words is kept for a period
 
@@ -796,7 +796,7 @@ written, even while its task lives, and so is a session's recording; the account
 A token ceiling holds for every provider the broker forwards to: the broker reads the count from each answer, and on
 a streamed Chat Completions request, whose answer carries none unless asked (`stream_options.include_usage`), it asks
 for it, whatever the agent sent, so an agent cannot leave its own use uncounted. A ceiling in money may be set beside
-it. It is counted from the cost the provider reports where it does, else at list price from Sokar's price table, which
+it. It is counted from the cost the provider reports where it does, else at list price from Porelo's price table, which
 is data carrying the date its prices were taken: a price changes without a release, and a stale one shows its date
 rather than hiding. A model with no price refuses the money ceiling - at the start where that is known, else fail
 closed at the first answer it cannot price - and is never counted as $0. Under a subscription the ceiling caps the
@@ -832,13 +832,13 @@ let a release go.
 ## The data protection page follows the federal ISDS concept template
 
 An organisation that writes an information security and data protection concept fills the Swiss federal template
-chapter by chapter; a page in the same chapters lets it take Sokar's part without rearranging it. Each chapter says
-what Sokar provides and what the organisation still regulates.
+chapter by chapter; a page in the same chapters lets it take Porelo's part without rearranging it. Each chapter says
+what Porelo provides and what the organisation still regulates.
 
-## Every Sokar repository gets the changelog check from its parent
+## Every Porelo repository gets the changelog check from its parent
 
 The rule that a change brings a changelog entry holds for every repository, so the check is bound once in
-`sokar-parent`, which every Maven repository of Sokar inherits, and configured where only Sokar reads it. A repository
+`porelo-parent`, which every Maven repository of Porelo inherits, and configured where only Porelo reads it. A repository
 whose product is not built with Maven runs the same check as a step of its own in its workflow.
 
 ## A leg runs only the unit tests that need its machine
@@ -854,9 +854,9 @@ the sockets. Adoption is decided on measured answers: whether a kernel of its ow
 fails closed, and what it costs. Snapshot and restore of a task, its running agent with it, is a goal such a runtime
 may make reachable.
 
-## A storage class Sokar cannot prove is shown as user-scoped
+## A storage class Porelo cannot prove is shown as user-scoped
 
-What protected an unlock is shown as worth more only when Sokar can prove it, by a slot the node enrolled itself or by
+What protected an unlock is shown as worth more only when Porelo can prove it, by a slot the node enrolled itself or by
 evidence such as a TPM2 attestation the node checks. A claim a client merely sends is recorded, but the command line
 and the interface show it exactly like a user-scoped slot: a label that reads stronger than it is does more harm than
 an honest weaker one.
@@ -868,15 +868,15 @@ policy is an option a project may add. A followed project that names its image b
 person allows it once; after that the digest is kept and a change of it is said at every start, so a moved tag never
 changes what runs silently.
 
-## One key signs everything a machine installs from Sokar
+## One key signs everything a machine installs from Porelo
 
 Packages, the setup script and the Debian repository's metadata are signed with one key, so a machine trusts one
 fingerprint. Its private half is held by the project's owner only and reaches CI only as a repository secret. The
 repositories that publish to the same package repositories switch signing on with the same release, because a setup
 that checks signatures refuses every repository that does not sign yet.
 
-## A view of a task is guarded by Sokar's token, not by VNC's password
+## A view of a task is guarded by Porelo's token, not by VNC's password
 
-A task's screen is offered only to a project that switches it on in `project.yml`, and even then only through Sokar's
+A task's screen is offered only to a project that switches it on in `project.yml`, and even then only through Porelo's
 relay, which takes a strong one-time token before a byte reaches the VNC server. Loopback alone is no access control on
 a machine with other accounts, and VNC's own password is too weak to rely on.

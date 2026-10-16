@@ -1,6 +1,6 @@
 # B171 — Forge Review Comments To And From A Task
 
-**Status:** Estimated; blocked by sokar [B166](README.md#b166). Blocks the forge readers' `Review1` (`sokar-build-github` [GH02](https://github.com/sokar-ai/sokar-build-github/blob/main/issues/README.md#gh02)).
+**Status:** Estimated; blocked by porelo [B166](README.md#b166). Blocks the forge readers' `Review1` (`porelo-build-github` [GH02](https://github.com/porelo-ai/porelo-build-github/blob/main/issues/README.md#gh02)).
 **Size:** L - crosses repositories: a new reader contract (`Review1`) every forge reader implements, the project
 file, a release flow in the CLI, the daemon, the interface and the IDE plugin, a second token, docs and acceptance.
 
@@ -34,10 +34,10 @@ same checks.
 ## Plan
 
 Built on what the builds already do: `apps/app-task/.../BuildWatch.java` follows an `online` task's pushes on the
-host and hands verdicts into the task; the reader is a separate executable answering `org.fuin.sokar.Build1`
+host and hands verdicts into the task; the reader is a separate executable answering `org.fuin.porelo.Build1`
 (`builds/api`, `BuildReader`, `BuildMain`), and the token is handed per call from the vault.
 
-1. **The contract:** `builds/api/.../ReviewReader.java` and `org.fuin.sokar.Review1.varlink` beside `Build1`:
+1. **The contract:** `builds/api/.../ReviewReader.java` and `org.fuin.porelo.Review1.varlink` beside `Build1`:
    `pullRequest(target, branch)` (the open pull request whose head is the branch, or none), `comments(target, number,
    since)` ([B166](README.md#b166)'s model, each with the forge account as its origin) and `write(target, number, comment)` with the
    write token in `target`. `BuildMain` serves `Review1` when the reader implements it, and `describe` names it.
@@ -58,7 +58,7 @@ host and hands verdicts into the task; the reader is a separate executable answe
    comment would go out, released or not; one beyond either is held with the limit it reached and goes once the
    hour allows it, never dropped.
 7. **The daemon:** `MessagingMethods` lists and releases outgoing and held comments, in the shapes [B166](README.md#b166) gives
-   `Comment` and `Thread`, so the interface ([F107](https://github.com/sokar-ai/sokar-frontend/blob/main/issues/README.md#f107)) and the IDE plugin ([IJ04](https://github.com/sokar-ai/sokar-intellij/blob/main/issues/README.md#ij04)) show the same.
+   `Comment` and `Thread`, so the interface ([F107](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md#f107)) and the IDE plugin ([IJ04](https://github.com/porelo-ai/porelo-intellij/blob/main/issues/README.md#ij04)) show the same.
 8. **The journal:** each delivered, held, released and written comment, with the account or the task and who
    released it, in [B166](README.md#b166)'s comment journal, and in [B154](README.md#b154)'s log once that is built.
 9. **Docs:** `doc/project-file.md` (the list, the switch, the write token), `doc/build-readers.md` (`Review1`).
@@ -75,4 +75,4 @@ host and hands verdicts into the task; the reader is a separate executable answe
 ## To be checked
 
 - Whether a review's top-level body, anchored to no line, is delivered as a comment of its own, which [B166](README.md#b166)'s model
-  has no anchor for (Agent Core's, with [GH02](https://github.com/sokar-ai/sokar-build-github/blob/main/issues/README.md#gh02)'s agent).
+  has no anchor for (Agent Core's, with [GH02](https://github.com/porelo-ai/porelo-build-github/blob/main/issues/README.md#gh02)'s agent).

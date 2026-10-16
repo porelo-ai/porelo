@@ -61,14 +61,14 @@ Two smaller things belong with it:
 ## Plan
 
 Read in today's code. `SocketContextTest` (`wire`) gates two tests on `@EnabledIf("selinux")`, which reads
-`/sys/fs/selinux/enforce`. `acceptance/legs/src/main/java/org/fuin/sokar/legs/Main.java` builds with `-DskipTests`
+`/sys/fs/selinux/enforce`. `acceptance/legs/src/main/java/org/fuin/porelo/legs/Main.java` builds with `-DskipTests`
 before deploying, so the unit tests in a leg's log run on the host that drives it. Other tests skip through
 `assumeTrue` (`KernelKeyringTest`, `VarlinkInteropTest`) and are of the same kind.
 
 Steps, in order:
 
 1. Red first: a test asserting that a test disabled for want of SELinux gives a reason naming where in the pipeline
-   it runs. Then a JUnit condition in `testing` (`sokar-testing`) that takes the place of `@EnabledIf` and says
+   it runs. Then a JUnit condition in `testing` (`porelo-testing`) that takes the place of `@EnabledIf` and says
    "runs on the fedora leg" rather than an ordinary skip.
 2. The two tests run on the rented machine: after deploying, the fedora leg runs the SELinux-dependent unit tests -
    today `SocketContextTest`, found by the condition of step 1 rather than by a list - in the checkout its snapshot
@@ -92,4 +92,4 @@ Steps, in order:
 ## To be checked
 
 - **Where the report across legs lives** (Agent Core's): in this repository's workflow, or as a command of
-  `sokar-release` that the agent repositories could run too.
+  `porelo-release` that the agent repositories could run too.

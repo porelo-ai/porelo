@@ -21,7 +21,7 @@ the share.** So on a desktop a keyslot protects against a stolen file and agains
 and not at all against the thing people picture when they hear "a device unlocks it", which is code
 running as them right now.
 
-Sokar says this out loud rather than implying otherwise: `sokar vault devices` prints *"any process
+Porelo says this out loud rather than implying otherwise: `porelo vault devices` prints *"any process
 running as you can ask for it"* next to a `USER_SCOPED` slot. **This issue is how that sentence gets
 to say something better.**
 
@@ -38,8 +38,8 @@ to say something better.**
 4. **Losing the token loses that slot and nothing else.** The passphrase is the recovery credential
    and every other device keeps working, exactly as the keyslots already promise.
 5. **What the node records is what actually protected the unlock**, not what a client claimed. Today
-   `storage` is a word the device sends and Sokar writes down; a slot that says `FIDO2` because a
-   client typed `FIDO2` is worth no more than a `USER_SCOPED` one and reads as worth more. **Sokar
+   `storage` is a word the device sends and Porelo writes down; a slot that says `FIDO2` because a
+   client typed `FIDO2` is worth no more than a `USER_SCOPED` one and reads as worth more. **Porelo
    proves what protected an unlock** - for a device, by evidence the node checks, such as a TPM2
    attestation - and **until it can prove it, the interface and the CLI show a `FIDO2` or `TPM2`
    slot no differently from a `USER_SCOPED` one.** A claim is recorded, never displayed as worth
@@ -47,10 +47,10 @@ to say something better.**
 
 ### What belongs to whom
 
-**The node side is Sokar's**: deriving from a token at the machine, the `--fido2` and `--tpm2`
+**The node side is Porelo's**: deriving from a token at the machine, the `--fido2` and `--tpm2`
 enrolments, and whatever verification of `storage` turns out to be possible.
 
-**The device side is the interface's** (`sokar-frontend`): a phone or a laptop that holds a share
+**The device side is the interface's** (`porelo-frontend`): a phone or a laptop that holds a share
 for a *remote* machine has its own keystore story, and on iOS and Android it is already
 application-scoped. This issue does not tell that side what to do beyond point 5: the interface
 shows an unproven `FIDO2` or `TPM2` slot as it shows a `USER_SCOPED` one. What evidence a device
@@ -85,7 +85,7 @@ It splits into four issues:
 1. **The measurement** (S): libfido2 through FFM from a JVM and from the native image, with a token present, absent
    and untouched; whether the hmac-secret of one credential and salt gives the same 32 bytes after a reboot. The
    results go into this issue; nothing is built.
-2. **FIDO2 at the machine** (L): `sokar vault enroll --fido2` in `apps/app-vault`. The keyslot header gains the
+2. **FIDO2 at the machine** (L): `porelo vault enroll --fido2` in `apps/app-vault`. The keyslot header gains the
    credential id and the salt, readable while locked (`Keyslot`, `VaultHeader`); the share is derived, used and
    cleared. Unlock tries a FIDO2 slot when a token is there, with a stated touch timeout, and names the token when it
    is absent. Red first: a unit test with a token behind an interface asserting the header holds the inputs and no
@@ -96,12 +96,12 @@ It splits into four issues:
    checks - a TPM2 attestation of the sealed object, a FIDO2 attestation of the credential - and is otherwise
    recorded as claimed and shown exactly as a `USER_SCOPED` slot. `30-vault.varlink` gains whether the storage is
    proven, so the interface shows the same; a contract change agreed with the interface on the channel, and a
-   dependency on `sokar-frontend`. Red first, before any proof exists: `VaultDevicesCommand` prints a claimed
+   dependency on `porelo-frontend`. Red first, before any proof exists: `VaultDevicesCommand` prints a claimed
    `FIDO2` slot with the `USER_SCOPED` sentence.
 
 ## Acceptance
 
-- **A machine with a token enrolls itself.** `sokar vault enroll --fido2` at the machine derives a
+- **A machine with a token enrolls itself.** `porelo vault enroll --fido2` at the machine derives a
   share from the token, wraps the master key with it, and stores nothing but the inputs. This is the
   case that needs no interface and no second device, and it is the one to build first.
 - **The unlock fails with the token absent**, and says so in a sentence naming the token rather than
@@ -111,7 +111,7 @@ It splits into four issues:
 - **The share never reaches the filesystem or a keyring** - asserted the way enrollment already is, by
   searching the machine's state for its bytes after an unlock.
 - **A reboot changes nothing**: the same token opens the same slot.
-- **`sokar vault devices` says what a FIDO2 or TPM2 slot is worth only when the node proved it**: a slot the node
+- **`porelo vault devices` says what a FIDO2 or TPM2 slot is worth only when the node proved it**: a slot the node
   enrolled itself, or one whose evidence it checked. A slot that only claims `FIDO2` or `TPM2` reads exactly as a
   `USER_SCOPED` one, in the CLI and in what the interface is sent.
 - **Seen to fail:** the unlock test with the token removed, and the one with the token present and
@@ -125,5 +125,5 @@ It splits into four issues:
 - **How a token behaves in this codebase** (Agent Core's): whether a native image can call libfido2 and tpm2-tss
   without carrying half of them, and what a token that is absent looks like from Java - measured first, as the
   Notes say.
-- **Whether TPM2 goes through `systemd-creds`** (Agent Core's), which Sokar already runs, or through tpm2-tss: the
+- **Whether TPM2 goes through `systemd-creds`** (Agent Core's), which Porelo already runs, or through tpm2-tss: the
   first needs no library in the image, the second asks for a PIN itself.

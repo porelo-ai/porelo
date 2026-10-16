@@ -52,13 +52,13 @@ cumulative, in every chunk; Anthropic's `message_delta` `output_tokens` is cumul
 
 ## Plan
 
-**Today.** The broker is `VaultProxy` (`supervisor/src/main/java/org/fuin/sokar/supervisor/VaultProxy.java`), one per
-task, started by `CredentialWiring` (`apps/app-task`) as `sokar vault serve --task <task> ...`
+**Today.** The broker is `VaultProxy` (`supervisor/src/main/java/org/fuin/porelo/supervisor/VaultProxy.java`), one per
+task, started by `CredentialWiring` (`apps/app-task`) as `porelo vault serve --task <task> ...`
 (`apps/app-vault/.../VaultServeCommand.java`). `handle` reads the whole request body (`body`), picks the route by the
 token's scope - a route is named by its credential, and knows nothing of its provider or the agent - and
 `writeResponse` relays the answer in chunks, passing each through `CredentialScan`. Answers are JSON or
 `text/event-stream` only (`UNDERSTOOD_TYPES`). `vault.log` has one line per request: method, target, status. JSON is
-read with `org.fuin.sokar.wire.Json`.
+read with `org.fuin.porelo.wire.Json`.
 
 **Steps:**
 

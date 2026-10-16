@@ -10,7 +10,7 @@ person has allowed it once.
 
 ## Why
 
-From a code review in `sokar-project`, "Project images are not digest- or signature-pinned", rated important.
+From a code review in `porelo-project`, "Project images are not digest- or signature-pinned", rated important.
 
 A project file's `base_image` is any image reference, and it reaches the container file's `FROM` as written. A tag
 such as `ubuntu:24.04` names whatever the registry serves under it on the day a machine first builds the image:
@@ -25,7 +25,7 @@ a reproducible root either.
 
 **The digest is enough.** A reference with `@sha256:` names exactly one image, and the signed project
 file pins it. podman's signature policy (`policy.json`) is optional per project: a project that wants
-the registry's signature checked as well can ask for it, and Sokar does not require it of any.
+the registry's signature checked as well can ask for it, and Porelo does not require it of any.
 
 ### What holds today
 
@@ -36,22 +36,22 @@ its signature to mean its image can pin one now.
 
 Read in the code on 2026-10-11: `base_image` is read by `ProjectReader` into `Project.baseImage()`
 (`core/.../project/`), written into `FROM` by `Containerfile` (`runtime/`), and is part of the recipe
-fingerprint the image carries as the label `org.fuin.sokar.recipe`. `TaskLaunch` prints `base image` at a
+fingerprint the image carries as the label `org.fuin.porelo.recipe`. `TaskLaunch` prints `base image` at a
 start; `DefaultProject` writes `ubuntu:24.04` (`BASE_IMAGE`); `Podman.imageRecipe` reads a label back with
 `podman image inspect`. Nothing reads or keeps the base image's digest.
 
 1. **`Project.baseImagePinned()`** in `core`: true when the reference carries `@sha256:`. Unit test first.
-2. **`sokar project` and `sokar doctor`**: a line per project whose base image is a tag only, with the digest
+2. **`porelo project` and `porelo doctor`**: a line per project whose base image is a tag only, with the digest
    podman holds for it today (`Podman.imageDigest(image)`, `{{.Digest}}`) or "not pulled here". Red first: a
    `DoctorCommandTest` and a project listing test with a tag-only `base_image` that find no such line.
-3. **The digest recorded at a build**: `Podman.buildArguments` adds `--label org.fuin.sokar.base-digest=<digest>`,
+3. **The digest recorded at a build**: `Podman.buildArguments` adds `--label org.fuin.porelo.base-digest=<digest>`,
    read from the base image just before the build; not in the recipe fingerprint, so an image is not stale for
    it alone. A start that builds compares it with the label on the image it replaces and says
    `base image changed  <old> -> <new>`. Red first: a test with a fake runner whose base digest differs between
    two builds, and a start that prints nothing about it.
 4. **A followed project with a tag-only image is refused until a person allows it once**: its start stops
    (`TaskLaunch`, where the `source` line says "followed, verified") with "its image is named by tag, which the
-   signature does not cover", and names how to allow it. A person allows it with an option of `sokar project
+   signature does not cover", and names how to allow it. A person allows it with an option of `porelo project
    follow`, beside `--accept-rewrite`; the allowance and the digest the tag resolves to at that moment are kept in
    the project's record in `FollowedProjects`. From then on the start goes ahead, the digest is kept, and a start
    that finds the tag on another digest says `base image changed  <old> -> <new>` and keeps the new one. Red
@@ -68,14 +68,14 @@ start; `DefaultProject` writes `ubuntu:24.04` (`BASE_IMAGE`); `Podman.imageRecip
 
 ## Acceptance
 
-- **`sokar project` and `sokar doctor` say when a project's image is a tag only**, and what its digest is today.
+- **`porelo project` and `porelo doctor` say when a project's image is a tag only**, and what its digest is today.
 - **The resolved digest is recorded with the task image**, and a start says when it changed since the last build.
 - **A followed project's image carries a digest, or its start is refused until a person allows the tag once**;
   after that the digest is kept and a change of it is said at the start.
 - **A project may name a podman signature policy**, and then its image is checked against it; without one the
   digest alone holds.
 - **The default project writes a digest** when it is created.
-- **Seen to fail:** a test with a tag-only `base_image` goes red when `sokar project` or `sokar doctor` does not
+- **Seen to fail:** a test with a tag-only `base_image` goes red when `porelo project` or `porelo doctor` does not
   say so; a test that rebuilds after the tag moved to another digest goes red when the start does not say it
   changed; a test of a followed project with a tag-only image goes red when it starts without the allowance, or
   when, once allowed, a moved tag is not said; a test of a project naming a signature policy goes red when the

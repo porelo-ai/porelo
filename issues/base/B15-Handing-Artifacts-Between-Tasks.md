@@ -30,8 +30,8 @@ controlled, visible to a person, recorded, restrictable and stoppable.
 ## Most of this is answered, and the answer is the gate
 
 Before designing anything: a task already has a way to hand its work over. It pushes a branch to the
-project's mirror on this machine, the work waits under `refs/sokar/incoming/<task>`, a person reads
-it, and `sokar gate approve` is what forwards it. That is versioned, content-addressed,
+project's mirror on this machine, the work waits under `refs/porelo/incoming/<task>`, a person reads
+it, and `porelo gate approve` is what forwards it. That is versioned, content-addressed,
 deduplicated, diffable, reviewed before it moves, host-local, and it needs no credential inside the
 container.
 
@@ -80,7 +80,7 @@ authenticate and reach from every machine of the project, beside the message tra
 reaches all of them with accounts whose secrets stay on the host. One way between a project's
 machines is enough.
 
-**And a result is not this requirement's business.** What a consumer outside Sokar - CI, a
+**And a result is not this requirement's business.** What a consumer outside Porelo - CI, a
 colleague, a deployment - takes is built on the build server from the approved work, and published
 from there to whatever repository manager the organization runs. What a task hands another task here
 is an intermediate result, used while both are working.
@@ -115,13 +115,13 @@ signature beside it. A conversation with no server declared is kept on this mach
 
 **The artifact verbs are the message transport's contract grown by a few** - put, fetch, remove,
 list - which a transport offers or does not, announcing in `describe` its own limit on an artifact's
-size. Sokar knows the verbs and nothing about the system behind them: which messaging system that is,
+size. Porelo knows the verbs and nothing about the system behind them: which messaging system that is,
 how it stores bytes and how large it lets them be is the transport package's business, and the half
 that speaks to one system lives in that transport's repository. A message may announce an artifact by
 its digest without carrying it. **A transport never answers across projects**: content addressing
 across projects is a covert channel by construction - one project could probe for another project's artifact by guessing its digest, and a hit is itself the answer.
 
-What stays Sokar's, whatever the transport:
+What stays Porelo's, whatever the transport:
 
 - **Taking an artifact out of a task**, through a directory of that task's own that only its own
   helper reads, never a directory two tasks share. A writable directory shared between containers is
@@ -149,7 +149,7 @@ What stays Sokar's, whatever the transport:
 ## Notes
 
 **The relationship to [B14](README.md#b14).** The same conversation, the same
-transports and the same split between Sokar and a transport, with a different payload; unlike a
+transports and the same split between Porelo and a transport, with a different payload; unlike a
 message, an artifact never crosses into another project. The record is this requirement's own.
 
 **This is the more useful of the two and the more dangerous.** Handing a built binary between tasks
@@ -157,7 +157,7 @@ is a thing people will want immediately; it is also the one that turns two isola
 a supply chain. That ordering — more useful, more dangerous — is the argument for doing it second
 rather than first, not for doing it quietly.
 
-**Sokar has no scanner and should not grow one.** Nothing here inspects an artifact for what it
+**Porelo has no scanner and should not grow one.** Nothing here inspects an artifact for what it
 does. The guarantees are provenance, non-execution by default, declaration by the consumer, and a
 record — not safety of the content. Saying so is better than a check that catches the careless case
 and teaches people to trust it for the deliberate one.
@@ -170,8 +170,8 @@ transport rather than podman's store.
 **What is reused.**
 
 - **Delivery into a task is `HandIns`** (`apps/app-model/.../HandIns.java`, the daemon's `HandIn`, `TakeBack`,
-  `HandIns`): a file arrives in parts, is checked by size and sha256, written as root into `/sokar/.incoming` and
-  renamed into `/sokar/files`, mode 0644, in a directory the agent cannot write, and every hand-in is a line in a
+  `HandIns`): a file arrives in parts, is checked by size and sha256, written as root into `/porelo/.incoming` and
+  renamed into `/porelo/files`, mode 0644, in a directory the agent cannot write, and every hand-in is a line in a
   record. That is "read-only and never executable, into a place of that task's own" already; an artifact received
   is a hand-in whose record line names the artifact, the peer and the signature.
 - **The transport contract** is `TransportDescription`, `TransportSend`, `TransportPoll` and `TransportLifecycle`
@@ -193,26 +193,26 @@ transport rather than podman's store.
    a push carrying a blob over the threshold that waits for review.
 3. **The artifact verbs (L, with the transport's repository).** `put`, `fetch`, `remove`, `list` with their
    arguments and exit codes, the `describe` fields, and a stand-in transport for the tests in `testing/`. Red first:
-   a stand-in transport offering the verbs needs no change in `sokar` to carry an artifact.
+   a stand-in transport offering the verbs needs no change in `porelo` to carry an artifact.
 4. **Taking an artifact out (L).** A drop directory bind-mounted from the task's own state (as the mailbox is),
    read by a host-side helper of that task only: regular files only, symbolic links refused, size counted as copied
    against the project's limit (never above the transport's), sha256, the commit the workspace was at, the record
    line written, then the signed put. The project switch (`artifacts:` in `project.yml`) and `task start
    --no-artifacts`. Red first: a symbolic link in the drop directory that is followed.
 5. **Receiving, listing and withdrawing (M).** The accept declaration in `project.yml`, fetch and signature check,
-   delivery through `HandIns`, `sokar artifact list` and `withdraw` naming the tasks that have it, the daemon's
+   delivery through `HandIns`, `porelo artifact list` and `withdraw` naming the tasks that have it, the daemon's
    methods. Red first: an artifact put with mode 0755 that arrives executable, or one not declared that arrives.
 
 ## Acceptance
 
-- An artifact leaves a task through a channel Sokar owns. **No directory is shared between two
+- An artifact leaves a task through a channel Porelo owns. **No directory is shared between two
   tasks, and no storage is mounted into one or reachable from it.** Seen to fail: a test that
   inspects a task's mounts goes red when a storage, or a directory another task writes, is among
   them.
-- **Artifacts go only through the project's message transport, and Sokar names no messaging
+- **Artifacts go only through the project's message transport, and Porelo names no messaging
   system.** No code outside a transport knows one or how it stores bytes, and a second transport
-  adds nothing to `sokar`. Seen to fail: a stand-in message transport offering the artifact verbs,
-  written for the test, needs a change in `sokar` to carry an artifact between two tasks.
+  adds nothing to `porelo`. Seen to fail: a stand-in message transport offering the artifact verbs,
+  written for the test, needs a change in `porelo` to carry an artifact between two tasks.
 - A project whose message transport does not offer the artifact verbs, or that has none, is refused a
   hand-over, naming why. Seen to fail: such a hand-over waits, or is refused without the reason.
 - An artifact is signed on the host that took it and checked against the peer's listed keys before it
@@ -259,10 +259,10 @@ transport rather than podman's store.
 - A file larger than the project's threshold is refused at the gate when it arrives as a git blob,
   naming the threshold, which has a default a project file can change. Seen to fail: a push carrying
   a blob over the threshold waits for review, or the refusal does not name the number.
-- How long an artifact is kept is the transport's business: Sokar removes nothing on a timer and
-  cleans nothing up. A project file may set a lifetime per artifact, which Sokar passes with every
+- How long an artifact is kept is the transport's business: Porelo removes nothing on a timer and
+  cleans nothing up. A project file may set a lifetime per artifact, which Porelo passes with every
   put; a transport that announces in `describe` that it keeps one applies it, and for one that does
-  not, checking the project file says the lifetime has no effect there. Seen to fail: Sokar removes
+  not, checking the project file says the lifetime has no effect there. Seen to fail: Porelo removes
   an artifact nobody withdrew, a set lifetime is not passed with a put, or a transport that cannot
   keep one is not named when the project file is checked.
 - An artifact has a size limit, set in the project file and never above what the transport announces

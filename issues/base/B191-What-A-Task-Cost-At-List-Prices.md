@@ -1,10 +1,10 @@
 # B191 — What A Task Cost At List Prices
 
-**Status:** Analyzed; blocked by sokar [B148](README.md#b148).
+**Status:** Analyzed; blocked by porelo [B148](README.md#b148).
 **Size:** L - price data and its reader, a declaration of the account's own, sums in two commands and a daemon
 method, and a design of what a subscription saved to decide first.
 
-**What must be true.** Sokar says what each task, agent and model cost at the providers' list prices, from
+**What must be true.** Porelo says what each task, agent and model cost at the providers' list prices, from
 [B148](README.md#b148)'s usage record, with the date the prices were taken from, and what a subscription the person
 declared saved against that. A request with no price is said, never counted as $0.
 
@@ -31,12 +31,12 @@ A receipt, over one task or all of them:
 ## Plan
 
 Read in today's code: providers are data, found by `ProviderDirectory` (`agents/api`) in the person's
-`~/.local/share/sokar/providers` first, then the packaged directory (`AgentPaths.providerDirectory`). Nothing on the
+`~/.local/share/porelo/providers` first, then the packaged directory (`AgentPaths.providerDirectory`). Nothing on the
 host knows a price. [B148](README.md#b148)'s record has one line per request with agent, provider, credential,
 model answered and the five counts; its `UsageSums` (`core`) sums them.
 
 1. **The price table** is data, one file per provider, `prices/<provider>.yaml` in this repository and packaged
-   beside the provider files, the person's own `~/.local/share/sokar/prices` first, as providers are found: per
+   beside the provider files, the person's own `~/.local/share/porelo/prices` first, as providers are found: per
    model, `input`, `output`, `cache_read` and `cache_write` in US dollars per million tokens (a missing cache price
    is the input price; `cache_write` only where it differs), and the `taken` date the prices were read on. A change
    of price is a file, not a release. `PriceTable` and its reader in `core`, refusing a negative price, a model
@@ -50,7 +50,7 @@ model answered and the five counts; its `UsageSums` (`core`) sums them.
    of its own; else at the list price of the vendor that makes the model (Anthropic's for a Claude model, OpenAI's
    for a GPT model), named in the provider's price file as `priced_as: <vendor>`, and the receipt says so beside the
    sum - "priced at Anthropic's list price" - so it is not read as that provider's price.
-3. **A subscription is declared once by the person**: `sokar subscription set <name> --provider <provider>
+3. **A subscription is declared once by the person**: `porelo subscription set <name> --provider <provider>
    [--credential <name>] --monthly <usd> --since <date>`, kept in the account's own config directory as
    `subscriptions.yml`, owner-only, never in a project or a committed file; `subscription list` and `subscription
    remove`. It covers the requests made with that provider (and credential, where named) from its date on.
@@ -58,7 +58,7 @@ model answered and the five counts; its `UsageSums` (`core`) sums them.
    monthly fee for each month it was held, said as a line of its own; a sum that is less than the fee says the
    subscription cost more than its use. A single task is not given a share of the fee: its receipt says which
    subscription covered which part.
-5. **Shown** by `task status` for one task (by agent, by model, subtotal, the price date) and by `sokar usage
+5. **Shown** by `task status` for one task (by agent, by model, subtotal, the price date) and by `porelo usage
    [--since <date>] [--until <date>] [--json]` over every task's record, removed ones included, as the receipt
    above; the daemon gains `Cost(task: ?string, since: ?string, until: ?string) -> (cost: Cost)` in `15-task.varlink`
    - an addition. The interface is Frontend's, later.
@@ -72,13 +72,13 @@ file is owner-only and the saving per month is as computed by hand.
 
 ## Acceptance
 
-- `task status` and `sokar usage` give the sums by agent and model, at list prices, with the price date; seen to fail
+- `task status` and `porelo usage` give the sums by agent and model, at list prices, with the price date; seen to fail
   first on a record that holds a model the table does not.
 - A request with no price is named in the count and never adds $0; seen to fail first as a sum that is silently
   lower.
 - A declared subscription shows its fee and what it saved per month; the file holds nothing but the declaration and
   is `rw-------`.
-- A price changed in `~/.local/share/sokar/prices` changes the next sum without a release.
+- A price changed in `~/.local/share/porelo/prices` changes the next sum without a release.
 - The pages named in step 6 say it.
 
 ## To be checked

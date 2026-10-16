@@ -1,8 +1,8 @@
 # P09 — A Native Agent And A Provider It Does Not Know
 
 **Status:** Estimated.
-**Size:** M - one change of `sokar-agent-api`, which the agent repositories read and take, a new refusal at the start,
-`sokar agents --verbose`, docs and an acceptance step.
+**Size:** M - one change of `porelo-agent-api`, which the agent repositories read and take, a new refusal at the start,
+`porelo agents --verbose`, docs and an acceptance step.
 
 **What must be true.** An agent that speaks `native` and is given a provider whose name it does not recognize is
 refused with a reason before a task starts, naming the providers it knows.
@@ -27,9 +27,9 @@ does not know - is out of scope here and will be an issue of its own (see the en
    taken the new API is not broken by it.
 3. **`SelectedProvider`** gains a refusal `UNKNOWN_TO_AGENT` beside `WRONG_DIALECT`, and `StartCheck` turns it into a
    refusal before anything is made, naming the agent, the provider and the providers it knows.
-4. **`sokar agents --verbose`** (`AgentsCommand`, `ProviderInventory`) pairs a `native` agent only with the providers
+4. **`porelo agents --verbose`** (`AgentsCommand`, `ProviderInventory`) pairs a `native` agent only with the providers
    it knows.
-5. **The agent repositories** (`sokar-pi`, `sokar-omp`) list what their agent knows in their definitions; each takes
+5. **The agent repositories** (`porelo-pi`, `porelo-omp`) list what their agent knows in their definitions; each takes
    the new API version.
 6. **Docs:** `doc/credentials.md` ("Model providers") says what `native` pairs with.
 7. **Acceptance:** a provider file `example-unknown` declaring `openai`, chosen for Pi with `--provider`: refused
@@ -42,7 +42,7 @@ can register a provider it does not know with that wire format, and an agent tha
 ## Acceptance
 
 - A provider file with a name a `native` agent does not know, declaring a dialect it can speak, is chosen with
-  `sokar task start --provider <name>`, and the start is refused before the task starts, naming the agent, the
+  `porelo task start --provider <name>`, and the start is refused before the task starts, naming the agent, the
   provider and the providers the agent knows. Seen to fail: the start succeeding, and the agent answering that it
   does not know the provider.
 - A provider in the agent's list is still given to it, and an agent that lists nothing behaves as it does today.

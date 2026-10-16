@@ -8,9 +8,9 @@ the guide it reads tells it exactly that schema, not a looser one.
 
 ## Why
 
-[B14](README.md#b14)'s design narrows A2A 1.0 for Sokar's messages, and nothing enforces it; decided that it is to
-be enforced. The mailbox guide (`/run/sokar/mail/README.md`, in `doc/messages.md`) tells agents the looser rules that are enforced today. The filter's side, if it checks it, is
-`sokar-message-sluice`'s.
+[B14](README.md#b14)'s design narrows A2A 1.0 for Porelo's messages, and nothing enforces it; decided that it is to
+be enforced. The mailbox guide (`/run/porelo/mail/README.md`, in `doc/messages.md`) tells agents the looser rules that are enforced today. The filter's side, if it checks it, is
+`porelo-message-sluice`'s.
 
 ## The shape
 
@@ -18,7 +18,7 @@ be enforced. The mailbox guide (`/run/sokar/mail/README.md`, in `doc/messages.md
   - `metadata` holds `kind`, `to`, `from`, `thread` and nothing else; `kind` is one of `question`, `answer`,
     `review-request`, `handover`, `status`, each with its fixed data part.
   - Exactly one text part within the peer's limit, at most one data part; no file, raw or url part.
-  - `extensions` exactly a Sokar messaging extension URI, which has to be defined first.
+  - `extensions` exactly a Porelo messaging extension URI, which has to be defined first.
 - The mailbox guide and `doc/messages.md` say it the day it is enforced, from the same constants.
 
 ## Plan
@@ -34,15 +34,15 @@ Read in the code on 2026-10-11:
   [B14](README.md#b14)'s table lists `kind`, `to`, `from` and `thread` only. And a person's `metadata.from` in the room is a
   Matrix id. The schema is written with what is sent today, or the guide changes with it.
 
-**Which side checks what** - the answer for the filter's [SL23](https://github.com/sokar-ai/sokar-message-sluice/blob/main/issues/README.md#sl23): **the filter checks the shape, the host does not
+**Which side checks what** - the answer for the filter's [SL23](https://github.com/porelo-ai/porelo-message-sluice/blob/main/issues/README.md#sl23): **the filter checks the shape, the host does not
 check it again.** The envelope is the filter's (its decisions say so), the host's own checks stay what only the
 host can judge - the role, `to` naming one peer - and every message leaves a task through the filter, so a
 check at the host first would refuse the same message with other words and no answer to the sender.
 
 **Where the schema lives**: one JSON Schema document in this repository,
-`apps/app-messaging/src/main/resources/org/fuin/sokar/app/message.schema.json`, installed with the packages at
-`/usr/share/sokar/message.schema.json` and given to the filter as `--schema <path>` by `MessageFiltering`.
-The filter's tests read the copy published with the Sokar release they build against. The extension URI is a
+`apps/app-messaging/src/main/resources/org/fuin/porelo/app/message.schema.json`, installed with the packages at
+`/usr/share/porelo/message.schema.json` and given to the filter as `--schema <path>` by `MessageFiltering`.
+The filter's tests read the copy published with the Porelo release they build against. The extension URI is a
 constant in it.
 
 Steps:
@@ -51,7 +51,7 @@ Steps:
    it and the guide: red first, since `MailboxGuide.text()` today lists no kind and asks for no `extensions`.
 2. **`MailboxGuide` and `doc/messages.md`** made from the document's kinds, keys and limits; the comparing test
    goes green.
-3. **`MessageFiltering`** passes `--schema` once the filter takes it ([SL23](https://github.com/sokar-ai/sokar-message-sluice/blob/main/issues/README.md#sl23)); until then a filter that does not
+3. **`MessageFiltering`** passes `--schema` once the filter takes it ([SL23](https://github.com/porelo-ai/porelo-message-sluice/blob/main/issues/README.md#sl23)); until then a filter that does not
    know the option is not given it, so nothing breaks in between.
 4. **`MessageSay`** (`talk say`) writes the narrowed shape itself, `--kind` among the five.
 5. **The acceptance scenario** in `talk-commands.feature`: one message of each refused shape, each held with
@@ -64,7 +64,7 @@ Steps:
   sending each such message is accepted.
 - A message with no text part, more than one text part, a text part over the peer's limit, more than one data part,
   or any file, raw or url part, is refused. Seen to fail: a test sending each such message is accepted.
-- A message whose `extensions` is not exactly the Sokar messaging extension URI is refused. Seen to fail: a test
+- A message whose `extensions` is not exactly the Porelo messaging extension URI is refused. Seen to fail: a test
   sending a message with no or another extension URI is accepted.
 - The mailbox guide and `doc/messages.md` state the narrowed schema from the same constants the check uses. Seen to fail:
   a test comparing the guide's kinds and limits with the enforcing constants finds a difference.
@@ -72,9 +72,9 @@ Steps:
 ## To be checked
 
 - Whether `metadata.via` joins the narrowed schema, as the guide and the transports use it now, or room and
-  direct are told another way (Agent Core's, with sokar-message-sluice's agent).
+  direct are told another way (Agent Core's, with porelo-message-sluice's agent).
 - How a person is named in `metadata.from`: their Matrix id, or a plain name the host maps (Agent Core's, with
-  sokar-message-sluice's agent).
-- The Sokar messaging extension's URI (Agent Core's).
-- Whether a message from before is refused or converted: [SL23](https://github.com/sokar-ai/sokar-message-sluice/blob/main/issues/README.md#sl23) refuses it, since the filter never rewrites a
+  porelo-message-sluice's agent).
+- The Porelo messaging extension's URI (Agent Core's).
+- Whether a message from before is refused or converted: [SL23](https://github.com/porelo-ai/porelo-message-sluice/blob/main/issues/README.md#sl23) refuses it, since the filter never rewrites a
   message; whether the host converts what sits in an outbox on the day of the switch (Agent Core's).

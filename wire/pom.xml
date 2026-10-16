@@ -6,18 +6,18 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.fuin.sokar</groupId>
-        <artifactId>sokar</artifactId>
-        <version>0.4.2-SNAPSHOT</version>
+        <groupId>org.fuin.porelo</groupId>
+        <artifactId>porelo</artifactId>
+        <version>0.5.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>sokar-wire</artifactId>
-    <name>Sokar Wire</name>
-    <description>Sokar - Cross-boundary records, varlink and socket labeling (WIRE)</description>
+    <artifactId>porelo-wire</artifactId>
+    <name>Porelo Wire</name>
+    <description>Porelo - Cross-boundary records, varlink and socket labeling (WIRE)</description>
 
     <properties>
         <!-- Deployed to Central. Not interesting on its own - it is deployed because
-             sokar-agent-api's pom names it, so resolving the agent API needs it too. -->
+             porelo-agent-api's pom names it, so resolving the agent API needs it too. -->
         <maven.deploy.skip>false</maven.deploy.skip>
         <skipPublishing>false</skipPublishing>
     </properties>
@@ -48,7 +48,7 @@
                 <configuration>
                     <archive>
                         <manifestEntries>
-                            <Automatic-Module-Name>org.fuin.sokar.wire</Automatic-Module-Name>
+                            <Automatic-Module-Name>org.fuin.porelo.wire</Automatic-Module-Name>
                         </manifestEntries>
                     </archive>
                 </configuration>

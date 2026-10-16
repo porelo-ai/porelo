@@ -1,0 +1,13 @@
+{
+  "resources": [
+    {
+      "glob": "porelo-version.properties"
+    },
+    {
+      "glob": "completion/porelo"
+    },
+    {
+      "glob": "completion/_porelo"
+    }
+  ]
+}

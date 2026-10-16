@@ -32,7 +32,7 @@ worst single copy is gone and the general property is not.
 
 ### Found by a first-install test, 2026-09-08: hardening that is never applied
 
-`sokar doctor` ends with three lines that are not probes:
+`porelo doctor` ends with three lines that are not probes:
 
 ```
 dumpable            1
@@ -84,7 +84,7 @@ So the achievable goal is **fewer copies and shorter lifetimes**, never erasure.
 promising otherwise would be the kind of claim this project's own notes warn about, and any test of
 it would be asserting something the platform does not offer.
 
-### Found by [B76](README.md#b76)'s reading of `sokar-vault`
+### Found by [B76](README.md#b76)'s reading of `porelo-vault`
 
 - `KernelKeyring` makes a `String` of the passphrase when storing and reading it, and leaves its
   native buffers unzeroed when the arena closes.
@@ -99,7 +99,7 @@ steps are open, in this order, cheapest first.
 **1. Hardening applied (S, its own commit).** `ProcessHardening` (`core/.../hardening/ProcessHardening.java`) has
 `disableDumping()` and `dropPrivilegeEscalation()`, and still no caller; only `DoctorCommand` reads `dumpable()` and
 `noNewPrivileges()`. Call both first thing in `VaultServeCommand.call`, `VaultAgentCommand.call` and
-`VaultRelayCommand.call` (`apps/app-vault/...`), and in the daemon's start (`DaemonCommand`, `SokarDaemon`), which
+`VaultRelayCommand.call` (`apps/app-vault/...`), and in the daemon's start (`DaemonCommand`, `PoreloDaemon`), which
 now holds the vault's reads. `doctor` then reports the hardening of those processes, read from
 `/proc/<pid>/status` of each running one, not of itself - or drops the three lines (below). Red first: an
 acceptance step reading `Dumpable` of the running broker and daemon, which reads `1` today.

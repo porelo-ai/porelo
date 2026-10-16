@@ -13,11 +13,11 @@ A person approves what they saw; a cut diff that does not say so lets unseen cha
 
 ## The shape
 
-Checked 2026-10-09: `sokar gate review` and the daemon's review print the whole diff; nothing cuts it. What is open is the wire: whether a diff larger than a message may be is cut, refused or sent whole, and that an interface says it when it shows less.
+Checked 2026-10-09: `porelo gate review` and the daemon's review print the whole diff; nothing cuts it. What is open is the wire: whether a diff larger than a message may be is cut, refused or sent whole, and that an interface says it when it shows less.
 
 ## Plan
 
-**Today (read 2026-10-11).** `GitGate.rankedReview` returns the whole patch; `sokar gate review` prints it whole; the
+**Today (read 2026-10-11).** `GitGate.rankedReview` returns the whole patch; `porelo gate review` prints it whole; the
 daemon's `Review` (`GateMethods`) puts it whole into `diff`. A varlink message may be at most 4 MiB
 (`VarlinkConnection.MAX_MESSAGE`); a larger reply fails at the receiving side as "A varlink message exceeded ..."
 bytes - the interface gets an error, not a cut diff, and nothing says why. `PendingBundle` already refuses above its
@@ -27,7 +27,7 @@ limit, by name (`BundleTooLarge`).
 
 1. `GateMethods` measures the reply. Above a bound under the message limit, with room for `log` and `files`, the diff
    is cut at a file boundary and the reply says so: `cut: ?ReviewCut` - the files shown, of how many, and the command
-   that shows them all (`sokar gate review <name>`). `files` is never cut, so every file is listed.
+   that shows them all (`porelo gate review <name>`). `files` is never cut, so every file is listed.
 2. `35-gate.varlink`: `Review` gains `cut`, and its comment says an interface that shows less than `diff` says so.
 3. `doc/how-it-works.md` (the gate) and `doc/commands.md` say it.
 

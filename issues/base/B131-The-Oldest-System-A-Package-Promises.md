@@ -1,11 +1,11 @@
 # B131 — The Oldest System A Package Promises
 
 **Status:** Review.
-**Size:** M - both packages, the build's check from `sokar-buildtools`, the runners and the docs.
+**Size:** M - both packages, the build's check from `porelo-buildtools`, the runners and the docs.
 
-**What must be true.** The `.deb` and the `.rpm` install only where `sokar`, `sokard` and the stub agent can start:
+**What must be true.** The `.deb` and the `.rpm` install only where `porelo`, `porelod` and the stub agent can start:
 they declare the oldest C library and zlib the binaries need, a build that would need more fails before it is
-published, and the oldest system Sokar supports is written down.
+published, and the oldest system Porelo supports is written down.
 
 ## Why
 
@@ -13,10 +13,10 @@ Today the packages declare podman 5 and the tools around it, but no C library an
 dynamically; the hooks are static. Measured on a build of `b672aba4` on Ubuntu 26.04 (glibc 2.43), with
 `objdump -T` and `readelf -d`:
 
-    apps/app/target/sokar               GLIBC_2.34   libz.so.1 libc.so.6
-    daemon/target/sokard                GLIBC_2.34   libz.so.1 libc.so.6
-    agents/stub/target/sokar-agent-stub GLIBC_2.34   libz.so.1 libc.so.6
-    hooks/target/sokar-hook-*           static
+    apps/app/target/porelo               GLIBC_2.34   libz.so.1 libc.so.6
+    daemon/target/porelod                GLIBC_2.34   libz.so.1 libc.so.6
+    agents/stub/target/porelo-agent-stub GLIBC_2.34   libz.so.1 libc.so.6
+    hooks/target/porelo-hook-*           static
 
 2.34 is low today because native-image asks little of the C library. Nothing holds it there: a newer GraalVM, a new
 dependency or a newer build host can raise it, and apt or dnf would still install the package. It would then fail
@@ -25,7 +25,7 @@ moves to 26.04 by itself.
 
 The agent packages and the message repositories already solve this: a pinned runner, the floor measured and
 declared by hand in the packages, and a test that fails when a binary needs more (`NativeLinkageCheck` in
-`sokar-claude-code`, `PackagesIT` in `sokar-message-matrix`).
+`porelo-claude-code`, `PackagesIT` in `porelo-message-matrix`).
 
 ## The systems
 
@@ -60,13 +60,13 @@ is at most glibc 2.41**, Debian 13's; today they would declare 2.34, what the bi
 
 - `dpkg-deb -f … Depends` and `rpm -qp --requires` name the C library and zlib with the measured floor.
 - A build whose binaries need a newer `GLIBC_` than the floor fails in `dist-check`, seen on purpose.
-- The packages install and `sokar doctor` runs on Debian 13 and Fedora 43, each in a container or on a machine, once.
+- The packages install and `porelo doctor` runs on Debian 13 and Fedora 43, each in a container or on a machine, once.
 
-The same pattern, from its first version, for `sokar-build-github`'s package (its [GH01](https://github.com/sokar-ai/sokar-build-github/blob/main/issues/README.md#gh01)).
+The same pattern, from its first version, for `porelo-build-github`'s package (its [GH01](https://github.com/porelo-ai/porelo-build-github/blob/main/issues/README.md#gh01)).
 
 ## As built, 2026-10-09
 
-- **The check is shared:** `sokar-release check-linkage` in `sokar-buildtools` (`--declare LIBRARY=PREFIX:FLOOR`,
+- **The check is shared:** `porelo-release check-linkage` in `porelo-buildtools` (`--declare LIBRARY=PREFIX:FLOOR`,
   `--ceiling PREFIX=VERSION`, the binaries). A static-pie binary, as the hooks are, needs nothing. The agents' own
   `NativeLinkageCheck` copies can move to it.
 - **Here:** `package.glibc.floor` 2.34, `package.zlib.floor` 1.2.2 and `package.glibc.ceiling` 2.41 in the root
@@ -74,8 +74,8 @@ The same pattern, from its first version, for `sokar-build-github`'s package (it
   `libz.so.1(ZLIB_1.2.2)(64bit)`; `dist-check` runs `check-linkage` on the six binaries under `-Pdist`. The
   build's three jobs run on `ubuntu-24.04`. `doc/getting-started.md` names the supported systems.
 - **Seen to fail first:** `-Dpackage.glibc.floor=2.33` stops the package build at `check-linkage`, naming
-  `GLIBC_2.34` for `sokar`, `sokard` and the stub.
-- **Measured once:** the packages install and `sokar --version` runs in clean `debian:13` (glibc 2.41, podman
+  `GLIBC_2.34` for `porelo`, `porelod` and the stub.
+- **Measured once:** the packages install and `porelo --version` runs in clean `debian:13` (glibc 2.41, podman
   5.4.2) and `fedora:43` (glibc 2.42, podman 5.8.4).
 - **Every build:** `dist/package-check` installs in `debian:13` and `fedora:43` beside `ubuntu:26.04` and
   `fedora:44`, each pinned by digest; Debian from its own mirrors, not Ubuntu's.
@@ -87,6 +87,6 @@ Built and on main (`bfface03`): the floors and the ceiling in the root `pom.xml`
 `dist/dist-check/pom.xml`, `runs-on: ubuntu-24.04` in `.github/workflows/build.yml`, `debian:13` and `fedora:43` in
 `dist/package-check` (`Main`, `ImagesTest`), the systems in `doc/getting-started.md`. Nothing is left to build.
 
-One gap against the acceptance: it asks that `sokar doctor` runs on Debian 13 and Fedora 43; the package check runs
-`sokar --version`, `sokar setup` and `sokar agents` there (`Install.COMMON`), and the measurement ran `--version`.
+One gap against the acceptance: it asks that `porelo doctor` runs on Debian 13 and Fedora 43; the package check runs
+`porelo --version`, `porelo setup` and `porelo agents` there (`Install.COMMON`), and the measurement ran `--version`.
 That is close enough to test by hand once; a `DOCTOR-RUNS` marker in `Install.COMMON` would make it every build's.

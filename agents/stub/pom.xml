@@ -6,19 +6,19 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.fuin.sokar</groupId>
-        <artifactId>sokar-agents</artifactId>
-        <version>0.4.2-SNAPSHOT</version>
+        <groupId>org.fuin.porelo</groupId>
+        <artifactId>porelo-agents</artifactId>
+        <version>0.5.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>sokar-agent-stub</artifactId>
+    <artifactId>porelo-agent-stub</artifactId>
 
-    <!-- On Sokar's version, unlike a real agent: this one is not shipped and has no cadence of
+    <!-- On Porelo's version, unlike a real agent: this one is not shipped and has no cadence of
          its own. It exists so the acceptance suite still has an agent to drive once the real
          ones live in their own repositories. -->
 
-    <name>Sokar Agent Stub</name>
-    <description>Sokar - Agent used by the acceptance suite (AGENT-STUB)</description>
+    <name>Porelo Agent Stub</name>
+    <description>Porelo - Agent used by the acceptance suite (AGENT-STUB)</description>
 
     <properties>
         <!-- Filtered into stub.yaml and printed by the installed script, so the version check
@@ -35,13 +35,13 @@
         <!-- compile: the agent API, and nothing else. Never another agent. -->
 
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-agent-api</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-agent-api</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-wire</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-wire</artifactId>
         </dependency>
 
     </dependencies>
@@ -51,8 +51,8 @@
         <profile>
             <id>native</id>
             <properties>
-                <sokar.cpu.skip>false</sokar.cpu.skip>
-                <sokar.cpu.images>sokar-agent-stub</sokar.cpu.images>
+                <porelo.cpu.skip>false</porelo.cpu.skip>
+                <porelo.cpu.images>porelo-agent-stub</porelo.cpu.images>
             </properties>
             <build>
                 <plugins>
@@ -61,14 +61,14 @@
                         <artifactId>native-maven-plugin</artifactId>
                         <executions>
                             <execution>
-                                <id>build-sokar-agent-stub</id>
+                                <id>build-porelo-agent-stub</id>
                                 <phase>package</phase>
                                 <goals>
                                     <goal>compile-no-fork</goal>
                                 </goals>
                                 <configuration>
-                                    <imageName>sokar-agent-stub</imageName>
-                                    <mainClass>org.fuin.sokar.agent.impl.stub.StubAgent</mainClass>
+                                    <imageName>porelo-agent-stub</imageName>
+                                    <mainClass>org.fuin.porelo.agent.impl.stub.StubAgent</mainClass>
                                 </configuration>
                             </execution>
                         </executions>

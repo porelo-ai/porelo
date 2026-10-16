@@ -1,19 +1,19 @@
-# Why you should use Sokar: a guide for corporate security
+# Why you should use Porelo: a guide for corporate security
 
 For the person who decides whether a coding agent may run in an organisation. It answers the usual
-questions, and says where Sokar does not help.
+questions, and says where Porelo does not help.
 
-## The problem Sokar solves
+## The problem Porelo solves
 
 A coding agent reads and changes files, runs commands, and sends workspace content to a model
 provider. Normally its safety rests on **its own configuration**, which the developer controls. That
 is why many organisations refuse such agents.
 
-**Sokar moves the enforcement out of the agent.** The agent runs in a hardened, rootless container. Its
+**Porelo moves the enforcement out of the agent.** The agent runs in a hardened, rootless container. Its
 network, credentials and outputs are controlled from outside, by the project's configuration and the
-person running Sokar. How the agent is configured no longer matters.
+person running Porelo. How the agent is configured no longer matters.
 
-**Sokar holds the agent, not the developer.** The developer controls Sokar on their own machine. To
+**Porelo holds the agent, not the developer.** The developer controls Porelo on their own machine. To
 hold the developer too, use device policy, as for any other software.
 
 ## The questions, answered
@@ -30,7 +30,7 @@ hold the developer too, use device policy, as for any other software.
 - **Outgoing network is denied by default.** A task resolves only the names its agent and provider
   need and what the project's `egress` names; the upstream is reached by the gate on the host, never
   from a container. Any other provider is unreachable, whatever the agent is configured to use.
-- **The person starting a task chooses the provider.** Sokar has no list of providers an organisation
+- **The person starting a task chooses the provider.** Porelo has no list of providers an organisation
   approved; that is device policy today.
 - **The agent never holds a provider credential.** A broker on the host adds the real key. The
   container holds a token worthless elsewhere, cannot mint its own, and never sees a credential in an
@@ -42,7 +42,7 @@ hold the developer too, use device policy, as for any other software.
 ### Telemetry, crash reports, analytics?
 
 - **Blocked by default**: a name that is not allowed does not resolve.
-- **Visible**: `sokar task logs` shows every name the task asked for, allowed or refused. One run shows
+- **Visible**: `porelo task logs` shows every name the task asked for, allowed or refused. One run shows
   which endpoints an agent tries to contact.
 
 ### Can it be locked down so a developer cannot override it?
@@ -51,7 +51,7 @@ hold the developer too, use device policy, as for any other software.
   past the gate.
 - **The developer, no.** They can choose the provider, follow an unsigned project, allow a blocked
   connection, widen a running task's network, give one run a credential, or run the agent without
-  Sokar. Requiring Sokar is a matter of device policy.
+  Porelo. Requiring Porelo is a matter of device policy.
 
 ### Does the agent get more rights than today's tools?
 
@@ -61,7 +61,7 @@ the same box.
 
 ### Approval per command, or none?
 
-Sokar is built for agents running without per-command approval; the box replaces it. A person stays in
+Porelo is built for agents running without per-command approval; the box replaces it. A person stays in
 control at three points the agent cannot switch off:
 
 1. **The gate.** In a `guarded` project, work leaves only after a person reviews it, riskiest changes
@@ -76,10 +76,10 @@ control at three points the agent cannot switch off:
 
 ### Prompt injection
 
-Sokar **does not stop an agent from reading** untrusted content - web pages, READMEs, dependencies,
+Porelo **does not stop an agent from reading** untrusted content - web pages, READMEs, dependencies,
 logs. **It limits what an injected agent can do:**
 
-| Concern | In Sokar |
+| Concern | In Porelo |
 |---|---|
 | Trust boundary | the container; credentials stay on the host |
 | Tool gating | network denied by default; names only from the agent's and provider's needs and the project's configuration |
@@ -91,24 +91,24 @@ server the project names. [How far a task can get](reach.md) lists every bound a
 
 ### Tool poisoning and MCP rug pulls
 
-**Sokar limits the damage but does not detect the attack.** A poisoned tool cannot take a credential,
-reach an undeclared host or slip a change past review. But Sokar does not read MCP tool definitions,
+**Porelo limits the damage but does not detect the attack.** A poisoned tool cannot take a credential,
+reach an undeclared host or slip a change past review. But Porelo does not read MCP tool definitions,
 so a misleading description, or a server that changes its tools later, goes unnoticed. See the
-[FAQ](faq.md#how-is-sokar-protected-against-tool-poisoning-an-mcp-servers-rug-pull).
+[FAQ](faq.md#how-is-porelo-protected-against-tool-poisoning-an-mcp-servers-rug-pull).
 
-## What Sokar does not do
+## What Porelo does not do
 
-- **It does not replace device management.** An agent run outside Sokar is unprotected, and the
-  developer controls Sokar on their own machine.
+- **It does not replace device management.** An agent run outside Porelo is unprotected, and the
+  developer controls Porelo on their own machine.
 - **It does not keep a list of approved providers**; the provider is chosen per task.
 - **It does not stop prompt injection**; it limits the consequences.
 - **It does not inspect MCP tool definitions.**
 - **It does not limit spending.** A task can use whatever the provider account allows.
-- **It works only with providers Sokar can broker**: an API key, or a subscription sign-in that the
+- **It works only with providers Porelo can broker**: an API key, or a subscription sign-in that the
   broker [renews on the host](credentials.md#a-sign-in-that-ends-renewed-on-the-host).
 
 ## In one sentence
 
-Sokar lets an organisation allow a capable coding agent without trusting its configuration: the agent
+Porelo lets an organisation allow a capable coding agent without trusting its configuration: the agent
 runs in a box it cannot change, credentials never enter it, the network is closed by default, and in a
 `guarded` project nothing leaves without a person's review.

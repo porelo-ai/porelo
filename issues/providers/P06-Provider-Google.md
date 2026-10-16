@@ -19,7 +19,7 @@ and its keys are made.
 finds and replaces (`VaultProxy.presented` names it). The account sign-in is unverified.
 
 The agents that can reach it are listed in
-[the comparison](https://github.com/sokar-ai/sokar-project/blob/main/doc/agents-and-providers.md).
+[the comparison](https://github.com/porelo-ai/porelo-project/blob/main/doc/agents-and-providers.md).
 
 ## Plan
 
@@ -30,9 +30,9 @@ The agents that can reach it are listed in
    `native` agent finds it ([P09](README.md#p09)); `dialects: { google-generative-ai: "/v1beta", openai: "/v1beta/openai" }`, the own
    format first so `native` gets it; `auth_header: { _default: x-goog-api-key }`, `auth_prefix: { _default: "" }`;
    `token_env: { _default: GEMINI_API_KEY }`; `unbrokerable: { oauth: ... }` until the sign-in is measured.
-3. **`doc/credentials.md`:** a row in "The providers Sokar ships", saying both dialects.
+3. **`doc/credentials.md`:** a row in "The providers Porelo ships", saying both dialects.
 4. **Live:** a scenario in an agent repository speaking `native` or `openai`, as its `openrouter` scenario does, with
-   a fake key: Google's own refusal (`API_KEY_INVALID`) proves the swap, `sokar task status` names `google`, and the
+   a fake key: Google's own refusal (`API_KEY_INVALID`) proves the swap, `porelo task status` names `google`, and the
    container holds no key.
 5. **The sign-in, measured apart:** it reaches other hosts than the API key does; when measured, it is a provider
    file of its own or the `oauth` entries here, and `unbrokerable` is lifted. An account is provided for the

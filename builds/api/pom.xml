@@ -6,14 +6,14 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.fuin.sokar</groupId>
-        <artifactId>sokar-builds</artifactId>
-        <version>0.4.2-SNAPSHOT</version>
+        <groupId>org.fuin.porelo</groupId>
+        <artifactId>porelo-builds</artifactId>
+        <version>0.5.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>sokar-build-api</artifactId>
-    <name>Sokar Build API</name>
-    <description>Sokar - Build reader API (BUILD-API)</description>
+    <artifactId>porelo-build-api</artifactId>
+    <name>Porelo Build API</name>
+    <description>Porelo - Build reader API (BUILD-API)</description>
 
     <properties>
         <!-- Deployed to Central. A build reader in its own repository resolves this jar to
@@ -27,11 +27,11 @@
         <!-- compile -->
 
         <!-- Json, and the varlink client and server. Both halves of the build protocol live
-             here, so Sokar and every reader agree on the wire by construction. -->
+             here, so Porelo and every reader agree on the wire by construction. -->
 
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-wire</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-wire</artifactId>
         </dependency>
 
     </dependencies>
@@ -62,7 +62,7 @@
                 <configuration>
                     <archive>
                         <manifestEntries>
-                            <Automatic-Module-Name>org.fuin.sokar.build.api</Automatic-Module-Name>
+                            <Automatic-Module-Name>org.fuin.porelo.build.api</Automatic-Module-Name>
                         </manifestEntries>
                     </archive>
                 </configuration>

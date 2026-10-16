@@ -4,14 +4,14 @@
 **Size:** M - http for loopback in two validators, a broker route without a credential across `agents/api`,
 `supervisor`, `app-task` and `app-vault`, two provider files and a page.
 
-**What must be true.** Sokar ships two example provider definitions for an OpenAI-compatible endpoint a person runs
+**What must be true.** Porelo ships two example provider definitions for an OpenAI-compatible endpoint a person runs
 themselves: one for a model served on this machine, on the host's loopback, and one for a model on the organisation's
 network, over https. So a person can keep prompts on the machine or inside the organisation; choosing and running the
 model stays theirs.
 
 ## Why
 
-Data sovereignty obligations may rule out a remote provider; Sokar can make the local one easy to use.
+Data sovereignty obligations may rule out a remote provider; Porelo can make the local one easy to use.
 
 **Guideline points it answers:** Federal LLM guidance sheet; DSB ZH. From a review of security guidelines, 2026-10-09.
 

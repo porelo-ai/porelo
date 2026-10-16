@@ -24,5 +24,5 @@ jobs:
       - name: Delete anything older than an hour
         env:
           HETZNER_API: ${{ secrets.HETZNER_API }}
-        # sokar-machines from Central, at the root pom's sokar.buildtools.version.
+        # porelo-machines from Central, at the root pom's porelo.buildtools.version.
         run: ./mvnw -B -q -U -s settings.xml -N exec:exec@machines -Dmachines.args="sweep --older-than 60 --now"

@@ -1,6 +1,6 @@
 # B144 — AI Provenance In The Commit
 
-**Status:** Estimated; blocked by sokar [B148](README.md#b148).
+**Status:** Estimated; blocked by porelo [B148](README.md#b148).
 **Size:** L - a new merge path for every approve in `gate`, a reader of the broker's record, a project setting for a
 fast-forward, the daemon's approve, docs and an acceptance step.
 
@@ -26,7 +26,7 @@ guidance sheet. From a review of security guidelines, 2026-10-09.
       AI-Model: anthropic/claude-sonnet-5-5 (412 requests), z-ai/glm-5.3-flash (37 requests)
       AI-Agent: claude
       AI-Provider: openrouter
-      Sokar-Task: payments/backend-fix
+      Porelo-Task: payments/backend-fix
 
   The names are to be decided. Attribution is per period, not per line or per commit.
 - **Where they go:** on a merge commit the host makes at approve, with the reviewed commit untouched as its second parent,
@@ -43,7 +43,7 @@ guidance sheet. From a review of security guidelines, 2026-10-09.
 
 ## Plan
 
-**Today.** `GitGate.approve` (`gate/src/main/java/org/fuin/sokar/gate/GitGate.java`) pushes the reviewed commit as
+**Today.** `GitGate.approve` (`gate/src/main/java/org/fuin/porelo/gate/GitGate.java`) pushes the reviewed commit as
 it is. `GitGate.approveSigned` merges in a scratch clone with `git merge --no-ff -S -m "Merge <name>, reviewed and
 signed"`, checks the merge carries a signature, and pushes it. `GateApproveCommand`, `ApproveCommand` and the
 daemon's `Approve` (`GateMethods`, `35-gate.varlink`) call them. The task's agent and provider are in `TaskProfile`
@@ -81,7 +81,7 @@ daemon's `Approve` (`GateMethods`, `35-gate.varlink`) call them. The task's agen
 ## To be checked
 
 - Whether a squash or a rebase downstream keeps them: a squash only if its message does, a rebase drops merge commits;
-  whether the page only says so or Sokar offers more (Agent Core's).
+  whether the page only says so or Porelo offers more (Agent Core's).
 - The trailer names (Agent Core's).
 - How a signed approve behaves in a fast-forward project, where there is no merge to carry the signature (Agent
   Core's).

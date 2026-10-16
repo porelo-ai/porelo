@@ -24,9 +24,9 @@ name that has one.
 
 ## Plan
 
-**Today.** `ReviewRanking` (`gate/src/main/java/org/fuin/sokar/gate/ReviewRanking.java`) ranks a manifest or lockfile
+**Today.** `ReviewRanking` (`gate/src/main/java/org/fuin/porelo/gate/ReviewRanking.java`) ranks a manifest or lockfile
 `DANGEROUS` ("a dependency manifest or lockfile: it decides what code is fetched and run") and puts it first; nothing
-reads what changed inside it. `GitGate.rankedReview` builds the review for `sokar gate review` (`GateReviewCommand`)
+reads what changed inside it. `GitGate.rankedReview` builds the review for `porelo gate review` (`GateReviewCommand`)
 and for the daemon's `Review` (`daemon/.../GateMethods.java`, `35-gate.varlink`).
 
 **Split into three, built in this order:**
@@ -47,7 +47,7 @@ and for the daemon's `Review` (`daemon/.../GateMethods.java`, `35-gate.varlink`)
    review says "not in the registry" for it.
 
    **The hold.** A new dependency with a finding - not in the registry, not reached, not checked, or (with part 3)
-   close to a known name - holds the approve back until a person confirms it. `sokar gate approve` names each such
+   close to a known name - holds the approve back until a person confirms it. `porelo gate approve` names each such
    dependency with its finding; at a terminal it asks for each, no by default, as the bound approve asks for its
    commit, and a no forwards nothing. Without a terminal, or with `--no-input`, it is refused with exit 70 unless
    each is named with `--confirm-dependency <ecosystem>:<name>`. The daemon's `Approve` gains
@@ -55,7 +55,7 @@ and for the daemon's `Review` (`daemon/.../GateMethods.java`, `35-gate.varlink`)
    `35-gate.varlink`, raised before the gate is touched; a contract change announced on the channel. A
    confirmation is bound to the reviewed commit and journalled with it, so a later push asks again. Red first: an
    approve of a commit whose pom adds a name the stand-in registry does not know, which forwards today.
-3. **Close to a known name (S).** A list of well-known names per ecosystem shipped with Sokar; a new name one or two
+3. **Close to a known name (S).** A list of well-known names per ecosystem shipped with Porelo; a new name one or two
    edits away, or with a separator swapped, is named "close to <name>". Red first: `expres` named close to
    `express`.
 

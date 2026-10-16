@@ -9,14 +9,14 @@ written down.
 
 ## Why
 
-Every agent opens this issue in its own repository; this is Sokar's.
+Every agent opens this issue in its own repository; this is Porelo's.
 
 `AGENTS.md` names the skills this repository expects - **GraalVM**, and the **Java** set - and says
 where they come from: `https://fuinorg.jfrog.io/artifactory/agent-skills/`. **Nothing had been
 written with them.** They were not installed in the harness, and the section that asks for them
 sits a thousand lines into a file an agent reads for the rule it needs.
 
-Measured on the first module that was checked, `sokar-release`, written the same day without them:
+Measured on the first module that was checked, `porelo-release`, written the same day without them:
 reading it against `java-code-review` and `security-audit` found **two defects that its 104 tests
 had not**, both fixed in `4a0e933`:
 
@@ -62,24 +62,24 @@ The readings listed below were made before versions were recorded; which they us
 
 ### Done so far
 
-    sokar-release      java-code-review, test-quality, security-audit                  4a0e933
-    sokar-supervisor   java-code-review, security-audit, concurrency-review,
+    porelo-release      java-code-review, test-quality, security-audit                  4a0e933
+    porelo-supervisor   java-code-review, security-audit, concurrency-review,
                        test-quality, clean-code, solid-principles                      the commit below
-    sokar-vault        the same six, and graal for its FFM                             the commit below
-    sokard             concurrency-review, security-audit, java-code-review,
+    porelo-vault        the same six, and graal for its FFM                             the commit below
+    porelod             concurrency-review, security-audit, java-code-review,
                        test-quality, graal                                             (this commit)
-    sokar-hooks,       security-audit, graal, java-code-review, test-quality,
-    sokar-shield       concurrency-review                                              (this commit)
-    sokar-gate         security-audit, java-code-review, concurrency-review,
+    porelo-hooks,       security-audit, graal, java-code-review, test-quality,
+    porelo-shield       concurrency-review                                              (this commit)
+    porelo-gate         security-audit, java-code-review, concurrency-review,
                        test-quality                                                    ac40a26
-    sokar-agent-api,   security-audit, java-code-review, concurrency-review,
-    sokar-agent-stub   test-quality                                                    ac40a26
-    sokar-core         security-audit, java-code-review, concurrency-review,
+    porelo-agent-api,   security-audit, java-code-review, concurrency-review,
+    porelo-agent-stub   test-quality                                                    ac40a26
+    porelo-core         security-audit, java-code-review, concurrency-review,
                        test-quality, graal                                             ac40a26
-    sokar-clearance,   security-audit, java-code-review, concurrency-review,
-    sokar-runtime,     test-quality                                                    ac40a26
-    sokar-wire
-    sokar (app)        security-audit, java-code-review, concurrency-review,
+    porelo-clearance,   security-audit, java-code-review, concurrency-review,
+    porelo-runtime,     test-quality                                                    ac40a26
+    porelo-wire
+    porelo (app)        security-audit, java-code-review, concurrency-review,
                        test-quality                                                    ac40a26
     the acceptance     test-quality, security-audit, java-code-review,
     kit and suite      concurrency-review                                              ac40a26
@@ -89,9 +89,9 @@ The readings listed below were made before versions were recorded; which they us
 The order is settled: credentials and threads first, so a finding there never waits behind a style
 note - `supervisor`, `vault`, `daemon`, `hooks` and `shield`, `gate`, `clearance`/`runtime`/`wire`,
 `core`, the agent modules, `app` by area, the acceptance kit. The tooling modules are read in
-`sokar-buildtools`, where they now live.
+`porelo-buildtools`, where they now live.
 
-### `sokar-supervisor`
+### `porelo-supervisor`
 
 Fixed, each with a test watched to fail:
 
@@ -128,7 +128,7 @@ Where the skills and this repository differ, the repository's rule holds: test m
 sentences; absence is JSpecify's `@Nullable` checked by NullAway, not `Optional`; comments say why,
 with the measurement; an empty catch is accepted when it says why.
 
-### `sokar-vault`
+### `porelo-vault`
 
 Fixed, each with a test watched to fail:
 
@@ -169,7 +169,7 @@ Three tests that did not prove their guard, each now seen red with its guard und
 - **Nothing tested two processes against the file lock.** A second JVM holds the lock, and an update waits
   until it lets go.
 
-### `sokard`
+### `porelod`
 
 Fixed, each with a test watched to fail:
 
@@ -201,7 +201,7 @@ Closed in `wire`: **a stream noticed a client had gone only when it next sent**,
 reconnected left `Watch` and `Prompts` asking podman every half second for the daemon's life. A stream
 now asks between its waits whether its client is still there - a read that does not wait - and ends.
 
-### `sokar-gate`
+### `porelo-gate`
 
 Fixed, each with a test watched to fail:
 
@@ -231,7 +231,7 @@ Declined, with the reason:
 - **A response is held whole in memory.** It is a fetch of the project's own mirror, whose size is the
   repository's; streaming it is a rewrite of the server for a case not seen.
 
-### The agent modules, and one more in `sokar-supervisor`
+### The agent modules, and one more in `porelo-supervisor`
 
 Fixed, each with a test watched to fail:
 
@@ -248,7 +248,7 @@ Fixed, each with a test watched to fail:
 - **`mode: 0644` installed a file as 0420**, YAML reading it in octal; a mode must be written as a string.
 - **An install target, a reason or a packaged target could start another build instruction** - `;`, a line
   break, a space. Each is a plain path, or one line.
-- **A provider file of a person's own could take a packaged provider over without a word**; `sokar providers`
+- **A provider file of a person's own could take a packaged provider over without a word**; `porelo providers`
   says which file was set aside for which.
 
 Declined, with the reason:
@@ -256,7 +256,7 @@ Declined, with the reason:
 - **A provider's `authQuery` map is not copied**, and **a session id may begin with `-`**: the map is never
   changed after reading, and the id is quoted and stays inside the container it came from.
 
-### `sokar-core`
+### `porelo-core`
 
 Fixed, each with a test watched to fail:
 
@@ -278,10 +278,10 @@ Fixed, each with a test watched to fail:
 Declined, with the reason:
 
 - **`prctl` is called without saying it is variadic.** Undefined by the ABI, it is right on both architectures
-  Sokar builds for; changing the downcall changes its native-image registration, which CI checks, for no
+  Porelo builds for; changing the downcall changes its native-image registration, which CI checks, for no
   behaviour that differs here.
 
-### `sokar-clearance`, `sokar-runtime` and `sokar-wire`
+### `porelo-clearance`, `porelo-runtime` and `porelo-wire`
 
 Fixed, each with a test watched to fail:
 
@@ -318,7 +318,7 @@ Declined, with the reason:
 - **A client that half-closes its side after a streaming call is answered as gone.** No client here does it,
   and the end of input is the one sign a stream has.
 
-### `sokar-hooks` and `sokar-shield`
+### `porelo-hooks` and `porelo-shield`
 
 Fixed, each with a test watched to fail:
 
@@ -355,7 +355,7 @@ Fixed since, read against `java-code-review` and `test-quality` 2026.906.3, its 
   for the port another holds gets `EADDRINUSE` - and counts `/proc/self/fd`. `NflogReader`, its one caller, already
   closes the socket when its own setup fails after it.
 
-### `sokar` (the command line and the daemon's logic)
+### `porelo` (the command line and the daemon's logic)
 
 Read by area - the task's start, its messages, projects and following, the gate's commands, clearing. Fixed, each
 with a test watched to fail:
@@ -450,7 +450,7 @@ Fixed since, each test seen red with the fix undone:
 
 - **A remote command had no time limit**: one hung `podman exec` waited for the job's limit and lost every report.
   Every command the kit runs on a machine is stopped there after 30 minutes (`timeout -k 10`), and a 124 that late
-  is said as that limit, not as the scenario's own `timeout`, which ends sooner. Its ssh client, `sokar-buildtools`'
+  is said as that limit, not as the scenario's own `timeout`, which ends sooner. Its ssh client, `porelo-buildtools`'
   `Ssh.run`, also read a command's output to the end before its errors, so a command blocked writing errors never
   ended; fixed there, and taken here with its next release.
 - **`ends within N seconds` asserted only that the limit was not reached**, so a start refused at once passed it.
@@ -479,7 +479,7 @@ Every fix keeps the rule above: a test watched to fail with the fix undone.
   disagreement is written here** - for example `test-quality` asks for `@DisplayName`, and this
   repository names test methods as sentences.
 - A skill's claim that this build's own behavior contradicts is recorded with the measurement. The
-  first one: `sokar-release` guarded against the JDK HTTP client forwarding `Authorization` across a
+  first one: `porelo-release` guarded against the JDK HTTP client forwarding `Authorization` across a
   redirect; measured on JDK 25, it drops the header when the host changes, and a test now holds it
   to that.
 - **Seen to fail:** each fix's test, run with the fix undone, goes red; a module listed above

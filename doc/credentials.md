@@ -33,9 +33,9 @@ recognized as this task's rather than refused.
 A key for git is never in a container either, nor a socket that answers with it, in any security
 class. The host lends it to the gate, which fetches from the upstream and, for an `online` task,
 passes the task's own branch on; a `guarded` task's work goes on only when a person approves it.
-`sokar vault agent` runs an ssh-agent that signs with a key from the vault, for a command on the
+`porelo vault agent` runs an ssh-agent that signs with a key from the vault, for a command on the
 host. There is no `vault keygen`: `vault agent --ephemeral` makes a throwaway key for one run, and a
-durable key is made elsewhere and stored with `sokar vault put ssh.default`.
+durable key is made elsewhere and stored with `porelo vault put ssh.default`.
 
 ### What the proxy withholds
 
@@ -60,8 +60,8 @@ A **provider** is who serves the models: where it is and how to speak to it. It 
 program, found by scanning two directories, the first winning for a name both declare:
 
 ```
-~/.local/share/sokar/providers/<name>.yaml     your own, and it wins
-/usr/share/sokar/providers/<name>.yaml         what a package installed
+~/.local/share/porelo/providers/<name>.yaml     your own, and it wins
+/usr/share/porelo/providers/<name>.yaml         what a package installed
 ```
 
 ```yaml
@@ -81,23 +81,23 @@ token_env:
 
 An agent says which dialect it speaks, and an agent and a provider fit when the provider serves that
 dialect; nothing pairs them by name. An agent that knows providers itself speaks `native`, the first
-dialect the provider lists. So adding a provider needs no change to Sokar and no rebuild of any agent,
-and an agent can drive a provider nobody wrote down for it. `sokar agents --verbose` shows the pairs,
-with each agent's default, and `sokar task start --provider <name>` chooses one for a run.
+dialect the provider lists. So adding a provider needs no change to Porelo and no rebuild of any agent,
+and an agent can drive a provider nobody wrote down for it. `porelo agents --verbose` shows the pairs,
+with each agent's default, and `porelo task start --provider <name>` chooses one for a run.
 
 **The vault is keyed by provider**, not by agent: one entry under `anthropic` serves every agent that
 reaches Anthropic. An entry still stored under the agent's own name is used when there is none under
-the provider's, and the task says how to move it (`sokar vault put <provider>`).
+the provider's, and the task says how to move it (`porelo vault put <provider>`).
 
-### The providers Sokar ships
+### The providers Porelo ships
 
 Each is reached through the broker, with the credential on the host and a stand-in token in the task;
-`sokar task status` names the provider a task was brokered to.
+`porelo task status` names the provider a task was brokered to.
 
 | Provider | Upstream | Reached by | Credential |
 |---|---|---|---|
-| `anthropic` | `https://api.anthropic.com` | its own agent, and any agent speaking `anthropic-messages` | an API key, sent as `x-api-key`, or a subscription token, sent as `Authorization: Bearer`; stored with `sokar vault put anthropic`, `vault import` or `vault login` |
-| `openrouter` | `https://openrouter.ai` | any agent speaking `openai`, served under `/api/v1`, or `anthropic-messages`, served under `/api` | an API key, sent as `Authorization: Bearer`; stored with `sokar vault put openrouter` |
+| `anthropic` | `https://api.anthropic.com` | its own agent, and any agent speaking `anthropic-messages` | an API key, sent as `x-api-key`, or a subscription token, sent as `Authorization: Bearer`; stored with `porelo vault put anthropic`, `vault import` or `vault login` |
+| `openrouter` | `https://openrouter.ai` | any agent speaking `openai`, served under `/api/v1`, or `anthropic-messages`, served under `/api` | an API key, sent as `Authorization: Bearer`; stored with `porelo vault put openrouter` |
 | `github-copilot` | `https://api.githubcopilot.com`, every path at its root | any agent speaking `openai` | a GitHub token granted once through the device flow, sent as `Authorization: Bearer`; see [a subscription granted once](#a-subscription-granted-once-github-copilot) |
 
 - **OpenRouter's path depends on the dialect.** A base URL that misses it answers "model not found"
@@ -107,21 +107,21 @@ Each is reached through the broker, with the credential on the host and a stand-
 
 ![three ways a credential reaches the vault: an operator types an API key on standard input, an agent logs itself in and vault import copies the token out of its own config file, and an operator stores an ssh key seed the same way](images/auth-entry.svg)
 
-All of these happen on the host. When the vault is shut, Sokar asks for its passphrase at the terminal and
-carries on; a script, which has no terminal, runs `sokar vault unlock` first.
+All of these happen on the host. When the vault is shut, Porelo asks for its passphrase at the terminal and
+carries on; a script, which has no terminal, runs `porelo vault unlock` first.
 
 | Command | What it does |
 |---|---|
-| `sokar vault put <name>` | stores a value you type or pipe in, such as an API key or an ssh key |
-| `sokar vault import` | copies the credential an agent already installed on this machine holds |
-| `sokar vault login` | runs the agent's own login and stores what it produces |
-| `sokar vault authorize <name>` | runs a grant Sokar asks for itself: a device code, or a redirect to a loopback port |
+| `porelo vault put <name>` | stores a value you type or pipe in, such as an API key or an ssh key |
+| `porelo vault import` | copies the credential an agent already installed on this machine holds |
+| `porelo vault login` | runs the agent's own login and stores what it produces |
+| `porelo vault authorize <name>` | runs a grant Porelo asks for itself: a device code, or a redirect to a loopback port |
 
 **`vault put` never takes the value as an argument**, because an argument list is world-readable.
 At a terminal it asks without echoing, so a pasted key does not land in the scrollback. A piped
 value is read from standard input. An ssh key goes in as the file you were given
-(`sokar vault put github-work < ~/.ssh/id_ed25519`); the vault converts it to the 32-byte signing
-seed. A key with a passphrase, or of an algorithm Sokar does not sign with, is refused by name.
+(`porelo vault put github-work < ~/.ssh/id_ed25519`); the vault converts it to the 32-byte signing
+seed. A key with a passphrase, or of an algorithm Porelo does not sign with, is refused by name.
 
 **`vault import`** saves retyping, and with it the commonest mistake, storing the guide's
 placeholder instead of the key.
@@ -136,15 +136,15 @@ Copilot is reached with a GitHub token a person grants once, through GitHub's de
 the entry and starts the flow:
 
 ```
-sokar vault authorize github-copilot
-sokar task start --provider github-copilot --model <a model the agent lists for Copilot> ...
+porelo vault authorize github-copilot
+porelo task start --provider github-copilot --model <a model the agent lists for Copilot> ...
 ```
 
-- **Whose app is granted.** GitHub's device flow needs an OAuth app's client id. Sokar ships none of its own: it
+- **Whose app is granted.** GitHub's device flow needs an OAuth app's client id. Porelo ships none of its own: it
   grants the app the agent itself signs in with, as declared in the agent's definition (`login.grants`), and
   says whose it is. Several installed agents sign in to Copilot? `--agent` picks one. The provider's URLs and
   scope come from `providers/github-copilot.yaml`.
-- **Another app.** `sokar vault put github-copilot --type oauth-device --setting client_id=<id> ...` stores your
+- **Another app.** `porelo vault put github-copilot --type oauth-device --setting client_id=<id> ...` stores your
   own; asked for its client secret, press Enter for a public client. `vault authorize` then uses that entry.
 
 - The token never expires and has nothing to renew it. The task gets a stand-in of its own in
@@ -158,7 +158,7 @@ sokar task start --provider github-copilot --model <a model the agent lists for 
 ## A sign-in that ends, renewed on the host
 
 A subscription sign-in leaves an access token that ends within hours and a refresh token that
-renews it. **`sokar vault login` keeps both.** `vault list` shows the access token's settings
+renews it. **`porelo vault login` keeps both.** `vault list` shows the access token's settings
 (`expires_at`, `token_url`, `client_id`); the refresh token is stored beside it and shown nowhere.
 
 **The broker renews it on the host, never in the task.** It uses the stored token until a minute
@@ -176,8 +176,8 @@ refused, and a token in an answer is still withheld from it.
 A task can also hold credentials for other services, such as a search API, a forge or an MCP server.
 Each works like the agent's: the container gets a token worthless anywhere else.
 
-1. **Say where the service is** in `~/.local/share/sokar/destinations/<name>.yaml` (packages install
-   theirs in `/usr/share/sokar/destinations`). A model provider is a destination too.
+1. **Say where the service is** in `~/.local/share/porelo/destinations/<name>.yaml` (packages install
+   theirs in `/usr/share/porelo/destinations`). A model provider is a destination too.
 
    ```
    name: brave-search
@@ -192,26 +192,26 @@ Each works like the agent's: the container gets a token worthless anywhere else.
    in a query string reaches the proxy's log**: a logged request keeps its path and the names of its parameters,
    never their values.
 
-2. **Store the key:** `sokar vault put search`. Configuration goes in settings, such as
+2. **Store the key:** `porelo vault put search`. Configuration goes in settings, such as
    `--setting token_url=https://auth.example.com/token`. Settings are printed, so no secret belongs
    in one.
 3. **Name it** for every task of a project in [`project.yml`](project-file.md) under
    `credentials:` (`search: brave-search`, entry to destination), or for one run with
-   `sokar task start ... --credential search=brave-search`. A run can add credentials but not
+   `porelo task start ... --credential search=brave-search`. A run can add credentials but not
    remove or redirect the project's. **Anyone who can start a task in the project can use its
    credentials.** An offline project names none.
 
-Inside the task each appears as `SOKAR_TOKEN_<NAME>` and `SOKAR_URL_<NAME>`:
+Inside the task each appears as `PORELO_TOKEN_<NAME>` and `PORELO_URL_<NAME>`:
 
 ```
-curl -H "X-Subscription-Token: $SOKAR_TOKEN_SEARCH" "$SOKAR_URL_SEARCH/res/v1/web/search?q=sokar"
+curl -H "X-Subscription-Token: $PORELO_TOKEN_SEARCH" "$PORELO_URL_SEARCH/res/v1/web/search?q=porelo"
 ```
 
 **The token decides where a request goes, never the request.** A key held for one service cannot be
 attached to a request for another. A tool whose address is compiled in and cannot be pointed at
-`SOKAR_URL_<NAME>` cannot use this.
+`PORELO_URL_<NAME>` cannot use this.
 
-`sokar task start` names each credential the task was given, the host it goes to, and its two
+`porelo task start` names each credential the task was given, the host it goes to, and its two
 variables; it never prints a stored value. A destination's host is reached by the broker, on the
 host, and is not added to what the task itself can reach. A destination nobody declared refuses the
 start before anything is made, and so, for an unattended run, does a credential the vault does not
@@ -220,13 +220,13 @@ hold. A stopped task that starts again gets the same tokens back.
 ## A credential that buys its token
 
 Some services take no stored key: the client presents a client id and secret to an authorization server
-(OAuth `client_credentials`) and spends the short-lived token it gets back. Sokar's broker does that on the
+(OAuth `client_credentials`) and spends the short-lived token it gets back. Porelo's broker does that on the
 host. Store the secret with its settings:
 
 ```
-sokar vault put orders-api --type client-credentials \
+porelo vault put orders-api --type client-credentials \
   --setting token_url=https://auth.example.com/token \
-  --setting client_id=sokar-ci \
+  --setting client_id=porelo-ci \
   --setting scopes=orders.read
 # optionally: --setting audience=https://orders.example.com
 ```
@@ -250,44 +250,44 @@ forwarding an approved change. Whoever started it, the connection is made by thi
 credential is chosen here. A credential is a record plus a secret, kept apart:
 
 ```
-~/.config/sokar/credentials.yml     kind, destination, username, where the value lives
-~/.local/share/sokar/vault.bin      the value, when this machine keeps it
+~/.config/porelo/credentials.yml     kind, destination, username, where the value lives
+~/.local/share/porelo/vault.bin      the value, when this machine keeps it
 ```
 
-The record holds nothing secret and is readable with the vault shut, so Sokar can tell "unlock the
+The record holds nothing secret and is readable with the vault shut, so Porelo can tell "unlock the
 vault" from "nothing is configured, store one".
 
 ```
-sokar credentials declare "ssh://github.com" --kind ssh-key --vault github-work
-sokar vault put github-work < ~/.ssh/id_ed25519      # the value, separately
-sokar credentials declare "ssh://github.com" --kind ssh-key --agent   # or: use my own ssh-agent
-sokar credentials check git@github.com:acme/x.git    # what would be used, and whether it reads
+porelo credentials declare "ssh://github.com" --kind ssh-key --vault github-work
+porelo vault put github-work < ~/.ssh/id_ed25519      # the value, separately
+porelo credentials declare "ssh://github.com" --kind ssh-key --agent   # or: use my own ssh-agent
+porelo credentials check git@github.com:acme/x.git    # what would be used, and whether it reads
 ```
 
 - **The kind is said, not guessed:** `ssh-key`, `token`, `basic` or `oauth`.
 - **The longest `match` wins**, after normalising `git@host:path` to `ssh://host/path`.
 - **Four sources.** `vault` is encrypted and shut when idle. `file` (such as `~/.ssh/id_ed25519`)
-  and `env` are not protected by Sokar, and `credentials list` says so. `agent` uses the account's
+  and `env` are not protected by Porelo, and `credentials list` says so. `agent` uses the account's
   own ssh-agent and reads nothing.
 - **With no `credentials.yml`** a git URL falls back to vault entries named after its host:
   `git.ssh.<host>`, `git.token.<host>`, then `ssh.default`.
-- **A key never leaves the vault.** Sokar serves an ssh-agent for the length of the command. A token
+- **A key never leaves the vault.** Porelo serves an ssh-agent for the length of the command. A token
   reaches git through git's credential helper over a pipe, for that host only; nothing is written to
   a config and no value is on a command line.
 - **An `oauth` record is not renewed.** An expired one is refused by name, with what to run.
 
 ## An authority of your own
 
-Sokar checks every TLS connection it makes against the certificate authorities it was built with: to a model
+Porelo checks every TLS connection it makes against the certificate authorities it was built with: to a model
 provider, to a service a credential buys its token from, to a forge. An organisation that inspects TLS on its way out
 signs with an authority of its own, and a provider on your own machine may carry a certificate no public authority
 signed. Put that authority's certificate, in PEM, in
 
 ```
-~/.config/sokar/ca-certificates.pem
+~/.config/porelo/ca-certificates.pem
 ```
 
-and Sokar trusts it beside the built-in ones; several certificates may follow one another in the file. Tasks
+and Porelo trusts it beside the built-in ones; several certificates may follow one another in the file. Tasks
 started afterwards use it. A file that holds no certificate is an error that names it, never ignored.
 
 ## Working from another machine
@@ -298,7 +298,7 @@ so its user already has a shell on the host, and secrets are typed there:
 
 ```
 ssh node
-sokar vault put anthropic     # asks at the terminal, and does not echo
+porelo vault put anthropic     # asks at the terminal, and does not echo
 ```
 
 This is not about transport security, as ssh encrypts either way. It keeps plaintext out of GUI
@@ -309,10 +309,10 @@ Whether the rule should stay is an open design question; until it is decided, th
 
 **An IDE's remote backend on the host is not a way to review a task's work.** It runs as the account that holds
 the unlocked vault, the daemon's socket and the deploy keys, and building or testing the work there runs the
-agent's code with all of it. Fetch the waiting work into your own clone (`sokar gate pending` says how) and open
+agent's code with all of it. Fetch the waiting work into your own clone (`porelo gate pending` says how) and open
 it in your IDE's safe mode; run it only in a container on the machine.
 Attaching an editor to the task's container is not made to work either: it would need the editor vendor's
-hosts or an editor server copied in. Open the work with `sokar gate checkout`, and let `sokar gate protect`'s
+hosts or an editor server copied in. Open the work with `porelo gate checkout`, and let `porelo gate protect`'s
 pre-push guard catch a hand push.
 
 ### A login from a laptop
@@ -337,10 +337,10 @@ device-code flow needs no forward.
 
 The vault is one AES-256-GCM file. Its master key is made once and stored only wrapped, once per
 credential that may open it. The whole header is authenticated, so nothing in it can be changed
-unnoticed. A file of another version is refused; create it again with `sokar vault init`.
+unnoticed. A file of another version is refused; create it again with `porelo vault init`.
 
 - **Keyslot 0 is the passphrase**, wrapped with Argon2id. It is the recovery credential, typed by a
-  person and stored nowhere. `sokar vault passphrase` changes it and asks for the current one; a
+  person and stored nowhere. `porelo vault passphrase` changes it and asks for the current one; a
   device cannot replace it. A change replaces one slot and every device keeps working.
 - **Every other slot is a device**, holding a 32-byte share in its own keystore. The host cannot
   open a device slot by itself, so a copy of the machine is not a copy of the vault.
@@ -350,7 +350,7 @@ unnoticed. A file of another version is refused; create it again with `sokar vau
 - **A slot's name, enrolment time and last use are readable while the vault is locked.** None of it
   is secret, and a device unused for months is easy to spot.
 
-`sokar vault devices` lists the slots and what each is worth. The host records the storage a device
+`porelo vault devices` lists the slots and what each is worth. The host records the storage a device
 declares but cannot check it. On a desktop the share usually sits in a keyring any process of that
 user can read, which is still better than a stored passphrase: it is scoped to one device and
 revocable.
@@ -360,7 +360,7 @@ ID                                     KIND         NAME                 WHAT IT
 passphrase                             passphrase   passphrase           typed by a person, stored nowhere
 b0ab092b-2d16-4f3d-8343-6bf8f9821cb4   device       the GUI laptop       any process running as you can ask for it
 
-Remove one with: sokar vault revoke <id>
+Remove one with: porelo vault revoke <id>
 ```
 
 A locked vault makes every flow on this page answer "not yet" rather than "missing".

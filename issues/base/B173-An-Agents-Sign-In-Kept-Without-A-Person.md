@@ -4,16 +4,16 @@
 **Size:** S - `vault login` in `app-vault` gains an option that reads the agent's credentials from a directory instead
 of running its sign-in, with its tests and `doc/credentials.md`; the agent API is not changed.
 
-**What must be true.** An agent's own sign-in can be kept in the vault as `sokar vault login` keeps it - renewable on
-the host from its refresh token - without a person at a terminal: `sokar vault login <agent> --credentials-from
+**What must be true.** An agent's own sign-in can be kept in the vault as `porelo vault login` keeps it - renewable on
+the host from its refresh token - without a person at a terminal: `porelo vault login <agent> --credentials-from
 <dir>` reads the credentials the agent's sign-in would have written, from that directory, through the agent's own
 extractor, and keeps them exactly as after a sign-in.
 
 ## Why
 
 An agent repository's acceptance kit proves a subscription's sign-in and its renewal against a stand-in token
-endpoint in CI (decided 2026-10-11 for `sokar-claude-code`'s
-[CC24](https://github.com/sokar-ai/sokar-claude-code/blob/main/issues/README.md#cc24)). Today a renewable sign-in is
+endpoint in CI (decided 2026-10-11 for `porelo-claude-code`'s
+[CC24](https://github.com/porelo-ai/porelo-claude-code/blob/main/issues/README.md#cc24)). Today a renewable sign-in is
 kept only by `vault login`, after the agent's own sign-in ran at a terminal (`AgentLogin`,
 `LoginCredentials.put(..., true)`). `vault import --config-dir` reads a directory, but keeps what it finds as the
 host's agent's, not renewable (`CredentialImport`, `put(..., false)`): renewing it would rotate a token the agent on
@@ -25,7 +25,7 @@ the host still holds. And `vault put` refuses every `grant/` name.
   the agent's `CredentialExtractor` reads the directory, and what it finds goes through `LoginCredentials.put(entries,
   key, value, true)` as `AgentLogin` does after a sign-in, so the refresh token is kept as `grant/<key>` and renewed by
   `LoginRenewal`.
-- The directory is the kit's own, a copy made for the run: Sokar never treats it as the host agent's, so renewing
+- The directory is the kit's own, a copy made for the run: Porelo never treats it as the host agent's, so renewing
   rotates nothing anybody else holds. The command says that it kept a sign-in read from a directory, not one made here.
 - The token URL is what the agent's extractor reports - a constant of the agent, never read from the credentials
   file, which a task's sign-in may have written. For a stand-in, `--token-url <url>` beside `--credentials-from`

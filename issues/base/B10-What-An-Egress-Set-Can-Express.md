@@ -68,7 +68,7 @@ reach a pinned set) and none of that is a problem anybody has yet.
 
 The problem people do have is diagnostic: a task works here and fails there, and the explanation
 is a file of the same name with different contents, because an operator's own file wins over the
-packaged one. A fingerprint in `sokar shield sets`, in `Sets()` and beside a task's egress report
+packaged one. A fingerprint in `porelo shield sets`, in `Sets()` and beside a task's egress report
 answers that in one line without pretending to solve distribution.
 
 ### A set that cannot be complete says so
@@ -115,7 +115,7 @@ with one refused query, which goes red when the name is missing.
 
 **3. A fingerprint per set.** `EgressSet` (`shield/.../EgressSet.java`) is `(name, label, domains)`, read by
 `EgressSetDirectory`. It gains `fingerprint`: sha256 over the sorted, lower-cased domains, so comments and order do
-not change it. `Sets()` (`daemon/.../EgressMethods.java`) and `sokar shield sets` show it, and the egress report
+not change it. `Sets()` (`daemon/.../EgressMethods.java`) and `porelo shield sets` show it, and the egress report
 (`EgressReport`) names it beside each set. Red first: two directories holding `maven` with different domains whose
 fingerprints agree.
 
@@ -125,7 +125,7 @@ out - a `baseurl` pinned in the project's `image.snippet` - goes into `doc/proje
 Red first: the listing of `os-packages-fedora` without `complete: false`.
 
 Contract: `Sets()` and `Egress` grow optional fields in `25-egress.varlink`, which only ever grows;
-`InterfaceDescriptionTest` holds them to the registration. The interface reads them (sokar-frontend).
+`InterfaceDescriptionTest` holds them to the registration. The interface reads them (porelo-frontend).
 
 ## Acceptance
 

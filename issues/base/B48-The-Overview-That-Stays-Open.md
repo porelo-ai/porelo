@@ -14,14 +14,14 @@ the waiting reading (Task.screen and Task.lastMessage) went to the trouble of wo
 
 ### What happens today
 
-`sokar task list` prints a table and exits. Somebody who wants to watch their tasks - which is the
+`porelo task list` prints a table and exits. Somebody who wants to watch their tasks - which is the
 normal thing to want while three of them are running - types it again, or wraps it in a loop:
 
-    while true; do clear; sokar task list; sleep 2; done
+    while true; do clear; porelo task list; sleep 2; done
 
 That is a fleet view written by hand, badly: it redraws whether anything changed or not, it
 flickers, it loses the cursor, and it cannot tell the operator *which* line changed. Every person
-running Sokar over ssh writes some version of it.
+running Porelo over ssh writes some version of it.
 
 **The hard half is already built and is not reachable from a terminal.** The daemon serves
 `Watch`, and it is careful in exactly the way a hand-written loop is not:
@@ -53,8 +53,8 @@ list every second, and the second is what `Watch`'s design exists to prevent.
 
 ## The shape
 
-1. **`sokar task list --watch` shows the tasks on this machine and keeps showing them**, updating
-   as they change, until the person stops it. It is a flag, not a verb: the same listing `sokar task
+1. **`porelo task list --watch` shows the tasks on this machine and keeps showing them**, updating
+   as they change, until the person stops it. It is a flag, not a verb: the same listing `porelo task
    list` prints - not a second rendering that can drift from it.
 2. **It covers the whole machine, and `--project <name>` narrows it** - on the listing and on the
    watching form alike, so the two never show different sets of tasks.
@@ -83,7 +83,7 @@ Read in today's code. `TaskListCommand.render(PrintWriter)` (`apps/app-task`) bu
 `TaskInventory` and prints the table in the same method. The daemon's `Watch` (`15-task.varlink`, served by
 `TaskMethods` in `daemon`) sends the whole list on every change and leaves the age out. `VarlinkClient.callMore`
 (`wire`) streams replies to a consumer; `ShieldSubscribeCommand` (`apps/app-egress`) is a CLI command that already
-consumes a stream this way. `SokarPaths.daemonSocket()` names the socket.
+consumes a stream this way. `PoreloPaths.daemonSocket()` names the socket.
 
 Steps, in order:
 
@@ -135,7 +135,7 @@ Steps, in order:
 
 ## To be checked
 
-- **Does it need the daemon?** (Agent Core's) `sokar task list` builds its answer in this process and works where
+- **Does it need the daemon?** (Agent Core's) `porelo task list` builds its answer in this process and works where
   nothing runs but podman. Consuming `Watch` makes the watching form need a daemon, which an operator meets as an
   error message. The plan states it plainly and falls back to one listing; the other choice is polling its own
   inventory, as the second change detector point 2 refuses.

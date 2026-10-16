@@ -3,7 +3,7 @@
 What a task can **reach**, **hold**, **spend** and **produce**, and what bounds each. It assumes the
 worst case: an agent convinced, by something it read, to work for somebody else.
 
-**Sokar does not detect that.** Any useful task reads text outsiders wrote: the repository, issues,
+**Porelo does not detect that.** Any useful task reads text outsiders wrote: the repository, issues,
 release notes, build logs. Nothing reliably separates instructions from content. So this page asks
 **what a convinced agent is worth**.
 
@@ -24,13 +24,13 @@ The numbers here are checked against the code by a test.
 | A reach for something undeclared | Blocked, and raises a clearance prompt: the closest thing on the machine to a hijack alarm | control |
 | The git gate | One address and one port on this machine, never "the machine" | control |
 | Another task | No path: separate containers, no shared workspace. Messages between tasks go through the filter and the peer table, both on the host | control |
-| The host's files | Nothing outside what Sokar itself mounts or writes | control |
+| The host's files | Nothing outside what Porelo itself mounts or writes | control |
 
 **Not bounded:**
 
 - **The model provider.** Every task has a working route to its provider, with a request body of
   up to **32 MB**. Anything the agent knows can go into a prompt. **This is the largest open path, and it
-  is open on purpose**: closing it closes the task. Sokar records what a task sent but raises no alert.
+  is open on purpose**: closing it closes the task. Porelo records what a task sent but raises no alert.
 - **Every declared host is a second such channel.** Data fits in a URL to a forge the work clones from.
 - **A DNS query sent past the resolver** still gets an answer, though the connection does not.
 
@@ -51,7 +51,7 @@ See [the firewall](security.md) and [DNS](security.md) for how this is enforced.
 
 **Not bounded: a credential that cannot be read can still be spent.** The phantom token can do
 whatever the real credential can at the provider: use tokens, spend money. The only bound is the
-account's own limit at the provider, which Sokar does not set.
+account's own limit at the provider, which Porelo does not set.
 
 | | Bound | What it is |
 |---|---|---|
@@ -72,14 +72,14 @@ account's own limit at the provider, which Sokar does not set.
 stopped by nothing above, only by a person reading the patch. Commit signing does not help: it proves
 origin, not intent.
 
-**So the review is ranked.** `sokar gate review` shows first what the task was asked, then every file
+**So the review is ranked.** `porelo gate review` shows first what the task was asked, then every file
 that is dangerous by kind, however small the change: CI definitions, build scripts, dependency
 manifests and lockfiles, what runs on checkout, files made executable, symbolic links. Then everything
 else; reformatting and generated files last. This is not detection; it only sets what a person reads
 first.
 
 **The easy way round the gate is a person** fetching the agent's branch and pushing it. Use
-`sokar gate checkout` instead: it is the safe way and just as easy.
+`porelo gate checkout` instead: it is the safe way and just as easy.
 
 ## When a clearance prompt appears
 

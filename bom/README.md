@@ -1,3 +1,3 @@
 # bom
 
-The versions a repository that builds against Sokar needs, named once, as a bill of materials. It holds no code.
+The versions a repository that builds against Porelo needs, named once, as a bill of materials. It holds no code.

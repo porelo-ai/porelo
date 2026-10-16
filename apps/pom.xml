@@ -6,18 +6,18 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.fuin.sokar</groupId>
-        <artifactId>sokar</artifactId>
-        <version>0.4.2-SNAPSHOT</version>
+        <groupId>org.fuin.porelo</groupId>
+        <artifactId>porelo</artifactId>
+        <version>0.5.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>sokar-apps</artifactId>
+    <artifactId>porelo-apps</artifactId>
     <packaging>pom</packaging>
-    <name>Sokar Apps</name>
-    <description>Sokar - The command line and its areas (PARENT)</description>
+    <name>Porelo Apps</name>
+    <description>Porelo - The command line and its areas (PARENT)</description>
 
     <!-- The command line's layers: the shared ground, one module per area, and app, which assembles them into the
-         sokar executable. Grouped only; each keeps its own coordinates. -->
+         porelo executable. Grouped only; each keeps its own coordinates. -->
 
     <modules>
         <module>app-base</module>

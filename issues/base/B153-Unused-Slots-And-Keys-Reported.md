@@ -14,7 +14,7 @@ Access that nobody uses stays open until somebody notices.
 
 ## The shape
 
-Last use recorded per slot and key; `sokar doctor` names those unused for longer than a period, 45 days by default,
+Last use recorded per slot and key; `porelo doctor` names those unused for longer than a period, 45 days by default,
 set in a new account-wide settings file. By default they are only reported; a slot or key is locked only where the
 settings ask for it.
 
@@ -22,7 +22,7 @@ settings ask for it.
 
 What is there today:
 
-- A device slot already records its last use: `Keyslot.lastUsed` (`vault/src/main/java/org/fuin/sokar/vault/
+- A device slot already records its last use: `Keyslot.lastUsed` (`vault/src/main/java/org/fuin/porelo/vault/
   Keyslot.java`), written by `VaultFile.used(opener, id)` when a device opens the vault, readable while the vault is
   shut, and said by the daemon's `Keyslots` (`30-vault.varlink`). Keyslot 0, the passphrase, is no device and stays
   out of this.
@@ -31,11 +31,11 @@ What is there today:
   a git credential is lent to the gate's fetches and pushes.
 
 There is no account-wide settings file today: `XdgPaths.config` (`core/.../config/XdgPaths.java`) names
-`$XDG_CONFIG_HOME/sokar/config.yml`, and nothing reads it.
+`$XDG_CONFIG_HOME/porelo/config.yml`, and nothing reads it.
 
 Steps:
 
-1. Red first, in `apps/app`: a vault with a device slot last used 100 days ago and a deploy key never lent; `sokar
+1. Red first, in `apps/app`: a vault with a device slot last used 100 days ago and a deploy key never lent; `porelo
    doctor` names neither today.
 2. The account's settings: `AccountSettings` in `core` reads `config.yml` from `XdgPaths.config`, a missing file
    being every default; its schema refuses an unknown key by name, as `ProjectSchema` does. This issue's keys:
@@ -53,7 +53,7 @@ Steps:
    credential.
 4. `DoctorCommand.probesFor` gets an "unused access" probe: `DEGRADED` naming each device slot and deploy key unused
    for longer than `unused_access.days`, with when each was last used (or "never") and the remedy that takes it away
-   (`RevokeKeyslot` / `sokar vault devices`, `DeployKeys.forget`). `OK` when none is. The daemon's `Doctor` carries
+   (`RevokeKeyslot` / `porelo vault devices`, `DeployKeys.forget`). `OK` when none is. The daemon's `Doctor` carries
    it as it carries every probe; `--json` too.
 5. Locking, only where `unused_access.lock` is true: `Keyslot` gains `locked` (read as false where the header has none);
    `Keyslots` refuses to open with a locked slot and says why; the passphrase lifts the lock. A deploy key is locked

@@ -14,11 +14,11 @@ the account that holds the vault and the daemon, that executes the agent's unrev
 exists to keep from it. Run in the agent's own container, it runs in an environment the reviewed work could have
 prepared - a cached plugin, a wrapper, `PATH`.
 
-The interface's half is sokar-frontend's: "Run its tests" and "Open in an IDE" beside *Approve*.
+The interface's half is porelo-frontend's: "Run its tests" and "Open in an IDE" beside *Approve*.
 
 ## The shape
 
-1. **`sokar gate try <task> -- <command>`** runs a command against the waiting work in a fresh container from the
+1. **`porelo gate try <task> -- <command>`** runs a command against the waiting work in a fresh container from the
    project's image, with the waiting ref as its workspace, the project's egress and limits, and no way back to the
    gate.
 2. **Its output and exit are kept and shown beside the review**, in the terminal and over the daemon.
@@ -54,10 +54,10 @@ Steps for `gate try`:
    account's own under the project's state - never a checkout the mirror shares.
 2. **A container like a task's, without a way back**: `TaskRunner`'s ruleset and resolver with no gate address
    (the online and guarded classes put the gate in the ruleset; here nothing does), no vault socket, no mailbox,
-   no guide, the project's image and `limitsFor(repository)`. Labelled as Sokar's with a kind of its own, so
-   `sokar task list` never shows it as a task and `sokarContainers()` still finds it to clean up. Removed when the
+   no guide, the project's image and `limitsFor(repository)`. Labelled as Porelo's with a kind of its own, so
+   `porelo task list` never shows it as a task and `poreloContainers()` still finds it to clean up. Removed when the
    command ends, `--rm` and a `finally`.
-3. **`sokar gate try <task> [--repository] -- <command>`** (`GateTryCommand`), its output streamed, its exit the
+3. **`porelo gate try <task> [--repository] -- <command>`** (`GateTryCommand`), its output streamed, its exit the
    command's.
 4. **`method Try(project, upstream?, repository?, name, commit?, command: []string)`** in `35-gate.varlink`:
    streaming, a reply per chunk of output (`lines`, as `Tail` sends them) and a last one with `exit`. Refused as
@@ -76,7 +76,7 @@ compared before and after.
 
 ## Acceptance
 
-- `sokar gate try <task> -- <command>` runs the command in a fresh container from the project's image, with the
+- `porelo gate try <task> -- <command>` runs the command in a fresh container from the project's image, with the
   waiting ref as its workspace and the project's egress and limits.
 - The container cannot push back to the gate.
 - Its output and exit are shown beside the review, in the terminal and over the daemon.

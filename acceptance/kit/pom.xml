@@ -6,14 +6,14 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.fuin.sokar</groupId>
-        <artifactId>sokar-acceptance-parent</artifactId>
-        <version>0.4.2-SNAPSHOT</version>
+        <groupId>org.fuin.porelo</groupId>
+        <artifactId>porelo-acceptance-parent</artifactId>
+        <version>0.5.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>sokar-acceptance-kit</artifactId>
-    <name>Sokar Acceptance Kit</name>
-    <description>Sokar - Drives a real machine over ssh from a Cucumber scenario, and reports where GitHub shows it (ACCEPTANCE-KIT)</description>
+    <artifactId>porelo-acceptance-kit</artifactId>
+    <name>Porelo Acceptance Kit</name>
+    <description>Porelo - Drives a real machine over ssh from a Cucumber scenario, and reports where GitHub shows it (ACCEPTANCE-KIT)</description>
 
     <properties>
         <!-- Deployed to Central, like the agent API: an agent in its own repository resolves
@@ -23,9 +23,9 @@
         <!-- What the JUnit platform itself depends on; the junit BOM does not manage it. -->
         <opentest4j.version>1.3.0</opentest4j.version>
         <!-- The kit's own machine test is off unless a host is given, like every suite. -->
-        <sokar.acceptance.host/>
-        <sokar.acceptance.user>claude</sokar.acceptance.user>
-        <sokar.acceptance.key>${user.home}/.claude/.ssh/claude_key</sokar.acceptance.key>
+        <porelo.acceptance.host/>
+        <porelo.acceptance.user>claude</porelo.acceptance.user>
+        <porelo.acceptance.key>${user.home}/.claude/.ssh/claude_key</porelo.acceptance.key>
     </properties>
 
     <dependencies>
@@ -37,14 +37,14 @@
              them. Four copies of that in Python is what this repository is unwinding. -->
 
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-machines</artifactId>
-            <version>${sokar.buildtools.version}</version>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-machines</artifactId>
+            <version>${porelo.buildtools.version}</version>
         </dependency>
 
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-wire</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-wire</artifactId>
             <version>${project.version}</version>
         </dependency>
 
@@ -71,7 +71,7 @@
         <!-- The suite, at whatever version the junit BOM a consumer imports says - one set with
              launcher, engine and commons, which is the whole point of a BOM. A consumer that
              imports no junit BOM gets a mixed set through this kit and the suite engine dies on a
-             missing method; sokar-bom exists so that no consumer has to know that. -->
+             missing method; porelo-bom exists so that no consumer has to know that. -->
         <dependency>
             <groupId>org.junit.platform</groupId>
             <artifactId>junit-platform-suite-api</artifactId>
@@ -138,7 +138,7 @@
                 <configuration>
                     <archive>
                         <manifestEntries>
-                            <Automatic-Module-Name>org.fuin.sokar.acceptance.kit</Automatic-Module-Name>
+                            <Automatic-Module-Name>org.fuin.porelo.acceptance.kit</Automatic-Module-Name>
                         </manifestEntries>
                     </archive>
                 </configuration>
@@ -171,11 +171,11 @@
                     </execution>
                 </executions>
                 <configuration>
-                    <skipITs>${sokar.acceptance.skip}</skipITs>
+                    <skipITs>${porelo.acceptance.skip}</skipITs>
                     <systemPropertyVariables>
-                        <sokar.acceptance.host>${sokar.acceptance.host}</sokar.acceptance.host>
-                        <sokar.acceptance.user>${sokar.acceptance.user}</sokar.acceptance.user>
-                        <sokar.acceptance.key>${sokar.acceptance.key}</sokar.acceptance.key>
+                        <porelo.acceptance.host>${porelo.acceptance.host}</porelo.acceptance.host>
+                        <porelo.acceptance.user>${porelo.acceptance.user}</porelo.acceptance.user>
+                        <porelo.acceptance.key>${porelo.acceptance.key}</porelo.acceptance.key>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>
@@ -188,19 +188,19 @@
         <profile>
             <id>acceptance-off</id>
             <activation>
-                <property><name>!sokar.acceptance.host</name></property>
+                <property><name>!porelo.acceptance.host</name></property>
             </activation>
             <properties>
-                <sokar.acceptance.skip>true</sokar.acceptance.skip>
+                <porelo.acceptance.skip>true</porelo.acceptance.skip>
             </properties>
         </profile>
         <profile>
             <id>acceptance-on</id>
             <activation>
-                <property><name>sokar.acceptance.host</name></property>
+                <property><name>porelo.acceptance.host</name></property>
             </activation>
             <properties>
-                <sokar.acceptance.skip>false</sokar.acceptance.skip>
+                <porelo.acceptance.skip>false</porelo.acceptance.skip>
             </properties>
         </profile>
     </profiles>

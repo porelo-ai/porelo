@@ -36,7 +36,7 @@ name, type, length and settings; `VaultMethods` answers `Credential` with the sa
    - The exit code stays 0 and the outcome `STORED`/`IMPORTED`: it is a statement, not a refusal.
 3. **Marked in the list.** `VaultListCommand` prints `no expiry` in place of nothing after the length, and
    `VaultMethods.credentials` adds `noExpiry: bool` to each row. In `30-vault.varlink`, `type Credential` gains
-   `noExpiry: bool` with a comment: true when nothing Sokar holds ends the secret it attaches, so a leak of it does not
+   `noExpiry: bool` with a comment: true when nothing Porelo holds ends the secret it attaches, so a leak of it does not
    decay; an added field, so `Tasks1` only grows. A bool rather than an empty `expires`: an empty string would also be
    what a grant nobody has granted yet answers.
 4. **Docs:** `doc/credentials.md` says which entries are marked, what the line at storing says, and that
@@ -44,7 +44,7 @@ name, type, length and settings; `VaultMethods` answers `Credential` with the sa
 
 Red first: `VaultPutCommandTest` - storing a key with no settings prints the no-expiry line (today it does not);
 then the rule's own test over the five cases (plain key, `expires_at`, renewable sign-in, `HELD` grant, refresh-token
-grant), a `SokarDaemonTest` case that `Credentials()` answers `noExpiry` true and false, and
+grant), a `PoreloDaemonTest` case that `Credentials()` answers `noExpiry` true and false, and
 `InterfaceDescriptionTest` holding the field.
 
 ## Acceptance

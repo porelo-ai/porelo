@@ -7,15 +7,15 @@ Section: utils
 Priority: optional
 Architecture: amd64
 Maintainer: Michael Schnell <michael@fuin.org>
-Homepage: https://github.com/sokar-ai/sokar
-Depends: sokar
-# No 'Provides: sokar-agent': that is what offers an agent to a person, and the stub is only for the suite.
+Homepage: https://github.com/porelo-ai/porelo
+Depends: porelo
+# No 'Provides: porelo-agent': that is what offers an agent to a person, and the stub is only for the suite.
 Description: [[description]] [[agent.cli.version]]
- Installs into /usr/libexec/sokar/agents, where the sokar binary looks for
- agents. Nothing needs to be registered: sokar scans that directory and asks
+ Installs into /usr/libexec/porelo/agents, where the porelo binary looks for
+ agents. Nothing needs to be registered: porelo scans that directory and asks
  whatever it finds to describe itself, so installing this package is enough.
  .
- The package version is this agent's own version, independent of Sokar's release
+ The package version is this agent's own version, independent of Porelo's release
  line. The agent CLI version it installs is on the Description line above, so
- "dpkg -s sokar-agent-claude" answers what an image build will fetch without
+ "dpkg -s porelo-agent-claude" answers what an image build will fetch without
  consulting the definition.

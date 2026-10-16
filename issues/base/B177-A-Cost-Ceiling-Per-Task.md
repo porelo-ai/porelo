@@ -1,6 +1,6 @@
 # B177 — A Cost Ceiling Per Task
 
-**Status:** Analyzed; blocked by sokar [B138](README.md#b138) and sokar [B191](README.md#b191).
+**Status:** Analyzed; blocked by porelo [B138](README.md#b138) and porelo [B191](README.md#b191).
 **Size:** M - a field in the provider file and `ProviderDefinition` (an addition to the agent API), the cost taken
 from [B148](README.md#b148)'s record or priced by [B191](README.md#b191)'s table in the broker, `limits.cost` and its
 refusal beside [B138](README.md#b138)'s, and docs; no varlink change beyond what [B148](README.md#b148) adds.
@@ -33,7 +33,7 @@ still uses up its limit, and the list-price value is what bounds it there.
 Built on [B138](README.md#b138), [B148](README.md#b148) and [B191](README.md#b191); none exists in the code yet, so
 the names below are theirs. Read in today's code: a provider is data (`providers/*.yaml`), read by
 `ProviderDefinitionReader` into `ProviderDefinition` (`agents/api`), selected into a `Destination` (`app-base`); the
-start (`CredentialWiring`) passes each destination to `sokar vault serve` as `--upstream ...` or
+start (`CredentialWiring`) passes each destination to `porelo vault serve` as `--upstream ...` or
 `--route <name>=<upstream>|<header>|<prefix>|<query>`, which `VaultServeCommand.route` reads into
 `VaultProxy.Route`.
 
@@ -50,15 +50,15 @@ start (`CredentialWiring`) passes each destination to `sokar vault serve` as `--
    usage line gains `cost` in dollars as a decimal string and `cost_from: reported | list`.
 3. **Where it is set.** `Limits` gains `cost` (`BigDecimal`, dollars, `null` for none) from the project file's
    `limits.cost`, as [B138](README.md#b138) adds `tokens`; `task start --cost-limit <usd>` lowers it for one task,
-   never raises it; the task's record keeps it for a resume; `sokar task limit <task> --cost <usd>` raises it through
+   never raises it; the task's record keeps it for a resume; `porelo task limit <task> --cost <usd>` raises it through
    the same host-side file [B138](README.md#b138) reads per request.
 4. **Refused at the start where it cannot hold.** A task with a cost ceiling whose model provider neither reports a
    cost nor has a price file does not start, and nor does one whose model, named by the start or the agent's
-   definition, is missing from that file: `sokar: the cost ceiling needs a price for '<provider>' '<model>' - add it
-   to ~/.local/share/sokar/prices/<provider>.yaml or use limits.tokens`. A destination that is not a model provider is
+   definition, is missing from that file: `porelo: the cost ceiling needs a price for '<provider>' '<model>' - add it
+   to ~/.local/share/porelo/prices/<provider>.yaml or use limits.tokens`. A destination that is not a model provider is
    outside the ceiling, and the docs say so.
 5. **Where it holds.** In `VaultProxy.handle`, beside [B138](README.md#b138)'s check: when the task's sum has reached
-   the ceiling, the same refusal shape and status [B138](README.md#b138) settles, saying `Sokar: this task's cost
+   the ceiling, the same refusal shape and status [B138](README.md#b138) settles, saying `Porelo: this task's cost
    ceiling of $<n> is reached`; nothing goes to the provider. An answer that cannot be priced - a model answered that
    the table does not hold, a declared cost missing, or a `null` count - stops the counting fail closed, as
    [B138](README.md#b138) does with a `null` count: the next request is refused, saying which, until `task limit`

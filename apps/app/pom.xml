@@ -6,59 +6,59 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.fuin.sokar</groupId>
-        <artifactId>sokar-apps</artifactId>
-        <version>0.4.2-SNAPSHOT</version>
+        <groupId>org.fuin.porelo</groupId>
+        <artifactId>porelo-apps</artifactId>
+        <version>0.5.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>sokar-app</artifactId>
-    <name>Sokar App</name>
-    <description>Sokar - Orchestration and CLI (APP)</description>
+    <artifactId>porelo-app</artifactId>
+    <name>Porelo App</name>
+    <description>Porelo - Orchestration and CLI (APP)</description>
 
     <dependencies>
 
         <!-- compile -->
 
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-app-base</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-app-base</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-app-model</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-app-model</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-app-agents</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-app-agents</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-app-vault</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-app-vault</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-app-messaging</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-app-messaging</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-app-egress</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-app-egress</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-app-task</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-app-task</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-app-project</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-app-project</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-app-gate</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-app-gate</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-core</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-core</artifactId>
         </dependency>
 
         <dependency>
@@ -69,8 +69,8 @@
         <!-- test -->
 
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-testing</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-testing</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -84,43 +84,43 @@
         </dependency>
 
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-wire</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-wire</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-runtime</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-runtime</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-shield</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-shield</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-clearance</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-clearance</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-vault</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-vault</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-gate</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-gate</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-supervisor</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-supervisor</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>org.fuin.sokar</groupId>
-            <artifactId>sokar-agent-api</artifactId>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-agent-api</artifactId>
         </dependency>
 
     </dependencies>
@@ -159,15 +159,15 @@
 
     <profiles>
 
-        <!-- Requires GraalVM as JAVA_HOME. Produces target/sokar, dynamically linked
+        <!-- Requires GraalVM as JAVA_HOME. Produces target/porelo, dynamically linked
              against the build host's glibc: this binary uses Panama FFM, and FFM cannot be
              statically linked because Linker.defaultLookup() dlopens libc.so.6 (spike S5). -->
 
         <profile>
             <id>native</id>
             <properties>
-                <sokar.cpu.skip>false</sokar.cpu.skip>
-                <sokar.cpu.images>sokar</sokar.cpu.images>
+                <porelo.cpu.skip>false</porelo.cpu.skip>
+                <porelo.cpu.images>porelo</porelo.cpu.images>
             </properties>
             <build>
                 <plugins>
@@ -176,14 +176,14 @@
                         <artifactId>native-maven-plugin</artifactId>
                         <executions>
                             <execution>
-                                <id>build-sokar</id>
+                                <id>build-porelo</id>
                                 <phase>package</phase>
                                 <goals>
                                     <goal>compile-no-fork</goal>
                                 </goals>
                                 <configuration>
-                                    <imageName>sokar</imageName>
-                                    <mainClass>org.fuin.sokar.app.SokarCli</mainClass>
+                                    <imageName>porelo</imageName>
+                                    <mainClass>org.fuin.porelo.app.PoreloCli</mainClass>
                                     <buildArgs combine.children="append">
                                         <buildArg>--enable-native-access=ALL-UNNAMED</buildArg>
                                         <!-- A young generation of 16 MiB rather than a tenth of the machine's heap: a

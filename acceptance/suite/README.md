@@ -1,15 +1,15 @@
 # Acceptance Suite
 
-This repository's own scenarios: what a person does at a terminal with Sokar, run against a real
+This repository's own scenarios: what a person does at a terminal with Porelo, run against a real
 machine through the [kit](../kit/README.md).
 
 ```
 ./mvnw -pl acceptance/suite verify \
-    -Dsokar.acceptance.host=user@host \
-    -Dsokar.acceptance.key=$HOME/.ssh/your_key
+    -Dporelo.acceptance.host=user@host \
+    -Dporelo.acceptance.key=$HOME/.ssh/your_key
 ```
 
-Without `sokar.acceptance.host` the module is skipped, so an ordinary build is unaffected. The
+Without `porelo.acceptance.host` the module is skipped, so an ordinary build is unaffected. The
 report lands in `acceptance/suite/target/acceptance.html`, and on GitHub as inline annotations and
 a job summary - see the kit's README for both.
 

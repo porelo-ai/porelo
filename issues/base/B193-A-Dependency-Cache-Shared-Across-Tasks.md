@@ -6,4 +6,4 @@
 tasks and handed into each task read-only, so the next task does not download them again; what a task installs or
 builds itself stays its own and never reaches another task through the cache.
 
-From [PJ39](https://github.com/sokar-ai/sokar-project/blob/main/issues/README.md#pj39), which replaces the split `~/.m2` of today's host sessions with it.
+From [PJ39](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj39), which replaces the split `~/.m2` of today's host sessions with it.

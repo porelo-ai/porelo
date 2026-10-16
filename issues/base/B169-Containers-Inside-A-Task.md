@@ -5,7 +5,7 @@
 touches the task's hardening, the image, the project file, `doctor` and the acceptance suite.
 
 **What must be true.** A build inside a task can start containers of its own - rootless podman in the task - and they
-are held by the same firewall and resolver as the task. Before it is built, an assessment says whether Sokar's
+are held by the same firewall and resolver as the task. Before it is built, an assessment says whether Porelo's
 guarantees still hold.
 
 ## Why
@@ -18,7 +18,7 @@ containers inside their sandbox.
 - First the assessment: what nested user namespaces open, whether a nested container can leave the task's network
   namespace or reach the host's, what it means for seccomp and capabilities, and whether a kernel of the task's own
   ([B59](README.md#b59)) is the better ground.
-- Only then the build: opt-in per project, said by `--dry-run` and `sokar doctor`, off by default.
+- Only then the build: opt-in per project, said by `--dry-run` and `porelo doctor`, off by default.
 - If the assessment ends in "not without [B59](README.md#b59)", nested containers are built only on a task's own kernel, and wait for
   it; nothing opens them on the shared kernel.
 - A project of the class `guarded` may never open them, whatever the assessment says.
@@ -46,7 +46,7 @@ is not.
 3. **The build:** `image.nested_containers: true` in `core/.../project/ProjectReader.java` and `ProjectSchema`, off by
    default; `ContainerSpec` adds only what the assessment found necessary, and a `containers.conf` in the image
    forces `network_mode = "host"` and the vfs or fuse-overlayfs driver; `Containerfile` installs podman when asked.
-   `--dry-run` and `sokar doctor` name what the project opened. A project of the class `guarded` setting it is
+   `--dry-run` and `porelo doctor` name what the project opened. A project of the class `guarded` setting it is
    refused when the project file is read, naming the class.
 4. **Docs:** `doc/reach.md` and `doc/project-file.md` say what a project opens by it.
 

@@ -22,13 +22,13 @@ the gate's clone will read it. When it cannot, the start says why and how to fix
   a key from `~/.ssh` into the vault and declaring it - and then the start again. A shell is offered only where it
   helps, as when no agent is installed: a shell in a task without a gate has an empty workspace and fixes nothing
   about a key.
-- **`sokar credentials check <url>`:** really connects, with the same check, so a person can test before starting.
+- **`porelo credentials check <url>`:** really connects, with the same check, so a person can test before starting.
   Today it only says which credential would be used.
 
 Today the check covers only the host key. A refused key surfaces from the gate's `git clone --bare` as "no git gate
 for this task" with git's raw output, and the start then offers a shell in its place. That shell has an empty
 workspace and no gate. Found in a test against a self-hosted forge on its own port, after trusting its host. Close
-to [PJ37](https://github.com/sokar-ai/sokar-project/blob/main/issues/README.md#pj37), which is about working with the
+to [PJ37](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj37), which is about working with the
 person's own key where no machine key may be added.
 
 ## Plan
@@ -42,7 +42,7 @@ Read in today's code:
 - Once the mirror is there, `GitGate.refresh` fetches before each start and is never fatal: the task starts from what
   the mirror holds and is told so. An `offline` project never refreshes.
 - `StartCheck` asks only the host key (`withHost`). `CredentialDeclarations.check` says which credential a URL would
-  use, without connecting; `sokar credentials check` prints that.
+  use, without connecting; `porelo credentials check` prints that.
 - `FollowCredential.sshCommand` sets `StrictHostKeyChecking=yes` and the known-hosts file. It sets no timeout.
 
 The plan:
@@ -59,8 +59,8 @@ The plan:
     from `CredentialDeclarations.check`:
     - nothing declared, so only ssh's default key files and, at a terminal, the person's ssh agent;
     - or the vault entry by name.
-    It gives the two commands: `sokar credentials declare <match> --kind ssh-key --vault <entry>`, then
-    `sokar vault put <entry> --from-file <key>`. It says that through the daemon only a key in the vault, or one
+    It gives the two commands: `porelo credentials declare <match> --kind ssh-key --vault <entry>`, then
+    `porelo vault put <entry> --from-file <key>`. It says that through the daemon only a key in the vault, or one
     without a passphrase, works.
   - `UPSTREAM_NOT_FOUND`: "Repository not found", "does not appear to be a git repository", an https 404.
   - `UPSTREAM_UNREACHABLE`: no route, a timeout, a name that does not resolve.
@@ -75,18 +75,18 @@ The plan:
   - **What it costs:** one round trip per start, bounded by the ten-second connect timeout. Only gated starts with an
     upstream pay it. A local path or a start without a gate asks nothing.
 - **The remedy at a terminal:** for `UPSTREAM_KEY_REFUSED` without a declaration, `TaskLaunch` offers - as
-  `trustUnmet` does for a host key, never taken by `--yes` - to take one of the keys `sokar credentials keys` lists.
+  `trustUnmet` does for a host key, never taken by `--yes` - to take one of the keys `porelo credentials keys` lists.
   It stores the key in the vault under `git.ssh.<host>`, declares it for the upstream with its port, and asks the
   probe again. With a declaration whose key was refused it offers nothing it cannot know - which key the forge expects
   is the forge's - and says so.
 - **No shell where it fixes nothing:** the shell offer for a missing gate goes. A gate that still fails after the probe
   passed is refused with "nothing was created" and the cause. The shell offer stays where no agent is installed.
-- **`sokar credentials check <url>`:** for `--purpose git` (its default) it runs the probe after saying which
+- **`porelo credentials check <url>`:** for `--purpose git` (its default) it runs the probe after saying which
   credential would be used, and exits non-zero with the cause and its fix when the read fails. `--no-connect` keeps
   today's answer.
 - **The contract:** `15-task.varlink` grows `CanStart`'s outcome enumeration by the four names, and `Start` gets an
   error `UpstreamUnreadable(cause, detail, fix)`. A client that does not know a new value shows `detail`, as it does
-  for every outcome. The interface (`sokar-frontend`) and the IDE plugin are told on the channel.
+  for every outcome. The interface (`porelo-frontend`) and the IDE plugin are told on the channel.
 
 Steps:
 
@@ -111,15 +111,15 @@ None that blocks it. Two defaults to confirm:
 
 - **The probe:** `UpstreamProbe` in `app-model`.
   - `forStart` decides by the mirror; `probe` reads through a lending; `answer` sorts what git and ssh said.
-  - A shut vault is said as such, with `sokar vault unlock`. A host whose key changed comes back as
+  - A shut vault is said as such, with `porelo vault unlock`. A host whose key changed comes back as
     `UNKNOWN_HOST_KEY`, without a fix.
 - **The start:**
   - `StartCheck.withUpstream` runs last and only on `READY`.
   - `TaskLaunch` reads the upstream after the host question, refuses with "nothing was created", warns where a mirror
     is there, and remembers the refusal for the daemon's typed `UpstreamUnreadable`.
   - The shell offer for a missing gate is gone.
-- **The remedy:** it does not list the keys itself. It asks for a path, naming `sokar credentials keys`, and runs
-  `sokar vault put <entry> --from-file <path>` on the terminal. The entry is the declared one, or `git.ssh.<host>`,
+- **The remedy:** it does not list the keys itself. It asks for a path, naming `porelo credentials keys`, and runs
+  `porelo vault put <entry> --from-file <path>` on the terminal. The entry is the declared one, or `git.ssh.<host>`,
   which the lending finds without a declaration, so none is written.
 - **`credentials check`:** it reads only when the credential is ready or none is needed. The record-only scenario of
   `credentials-commands.feature` uses `--no-connect`.

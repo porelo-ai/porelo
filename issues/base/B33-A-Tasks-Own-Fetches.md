@@ -25,7 +25,7 @@ git config --system http.version HTTP/1.1
 ### Why it would apply here
 
 The default base image for a task is `ubuntu:24.04`, which is noble, and nothing in this project
-sets `http.version`. Sokar's own gate is not affected — an agent pushes to it over plain HTTP on a
+sets `http.version`. Porelo's own gate is not affected — an agent pushes to it over plain HTTP on a
 link-local address — but **anything the work itself fetches is**: a dependency from a forge, a
 `pip install` from a git URL, an online-class project cloning its real upstream.
 
@@ -60,8 +60,8 @@ Steps:
    repository inside a task on `ubuntu:24.04`. Then one `RUN` in `Containerfile`, applied only where `/etc/os-release`
    says noble, with the reason in a comment beside it and in the class's Javadoc. A second scenario on a Fedora base
    proves the line is not applied where it is not needed.
-3. **The wrong signal.** Whatever the result, a 401 from a forge inside a task never reaches Sokar's broker - an
-   anonymous clone carries no phantom token - so nothing of Sokar's can mislabel it. A line in `doc/running.md`,
+3. **The wrong signal.** Whatever the result, a 401 from a forge inside a task never reaches Porelo's broker - an
+   anonymous clone carries no phantom token - so nothing of Porelo's can mislabel it. A line in `doc/running.md`,
    under adding your own tooling, says that a 401 on an anonymous fetch is not the vault's, and names the setting if
    step 1 found it.
 

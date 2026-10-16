@@ -15,7 +15,7 @@ agent is expected to inherit a person's permissions rather than a service accoun
 [Credential Types Compared](Credential-Types-Compared.md).
 
 **Where the other half lives.** Rendering the consent link whole, opening it, and showing a wait that ends outside
-the interface is the interface's work, in `sokar-frontend`, which took this file's criteria as they were quoted.
+the interface is the interface's work, in `porelo-frontend`, which took this file's criteria as they were quoted.
 
 ### The kind
 
@@ -44,7 +44,7 @@ machine at all ([B06](README.md#b06)) the code has to land somewhere that can st
 back.
 
 **And if the agent completes the flow, the token is in the box.** Audience-scoped and short-lived,
-which is far better than a static key — but not something Sokar minted, and not something that dies
+which is far better than a static key — but not something Porelo minted, and not something that dies
 with the task.
 
 ### Notes
@@ -79,9 +79,9 @@ not one string.
 **The person authorizes once, outside the task; the vault holds what comes back; the broker attaches
 it.** The container gets a phantom token and an endpoint, and the one rule holds.
 
-This is not a new pattern here or elsewhere. **Sokar already runs a human login outside a task
+This is not a new pattern here or elsewhere. **Porelo already runs a human login outside a task
 container**: `AgentLogin` runs an agent's own login verb in a throwaway container that carries no
-Sokar annotation, so no hook fires — no ruleset, no resolver, no clearance watcher, no broker — with
+Porelo annotation, so no hook fires — no ruleset, no resolver, no clearance watcher, no broker — with
 ordinary network access for the seconds a login takes, removed afterwards. It exists because a clean
 machine has no binary to log in with. It is the right shape for the wrong purpose, and the purpose
 is the only part that has to change.
@@ -92,7 +92,7 @@ run surfaces a consent link as a protocol item — `oauth_consent_request` carry
 which the caller shows to the person; the run then continues from where it stopped. Consent is per
 service, per project, per person, and asked once.
 
-**Sokar already has that mechanism under another name.** A clearance prompt is a question naming the
+**Porelo already has that mechanism under another name.** A clearance prompt is a question naming the
 project, the task and what was reached, answered out of band, taking effect on the connection that is
 waiting — and it is never asked twice for a task, across a resume. A consent link is the same object
 with a URL in it. [B06](README.md#b06) already owns the hard half of both: how long a prompt waits for somebody who is
@@ -109,7 +109,7 @@ not at the machine.
 
 ### Decided
 
-- **The device code flow first.** Sokar shows a URL and a short code; the person uses any browser
+- **The device code flow first.** Porelo shows a URL and a short code; the person uses any browser
   anywhere, and the broker polls until it is granted. It is the one flow that works when nobody is near
   the machine. The redirect flow - authorization code with PKCE, its redirect coming back through the ssh
   tunnel the interface already holds - comes second, for a service that offers no device code.
@@ -119,7 +119,7 @@ not at the machine.
 - **The daemon raises the event.** It streams "authorization needed" with the link and the code, and
   then "granted", "refused" or "expired" on the same stream, so no client polls a consent flow and no
   question gets two grants.
-- **A task ending does not revoke the grant.** `sokar vault remove` revokes it at the service (RFC 7009)
+- **A task ending does not revoke the grant.** `porelo vault remove` revokes it at the service (RFC 7009)
   and deletes it. A grant the service revoked or let expire is reported as needing authorization again.
 - **Consent reuses the clearance prompt's shape only**, not the prompt itself: a clearance answer is a verdict on a
   waiting connection, a consent answer arrives out of band. "Authorization needed" is answered by `Authorize`.
@@ -128,7 +128,7 @@ not at the machine.
 
 - **The credential** is a vault entry of kind `oauth-device`: the client id and, where the service issues
   one, the client secret; as settings the device authorization URL, the token URL and the scopes.
-- **Granting:** `sokar vault authorize <name>`, and the daemon's `Authorize(name)` as a stream, runs the
+- **Granting:** `porelo vault authorize <name>`, and the daemon's `Authorize(name)` as a stream, runs the
   device flow on the host. The refresh token that comes back is stored in the account's vault, hidden
   like a task's tokens, with who granted it and when. It never reaches a task.
 - **Using:** the broker buys each access token with the refresh token, host-side, as [B30](README.md#b30) buys one with a
@@ -142,7 +142,7 @@ not at the machine.
 - **The credential** is a vault entry of kind `oauth-device`: its value is the client secret, or `-` for a
   public client; its settings are `client_id`, `device_authorization_url`, `token_url` (both https) and
   `scopes`.
-- **`sokar vault authorize <name>`** runs the device flow (`DeviceGrant`, RFC 8628): it shows the link -
+- **`porelo vault authorize <name>`** runs the device flow (`DeviceGrant`, RFC 8628): it shows the link -
   the complete one where the service gives it - and the code, waits as the service asks, slowing down
   when told to, and keeps the refresh token in the account's vault as `grant/<name>`, hidden from every
   listing and choice of credential, with `granted_by` and `granted_at` beside it. A grant without a
@@ -160,10 +160,10 @@ not at the machine.
   S256, RFC 7636) listens on the machine's loopback, `http://127.0.0.1:<port>/callback` (RFC 8252), for
   the one answer carrying its `state`; a stale tab's answer is turned away and the wait goes on. The code
   is exchanged with the verifier, and what comes back is kept and spent exactly as a device grant is.
-  `sokar vault authorize` says which port to forward (`ssh -L`); the daemon's `Authorize` stream carries
+  `porelo vault authorize` says which port to forward (`ssh -L`); the daemon's `Authorize` stream carries
   it as `port` in the "needed" reply, with an empty `code`, so an interface forwards it through the tunnel
   it holds before opening the link. A port already taken is said with the setting to change.
-- **`sokar vault remove <name>`** revokes the grant at the service first (RFC 7009, the entry's
+- **`porelo vault remove <name>`** revokes the grant at the service first (RFC 7009, the entry's
   `revocation_url` setting, https) and then removes the entry and its grant together. A service that
   cannot be told - no revocation endpoint, refused, unreachable - keeps the entry, and says to revoke it
   there and remove with `--without-revoking`: deleting a refresh token the service still honours leaves a
@@ -182,7 +182,7 @@ not at the machine.
   leaves the machine unencrypted, and a stand-in service on the machine can be measured against.
 - **`CanStart` answers `AUTHORIZATION_NEEDED`** for a credential of kind `oauth-device` or `oauth-code`
   that nobody has granted: its own outcome, never `CREDENTIAL_MISSING` or `CREDENTIAL_UNUSABLE`, with the
-  entry's name and a `detail` that gives the command that grants it (`sokar vault authorize <name>`). It
+  entry's name and a `detail` that gives the command that grants it (`porelo vault authorize <name>`). It
   refuses an unattended or agent run, and warns a shell, as `Start` already does. The check does not spend
   the grant. **A grant expired or revoked at the service** is not visible without spending it, so it is
   not a `CanStart` answer; the broker says it when it spends one - "needs authorizing again" - and the
@@ -204,7 +204,7 @@ not at the machine.
 
 ### Decided, dynamic registration, MCP and the record
 
-- **Dynamic client registration (RFC 7591) is built now.** Where a service offers it, Sokar registers a
+- **Dynamic client registration (RFC 7591) is built now.** Where a service offers it, Porelo registers a
   client itself when the entry is set up - on the host, never in a task - and keeps the registration
   (`client_id`, a client secret if issued, the registration access token if any) in the account's vault
   beside the entry, so it is done once and not per task, which servers rate-limit. An entry may then name
@@ -235,12 +235,12 @@ not at the machine.
   `::1` or `localhost`. A stand-in service on the machine can be measured against.
 - **`CanStart` answers `AUTHORIZATION_NEEDED`** (the last value of `StartOutcome`) for a credential the
   project or the run names whose entry is `oauth-device` or `oauth-code` and has no grant, with the entry's
-  name and `sokar vault authorize <name>`. It is asked after `UNKNOWN_DESTINATION`, which is now asked
+  name and `porelo vault authorize <name>`. It is asked after `UNKNOWN_DESTINATION`, which is now asked
   before a missing or unusable agent credential too: it refuses in every mode.
 - **A `Credential` row carries `grant: ?Authorization (grantedBy, grantedAt)`** for an entry a person granted.
 - **`Task.grants: [string]Authorization`**: whom the task acts as, for each credential a person granted, as it
   stood when the task started (`grants.json` in the task's state, kept across a restart). Each also goes as
-  one JSON line into the account's `$XDG_STATE_HOME/sokar/grants.log`, which removing the task does not
+  one JSON line into the account's `$XDG_STATE_HOME/porelo/grants.log`, which removing the task does not
   touch: `at`, `task`, `project`, `credential`, `grantedBy`, `grantedAt`.
 - **`NoSuchDestination(name)`**: from `Start`, `name` is the credential's; from `Destination`, the
   destination's. The contract says so.
@@ -252,9 +252,9 @@ not at the machine.
   (credential, task, project, state, at)` on its own stream - what is open now first, then what changes.
 - **`never`** when a start is refused or warned for want of a grant, **`ended`** when the broker finds a
   grant revoked or expired at the service (`TokenPurchase.Ended`) - and `never` too when the broker of a
-  shell task meets one nobody granted. **`granted`** when a grant lands, by `sokar vault authorize` or
+  shell task meets one nobody granted. **`granted`** when a grant lands, by `porelo vault authorize` or
   `Authorize`.
-- **Once per credential until answered:** each is a file in `$XDG_STATE_HOME/sokar/authorizations/`, which a
+- **Once per credential until answered:** each is a file in `$XDG_STATE_HOME/porelo/authorizations/`, which a
   second refusal for the same credential and reason leaves as it was; the grant removes it.
 - **Proven:** `AuthorizationsNeededTest`, the daemon test for the stream, and on the VM the refused
   unattended run's question on the stream.
@@ -283,7 +283,7 @@ app: an access token, no refresh token, no expiry.
 
 - **The real service is GitHub.** The grant is measured with GitHub's device flow, and the hour-long MCP session
   with GitHub's remote MCP server, both with the operator's own GitHub account.
-- **The person signs in once, at the terminal.** `sokar vault authorize <entry>` shows GitHub's link and code, and
+- **The person signs in once, at the terminal.** `porelo vault authorize <entry>` shows GitHub's link and code, and
   the grant lands in that account's vault. Every run after that spends it; none asks again.
 - **Nothing of the account goes into a committed file.** The entry's client id, the grant and the account's name
   stay in the account's vault. A test or scenario names only the entry, and a result written here says what held
@@ -311,7 +311,7 @@ Steps:
    that (RFC 7592, the registration access token), after revoking the grant, and keeps the entry with the same
    advice as today where the service cannot be told.
 4. **Runs against GitHub on the VM.** The entry for GitHub's device flow is set up in the account's vault there,
-   and the operator runs `sokar vault authorize <entry>` once at the terminal and signs in with their own GitHub
+   and the operator runs `porelo vault authorize <entry>` once at the terminal and signs in with their own GitHub
    account. Then, with no further sign-in: a task spends the grant, and a task with GitHub's remote MCP server as a
    destination holds one MCP session through the broker for an hour. The run names only the entry; the results
    written here say what held, not which account. Neither changes code unless it breaks.

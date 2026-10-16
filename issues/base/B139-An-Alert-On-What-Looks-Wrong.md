@@ -3,7 +3,7 @@
 **Status:** Estimated.
 **Size:** L - thresholds need a measured baseline first; three watchers, a contract event and containment.
 
-**What must be true.** Sokar raises an alert on anomalies a person should see - very large prompt bodies, many clearance
+**What must be true.** Porelo raises an alert on anomalies a person should see - very large prompt bodies, many clearance
 attempts, unusual name patterns under declared domains - and a project chooses what an alert does: it only alerts, or it
 also stops the task and revokes its token.
 
@@ -15,7 +15,7 @@ Today these are journalled (`reach.md`) and nobody is told while it happens.
 
 ## Plan
 
-Which signals, with which thresholds per project; the alert through the channels Sokar already has (a desktop
+Which signals, with which thresholds per project; the alert through the channels Porelo already has (a desktop
 notification, the interface); stopping the task per project, off by default. Read in the code on 2026-10-11: every
 signal is already seen on the host, per task, by a process that runs beside the task.
 
@@ -37,7 +37,7 @@ Steps, in order:
 2. **One alert type, one path.** `Alert(task, signal, measured, threshold, at)` written by each watcher to the task's
    `alerts.jsonl` and sent to the daemon, which shows it by a desktop notification (as `DesktopPrompt` does) and to
    the interface as a new field of the task (`alerts`) in what `15-task.varlink`'s `Watch` answers, a contract
-   addition the interface and the plugin read. `sokar task status` and `sokar task logs <task> alerts` show it.
+   addition the interface and the plugin read. `porelo task status` and `porelo task logs <task> alerts` show it.
 3. **The three signals,** each in its watcher, each with its test: body size in `VaultProxy`, attempts in
    `ShieldWatchCommand`, names in the resolver's watcher.
 4. **What an alert does, per project:** `alerts.on: alert | stop`, `alert` by default. `alert` only tells; `stop`

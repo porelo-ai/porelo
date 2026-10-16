@@ -55,7 +55,7 @@ jobs:
 
       # The jar deploy Publish runs, on every push, with both upload URLs at a port on this runner where nothing
       # listens: every module must go through the publishing plugin and nothing may leave the machine. Its upload
-      # failing against the dead port is expected; sokar-release check-deploy reads the log.
+      # failing against the dead port is expected; porelo-release check-deploy reads the log.
       - name: Deploy dry run
         run: |
           set -u
@@ -66,7 +66,7 @@ jobs:
           ./mvnw -B -q -s settings.xml -N exec:exec@check-deploy
 
       # FFM downcalls are not found by native-image's analysis: an unregistered one fails only in the shipped binary.
-      # The check is sokar-ffm-check, resolved from Central at the root pom's sokar.buildtools.version.
+      # The check is porelo-ffm-check, resolved from Central at the root pom's porelo.buildtools.version.
       - name: Every FFM downcall the tests made is registered
         run: ./mvnw -B -U -s settings.xml -Pnative,ffm-check -Dagent=true -pl core,shield,vault -am verify
 
@@ -82,7 +82,7 @@ jobs:
   # Only what has landed on main, plus a manual run - beside the unit tests rather than after them: a
   # leg builds the product on its own machine from the same commit and needs nothing they make.
   # Waiting for them cost 4.5 minutes of every run. A leg boots the newest snapshot, which
-  # sokar-buildtools rebuilds when it moves a pin.
+  # porelo-buildtools rebuilds when it moves a pin.
   legs:
     name: Leg - ${{ matrix.os }}
     # Pinned, not ubuntu-latest: the packages' C library floor is measured on what this builds.
@@ -107,8 +107,8 @@ jobs:
       - name: The pinned GraalVM
         uses: ./.github/actions/pinned-jdk
 
-      # The leg is this tree's own (acceptance/legs), built here on sokar-machines from Central at the root pom's
-      # sokar.buildtools.version, which is resolved before anything is created, so the cleanup below finds it.
+      # The leg is this tree's own (acceptance/legs), built here on porelo-machines from Central at the root pom's
+      # porelo.buildtools.version, which is resolved before anything is created, so the cleanup below finds it.
       # What it builds on the machine is ci/leg-build.sh.
       # HETZNER_API and HETZNER_SSH come from the environment; the key goes to an agent, never a file.
       # Four accounts run the features beside each other, and a restart runs alone afterwards: the
@@ -119,7 +119,7 @@ jobs:
           HETZNER_API: ${{ secrets.HETZNER_API }}
           HETZNER_SSH: ${{ secrets.HETZNER_SSH }}
           # Both legs share GITHUB_RUN_ID, so the leg is what makes a server's label unique.
-          SOKAR_CI_LEG: ${{ matrix.os }}
+          PORELO_CI_LEG: ${{ matrix.os }}
         run: |
           ./mvnw -B -q -U -s settings.xml -pl acceptance/legs compile exec:exec@legs \
               -Dlegs.args="leg --os ${{ matrix.os }} --repo . --acceptance --accounts 4 ${{ matrix.os == 'ubuntu' && '--fetch binaries' || '' }}"
@@ -138,7 +138,7 @@ jobs:
         if: always()
         env:
           HETZNER_API: ${{ secrets.HETZNER_API }}
-          SOKAR_CI_LEG: ${{ matrix.os }}
+          PORELO_CI_LEG: ${{ matrix.os }}
         run: ./mvnw -B -q -U -s settings.xml -N exec:exec@machines -Dmachines.args="sweep --mine"
 
   # Snapshots of the agent API, so an agent repository can build without a checkout of this one.
@@ -183,7 +183,7 @@ jobs:
         uses: ./.github/actions/pinned-jdk
 
       # A release depends only on releases: every snapshot in the effective pom - dependency, imported BOM, plugin, a
-      # plugin's dependency such as sokar-release - refused and named, read from what Maven resolved.
+      # plugin's dependency such as porelo-release - refused and named, read from what Maven resolved.
       - name: No snapshot in a release
         if: steps.channel.outputs.channel == 'releases'
         run: |
@@ -236,7 +236,7 @@ jobs:
       # Packaging only, on modules whose binary arrived.
       - name: Build the packages
         run: ./mvnw -B -s settings.xml -Pdist verify -DskipTests -pl agents/stub,dist/dist-deb,dist/dist-rpm,dist/dist-check
-             -Dsokar.snapshot.run=${{ github.run_number }}
+             -Dporelo.snapshot.run=${{ github.run_number }}
 
       # Checks the two packages against each other and installs both in a clean Debian and a clean Fedora.
       # The check is a module of this tree, so the places it reads move with the modules that write them.
@@ -273,31 +273,31 @@ jobs:
           CHANNEL: ${{ steps.channel.outputs.channel }}
         run: |
           set -eux
-          if [ "$CHANNEL" = releases ] && curl -sfL "${JF_URL}/artifactory/sokar-dist-deb/dists/releases/main/binary-amd64/Packages" \
-                  | grep -qF "Filename: pool/main/s/sokar/$(basename dist/dist-deb/target/sokar_*.deb)"; then
+          if [ "$CHANNEL" = releases ] && curl -sfL "${JF_URL}/artifactory/porelo-dist-deb/dists/releases/main/binary-amd64/Packages" \
+                  | grep -qF "Filename: pool/main/p/porelo/$(basename dist/dist-deb/target/porelo_*.deb)"; then
               echo "::error::this release is published already"; exit 1
           fi
           # --flat, or the source directory travels and the package lands away from its siblings.
-          jf rt upload "dist/dist-deb/target/*.deb" "sokar-dist-deb/pool/main/s/sokar/" \
+          jf rt upload "dist/dist-deb/target/*.deb" "porelo-dist-deb/pool/main/p/porelo/" \
               --flat=true \
               --target-props="deb.distribution=${CHANNEL};deb.component=main;deb.architecture=amd64"
-          jf rt upload "dist/dist-rpm/target/*.rpm" "sokar-dist-rpm/${CHANNEL}/" --flat=true
-          # Sokar's own test agent, for a machine a leg leases ('lease --package sokar-agent-stub'): snapshots only,
-          # and never offered as an agent to install - it declares no 'Provides: sokar-agent', so it is taken by its
+          jf rt upload "dist/dist-rpm/target/*.rpm" "porelo-dist-rpm/${CHANNEL}/" --flat=true
+          # Porelo's own test agent, for a machine a leg leases ('lease --package porelo-agent-stub'): snapshots only,
+          # and never offered as an agent to install - it declares no 'Provides: porelo-agent', so it is taken by its
           # name alone. A scenario that needs it fails where it is missing rather than skipping.
           if [ "$CHANNEL" != releases ]; then
-              jf rt upload "agents/stub/target/*.deb" "sokar-dist-deb/pool/main/s/sokar-agent-stub/" \
+              jf rt upload "agents/stub/target/*.deb" "porelo-dist-deb/pool/main/p/porelo-agent-stub/" \
                   --flat=true \
                   --target-props="deb.distribution=${CHANNEL};deb.component=main;deb.architecture=amd64"
-              jf rt upload "agents/stub/target/*.rpm" "sokar-dist-rpm/${CHANNEL}/" --flat=true
+              jf rt upload "agents/stub/target/*.rpm" "porelo-dist-rpm/${CHANNEL}/" --flat=true
           fi
 
           # The bill beside the package, so it can be read without installing anything.
-          jf rt upload "target/sokar.cdx.json" "sokar-dist-deb/pool/main/s/sokar/" --flat=true
-          jf rt upload "target/sokar.cdx.json" "sokar-dist-rpm/${CHANNEL}/" --flat=true
+          jf rt upload "target/porelo.cdx.json" "porelo-dist-deb/pool/main/p/porelo/" --flat=true
+          jf rt upload "target/porelo.cdx.json" "porelo-dist-rpm/${CHANNEL}/" --flat=true
 
           # The setup script, versioned with the packages it installs. A machine being
-          # prepared has no daemon to ask, so this is the one Sokar interface that is a file: the
+          # prepared has no daemon to ask, so this is the one Porelo interface that is a file: the
           # wizard fetches it with 'curl -L', shows it to the person, and runs it as root. Named
           # with the version so the script and the packages it configures cannot drift apart, and
           # 'latest' beside it for a caller that has no version yet - from a release only, once there is one, so the
@@ -305,12 +305,12 @@ jobs:
           # Out of the package that was just built, with the tool that made it: the control
           # directory jdeb works from is not left on disk, and a glob over target/ matches every
           # .deb a machine has ever built there.
-          DEB="$(ls -t dist/dist-deb/target/sokar_*.deb | head -1)"
+          DEB="$(ls -t dist/dist-deb/target/porelo_*.deb | head -1)"
           VERSION="$(dpkg-deb -f "$DEB" Version)"
           [ -n "$VERSION" ] || { echo "::error::no version in $DEB"; exit 1; }
-          jf rt upload "dist/dist-setup/sokar-setup.sh" "sokar-dist-deb/setup/sokar-setup-${VERSION}.sh" --flat=true
-          if [ "$CHANNEL" = releases ] || ! curl -sfI "${JF_URL}/artifactory/sokar-dist-deb/dists/releases/Release" >/dev/null; then
-              jf rt upload "dist/dist-setup/sokar-setup.sh" "sokar-dist-deb/setup/sokar-setup-latest.sh" --flat=true
+          jf rt upload "dist/dist-setup/porelo-setup.sh" "porelo-dist-deb/setup/porelo-setup-${VERSION}.sh" --flat=true
+          if [ "$CHANNEL" = releases ] || ! curl -sfI "${JF_URL}/artifactory/porelo-dist-deb/dists/releases/Release" >/dev/null; then
+              jf rt upload "dist/dist-setup/porelo-setup.sh" "porelo-dist-deb/setup/porelo-setup-latest.sh" --flat=true
           fi
 
       # Uploaded is not the same as installable.
@@ -340,9 +340,9 @@ jobs:
           # older one would otherwise pass.
           DEB="$(basename dist/dist-deb/target/*.deb)"
           await "the Debian index" \
-              "/sokar-dist-deb/dists/${CHANNEL}/main/binary-amd64/Packages" \
-              "Filename: pool/main/s/sokar/$DEB" || FAILED=1
+              "/porelo-dist-deb/dists/${CHANNEL}/main/binary-amd64/Packages" \
+              "Filename: pool/main/p/porelo/$DEB" || FAILED=1
           await "the RPM index" \
-              "/sokar-dist-rpm/${CHANNEL}/repodata/repomd.xml" \
+              "/porelo-dist-rpm/${CHANNEL}/repodata/repomd.xml" \
               "primary" || FAILED=1
           exit "$FAILED"

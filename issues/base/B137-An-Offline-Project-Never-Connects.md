@@ -18,20 +18,20 @@ choosing it for a machine without a route, or for code that must not touch a net
 ## The shape
 
 - `upstream:` in an offline project is refused when the project file is read, as `credentials` and `egress` are
-  today, with the way in named: `sokar gate restore <bundle>`, or a checkout already on this machine.
+  today, with the way in named: `porelo gate restore <bundle>`, or a checkout already on this machine.
 - `--upstream` on a start of an offline project's task is refused the same way.
 - A further repository of an offline project takes no `upstream:` either.
 - Nothing measures, watches or keys an upstream for an offline project. That covers the upstream distance, the
   upstream watch and the deploy keys, each of which already does nothing for offline and is then left with nothing
   to skip.
-- A project's definition can come as a file, for every class: `sokar project follow NAME FILE`, where `FILE` is a
+- A project's definition can come as a file, for every class: `porelo project follow NAME FILE`, where `FILE` is a
   bundle of the project repository or a local directory holding it, checked against `--signed-by` exactly as a URL
   is. A project followed from a file is never fetched in the background; following it again from a newer file is how
   its settings change, and `project refresh` says so instead of fetching.
 - An offline project is followed only from a file. A follow from a URL whose definition says `offline` is refused,
   and so is a URL-followed project whose definition becomes `offline` on a later fetch, before anything of the new
   definition is used. One command for all classes, no command of offline's own.
-- A mirror is seeded only from `sokar gate restore`, from the followed definition, or from the checkout the command
+- A mirror is seeded only from `porelo gate restore`, from the followed definition, or from the checkout the command
   stands in.
 - `doc/security.md`'s "Getting a history in" lists only those. The class picture shows no upstream: one file in, one
   file out.
@@ -49,7 +49,7 @@ choosing it for a machine without a route, or for code that must not touch a net
 
 ## Decided
 
-**Decided, 2026-10-09:** following was the one connection left. `sokar project follow NAME URL` clones the
+**Decided, 2026-10-09:** following was the one connection left. `porelo project follow NAME URL` clones the
 project's own repository on the host, and the daemon fetches it again every five minutes; nothing skipped an offline
 project there. The file was chosen for the definition too, with no command of offline's own.
 
@@ -58,7 +58,7 @@ users beyond the testers, so nothing is kept for compatibility.
 
 ## As built, 2026-10-09
 
-- `Project` refuses `upstream:` for offline, the project's and each further repository's, naming `sokar gate
+- `Project` refuses `upstream:` for offline, the project's and each further repository's, naming `porelo gate
   restore`; `WorkspaceSetup` refuses `--upstream` for an offline start before any git command runs.
 - `FollowedProjects.fromAFile`: a source with a scheme or a host before a colon is an address, anything else a path
   (a bundle or a directory). `follow` records a path absolute; `ConfigurationWatch` fetches no path and answers
@@ -83,11 +83,11 @@ Built and on main (`f4cec6eb`): `Project`, `WorkspaceSetup`, `FollowedProjects.f
 own (`c91c82d0`). Left: the round trip on a clean machine.
 
 1. A scenario `acceptance/suite/.../project/project-offline-bundle.feature`, in one script on the machine: a project
-   repository whose `sokar.yaml` says `offline`, written with `git bundle create`; `sokar project follow <name>
-   <bundle>`; a code repository bundled the same way and seeded with `sokar gate restore <bundle> --project <name>`;
-   a task with `--agent stub` that commits and pushes; `sokar gate backup <file> --project <name>`, and
+   repository whose `porelo.yaml` says `offline`, written with `git bundle create`; `porelo project follow <name>
+   <bundle>`; a code repository bundled the same way and seeded with `porelo gate restore <bundle> --project <name>`;
+   a task with `--agent stub` that commits and pushes; `porelo gate backup <file> --project <name>`, and
    `git bundle list-heads <file>` names the task's commit.
-2. In the same feature: `sokar project refresh` says the project is followed from a file and fetches nothing; a
+2. In the same feature: `porelo project refresh` says the project is followed from a file and fetches nothing; a
    `project follow` of the same definition from a `file://` address is refused as offline from a URL.
 3. Run on the VM with `not @restart`; green there closes the issue.
 

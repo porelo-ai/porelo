@@ -3,13 +3,13 @@
 **Status:** Implementing.
 **Size:** S - built and on main; what is left is the walk on a rented machine and what it finds.
 
-**What must be true.** `sokar vault clear --yes` on a real machine leaves it as a new one: the vault, its
-cached passphrase and device shares, and the accounts a transport keeps in it are gone, and `sokar vault init`
+**What must be true.** `porelo vault clear --yes` on a real machine leaves it as a new one: the vault, its
+cached passphrase and device shares, and the accounts a transport keeps in it are gone, and `porelo vault init`
 starts afresh - as the unit tests already show against temporary paths and a fake runner.
 
 ## Plan
 
-Built, on `origin/main` since `10dcaaf0`: `VaultClearing` (`apps/app-project/`), called by `sokar vault clear`
+Built, on `origin/main` since `10dcaaf0`: `VaultClearing` (`apps/app-project/`), called by `porelo vault clear`
 (`VaultClearCommand`) and the daemon alike, held by `VaultClearingTest` (`apps/app/src/test/`). It lists without
 `--yes`, clears the transports' accounts elsewhere while the vault can still be read, removes the vault, its
 `.old` backup and `.lock`, drops what the kernel keyring caches, and refuses with `--force` too while a running
