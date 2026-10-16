@@ -1,0 +1,2 @@
+title: A firewall hook whose nft hangs refuses the container within its own limit and says in the hook log that it timed out
+type: fixed

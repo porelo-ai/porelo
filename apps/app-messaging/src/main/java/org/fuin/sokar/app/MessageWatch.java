@@ -77,6 +77,9 @@ public final class MessageWatch implements AutoCloseable {
 
     private java.nio.file.@org.jspecify.annotations.Nullable WatchService watcher;
 
+    /** The directories the kernel would not watch, and why: the timed pass alone reaches them. */
+    private final java.util.Map<Path, String> unwatched = new java.util.concurrent.ConcurrentHashMap<>();
+
     /**
      * Constructor.
      *
@@ -425,6 +428,7 @@ public final class MessageWatch implements AutoCloseable {
             }
         } catch (final IOException | RuntimeException ex) {
             watcher = null;
+            notWatched(root, ex);
             return false;
         }
         noticing = BackgroundPass.start("sokar-message-notices", this::notices);
@@ -490,10 +494,27 @@ public final class MessageWatch implements AutoCloseable {
                 register(directory);
             } catch (final IOException | RuntimeException ex) {
                 // A mailbox that cannot be watched is one the timer still reaches. Refusing to
-                // watch anything because one directory is missing would be worse.
-                continue;
+                // watch anything because one directory is missing would be worse; saying nothing left a person
+                // wondering why its messages took a minute, as when the machine's inotify watches run out.
+                notWatched(directory, ex);
             }
         }
+    }
+
+    private void notWatched(final Path directory, final Exception why) {
+        final String reason = why.getMessage() == null ? why.toString() : why.getMessage();
+        unwatched.put(directory, reason);
+        said("message watch: not watching " + directory + " (" + reason + "); what lands there moves with the pass every "
+                + interval.toSeconds() + " seconds");
+    }
+
+    /**
+     * Returns the directories the kernel would not watch, and why.
+     *
+     * @return By directory, the reason.
+     */
+    java.util.Map<Path, String> unwatched() {
+        return java.util.Map.copyOf(unwatched);
     }
 
     private void register(final Path directory) throws IOException {

@@ -20,6 +20,21 @@ class FollowCredentialTest {
     }
 
     @Test
+    void twoLendsForOneLabelNeverShareASocket(@TempDir Path dir) {
+
+        // Each lend removed whatever lay at git-<label>.sock before it served its key there, so a follow by the daemon
+        // and one at the command line at the same moment took each other's socket away, and one fetch failed.
+        final SokarContext context = context(dir);
+
+        final Path first = FollowCredential.socketFor(context, "a-project-with-a-long-name-and-its-repository");
+        final Path second = FollowCredential.socketFor(context, "a-project-with-a-long-name-and-its-repository");
+
+        assertThat(first).isNotEqualTo(second);
+        assertThat(first.getParent()).isEqualTo(second.getParent());
+        assertThat(first.toString().length()).as("a unix socket's path").isLessThan(108);
+    }
+
+    @Test
     void anSshDestinationWithNothingLentStillGetsTheMachinesHostKeyPolicy(@TempDir Path dir) {
 
         // The developer's own agent key reaches the origin, so nothing is lent - and ssh, given no policy, checked the

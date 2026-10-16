@@ -110,8 +110,8 @@ public class WaitingSteps {
         final Ssh.Output output = world.run("timeout " + seconds + " " + TaskSteps.startCommand(project, agent)
                 .replaceFirst("^sokar task start ", "sokar task start " + Shell.quote(TaskSteps.aName(task)) + " "));
         world.output(output);
-        assertThat(output.status()).as("the run did not end within %ds:%n%s", seconds, world.redact(output.all()))
-                .isNotEqualTo(ReadySteps.TIMED_OUT);
+        final String why = ReadySteps.whyNotEnded(output.status(), seconds);
+        assertThat(why).as("%s; it said:%n%s", why, world.redact(output.all())).isNull();
     }
 
     /**

@@ -1,0 +1,2 @@
+title: Two tasks started at once no longer remove each other's tokens from the vault, so both can come back after a reboot
+type: fixed

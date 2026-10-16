@@ -84,7 +84,8 @@ public final class Leg {
      * @return The command; true when there is nothing to install.
      */
     static String installBuildStub(final String binary) {
-        return "if [ -x " + binary + " ]; then install -D -m 0755 " + binary
+        // Whether it is there, not whether it is executable: an upload over SCP drops the execute bit, and install sets it.
+        return "if [ -f " + binary + " ]; then install -D -m 0755 " + binary
                 + " \"$HOME/.local/share/sokar/builds/stub-forge\"; fi";
     }
 

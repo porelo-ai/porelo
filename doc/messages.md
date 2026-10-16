@@ -13,6 +13,11 @@ How closely messages are watched is set once, in the project file: see `mail.rul
 [The project file](project-file.md). A person can still hold a peer's messages; nothing else is decided
 per task.
 
+The daemon moves every mailbox along every 60 seconds (`SOKAR_MESSAGE_SECONDS`), and at once when a message lands in
+a directory it watches. A directory the kernel will not watch - when the machine's inotify watches run out, or one
+it cannot read - is reached by the timed pass alone, and the daemon's journal says so, naming it and why
+(`message watch: not watching ...`). `sokar talk pass TASK` moves one task's messages at once.
+
 What a person writes in the conversation is taken only from somebody who joined it, and reaches every task of the
 project here, a task's own message never back to it; a direct chat reaches only the one task. A person is a peer by
 the name they joined with, watched as the room is (`mail.rules.room`). An agent resting at its prompt is woken when

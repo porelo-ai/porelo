@@ -1,13 +1,18 @@
 package org.fuin.sokar.hooks;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.util.List;
 import org.fuin.sokar.wire.Sidecar;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -37,7 +42,34 @@ class NftHookTest {
         assertThat(stage.isEmpty() ? execute(dir) : execute(dir, stage)).isEqualTo(1);
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
+    void anNftThatHangsIsStoppedAtTheHooksOwnLimitAndTheLogSaysSo(@TempDir final Path dir) throws Exception {
+
+        // The runtime gives the hook 30 seconds and then kills it, which leaves no line saying why; the hook's own
+        // limit is the one that has to hold first. The stand-in keeps its output open as a hung nft does.
+        Files.writeString(dir.resolve("ruleset.nft"), "table inet sokar {}\n");
+        final Path sidecar = dir.resolve("sidecar.json");
+        new Sidecar(Sidecar.VERSION, "uc", "guarded", dir.resolve("ruleset.nft").toString(),
+                dir.resolve("dns.conf").toString(), "/usr/bin/sokar", dir.toString()).writeTo(sidecar);
+        Sidecar.recordId(dir, "abc123abc123");
+        final String state = "{\"ociVersion\":\"1.0.2\",\"id\":\"abc123abc123\",\"status\":\"created\",\"pid\":4711,"
+                + "\"annotations\":{\"" + Sidecar.ANNOTATION + "\":\"" + sidecar + "\"}}";
+        final NftHook hook = new NftHook(pid -> List.of("sh", "-c", "exec sleep 60"), Duration.ofSeconds(1));
+
+        final int exit = assertTimeoutPreemptively(Duration.ofSeconds(20), () -> hook.execute(
+                new String[] {"createRuntime"}, new ByteArrayInputStream(state.getBytes(StandardCharsets.UTF_8)),
+                new PrintStream(new ByteArrayOutputStream(), true, StandardCharsets.UTF_8)));
+
+        assertThat(exit).as("the container is refused").isEqualTo(1);
+        assertThat(Files.readString(dir.resolve("hooks.log"))).contains("createRuntime failed: ").contains("timed out");
+    }
+
+    @Test
+    void theHooksLimitIsBelowTheRuntimes() {
+        assertThat(NftHook.LIMIT).isLessThan(Duration.ofSeconds(30));
+    }
+
+    @Test
     void poststopHasNothingToUnload(@TempDir final Path dir) throws Exception {
 
         assertThat(execute(dir, "poststop")).isZero();

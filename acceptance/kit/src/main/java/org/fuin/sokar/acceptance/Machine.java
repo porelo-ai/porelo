@@ -2,6 +2,7 @@ package org.fuin.sokar.acceptance;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.time.Duration;
 import org.fuin.sokar.machines.Credential;
 import org.fuin.sokar.machines.Ssh;
 import org.jspecify.annotations.Nullable;
@@ -214,7 +215,35 @@ public final class Machine implements AutoCloseable {
      * @throws IOException If the command cannot be run.
      */
     public Ssh.Output run(String command, @Nullable String stdin) throws IOException {
-        return ssh.run(asUser(onPath(command)), stdin);
+        final java.time.Instant started = java.time.Instant.now();
+        final Ssh.Output output = ssh.run(limited(asUser(onPath(command)), COMMAND_LIMIT), stdin);
+        if (output.status() == TIMED_OUT
+                && !java.time.Instant.now().isBefore(started.plus(COMMAND_LIMIT))) {
+            // A scenario's own 'timeout' ends sooner, so a 124 this late is the limit below.
+            throw new IOException("the command did not end within " + COMMAND_LIMIT.toMinutes()
+                    + " minutes and was stopped on the machine: " + command.lines().findFirst().orElse(""));
+        }
+        return output;
+    }
+
+    /** How long one command may run on the machine before it is stopped there. */
+    static final Duration COMMAND_LIMIT = Duration.ofMinutes(30);
+
+    /** What {@code timeout} exits with when it had to stop the command. */
+    private static final int TIMED_OUT = 124;
+
+    /**
+     * Returns the command stopped on the machine at the limit, the stubborn rest of it ten seconds later.
+     * <p>
+     * A command had no limit: one hung {@code podman exec} waited for the job's own limit, and the job lost every
+     * report of what had already run.
+     *
+     * @param command The command.
+     * @param limit How long it may run.
+     * @return The command, limited.
+     */
+    static String limited(final String command, final Duration limit) {
+        return "timeout -k 10 " + limit.toSeconds() + " " + command;
     }
 
     /**

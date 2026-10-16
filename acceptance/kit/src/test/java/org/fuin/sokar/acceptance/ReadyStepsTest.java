@@ -56,6 +56,16 @@ class ReadyStepsTest {
     }
 
     @Test
+    void aRunThatEndsAtOnceOnARefusalHasNotEndedWithinItsBound() {
+        // Only the bound was asserted, so a start refused at once - a missing key, a shut vault - passed every
+        // "ends within", and a repository using the kit that asserted nothing after it saw green on a run that never ran.
+        assertThat(ReadySteps.whyNotEnded(0, 60)).isNull();
+        assertThat(ReadySteps.whyNotEnded(ReadySteps.TIMED_OUT, 60)).contains("did not end within 60s");
+        assertThat(ReadySteps.whyNotEnded(1, 60)).contains("exit 1");
+        assertThat(ReadySteps.whyNotEnded(78, 60)).contains("exit 78");
+    }
+
+    @Test
     void boundsAnUnattendedRunWithTimeout() {
         assertThat(ReadySteps.boundedCommand("live", "pi", 90)).startsWith("timeout 90 sokar task start --project 'live'");
     }

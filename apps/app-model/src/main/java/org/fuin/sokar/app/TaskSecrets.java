@@ -116,6 +116,19 @@ public final class TaskSecrets {
      *         after a reboot.
      */
     public String keep(String container, Tokens tokens, Set<String> existing) {
+        return keep(container, tokens, () -> existing);
+    }
+
+    /**
+     * Keeps a task's tokens, and prunes the entries of tasks that no longer exist, asking which exist while the vault
+     * is held.
+     *
+     * @param container The task's container.
+     * @param tokens What to keep.
+     * @param existing Asks for the containers that exist, including this one; asked once, under the vault's lock.
+     * @return "" when they are kept, otherwise why they could not be.
+     */
+    public String keep(String container, Tokens tokens, java.util.function.Supplier<Set<String>> existing) {
         if (tokens.gate() == null && tokens.provider() == null && tokens.routes().isEmpty()) {
             return "";
         }
@@ -127,10 +140,13 @@ public final class TaskSecrets {
         try {
             context.vault().update(opener.get(), entries -> {
                 final Map<String, VaultEntry> updated = new LinkedHashMap<>(entries);
+                // Asked here, under the vault's lock, not before it: a start beside this one that kept its tokens in
+                // between has its container by then, and its tokens are not pruned as a gone task's.
+                final Set<String> exist = existing.get();
                 // Only a task's own entries, whose owner is a container: a grant or a transport's secrets are the
                 // account's, owned by no task. Pruning every reserved name took them too, at every task start
                 // (found on 2026-09-30: the transport's provisioning token gone).
-                updated.keySet().removeIf(name -> name.startsWith(PREFIX) && !existing.contains(owner(name)));
+                updated.keySet().removeIf(name -> name.startsWith(PREFIX) && !exist.contains(owner(name)));
                 put(updated, container + GATE, tokens.gate());
                 put(updated, container + PROVIDER, tokens.provider());
                 tokens.routes().forEach((name, token) -> put(updated, container + ROUTE + name, token));

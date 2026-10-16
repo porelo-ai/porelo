@@ -41,6 +41,21 @@ class LegBuildStubTest {
         assertThat(home.resolve(".local/share/sokar/builds/stub-forge")).isExecutable();
     }
 
+    @Test
+    void installsTheStubReaderThatArrivedWithoutItsExecuteBit() throws Exception {
+
+        // An upload over SCP arrives as rw-r--r--: the check for an executable file found none, installed nothing and
+        // said nothing, and a fresh account's builds scenario failed on a reader that was never there.
+        final Path home = Files.createDirectories(dir.resolve("home"));
+        final Path binary = dir.resolve("sokar-build-stub");
+        Files.writeString(binary, "#!/bin/sh\n");
+        Files.setPosixFilePermissions(binary, PosixFilePermissions.fromString("rw-r--r--"));
+
+        sh(home, Leg.installBuildStub(binary.toString()));
+
+        assertThat(home.resolve(".local/share/sokar/builds/stub-forge")).isExecutable();
+    }
+
     private String sh(final Path home, final String command) throws IOException, InterruptedException {
         final ProcessBuilder builder = new ProcessBuilder("sh", "-c", command).directory(home.toFile())
                 .redirectErrorStream(true);

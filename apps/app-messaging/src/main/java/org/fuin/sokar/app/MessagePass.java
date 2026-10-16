@@ -156,19 +156,23 @@ public final class MessagePass {
 
         // Independent of our own filter: what a peer sent is delivered whether or not this machine
         // can send anything today.
+        // What was held counts as seen as much as what was delivered: a second copy of a held message is the same message.
+        final java.util.Set<String> handed = record.delivered();
+        final java.util.Set<String> seen = new java.util.LinkedHashSet<>(handed);
+        seen.addAll(record.held());
         final MessageDelivery.Outcome delivered =
-                new MessageDelivery().deliver(mailbox, withOwn(peers), record.delivered(),
+                new MessageDelivery().deliver(mailbox, withOwn(peers), seen,
                         new InboundCheck(runner, filter, mail), budget,
                         attestedBy(polled, mail));
         for (final MessageDelivery.Delivered one : delivered.delivered()) {
             record.append(MessageRecord.DELIVERED, one.message(), one.id(), one.peer(), "");
         }
         for (final MessageDelivery.Held stuck : delivered.held()) {
-            record.append(MessageRecord.HELD, stuck.message(), "", "", stuck.reason(), MessageRecord.IN);
+            record.append(MessageRecord.HELD, stuck.message(), stuck.id(), "", stuck.reason(), MessageRecord.IN);
         }
         for (final MessageDelivery.Repeat repeat : delivered.duplicates()) {
             record.append(MessageRecord.DUPLICATE, repeat.message(), repeat.id(),
-                    "it had been delivered before");
+                    handed.contains(repeat.id()) ? "it had been delivered before" : "a copy of it is held already");
         }
         final List<String> bounced = new BounceDelivery().deliver(mailbox);
         return new Report(taken, filtered, dispatched, sent, delivered, bounced, polled);

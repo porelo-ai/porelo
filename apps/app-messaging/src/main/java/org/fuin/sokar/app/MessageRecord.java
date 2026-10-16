@@ -173,6 +173,26 @@ public final class MessageRecord {
     }
 
     /**
+     * Returns the ids of messages that were held for this agent, where their id could be read.
+     * <p>
+     * A held message is one the agent may still be handed, by a person's release: a second copy of it is the same
+     * message, and counted as seen it is not held a second time.
+     *
+     * @return The ids, in the order they were held.
+     * @throws IOException Reading failed.
+     */
+    public Set<String> held() throws IOException {
+        final Set<String> ids = new LinkedHashSet<>();
+        for (final Map<String, Object> line : lines()) {
+            if (HELD.equals(line.get("event")) && IN.equals(line.get("direction"))
+                    && !String.valueOf(line.get("id")).isBlank()) {
+                ids.add(String.valueOf(line.get("id")));
+            }
+        }
+        return ids;
+    }
+
+    /**
      * Counts what happened with one peer since a moment.
      *
      * @param event The event to count, one of the constants here.

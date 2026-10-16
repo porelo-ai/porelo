@@ -136,6 +136,38 @@ class MessagePassTest {
         return new Moderation(dir.resolve("moderation").resolve("p.json"));
     }
 
+    /**
+     * A copy of a message that is held is the same message: kept as a second held copy, a person who released both made
+     * the agent read it twice, and only what was delivered counted as seen.
+     */
+    @Test
+    void a_second_copy_of_a_held_message_is_a_repeat_not_a_second_held_one(@TempDir final Path dir)
+            throws IOException {
+        final Mailbox mailbox = mailbox(dir);
+        final SigningKey peerKey = SigningKey.generate("peer");
+        final List<MessageDelivery.Peer> peers = List.of(new MessageDelivery.Peer("reviewer", List.of(peerKey.keyBlob())));
+        // One message a day from the reviewer: the second of the day is held.
+        final Mail oneADay = new Mail(List.of(new Mail.Peer("reviewer", "local:/peer/inbound", "vouched", 1)));
+        final MessagePass pass = new MessagePass(runner, key, null, new TransportDirectory(List.of(dir.resolve("none"))));
+        arrive(mailbox, peerKey, "in-1");
+        arrive(mailbox, peerKey, "in-2");
+        final MessagePass.Report first = pass.run(mailbox, oneADay, peers, undecided(dir));
+        assertThat(first.delivered().held()).extracting(MessageDelivery.Held::message).containsExactly("in-2.json");
+
+        arrive(mailbox, peerKey, "in-2");
+        final MessagePass.Report second = pass.run(mailbox, oneADay, peers, undecided(dir));
+
+        assertThat(second.delivered().held()).as("held a second time").isEmpty();
+        assertThat(second.delivered().duplicates()).extracting(MessageDelivery.Repeat::id).containsExactly("in-2");
+    }
+
+    private static void arrive(final Mailbox mailbox, final SigningKey peerKey, final String id) throws IOException {
+        final String json = "{\"messageId\":\"" + id + "\"}";
+        Files.writeString(mailbox.inbound().resolve(id + ".json"), json);
+        Files.writeString(mailbox.inbound().resolve(id + ".json.sig"), SshSignature.sign(peerKey,
+                json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
+    }
+
     @Test
     void this_machines_own_key_is_believed_and_listed_only_once() {
         final MessagePass pass = new MessagePass(runner, key, null, new TransportDirectory(List.of()));

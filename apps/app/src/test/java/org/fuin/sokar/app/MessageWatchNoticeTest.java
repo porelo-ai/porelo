@@ -51,6 +51,30 @@ class MessageWatchNoticeTest {
         }
     }
 
+    /**
+     * A directory the kernel will not watch - out of inotify watches, or not readable - is reached by the timed pass
+     * alone, and that is said: it was skipped without a word, and its messages simply took a minute.
+     */
+    @Test
+    void a_directory_that_cannot_be_watched_is_named_with_why(@TempDir final Path dir) throws IOException {
+        final SokarContext context = context(dir);
+        final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox("sokar-p-t"));
+        mailbox.create();
+        // inotify_add_watch needs read access, so this one is refused as the kernel refuses a watch past its limit.
+        Files.setPosixFilePermissions(mailbox.inbound(), java.nio.file.attribute.PosixFilePermissions.fromString("---------"));
+        try (MessageWatch watch = new MessageWatch(context, Duration.ZERO)) {
+            org.junit.jupiter.api.Assumptions.assumeFalse(Files.isReadable(mailbox.inbound()),
+                    "this account reads a directory whatever its mode, as root does");
+
+            assertThat(watch.startNotices()).as("the other directories are still watched").isTrue();
+
+            assertThat(watch.unwatched()).containsOnlyKeys(mailbox.inbound());
+            assertThat(watch.unwatched().get(mailbox.inbound())).isNotBlank();
+        } finally {
+            Files.setPosixFilePermissions(mailbox.inbound(), java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        }
+    }
+
     @Test
     void a_message_that_lands_moves_while_a_conversation_step_runs(@TempDir final Path dir) throws Exception {
         // Every pass asked each conversation's transport first, under the one lock a notice waited for too: a written

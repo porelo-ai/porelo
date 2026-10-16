@@ -1,7 +1,7 @@
 # B76 — The Code Checked Against The Skills It Was Written Without
 
 **Status:** Implementing.
-**Size:** L - seven open findings in four modules, and three modules added on 2026-10-08 that were never read.
+**Size:** L - no open findings, and three modules added on 2026-10-08 that were never read.
 
 **What must be true.** Every Java module has been read against the skills that apply to it, and
 each finding is either fixed with a test that was watched to fail, or declined with the reason
@@ -339,12 +339,21 @@ Also: the resolver's class comment claimed it closed DNS exfiltration, which `do
 says it does not; `doc/reach.md` promised ports beyond 80 and 443 that no project key offers; two
 Javadoc blocks sat on the wrong member; two unused imports.
 
-Open:
+Fixed since, read against `java-code-review`, `concurrency-review` and `test-quality` 2026.906.3, its test seen
+red with the fix undone:
 
-- **A hung `nft` is killed by the runtime's own timeout before the hook's**, so the container is
-  refused - which is right - but the hook log says nothing about why. Needs a seam for the program it
-  runs before it can be tested.
-- **The netlink socket leaks its descriptor when binding fails**; the process exits right after.
+- **A hung `nft` was killed by the runtime's timeout before the hook's**, and the hook log said nothing about why.
+  The cause was worse than the order of two limits: the hook read nft's whole output before it waited, so its own
+  30 seconds never started while nft held its output open. Output and input now go on threads of their own beside
+  the wait, the hook's limit is 20 seconds against the runtime's 30, and the refusal says it timed out. The program
+  comes through a seam; the test runs a stand-in that sleeps with its output open.
+
+Fixed since, read against `java-code-review` and `test-quality` 2026.906.3, its test seen red with the fix undone:
+
+- **A refused bind left the netlink socket open**, its descriptor and its arena, once per attempt. Both are
+  released before the refusal is thrown. The test makes the kernel refuse a bind for real - a second socket asking
+  for the port another holds gets `EADDRINUSE` - and counts `/proc/self/fd`. `NflogReader`, its one caller, already
+  closes the socket when its own setup fails after it.
 
 ### `sokar` (the command line and the daemon's logic)
 
@@ -383,14 +392,24 @@ with a test watched to fail:
 - **The ssh command and the credential helper given to git were joined unquoted**, so a state directory
   with a space broke every fetch and a key path with `;` ran as shell. Each path is one shell word.
 
-Open:
+Fixed since, read against `java-code-review`, `concurrency-review` and `test-quality` 2026.906.3, each test seen
+red with the fix undone:
 
-- **A peer can deliver the same message id twice across passes** when the first copy was held; the
-  record knows only what was handed to the task.
-- **The message watch has no answer when the machine's inotify watches run out**; it falls back to the
-  pass every few seconds, which is correct but not said anywhere.
-- **Pruning expired tokens and lending one can meet**; the lent token may be pruned before it is used.
-  Harmless - the use fails and is retried - but not tested.
+- **A second copy of a held message was held a second time**, and a person who released both made the agent read
+  it twice: only what was delivered counted as seen, and a held message was recorded without its id. Its id is
+  recorded now, where it could be read, and counts as seen; the copy is recorded as a repeat, "a copy of it is held
+  already".
+- **A directory the message watch could not watch was skipped without a word** - when the machine's inotify watches
+  run out, or one it cannot read - and its messages simply took the timed pass's minute. The daemon's journal names
+  it and why, and `doc/messages.md` says when messages move.
+- **Two lends for one label took each other's socket.** A credential lent for a follow was served at
+  `git-<label>.sock`, and each lend removed what lay there first, so a follow by the daemon and one at the command
+  line at once left one fetch without its key. Each lend has a socket of its own. Read as the finding meant: the
+  "pruning" was that removal; nothing prunes the broker's expired tokens in the product.
+- **Two tasks starting at once could remove each other's kept tokens**, found reading the above. `TaskSecrets.keep`
+  pruned the entries of containers missing from a list taken before the vault was opened, so a start beside it that
+  kept its tokens in between lost them as a gone task's, and could not come back after a reboot. The containers that
+  exist are asked under the vault's lock; the test sees the lock held when they are asked.
 
 ### The acceptance kit and suite
 
@@ -420,36 +439,33 @@ Declined, with the reason:
 - **`is a snapshot that the next build supersedes` passes for a release.** The agent repositories run that
   step on every leg, a release's too, where there is no next snapshot; it says `RELEASE` and the version.
 
-Open:
+Fixed since, found when the suite first ran on a fresh account and seen red with the fix undone:
 
-- **A remote command has no time limit**: one hung `podman exec` waits for the job's limit and loses every
-  report. The ssh client is `sokar-buildtools`'; the limit belongs there.
-- **`ends within N seconds` asserts only that the limit was not reached**, so an immediate refusal passes it;
-  every scenario here asserts what was said after it, a repository using the kit may not.
+- **The deploy said it installed the stub build reader and installed nothing.** The reader goes up over SCP, which
+  drops the execute bit, and the install ran only for an executable file - so it ended without a word, and the
+  builds scenario failed on a fresh account. An account set up before had a reader from earlier, which hid it.
+  It is installed whenever the file is there; `install -m 0755` sets the bit.
+
+Fixed since, each test seen red with the fix undone:
+
+- **A remote command had no time limit**: one hung `podman exec` waited for the job's limit and lost every report.
+  Every command the kit runs on a machine is stopped there after 30 minutes (`timeout -k 10`), and a 124 that late
+  is said as that limit, not as the scenario's own `timeout`, which ends sooner. Its ssh client, `sokar-buildtools`'
+  `Ssh.run`, also read a command's output to the end before its errors, so a command blocked writing errors never
+  ended; fixed there, and taken here with its next release.
+- **`ends within N seconds` asserted only that the limit was not reached**, so a start refused at once passed it.
+  Ended means finished: exit 0, else the step says the exit code and what it said.
 
 ## Plan
 
-Read in the code on 2026-10-11: every **Open** item above still holds, and the list of modules is no longer
-every module. Since `ac40a26` three modules came into this tree that nobody read against the skills:
+Every finding listed above is fixed or declined (2026-10-16); what is left is the modules nobody has read. Since `ac40a26` three modules came into this tree that nobody read against the skills:
 `builds/api` and `builds/stub` (the build interface, about 1100 lines), `dist/package-check` (about 1000) and
 `acceptance/legs` (about 1500), all added on 2026-10-08. `apps/*` and `daemon` have changed by many thousand
 lines since their reading; they are read again only where a finding below touches them.
 
 In order, credentials and threads first, one commit per module:
 
-1. **`sokar-shield`'s netlink socket** (`shield/.../NetlinkSocket.java`): the descriptor is closed when `bind`
-   fails. Red first: a test with a bind that fails, through a seam for the downcall, sees `close` not called.
-2. **`sokar-hooks`' hung `nft`** (`hooks/.../NftHook.java`, which waits 30 seconds today): the program it runs
-   comes through a seam, the hook's own limit is below the runtime's, and the hook log says it timed out. Red
-   first: a fake `nft` that sleeps, and a hook log without the word.
-3. **`sokar` (app)**: a message id delivered twice across passes is recognised against the held record as well
-   (`MessageRecord`, `TransportConversations`); the message watch says when it falls back to the pass for lack
-   of inotify watches (`MessageWatch`, one line in `doc/messages.md`); a test meets pruning and lending one
-   token (`FollowCredential`).
-4. **The acceptance kit**: `ends within N seconds` takes the expected end as part of the step, or the kit's
-   README says it asserts the limit only. The remote command's limit is `sokar-buildtools`'; it is written
-   there as an issue and leaves this list.
-5. **The new modules**, read against the same skills: `builds/api` and `builds/stub` (security-audit,
+1. **The new modules**, read against the same skills: `builds/api` and `builds/stub` (security-audit,
    java-code-review, concurrency-review, test-quality), `dist/package-check` and `acceptance/legs`
    (test-quality, security-audit, java-code-review). Each gets its row in *Done so far* and a section here.
 

@@ -241,8 +241,26 @@ public class ReadySteps {
     private void endsWithin(String command, int seconds) throws IOException {
         final Ssh.Output output = world.run(command);
         world.output(output);
-        assertThat(output.status()).as("the run did not end within %ds - an agent waiting on a question looks"
-                + " exactly like this; it said:%n%s", seconds, world.redact(output.all())).isNotEqualTo(TIMED_OUT);
+        final String why = whyNotEnded(output.status(), seconds);
+        assertThat(why).as("%s; it said:%n%s", why, world.redact(output.all())).isNull();
+    }
+
+    /**
+     * Says why a bounded unattended run did not end within its bound, or {@code null} when it did.
+     * <p>
+     * Ended means finished: a run refused at once ends within any bound and proves nothing about an agent that asks
+     * nothing, so only exit 0 is an end.
+     *
+     * @param status What {@code timeout} and the start exited with.
+     * @param seconds The bound.
+     * @return Why not, or {@code null}.
+     */
+    static @org.jspecify.annotations.Nullable String whyNotEnded(int status, int seconds) {
+        if (status == TIMED_OUT) {
+            return "the run did not end within " + seconds + "s - an agent waiting on a question looks exactly like this";
+        }
+        return status == 0 ? null : "the run ended within " + seconds + "s but did not finish: exit " + status
+                + ", a start refused or a run that failed";
     }
 
     /** What {@code timeout} exits with when it had to stop the command. */

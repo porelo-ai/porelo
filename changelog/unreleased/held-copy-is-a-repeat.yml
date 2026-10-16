@@ -1,0 +1,2 @@
+title: A second copy of a held message is recorded as a repeat instead of being held again, so releasing them never hands the agent one message twice
+type: fixed

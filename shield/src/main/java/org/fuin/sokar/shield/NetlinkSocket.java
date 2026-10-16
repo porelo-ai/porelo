@@ -69,27 +69,56 @@ public class NetlinkSocket implements AutoCloseable {
     private boolean closed;
 
     /**
-     * Opens a netfilter netlink socket and binds it.
+     * Opens a netfilter netlink socket and binds it to a port the kernel chooses.
      *
      * @throws NetlinkException If the socket cannot be opened or bound.
      */
     public NetlinkSocket() {
+        this(0);
+    }
+
+    /**
+     * Opens a netfilter netlink socket and binds it to the given port, for tests that need a bind to fail.
+     *
+     * @param port The netlink port ({@code nl_pid}), or 0 for one the kernel chooses.
+     * @throws NetlinkException If the socket cannot be opened or bound.
+     */
+    NetlinkSocket(int port) {
+        int opened = -1;
         try {
-            descriptor = (int) SOCKET.invokeExact(errno, AF_NETLINK, SOCK_RAW, NETLINK_NETFILTER);
-            if (descriptor < 0) {
+            opened = (int) SOCKET.invokeExact(errno, AF_NETLINK, SOCK_RAW, NETLINK_NETFILTER);
+            if (opened < 0) {
                 throw new NetlinkException("socket(AF_NETLINK) failed", errorNumber());
             }
             // struct sockaddr_nl { u16 family; u16 pad; u32 pid; u32 groups; }
             final MemorySegment address = arena.allocate(12).fill((byte) 0);
             address.set(ValueLayout.JAVA_SHORT, 0, (short) AF_NETLINK);
-            final int bound = (int) BIND.invokeExact(errno, descriptor, address, 12);
+            address.set(ValueLayout.JAVA_INT, 4, port);
+            final int bound = (int) BIND.invokeExact(errno, opened, address, 12);
             if (bound < 0) {
                 throw new NetlinkException("bind(AF_NETLINK) failed", errorNumber());
             }
-        } catch (NetlinkException ex) {
-            throw ex;
+            descriptor = opened;
         } catch (Throwable ex) {
+            // A refused bind left the socket open: one descriptor and the arena per attempt, for a reader that is
+            // started again and again.
+            release(opened);
+            if (ex instanceof NetlinkException netlink) {
+                throw netlink;
+            }
             throw new NetlinkException("Cannot open a netlink socket: " + ex, 0);
+        }
+    }
+
+    private void release(int opened) {
+        try {
+            if (opened >= 0) {
+                final int ignored = (int) CLOSE.invokeExact(errno, opened);
+            }
+        } catch (Throwable ex) {
+            // The failure that brought us here is the one worth reporting.
+        } finally {
+            arena.close();
         }
     }
 

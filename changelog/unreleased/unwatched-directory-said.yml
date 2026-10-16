@@ -1,0 +1,2 @@
+title: The daemon says in its journal which mailbox directory it cannot watch and why, for example when the inotify watches run out
+type: changed

@@ -186,6 +186,49 @@ class TaskStateTest {
     }
 
     @Test
+    void theTasksThatExistAreAskedWhileTheVaultIsHeldNotBefore() throws IOException {
+
+        // Taken before the vault was opened, the list missed a task whose start ran beside this one: that start kept its
+        // tokens in between, this one pruned them as a gone task's, and it could not come back after a reboot. Asked
+        // under the vault's lock, every container whose tokens are in the file is in the list.
+        org.junit.jupiter.api.Assumptions.assumeTrue(org.fuin.sokar.vault.KernelKeyring.available(),
+                "libkeyutils is not installed");
+        final SokarContext context = context();
+        final char[] passphrase = "correct horse battery staple".toCharArray();
+        final org.fuin.sokar.vault.KernelKeyring keyring =
+                new org.fuin.sokar.vault.KernelKeyring(context.paths().vault().vaultKeyringKey());
+        try {
+            Files.createDirectories(context.vault().path().getParent());
+            context.vault().write(Map.of("anthropic", org.fuin.sokar.vault.VaultEntry.of("sk-1")), passphrase);
+            keyring.store(passphrase);
+            final Path lock = context.vault().path().resolveSibling(context.vault().path().getFileName() + ".lock");
+            final java.util.concurrent.atomic.AtomicBoolean heldWhenAsked = new java.util.concurrent.atomic.AtomicBoolean();
+
+            assertThat(new TaskSecrets(context).keep(TASK, new TaskSecrets.Tokens(GATE_TOKEN, null), () -> {
+                heldWhenAsked.set(locked(lock));
+                return java.util.Set.of(TASK);
+            })).isEmpty();
+
+            assertThat(heldWhenAsked).as("the vault's lock was held when the tasks were asked").isTrue();
+        } finally {
+            keyring.forget();
+        }
+    }
+
+    /** Whether this process holds the file lock on the given file. */
+    private static boolean locked(final Path file) {
+        try (java.nio.channels.FileChannel channel = java.nio.channels.FileChannel.open(file,
+                java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.WRITE);
+                java.nio.channels.FileLock free = channel.tryLock()) {
+            return free == null;
+        } catch (final java.nio.channels.OverlappingFileLockException ex) {
+            return true;
+        } catch (final IOException ex) {
+            throw new java.io.UncheckedIOException(ex);
+        }
+    }
+
+    @Test
     void aLockedVaultKeepsNothingAndSaysTheTaskCannotComeBack() {
         final String said = new TaskSecrets(context()).keep(TASK, new TaskSecrets.Tokens(GATE_TOKEN, null),
                 java.util.Set.of(TASK));

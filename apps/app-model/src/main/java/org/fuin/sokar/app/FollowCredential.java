@@ -436,11 +436,17 @@ public final class FollowCredential implements AutoCloseable {
         return value == null || value.isBlank() ? null : value;
     }
 
-    private static Path socketFor(final SokarContext context, final String label) {
+    static Path socketFor(final SokarContext context, final String label) {
         // In the runtime directory, because a unix socket path is short by nature and a state
         // directory nested under a home directory runs out of room at 108 characters.
-        return context.paths().xdg().runtime().resolve("sokar").resolve("git-" + label + ".sock");
+        // One of its own per lend: under the label alone, a lend removed what another lent there a moment before - a
+        // follow by the daemon and one at the command line at once - and that one's fetch failed.
+        return context.paths().xdg().runtime().resolve("sokar")
+                .resolve("git-" + label + "-" + Long.toHexString(LENDS.nextLong() >>> 32) + ".sock");
     }
+
+    /** Names each lend's socket apart from every other's. */
+    private static final java.security.SecureRandom LENDS = new java.security.SecureRandom();
 
     /**
      * Returns where host keys are remembered, making the directory if it is not there.

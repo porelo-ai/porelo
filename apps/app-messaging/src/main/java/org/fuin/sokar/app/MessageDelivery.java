@@ -66,12 +66,23 @@ public final class MessageDelivery {
      *
      * @param message File name.
      * @param reason Why, in words an operator can act on.
+     * @param id Its id, or empty when it was held before its id could be read.
      */
-    public record Held(String message, String reason) {
+    public record Held(String message, String reason, String id) {
+
+        /**
+         * Constructor for a message held before its id could be read.
+         *
+         * @param message File name.
+         * @param reason Why.
+         */
+        public Held(final String message, final String reason) {
+            this(message, reason, "");
+        }
     }
 
     /**
-     * One message that arrived again after having been delivered.
+     * One message that arrived again after having been delivered or held.
      *
      * @param message File name it arrived under this time.
      * @param id The id it repeats, which is what names it in the record.
@@ -268,7 +279,7 @@ public final class MessageDelivery {
                     : attested.refuse(mailbox, message, peer.name());
             if (!owner.isEmpty()) {
                 hold(mailbox, message, signature);
-                held.add(new Held(name, owner));
+                held.add(new Held(name, owner, id));
                 continue;
             }
 
@@ -278,7 +289,7 @@ public final class MessageDelivery {
                 // Held rather than refused back: this machine is the one that is full, and the
                 // message itself is nobody's fault.
                 hold(mailbox, message, signature);
-                held.add(new Held(name, full));
+                held.add(new Held(name, full, id));
                 continue;
             }
 
@@ -287,7 +298,7 @@ public final class MessageDelivery {
             final String refused = check == null ? "" : check.refuse(mailbox, message, peer.name());
             if (!refused.isEmpty()) {
                 hold(mailbox, message, signature);
-                held.add(new Held(name, refused));
+                held.add(new Held(name, refused, id));
                 continue;
             }
 

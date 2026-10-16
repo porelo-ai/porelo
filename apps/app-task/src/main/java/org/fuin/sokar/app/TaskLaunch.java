@@ -1071,7 +1071,7 @@ public final class TaskLaunch {
             // reach, and its two tokens in the vault. A task that cannot keep them runs, and says so.
             new TaskState(context).save(container);
             final String unkept = new TaskSecrets(context).keep(container,
-                    TaskSecrets.fromRuntime(context.paths().tasks().containerState(container)), existingTasks(container));
+                    TaskSecrets.fromRuntime(context.paths().tasks().containerState(container)), () -> existingTasks(container));
             if (!unkept.isEmpty()) {
                 out.println("reboot    " + unkept);
             }

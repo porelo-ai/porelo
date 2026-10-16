@@ -1,0 +1,2 @@
+title: The egress log reader no longer leaves a netlink socket open each time the kernel refuses its bind
+type: fixed
