@@ -113,6 +113,7 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b179"></a>[B179](B179-A-Code-Beside-Why-A-Release-Cannot-Go.md) | - | - | A code beside `detail` when a release is answered `NOT_DELIVERABLE`, so a client can say what to do per case. |
+| <a id="b196"></a>[B196](B196-The-Fedora-Repository-Checked-By-Its-Key.md) | - | - | On Fedora the setup script writes the repository with `gpgcheck=0`; it is to be checked against the pinned package key, as on Debian and Ubuntu. |
 
 ## Estimated
 
