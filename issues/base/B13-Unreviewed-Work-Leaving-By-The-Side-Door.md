@@ -1,7 +1,7 @@
 # B13 — Unreviewed Work Leaving By The Side Door
 
 **Status:** Implementing.
-**Size:** S - the guard, `gate checkout` and the marking are on main; left is a hand-push scenario.
+**Size:** M - the guard and `gate checkout` are on main; left: the already-upstream mark read in pending and reject, an optional field and `force` in `Tasks1`, and the hand-push scenario.
 
 **What must be true.** A person who carries an agent's unreviewed work to the upstream by hand hears about it at the
 moment they push, and the gate never records that work as something it is not.
@@ -270,8 +270,18 @@ Read in the code at `30c8169b`; the built parts are on `origin/main`.
 - **Not made to work: an editor attached to the container, decided 2026-10-11.** `gate checkout` and the pre-push
   guard are the way; nothing declares an editor vendor's hosts or copies an editor server into the container.
 
+**Found while writing that scenario, 2026-10-17: the marking is written and never read back.**
+`UpstreamDistance.alreadyUpstream` and `UpstreamRecords` record that an incoming ref reached the upstream, but no main
+code calls `PendingPush.upstream(true)`, so `gate pending` never marks a hand-pushed ref. `GateRejectCommand` and the
+daemon's `Reject` call `gate.reject(name)` with `alreadyUpstream` false and have no `--force`, so a reject discards,
+and records as discarded, work that is already upstream - the second acceptance criterion, broken today. Closing it
+is product code in `app-gate`, `app-model` and the daemon, and a change to `Tasks1`: a field on the pending push and a
+`force` on `Reject`, both added as optional, which the interface and the IntelliJ plugin read.
+
 Steps:
 
+0. `gate pending` and the daemon's pending list read `UpstreamRecords` and mark a push already upstream; `gate reject`
+   and `Reject` refuse such a push without `--force` / `force`, naming it, red first in `app-gate`'s unit tests.
 1. A scenario in `acceptance/suite/.../gate/gate-review.feature`, red first: a guarded project's task pushes, the
    incoming ref is pushed to the upstream's default branch by hand with plain git, the daemon's `SyncUpstream`
    measures it (`UpstreamSync`), then `gate pending` shows the push marked as already upstream, and `gate reject`
