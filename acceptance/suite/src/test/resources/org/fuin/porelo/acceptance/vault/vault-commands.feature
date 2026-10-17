@@ -144,3 +144,60 @@ Feature: The vault commands
       """
     Then its output mentions one of "does not say where it keeps its credentials, nothing to import from"
     And its output does not contain "exit 0"
+
+  # Started tasks make it slow. The homeserver's part - an account a transport keeps on another server - is walked
+  # by hand; what a machine shows without one is here. Guards data lost (a vault removed under a running task, or by
+  # a listing), a secret left behind (a passphrase still cached in the keyring) and a machine that cannot start again.
+  @slow
+  Scenario: a vault is cleared in one step, never past a running task that holds its token, and starts afresh
+    Given the environment variable "PORELO_ACCEPTANCE_FAKE_CREDENTIAL" is set
+    And a vault of this scenario's own, unlocked with the passphrase "acceptance"
+    And the vault holds the value of "PORELO_ACCEPTANCE_FAKE_CREDENTIAL" as "anthropic" of kind "api-key"
+    And a project called "cleared" of class "guarded" with a file in it
+    When a task called "first" is started in "cleared" for the "stub" agent and left running
+    # Its proxy holds what it read from the vault: even --force stops at it, and names it.
+    And a script runs:
+      """
+      porelo vault clear --yes --force; echo "exit $?"
+      test -f "$PORELO_VAULT" && echo "the vault file is still there"
+      """
+    Then its output contains "porelo-cleared-first"
+    And its output does not contain "exit 0"
+    And its output contains "the vault file is still there"
+    When a script runs "porelo task remove porelo-cleared-first --force"
+    Then it exits zero
+    # Listed first, and nothing goes without --yes.
+    When a script runs:
+      """
+      porelo vault clear
+      test -f "$PORELO_VAULT" && echo "the vault file is still there"
+      """
+    Then its output contains "the vault file is still there"
+    # The keyring's name for this vault is the hash Porelo derives from the vault's path, as Java's String.hashCode.
+    When a script runs:
+      """
+      porelo vault clear --yes; echo "exit $?"
+      for suffix in '' .old .lock; do test -e "$PORELO_VAULT$suffix" && echo "left: $PORELO_VAULT$suffix"; done
+      porelo vault clear
+      if command -v keyctl >/dev/null; then
+        h=0; s="$PORELO_VAULT"
+        for ((i = 0; i < ${#s}; i++)); do h=$(( (h * 31 + $(printf '%d' "'${s:i:1}")) & 0xFFFFFFFF )); done
+        key="porelo:vault:$(printf '%x' "$h")"
+        for each in "$key" "$key:share"; do
+          keyctl search @u user "$each" >/dev/null 2>&1 && echo "still in the keyring: $each"
+        done
+      fi
+      """
+    Then its output contains "exit 0"
+    And its output does not contain "left: "
+    # Listed again: neither the file nor the cached passphrase is there to go.
+    And its output does not contain "would go    vault"
+    And its output does not contain "would go    keyring"
+    And its output does not contain "still in the keyring"
+    # A new vault where the old one was, and a task started from it.
+    When a script runs "porelo vault init --passphrase-command 'printf afresh'"
+    Then it exits zero
+    Given the vault holds the value of "PORELO_ACCEPTANCE_FAKE_CREDENTIAL" as "anthropic" of kind "api-key"
+    When a task called "second" is started in "cleared" for the "stub" agent and left running
+    Then a script running "porelo task list" mentions "porelo-cleared-second"
+    And a script runs "porelo task remove porelo-cleared-second --force"
