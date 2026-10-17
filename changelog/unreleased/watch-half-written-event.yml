@@ -1,0 +1,2 @@
+title: The clearance watcher no longer loses a blocked connection whose line it read while the reader was still writing it, which was then never asked about
+type: fixed

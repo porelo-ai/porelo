@@ -396,6 +396,28 @@ class RunningEgressTest {
     }
 
     @Test
+    void aNameThatIsNoHostNameWritesNothingTheResolverReads(@TempDir Path dir) throws IOException {
+        // Written into the servers file as it came, 'example.test/#' became
+        // 'server=/example.test/#/...', and dnsmasq forwards every name under '#': one widening
+        // took
+        // away the task's whole list. A line break wrote a line of its own.
+        final PoreloContext context = context(dir);
+        final Path state = task("porelo-uc-shell-1", "guarded");
+        final String servers = Files.readString(state.resolve(DnsPolicy.SERVERS_FILE));
+
+        for (final String name :
+                List.of("example.test/#", "#", "example.test\naddress=/#/192.0.2.1")) {
+            final RunningEgress.Effect effect = widen(context, name);
+
+            assertThat(effect.outcome()).as(name).isEqualTo(RunningEgress.Outcome.REFUSED_NAME);
+            assertThat(effect.detail()).as(name).contains("is not a host name");
+        }
+        assertThat(Files.readString(state.resolve(DnsPolicy.SERVERS_FILE))).isEqualTo(servers);
+        assertThat(GrantedNames.all(state)).isEmpty();
+        assertThat(runner.lines()).noneMatch(line -> line.startsWith("kill"));
+    }
+
+    @Test
     void doesNotWidenANameTheTaskRefusesNorOneUnderIt(@TempDir Path dir) throws IOException {
         // Measured on dnsmasq: a refusal in the configuration wins over a widening appended to the
         // servers file, so a success reported here would be one the resolver does not honour.

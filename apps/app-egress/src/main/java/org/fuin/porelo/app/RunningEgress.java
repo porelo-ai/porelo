@@ -121,6 +121,12 @@ public final class RunningEgress {
         }
     }
 
+    /** Dot-separated labels of letters, digits, '-' and '_', the shape the resolver is given. */
+    private static final java.util.regex.Pattern HOST_NAME =
+            java.util.regex.Pattern.compile(
+                    "[A-Za-z0-9_](?:[A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?"
+                            + "(?:\\.[A-Za-z0-9_](?:[A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?)*\\.?");
+
     private final PoreloContext context;
 
     /**
@@ -173,6 +179,15 @@ public final class RunningEgress {
         // file allows - measured, a widening appended and signalled changed nothing - so reporting
         // it
         // as opened would be a success that is not one.
+        for (final String name : names) {
+            if (!name.isBlank() && !HOST_NAME.matcher(name.strip()).matches()) {
+                // Written into the resolver's servers file as it came, a '/' or a '#' names other
+                // domains there - '#' is every one - and a line break writes a line of its own.
+                return Effect.refused(
+                        Outcome.REFUSED_NAME,
+                        "'" + name.strip() + "' is not a host name, so nothing was widened");
+            }
+        }
         final java.util.Set<String> refused = refusedBy(state);
         for (final String name : names) {
             final String covering = covering(refused, name.strip());
@@ -458,13 +473,6 @@ public final class RunningEgress {
     }
 
     /**
-     * Writes the same names into the project file, so the next task starts with them.
-     *
-     * @param task The running task.
-     * @param names Names that were granted.
-     * @return What became of it, the run having been widened either way.
-     */
-    /**
      * Takes the names out of the project file as well, so the next task does not start with them.
      *
      * @param task The running task.
@@ -520,6 +528,13 @@ public final class RunningEgress {
         return new Withdrawal(Outcome.NARROWED, names, addresses, true, null, file);
     }
 
+    /**
+     * Writes the same names into the project file, so the next task starts with them.
+     *
+     * @param task The running task.
+     * @param names Names that were granted.
+     * @return What became of it, the run having been widened either way.
+     */
     private Effect persist(TaskInventory.Task task, List<String> names) {
 
         final String project = task.project();

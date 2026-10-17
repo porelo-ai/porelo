@@ -1,0 +1,2 @@
+title: A running task's widening refuses a name that is not a host name, where a name holding '/' or '#' made its resolver answer other names, or every name, and a line break wrote a line of its own
+type: fixed

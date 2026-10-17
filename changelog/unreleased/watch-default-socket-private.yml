@@ -1,0 +1,2 @@
+title: porelo shield watch started without --socket makes its socket and journal in an owner-only directory of its own, no longer at a fixed name in the shared temporary directory, where another account could leave decisions it took back
+type: fixed

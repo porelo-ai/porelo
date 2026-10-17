@@ -103,7 +103,8 @@ public class ShieldWatchCommand implements Callable<Integer> {
             names = "--socket",
             paramLabel = "<path>",
             description =
-                    "Where to create the clearance socket. Default: beside the container state.")
+                    "Where to create the clearance socket. Default: in an owner-only directory of"
+                            + " its own under the temporary directory.")
     private @Nullable Path socket;
 
     @Option(
@@ -441,11 +442,28 @@ public class ShieldWatchCommand implements Callable<Integer> {
                 "an absolute socket path has a directory");
     }
 
+    /** The socket made when none was named, once per run. */
+    private @Nullable Path madeSocket;
+
     private Path socketPath() {
-        return socket != null
-                ? socket
-                : Path.of(System.getProperty("java.io.tmpdir"))
-                        .resolve("porelo-clearance-" + containerPid + ".sock");
+        if (socket != null) {
+            return socket;
+        }
+        if (madeSocket == null) {
+            // An owner-only directory of its own, never a fixed name in the shared temporary
+            // directory: the journal lies beside the socket and its allows are taken back at start,
+            // so a file another account put there first was decided as if this one had.
+            try {
+                madeSocket =
+                        java.nio.file.Files.createTempDirectory(
+                                        "porelo-clearance-" + containerPid + "-")
+                                .resolve("clearance.sock");
+            } catch (final IOException ex) {
+                throw new java.io.UncheckedIOException(
+                        "cannot make a directory for the clearance socket", ex);
+            }
+        }
+        return madeSocket;
     }
 
     private void writePidFile(PrintWriter err) {
@@ -478,25 +496,63 @@ public class ShieldWatchCommand implements Callable<Integer> {
             java.util.concurrent.CountDownLatch enough)
             throws IOException, InterruptedException {
 
+        final Path file =
+                java.util.Objects.requireNonNull(events, "followed only when --events names one");
         long position = 0;
         while (enough.getCount() > 0) {
-            if (java.nio.file.Files.exists(events)) {
-                try (var lines = java.nio.file.Files.lines(events)) {
-                    final long[] seen = {0};
-                    final long start = position;
-                    lines.forEach(
-                            line -> {
-                                if (seen[0]++ >= start) {
-                                    handle(hub, service, line, err);
-                                }
-                            });
-                    position = seen[0];
-                }
-            }
+            final Read read = linesFrom(file, position);
+            read.lines().forEach(line -> handle(hub, service, line, err));
+            position = read.position();
             if (enough.await(1, java.util.concurrent.TimeUnit.SECONDS)) {
                 return;
             }
         }
+    }
+
+    /**
+     * What one look at the events file found.
+     *
+     * @param lines The lines new since the last look.
+     * @param position Where the next look starts.
+     */
+    record Read(List<String> lines, long position) {}
+
+    /**
+     * Reads the whole lines of an events file past a byte position.
+     *
+     * <p>A line without its line end is still being written: it is left for the next look, which
+     * starts where the last whole line ended.
+     *
+     * @param file The events file.
+     * @param position The byte where the last look ended.
+     * @return The new whole lines, and where the next look starts.
+     * @throws IOException If the file cannot be read.
+     */
+    static Read linesFrom(final Path file, final long position) throws IOException {
+        if (!java.nio.file.Files.exists(file)) {
+            return new Read(List.of(), position);
+        }
+        final byte[] added;
+        try (java.nio.channels.SeekableByteChannel channel =
+                java.nio.file.Files.newByteChannel(file)) {
+            channel.position(position);
+            added = java.nio.channels.Channels.newInputStream(channel).readAllBytes();
+        }
+        final List<String> lines = new java.util.ArrayList<>();
+        int start = 0;
+        for (int at = 0; at < added.length; at++) {
+            if (added[at] == '\n') {
+                lines.add(
+                        new String(
+                                        added,
+                                        start,
+                                        at - start,
+                                        java.nio.charset.StandardCharsets.UTF_8)
+                                .stripTrailing());
+                start = at + 1;
+            }
+        }
+        return new Read(List.copyOf(lines), position + start);
     }
 
     private Process startReader(Path clearanceSocket) throws IOException {
