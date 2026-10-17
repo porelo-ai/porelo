@@ -743,9 +743,8 @@ public final class TaskLaunch {
             // A repository at a host this machine never met: refused here, as CanStart answers it. It went ahead
             // before, ssh refused the workspace's fetch, and the task ran without a gate.
             // The address the gate will use: '--upstream' when given, which the project file does not name.
-            final String unmet = request.upstream() != null && !request.upstream().isBlank()
-                    ? StartCheck.unknownHostOf(context, request.upstream())
-                    : StartCheck.unknownHost(context, request.projectFile(), request.repository());
+            final String unmet = StartCheck.unknownHost(context, request.projectFile(), request.repository(),
+                    request.upstream());
             if (unmet != null && trustUnmet(unmet, err)) {
                 out.println("trusted   " + unmet);
                 out.flush();

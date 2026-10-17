@@ -90,6 +90,8 @@ The readings listed below were made before versions were recorded; which they us
     package-check      at 2026.906.3                                                   2026-10-17, its fix
     porelo-acceptance- test-quality, security-audit, java-code-review,
     legs               at 2026.906.3                                                   (this commit)
+    porelod, again     security-audit, java-code-review, concurrency-review,
+                       test-quality at 2026.906.3, graal at 2026.910.3                 (this commit)
 
 "The commit below" is the one that also lets a leg's image cache report never fail the leg.
 
@@ -533,6 +535,44 @@ Read and left as they are:
   developer's machine it is one file per leg.
 - **An account install stops at its first failure (`set -e`) and leaves its unpacked package** in a `mktemp`
   directory. The deploy says where it stopped.
+
+### `porelod` (`daemon`), read again
+
+Read on 2026-10-17 whole, for what changed since `ac40a26` - the methods split by area into `TaskMethods`,
+`ProjectMethods`, `EgressMethods`, `VaultMethods`, `GateMethods`, `AgentMethods`, `MessagingMethods` and
+`MachineMethods`, and `SelfReplacement` - against security-audit, java-code-review, concurrency-review and
+test-quality, each at 2026.906.3, and graal at 2026.910.3, with the SHA-256 above. Fixed, each with a test seen
+failing without its fix:
+
+- **A backup of a project's other repository could not be deleted.** `Backups` lists a second repository's bundles
+  under that repository's record, and `DeleteBackup` looked only under the project's own, so it answered
+  `NO_SUCH_BACKUP` for a bundle the listing had just offered. It looks under every record the project's backups are
+  kept in; still only a path a record names is deleted.
+- **A start given an upstream was checked against another host.** `Start` asked whether this machine had met the host
+  of the project file's upstream, while the gate fetches from the one given: a start at a known host was refused as
+  `UnknownHostKey` for a host it never reaches, and one at a host never met passed and failed later with exit 69 instead
+  of the typed refusal. The launch and the daemon now ask one question, `StartCheck.unknownHost` with the upstream.
+
+Read and left as they are:
+
+- **Paths and names from the socket reach the account's own files** - a bundle to restore, a backup record's key, a
+  project file for `Prepare`. The socket is owner-only, so its client is the account, which can do the same at the
+  terminal; `DeleteBackup` still deletes only a path a record names.
+- **Each streaming method keeps its state on its connection's own thread** (`Watch`, `Tail`, `Talk`, `Prompts`,
+  `Authorizations`), and `Prompts`' subscriptions are virtual threads it interrupts when its client goes; the channel
+  is interruptible, so an interrupted subscription ends its blocking read.
+- **`Talk` reads every mailbox's whole record every two seconds per client.** It is a cost, not a wrong answer; the
+  records are small and a client that listens is a person's console.
+- **`Decide` waits on the task's clearance watcher without a limit.** The watcher is Porelo's own, on a socket in the
+  task's state, and every connection has a platform thread of its own, so a slow one holds only its caller.
+- **`SelfReplacement` restarts the unit whose name ends the process's control group.** A daemon started by hand runs in
+  a scope, not a service, and is only told; reading the group text is a seam the tests drive.
+- **`WriteDestination` stages under one fixed name per destination**, so two writes of one name at once can fail one of
+  them with an error; nothing is half-written, and the file is the account's own.
+- **The native image registers the interface description by a resource glob**, the one resource the daemon reads; the
+  daemon adds no FFM downcall of its own.
+- Javadoc blocks sit above the wrong member in `PoreloDaemon` (`read`, `request`, `text`, `flag`, `main`); style
+  only, left.
 
 ## Plan
 

@@ -403,8 +403,9 @@ final class TaskMethods {
             // Refused as itself before anything is launched: a destination nobody declared is a typed answer an
             // interface can show, not a launch line among others.
             // A host never met is a typed refusal, before anything is made: it went ahead without a gate before.
+            // The host the start will fetch from: the upstream it was given, as the launch asks it.
             final String unmet = org.fuin.porelo.app.StartCheck.unknownHost(context, projectFile(parameters, context),
-                    empty(parameters, "repository"));
+                    empty(parameters, "repository"), address(parameters, "upstream"));
             if (unmet != null) {
                 throw new VarlinkException(INTERFACE + ".UnknownHostKey", Map.of("host", unmet,
                         "hostKeys", org.fuin.porelo.app.HostKeys.offeredBy(context, unmet).stream()

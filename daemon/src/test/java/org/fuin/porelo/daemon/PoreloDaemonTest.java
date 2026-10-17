@@ -1817,6 +1817,44 @@ class PoreloDaemonTest {
     }
 
     @Test
+    void aBackupOfAProjectsOtherRepositoryCanBeDeletedAsItIsListed(@TempDir Path dir) throws Exception {
+
+        // Backups lists a second repository's bundles under that repository; DeleteBackup takes the project and the
+        // path Backups gave, and has to find the record where the listing found it.
+        record(dir, Files.writeString(dir.resolve("project.yml"), """
+                project:
+                  name: "uc"
+                  security_class: "guarded"
+                image:
+                  base_image: "ubuntu:24.04"
+                repositories:
+                  backend:
+                    upstream: "git@forge.example.org:uc/backend.git"
+                """));
+        final Path bundle = dir.resolve("backend.bundle");
+        Files.writeString(bundle, "not really a bundle");
+        new org.fuin.porelo.app.BackupRecords(dir.resolve("data/porelo/backups"))
+                .add(org.fuin.porelo.app.GateSupport.recordKey(PROJECT, "backend"), bundle, 1);
+
+        serving(dir, socket -> {
+            try (VarlinkClient client = new VarlinkClient(socket)) {
+                assertThat((List<?>) client.call(PoreloDaemon.INTERFACE + ".Backups",
+                        Map.of("project", PROJECT, "repository", "backend")).get("backups"))
+                        .as("the listing the delete is asked from").hasSize(1);
+
+                assertThat(client.call(PoreloDaemon.INTERFACE + ".DeleteBackup",
+                        Map.of("project", PROJECT, "bundle", bundle.toAbsolutePath().toString())))
+                        .as("a backup the listing offered is one the delete finds")
+                        .containsEntry("outcome", "DELETED").containsEntry("fileRemoved", true);
+                assertThat(bundle).doesNotExist();
+                assertThat((List<?>) client.call(PoreloDaemon.INTERFACE + ".Backups",
+                        Map.of("project", PROJECT, "repository", "backend")).get("backups"))
+                        .as("its record goes with it").isEmpty();
+            }
+        });
+    }
+
+    @Test
     void deletingSomethingNoRecordNamesIsRefusedRatherThanGuessed(@TempDir Path dir)
             throws Exception {
 
@@ -2290,6 +2328,35 @@ class PoreloDaemonTest {
                         Map.of("project", "default", "repository", "app", "task", "t"), reply -> true))
                         .isInstanceOfSatisfying(VarlinkException.class, refused -> assertThat(refused.getErrorName())
                                 .isEqualTo(PoreloDaemon.INTERFACE + ".EarlierWorkWaits"));
+            }
+        });
+        assertThat(runner.lines()).as("nothing was created").noneMatch(line -> line.startsWith("podman create")
+                || line.startsWith("podman run") || line.startsWith("podman build"));
+    }
+
+    @Test
+    void aStartGivenAnUpstreamAsksAboutThatUpstreamsHost(@TempDir Path dir) throws Exception {
+
+        // The gate fetches from the upstream a start is given, not from the project file's: the host a person is asked
+        // to trust is that one, as at the command line, and the project file's own host is not the start's question.
+        record(dir, Files.writeString(dir.resolve("project.yml"), """
+                project:
+                  name: "uc"
+                  security_class: "guarded"
+                  upstream: "git@project-host.example.org:uc/uc.git"
+                image:
+                  base_image: "ubuntu:24.04"
+                """));
+
+        serving(dir, socket -> {
+            try (VarlinkClient client = new VarlinkClient(socket)) {
+                assertThatThrownBy(() -> client.call(PoreloDaemon.INTERFACE + ".Start", Map.of("project", PROJECT,
+                        "task", "t", "upstream", "git@given-host.example.org:uc/uc.git")))
+                        .isInstanceOfSatisfying(VarlinkException.class, refused -> {
+                            assertThat(refused.getErrorName()).isEqualTo(PoreloDaemon.INTERFACE + ".UnknownHostKey");
+                            assertThat(refused.getParameters()).as("the host the start would fetch from")
+                                    .containsEntry("host", "given-host.example.org");
+                        });
             }
         });
         assertThat(runner.lines()).as("nothing was created").noneMatch(line -> line.startsWith("podman create")

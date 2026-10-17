@@ -88,8 +88,16 @@ final class ProjectMethods {
             final String project = text(parameters, "project");
             final java.nio.file.Path bundle =
                     java.nio.file.Path.of(text(parameters, "bundle")).toAbsolutePath();
-            final var known = records.of(project).stream()
-                    .filter(backup -> backup.bundle().equals(bundle)).findFirst();
+            // Under every key Backups lists from: a bundle of the project's other repository is recorded under that one.
+            String key = project;
+            java.util.Optional<org.fuin.porelo.app.BackupRecords.Backup> known = java.util.Optional.empty();
+            for (final String each : backupKeys(context, project)) {
+                known = records.of(each).stream().filter(backup -> backup.bundle().equals(bundle)).findFirst();
+                if (known.isPresent()) {
+                    key = each;
+                    break;
+                }
+            }
             if (known.isEmpty()) {
                 replies.last(Map.of("outcome", "NO_SUCH_BACKUP", "fileRemoved", false,
                         "refs", 0, "detail", "no backup of '" + project + "' at " + bundle));
@@ -102,7 +110,7 @@ final class ProjectMethods {
             }
             try {
                 final boolean removed = java.nio.file.Files.deleteIfExists(bundle);
-                records.forget(project, bundle);
+                records.forget(key, bundle);
                 replies.last(Map.of("outcome", "DELETED", "fileRemoved", removed,
                         "refs", known.get().refs(), "detail", ""));
             } catch (java.io.IOException | RuntimeException ex) {
@@ -451,6 +459,29 @@ final class ProjectMethods {
 
         server.method("CheckProjectFile", (parameters, replies) -> replies.last(
                 org.fuin.porelo.app.ProjectFileCheck.check(context, text(parameters, "text")).asMap()));
+    }
+
+    /**
+     * Returns the keys a project's backups are recorded under: its own, then each of its repositories'.
+     *
+     * @param context The machine.
+     * @param project The project's name.
+     * @return The keys; the project's own alone when its file cannot be read.
+     */
+    private static List<String> backupKeys(final PoreloContext context, final String project) {
+        final List<String> keys = new ArrayList<>(List.of(project));
+        try {
+            for (final org.fuin.porelo.core.project.Repository repository
+                    : GateSupport.byName(context, project).allRepositories()) {
+                final String key = GateSupport.recordKey(project, repository.name());
+                if (!keys.contains(key)) {
+                    keys.add(key);
+                }
+            }
+        } catch (RuntimeException ex) {
+            // A project whose file cannot be read still has the backups recorded under its own name.
+        }
+        return keys;
     }
 
     /**

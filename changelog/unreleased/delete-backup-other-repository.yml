@@ -1,0 +1,2 @@
+title: The daemon's DeleteBackup finds a backup of a project's other repository, which Backups lists under that repository and the delete answered as NO_SUCH_BACKUP
+type: fixed

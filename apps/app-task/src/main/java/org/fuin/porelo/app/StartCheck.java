@@ -506,6 +506,22 @@ public final class StartCheck {
     }
 
     /**
+     * Returns the host a start will fetch from when it is reached over ssh and this machine never met it: the
+     * upstream the start was given, else the repository's in the project file.
+     *
+     * @param context Where this machine's known hosts are.
+     * @param projectFile The project file, or {@code null}.
+     * @param repository The repository, or {@code null} for the project's own.
+     * @param upstream The upstream the start was given, or {@code null} or blank when none.
+     * @return The host as {@code trust-host} takes it, or {@code null} when there is no such question.
+     */
+    public static @Nullable String unknownHost(PoreloContext context, @Nullable Path projectFile,
+            @Nullable String repository, @Nullable String upstream) {
+        return upstream != null && !upstream.isBlank() ? unknownHostOf(context, upstream)
+                : unknownHost(context, projectFile, repository);
+    }
+
+    /**
      * Returns the host of a repository's upstream when it is reached over ssh and this machine never met it.
      *
      * @param context Where this machine's known hosts are.
