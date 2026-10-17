@@ -1,7 +1,7 @@
 # B76 — The Code Checked Against The Skills It Was Written Without
 
 **Status:** Implementing.
-**Size:** L - no open findings, and every module read; left are the two points under *To be checked*.
+**Size:** L - no open findings and every module read; left: `apps/*` and `daemon` read again whole, and one rule for the kit's bounds.
 
 **What must be true.** Every Java module has been read against the skills that apply to it, and
 each finding is either fixed with a test that was watched to fail, or declined with the reason
@@ -548,6 +548,28 @@ In order, credentials and threads first, one commit per module:
    java-code-review, concurrency-review, test-quality), `dist/package-check` and `acceptance/legs`
    (test-quality, security-audit, java-code-review). Each gets its row in *Done so far* and a section here.
 
+2. **`apps/*` and `daemon` read again whole** (decided 2026-10-17), for what changed since `ac40a26`: against
+   security-audit, java-code-review, concurrency-review and test-quality, and graal where they are built native.
+   One commit per area, credentials and threads first: `daemon`, then `app-vault`, `app-gate`, `app-task`,
+   `app-model`, `app-base`, `app-project`, `app-egress`, `app-messaging` and `app`. Each gets its row in *Done so far*.
+3. **One rule for the kit's bounds** (decided 2026-10-17), for every repository that uses the kit:
+   - **The ready bound** (`ready_within_seconds`, the step *"reaches work without being asked anything"*) counts
+     from the session existing, so it never covers an image build. An agent declares about four times its
+     measured time to the ready screen. The kit refuses a declared bound above its cap by name, so a bound that grew
+     fails at once instead of making a stuck run cost minutes. Claude Code's measured 15.4 to 15.9 s gives 60 s
+     (porelo-claude-code [CC32](https://github.com/porelo-ai/porelo-claude-code/blob/main/issues/README.md#cc32)),
+     where 300 s let five stuck scenarios fill a 30-minute step.
+   - **The unattended run** (*"... ends within N seconds"*) follows the same rule: N is about four times the run as
+     measured, and the kit refuses an N above its cap.
+   - **The caps are set from what the agent repositories measure** - each one's time to ready and its unattended run,
+     from its last VM run - and are written beside the steps in `ReadySteps`, each with its measurement.
+   - **The named run** in `WaitingSteps` gets `timeout -k 10` as the others have, so a start that does not end on the
+     stop is killed ten seconds later; today it holds the step.
+   - Red first in `ReadyStepsTest`: a description with a bound above the cap, and an N above it, are refused naming
+     the cap; the named run's command carries `-k 10`.
+   - The agent repositories then change their manifests' `ready_within_seconds` and their features' N in their own
+     commits, against the kit released with this.
+
 Every fix keeps the rule above: a test watched to fail with the fix undone.
 
 ## Acceptance
@@ -563,10 +585,3 @@ Every fix keeps the rule above: a test watched to fail with the fix undone.
   to that.
 - **Seen to fail:** each fix's test, run with the fix undone, goes red; a module listed above
   without its skills and closing commit means this issue is not done.
-
-## To be checked
-
-- Whether `apps/*` and `daemon` are read again whole for what changed since `ac40a26`, or only where a finding
-  touches them (Agent Core's).
-- `ends within N seconds`: change the step for every repository that uses the kit, or say what it asserts
-  (Agent Core's, with the agent repositories' agents).
