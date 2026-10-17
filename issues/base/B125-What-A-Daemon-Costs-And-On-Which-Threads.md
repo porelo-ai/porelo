@@ -1,7 +1,7 @@
 # B125 — What A Daemon Costs, And On Which Threads
 
 **Status:** Implementing.
-**Size:** M - the idle measurement and the bound on loops are done; what is left: the run on virtual threads, one listing fix.
+**Size:** M - the idle measurement, the bound on loops and the listing of never-started containers are done; what is left: the idle measurement again and the run on virtual threads.
 
 **What must be true.** What one `porelod` costs is measured, idle and at work, and its loops run on
 the kind of thread that the measurement and [B79](README.md#b79)'s fault support. The decision is written down with the
@@ -42,11 +42,16 @@ mailbox removed, `passOnce` returned before it looked at the loops, so the conve
 last pass and woke every five seconds; that pass now ends them. `MessageWatchLoopsTest` holds all four cases, each seen to fail with its check
 undone.
 
+And **a container created and never started stays a task.** `Podman.poreloTasks` lists a `Created` container whose id
+is recorded and drops one whose id is not, as it drops any container merely named like a task (`PodmanTest`). The id
+was the gap: `TaskRunner` recorded it only in the runtime directory, and the rest of the task's state is saved where a
+reboot does not reach only once it started. A start the hook refused, then a reboot or the end of the last session,
+left a container that was no task, so `porelo task remove` answered that it is none and the name stayed taken.
+`TaskRunner.recordCreated` now writes the id to the saved record as well; `RecognizedTasksTest` removes such a
+container after its runtime directory is gone, seen to fail with the id in the runtime directory alone.
+
 What is left, in this order:
 
-2. **A container created and never started** is to be listed so `porelo task remove` can remove it: a test of
-   `Podman.poreloTasks` (`runtime/.../Podman.java`) with a `Created` line and no recorded id shows whether the filter on
-   the recorded id is what drops it, and `ContainerSummary` already reads `Created`.
 3. **The idle measurement**, on the two-CPU VM, of the native build, before and after `caf9585d`: no project, exited
    tasks with no account, one running task, the vault shut and open - CPU over a minute and threads, a row each in
    this issue.
@@ -118,7 +123,8 @@ most +0.18 MB/min).
 - **Small leaks after each removal**: with platform threads `porelod` went from 16 threads and 10 descriptors to 20
   threads and 20 descriptors over three steps; build readers outlived their tasks (two after the first step). To fix,
   each with a test.
-- A container that was created but never started is not listed as a task, so `porelo task remove` cannot remove it.
+- A container that was created but never started is not listed as a task, so `porelo task remove` cannot remove it
+  (built since: its id is recorded where a reboot does not reach).
 
 ## Second round, measured 2026-10-07
 

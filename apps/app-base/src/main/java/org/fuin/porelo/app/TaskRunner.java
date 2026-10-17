@@ -352,7 +352,7 @@ public class TaskRunner {
         // The id podman gives back is what makes it Porelo's task, never its name: recorded before
         // it first starts, so every act on it after this, and its hooks, go to this container and
         // no other of the same name.
-        Sidecar.recordId(state, podman.create(specification));
+        recordCreated(container, podman.create(specification));
         out.println("container " + container);
 
         // If the nft hook fails, this is where it stops: the container never reaches running.
@@ -710,6 +710,27 @@ public class TaskRunner {
      */
     public void remove(String container) {
         podman.remove(container);
+    }
+
+    /**
+     * Records the id podman gave back for a task's new container, in its runtime directory and
+     * where a reboot does not reach: the rest of its state is saved only once it started, so a
+     * container whose start was refused was, after a reboot, no task that {@code task remove} could
+     * reach, and kept its name taken.
+     *
+     * @param container The task's name.
+     * @param id What {@code podman create} printed.
+     * @throws IOException If it printed no id, or the record cannot be written.
+     */
+    void recordCreated(final String container, final String id) throws IOException {
+        Sidecar.recordId(paths.tasks().containerState(container), id);
+        final Path durable = paths.tasks().taskRecord(container);
+        if (!Files.isDirectory(durable)) {
+            Files.createDirectories(durable);
+            Files.setPosixFilePermissions(
+                    durable, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        }
+        Sidecar.recordId(durable, id);
     }
 
     /**

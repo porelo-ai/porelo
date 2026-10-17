@@ -1,0 +1,2 @@
+title: A task whose start was refused can still be removed with `porelo task remove` after a reboot, where its container, created and never started, was no task any more and kept its name taken
+type: fixed

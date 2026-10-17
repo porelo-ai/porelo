@@ -82,6 +82,44 @@ class RecognizedTasksTest {
     }
 
     @Test
+    void aTaskCreatedAndNeverStartedCanStillBeRemovedAfterARebootEmptiedItsRuntimeDirectory()
+            throws IOException {
+
+        // A start the hook refused leaves the container created and never started, and saves
+        // nothing: with the runtime directory gone, it was no task, and 'task remove' answered
+        // NOT_A_TASK for a container that kept the name taken.
+        final FakeCommandRunner runner = new FakeCommandRunner();
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
+        final PoreloContext context =
+                new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0)
+                        .recognizingTasks();
+        new TaskRunner(runner, context.paths()).recordCreated("porelo-p-new", "a1b2c3d4e5f6");
+        final Path runtime = context.paths().tasks().containerState("porelo-p-new");
+        java.nio.file.Files.delete(runtime.resolve(Sidecar.RECORDED_ID));
+        java.nio.file.Files.delete(runtime);
+        runner.answering(
+                "ps",
+                "porelo-p-new\tCreated\t-62135596800\t-62135596800\tp\tguarded\t\t\ta1b2c3d4e5f6\n");
+
+        assertThat(new TaskInventory(context).tasks())
+                .extracting(TaskInventory.Task::name)
+                .containsExactly("porelo-p-new");
+        assertThat(new TaskControl(context).remove("porelo-p-new", false, true).outcome())
+                .isNotEqualTo(TaskControl.Outcome.NOT_A_TASK);
+        assertThat(runner.lines())
+                .as("removed by the id it was created with")
+                .anyMatch(line -> line.contains(" rm ") && line.contains("a1b2c3d4e5f6"));
+    }
+
+    @Test
     void aTaskARebootStoppedIsStillRecognizedByItsSavedRecord() throws IOException {
 
         // A reboot empties the runtime directory, where the id was first written: found by the

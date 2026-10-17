@@ -830,6 +830,27 @@ class PodmanTest {
     }
 
     @Test
+    void aContainerCreatedAndNeverStartedIsListedByItsRecordedIdAndOnlyByIt() {
+
+        // A start refused by the hook leaves a container that never ran, with Go's zero time for
+        // both instants; dropped from the listing, 'task remove' could not reach it. Without a
+        // record it is dropped like any container merely named like a task.
+        runner.answering(
+                "ps",
+                "porelo-p-real\tCreated\t-62135596800\t-62135596800\tp\tguarded\t\t\ta1b2c3\n"
+                        + "porelo-p-unrecorded\tCreated\t-62135596800\t-62135596800\tp\tguarded"
+                        + "\t\t\tffff02\n");
+
+        assertThat(recording().poreloTasks())
+                .singleElement()
+                .satisfies(
+                        task -> {
+                            assertThat(task.name()).isEqualTo("porelo-p-real");
+                            assertThat(task.running()).as("it never ran").isFalse();
+                        });
+    }
+
+    @Test
     void everyActOnATaskGoesToTheContainerPoreloRecordedNeverToItsName() {
         final Podman podman = recording();
 
