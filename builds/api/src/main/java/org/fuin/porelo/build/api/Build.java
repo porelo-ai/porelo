@@ -2,6 +2,7 @@ package org.fuin.porelo.build.api;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -13,7 +14,8 @@ import org.jspecify.annotations.Nullable;
  *
  * @param verdict One of {@link #VERDICTS}.
  * @param jobs The jobs whose log is handed over, in the forge's order: each failed one, or with {@link Logs#ALL} every
- *         one once the verdict is final. Empty while the build is queued or running.
+ *         one once the verdict is final. Empty while the build is queued or running. At most {@link #MOST_JOBS}, their
+ *         logs together at most {@link #MOST_LOG_BYTES}.
  * @param detail Why the verdict is {@link #UNKNOWN}, or what more the forge said; "" otherwise.
  */
 public record Build(String verdict, List<Job> jobs, String detail) {
@@ -41,6 +43,15 @@ public record Build(String verdict, List<Job> jobs, String detail) {
 
     /** The most of a log's end a reader hands over, per job: enough for a stack trace and the step that failed. */
     public static final int TAIL = 64 * 1024;
+
+    /**
+     * The most of all of a build's logs together; past {@value #MOST_LOG_BYTES} / {@link #TAIL} logs, each keeps an
+     * equal share of its end.
+     * <p>
+     * A build travels as one varlink message of at most 4 MiB, and a log goes in base64, a third larger: fifty full
+     * logs did not fit, and the answer was refused in every round for as long as the commit was watched.
+     */
+    public static final int MOST_LOG_BYTES = 2 * 1024 * 1024;
 
     /** The most jobs one build hands logs over for, so a matrix of hundreds cannot flood a task. */
     public static final int MOST_JOBS = 50;
@@ -157,7 +168,31 @@ public record Build(String verdict, List<Job> jobs, String detail) {
         if (!VERDICTS.contains(verdict)) {
             throw new IllegalArgumentException("Not a verdict: '" + verdict + "', expected one of " + VERDICTS);
         }
-        jobs = List.copyOf(jobs.size() > MOST_JOBS ? jobs.subList(0, MOST_JOBS) : jobs);
+        jobs = sharingTheLogs(jobs.size() > MOST_JOBS ? jobs.subList(0, MOST_JOBS) : jobs);
+    }
+
+    /** Cuts the logs to an equal share each of {@link #MOST_LOG_BYTES} when they do not fit it whole, keeping ends. */
+    private static List<Job> sharingTheLogs(final List<Job> jobs) {
+        long logs = 0;
+        long bytes = 0;
+        for (final Job job : jobs) {
+            final byte[] log = job.log;
+            if (log != null) {
+                logs++;
+                bytes += log.length;
+            }
+        }
+        if (bytes <= MOST_LOG_BYTES) {
+            return List.copyOf(jobs);
+        }
+        final int share = (int) (MOST_LOG_BYTES / logs);
+        final List<Job> shared = new ArrayList<>(jobs.size());
+        for (final Job job : jobs) {
+            final byte[] log = job.log;
+            shared.add(log == null || log.length <= share ? job
+                    : new Job(job.name(), job.result(), Arrays.copyOfRange(log, log.length - share, log.length)));
+        }
+        return List.copyOf(shared);
     }
 
     /**

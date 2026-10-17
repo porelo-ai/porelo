@@ -23,7 +23,10 @@ import org.jspecify.annotations.Nullable;
  * Porelo's side of {@link BuildProtocol#INTERFACE}: one reader executable, started, handshaken, and asked.
  * <p>
  * A reader that will not start, speaks another protocol version, or reads another forge than the one asked for is
- * refused here, with its own name in the message, before anything is asked of it.
+ * refused here, with its own name in the message, before anything is asked of it. A reader whose process has ended -
+ * killed for not answering in time, or gone by itself - is started again at the next question.
+ * <p>
+ * One caller at a time: a question and its answer share one connection.
  */
 public final class InstalledBuildReader implements AutoCloseable {
 
@@ -40,11 +43,13 @@ public final class InstalledBuildReader implements AutoCloseable {
 
     private final Path socket;
 
-    private final Process process;
-
-    private final VarlinkClient client;
-
     private final String forge;
+
+    private Running running;
+
+    /** The reader's process and the connection to it. */
+    private record Running(Process process, VarlinkClient client) {
+    }
 
     /**
      * Returns the reader of a forge, from the first of the directories that holds one.
@@ -79,37 +84,8 @@ public final class InstalledBuildReader implements AutoCloseable {
     public InstalledBuildReader(final Path executable, final String forge, final Path socket) {
         this.executable = executable;
         this.socket = socket;
-        try {
-            Files.deleteIfExists(socket);
-            this.process = new ProcessBuilder(executable.toString(), "serve", socket.toString())
-                    .redirectErrorStream(true).start();
-        } catch (IOException ex) {
-            throw new BuildReaderException("Cannot start " + executable + ": " + ex.getMessage(), ex);
-        }
-        VarlinkClient opened = null;
-        try {
-            awaitReady();
-            opened = new VarlinkClient(socket);
-            final VarlinkClient described = opened;
-            final Map<String, Object> answer = bounded(() -> described.call(BuildProtocol.DESCRIBE, Map.of()),
-                    READY_SECONDS);
-            final int version = answer.get("protocolVersion") instanceof Number number ? number.intValue() : -1;
-            if (version != BuildProtocol.VERSION) {
-                throw new BuildReaderException(executable + " speaks " + BuildProtocol.INTERFACE + " version "
-                        + version + "; this Porelo speaks version " + BuildProtocol.VERSION
-                        + ". Install the reader's version that goes with this Porelo.");
-            }
-            this.forge = String.valueOf(answer.get("forge"));
-            if (!forge.equals(this.forge)) {
-                throw new BuildReaderException(executable + " reads '" + this.forge + "', not '" + forge + "'");
-            }
-            this.client = opened;
-        } catch (RuntimeException ex) {
-            process.destroyForcibly();
-            closeQuietly(opened);
-            throw ex instanceof BuildReaderException reader ? reader
-                    : new BuildReaderException(executable + " failed to start: " + ex.getMessage(), ex);
-        }
+        this.forge = forge;
+        this.running = start();
     }
 
     /**
@@ -161,7 +137,8 @@ public final class InstalledBuildReader implements AutoCloseable {
 
     @Override
     public void close() {
-        closeQuietly(client);
+        final Process process = running.process();
+        closeQuietly(running.client());
         process.destroy();
         try {
             if (!process.waitFor(5, TimeUnit.SECONDS)) {
@@ -186,9 +163,52 @@ public final class InstalledBuildReader implements AutoCloseable {
         return parameters;
     }
 
-    private Map<String, Object> call(final String method, final Map<String, Object> parameters) {
+    /** Starts the reader, waits for it to listen, and completes the handshake. */
+    private Running start() {
+        final Process process;
         try {
-            return bounded(() -> client.call(method, parameters), CALL_SECONDS);
+            Files.deleteIfExists(socket);
+            process = new ProcessBuilder(executable.toString(), "serve", socket.toString())
+                    .redirectErrorStream(true).start();
+        } catch (IOException ex) {
+            throw new BuildReaderException("Cannot start " + executable + ": " + ex.getMessage(), ex);
+        }
+        VarlinkClient opened = null;
+        try {
+            awaitReady(process);
+            opened = new VarlinkClient(socket);
+            final VarlinkClient described = opened;
+            final Map<String, Object> answer = bounded(process,
+                    () -> described.call(BuildProtocol.DESCRIBE, Map.of()), READY_SECONDS);
+            final int version = answer.get("protocolVersion") instanceof Number number ? number.intValue() : -1;
+            if (version != BuildProtocol.VERSION) {
+                throw new BuildReaderException(executable + " speaks " + BuildProtocol.INTERFACE + " version "
+                        + version + "; this Porelo speaks version " + BuildProtocol.VERSION
+                        + ". Install the reader's version that goes with this Porelo.");
+            }
+            final String reads = String.valueOf(answer.get("forge"));
+            if (!forge.equals(reads)) {
+                throw new BuildReaderException(executable + " reads '" + reads + "', not '" + forge + "'");
+            }
+            return new Running(process, opened);
+        } catch (RuntimeException ex) {
+            process.destroyForcibly();
+            closeQuietly(opened);
+            throw ex instanceof BuildReaderException reader ? reader
+                    : new BuildReaderException(executable + " failed to start: " + ex.getMessage(), ex);
+        }
+    }
+
+    private Map<String, Object> call(final String method, final Map<String, Object> parameters) {
+        if (!running.process().isAlive()) {
+            // Killed for not answering in time, or gone by itself: the watch asks again later, and one that cannot
+            // answer now must not leave every later question unanswered.
+            closeQuietly(running.client());
+            running = start();
+        }
+        final Running asked = running;
+        try {
+            return bounded(asked.process(), () -> asked.client().call(method, parameters), CALL_SECONDS);
         } catch (VarlinkException ex) {
             final BuildRefused.Reason reason = BuildRefused.Reason.of(ex.getErrorName());
             final Map<String, Object> said = ex.getParameters() == null ? Map.of() : ex.getParameters();
@@ -202,10 +222,10 @@ public final class InstalledBuildReader implements AutoCloseable {
     }
 
     /** Waits for the ready line the reader prints once its socket listens; whatever it said instead is the reason. */
-    private void awaitReady() {
+    private void awaitReady(final Process process) {
         final BufferedReader reader = new BufferedReader(
                 new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8));
-        final String said = bounded(() -> {
+        final String said = bounded(process, () -> {
             final StringBuilder lines = new StringBuilder();
             try {
                 String line;
@@ -241,7 +261,7 @@ public final class InstalledBuildReader implements AutoCloseable {
     }
 
     /** Runs a step against the reader within a limit: the varlink client waits without one. */
-    private <T> T bounded(final Supplier<T> step, final long seconds) {
+    private <T> T bounded(final Process process, final Supplier<T> step, final long seconds) {
         final ExecutorService runner = Executors.newSingleThreadExecutor(task -> {
             final Thread thread = new Thread(task, "porelo-build-reader-call");
             thread.setDaemon(true);

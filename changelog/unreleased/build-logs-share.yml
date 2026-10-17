@@ -1,0 +1,2 @@
+title: A build with more than 32 full job logs reaches the task, each log cut to an equal share of 2 MiB, where its answer was refused in every round
+type: fixed

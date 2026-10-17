@@ -1,0 +1,2 @@
+title: A build reader that ended, killed for not answering in time or gone by itself, is started again at the next question, where the watch said it could not read builds until the task was started again
+type: fixed

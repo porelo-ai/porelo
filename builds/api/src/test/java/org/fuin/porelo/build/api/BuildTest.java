@@ -30,6 +30,23 @@ class BuildTest {
     }
 
     @Test
+    void sharesTheMostOfAllLogsEquallyWhenTheyDoNotFitWholeEachKeepingItsEnd() {
+        final byte[] full = new byte[Build.TAIL];
+        Arrays.fill(full, (byte) 'x');
+        full[Build.TAIL - 1] = 'E';
+        final List<Build.Job> jobs = IntStream.range(0, Build.MOST_JOBS)
+                .mapToObj(n -> new Build.Job("j" + n, "failure", full)).toList();
+        final List<Build.Job> few = jobs.subList(0, Build.MOST_LOG_BYTES / Build.TAIL);
+
+        final List<Build.Job> shared = new Build(Build.FAILURE, jobs, "").jobs();
+
+        assertThat(shared).extracting(job -> job.log().length).containsOnly(Build.MOST_LOG_BYTES / Build.MOST_JOBS);
+        assertThat(shared).allSatisfy(job -> assertThat(job.logText()).endsWith("E"));
+        assertThat(new Build(Build.FAILURE, few, "").jobs()).as("as many as fit whole are kept whole")
+                .extracting(job -> job.log().length).containsOnly(Build.TAIL);
+    }
+
+    @Test
     void refusesAVerdictTheProtocolDoesNotHave() {
         assertThatThrownBy(() -> new Build("passed", "")).isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("passed").hasMessageContaining(Build.SUCCESS);

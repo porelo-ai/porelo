@@ -83,6 +83,8 @@ The readings listed below were made before versions were recorded; which they us
                        test-quality                                                    ac40a26
     the acceptance     test-quality, security-audit, java-code-review,
     kit and suite      concurrency-review                                              ac40a26
+    porelo-build-api   security-audit, java-code-review, concurrency-review,
+                       test-quality, at 2026.906.3                                     (this commit)
 
 "The commit below" is the one that also lets a leg's image cache report never fail the leg.
 
@@ -455,6 +457,31 @@ Fixed since, each test seen red with the fix undone:
   ended; fixed there, and taken here with its next release.
 - **`ends within N seconds` asserted only that the limit was not reached**, so a start refused at once passed it.
   Ended means finished: exit 0, else the step says the exit code and what it said.
+
+### `porelo-build-api` (`builds/api`)
+
+Read on 2026-10-17 against security-audit, java-code-review, concurrency-review and test-quality, each at 2026.906.3
+with the SHA-256 above. Fixed, each with a test seen failing without its fix:
+
+- **A reader that had ended was asked for ever.** A question past its 120 seconds kills the reader's process, and the
+  watch "tries again later" - with the same ended reader, so every later round said "Porelo cannot read builds" until
+  the task was started again. A reader whose process has ended is started again, handshake and all, at the next
+  question.
+- **Fifty full logs did not fit one answer.** 50 jobs of 64 KiB are 4.4 MB in base64, past the 4 MiB a varlink
+  message may hold, so the answer was refused in every round for as long as the commit was watched. A build carries
+  at most 2 MiB of logs; past 32 full ones each keeps an equal share of its end. `porelo-build-github` takes the cut
+  with its next build against this API.
+
+Read and left as they are:
+
+- **The token crosses the socket in every call.** The socket is bound in the task's directory under the runtime
+  directory, which is the account's alone (0700), before it is made owner-only, so the moment between bind and
+  `chmod` is no opening. `Target` never prints the token.
+- **A reader's own failure reaches the task as the reader's message.** A reader is a package the operator installs,
+  trusted as one ([the decision](../../doc/decisions.md#build-readers-are-packages-behind-a-versioned-api)); what it
+  says when it fails is its own.
+- **One caller at a time.** A question and its answer share one connection, and the watch asks from one thread; the
+  class says so instead of locking.
 
 ## Plan
 

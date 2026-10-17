@@ -47,7 +47,8 @@ without it.
 - **Which logs:** `logs` is `failure`, each failed job's, or `all`, every job's once the verdict is final. A log is
   the job's **plain text**, its last 64 KiB: a reader whose forge sends an archive, or splits a job into files per
   step, unpacks it and joins the steps in their order, one header line each, before it takes the end. At most 50
-  jobs.
+  jobs, and 2 MiB of logs in all: past 32 logs of 64 KiB, each keeps an equal share of its end, so the answer fits
+  one varlink message.
 
 ## When the forge will not answer
 

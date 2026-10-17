@@ -238,8 +238,9 @@ builds:
 - **What arrives in `/porelo/files`**, with `by` "porelo": `build-<first 12 of commit>.txt`, the verdict - one of
   `queued`, `running`, `success`, `failure`, `cancelled`, `unknown` - and, once it is `failure` or final, one line per
   job with its result and its log's file; and `build-<first 12 of commit>-<n>.log`, the last 64 KiB of a job's log
-  as text, for each failed job, or for every job with `logs: all`. `<n>` is the job's place in that list, so the
-  failed job's log is the file its `job:` line names, not `-1.log`. The file is replaced as the verdict changes.
+  as text - less when more than 32 logs share 2 MiB - for each failed job, or for every job with `logs: all`. `<n>` is
+  the job's place in that list, so the failed job's log is the file its `job:` line names, not `-1.log`. The file is
+  replaced as the verdict changes.
 - **A wait ends**: at a verdict that will not change, after two hours of a commit's build, or when the task stops.
   A rate limit, a credential the forge refused, a repository it does not show and a shut vault are each said in the
   verdict's detail, never as a failed build.

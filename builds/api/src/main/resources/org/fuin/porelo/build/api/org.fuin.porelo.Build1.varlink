@@ -11,7 +11,8 @@ method Head(upstream: string, api: string, token: string, branch: string) -> (co
 # One job of a build: the smallest unit the forge reports its own result and its own log for - on GitHub and
 # GitLab a job, on Bitbucket a step, on Jenkins a stage with a log of its own or else the whole build. Its name as
 # the forge spells it, "<workflow or pipeline> / <job>"; what became of it in lower case, or its state while it is
-# not finished; and the last 64 KiB of its log in base64, absent when none is handed over. A log is always the
+# not finished; and the last 64 KiB of its log in base64, absent when none is handed over - less when more than 32
+# logs share the 2 MiB a build carries in all, each keeping an equal share of its end. A log is always the
 # job's plain text: a reader whose forge sends an archive or splits a job into step files unpacks it and joins the
 # steps in their order, one header line each, before it takes the end.
 type Job (name: string, result: string, log: ?string)

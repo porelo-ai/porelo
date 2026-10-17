@@ -187,7 +187,8 @@ executable built on the published `porelo-build-api`, speaking `org.fuin.porelo.
 version Porelo checks, installed under `/usr/libexec/porelo/builds/<forge>` and found at run time, as an agent is. Each
 lives in a repository of its own - `porelo-build-github` first - and nothing in `porelo` names a forge; the stub reader
 the tests use is the only one in this tree. The contract fixes what every reader hands over, whatever its forge:
-the verdict across a commit's runs, every job once it is final, and a job's log as plain text, its last 64 KiB.
+the verdict across a commit's runs, every job once it is final, and a job's log as plain text, its last 64 KiB, with
+at most 2 MiB of logs in all.
 **The exposure:** a reader runs on the host with the forge token in each call; it is a package the operator installs,
 and trusted as one.
 ## Waiting for a person is never inferred from silence
