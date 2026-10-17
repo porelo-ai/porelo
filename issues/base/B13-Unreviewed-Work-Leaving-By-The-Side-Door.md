@@ -1,7 +1,7 @@
 # B13 — Unreviewed Work Leaving By The Side Door
 
 **Status:** Implementing.
-**Size:** M - the guard, `gate checkout` and the already-upstream mark read in pending and reject are built; left: the hand-push scenario.
+**Size:** M - the guard, `gate checkout`, the already-upstream mark read in pending and reject, and the hand-push scenario are built; left: that scenario green on the VM and in the Build.
 
 **What must be true.** A person who carries an agent's unreviewed work to the upstream by hand hears about it at the
 moment they push, and the gate never records that work as something it is not.
@@ -287,7 +287,9 @@ Steps:
    error, nothing removed. Red first: `GateRejectCommandTest` and
    `PoreloDaemonTest.workTheUpstreamAlreadyHasIsMarkedAndRejectedOnlyWithForce`, the second seen red again with the
    daemon's check undone.
-1. A scenario in `acceptance/suite/.../gate/gate-review.feature`, red first: a guarded project's task pushes, the
+1. **Written, 2026-10-18:** the scenario "work pushed to the upstream by hand is marked already upstream, and is
+   rejected only with --force" in `gate-review.feature`. It was not seen red: step 0's product code came first, and
+   the binaries without it are not kept. It runs in the gathered VM run. As planned: a guarded project's task pushes, the
    incoming ref is pushed to the upstream's default branch by hand with plain git, the daemon's `SyncUpstream`
    measures it (`UpstreamSync`), then `gate pending` shows the push marked as already upstream, and `gate reject`
    without `--force` refuses and names `--force`.
