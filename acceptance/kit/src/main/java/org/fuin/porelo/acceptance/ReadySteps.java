@@ -256,7 +256,7 @@ public class ReadySteps {
      * @return Why not, or {@code null}.
      */
     static @org.jspecify.annotations.Nullable String whyNotEnded(int status, int seconds) {
-        if (status == TIMED_OUT) {
+        if (status == TIMED_OUT || status == KILLED) {
             return "the run did not end within " + seconds + "s - an agent waiting on a question looks exactly like this";
         }
         return status == 0 ? null : "the run ended within " + seconds + "s but did not finish: exit " + status
@@ -265,6 +265,9 @@ public class ReadySteps {
 
     /** What {@code timeout} exits with when it had to stop the command. */
     static final int TIMED_OUT = 124;
+
+    /** What {@code timeout -k} exits with when the command had to be killed after the stop. */
+    static final int KILLED = 137;
 
     /**
      * Builds the command that starts an unattended task under a bound.
@@ -278,7 +281,21 @@ public class ReadySteps {
         if (seconds < 1) {
             throw new IllegalArgumentException("A bound is at least one second, not " + seconds);
         }
-        return "timeout " + seconds + " " + TaskSteps.startCommand(project, agent);
+        return bounded(TaskSteps.startCommand(project, agent), seconds);
+    }
+
+    /**
+     * Puts a shell command under a bound: stopped at it, and killed ten seconds later if the stop is not heeded.
+     * <p>
+     * A bound that only stops waits for the command to end; a start that did not end on the stop held a leg's step until
+     * the kit's own limit, with no word of why.
+     *
+     * @param command The command.
+     * @param seconds The bound.
+     * @return The bounded command.
+     */
+    static String bounded(String command, int seconds) {
+        return "timeout -k 10 " + seconds + " " + command;
     }
 
     /**

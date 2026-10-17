@@ -1,0 +1,2 @@
+title: An unattended run under a bound is killed ten seconds after its stop if it does not end, and reported as not ended within the bound, instead of holding the step until the kit's 30-minute limit
+type: fixed

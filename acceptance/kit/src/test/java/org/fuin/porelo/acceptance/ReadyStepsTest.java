@@ -67,7 +67,21 @@ class ReadyStepsTest {
 
     @Test
     void boundsAnUnattendedRunWithTimeout() {
-        assertThat(ReadySteps.boundedCommand("live", "pi", 90)).startsWith("timeout 90 porelo task start --project 'live'");
+        assertThat(ReadySteps.boundedCommand("live", "pi", 90))
+                .startsWith("timeout -k 10 90 porelo task start --project 'live'");
+    }
+
+    @Test
+    void aRunThatIgnoresTheStopIsKilledAtItsBound() {
+
+        // The bound sent TERM and then waited: a start that did not end on it held the step until the kit's
+        // 30-minute limit, and a leg lost its time with no word of why (found on 2026-10-17).
+        final String bounded = ReadySteps.bounded("sh -c " + Shell.quote("trap '' TERM; sleep 60"), 1);
+
+        final int exit = org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(java.time.Duration.ofSeconds(25),
+                () -> new ProcessBuilder("sh", "-c", bounded).redirectErrorStream(true).start().waitFor());
+
+        assertThat(ReadySteps.whyNotEnded(exit, 1)).contains("did not end within 1s");
     }
 
     @Test
