@@ -6,7 +6,7 @@ import org.fuin.porelo.vault.VaultEntry;
 
 /**
  * The vault's name spaces that are not a person's credentials: a task's entries, an account's
- * grants, what a transport handed back.
+ * grants and client registrations, what a transport handed back.
  *
  * <p>Here, below every area, because the machine's context reads the vault and leaves them out, and
  * the task's, the vault's and the messaging areas each write one of them.
@@ -25,17 +25,24 @@ public final class VaultNames {
      */
     public static final String TRANSPORT_PREFIX = "transport/";
 
+    /**
+     * Where a client Porelo registered itself with a service is kept - the registration access
+     * token and the registration's URL, for deleting it there again.
+     */
+    public static final String REGISTRATION_PREFIX = "registration/";
+
     private VaultNames() {}
 
     /**
      * Tells whether a name is in one of these name spaces, which no person puts or removes by hand.
      *
      * @param name An entry's name.
-     * @return true when it is a task's, a grant's or a transport's.
+     * @return true when it is a task's, a grant's, a client registration's or a transport's.
      */
     public static boolean reserved(String name) {
         return name.startsWith(TASK_PREFIX)
                 || name.startsWith(GRANT_PREFIX)
+                || name.startsWith(REGISTRATION_PREFIX)
                 || name.startsWith(TRANSPORT_PREFIX);
     }
 

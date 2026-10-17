@@ -141,6 +141,11 @@ public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.Cont
             out.flush();
         }
 
+        final int unregistered = unregister(out, err);
+        if (unregistered != 0) {
+            return unregistered;
+        }
+
         final boolean[] removed = {false};
         try {
             context.vault()
@@ -149,6 +154,9 @@ public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.Cont
                             entries -> {
                                 removed[0] = entries.remove(name) != null;
                                 removed[0] |= entries.remove(grantName) != null;
+                                removed[0] |=
+                                        entries.remove(VaultNames.REGISTRATION_PREFIX + name)
+                                                != null;
                                 return entries;
                             });
         } catch (VaultException ex) {
@@ -177,6 +185,49 @@ public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.Cont
      */
     private static boolean grantedByAPerson(@Nullable VaultEntry entry) {
         return entry != null && Grants.isGrant(entry.type());
+    }
+
+    /**
+     * Deletes the client Porelo registered for the entry at the service, after the grant is revoked
+     * (RFC 7592). A registration the service cannot be told about keeps the entry, as a grant does,
+     * unless the person said to go on without.
+     *
+     * @param out Where what was done is said.
+     * @param err Where a refusal goes.
+     * @return 0 to go on removing, otherwise the exit code.
+     */
+    private int unregister(final PrintWriter out, final PrintWriter err) {
+        final VaultEntry registration;
+        try {
+            registration = ServiceRegistration.kept(context, name);
+        } catch (VaultException ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return 70;
+        }
+        if (registration == null) {
+            return 0;
+        }
+        final String refused =
+                ServiceRegistration.delete(registration, VaultAuthorizeCommand.http(context));
+        if (refused == null) {
+            out.println("deleted   the client registered for " + name + " at the service");
+        } else if (withoutRevoking) {
+            out.println("not deleted at the service: " + refused);
+        } else {
+            err.println("porelo: " + refused);
+            err.println(
+                    "porelo: '"
+                            + name
+                            + "' is kept; delete the client registration at the service and run"
+                            + " 'porelo vault remove "
+                            + name
+                            + " --without-revoking'");
+            err.flush();
+            return 1;
+        }
+        out.flush();
+        return 0;
     }
 
     /**

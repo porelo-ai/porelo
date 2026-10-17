@@ -288,6 +288,13 @@ public final class VaultClearing {
                                 name.substring(VaultNames.GRANT_PREFIX.length()),
                                 Clearing.Status.WOULD_REMOVE,
                                 ""));
+            } else if (name.startsWith(VaultNames.REGISTRATION_PREFIX)) {
+                held.add(
+                        new Clearing.Item(
+                                "client registration",
+                                name.substring(VaultNames.REGISTRATION_PREFIX.length()),
+                                Clearing.Status.WOULD_REMOVE,
+                                ""));
             } else if (name.startsWith(VaultNames.TRANSPORT_PREFIX)) {
                 held.add(
                         new Clearing.Item(

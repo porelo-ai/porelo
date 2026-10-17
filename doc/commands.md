@@ -247,6 +247,9 @@ Credentials, and the broker that lets a task use one without holding it. See
   default 9420) answers at `http://127.0.0.1:<redirect_port>/callback`. From another machine,
   forward that port with `ssh -L` first.
 - Either takes `revocation_url`.
+- Either may instead name only `resource_url`: the endpoints come from the service's metadata, and a client is
+  registered there once where the entry has no `client_id`
+  ([A service that publishes its own endpoints](credentials.md#a-service-that-publishes-its-own-endpoints)).
 
 **`vault lock`** answers one of three things: the passphrase was cleared, nothing was cached, or
 whether one is cached could not be established. The last exits 70 and says what to check: treat the

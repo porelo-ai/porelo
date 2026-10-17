@@ -97,7 +97,8 @@ public final class TaskSecrets {
      * Whether a vault entry's name is a task's own rather than a credential.
      *
      * @param name The entry's name.
-     * @return true for {@link #PREFIX}, {@link #GRANT_PREFIX} and {@link #TRANSPORT_PREFIX} names
+     * @return true for {@link #PREFIX}, {@link #GRANT_PREFIX}, {@link #TRANSPORT_PREFIX} and client
+     *     registration names
      */
     public static boolean reserved(String name) {
         return VaultNames.reserved(name);

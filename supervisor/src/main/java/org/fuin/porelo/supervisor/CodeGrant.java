@@ -106,6 +106,24 @@ public final class CodeGrant {
                 throw new IllegalArgumentException(
                         "the authorization and token URLs must be https, or http on" + " loopback");
             }
+            return new Client(
+                    authorization,
+                    token,
+                    id,
+                    secret.isBlank() || "-".equals(secret) ? null : secret,
+                    settings.getOrDefault("scopes", ""),
+                    port(settings),
+                    Grants.revocationUrl(settings));
+        }
+
+        /**
+         * Reads the loopback port the redirect comes back to from a vault entry's settings.
+         *
+         * @param settings The entry's settings.
+         * @return The port, {@link #DEFAULT_PORT} where none is set.
+         * @throws IllegalArgumentException If the setting is not a port above 1023.
+         */
+        public static int port(Map<String, String> settings) {
             final int port;
             try {
                 port =
@@ -119,14 +137,17 @@ public final class CodeGrant {
                 throw new IllegalArgumentException(
                         "redirect_port must be between 1024 and 65535, not " + port);
             }
-            return new Client(
-                    authorization,
-                    token,
-                    id,
-                    secret.isBlank() || "-".equals(secret) ? null : secret,
-                    settings.getOrDefault("scopes", ""),
-                    port,
-                    Grants.revocationUrl(settings));
+            return port;
+        }
+
+        /**
+         * Returns the redirect URI the service must have registered for a port.
+         *
+         * @param port The loopback port.
+         * @return The loopback URI.
+         */
+        public static String redirectUri(int port) {
+            return "http://127.0.0.1:" + port + CALLBACK;
         }
 
         /**
@@ -135,7 +156,7 @@ public final class CodeGrant {
          * @return The loopback URI.
          */
         public String redirectUri() {
-            return "http://127.0.0.1:" + port + CALLBACK;
+            return redirectUri(port);
         }
     }
 

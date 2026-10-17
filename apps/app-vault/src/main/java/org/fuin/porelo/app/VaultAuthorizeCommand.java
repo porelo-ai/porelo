@@ -72,11 +72,20 @@ public class VaultAuthorizeCommand implements Callable<Integer>, PoreloFactory.C
         }
         final Flow grant;
         try {
+            final String completed = ServiceRegistration.complete(context, name, http(context));
+            if (!completed.isEmpty()) {
+                out.println("service   " + completed);
+                out.flush();
+            }
             grant = flowFor(context, name);
         } catch (IllegalArgumentException | VaultException ex) {
             err.println("porelo: " + ex.getMessage());
             err.flush();
             return 2;
+        } catch (TokenPurchase.Refused ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return 1;
         }
         try {
             final Shown started = grant.start();
@@ -268,6 +277,21 @@ public class VaultAuthorizeCommand implements Callable<Integer>, PoreloFactory.C
         DeviceGrant.Outcome await() throws TokenPurchase.Refused, InterruptedException;
     }
 
+    /**
+     * Returns how a service is reached for a grant: the account's trusted certificates, and no
+     * redirect followed, since a redirect would carry the request to a host nobody named.
+     *
+     * @param context Where the account's certificates are.
+     * @return The client.
+     */
+    static java.net.http.HttpClient http(PoreloContext context) {
+        return org.fuin.porelo.core.net.TrustedCertificates.builder(
+                        org.fuin.porelo.core.net.TrustedCertificates.file(context.paths().xdg()))
+                .connectTimeout(java.time.Duration.ofSeconds(30))
+                .followRedirects(java.net.http.HttpClient.Redirect.NEVER)
+                .build();
+    }
+
     /** How long a person has to answer a redirect, where no service says. */
     static final java.time.Duration REDIRECT_WAIT = java.time.Duration.ofMinutes(10);
 
@@ -275,21 +299,21 @@ public class VaultAuthorizeCommand implements Callable<Integer>, PoreloFactory.C
      * Returns the flow for a vault entry that names a service: the device code where the entry is
      * of that kind, the redirect otherwise.
      *
+     * <p>An entry that names only the service is completed first, from the service's metadata and
+     * with a client registered there where it has no client id; an entry completed before is used
+     * as it is.
+     *
      * @param context Where the vault is.
      * @param name The entry.
      * @return The flow.
      * @throws IllegalArgumentException If the entry is not of a kind a person grants, or lacks a
      *     setting.
+     * @throws TokenPurchase.Refused If an entry naming only its service cannot be completed.
      */
-    public static Flow flowFor(PoreloContext context, String name) {
+    public static Flow flowFor(PoreloContext context, String name) throws TokenPurchase.Refused {
+        final java.net.http.HttpClient http = http(context);
+        ServiceRegistration.complete(context, name, http);
         final VaultEntry entry = context.credentials().get(name);
-        final java.net.http.HttpClient http =
-                org.fuin.porelo.core.net.TrustedCertificates.builder(
-                                org.fuin.porelo.core.net.TrustedCertificates.file(
-                                        context.paths().xdg()))
-                        .connectTimeout(java.time.Duration.ofSeconds(30))
-                        .followRedirects(java.net.http.HttpClient.Redirect.NEVER)
-                        .build();
         if (entry != null && DeviceGrant.KIND.equals(entry.type())) {
             final DeviceGrant grant =
                     new DeviceGrant(DeviceGrant.Client.of(entry.value(), entry.settings()), http);

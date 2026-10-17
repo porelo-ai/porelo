@@ -1,7 +1,7 @@
 # B31 — An Authorization A Person Grants Once
 
 **Status:** Implementing.
-**Size:** M - dynamic client registration in the supervisor and the vault commands against a stand-in, then two runs.
+**Size:** S - what is left is two runs against GitHub with the operator, which change code only if they break.
 
 **What must be true.** A person grants an authorization once, where a person actually is, and every task afterwards
 uses it without holding it and without asking again.
@@ -289,33 +289,57 @@ app: an access token, no refresh token, no expiry.
   stay in the account's vault. A test or scenario names only the entry, and a result written here says what held
   and for how long, never which account.
 
+### As built, dynamic client registration, 2026-10-17
+
+- **An entry may name only its service**: kind `oauth-device` or `oauth-code` with the setting `resource_url`, the
+  protected resource's address. The kind still chooses the flow; the metadata must offer its endpoint (a device
+  endpoint, or an authorization endpoint), or the refusal names the other kind.
+- **`ServiceMetadata`** (`supervisor`) reads the resource's `/.well-known/oauth-protected-resource` (RFC 9728),
+  inserted between host and path, and at the host's root where the path has none; then the first authorization
+  server's `/.well-known/oauth-authorization-server` (RFC 8414). A document naming another resource or another
+  issuer is refused, and every endpoint is held to `Grants.secure`.
+- **`ClientRegistration`** (`supervisor`) registers a public client (RFC 7591: `client_name` Porelo,
+  `token_endpoint_auth_method` none, the flow's grant types and `refresh_token`, the loopback redirect URI for
+  `oauth-code`, the entry's scopes) and deletes it (RFC 7592, `DELETE` with the registration access token; 404 or
+  410 counts as done, anything else is refused). Its record prints no secret.
+- **Kept in the entry itself** (`ServiceRegistration`, `app-vault`): `vault authorize`, and the daemon's
+  `Authorize` through `VaultAuthorizeCommand.flowFor`, write the client id, the endpoints and a client secret if
+  issued into the entry, so the broker, `CanStart` and every task read it as an entry set up by hand, and a
+  completed entry is never asked about again. A setting a person put on the entry wins over the metadata. The
+  registration access token and the registration's URL are kept as `registration/<entry>`, a vault name space of
+  its own (`VaultNames.REGISTRATION_PREFIX`), hidden from every listing and choice of credential, and named by
+  `vault clear`.
+- **Registered under the vault's lock**, inside one update, so two authorizations started at once register one
+  client, as the broker renews inside one update.
+- **`vault remove`** revokes the grant, then deletes the registration at the service; a service that cannot be
+  told keeps the entry with the same advice as a grant, and `--without-revoking` removes it anyway.
+- **Found on the way:** `vault remove` took a person's grant for what renews an agent's own sign-in - both are
+  kept as type `refresh-token` - and forgot it here without telling the service. The entry's kind now tells them
+  apart.
+- **Proven** against a stand-in on loopback: `ServiceMetadataTest`, `ClientRegistrationTest`,
+  `ServiceRegistrationTest` (two authorizations register once, the registration access token is no credential,
+  removal revokes then deletes, a refused deletion keeps the entry) and `VaultRemoveCommandTest`'s grant revoked
+  on removal; each seen red with its guard undone.
+- **Not done, the smallest choice:** the resource indicator (RFC 8707) is not sent with the grant, OpenID
+  Connect discovery is not tried where RFC 8414 metadata is missing, and a completed entry's endpoints are not
+  read again; see *To be checked*.
+
 ## Plan
 
-Read in the code at `30c8169b`. Built and on main: everything under "As built" above - `DeviceGrant`, `CodeGrant`,
-`Grants`, `TokenPurchase`'s refresh (`supervisor/...`), `vault authorize`, `vault remove` with revocation, `CanStart`'s
-`AUTHORIZATION_NEEDED`, `Authorizations()`, `GrantRecord` and `grants.log`, and the MCP stream fix in `VaultProxy`.
-Nothing reads `/.well-known/oauth-protected-resource` or `oauth-authorization-server`, and nothing registers a
-client.
+Built and on main: everything under "As built" above. Steps 1 to 3 and 5 are built (*As built, dynamic client
+registration*); step 4 is left.
 
 Steps:
 
-1. **Metadata (S).** In `supervisor`, beside `Grants`: read the protected resource's metadata (RFC 9728) for its
-   authorization server, then that server's metadata (RFC 8414) for the registration, device, authorization, token
-   and revocation endpoints, each held to `Grants.secure`. Red first: a test against a stand-in serving both
-   documents, red while an entry naming only the service cannot be authorized.
-2. **Registration (M).** Where the metadata names a `registration_endpoint` and the entry has no `client_id`,
-   `vault authorize` registers once (RFC 7591) on the host and keeps `client_id`, a client secret if issued, and
-   the registration access token in the account's vault beside the entry, hidden as a grant is. A second
-   `authorize`, and every task, reuse it. Red first: a stand-in that counts registrations, red at two.
-3. **Removal (S).** `vault remove` (`VaultRemoveCommand`) deletes the registration at the service where it offers
-   that (RFC 7592, the registration access token), after revoking the grant, and keeps the entry with the same
-   advice as today where the service cannot be told.
+1. **Metadata.** Built: `ServiceMetadata`.
+2. **Registration.** Built: `ClientRegistration`, `ServiceRegistration`.
+3. **Removal.** Built: `VaultRemoveCommand`.
 4. **Runs against GitHub on the VM.** The entry for GitHub's device flow is set up in the account's vault there,
    and the operator runs `porelo vault authorize <entry>` once at the terminal and signs in with their own GitHub
    account. Then, with no further sign-in: a task spends the grant, and a task with GitHub's remote MCP server as a
    destination holds one MCP session through the broker for an hour. The run names only the entry; the results
    written here say what held, not which account. Neither changes code unless it breaks.
-5. `doc/credentials.md`: an entry may name only a service; what is registered and where it is kept.
+5. Built: `doc/credentials.md`, *A service that publishes its own endpoints*.
 
 ## Acceptance
 
@@ -346,8 +370,9 @@ Steps:
   link in parts rather than as one string.
 - Dynamic client registration (RFC 7591), as decided above: registered once on the host where a service offers
   it, kept in the account's vault, endpoints taken from the service's metadata, and deleted at the service on
-  removal where it offers that (RFC 7592). Not built. Seen to fail: an entry naming only a service with
-  registration registers again per task, or cannot be authorized without a hand-registered `client_id`.
+  removal where it offers that (RFC 7592). Built against a stand-in. Seen to fail: `ServiceRegistrationTest`
+  goes red when a second authorization registers again, when the registration access token is listed as a
+  credential, or when removal leaves the registration at the service.
 - An MCP session through the broker holds: every method, `Mcp-Session-Id` both ways, and server-sent events
   passed as they arrive. Seen to fail: `VaultProxyTest`'s small event followed by a pause reaches the agent only
   after the pause.
@@ -357,6 +382,10 @@ Steps:
   account's name.
 
 ## To be checked
+
+- **Whether GitHub needs what the smallest choice left out**, measured in step 4: the resource indicator
+  (RFC 8707) on the grant, OpenID Connect discovery where RFC 8414 metadata is missing, and an answer of 401 for
+  a registration the service no longer knows, which is refused rather than counted as deleted.
 
 - **Whether the broker carries an MCP session for an hour** - measured 2026-10-01 against a stand-in, with one
   defect fixed: it passes every method (GET and DELETE as well as POST), the `Mcp-Session-Id` header both ways,

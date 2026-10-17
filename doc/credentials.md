@@ -155,6 +155,32 @@ porelo task start --provider github-copilot --model <a model the agent lists for
 - The broker attaches the token to `api.githubcopilot.com` as it is; no exchange for a short-lived
   token happens through the task, so the task needs no route to `api.github.com`.
 
+### A service that publishes its own endpoints
+
+A service that publishes OAuth metadata, as an MCP server does, can be named by its address alone:
+
+```
+porelo vault put forge --type oauth-device --setting resource_url=https://mcp.example.com/mcp \
+    --setting scopes="repo offline_access"
+porelo vault authorize forge
+```
+
+- **The endpoints come from the service.** `vault authorize` reads the resource's
+  `/.well-known/oauth-protected-resource` document (RFC 9728) for its authorization server, then that server's
+  `/.well-known/oauth-authorization-server` document (RFC 8414) for the device, authorization, token, revocation
+  and registration endpoints. A document that names another resource or another issuer is refused, and so is an
+  endpoint that is not https (plain http only on this machine's loopback).
+- **The client is registered once, on the host.** Where the entry has no `client_id` and the server offers
+  dynamic client registration (RFC 7591), Porelo registers a public client named `Porelo` for the entry's flow.
+  The client id, the endpoints and a client secret if the server issued one are written into the entry, so every
+  later `authorize`, the broker and every task use them as they are, and nothing is registered again. A service
+  without registration needs a `client_id` you registered there yourself.
+- **The registration access token is kept hidden**, as `registration/<name>` beside the entry, shown in no listing.
+- **`vault remove` deletes the registration at the service too** (RFC 7592), after revoking the grant. If the
+  service cannot be told, the entry is kept; `--without-revoking` removes it anyway.
+- A setting you put on the entry yourself wins over what the metadata says. The kind still chooses the flow:
+  `oauth-device` needs a device endpoint, `oauth-code` an authorization endpoint.
+
 ## A sign-in that ends, renewed on the host
 
 A subscription sign-in leaves an access token that ends within hours and a refresh token that

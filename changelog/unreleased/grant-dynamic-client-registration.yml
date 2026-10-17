@@ -1,0 +1,2 @@
+title: A vault entry for a person's authorization may name only its service's address, and vault authorize reads its endpoints from the service's metadata and registers a client there once, which vault remove deletes again
+type: added
