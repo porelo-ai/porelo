@@ -191,8 +191,13 @@ public final class Leg {
             run(build, underTheUnit(properties) + " && echo 'rootless podman set up its namespace under the unit'");
 
             step("building");
+            // How much of the CPU the host gave to others during the build: a build that took five times its usual
+            // time with its threads busy could not be told from a slow host without it.
+            final CpuSteal beforeBuild = CpuSteal.parse(build.run(CpuSteal.READ).out());
             run(build, build(System.getenv("GITHUB_RUN_ID"),
                     System.getenv("GITHUB_RUN_NUMBER")));
+            System.out.println("cpu during the build: "
+                    + CpuSteal.between(beforeBuild, CpuSteal.parse(build.run(CpuSteal.READ).out())));
 
             // Entirely in the user's own directories, with no sudo. Porelo scans
             // ~/.local/share/porelo/providers before /usr/share and resolves hooks from

@@ -1,0 +1,2 @@
+title: A leg prints what share of the CPU the host took for others during its build, read from the machine's /proc/stat before and after
+type: added
