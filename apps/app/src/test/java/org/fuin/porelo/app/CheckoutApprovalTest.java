@@ -126,6 +126,20 @@ class CheckoutApprovalTest {
     }
 
     @Test
+    void aNameTypedWrongAtWhichOneIsRefusedAsNothingOfThatNameAndBringsNothingBack() throws Exception {
+
+        // A script reads the exit: the sentence said no work of that name waits, and the exit said the question was
+        // ambiguous (64), which a caller takes as "name one" and asks again with the same wrong name.
+        agentPushes("writer", "one");
+        agentPushes("review", "two");
+
+        answers.add("revue");
+        assertThat(approve(null, false)).as(err.toString()).isEqualTo(CheckoutApproval.NOTHING);
+        assertThat(err.toString()).contains("no work of 'revue' waits").contains("writer").contains("review");
+        assertThat(git(checkout, "branch", "--list", "porelo/*")).as("nothing was brought back").isEmpty();
+    }
+
+    @Test
     void aBranchThatDoesNotFastForwardIsNotOverwritten() throws Exception {
         git(checkout, "branch", "porelo/writer");
         git(checkout, "checkout", "-q", "porelo/writer");

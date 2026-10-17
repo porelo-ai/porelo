@@ -656,8 +656,9 @@ Read and left as they are:
 
 - **`gate approve` exits 0 when every branch it offered was taken**, which needs `nextFreeBranch` to keep naming
   taken branches through its fallback; nothing reaches that without a seam over the gate, and nothing was forwarded.
-- **`gate checkout --approve` exits 64 after a wrong name is typed at "which one?"** while its sentence is the one for
-  nothing waiting. Changing it changes an exit code, so it is not built.
+- **`porelo approve` exited 64 after a wrong name was typed at "which one?"**, the exit for "several and none named",
+  under the sentence that no work of that name waits. Fixed on the operator's word (2026-10-17): it ends with 66, the
+  exit of the sentence it says, and `doc/commands.md` lists the exits. `CheckoutApprovalTest` was seen red first.
 - **`against`, `branch` and `name` from the socket reach git** after `--end-of-options`, in a refspec git checks
   itself, or through `rev-parse --verify`, which takes no option; `name` must be a pending push.
 - **`PendingBundle` writes the whole bundle before comparing it with its limit.** It goes into an owner-only

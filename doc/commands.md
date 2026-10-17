@@ -284,6 +284,9 @@ into it, and the branch is `porelo/TASK`.
   nothing changes and the work still waits.
 - **It brings back what is at the gate**, never what is only in the container: the agent commits and
   pushes when its work is done.
+- **What it ends with, for a script:** 0 when the work was brought back; 66 when nothing waits, or nothing
+  of the task named - at the command line or typed at "which one?" - with the names that do wait; 64 when
+  several tasks wait and none was named where nobody can be asked (`--yes`).
 - **A `porelo/TASK` that exists moves only when the work fast-forwards it**; otherwise it says so before
   asking, and nothing moves. The branch checked out is never the target.
 - **Nothing reaches a forge through it.** A repository whose source is a remote - a followed project,

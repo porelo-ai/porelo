@@ -102,7 +102,9 @@ final class CheckoutApproval {
         final List<PendingPush> waiting = gate.pendingDetail();
         final PendingPush chosen = choose(waiting, task, yes, top, asker);
         if (chosen == null) {
-            return waiting.isEmpty() || task != null ? NOTHING : AMBIGUOUS;
+            // The exit of the refusal that was said: guessed from the input, a name mistyped at the question read as
+            // ambiguous, under the sentence that no work of that name waits.
+            return chosenRefusal;
         }
         final String branch = PREFIX + chosen.name();
         show(gate, chosen);
@@ -171,12 +173,16 @@ final class CheckoutApproval {
         return null;
     }
 
+    /** The exit of the refusal {@link #choose} said, when it chose nothing. */
+    private int chosenRefusal = NOTHING;
+
     /** The push to bring back: the one named, the only one, or the one the person picks. */
     private @Nullable PendingPush choose(final List<PendingPush> waiting, final @Nullable String task,
             final boolean yes, final Path top, final Asker asker) {
         if (waiting.isEmpty()) {
             final String held = held(top);
-            refuse(NOTHING, "nothing waits at the gate for a task started from " + top + (held.isEmpty()
+            chosenRefusal = refuse(NOTHING, "nothing waits at the gate for a task started from " + top
+                    + (held.isEmpty()
                     ? "; the agent commits and pushes its work there when it is done"
                     : "; but " + held + ". In the task, commit and 'git push' - its remote is the gate"));
             return null;
@@ -185,13 +191,13 @@ final class CheckoutApproval {
         String wanted = task;
         if (wanted == null && waiting.size() > 1) {
             if (yes) {
-                refuse(AMBIGUOUS, "work of several tasks waits at the gate: " + String.join(", ", names)
+                chosenRefusal = refuse(AMBIGUOUS, "work of several tasks waits at the gate: " + String.join(", ", names)
                         + "; name the one to bring back");
                 return null;
             }
             wanted = asker.ask("Work of several tasks waits: " + String.join(", ", names) + ". Which one?");
             if (wanted == null) {
-                refuse(AMBIGUOUS, "no task named; nothing brought back");
+                chosenRefusal = refuse(AMBIGUOUS, "no task named; nothing brought back");
                 return null;
             }
         }
@@ -204,7 +210,7 @@ final class CheckoutApproval {
                 return each;
             }
         }
-        refuse(NOTHING, "no work of '" + name + "' waits at the gate for " + top + "; waiting: "
+        chosenRefusal = refuse(NOTHING, "no work of '" + name + "' waits at the gate for " + top + "; waiting: "
                 + String.join(", ", names));
         return null;
     }
