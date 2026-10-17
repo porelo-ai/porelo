@@ -74,5 +74,27 @@ final class MachineMethods {
                                     org.fuin.porelo.app.NodeIdentity.of(
                                             context.paths().nodeIdFile())));
                 });
+
+        server.method(
+                "Process",
+                (parameters, replies) -> {
+                    // Asked of the daemon: it is not dumpable, so /proc/<pid>/exe is root's to
+                    // read, while a process always reads its own.
+                    replies.last(
+                            Map.of(
+                                    "pid",
+                                    ProcessHandle.current().pid(),
+                                    "executable",
+                                    executable()));
+                });
+    }
+
+    private static String executable() {
+        try {
+            return java.nio.file.Files.readSymbolicLink(java.nio.file.Path.of("/proc/self/exe"))
+                    .toString();
+        } catch (java.io.IOException ex) {
+            throw new java.io.UncheckedIOException("Cannot read /proc/self/exe", ex);
+        }
     }
 }

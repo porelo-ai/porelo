@@ -142,6 +142,20 @@ The daemon binds `$XDG_RUNTIME_DIR/porelo/porelod.sock`, readable only by its ow
 - **A socket left by a `SIGKILL` or a reboot is taken over** by the next start, which removes it only after
   checking that nothing answers on it.
 
+### What the daemon shows of itself
+
+The daemon reads the vault, so it cannot be core-dumped or read by a debugger, not even by its own user. Its entries
+under `/proc/<pid>` belong to root, so `readlink /proc/<pid>/exe` and `ss -p` show you nothing of it. Ask it
+instead, or ask the kernel by the unit's control group:
+
+```
+printf '%s\0' '{"method":"org.fuin.porelo.Tasks1.Process"}' | porelo daemon connect
+ss -ltun --cgroup | grep "cgroup:$(systemctl --user show -p ControlGroup --value porelod)"
+```
+
+The first answers its pid and the executable it runs. The second lists any network port the unit listens on, and
+prints nothing.
+
 ### A daemon that answers nothing
 
 If `porelod` accepts a connection but answers no call, have it print where its threads are before restarting it:

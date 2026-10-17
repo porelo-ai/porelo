@@ -205,7 +205,7 @@ class DeployTest {
     void refusesAnAccountInstallWhoseDaemonStillRunsThePackage() throws IOException {
         deb();
         accountRunsItsOwn();
-        machine.answer("readlink", "/usr/bin/porelod\n");
+        daemonAnswers(4242, "/usr/bin/porelod");
 
         final int code =
                 Deploy.deploy(
@@ -222,6 +222,29 @@ class DeployTest {
         assertThat(text())
                 .contains("daemon runs /usr/bin/porelod")
                 .contains("not everything names /home/alice/.local/bin/");
+    }
+
+    @Test
+    void refusesAnAccountInstallWhenTheProcessOnTheSocketIsNotTheUnits() throws IOException {
+        // A daemon started by hand still holds the socket: what it says it runs is not what the
+        // account's unit now runs.
+        deb();
+        accountRunsItsOwn();
+        daemonAnswers(977, "/home/alice/.local/bin/porelod");
+
+        final int code =
+                Deploy.deploy(
+                        "alice@host",
+                        repository,
+                        "7.1",
+                        true,
+                        Deploy.Scope.ACCOUNT,
+                        machine,
+                        run -> 0,
+                        out);
+
+        assertThat(code).as(text()).isEqualTo(1);
+        assertThat(text()).contains("process 977 answers on the socket, and the unit's is 4242");
     }
 
     @Test
@@ -277,11 +300,19 @@ class DeployTest {
         machine.answer("dpkg-query -W", "0.1.0~snapshot.182.1");
         machine.answer("echo \"$HOME\"", "/home/alice\n");
         machine.answer("bash -lc 'command -v porelo'", "/home/alice/.local/bin/porelo\n");
-        machine.answer("readlink", "/home/alice/.local/bin/porelod\n");
+        machine.answer("systemctl --user show -p MainPID", "4242\n");
+        daemonAnswers(4242, "/home/alice/.local/bin/porelod");
         machine.answer(
                 "cat \"$HOME\"/.config/containers/oci/hooks.d",
                 "{\"hook\":{\"path\":\"/home/alice/.local/bin/porelo-hook-nft\"}}");
         machine.answer("echo \"/run/user", "/run/user/1008/porelo/porelod.sock\n");
+    }
+
+    /** Answers the daemon's {@code Process} call as {@code porelo daemon connect} prints it. */
+    private void daemonAnswers(long pid, String executable) {
+        machine.answer(
+                "printf",
+                "{\"parameters\":{\"pid\":" + pid + ",\"executable\":\"" + executable + "\"}}\0");
     }
 
     @Test

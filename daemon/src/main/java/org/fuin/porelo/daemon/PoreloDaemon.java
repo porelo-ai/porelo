@@ -1040,6 +1040,16 @@ public final class PoreloDaemon {
         if (answered != null) {
             System.exit(answered);
         }
+        // Before anything reads the vault: this process answers for every credential, and a core
+        // dump of it, or a debugger of the same user attached, is a copy of each. Process-wide,
+        // for its life; a client asks the Process method for what /proc/<pid> no longer shows.
+        try {
+            org.fuin.porelo.core.hardening.ProcessHardening.disableDumping();
+        } catch (RuntimeException ex) {
+            System.err.println("porelod: " + ex.getMessage());
+            System.err.flush();
+            System.exit(70);
+        }
         final PoreloContext context = PoreloContext.real();
         final Path socket = context.paths().daemonSocket();
         // Started here and not in serving(): this is the one thing the daemon does that reaches the

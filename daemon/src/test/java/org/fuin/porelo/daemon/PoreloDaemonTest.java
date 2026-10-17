@@ -3090,6 +3090,32 @@ class PoreloDaemonTest {
     }
 
     @Test
+    void processNamesThisProcessAndTheExecutableTheKernelSaysItRuns(@TempDir Path dir)
+            throws Exception {
+
+        // The deploy decides from this answer whether the account's own daemon runs, since a daemon
+        // that is not dumpable shows /proc/<pid>/exe to root only: a wrong answer lets it go on
+        // measuring a binary nobody meant to test.
+        serving(
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> reply =
+                                client.call(PoreloDaemon.INTERFACE + ".Process", Map.of());
+
+                        assertThat(((Number) reply.get("pid")).longValue())
+                                .as("the pid of the process serving the socket")
+                                .isEqualTo(ProcessHandle.current().pid());
+                        assertThat(reply.get("executable"))
+                                .as("where the kernel says the serving process was started from")
+                                .isEqualTo(
+                                        Files.readSymbolicLink(Path.of("/proc/self/exe"))
+                                                .toString());
+                    }
+                });
+    }
+
+    @Test
     void agentsSaysNothingIsShadowedWhenNothingIs(@TempDir Path dir) throws Exception {
 
         // A field that always names something teaches an interface to ignore it.

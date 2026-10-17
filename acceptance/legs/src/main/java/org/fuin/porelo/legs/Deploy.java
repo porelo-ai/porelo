@@ -522,11 +522,18 @@ final class Deploy {
         final String home = remote.run("echo \"$HOME\"").out().strip();
         final String own = home + "/" + ACCOUNT_BIN + "/";
         final String path = remote.run("bash -lc 'command -v porelo'").out().strip();
+        // Asked of the daemon, which is not dumpable: its /proc/<pid>/exe is root's to read.
+        final String mainPid =
+                remote.run("systemctl --user show -p MainPID --value porelod").out().strip();
         final String daemon =
-                remote.run(
-                                "readlink \"/proc/$(systemctl --user show -p MainPID --value porelod)/exe\"")
-                        .out()
-                        .strip();
+                daemonExecutable(
+                        remote.run(
+                                        "printf '%s\\0' '{\"method\":\"org.fuin.porelo.Tasks1.Process\"}'"
+                                                + " | timeout 10 \"$HOME/"
+                                                + ACCOUNT_BIN
+                                                + "/porelo\" daemon connect")
+                                .out(),
+                        mainPid);
         final List<String> hooks =
                 hookPaths(
                         remote.run(
@@ -547,6 +554,29 @@ final class Deploy {
                             + " - the account's install does not decide what runs");
         }
         return all;
+    }
+
+    /**
+     * Reads the executable the daemon says it runs, when the process answering is the unit's.
+     *
+     * @param answer What the daemon's {@code Process} method answered.
+     * @param mainPid The unit's {@code MainPID}.
+     * @return The executable, or why there is none, which names no path to accept.
+     */
+    static String daemonExecutable(String answer, String mainPid) {
+        final Matcher pid = Pattern.compile("\"pid\"\\s*:\\s*(\\d+)").matcher(answer);
+        final Matcher executable =
+                Pattern.compile("\"executable\"\\s*:\\s*\"([^\"\\\\]+)\"").matcher(answer);
+        if (!pid.find() || !executable.find()) {
+            return "nothing it could name (the daemon answered: " + answer.strip() + ")";
+        }
+        if (!pid.group(1).equals(mainPid)) {
+            return "not known: process "
+                    + pid.group(1)
+                    + " answers on the socket, and the unit's is "
+                    + (mainPid.isEmpty() ? "none" : mainPid);
+        }
+        return executable.group(1);
     }
 
     /**

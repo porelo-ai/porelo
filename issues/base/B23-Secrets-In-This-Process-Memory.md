@@ -1,7 +1,8 @@
 # B23 — Secrets In This Process's Memory
 
 **Status:** Implementing.
-**Size:** S - the hardening applied and the passphrase path closed; a credential as bytes was dropped on 2026-10-11.
+**Size:** M - the daemon's hardening is one contract change (`Tasks1.Process`), the deploy's check and two acceptance
+scenarios, a few hours; the passphrase path is S on its own; a credential as bytes was dropped on 2026-10-11.
 
 **What must be true.** A credential's plaintext exists in as few places, and for as short a time, as the platform
 allows - and what cannot be achieved is written down rather than implied.
@@ -108,11 +109,28 @@ acceptance step reading `Dumpable` of the running broker and daemon, which reads
 key's seed) call `ProcessHardening.disableDumping()` before they read the first secret; the relay carries bytes only.
 `task-left-running.feature` checks it on the running broker: its entries under `/proc` belong to root, which is how
 the kernel shows a process that is not dumpable. `PR_SET_NO_NEW_PRIVS` is not set: it holds for the calling thread
-and its children only, so in a JVM it covers less than it says. **Not yet the daemon**, which holds the vault's reads
-too: a daemon that is not dumpable cannot have its `/proc/<pid>/exe` and `/proc/<pid>/fd` read by its own user, so
-the deploy's check of what it runs and the acceptance check that it binds no network port would both lose what they
-read - the second would pass whatever the daemon does. Doctor's three lines are unchanged: `doctor --json` carries
-them. Both are for the operator to decide.
+and its children only, so in a JVM it covers less than it says. Doctor's three lines are unchanged: `doctor --json`
+carries them; that is still open (below).
+
+**Built, 2026-10-17, the daemon:** `PoreloDaemon.main` calls `disableDumping()` before anything reads the vault, and
+exits 70 if the flag does not hold. Its entries under `/proc/<pid>` then belong to root, so the two checks that read
+them ask elsewhere:
+
+- **What the daemon runs** is asked of the daemon: `Tasks1.Process` (`50-machine.varlink`, `MachineMethods`, a new
+  method, nothing else changed) answers its pid and where `/proc/self/exe` points, which a process reads of itself
+  whatever its dumpable flag. The deploy's `runsItsOwn` takes the executable only when the pid equals the unit's
+  `MainPID`, so a daemon started by hand that still holds the socket is not taken for the unit's.
+- **That it binds no network port** is asked of the kernel, not of the daemon: `ss -ltun --cgroup` names the control
+  group each socket was made in, the daemon's unit has a group of its own, and the scenario counts the listeners in
+  it. That is better than a list the daemon makes of its own sockets: the guard does not depend on the code it
+  guards, and it also counts a socket of anything else the unit runs. It refuses to judge on a machine where `ss`
+  does not name a control group on every listener, as an older kernel or `ss` would not. Measured
+  on the developer machine with the daemon on the JVM in a user unit: with the hardening, `readlink
+  /proc/<pid>/exe` and `ss -p` show its own user nothing, and with a loopback `ServerSocket` planted in `main` the
+  check counts 1, where the old `pid=` filter counted 0.
+
+`machine.feature` holds both: the port scenario above, and a scenario reading the owner of the running daemon's
+`/proc/<pid>/environ`, the same way `task-left-running.feature` reads the broker's. Neither has run on a VM yet.
 
 **2. The passphrase path closed (S).** `KernelKeyring` (`vault/.../KernelKeyring.java`) turns the passphrase into a
 `String` when storing (`new String(passphrase).getBytes`) and when reading; encode from the `char[]` through a
@@ -136,11 +154,14 @@ documentation that erasure is not achieved, and why.
   memory as an accepted risk. Seen to fail: `doc/decisions.md` has no entry giving its exposure, why it stays and
   what would change it.
 - **A process holding a credential cannot be core-dumped**, and nothing reports hardening it does
-  not apply. Seen to fail: `/proc/<pid>/status` of the daemon, the broker, the ssh-agent or the relay shows
-  dumpable `1`, or `doctor` reports hardening those processes do not have.
+  not apply. Seen to fail: the entries under `/proc/<pid>` of the running daemon, broker or ssh-agent belong to
+  their own user rather than root (`/proc/<pid>/status` has no dumpable field; root ownership is how the kernel
+  shows the flag), or `doctor` reports hardening those processes do not have.
 
 ## To be checked
 
 - **Whether `doctor` should report hardening at all** or report the broker's and the daemon's state
   as read from `/proc`. Printing the state of its own process, which nothing hardens, is how a line that looks
   like a warning survives for months.
+- **The daemon's two `machine.feature` scenarios and an account deploy on the VMs**, with the native `porelod`: the
+  environment owned by root, `network listeners: 0`, and `daemon runs` naming the account's binary.

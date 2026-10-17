@@ -40,3 +40,15 @@ method Node() -> (
   # differently here - which is the case a hostname gets wrong.
   id: string
 )
+
+# The daemon's own process, as the kernel shows it to that process.
+#
+# The daemon holds the vault's reads and is therefore not dumpable: its entries under /proc/<pid>
+# belong to root, and its own user can no longer read where it runs from. This is how a client
+# learns which binary answers on the socket, for instance after an update.
+method Process() -> (
+  # Its process id; under systemd, the unit's MainPID.
+  pid: int,
+  # Where /proc/self/exe points. Ends in " (deleted)" once the file it started from was replaced.
+  executable: string
+)

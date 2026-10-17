@@ -95,9 +95,10 @@ Read in the code at `30c8169b`:
 
 Steps:
 
-1. A scenario in `acceptance/suite/.../machine/machine.feature`, red first: with the daemon running, `ss -ltnup` and
-   `ss -lunp` filtered by the daemon's pid list nothing, and `ss -lxp` lists its socket. It goes red when the daemon
-   owns any TCP or UDP listener.
+1. A scenario in `acceptance/suite/.../machine/machine.feature`, red first: with the daemon running, the process
+   answering `Tasks1.Process` on its socket is its unit's, and `ss -ltun --cgroup` lists no listener in the unit's
+   control group. It goes red when the daemon owns any TCP or UDP listener. Not by pid: the daemon is not dumpable,
+   and `ss -p` shows its own user no pid for it.
 2. A scenario for the hop: `Tasks1.Watch` sent through `ssh localhost porelo daemon connect`, a task started and
    stopped on the machine, both reported on the client side; then the ssh client is killed under the watch, and the
    client side ends with an error, never with an empty task list. The same once through `ssh -L` with a socket

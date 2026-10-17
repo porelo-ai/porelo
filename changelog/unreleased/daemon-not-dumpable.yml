@@ -1,0 +1,2 @@
+title: The daemon can no longer be core-dumped or read by a debugger of the same user, and answers its pid and executable through the new Tasks1.Process method
+type: changed

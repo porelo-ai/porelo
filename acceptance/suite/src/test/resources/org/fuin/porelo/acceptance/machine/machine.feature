@@ -103,21 +103,42 @@ Feature: The commands a machine answers about itself
             | fish  | no completion script for 'fish'     |
 
     # Guards the daemon being reachable from the network: whatever can reach its socket can start tasks and spend the
-    # vault's credentials, so it listens on its owner-only socket and on no port. Asked of the daemon's own process
-    # only: a task's relay binds an address, but inside that task's network namespace.
+    # vault's credentials, so it listens on its owner-only socket and on no port. Asked of the daemon's own unit only: a
+    # task's relay binds an address, but inside that task's network namespace. The daemon is not dumpable, so ss cannot
+    # name its pid; the kernel still names the control group each socket was made in, and the unit has its own.
     Scenario: the daemon listens on its own socket and on no network port
         # A machine where nothing asked for the daemon yet runs none: the scenario starts its own, as a rented leg needs.
         Given a daemon of this scenario's own
         When a script runs:
             """
-            sock="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/porelo/porelod.sock"
-            printf '%s\0' '{"method":"org.varlink.service.GetInfo"}' | timeout 30 porelo daemon connect >/dev/null 2>&1
-            pid=$(ss -lxpH | grep -F " $sock " | grep -o 'pid=[0-9]*' | head -1 | cut -d= -f2)
-            [ -n "$pid" ] || { echo "no process listens on $sock"; ss -lxp | grep porelo; exit 1; }
-            echo "network listeners: $(ss -ltunpH | grep -c "pid=$pid,")"
-            ss -ltunpH | grep "pid=$pid,"
+            unit=porelo-acceptance-porelod
+            answer=$(printf '%s\0' '{"method":"org.fuin.porelo.Tasks1.Process"}' | timeout 30 porelo daemon connect 2>&1 | tr -d '\0')
+            pid=$(printf '%s' "$answer" | grep -oE '"pid": *[0-9]+' | grep -oE '[0-9]+$')
+            main=$(systemctl --user show -p MainPID --value "$unit")
+            [ -n "$pid" ] && [ "$pid" = "$main" ] || { echo "the socket's process is not the unit's ($main): $answer"; exit 1; }
+            group=$(systemctl --user show -p ControlGroup --value "$unit")
+            listeners=$(ss -ltunH --cgroup)
+            all=$(printf '%s\n' "$listeners" | grep -c .)
+            named=$(printf '%s\n' "$listeners" | grep -c ' cgroup:/')
+            [ "$all" -gt 0 ] && [ "$named" = "$all" ] || { echo "ss names the control group of $named of $all listeners"; exit 1; }
+            printf '%s\n' "$listeners" | awk -v g="cgroup:$group" '
+              { for (i = 1; i <= NF; i++) if ($i == g || index($i, g "/") == 1) { n++; print } }
+              END { print "network listeners: " n + 0 }'
             """
         Then its output contains "network listeners: 0"
+
+    # Guards the copy a core dump makes: the daemon reads the vault, so a dump of it, or a debugger of the same user
+    # attached, holds credentials. Its entries under /proc then belong to root, which is how the kernel shows a process
+    # that is not dumpable.
+    Scenario: the daemon cannot be core-dumped or read by a debugger of its own user
+        Given a daemon of this scenario's own
+        When a script runs:
+            """
+            pid=$(systemctl --user show -p MainPID --value porelo-acceptance-porelod)
+            [ "${pid:-0}" != 0 ] || { echo "the unit runs no daemon"; exit 1; }
+            echo "the daemon's environment belongs to $(stat -c %U "/proc/$pid/environ")"
+            """
+        Then its output contains "the daemon's environment belongs to root"
 
     # Guards the remote use another repository's interface is built on: a daemon on another machine reached through
     # ssh, by the bridge (one session, one connection) and by a forwarded socket, with nothing set up on the far side.
