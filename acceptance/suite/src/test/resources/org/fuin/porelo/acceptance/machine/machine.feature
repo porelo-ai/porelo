@@ -106,6 +106,8 @@ Feature: The commands a machine answers about itself
   # vault's credentials, so it listens on its owner-only socket and on no port. Asked of the daemon's own process
   # only: a task's relay binds an address, but inside that task's network namespace.
   Scenario: the daemon listens on its own socket and on no network port
+    # A machine where nothing asked for the daemon yet runs none: the scenario starts its own, as a rented leg needs.
+    Given a daemon of this scenario's own
     When a script runs:
       """
       sock="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/porelo/porelod.sock"
@@ -126,6 +128,7 @@ Feature: The commands a machine answers about itself
     And a vault of this scenario's own, unlocked with the passphrase "acceptance"
     And the vault holds the value of "PORELO_ACCEPTANCE_FAKE_CREDENTIAL" as "anthropic" of kind "api-key"
     And a project called "hop" of class "guarded" with a file in it
+    And a daemon of this scenario's own
     When a script runs:
       """
       dir=$(mktemp -d); mark="porelo-acceptance-hop-$$"; watch=""; forward=""; task=""
