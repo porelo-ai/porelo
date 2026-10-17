@@ -95,6 +95,71 @@ class VaultRemoveCommandTest {
     }
 
     @Test
+    void aGrantAPersonGaveIsRevokedAtTheServiceBeforeItIsRemovedHere(@TempDir Path dir)
+            throws Exception {
+        // Harm: a refresh token deleted here that the service still honours. A person's grant is
+        // kept with the same type as what renews an agent's own sign-in, and was taken for one:
+        // forgotten here, never revoked there.
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+                org.fuin.porelo.vault.KernelKeyring.available(), "libkeyutils is not installed");
+        final java.util.List<String> revoked = new java.util.concurrent.CopyOnWriteArrayList<>();
+        final com.sun.net.httpserver.HttpServer service =
+                com.sun.net.httpserver.HttpServer.create(
+                        new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+        service.createContext(
+                "/revoke",
+                exchange -> {
+                    revoked.add(
+                            new String(
+                                    exchange.getRequestBody().readAllBytes(),
+                                    java.nio.charset.StandardCharsets.UTF_8));
+                    exchange.sendResponseHeaders(200, -1);
+                    exchange.close();
+                });
+        service.start();
+        final String base = "http://127.0.0.1:" + service.getAddress().getPort();
+        final PoreloContext context = context(dir);
+        final org.fuin.porelo.vault.KernelKeyring keyring =
+                new org.fuin.porelo.vault.KernelKeyring(context.paths().vault().vaultKeyringKey());
+        try {
+            context.vault()
+                    .write(
+                            Map.of(
+                                    "forge",
+                                    new VaultEntry(
+                                            "-",
+                                            "oauth-device",
+                                            Map.of(
+                                                    "client_id",
+                                                    "porelo-client",
+                                                    "device_authorization_url",
+                                                    base + "/device",
+                                                    "token_url",
+                                                    base + "/token",
+                                                    "revocation_url",
+                                                    base + "/revoke"))),
+                            PASSPHRASE);
+            keyring.store(PASSPHRASE);
+            VaultAuthorizeCommand.keep(context, "forge", "rt-1");
+
+            assertThat(execute(context, "vault", "remove", "forge")).as(err.toString()).isZero();
+
+            assertThat(revoked)
+                    .as("the service told, with the refresh token and the client")
+                    .singleElement()
+                    .satisfies(
+                            asked ->
+                                    assertThat(asked)
+                                            .contains("token=rt-1", "client_id=porelo-client"));
+            assertThat(out.toString()).contains("revoked").doesNotContain("rt-1");
+            assertThat(context.vault().read(PASSPHRASE)).isEmpty();
+        } finally {
+            keyring.forget();
+            service.stop(0);
+        }
+    }
+
+    @Test
     void aTokenThatNeverExpiresIsKeptUntilThePersonSaysTheyKnowItLivesOnAndThenSaysWhereToRevokeIt(
             @TempDir Path dir) {
         org.junit.jupiter.api.Assumptions.assumeTrue(

@@ -109,7 +109,9 @@ public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.Cont
                     "not revoked at the service: the token works there until it is revoked "
                             + where);
             out.flush();
-        } else if (grant != null && LoginCredentials.REFRESH.equals(grant.type())) {
+        } else if (grant != null
+                && LoginCredentials.REFRESH.equals(grant.type())
+                && !grantedByAPerson(context.credentials().get(name))) {
             // What renews an agent's own sign-in. The service has no revocation Porelo knows of;
             // the person ends the session there by signing out. Forgotten here with the token it
             // renews.
@@ -164,6 +166,17 @@ public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.Cont
         out.println("removed   " + name);
         out.flush();
         return 0;
+    }
+
+    /**
+     * Tells a person's grant from what renews an agent's own sign-in: both are kept as a refresh
+     * token, and only the entry beside it says which, so only a grant is revoked at its service.
+     *
+     * @param entry The entry the refresh token is kept for, or {@code null}.
+     * @return true when the entry is of a kind a person grants.
+     */
+    private static boolean grantedByAPerson(@Nullable VaultEntry entry) {
+        return entry != null && Grants.isGrant(entry.type());
     }
 
     /**
