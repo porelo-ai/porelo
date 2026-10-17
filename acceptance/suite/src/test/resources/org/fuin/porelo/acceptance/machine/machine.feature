@@ -135,6 +135,9 @@ Feature: The commands a machine answers about itself
         exec 3>&-
         [ -n "$watch" ] && kill "$watch" 2>/dev/null
         [ -n "$forward" ] && kill "$forward" 2>/dev/null
+        # Started through a function in the background, $! is the subshell, not the ssh it ran: ended by what it
+        # serves, or it holds this step's output open after everything else is done.
+        pkill -f -- "$dir/forwarded.sock" 2>/dev/null
         sed -i "/ $mark\$/d" ~/.ssh/authorized_keys
         [ -n "$task" ] && porelo task remove "$task" --force >/dev/null 2>&1
         rm -rf "$dir"
@@ -164,7 +167,7 @@ Feature: The commands a machine answers about itself
       for i in $(seq 60); do last | grep -qF "\"$task\"" || break; sleep 1; done
       last | grep -q '"tasks"' && ! last | grep -qF "\"$task\"" && echo "the watch over ssh saw it go"
       # The forward: the daemon's socket put on a path of the client's own, and asked there.
-      hop -N -o ExitOnForwardFailure=yes -L "$dir/forwarded.sock:$sock" localhost &
+      hop -N -o ExitOnForwardFailure=yes -L "$dir/forwarded.sock:$sock" localhost </dev/null >"$dir/forward.log" 2>&1 &
       forward=$!
       for i in $(seq 100); do [ -S "$dir/forwarded.sock" ] && break; sleep 0.1; done
       printf '%s\0' '{"method":"org.fuin.porelo.Tasks1.List"}' \
