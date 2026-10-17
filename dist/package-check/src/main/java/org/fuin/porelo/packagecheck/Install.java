@@ -44,6 +44,8 @@ record Install(Path deb, Path rpm, Path agentDeb) {
             grep -qho "/usr/libexec/porelo/hooks/porelo-hook-nft" \\
                 /root/.config/containers/oci/hooks.d/* 2>/dev/null && echo HOOKS-PACKAGED
             porelo agents 2>/dev/null | grep -q stub && echo DISCOVERY-OK
+            porelo agents --verbose 2>/dev/null | grep -q "found by: /usr/share/porelo/agents.d/" && echo DESCRIBED
+            ls /usr/libexec/porelo/agents/porelo-agent-* >/dev/null 2>&1 || echo NO-PORELO-NAME
             """;
 
     private static Map<String, String> markers() {
@@ -53,6 +55,8 @@ record Install(Path deb, Path rpm, Path agentDeb) {
         markers.put("SETUP-OK", "porelo setup writes the podman hook descriptors");
         markers.put("HOOKS-PACKAGED", "the descriptors point at the packaged hook binaries");
         markers.put("DISCOVERY-OK", "porelo discovers the agent it was never linked against");
+        markers.put("DESCRIBED", "the agent is found by its description under /usr/share/porelo/agents.d");
+        markers.put("NO-PORELO-NAME", "no file of Porelo's name is installed for it under /usr/libexec/porelo/agents");
         return Collections.unmodifiableMap(markers);
     }
 

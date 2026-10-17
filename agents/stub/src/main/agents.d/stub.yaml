@@ -1,0 +1,2 @@
+# The stub as a vendor would register an agent: the program under a name of its own, named here by its path.
+executable: /usr/lib/porelo-agent-stub/stub

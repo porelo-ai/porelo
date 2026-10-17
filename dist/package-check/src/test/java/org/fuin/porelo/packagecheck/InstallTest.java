@@ -12,6 +12,8 @@ class InstallTest {
     private static final String EVERYTHING = """
             PORELO-OK
             REPORTED:porelo 0.1.0~snapshot.177
+            DESCRIBED
+            NO-PORELO-NAME
             AGENT-OK
             SETUP-OK
             HOOKS-PACKAGED
@@ -87,5 +89,24 @@ class InstallTest {
         final Install install = new Install(Path.of("/d/porelo.deb"), Path.of("/r/porelo.rpm"), Path.of("/a/stub.deb"));
         assertThat(install.ubuntu()).contains("azure.archive.ubuntu.com");
         assertThat(install.debian()).doesNotContain("ubuntu.com").contains("apt-get update");
+    }
+
+    @Test
+    void findsTheAgentByItsDescriptionAndByNoFileOfPorelosName() {
+        // A vendor's package names its program freely and registers it with one file under agents.d.
+        final Install install = new Install(Path.of("/d/porelo.deb"), Path.of("/r/porelo.rpm"), Path.of("/a/stub.deb"));
+
+        assertThat(Install.MARKERS).containsKeys("DESCRIBED", "NO-PORELO-NAME");
+        for (final String script : java.util.List.of(install.debian(), install.ubuntu(), install.fedora())) {
+            assertThat(script).contains("--verbose").contains("/usr/share/porelo/agents.d/").contains("echo DESCRIBED")
+                    .contains("/usr/libexec/porelo/agents/porelo-agent-").contains("echo NO-PORELO-NAME");
+        }
+    }
+
+    @Test
+    void anInstallThatFoundTheAgentByItsOldNameFails() {
+        Install.verdicts("Fedora", EVERYTHING.replace("NO-PORELO-NAME\n", ""), VERSION, out.report);
+
+        assertThat(out.text()).contains("FAIL  NO-PORELO-NAME on Fedora");
     }
 }

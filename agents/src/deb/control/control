@@ -11,9 +11,10 @@ Homepage: https://github.com/porelo-ai/porelo
 Depends: porelo
 # No 'Provides: porelo-agent': that is what offers an agent to a person, and the stub is only for the suite.
 Description: [[description]] [[agent.cli.version]]
- Installs into /usr/libexec/porelo/agents, where the porelo binary looks for
- agents. Nothing needs to be registered: porelo scans that directory and asks
- whatever it finds to describe itself, so installing this package is enough.
+ Installs its program under /usr/lib and one description file into
+ /usr/share/porelo/agents.d that names it, which is where the porelo binary
+ looks for agents. Nothing else is registered: porelo asks the program the
+ description names to describe itself, so installing this package is enough.
  .
  The package version is this agent's own version, independent of Porelo's release
  line. The agent CLI version it installs is on the Description line above, so

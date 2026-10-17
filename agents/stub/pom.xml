@@ -28,6 +28,8 @@
              the real agents live elsewhere. Never published: the publish step uploads dist-deb
              and dist-rpm and nothing else. -->
         <agent.package.skip>false</agent.package.skip>
+        <!-- Packaged as a vendor's agent is: /usr/lib/porelo-agent-stub/stub, found by agents.d/stub.yaml alone. -->
+        <agent.name>stub</agent.name>
     </properties>
 
     <dependencies>

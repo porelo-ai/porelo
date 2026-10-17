@@ -31,6 +31,9 @@
              version, so an agent released against an unchanged CLI is still an upgrade. -->
         <agent.cli.version>0</agent.cli.version>
         <agent.install.dir>/usr/libexec/porelo/agents</agent.install.dir>
+        <!-- A vendor's layout: the program as agent.name in a directory of its own, named by one agents.d file. -->
+        <agent.executable.dir>/usr/lib/${project.artifactId}</agent.executable.dir>
+        <agent.descriptions.dir>/usr/share/porelo/agents.d</agent.descriptions.dir>
         <sbom.install.dir>/usr/share/porelo/sbom</sbom.install.dir>
         <!-- Signing is off for local and CI builds and on for releases, where the key exists.
              §12 says the shipped packages are signed; this is the switch, not an exemption. -->
@@ -149,11 +152,24 @@
                                     <dataSet>
                                         <data>
                                             <src>${project.build.directory}/${project.artifactId}</src>
+                                            <dst>${agent.name}</dst>
                                             <type>file</type>
                                             <mapper>
                                                 <type>perm</type>
-                                                <prefix>${agent.install.dir}</prefix>
+                                                <prefix>${agent.executable.dir}</prefix>
                                                 <filemode>755</filemode>
+                                                <user>root</user>
+                                                <group>root</group>
+                                            </mapper>
+                                        </data>
+                                        <!-- The whole registration: the file names the program by its absolute path. -->
+                                        <data>
+                                            <src>${project.basedir}/src/main/agents.d/${agent.name}.yaml</src>
+                                            <type>file</type>
+                                            <mapper>
+                                                <type>perm</type>
+                                                <prefix>${agent.descriptions.dir}</prefix>
+                                                <filemode>644</filemode>
                                                 <user>root</user>
                                                 <group>root</group>
                                             </mapper>
@@ -206,7 +222,7 @@
                             <snapshotVersion>${agent.package.version}</snapshotVersion>
                             <release>1</release>
                             <summary>${project.description}</summary>
-                            <description>${project.description} ${agent.cli.version}. Installs into /usr/libexec/porelo/agents, where the porelo binary scans for agents.</description>
+                            <description>${project.description} ${agent.cli.version}. Installs its program under /usr/lib and one description in /usr/share/porelo/agents.d that names it, where the porelo binary finds agents.</description>
                             <!-- Without this the plugin substitutes a timestamp release for any
                                  snapshot build, and the rpm and the deb then disagree about what
                                  version they are - which is worse than either scheme alone. -->
@@ -223,9 +239,16 @@
                             </signature>
                             <entries>
                                 <entry>
-                                    <name>${agent.install.dir}/${project.artifactId}</name>
+                                    <name>${agent.executable.dir}/${agent.name}</name>
                                     <file>${project.build.directory}/${project.artifactId}</file>
                                     <mode>0755</mode>
+                                    <user>root</user>
+                                    <group>root</group>
+                                </entry>
+                                <entry>
+                                    <name>${agent.descriptions.dir}/${agent.name}.yaml</name>
+                                    <file>${project.basedir}/src/main/agents.d/${agent.name}.yaml</file>
+                                    <mode>0644</mode>
                                     <user>root</user>
                                     <group>root</group>
                                 </entry>

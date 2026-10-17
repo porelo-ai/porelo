@@ -139,6 +139,11 @@ public final class Main {
         report.section("deb and rpm agree");
         Parity.check(debFiles(deb), rpmFiles(rpm), report);
 
+        // Registered as a vendor's agent is: under a name of its own, by one description, which the installs below find.
+        report.section("the agent is packaged as a vendor's would be");
+        AgentLayout.check("the agent deb", debFiles(agentDeb), report);
+        AgentLayout.check("the agent rpm", rpmFiles(agentRpm), report);
+
         report.section("bills of materials");
         final String poreloVersion = debField(deb, "Version");
         final String poreloBill = Bill.mavenVersion(poreloVersion);

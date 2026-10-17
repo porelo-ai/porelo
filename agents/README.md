@@ -353,9 +353,11 @@ mvn -Pnative,dist verify
   → target/porelo-agent-claude-1.0.0~SNAPSHOT-1.x86_64.rpm
 ```
 
-Both install one file, `/usr/libexec/porelo/agents/<name>`, which is where Porelo
-looks. Nothing is registered and no post-install script runs: installing the
-package is the whole integration.
+Both install the program as `/usr/lib/<package>/<agent.name>` and one description,
+`/usr/share/porelo/agents.d/<agent.name>.yaml`, that names it - the layout of the
+section below, which the stub is packaged with and `dist/package-check` proves in a
+clean Debian and Fedora. No post-install script runs: installing the package is
+the whole integration.
 
 ### An agent of another vendor, under its own names
 
