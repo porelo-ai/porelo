@@ -1,6 +1,6 @@
 # B200 — A Varlink Call Has A Read Deadline
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** A varlink call through porelo-wire's `VarlinkClient` ends within a stated time when the other
 side accepted the connection and never answers, with a named error that says so. No contract changes: the

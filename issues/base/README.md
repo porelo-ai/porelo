@@ -90,14 +90,14 @@ from its side, as *blocked by*.
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | - | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own. |
 | <a id="b194"></a>[B194](B194-A-File-Handed-In-At-Every-Start.md) | - | - | A host file such as `.AGENTS.md` handed into an agent's task read-only at every start; a changed copy written on the host only after approval. |
 | <a id="b198"></a>[B198](B198-Settings-Inherited-Down-An-Organisations-Tree.md) | - | - | An organisation file pinned by the machine's administrator passes settings down signed teams to projects by repository address; `fixed` and `narrow-only` locks no file below can undo, every file verified through the chain of keys, `project show --resolved`; folds in porelo-project [PJ16](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj16). |
+| <a id="b199"></a>[B199](B199-A-Transport-Reaches-Only-What-It-Names.md) | - | - | A transport's adapter reaches only the hosts its `reaches` names, as `doc/transports.md` promises; today nothing builds a rule from them. |
+| <a id="b200"></a>[B200](B200-A-Varlink-Call-Has-A-Read-Deadline.md) | - | - | A call through `VarlinkClient` to a side that accepted and never answers ends within a stated time with a named error; no contract changes. |
 
 ## Idea
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b179"></a>[B179](B179-A-Code-Beside-Why-A-Release-Cannot-Go.md) | - | - | A code beside `detail` when a release is answered `NOT_DELIVERABLE`, so a client can say what to do per case. |
-| <a id="b199"></a>[B199](B199-A-Transport-Reaches-Only-What-It-Names.md) | - | - | A transport's adapter reaches only the hosts its `reaches` names, as `doc/transports.md` promises; today nothing builds a rule from them. |
-| <a id="b200"></a>[B200](B200-A-Varlink-Call-Has-A-Read-Deadline.md) | - | - | A call through `VarlinkClient` to a side that accepted and never answers ends within a stated time with a named error; no contract changes. |
 
 ## Estimated
 

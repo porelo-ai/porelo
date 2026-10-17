@@ -1,6 +1,6 @@
 # B199 — A Transport Reaches Only What It Names
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** A transport's adapter reaches only the hosts its `setup` names in `reaches`, as
 `doc/transports.md` promises ("Porelo lets the transport reach those and nothing else") - or the page says what holds
