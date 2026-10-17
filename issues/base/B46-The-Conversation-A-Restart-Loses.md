@@ -1,7 +1,7 @@
 # B46 — The Conversation A Restart Loses
 
 **Status:** Implementing.
-**Size:** M - everything is built; left is the scenario with a real reboot, run on a rented machine.
+**Size:** M - everything is built, and the real-reboot scenario passed on the `fedora` VM; left is the scenario green in the Build's rented legs.
 
 **What must be true.** After a real reboot, a task continues the conversation its agent was having - in an
 unattended run and in a task somebody drove at a terminal - and a task whose conversation cannot continue says so
@@ -49,10 +49,23 @@ Built, not yet on main:
   `remembering compass`; the unattended one's next start says `session continuing` and `remembering lantern`; the
   sessionless one starts fresh and says so.
 
+**Run, 2026-10-17.**
+
+- On a rented `ccx33`, on `4f33f1c3`, the scenario held through the reboot: `--restarted` brought back the attached
+  task, and left both unattended runs stopped with their sessions kept. `task list` named them as interrupted.
+- It failed at the attached task, whose screen stayed empty for 900 s. `--restarted` starts the task's container and,
+  by design, no agent in it. The scenario then ran `task start`, which answers that the task is running and names
+  `task attach`. So nothing started the agent again.
+- Reproduced on the two-CPU `fedora` VM, which reboots for real. There, `porelo task attach porelo-recall-attended`
+  started the stub, continuing its session, and the screen showed `remembering compass`.
+- The scenario now goes into the task with `task attach`, as this plan says ("attaching shows"). On `fedora` it then
+  passed whole, with the reboot, all 40 steps, without help.
+
 Left:
 
-- That scenario runs on a rented machine only, never on the shared VM. It has passed a Cucumber dry run (every step
-  defined); it has not run.
+- The scenario green on both of porelo's rented legs in the Build, after phase 0's push.
+- To decide, not blocking: whether `task start` on a running task whose agent has gone should start the agent again,
+  instead of pointing to `task attach`.
 
 ## Acceptance
 
