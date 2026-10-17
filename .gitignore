@@ -3,6 +3,8 @@
 # exceptions below are what a Java build needs. Identical in every repository of this product.
 .*
 !.gitignore
+!.editorconfig
+!.git-blame-ignore-revs
 !.gitkeep
 !.mvn
 # Each agent's own local repository prefix, so what one agent installs is not what another resolves.
@@ -14,5 +16,3 @@ target
 
 # Python bytecode from the CI provisioning scripts
 __pycache__/
-!.editorconfig
-!.git-blame-ignore-revs
