@@ -15,6 +15,83 @@ class UnhandedWorkTest {
         Files.writeString(state.resolve(UnhandedWork.FILE), content);
     }
 
+    /** git without the machine's own configuration. */
+    private static final java.util.Map<String, String> GIT =
+            java.util.Map.of("GIT_CONFIG_GLOBAL", "/dev/null", "GIT_CONFIG_NOSYSTEM", "1");
+
+    private static void git(Path workspace, String... arguments)
+            throws IOException, InterruptedException {
+        final java.util.List<String> command = new java.util.ArrayList<>(java.util.List.of("git"));
+        command.addAll(java.util.List.of(arguments));
+        final ProcessBuilder builder =
+                new ProcessBuilder(command).directory(workspace.toFile()).redirectErrorStream(true);
+        builder.environment().putAll(GIT);
+        final Process process = builder.start();
+        process.getInputStream().readAllBytes();
+        assertThat(process.waitFor()).as("git " + String.join(" ", arguments)).isZero();
+    }
+
+    /** Asks a workspace on this machine as a running task's is asked: the census, run by sh. */
+    private static UnhandedWork.Held asked(Path workspace) {
+        final org.fuin.porelo.core.process.CommandRunner here =
+                command -> {
+                    final String script = command.arguments().getLast();
+                    return new org.fuin.porelo.core.process.ProcessCommandRunner()
+                            .run(
+                                    org.fuin.porelo.core.process.Command.of(
+                                                    "sh",
+                                                    "-c",
+                                                    script.replace(
+                                                            UnhandedWork.WORKSPACE,
+                                                            workspace.toString()))
+                                            .withEnvironment(GIT));
+                };
+        return UnhandedWork.ask(new org.fuin.porelo.runtime.Podman(here), "porelo-p-t");
+    }
+
+    @Test
+    void aWorkspaceGitCannotReadIsNotAWorkspaceThatHoldsNothing(@TempDir Path workspace)
+            throws IOException, InterruptedException {
+
+        // Counted through a pipe, a failing git status counted no lines: the task read as holding
+        // nothing, and a removal went ahead without asking.
+        git(workspace, "init", "-q");
+        Files.writeString(workspace.resolve("report.md"), "unpushed\n");
+        Files.writeString(
+                workspace.resolve(".git/config"),
+                "[core\n",
+                java.nio.file.StandardOpenOption.APPEND);
+
+        assertThat(asked(workspace).readable()).as("nobody could look").isFalse();
+    }
+
+    @Test
+    void aWorkspaceIsCountedFromItsUnbornHeadOn(@TempDir Path workspace)
+            throws IOException, InterruptedException {
+
+        // A task's workspace is checked out on an unborn HEAD, so the census must count there too.
+        git(workspace, "init", "-q");
+        Files.writeString(workspace.resolve("report.md"), "unpushed\n");
+        assertThat(asked(workspace))
+                .as("one new file, no commit")
+                .isEqualTo(new UnhandedWork.Held(true, 1, 0, null));
+
+        git(workspace, "add", "report.md");
+        git(
+                workspace,
+                "-c",
+                "user.name=t",
+                "-c",
+                "user.email=t@example.test",
+                "commit",
+                "-qm",
+                "r");
+        Files.writeString(workspace.resolve("notes.md"), "more\n");
+        assertThat(asked(workspace))
+                .as("one commit on no remote and one new file")
+                .isEqualTo(new UnhandedWork.Held(true, 1, 1, null));
+    }
+
     @Test
     void carriesTheCountsBackRatherThanASentence(@TempDir Path state) {
 

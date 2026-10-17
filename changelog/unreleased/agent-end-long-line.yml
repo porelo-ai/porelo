@@ -1,0 +1,2 @@
+title: A task whose agent ended on a line longer than 64 KiB says how it ended, where an end line carrying the whole run was cut and never read
+type: fixed

@@ -95,6 +95,34 @@ class TaskActivityTest {
     }
 
     @Test
+    void saysItsWorkWaitsAtTheGateOfTheRepositoryItWorksOn(@TempDir Path dir) throws IOException {
+
+        // A task on a repository other than its project's own - every task of 'default' - pushes
+        // to that repository's mirror; asking the project's mirror said nothing of its waited.
+        final PoreloContext context = context(dir);
+        Files.createDirectories(dir.resolve("data/porelo/mirrors/default/app.git"));
+        runner.answering("for-each-ref", "refs/porelo/incoming/app\n");
+        runner.answering(
+                "ps",
+                "porelo-default-app\tUp 4 minutes\t1788500000\t0\tdefault\tguarded\tapp\t\t\n");
+        final Path state = root.resolve("run/porelo/porelo-default-app");
+        Files.createDirectories(state);
+        new TaskProfile(
+                        TaskProfile.VERSION,
+                        "example",
+                        TaskMode.UNATTENDED,
+                        "fix the parser",
+                        "refs/porelo/incoming/app",
+                        "2026-09-07T10:00:00Z",
+                        "prompt")
+                .writeTo(state);
+
+        assertThat(only(context).waiting())
+                .as("its push waits in the mirror of 'app'")
+                .isEqualTo(1);
+    }
+
+    @Test
     void saysWhenNothingIsEnforcingItsEgress(@TempDir Path dir) throws IOException {
 
         // The most consequential state a task can be in - nothing asks and nothing is refused -

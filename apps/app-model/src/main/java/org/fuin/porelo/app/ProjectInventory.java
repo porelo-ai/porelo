@@ -355,6 +355,8 @@ public final class ProjectInventory {
 
         // Always there, even with no repository in it: it is where work goes that no followed
         // project names.
+        // Counted for every project, not only one with a mirror of its own: the work of every other
+        // repository - all of 'default''s - waits in a mirror below the project's name.
         found.put(
                 DefaultProject.NAME,
                 new Summary(
@@ -362,11 +364,11 @@ public final class ProjectInventory {
                         "guarded",
                         fileOf(DefaultProject.NAME),
                         null,
-                        0,
+                        pendingIn(DefaultProject.NAME),
                         0,
                         0));
         for (final String name : followed.keySet()) {
-            found.put(name, new Summary(name, null, fileOf(name), null, 0, 0, 0));
+            found.put(name, new Summary(name, null, fileOf(name), null, pendingIn(name), 0, 0));
         }
         for (final String name : mirroredNames()) {
             found.put(
@@ -395,7 +397,7 @@ public final class ProjectInventory {
                                     : task.securityClass(),
                             fileOf(task.project()),
                             known == null ? null : known.mirror(),
-                            known == null ? 0 : known.pending(),
+                            known == null ? pendingIn(task.project()) : known.pending(),
                             (known == null ? 0 : known.tasks()) + 1,
                             (known == null ? 0 : known.running()) + (task.running() ? 1 : 0)));
         }
@@ -407,7 +409,14 @@ public final class ProjectInventory {
                         name ->
                                 found.put(
                                         name,
-                                        new Summary(name, null, fileOf(name), null, 0, 0, 0)));
+                                        new Summary(
+                                                name,
+                                                null,
+                                                fileOf(name),
+                                                null,
+                                                pendingIn(name),
+                                                0,
+                                                0)));
 
         // Asked once for every project rather than once per project: 'podman image exists' is a
         // subprocess, and this list is re-read after every task start and every approval.

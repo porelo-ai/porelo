@@ -1,0 +1,2 @@
+title: A deploy key kept under its old vault name moves to its own, where a copy stayed under the old name after clearing the project said it was forgotten
+type: fixed

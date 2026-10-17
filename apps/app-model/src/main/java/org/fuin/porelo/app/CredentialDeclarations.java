@@ -473,7 +473,7 @@ public final class CredentialDeclarations {
         final Credential credential = named(given);
         checkPossible(credential);
         final List<Credential> kept = new ArrayList<>();
-        for (final Credential existing : context.credentialRegistry().all()) {
+        for (final Credential existing : written()) {
             if (!existing.match().equals(credential.match())
                     || !existing.purpose().equals(credential.purpose())) {
                 kept.add(existing);
@@ -508,7 +508,7 @@ public final class CredentialDeclarations {
         final String wanted = CredentialRegistry.normalise(match);
         final List<Credential> kept = new ArrayList<>();
         Credential gone = null;
-        for (final Credential existing : context.credentialRegistry().all()) {
+        for (final Credential existing : written()) {
             if (existing.match().equals(wanted)) {
                 gone = existing;
             } else {
@@ -537,6 +537,21 @@ public final class CredentialDeclarations {
         };
     }
 
+    /**
+     * Returns what the file holds, for a change that writes it back.
+     *
+     * <p>Read strictly, never as the empty registry a lookup falls back to: a file that cannot be
+     * read - a person's typo - was written over with the one record being declared, and every other
+     * was gone.
+     *
+     * @return The records.
+     * @throws org.fuin.porelo.core.credential.CredentialException When the file is there and cannot
+     *     be read; it is left as it is.
+     */
+    private List<Credential> written() {
+        return CredentialRegistry.read(context.paths().vault().credentialRegistry()).all();
+    }
+
     private void write(final List<Credential> credentials) throws IOException {
         final Path file = context.paths().vault().credentialRegistry();
         Files.createDirectories(file.getParent());
@@ -550,7 +565,7 @@ public final class CredentialDeclarations {
                 credentials:
                 """);
         for (final Credential credential : credentials) {
-            text.append("  - match: \"").append(credential.match()).append("\"\n");
+            text.append("  - match: ").append(quoted(credential.match())).append('\n');
             text.append("    kind: ")
                     .append(credential.kind().name().toLowerCase(Locale.ROOT).replace('_', '-'))
                     .append('\n');
@@ -558,23 +573,47 @@ public final class CredentialDeclarations {
                     .append(credential.source().name().toLowerCase(Locale.ROOT))
                     .append('\n');
             switch (credential.source()) {
-                case VAULT -> text.append("    vault: \"").append(credential.id()).append("\"\n");
-                case FILE -> text.append("    file: \"").append(credential.id()).append("\"\n");
+                case VAULT ->
+                        text.append("    vault: ").append(quoted(credential.id())).append('\n');
+                case FILE -> text.append("    file: ").append(quoted(credential.id())).append('\n');
                 case ENVIRONMENT ->
-                        text.append("    env: \"").append(credential.id()).append("\"\n");
+                        text.append("    env: ").append(quoted(credential.id())).append('\n');
                 case AGENT -> text.append("    # the account's own ssh-agent answers\n");
             }
             if (credential.user() != null && !credential.user().isBlank()) {
-                text.append("    user: \"").append(credential.user()).append("\"\n");
+                text.append("    user: ").append(quoted(credential.user())).append('\n');
             }
             if (!Credential.ANY.equals(credential.purpose())) {
-                text.append("    purpose: ").append(credential.purpose()).append('\n');
+                text.append("    purpose: ").append(quoted(credential.purpose())).append('\n');
             }
             if (credential.expires() != null) {
-                text.append("    expires: \"").append(credential.expires()).append("\"\n");
+                text.append("    expires: ").append(quoted(credential.expires())).append('\n');
             }
         }
         Files.writeString(file, text.toString(), StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Returns a value as one YAML double-quoted scalar. Written as it came, a backslash - a domain
+     * in a username - or a quote made the file unreadable, which reads as no declarations at all,
+     * and the next declaration wrote the file again with only itself in it.
+     *
+     * @param value The value.
+     * @return It quoted, every character YAML would read otherwise escaped.
+     */
+    static String quoted(final String value) {
+        final StringBuilder out = new StringBuilder(value.length() + 2).append('"');
+        for (int i = 0; i < value.length(); i++) {
+            final char c = value.charAt(i);
+            if (c == '"' || c == '\\') {
+                out.append('\\').append(c);
+            } else if (c < 0x20 || c == 0x7f || c == 0x85 || c == 0x2028 || c == 0x2029) {
+                out.append(String.format(Locale.ROOT, "\\u%04x", (int) c));
+            } else {
+                out.append(c);
+            }
+        }
+        return out.append('"').toString();
     }
 
     /**

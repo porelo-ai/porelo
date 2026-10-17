@@ -111,13 +111,26 @@ public final class GateSupport {
      * @return Path to the bare mirror, which need not exist yet.
      */
     static Path mirror(PoreloContext context, Project project, Repository repository) {
+        return mirror(context, project.name(), repository.name());
+    }
+
+    /**
+     * Returns where one repository of a project keeps its mirror, by their names, for a reader that
+     * has no project file at hand - a task's labels name both.
+     *
+     * @param context The machine.
+     * @param project The project's name.
+     * @param repository The repository's name, or {@code null} for the project's own.
+     * @return Path to the bare mirror, which need not exist yet.
+     */
+    static Path mirror(PoreloContext context, String project, @Nullable String repository) {
         // The machine the command was given, never this process's own: a command that asked for the
         // real account
         // here wrote mirrors there from every test that gave it another.
         final Path mirrors = context.paths().xdg().data().resolve("mirrors");
-        return repository.name().equals(project.name())
-                ? mirrors.resolve(project.name() + ".git")
-                : mirrors.resolve(project.name()).resolve(repository.name() + ".git");
+        return repository == null || repository.equals(project)
+                ? mirrors.resolve(project + ".git")
+                : mirrors.resolve(project).resolve(repository + ".git");
     }
 
     /**

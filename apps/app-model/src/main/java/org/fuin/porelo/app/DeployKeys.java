@@ -234,13 +234,15 @@ public final class DeployKeys {
                             : null;
             if (existing != null && !fresh) {
                 key = org.fuin.porelo.vault.StoredKey.of(existing.value(), machine);
-                // Under its own name from now on, if it was kept under the old one.
+                // Under its own name from now on, if it was kept under the old one. By value: the
+                // update reads the vault anew, so the same entry is never the same object, and the
+                // old name kept its secret half after a clearing said it was forgotten.
                 final String old = legacy(projectName, repositoryName);
                 context.vault()
                         .update(
                                 opener.get(),
                                 all -> {
-                                    if (all.get(old) == existing) {
+                                    if (existing.equals(all.get(old))) {
                                         all.remove(old);
                                     }
                                     all.putIfAbsent(entry, existing);

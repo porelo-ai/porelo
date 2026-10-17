@@ -1,0 +1,2 @@
+title: A workspace git cannot read counts as one nobody could look into, where it read as holding nothing and task remove went ahead without --force
+type: fixed

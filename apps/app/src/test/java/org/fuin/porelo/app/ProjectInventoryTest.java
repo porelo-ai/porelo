@@ -305,6 +305,25 @@ class ProjectInventoryTest {
     }
 
     @Test
+    void countsWhatWaitsInAProjectWithNoMirrorOfItsOwn(@TempDir Path dir) throws IOException {
+
+        // Every repository of 'default' keeps its mirror below the project's name, and 'default'
+        // has none of its own: its row said nothing waited while a task's work did.
+        final PoreloContext context = context(dir);
+        mirror(DefaultProject.NAME, "app");
+        runner.answering("for-each-ref", "refs/porelo/incoming/app\n");
+
+        assertThat(new ProjectInventory(context).projects())
+                .filteredOn(summary -> DefaultProject.is(summary.name()))
+                .singleElement()
+                .satisfies(
+                        project ->
+                                assertThat(project.pending())
+                                        .as("the push waiting in its repository's mirror")
+                                        .isEqualTo(1));
+    }
+
+    @Test
     void keepsAProjectWhoseTaskAndMirrorAreBothGone(@TempDir Path dir) throws IOException {
 
         // It ran once and everything was removed. The file is still what an interface acts on.

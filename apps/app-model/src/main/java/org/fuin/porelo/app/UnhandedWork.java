@@ -116,20 +116,26 @@ public final class UnhandedWork {
      */
     public static Held ask(org.fuin.porelo.runtime.Podman podman, String container) {
         final org.fuin.porelo.core.process.CommandResult result =
-                podman.ask(
-                        container,
-                        java.util.Map.of(),
-                        java.util.List.of(
-                                "sh",
-                                "-c",
-                                "cd "
-                                        + WORKSPACE
-                                        + " 2>/dev/null || exit 0;"
-                                        + " printf '%s %s' \"$(git status --porcelain 2>/dev/null | wc -l)\""
-                                        + " \"$(git log --oneline --branches --not --remotes 2>/dev/null"
-                                        + " | wc -l)\""));
+                podman.ask(container, java.util.Map.of(), java.util.List.of("sh", "-c", CENSUS));
         return result.successful() ? census(result.trimmedOutput()) : Held.unknown();
     }
+
+    /**
+     * The census a running workspace is asked: changed files, then commits on no remote.
+     *
+     * <p>A git that fails is no count. Counted through a pipe, a failing {@code git status} - a
+     * config it cannot parse, an ownership it refuses - counted zero lines, and the task read as
+     * holding nothing, which lets it be removed without being asked.
+     */
+    static final String CENSUS =
+            "cd "
+                    + WORKSPACE
+                    + " 2>/dev/null || exit 0;"
+                    + " changed=$(git status --porcelain 2>/dev/null) || exit 3;"
+                    + " commits=$(git log --oneline --branches --not --remotes 2>/dev/null)"
+                    + " || exit 3;"
+                    + " count() { if [ -z \"$1\" ]; then echo 0; else printf '%s\\n' \"$1\" | wc -l; fi; };"
+                    + " printf '%s %s' \"$(count \"$changed\")\" \"$(count \"$commits\")\"";
 
     public static Held census(String census) {
         final String[] counts = census.strip().split("\\s+");

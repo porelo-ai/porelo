@@ -764,22 +764,28 @@ public final class TaskInventory {
     }
 
     /**
-     * Returns the refs waiting for review in one project's mirror, reading each mirror once.
+     * Returns the refs waiting for review in the mirror of one repository of a project, reading
+     * each mirror once.
      *
-     * @param cache Filled as projects are seen.
+     * <p>The repository's own mirror, not the project's: a task on another repository - every task
+     * of {@code default} - pushes there, and asking the project's said nothing waited.
+     *
+     * @param cache Filled as mirrors are seen.
      * @param project Project name, or {@code null} when nothing recorded one.
+     * @param repository The task's repository, or {@code null} for the project's own.
      * @return Incoming ref names, without the namespace prefix.
      */
     private java.util.Set<String> waitingIn(
-            Map<String, java.util.Set<String>> cache, @Nullable String project) {
+            Map<String, java.util.Set<String>> cache,
+            @Nullable String project,
+            @Nullable String repository) {
         if (project == null) {
             return java.util.Set.of();
         }
         return cache.computeIfAbsent(
-                project,
+                GateSupport.mirror(context, project, repository).toString(),
                 name -> {
-                    final Path mirror =
-                            context.paths().xdg().data().resolve("mirrors").resolve(name + ".git");
+                    final Path mirror = Path.of(name);
                     if (!java.nio.file.Files.isDirectory(mirror)) {
                         return java.util.Set.of();
                     }
@@ -888,7 +894,14 @@ public final class TaskInventory {
                                 || !profile.branch()
                                         .startsWith(org.fuin.porelo.gate.GitGate.INCOMING)
                         ? 0
-                        : waitingIn(waitingCache, sidecar == null ? null : sidecar.project())
+                        : waitingIn(
+                                                waitingCache,
+                                                summary.project() != null
+                                                        ? summary.project()
+                                                        : sidecar == null
+                                                                ? null
+                                                                : sidecar.project(),
+                                                summary.repository())
                                         .contains(
                                                 profile.branch()
                                                         .substring(

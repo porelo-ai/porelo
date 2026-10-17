@@ -162,4 +162,40 @@ class DeployKeysTest {
             keyring.forget();
         }
     }
+
+    @Test
+    void aKeyKeptUnderTheOldNameMovesToItsOwnAndAClearingLeavesNoCopy() throws Exception {
+        Assumptions.assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+
+        // The move compared the entry it read with the one the update read anew by identity, so
+        // the old name was never removed: a clearing that said the key was forgotten left its
+        // secret half in the vault, and a later follow took it back as found.
+        final PoreloContext context = context();
+        final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
+        try {
+            Files.createDirectories(context.vault().path().getParent());
+            context.vault().write(Map.of(), PASSPHRASE);
+            keyring.store(PASSPHRASE);
+            final Project webApp = project("web-app", "api", "git@forge.example.org:o/two.git");
+            final DeployKeys.Key made = DeployKeys.make(context, webApp, "api", null, false);
+            final Map<String, VaultEntry> all =
+                    new java.util.LinkedHashMap<>(context.vault().read(PASSPHRASE));
+            all.put("deploy-web-app-api", all.remove(made.entry()));
+            context.vault().write(all, PASSPHRASE);
+
+            DeployKeys.make(context, webApp, "api", null, false);
+            assertThat(context.vault().read(PASSPHRASE))
+                    .as("under its own name only")
+                    .containsKey(made.entry())
+                    .doesNotContainKey("deploy-web-app-api");
+
+            DeployKeys.forget(context, webApp);
+            assertThat(context.vault().read(PASSPHRASE))
+                    .as("no copy of the key after the clearing")
+                    .doesNotContainKey(made.entry())
+                    .doesNotContainKey("deploy-web-app-api");
+        } finally {
+            keyring.forget();
+        }
+    }
 }

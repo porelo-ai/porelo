@@ -34,8 +34,13 @@ public final class AgentEnding {
     /** How long a log must have been still before its end is asked for. */
     static final Duration QUIET = Duration.ofSeconds(10);
 
-    /** How much of a log's end is read for its last lines. */
-    static final int TAIL = 64 * 1024;
+    /**
+     * How much of a log's end is read for its last lines. An agent's end line can carry every
+     * message of its run, tool output included, so 64 KiB cut it and the end was never read; each
+     * line goes to the agent in one varlink message of at most 4 MiB, which leaves room for its
+     * escaping.
+     */
+    static final int TAIL = 2 * 1024 * 1024;
 
     /** How many lines from the end are offered to the agent. */
     static final int LINES = 40;

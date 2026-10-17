@@ -67,6 +67,86 @@ class CredentialDeclarationsTest {
     }
 
     @Test
+    void aBackslashOrAQuoteInAValueLosesNoOtherDeclaration(@TempDir final Path dir)
+            throws IOException {
+
+        // A file that cannot be read is read as no declarations, so the next one written kept only
+        // itself: a domain user 'CORP\jdoe' took every other record with it.
+        final PoreloContext context = context(dir);
+        final CredentialDeclarations declarations = new CredentialDeclarations(context);
+        declarations.declare(
+                new Credential(
+                        "forge",
+                        Credential.Kind.BASIC,
+                        "https://forge.corp.example",
+                        "CORP\\jdoe",
+                        "git",
+                        Credential.Source.VAULT));
+        declarations.declare(
+                new Credential(
+                        "quoted\"name",
+                        Credential.Kind.TOKEN,
+                        "https://other.example",
+                        null,
+                        "git",
+                        Credential.Source.VAULT));
+        declarations.declare(
+                new Credential(
+                        "github-work",
+                        Credential.Kind.SSH_KEY,
+                        "ssh://github.com",
+                        null,
+                        "git",
+                        Credential.Source.VAULT));
+
+        assertThat(context.credentialRegistry().all())
+                .as("every record, through the reader")
+                .extracting(Credential::id)
+                .containsExactly("forge", "quoted\"name", "github-work");
+        final Credential forge =
+                context.credentialRegistry().forUrl("git", "https://forge.corp.example/x.git");
+        assertThat(forge).isNotNull();
+        assertThat(forge.user()).as("the user as it was given").isEqualTo("CORP\\jdoe");
+    }
+
+    @Test
+    void aFileThatCannotBeReadIsRefusedRatherThanWrittenOver(@TempDir final Path dir)
+            throws IOException {
+
+        // A lookup reads such a file as no declarations; a declaration that wrote it back from
+        // that kept only itself, and a typo made by hand lost every record in the file.
+        final PoreloContext context = context(dir);
+        final Path file = context.paths().vault().credentialRegistry();
+        Files.createDirectories(file.getParent());
+        final String typed =
+                """
+                credentials:
+                  - match: "https://forge.corp.example"
+                    kind: token
+                    vault: "forge
+                """;
+        Files.writeString(file, typed, StandardCharsets.UTF_8);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                new CredentialDeclarations(context)
+                                        .declare(
+                                                new Credential(
+                                                        "github-work",
+                                                        Credential.Kind.SSH_KEY,
+                                                        "ssh://github.com",
+                                                        null,
+                                                        "git",
+                                                        Credential.Source.VAULT)))
+                .as("refused, naming the file")
+                .isInstanceOf(org.fuin.porelo.core.credential.CredentialException.class)
+                .hasMessageContaining(file.toString());
+        assertThat(Files.readString(file, StandardCharsets.UTF_8))
+                .as("the file as the person left it")
+                .isEqualTo(typed);
+    }
+
+    @Test
     void theLongestMatchWins(@TempDir final Path dir) throws IOException {
 
         // One credential for a forge and another for one group on it, without an ordering rule

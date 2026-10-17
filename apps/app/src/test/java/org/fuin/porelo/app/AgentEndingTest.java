@@ -86,6 +86,31 @@ class AgentEndingTest {
     }
 
     @Test
+    void anEndLineThatCarriesTheWholeRunIsStillOfferedWhole(@TempDir Path dir) throws IOException {
+
+        // An agent's end event can hold every message of its run, the output of every tool it
+        // ran included: a run that read a few files writes an end line past 64 KiB.
+        final String run = "x".repeat(300 * 1024);
+        final String end = "{\"type\":\"agent_end\",\"messages\":[\"" + run + "\"]}";
+        final Path log =
+                Files.writeString(dir.resolve("task.log"), "{\"type\":\"start\"}\n" + end + "\n");
+        Files.setLastModifiedTime(log, FileTime.from(NOW.minusSeconds(120)));
+        final AgentEnding ending =
+                new AgentEnding(
+                        new FakeCommandRunner().answering("git status", "0 0"),
+                        Clock.fixed(NOW, ZoneOffset.UTC),
+                        (agent, lines) ->
+                                lines.contains(end)
+                                        ? new AgentEnd(
+                                                false, "402 more credits", AgentEnd.PROVIDER, 402)
+                                        : null);
+
+        assertThat(ending.about("porelo-p-t", true, "example", dir))
+                .as("the end line, whole, is offered to the agent")
+                .isNotNull();
+    }
+
+    @Test
     void aTaskWithoutALogOrAnAgentThatSaysNothingHasNoEnd(@TempDir Path dir) throws IOException {
         final AgentEnding ending =
                 new AgentEnding(
