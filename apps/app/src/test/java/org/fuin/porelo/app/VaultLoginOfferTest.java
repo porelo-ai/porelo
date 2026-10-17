@@ -64,6 +64,20 @@ class VaultLoginOfferTest {
     }
 
     @Test
+    void theQuestionNamesTheLetterOfEachChoiceBesideIt(@TempDir final Path dir) {
+        final List<String> asked = new ArrayList<>();
+
+        login(dir, question -> {
+            asked.add(question);
+            return "c";
+        });
+
+        // '[I/a/c]' at the end alone left a person to guess which letter was which (found on 2026-10-17).
+        assertThat(asked).singleElement().asString().contains("(i) import what it has")
+                .contains("(a) log in again").contains("(c) cancel");
+    }
+
+    @Test
     void againLogsInWithForcesMeaning(@TempDir final Path dir) {
         final int code = login(dir, question -> "a");
 

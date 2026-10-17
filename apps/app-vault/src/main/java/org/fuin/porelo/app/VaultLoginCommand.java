@@ -84,8 +84,8 @@ public class VaultLoginCommand implements Callable<Integer>, PoreloFactory.Conte
         if (result.outcome() == AgentLogin.Outcome.ALREADY_SIGNED_IN && !dryRun) {
             // What the refusal would tell a person to type, offered instead where somebody can answer.
             final String answer = asker.ask("'" + (agentName == null ? "the agent" : agentName) + "' is already signed"
-                    + " in on this machine. Import what it has, which logs in nowhere; log in again, which may"
-                    + " invalidate the credential here; or cancel? [I/a/c]");
+                    + " in on this machine. (i) import what it has, which logs in nowhere; (a) log in again, which"
+                    + " may invalidate the credential here; or (c) cancel? [I/a/c]");
             if (answer != null) {
                 switch (answer.strip().toLowerCase(java.util.Locale.ROOT)) {
                     case "", "i", "import" -> {
