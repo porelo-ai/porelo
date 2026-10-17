@@ -4,15 +4,15 @@ import java.util.Locale;
 
 /**
  * What the installed dnsmasq can do.
- * <p>
- * One capability matters: {@code --nftset}. It is how a domain the project or the agent declared
+ *
+ * <p>One capability matters: {@code --nftset}. It is how a domain the project or the agent declared
  * becomes reachable, not merely resolvable - dnsmasq adds every address it answers to the
  * firewall's allow set, so what the container is told and what it may reach cannot drift apart.
- * <p>
- * <strong>A dnsmasq without it fails silently.</strong> The configuration is accepted, names still
- * resolve, and every declared host is then dropped by the firewall - which looks like a network
- * fault, or like a clearance prompt that will not stop coming. That is why this is probed and
- * reported by {@code porelo doctor} rather than discovered by an operator - a trap well known
+ *
+ * <p><strong>A dnsmasq without it fails silently.</strong> The configuration is accepted, names
+ * still resolve, and every declared host is then dropped by the firewall - which looks like a
+ * network fault, or like a clearance prompt that will not stop coming. That is why this is probed
+ * and reported by {@code porelo doctor} rather than discovered by an operator - a trap well known
  * enough that comparable tools probe for the same capability.
  */
 public final class DnsmasqProbe {
@@ -29,12 +29,14 @@ public final class DnsmasqProbe {
 
     /**
      * Reads dnsmasq's own capability report.
-     * <p>
-     * Parses rather than guesses from a version number: the feature is a compile-time option, so
+     *
+     * <p>Parses rather than guesses from a version number: the feature is a compile-time option, so
      * two builds of the same version can differ. dnsmasq prints, for example:
+     *
      * <pre>
      * Compile time options: IPv6 GNU-getopt DBus no-UBus i18n IDN2 DHCP ... ipset nftset auth
      * </pre>
+     *
      * with {@code no-nftset} in place of {@code nftset} where it is missing. The negative form
      * contains the positive one as a substring, so it is checked first.
      *

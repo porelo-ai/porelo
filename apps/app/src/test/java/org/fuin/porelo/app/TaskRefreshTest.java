@@ -16,20 +16,28 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Test for {@link TaskRefresh}: a task's repository brought up to its source, and its agent told what moved.
+ * Test for {@link TaskRefresh}: a task's repository brought up to its source, and its agent told
+ * what moved.
  */
 class TaskRefreshTest {
 
     private static final String TASK = "porelo-default-app-writer";
 
-    @TempDir
-    Path dir;
+    @TempDir Path dir;
 
     private final CommandRunner real = new ProcessCommandRunner();
 
     private String git(final Path in, final String... arguments) {
-        final List<String> command = new java.util.ArrayList<>(List.of("git", "-C", in.toString(), "-c",
-                "user.email=t@example.com", "-c", "user.name=T"));
+        final List<String> command =
+                new java.util.ArrayList<>(
+                        List.of(
+                                "git",
+                                "-C",
+                                in.toString(),
+                                "-c",
+                                "user.email=t@example.com",
+                                "-c",
+                                "user.name=T"));
         command.addAll(List.of(arguments));
         final CommandResult result = real.run(Command.of(command));
         assertThat(result.successful()).as(result.standardError()).isTrue();
@@ -39,20 +47,33 @@ class TaskRefreshTest {
     @Test
     void aCheckoutThatMovedOnReachesTheGateAndTheAgentIsToldToFetchIt() throws Exception {
 
-        // Only a new task's start brought the source in; a running or restarted task never heard of it.
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
+        // Only a new task's start brought the source in; a running or restarted task never heard of
+        // it.
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
         // The task as podman lists it; every other command is real.
-        final CommandRunner runner = command -> command.arguments().size() > 1 && command.arguments().get(0).endsWith("podman")
-                && command.arguments().get(1).equals("ps")
-                ? new CommandResult(command, 0, TASK + "\tUp 2 minutes\t\t\tdefault\tguarded\tapp\t\tid\n", "")
-                : real.run(command);
-        final PoreloContext context = new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+        final CommandRunner runner =
+                command ->
+                        command.arguments().size() > 1
+                                        && command.arguments().get(0).endsWith("podman")
+                                        && command.arguments().get(1).equals("ps")
+                                ? new CommandResult(
+                                        command,
+                                        0,
+                                        TASK + "\tUp 2 minutes\t\t\tdefault\tguarded\tapp\t\tid\n",
+                                        "")
+                                : real.run(command);
+        final PoreloContext context =
+                new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
         final Path checkout = Files.createDirectories(dir.resolve("app"));
         git(checkout, "init", "-q", "-b", "main");
         Files.writeString(checkout.resolve("README.md"), "app\n");
@@ -60,12 +81,14 @@ class TaskRefreshTest {
         git(checkout, "commit", "-q", "-m", "start");
         WorkOrigin.fromCheckout(context, checkout);
         final Project project = GateSupport.byName(context, DefaultProject.NAME);
-        final GitGate gate = GateSupport.gate(context, project, project.repository("app"), null, null);
+        final GitGate gate =
+                GateSupport.gate(context, project, project.repository("app"), null, null);
         gate.initialize();
         final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox(TASK));
         mailbox.create();
 
-        assertThat(new TaskRefresh(context).refresh(TASK).outcome()).as("nothing moved yet")
+        assertThat(new TaskRefresh(context).refresh(TASK).outcome())
+                .as("nothing moved yet")
                 .isEqualTo(TaskRefresh.Outcome.UNCHANGED);
 
         Files.writeString(checkout.resolve("more.txt"), "the person goes on\n");
@@ -79,17 +102,25 @@ class TaskRefreshTest {
         assertThat(gate.branches()).containsEntry("main", moved);
         assertThat(result.told()).isTrue();
         try (var told = Files.list(mailbox.inboxNew())) {
-            assertThat(told.map(file -> {
-                try {
-                    return Files.readString(file);
-                } catch (java.io.IOException ex) {
-                    throw new java.io.UncheckedIOException(ex);
-                }
-            }).toList()).singleElement().asString().contains("git fetch porelo").contains(moved.substring(0, 12));
+            assertThat(
+                            told.map(
+                                            file -> {
+                                                try {
+                                                    return Files.readString(file);
+                                                } catch (java.io.IOException ex) {
+                                                    throw new java.io.UncheckedIOException(ex);
+                                                }
+                                            })
+                                    .toList())
+                    .singleElement()
+                    .asString()
+                    .contains("git fetch porelo")
+                    .contains(moved.substring(0, 12));
         }
 
         // The short name 'porelo approve' takes is taken too.
-        assertThat(new TaskRefresh(context).refresh("app-writer").outcome()).isEqualTo(TaskRefresh.Outcome.UNCHANGED);
+        assertThat(new TaskRefresh(context).refresh("app-writer").outcome())
+                .isEqualTo(TaskRefresh.Outcome.UNCHANGED);
         assertThat(new TaskRefresh(context).refresh("porelo-default-app-nobody").outcome())
                 .isEqualTo(TaskRefresh.Outcome.NO_SUCH_TASK);
     }

@@ -16,8 +16,7 @@ import picocli.CommandLine;
  */
 class ProjectRefreshCommandTest {
 
-    @TempDir
-    Path dir;
+    @TempDir Path dir;
 
     private final StringWriter out = new StringWriter();
 
@@ -34,27 +33,49 @@ class ProjectRefreshCommandTest {
     void fetchesTheNamedProjectNowSaysWhatItFoundAndFailsWhenTheFetchDid() throws Exception {
 
         // Nothing re-checked a follow at once; a person waited for the next round.
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
-        final PoreloContext context = new PoreloContext(new ProcessCommandRunner(), new PoreloPaths(xdg,
-                dir.resolve("bin")), arguments -> 0);
-        final FollowedProjects follows = new FollowedProjects(context.paths().projects().followed());
-        follows.write(new FollowedProjects.Followed("p", dir.resolve("no-such.git").toUri().toString(), "", "", "APPLIED",
-                ""));
-        follows.write(new FollowedProjects.Followed("q", dir.resolve("no-such.git").toUri().toString(), "", "", "APPLIED",
-                ""));
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
+        final PoreloContext context =
+                new PoreloContext(
+                        new ProcessCommandRunner(),
+                        new PoreloPaths(xdg, dir.resolve("bin")),
+                        arguments -> 0);
+        final FollowedProjects follows =
+                new FollowedProjects(context.paths().projects().followed());
+        follows.write(
+                new FollowedProjects.Followed(
+                        "p", dir.resolve("no-such.git").toUri().toString(), "", "", "APPLIED", ""));
+        follows.write(
+                new FollowedProjects.Followed(
+                        "q", dir.resolve("no-such.git").toUri().toString(), "", "", "APPLIED", ""));
 
         assertThat(run(context, "project", "refresh", "p")).as("the fetch failed").isNotZero();
         assertThat(out.toString()).contains("p").doesNotContain("q ");
-        assertThat(follows.all().stream().filter(each -> each.name().equals("p")).findFirst().orElseThrow()
-                .outcome()).as("written down, as a round does").isNotEqualTo("APPLIED");
-        assertThat(follows.all().stream().filter(each -> each.name().equals("q")).findFirst().orElseThrow()
-                .outcome()).as("not asked").isEqualTo("APPLIED");
+        assertThat(
+                        follows.all().stream()
+                                .filter(each -> each.name().equals("p"))
+                                .findFirst()
+                                .orElseThrow()
+                                .outcome())
+                .as("written down, as a round does")
+                .isNotEqualTo("APPLIED");
+        assertThat(
+                        follows.all().stream()
+                                .filter(each -> each.name().equals("q"))
+                                .findFirst()
+                                .orElseThrow()
+                                .outcome())
+                .as("not asked")
+                .isEqualTo("APPLIED");
 
         assertThat(run(context, "project", "refresh", "nope")).isNotZero();
         assertThat(err.toString()).contains("nope").contains("follows no project");

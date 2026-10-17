@@ -23,57 +23,89 @@ import org.junit.jupiter.api.io.TempDir;
 
 class AgentStagingTest {
 
-    @TempDir
-    Path dir;
+    @TempDir Path dir;
 
     private final StringWriter out = new StringWriter();
 
     @Test
     void readsARelativeSourceBesideTheAgentBinary() {
         // So a copy of the agent in one account's directory ships its own tree, not the machine's.
-        assertThat(AgentStaging.source(Path.of("/home/alice/.local/share/porelo/agents/porelo-agent-a"), "a/tree.tar.gz"))
+        assertThat(
+                        AgentStaging.source(
+                                Path.of("/home/alice/.local/share/porelo/agents/porelo-agent-a"),
+                                "a/tree.tar.gz"))
                 .isEqualTo(Path.of("/home/alice/.local/share/porelo/agents/a/tree.tar.gz"));
     }
 
     @Test
     void takesAnAbsoluteSourceAsItIs() {
-        assertThat(AgentStaging.source(Path.of("/usr/libexec/porelo/agents/porelo-agent-a"), "/usr/share/porelo/agents/a/t"))
+        assertThat(
+                        AgentStaging.source(
+                                Path.of("/usr/libexec/porelo/agents/porelo-agent-a"),
+                                "/usr/share/porelo/agents/a/t"))
                 .isEqualTo(Path.of("/usr/share/porelo/agents/a/t"));
     }
 
     @Test
     void stagesATreeFoundBesideTheBinary() throws IOException {
         final Path agents = Files.createDirectories(dir.resolve("agents"));
-        Files.writeString(Files.createDirectories(agents.resolve("tree")).resolve("tool"), "a tool");
+        Files.writeString(
+                Files.createDirectories(agents.resolve("tree")).resolve("tool"), "a tool");
 
-        final List<String> lines = stage(agents.resolve("porelo-agent-a"), new PackagedTree("tree", "/opt/a"));
+        final List<String> lines =
+                stage(agents.resolve("porelo-agent-a"), new PackagedTree("tree", "/opt/a"));
 
         assertThat(lines).containsExactly("COPY porelo-packaged-opt-a /opt/a");
-        assertThat(paths().tasks().buildContext("p").resolve("porelo-packaged-opt-a/tool")).hasContent("a tool");
+        assertThat(paths().tasks().buildContext("p").resolve("porelo-packaged-opt-a/tool"))
+                .hasContent("a tool");
     }
 
     @Test
     void refusesATaskWhoseAgentShipsATreeThatIsNotThere() {
         // It built the image without it, and the task then started with no tool in it.
-        assertThatThrownBy(() -> stage(dir.resolve("agents/porelo-agent-a"), new PackagedTree("gone", "/opt/a")))
+        assertThatThrownBy(
+                        () ->
+                                stage(
+                                        dir.resolve("agents/porelo-agent-a"),
+                                        new PackagedTree("gone", "/opt/a")))
                 .isInstanceOf(AgentException.class)
                 .hasMessageContaining("a ships /opt/a from " + dir.resolve("agents/gone"))
                 .hasMessageContaining("nothing is there");
     }
 
     private List<String> stage(Path executable, PackagedTree tree) {
-        return AgentStaging.stage("a", executable, List.of(tree), project(), paths(), new FakeCommandRunner(),
+        return AgentStaging.stage(
+                "a",
+                executable,
+                List.of(tree),
+                project(),
+                paths(),
+                new FakeCommandRunner(),
                 new PrintWriter(out, true));
     }
 
     private PoreloPaths paths() {
-        return new PoreloPaths(XdgPaths.of(name -> "XDG_DATA_HOME".equals(name) ? dir.resolve("data").toString() : null,
-                dir), dir.resolve("bin"));
+        return new PoreloPaths(
+                XdgPaths.of(
+                        name ->
+                                "XDG_DATA_HOME".equals(name)
+                                        ? dir.resolve("data").toString()
+                                        : null,
+                        dir),
+                dir.resolve("bin"));
     }
 
     private static Project project() {
-        return new Project("p", "a project", SecurityClass.GUARDED, "ubuntu:24.04", null, null, Limits.defaults(),
-                Egress.none(), Project.DEFAULT_PACKAGE_SOURCES, Mail.none());
+        return new Project(
+                "p",
+                "a project",
+                SecurityClass.GUARDED,
+                "ubuntu:24.04",
+                null,
+                null,
+                Limits.defaults(),
+                Egress.none(),
+                Project.DEFAULT_PACKAGE_SOURCES,
+                Mail.none());
     }
-
 }

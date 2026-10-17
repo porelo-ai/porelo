@@ -13,11 +13,13 @@ import picocli.CommandLine.Spec;
 
 /**
  * Holds a peer or releases it, and says how closely its project watches it.
- * <p>
- * The hold is the project's, for every task of it, and lives on the host: a task must not be able to change how
- * closely it is watched. The mode is not set here: the project's {@code project.yml} sets it once, for every task.
+ *
+ * <p>The hold is the project's, for every task of it, and lives on the host: a task must not be
+ * able to change how closely it is watched. The mode is not set here: the project's {@code
+ * project.yml} sets it once, for every task.
  */
-@Command(name = "hold",
+@Command(
+        name = "hold",
         mixinStandardHelpOptions = true,
         description = "Holds a peer or releases it, for every task of the project.")
 public class TalkHoldCommand implements Callable<Integer>, PoreloFactory.ContextAware {
@@ -31,17 +33,22 @@ public class TalkHoldCommand implements Callable<Integer>, PoreloFactory.Context
     @Option(names = "--release", description = "Stops holding everything for this peer.")
     private boolean release;
 
-    @Option(names = "--mode", paramLabel = "<mode>", hidden = true,
+    @Option(
+            names = "--mode",
+            paramLabel = "<mode>",
+            hidden = true,
             description = "Refused, and says where a mode is set now: the project's project.yml.")
     private @Nullable String mode;
 
-    @Option(names = { "-p", "--project" }, paramLabel = "<name>",
-            description = "The project, which decides whether unread work may leave, as 'porelo"
-                    + " project list' prints it. Default: the task's own.")
+    @Option(
+            names = {"-p", "--project"},
+            paramLabel = "<name>",
+            description =
+                    "The project, which decides whether unread work may leave, as 'porelo"
+                            + " project list' prints it. Default: the task's own.")
     private @Nullable String projectName;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -62,11 +69,21 @@ public class TalkHoldCommand implements Callable<Integer>, PoreloFactory.Context
             err.flush();
             return 1;
         }
-        // A name, like every other command since projects stopped being pointed at by file; this one
-        // still read project.yml from wherever it was run, which was nowhere a task's project lives.
-        final String known = projectName != null ? projectName : new TaskInventory(context).projectOf(container);
-        final String name = known != null ? known : ProjectSource.chosen(context, Offer.atTerminal()
-                ? new Offer(Offer.Asker.terminal(), false, false, err) : Offer.NOBODY, "porelo talk hold --project <name>");
+        // A name, like every other command since projects stopped being pointed at by file; this
+        // one
+        // still read project.yml from wherever it was run, which was nowhere a task's project
+        // lives.
+        final String known =
+                projectName != null ? projectName : new TaskInventory(context).projectOf(container);
+        final String name =
+                known != null
+                        ? known
+                        : ProjectSource.chosen(
+                                context,
+                                Offer.atTerminal()
+                                        ? new Offer(Offer.Asker.terminal(), false, false, err)
+                                        : Offer.NOBODY,
+                                "porelo talk hold --project <name>");
         if (name == null) {
             err.println("porelo: " + container + " names no project; say which, with --project");
             err.flush();
@@ -74,7 +91,8 @@ public class TalkHoldCommand implements Callable<Integer>, PoreloFactory.Context
         }
         final Project read = GateSupport.byName(context, name);
         final Moderation moderation = Moderation.of(context, read);
-        // Bare, it holds; with --release it releases. A --mode is answered with where a mode is set now.
+        // Bare, it holds; with --release it releases. A --mode is answered with where a mode is set
+        // now.
         final Boolean held = release ? Boolean.FALSE : mode == null ? Boolean.TRUE : null;
         final Moderation.Change change = moderation.set(peer, held, mode, read);
         if (change.peer() == null) {
@@ -82,8 +100,11 @@ public class TalkHoldCommand implements Callable<Integer>, PoreloFactory.Context
             err.flush();
             return 1;
         }
-        out.println(peer + "   mode " + change.peer().mode()
-                + (change.peer().held() ? ", held" : ", not held"));
+        out.println(
+                peer
+                        + "   mode "
+                        + change.peer().mode()
+                        + (change.peer().held() ? ", held" : ", not held"));
         out.flush();
         return 0;
     }

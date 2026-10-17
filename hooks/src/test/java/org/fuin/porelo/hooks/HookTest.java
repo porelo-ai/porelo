@@ -15,8 +15,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Tests for {@link Hook}, using stand-ins for the three real hooks.
- * <p>
- * The exit code is the entire contract with the OCI runtime, so that is what is asserted.
+ *
+ * <p>The exit code is the entire contract with the OCI runtime, so that is what is asserted.
  */
 class HookTest {
 
@@ -47,24 +47,35 @@ class HookTest {
     }
 
     private String state(String sidecarPath) {
-        final String annotations = sidecarPath == null ? "{}"
-                : "{\"" + Sidecar.ANNOTATION + "\":\"" + sidecarPath + "\"}";
+        final String annotations =
+                sidecarPath == null
+                        ? "{}"
+                        : "{\"" + Sidecar.ANNOTATION + "\":\"" + sidecarPath + "\"}";
         return "{\"ociVersion\":\"1.0.2\",\"id\":\"abc123abc123\",\"status\":\"created\","
-                + "\"pid\":4711,\"annotations\":" + annotations + "}";
+                + "\"pid\":4711,\"annotations\":"
+                + annotations
+                + "}";
     }
 
     private Path sidecarFile(Path dir) throws IOException {
         final Path file = dir.resolve("sidecar.json");
-        new Sidecar(Sidecar.VERSION, "uc", "guarded",
-                dir.resolve("ruleset.nft").toString(), dir.resolve("dns.conf").toString(),
-                "/usr/bin/porelo", dir.toString()).writeTo(file);
+        new Sidecar(
+                        Sidecar.VERSION,
+                        "uc",
+                        "guarded",
+                        dir.resolve("ruleset.nft").toString(),
+                        dir.resolve("dns.conf").toString(),
+                        "/usr/bin/porelo",
+                        dir.toString())
+                .writeTo(file);
         // What Porelo records right after it created the task, before its hooks run.
         Sidecar.recordId(dir, "abc123abc123");
         return file;
     }
 
     private int execute(Hook hook, String stateJson) {
-        return hook.execute(new String[] { "createRuntime" },
+        return hook.execute(
+                new String[] {"createRuntime"},
                 new ByteArrayInputStream(stateJson.getBytes(StandardCharsets.UTF_8)),
                 new PrintStream(messages, true, StandardCharsets.UTF_8));
     }
@@ -132,9 +143,15 @@ class HookTest {
     void anUnwritableLogDoesNotStopTheHook(@TempDir Path dir) throws IOException {
 
         final Path file = dir.resolve("sidecar.json");
-        new Sidecar(Sidecar.VERSION, "uc", "guarded", dir.resolve("r.nft").toString(),
-                dir.resolve("dns.conf").toString(), "/usr/bin/porelo",
-                "/proc/nowhere-writable").writeTo(file);
+        new Sidecar(
+                        Sidecar.VERSION,
+                        "uc",
+                        "guarded",
+                        dir.resolve("r.nft").toString(),
+                        dir.resolve("dns.conf").toString(),
+                        "/usr/bin/porelo",
+                        "/proc/nowhere-writable")
+                .writeTo(file);
         Sidecar.recordId(dir, "abc123abc123");
 
         // A hook that cannot write its log has still done its job. On the fail-closed path,
@@ -156,7 +173,8 @@ class HookTest {
     @Test
     void anErrorIsWrittenDownAndAnsweredLikeAnyFailure(@TempDir Path dir) throws IOException {
 
-        // Only an Exception was caught: an Error - a class that did not initialise, a stack that overflowed - left
+        // Only an Exception was caught: an Error - a class that did not initialise, a stack that
+        // overflowed - left
         // nothing in the log, and refused the container even for a hook that only reports.
         assertThat(execute(new Erring(false), state(sidecarFile(dir).toString()))).isZero();
         assertThat(execute(new Erring(true), state(sidecarFile(dir).toString()))).isEqualTo(1);
@@ -172,10 +190,17 @@ class HookTest {
         Sidecar.recordId(dir, "0f0f0f0f0f0f");
         final Succeeding hook = new Succeeding();
 
-        assertThat(execute(hook, state(sidecar.toString()))).as("refused before it runs").isEqualTo(1);
+        assertThat(execute(hook, state(sidecar.toString())))
+                .as("refused before it runs")
+                .isEqualTo(1);
         assertThat(hook.seen).as("given nothing").isNull();
-        assertThat(hook.execute(new String[] { "poststop" }, new ByteArrayInputStream(state(sidecar.toString())
-                .getBytes(StandardCharsets.UTF_8)), new java.io.PrintStream(new java.io.ByteArrayOutputStream())))
-                .as("and after it stopped, nothing of the task's is touched").isZero();
+        assertThat(
+                        hook.execute(
+                                new String[] {"poststop"},
+                                new ByteArrayInputStream(
+                                        state(sidecar.toString()).getBytes(StandardCharsets.UTF_8)),
+                                new java.io.PrintStream(new java.io.ByteArrayOutputStream())))
+                .as("and after it stopped, nothing of the task's is touched")
+                .isZero();
     }
 }

@@ -3,8 +3,8 @@ package org.fuin.porelo.app;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import java.time.Instant;
+import java.util.List;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
@@ -14,17 +14,17 @@ import org.fuin.porelo.core.project.ProjectReader;
 /**
  * Brings this account's copy of a project's repository up to what the project says, when the
  * project can prove it said it.
- * <p>
- * <strong>Fetch, then verify, then move.</strong> Never the other way round: the working tree is
+ *
+ * <p><strong>Fetch, then verify, then move.</strong> Never the other way round: the working tree is
  * left where it was until the fetched commit has been checked, so a machine that is handed
  * something unsigned keeps running what it last verified rather than running what arrived. That is
  * what "refused and reported, never applied and never silently skipped" means in code.
- * <p>
- * <strong>Applying points rather than copies.</strong> The project's file is used where the clone
- * holds it, so there is no second copy on the machine to drift from the first. A local edit to the
- * clone is undone by the next fetch, because the clone is state and not a working copy.
- * <p>
- * <strong>What is never reconciled</strong> is as important as what is: the vault, what a person
+ *
+ * <p><strong>Applying points rather than copies.</strong> The project's file is used where the
+ * clone holds it, so there is no second copy on the machine to drift from the first. A local edit
+ * to the clone is undone by the next fetch, because the clone is state and not a working copy.
+ *
+ * <p><strong>What is never reconciled</strong> is as important as what is: the vault, what a person
  * held, and running tasks. Nothing here touches them, and a commit that wanted to would have
  * nothing to act on.
  */
@@ -36,7 +36,9 @@ public final class Reconcile {
         /** The clone now holds a verified commit, and the project points at its file. */
         APPLIED,
 
-        /** It already held that commit. Nothing was fetched into the working tree, nothing moved. */
+        /**
+         * It already held that commit. Nothing was fetched into the working tree, nothing moved.
+         */
         UNCHANGED,
 
         /** The fetched commit carries no signature at all. Usually somebody forgot to sign. */
@@ -44,8 +46,8 @@ public final class Reconcile {
 
         /**
          * A good signature by a key this machine was never given.
-         * <p>
-         * Its own outcome rather than one refusal with the others, because the two are different
+         *
+         * <p>Its own outcome rather than one refusal with the others, because the two are different
          * events with different cures: a key that has moved, or somebody putting a project file
          * past the machine. Only this one is worth a person's attention as a possible attempt.
          */
@@ -58,12 +60,16 @@ public final class Reconcile {
         UNREADABLE,
 
         /**
-         * The definition says {@code offline}, and it came from an address: following fetches it again in the
-         * background, so the project would connect every round. Followed from a file instead, or not at all.
+         * The definition says {@code offline}, and it came from an address: following fetches it
+         * again in the background, so the project would connect every round. Followed from a file
+         * instead, or not at all.
          */
         OFFLINE_FROM_A_URL,
 
-        /** Followed from a file, so nothing is fetched: following it again from a newer file is how it changes. */
+        /**
+         * Followed from a file, so nothing is fetched: following it again from a newer file is how
+         * it changes.
+         */
         FROM_A_FILE,
 
         /** The repository could not be reached. What was verified before still runs. */
@@ -72,18 +78,18 @@ public final class Reconcile {
         /**
          * This account's vault is shut, so the credential a private repository needs is out of
          * reach.
-         * <p>
-         * Separate from {@link #UNREACHABLE} because the action is different: one is <em>unlock
+         *
+         * <p>Separate from {@link #UNREACHABLE} because the action is different: one is <em>unlock
          * your vault</em>, the other is <em>look at the network or the URL</em>. Reported as
          * unreachable, it was true and misleading.
          */
         VAULT_LOCKED,
 
         /**
-         * The fetch failed, this account's vault is open, and it holds no key for a repository
-         * that needs one. Told apart from {@code UNREACHABLE} because the two send a person to
-         * opposite places: one is <em>store a credential</em>, the other is <em>look at the
-         * network or the URL</em>. {@code detail} names the entry and the command that fills it.
+         * The fetch failed, this account's vault is open, and it holds no key for a repository that
+         * needs one. Told apart from {@code UNREACHABLE} because the two send a person to opposite
+         * places: one is <em>store a credential</em>, the other is <em>look at the network or the
+         * URL</em>. {@code detail} names the entry and the command that fills it.
          */
         NO_CREDENTIAL,
 
@@ -95,9 +101,9 @@ public final class Reconcile {
         UNKNOWN_HOST_KEY,
 
         /**
-         * The host answered with a different key from the one this machine remembers. Said as
-         * what it may be - somebody between us and the host - and never offered as something to
-         * accept instead.
+         * The host answered with a different key from the one this machine remembers. Said as what
+         * it may be - somebody between us and the host - and never offered as something to accept
+         * instead.
          */
         HOST_KEY_CHANGED,
 
@@ -113,8 +119,8 @@ public final class Reconcile {
         UNUSABLE,
 
         /**
-         * The verified commit is not a descendant of the one in force: the history moved
-         * sideways or backwards. Not applied, and waiting for a person.
+         * The verified commit is not a descendant of the one in force: the history moved sideways
+         * or backwards. Not applied, and waiting for a person.
          */
         REWRITTEN,
 
@@ -129,14 +135,14 @@ public final class Reconcile {
      * @param commit The commit now in force, or "" when none ever was.
      * @param detail What to tell an operator, or "".
      * @param refused The commit that was rejected, or "" when nothing was. <strong>Not the same
-     *        field as {@code commit}</strong>: what is running and what was turned away are
-     *        different questions, and a screen asks both.
+     *     field as {@code commit}</strong>: what is running and what was turned away are different
+     *     questions, and a screen asks both.
      * @param signer The fingerprint of the key that signed the refused commit - or, once one is
-     *        applied or unchanged, the commit in force - or "" when there is none to name. Only the
-     *        fingerprint, which is not a secret.
+     *     applied or unchanged, the commit in force - or "" when there is none to name. Only the
+     *     fingerprint, which is not a secret.
      */
-    public record Result(Outcome outcome, String commit, String detail, String refused,
-            String signer) {
+    public record Result(
+            Outcome outcome, String commit, String detail, String refused, String signer) {
 
         /**
          * Constructor for an outcome that turned nothing away.
@@ -152,15 +158,20 @@ public final class Reconcile {
         /**
          * Tells whether this is a state a person has to do something about.
          *
-         * @return {@code true} when nothing will change until somebody acts - which is not the
-         *         same as a failure that the next pass may fix by itself.
+         * @return {@code true} when nothing will change until somebody acts - which is not the same
+         *     as a failure that the next pass may fix by itself.
          */
         public boolean needsAPerson() {
-            return outcome == Outcome.UNKNOWN_KEY || outcome == Outcome.NOT_SIGNED
-                    || outcome == Outcome.NO_ANCHOR || outcome == Outcome.REWRITTEN
-                    || outcome == Outcome.UNUSABLE || outcome == Outcome.VAULT_LOCKED
-                    || outcome == Outcome.NO_CREDENTIAL || outcome == Outcome.UNKNOWN_HOST_KEY
-                    || outcome == Outcome.HOST_KEY_CHANGED || outcome == Outcome.UNUSABLE_VALUE;
+            return outcome == Outcome.UNKNOWN_KEY
+                    || outcome == Outcome.NOT_SIGNED
+                    || outcome == Outcome.NO_ANCHOR
+                    || outcome == Outcome.REWRITTEN
+                    || outcome == Outcome.UNUSABLE
+                    || outcome == Outcome.VAULT_LOCKED
+                    || outcome == Outcome.NO_CREDENTIAL
+                    || outcome == Outcome.UNKNOWN_HOST_KEY
+                    || outcome == Outcome.HOST_KEY_CHANGED
+                    || outcome == Outcome.UNUSABLE_VALUE;
         }
     }
 
@@ -197,10 +208,9 @@ public final class Reconcile {
      *
      * @param result What a follow would do.
      * @param key The public key that signed it, as ssh-keygen prints it, or {@code null} when it
-     *        was not signed or not reached.
+     *     was not signed or not reached.
      */
-    public record Checked(Result result, @org.jspecify.annotations.Nullable String key) {
-    }
+    public record Checked(Result result, @org.jspecify.annotations.Nullable String key) {}
 
     /**
      * Brings one followed project up to date.
@@ -210,10 +220,14 @@ public final class Reconcile {
      */
     public Result run(final FollowedProjects.Followed followed) {
         final Path clone = context.paths().projects().followedClone(followed.name());
-        // One at a time per project, across the daemon's watch and a follow at the terminal: unlocked, the watch
-        // checked descent against the commit it had read, and reset the clone back under one a follow had applied.
+        // One at a time per project, across the daemon's watch and a follow at the terminal:
+        // unlocked, the watch
+        // checked descent against the commit it had read, and reset the clone back under one a
+        // follow had applied.
         try {
-            return FileLocks.holding(clone.resolveSibling(clone.getFileName() + ".lock"), () -> run(followed, clone));
+            return FileLocks.holding(
+                    clone.resolveSibling(clone.getFileName() + ".lock"),
+                    () -> run(followed, clone));
         } catch (final java.io.IOException ex) {
             throw new java.io.UncheckedIOException(ex);
         }
@@ -221,18 +235,18 @@ public final class Reconcile {
 
     /**
      * Says what following this project would do, and does none of it.
-     * <p>
-     * <strong>Everything the real thing does, somewhere else.</strong> It fetches, verifies,
+     *
+     * <p><strong>Everything the real thing does, somewhere else.</strong> It fetches, verifies,
      * reads the file and checks the egress sets - against a scratch clone that is deleted
      * afterwards, so nothing this account follows moves and nothing is recorded. The answer is
      * {@code APPLIED} when following would work, and otherwise the same named reason the real
      * follow would give.
-     * <p>
-     * Asked before anything is written, because a follow that cannot apply used to leave a
+     *
+     * <p>Asked before anything is written, because a follow that cannot apply used to leave a
      * half-made project behind - one was met, with no way to want it gone.
      *
      * @param followed What would be followed. Its commit is ignored: a check answers "would this
-     *        work", not "would this be a change".
+     *     work", not "would this be a change".
      * @return What a follow would do.
      */
     public Result check(final FollowedProjects.Followed followed) {
@@ -241,8 +255,8 @@ public final class Reconcile {
 
     /**
      * Says what following this project would do, and which key signed what it found.
-     * <p>
-     * The key is read out of the scratch clone before it goes, so a person who named only a
+     *
+     * <p>The key is read out of the scratch clone before it goes, so a person who named only a
      * fingerprint can be answered without a second fetch - and it is only ever used once its
      * fingerprint is the one they named.
      *
@@ -254,14 +268,29 @@ public final class Reconcile {
         try {
             scratch = Files.createTempDirectory("porelo-follow-check-");
             final Path clone = scratch.resolve("clone");
-            final Result result = run(new FollowedProjects.Followed(followed.name(), followed.url(), "",
-                    followed.at(), followed.outcome(), followed.detail(), followed.refused(),
-                    followed.signer(), followed.unverified()), clone);
-            // Read whatever the gate said: with no key pinned here it verifies nothing and names no signer.
+            final Result result =
+                    run(
+                            new FollowedProjects.Followed(
+                                    followed.name(),
+                                    followed.url(),
+                                    "",
+                                    followed.at(),
+                                    followed.outcome(),
+                                    followed.detail(),
+                                    followed.refused(),
+                                    followed.signer(),
+                                    followed.unverified()),
+                            clone);
+            // Read whatever the gate said: with no key pinned here it verifies nothing and names no
+            // signer.
             return new Checked(result, SignedBy.keyOf(context.runner(), clone, "FETCH_HEAD"));
         } catch (final IOException ex) {
-            return new Checked(new Result(Outcome.FAILED, followed.commit(),
-                    "cannot make a scratch clone to check with: " + ex.getMessage()), null);
+            return new Checked(
+                    new Result(
+                            Outcome.FAILED,
+                            followed.commit(),
+                            "cannot make a scratch clone to check with: " + ex.getMessage()),
+                    null);
         } finally {
             if (scratch != null) {
                 deleteTree(scratch);
@@ -271,14 +300,17 @@ public final class Reconcile {
 
     private static void deleteTree(final Path root) {
         try (java.util.stream.Stream<Path> entries = Files.walk(root)) {
-            entries.sorted(java.util.Comparator.reverseOrder()).forEach(path -> {
-                try {
-                    Files.deleteIfExists(path);
-                } catch (final IOException ex) {
-                    // A scratch directory that will not go is not worth failing a check over.
-                    return;
-                }
-            });
+            entries.sorted(java.util.Comparator.reverseOrder())
+                    .forEach(
+                            path -> {
+                                try {
+                                    Files.deleteIfExists(path);
+                                } catch (final IOException ex) {
+                                    // A scratch directory that will not go is not worth failing a
+                                    // check over.
+                                    return;
+                                }
+                            });
         } catch (final IOException ex) {
             // Same.
             return;
@@ -290,10 +322,12 @@ public final class Reconcile {
         try {
             if (!Files.isDirectory(clone.resolve("HEAD")) && !Files.isDirectory(clone)) {
                 Files.createDirectories(clone.getParent());
-                final CommandResult made = runner.run(Command.of("git", "init", "-q",
-                        clone.toString()));
+                final CommandResult made =
+                        runner.run(Command.of("git", "init", "-q", clone.toString()));
                 if (!made.successful()) {
-                    return new Result(Outcome.FAILED, followed.commit(),
+                    return new Result(
+                            Outcome.FAILED,
+                            followed.commit(),
                             "cannot make " + clone + ": " + made.standardError().strip());
                 }
             }
@@ -307,13 +341,24 @@ public final class Reconcile {
                     FollowCredential.open(context, followed.url(), followed.name())) {
                 lent = credential.lent();
                 vaultShut = credential.vaultShut();
-                final java.util.List<String> arguments = new java.util.ArrayList<>(
-                        java.util.List.of("git"));
+                final java.util.List<String> arguments =
+                        new java.util.ArrayList<>(java.util.List.of("git"));
                 arguments.addAll(credential.arguments());
-                arguments.addAll(java.util.List.of("-C", clone.toString(),
-                        "fetch", "--quiet", "--end-of-options", followed.url(), "HEAD"));
-                fetched = runner.run(Command.of(arguments)
-                        .withEnvironment(credential.environmentFor(context, followed.url())));
+                arguments.addAll(
+                        java.util.List.of(
+                                "-C",
+                                clone.toString(),
+                                "fetch",
+                                "--quiet",
+                                "--end-of-options",
+                                followed.url(),
+                                "HEAD"));
+                fetched =
+                        runner.run(
+                                Command.of(arguments)
+                                        .withEnvironment(
+                                                credential.environmentFor(
+                                                        context, followed.url())));
             }
             if (!fetched.successful()) {
                 // Unreachable is not a fault of the project's and not a reason to stop: what was
@@ -332,40 +377,70 @@ public final class Reconcile {
                     // there sent somebody to store a key they had just stored.
                     final String host = HostKeys.nameOf(followed.url());
                     if (HostKeys.changed(said)) {
-                        return new Result(Outcome.HOST_KEY_CHANGED, followed.commit(),
-                                host + " answered with a different key from the one this machine"
+                        return new Result(
+                                Outcome.HOST_KEY_CHANGED,
+                                followed.commit(),
+                                host
+                                        + " answered with a different key from the one this machine"
                                         + " remembers. That is what somebody between you and it"
                                         + " would look like. Nothing was fetched.");
                     }
-                    return new Result(Outcome.UNKNOWN_HOST_KEY, followed.commit(),
-                            "this machine has never met " + host + ", so it stopped rather than"
+                    return new Result(
+                            Outcome.UNKNOWN_HOST_KEY,
+                            followed.commit(),
+                            "this machine has never met "
+                                    + host
+                                    + ", so it stopped rather than"
                                     + " deciding for you. See what it offers with 'porelo"
-                                    + " credentials trust-host " + host + "', confirm one against"
+                                    + " credentials trust-host "
+                                    + host
+                                    + "', confirm one against"
                                     + " what you were told, and follow again.");
                 }
                 if (vaultShut) {
-                    return new Result(Outcome.VAULT_LOCKED, followed.commit(),
-                            "cannot fetch " + followed.url() + " while this account's vault is"
+                    return new Result(
+                            Outcome.VAULT_LOCKED,
+                            followed.commit(),
+                            "cannot fetch "
+                                    + followed.url()
+                                    + " while this account's vault is"
                                     + " shut, so the credential a private repository needs is out"
-                                    + " of reach: " + fetched.standardError().strip());
+                                    + " of reach: "
+                                    + fetched.standardError().strip());
                 }
                 if (!lent && FollowCredential.needsACredential(followed.url())) {
                     // The vault is open or absent and holds nothing for this host, and the URL is
                     // one only a credential opens. Saying "unreachable" here sent people to look
                     // at their network for a credential they had never stored.
-                    return new Result(Outcome.NO_CREDENTIAL, followed.commit(),
-                            "cannot fetch " + followed.url() + " and this account's vault holds no"
+                    return new Result(
+                            Outcome.NO_CREDENTIAL,
+                            followed.commit(),
+                            "cannot fetch "
+                                    + followed.url()
+                                    + " and this account's vault holds no"
                                     + " credential for it. Store one with: '"
                                     + FollowCredential.storeCommand(followed.url())
-                                    + "'. What git said: " + fetched.standardError().strip());
+                                    + "'. What git said: "
+                                    + fetched.standardError().strip());
                 }
-                return new Result(Outcome.UNREACHABLE, followed.commit(),
-                        "cannot fetch " + followed.url() + ": " + fetched.standardError().strip()
+                return new Result(
+                        Outcome.UNREACHABLE,
+                        followed.commit(),
+                        "cannot fetch "
+                                + followed.url()
+                                + ": "
+                                + fetched.standardError().strip()
                                 + identityHint(followed.url()));
             }
 
-            final SignerHandover.Handed handed = followed.unverified() ? null
-                    : handover.walk(clone, followed.name(), followed.commit(), headOf(runner, clone));
+            final SignerHandover.Handed handed =
+                    followed.unverified()
+                            ? null
+                            : handover.walk(
+                                    clone,
+                                    followed.name(),
+                                    followed.commit(),
+                                    headOf(runner, clone));
             final ConfigurationGate.Verdict verdict;
             if (handed != null && handed.refused() != null) {
                 verdict = handed.refused();
@@ -379,19 +454,27 @@ public final class Reconcile {
             if (followed.unverified()) {
                 // Followed without an anchor, on purpose. Nothing is checked, and the state says
                 // so everywhere this project is shown - the refusal is skipped, not the reporting.
-                return applied(runner, clone, followed, verdict.commit().isEmpty()
-                        ? headOf(runner, clone) : verdict.commit());
+                return applied(
+                        runner,
+                        clone,
+                        followed,
+                        verdict.commit().isEmpty() ? headOf(runner, clone) : verdict.commit());
             }
             if (!verdict.mayApply()) {
                 // The gate already tells these apart; collapsing them into one refusal was
                 // throwing away the only thing that says which of them happened - and the commit
                 // that was turned away with it.
-                return new Result(switch (verdict.outcome()) {
-                    case NOT_SIGNED -> Outcome.NOT_SIGNED;
-                    case UNKNOWN_KEY -> Outcome.UNKNOWN_KEY;
-                    case NO_ANCHOR -> Outcome.NO_ANCHOR;
-                    default -> Outcome.UNREADABLE;
-                }, followed.commit(), verdict.detail(), verdict.commit(), verdict.signer());
+                return new Result(
+                        switch (verdict.outcome()) {
+                            case NOT_SIGNED -> Outcome.NOT_SIGNED;
+                            case UNKNOWN_KEY -> Outcome.UNKNOWN_KEY;
+                            case NO_ANCHOR -> Outcome.NO_ANCHOR;
+                            default -> Outcome.UNREADABLE;
+                        },
+                        followed.commit(),
+                        verdict.detail(),
+                        verdict.commit(),
+                        verdict.signer());
             }
             // Which key signed what is in force, once the signature is verified: a person who
             // pinned it compares it with the one they were given, and an answer without it leaves
@@ -400,31 +483,47 @@ public final class Reconcile {
             if (verdict.commit().equals(followed.commit())) {
                 return new Result(Outcome.UNCHANGED, followed.commit(), "", "", signer);
             }
-            if (!followed.commit().isEmpty() && !descends(clone, followed.commit(),
-                    verdict.commit())) {
+            if (!followed.commit().isEmpty()
+                    && !descends(clone, followed.commit(), verdict.commit())) {
                 // A properly signed commit that is not a descendant of the one in force. Somebody
                 // with the key may have rebased - and somebody without it may be serving an older
                 // signed configuration to put a rule back that was taken away, which needs no key
                 // at all, only control of the route. The two look identical from here, so this
                 // stops and asks rather than choosing.
-                return new Result(Outcome.REWRITTEN, followed.commit(),
-                        verdict.commit() + " is signed and is not a descendant of "
-                                + followed.commit() + ", which is in force. The history was"
+                return new Result(
+                        Outcome.REWRITTEN,
+                        followed.commit(),
+                        verdict.commit()
+                                + " is signed and is not a descendant of "
+                                + followed.commit()
+                                + ", which is in force. The history was"
                                 + " rewritten, or an older configuration is being served."
-                                + " Accept it with 'porelo projects follow " + followed.name()
-                                + " " + followed.url() + " --accept-rewrite'.");
+                                + " Accept it with 'porelo projects follow "
+                                + followed.name()
+                                + " "
+                                + followed.url()
+                                + " --accept-rewrite'.");
             }
 
             final Result applied = applied(runner, clone, followed, verdict.commit());
             if (applied.outcome() != Outcome.APPLIED && applied.outcome() != Outcome.UNCHANGED) {
                 return applied;
             }
-            // The keys are taken with the file that names them, never before: a commit that is not applied
+            // The keys are taken with the file that names them, never before: a commit that is not
+            // applied
             // pins nothing.
-            final String pinned = handed != null && handed.changed() ? handover.pin(followed.name(), handed.keys())
-                    : "";
-            return new Result(applied.outcome(), applied.commit(), applied.detail().isEmpty() || pinned.isEmpty()
-                    ? applied.detail() + pinned : applied.detail() + "; " + pinned, applied.refused(), signer);
+            final String pinned =
+                    handed != null && handed.changed()
+                            ? handover.pin(followed.name(), handed.keys())
+                            : "";
+            return new Result(
+                    applied.outcome(),
+                    applied.commit(),
+                    applied.detail().isEmpty() || pinned.isEmpty()
+                            ? applied.detail() + pinned
+                            : applied.detail() + "; " + pinned,
+                    applied.refused(),
+                    signer);
         } catch (final IOException | RuntimeException ex) {
             return new Result(Outcome.FAILED, followed.commit(), String.valueOf(ex.getMessage()));
         }
@@ -438,8 +537,8 @@ public final class Reconcile {
 
     /**
      * Returns who this machine logs in as at that host, when a fetch over ssh was refused.
-     * <p>
-     * The asking itself is {@link ForgeIdentity}, because the better moment to ask is when
+     *
+     * <p>The asking itself is {@link ForgeIdentity}, because the better moment to ask is when
      * somebody DECLARES a credential rather than when a fetch has already failed - and a question
      * asked at two moments belongs in neither of them.
      *
@@ -454,7 +553,8 @@ public final class Reconcile {
         if (ForgeIdentity.userIn(url) == null) {
             final String host = GitCredentialNames.hostOf(url);
             said.append(" The address names no user, so ssh logs in as this account;")
-                    .append(" a forge expects git@").append(host == null ? "the host" : host)
+                    .append(" a forge expects git@")
+                    .append(host == null ? "the host" : host)
                     .append('.');
         }
         final String greeting = ForgeIdentity.of(context, url, "identity");
@@ -473,32 +573,48 @@ public final class Reconcile {
      * @param commit What to move to.
      * @return What happened.
      */
-    /** Whether a commit's project file says {@code offline}; one that cannot be read is judged where it is read. */
-    private static boolean offline(final CommandRunner runner, final Path clone, final String commit) {
-        final CommandResult shown = runner.run(Command.of("git", "-C", clone.toString(), "show",
-                commit + ":project.yml"));
+    /**
+     * Whether a commit's project file says {@code offline}; one that cannot be read is judged where
+     * it is read.
+     */
+    private static boolean offline(
+            final CommandRunner runner, final Path clone, final String commit) {
+        final CommandResult shown =
+                runner.run(
+                        Command.of("git", "-C", clone.toString(), "show", commit + ":project.yml"));
         if (!shown.successful()) {
             return false;
         }
         try {
-            return ProjectReader.read(new java.io.StringReader(shown.standardOutput()), "project.yml")
-                    .securityClass() == org.fuin.porelo.core.project.SecurityClass.OFFLINE;
+            return ProjectReader.read(
+                                    new java.io.StringReader(shown.standardOutput()), "project.yml")
+                            .securityClass()
+                    == org.fuin.porelo.core.project.SecurityClass.OFFLINE;
         } catch (final RuntimeException ex) {
             return false;
         }
     }
 
-    private Result applied(final CommandRunner runner, final Path clone,
-            final FollowedProjects.Followed followed, final String commit) {
+    private Result applied(
+            final CommandRunner runner,
+            final Path clone,
+            final FollowedProjects.Followed followed,
+            final String commit) {
         if (commit.equals(followed.commit())) {
             return new Result(Outcome.UNCHANGED, followed.commit(), "");
         }
         if (!FollowedProjects.fromAFile(followed.url()) && offline(runner, clone, commit)) {
-            // Before anything of it is used: what was in force stays, and a first follow records nothing.
-            return new Result(Outcome.OFFLINE_FROM_A_URL, followed.commit(), followed.name() + " is offline, and an"
-                    + " offline project never connects, not even to fetch its own settings: follow it from a file, a"
-                    + " bundle of its repository or a directory on this machine, 'porelo project follow "
-                    + followed.name() + " <file>'");
+            // Before anything of it is used: what was in force stays, and a first follow records
+            // nothing.
+            return new Result(
+                    Outcome.OFFLINE_FROM_A_URL,
+                    followed.commit(),
+                    followed.name()
+                            + " is offline, and an"
+                            + " offline project never connects, not even to fetch its own settings: follow it from a file, a"
+                            + " bundle of its repository or a directory on this machine, 'porelo project follow "
+                            + followed.name()
+                            + " <file>'");
         }
         try {
             // Read before the reset, because afterwards there is nothing left to see. The rule is
@@ -510,11 +626,23 @@ public final class Reconcile {
 
             // Only now does the working tree move. Everything above this line is reversible and
             // changes nothing an operator would notice.
-            final CommandResult moved = runner.run(Command.of("git", "-C", clone.toString(),
-                    "reset", "--hard", "--quiet", commit));
+            final CommandResult moved =
+                    runner.run(
+                            Command.of(
+                                    "git",
+                                    "-C",
+                                    clone.toString(),
+                                    "reset",
+                                    "--hard",
+                                    "--quiet",
+                                    commit));
             if (!moved.successful()) {
-                return new Result(Outcome.FAILED, followed.commit(),
-                        "have " + commit + " and could not check it out: "
+                return new Result(
+                        Outcome.FAILED,
+                        followed.commit(),
+                        "have "
+                                + commit
+                                + " and could not check it out: "
                                 + moved.standardError().strip());
             }
             final Path file = clone.resolve("project.yml");
@@ -522,17 +650,28 @@ public final class Reconcile {
             try {
                 final org.fuin.porelo.core.project.Project read = ProjectReader.read(file);
                 if (!read.repositories().isEmpty()) {
-                    // Said before following, so the first refused start is not how a person finds out.
-                    shape = "works in " + String.join(", ", read.workRepositoryNames()) + "; '" + read.name()
-                            + "' holds the project file and is not worked in";
+                    // Said before following, so the first refused start is not how a person finds
+                    // out.
+                    shape =
+                            "works in "
+                                    + String.join(", ", read.workRepositoryNames())
+                                    + "; '"
+                                    + read.name()
+                                    + "' holds the project file and is not worked in";
                 }
                 if (!read.name().equals(followed.name())) {
                     // Following it as one name while the file calls itself another would give the
                     // machine a project whose containers, images and mirrors are all named after
                     // the file - and a name in 'project following' that resolves to none of them.
-                    return new Result(Outcome.UNUSABLE, followed.commit(),
-                            "this is followed as '" + followed.name() + "' and the file calls"
-                                    + " itself '" + read.name() + "'. Follow it under its own"
+                    return new Result(
+                            Outcome.UNUSABLE,
+                            followed.commit(),
+                            "this is followed as '"
+                                    + followed.name()
+                                    + "' and the file calls"
+                                    + " itself '"
+                                    + read.name()
+                                    + "'. Follow it under its own"
                                     + " name, or change the name in the file.");
                 }
                 // The rest of what a project file has to survive on THIS machine: an egress set
@@ -542,27 +681,39 @@ public final class Reconcile {
                 //
                 // Every other check is the reader's: the name's shape, the security class, the
                 // base image, and an online project without an upstream.
-                for (final org.fuin.porelo.core.project.Repository repository
-                        : read.allRepositories()) {
-                    context.paths().egress().egressSets().origins(
-                            read.egressFor(repository).sets());
+                for (final org.fuin.porelo.core.project.Repository repository :
+                        read.allRepositories()) {
+                    context.paths()
+                            .egress()
+                            .egressSets()
+                            .origins(read.egressFor(repository).sets());
                 }
             } catch (final ProjectException ex) {
                 // Accepted and still not a project. Its own outcome, because "somebody committed
                 // something broken" is a different problem from "somebody signed nothing", and
                 // only one of them is about trust.
-                return new Result(Outcome.UNUSABLE, followed.commit(),
+                return new Result(
+                        Outcome.UNUSABLE,
+                        followed.commit(),
                         file.getFileName() + " does not read as a project: " + ex.getMessage());
             } catch (final org.fuin.porelo.shield.EgressSetException ex) {
                 // Refused here rather than at the first task start, which is minutes later and
                 // somewhere else - and would read as a broken build rather than as a project file
                 // naming something this machine has never had.
-                return new Result(Outcome.UNUSABLE, followed.commit(),
-                        file.getFileName() + " names an egress set this machine does not have: "
+                return new Result(
+                        Outcome.UNUSABLE,
+                        followed.commit(),
+                        file.getFileName()
+                                + " names an egress set this machine does not have: "
                                 + ex.getMessage());
             }
-            final String edits = replaced.isEmpty() ? "" : "replaced a local edit to " + String.join(", ", replaced);
-            return new Result(Outcome.APPLIED, commit,
+            final String edits =
+                    replaced.isEmpty()
+                            ? ""
+                            : "replaced a local edit to " + String.join(", ", replaced);
+            return new Result(
+                    Outcome.APPLIED,
+                    commit,
                     edits.isEmpty() || shape.isEmpty() ? edits + shape : edits + "; " + shape);
         } catch (final RuntimeException ex) {
             return new Result(Outcome.FAILED, followed.commit(), String.valueOf(ex.getMessage()));
@@ -571,39 +722,47 @@ public final class Reconcile {
 
     /**
      * Returns the commit a fetch brought, without asking whether anybody signed it.
-     * <p>
-     * Only the unverified path needs this: the gate reads the commit on its way to a verdict, and
-     * a machine following without an anchor never asks for one.
+     *
+     * <p>Only the unverified path needs this: the gate reads the commit on its way to a verdict,
+     * and a machine following without an anchor never asks for one.
      *
      * @param runner How git is run.
      * @param clone The followed clone.
      * @return The commit, or "" when it cannot be read.
      */
     private static String headOf(final CommandRunner runner, final Path clone) {
-        final CommandResult found = runner.run(Command.of("git", "-C", clone.toString(),
-                "rev-parse", "FETCH_HEAD"));
+        final CommandResult found =
+                runner.run(Command.of("git", "-C", clone.toString(), "rev-parse", "FETCH_HEAD"));
         return found.successful() ? found.standardOutput().strip() : "";
     }
 
     /**
      * Returns the tracked files a reset will overwrite, so the machine can say it did.
-     * <p>
-     * Tracked only: an untracked file is one the repository does not cover, and
-     * {@code reset --hard} leaves it where it is. Reporting it as replaced would be a lie in the
-     * direction that makes somebody look for work that is still there.
+     *
+     * <p>Tracked only: an untracked file is one the repository does not cover, and {@code reset
+     * --hard} leaves it where it is. Reporting it as replaced would be a lie in the direction that
+     * makes somebody look for work that is still there.
      *
      * @param runner How git is run.
      * @param clone The followed clone.
      * @return Paths, empty when nothing local was changed - or when git cannot be asked, because a
-     *         reconciliation must not fail over a question about what it is about to replace.
+     *     reconciliation must not fail over a question about what it is about to replace.
      */
     private static List<String> locallyChanged(final CommandRunner runner, final Path clone) {
-        final CommandResult status = runner.run(Command.of("git", "-C", clone.toString(),
-                "status", "--porcelain", "--untracked-files=no"));
+        final CommandResult status =
+                runner.run(
+                        Command.of(
+                                "git",
+                                "-C",
+                                clone.toString(),
+                                "status",
+                                "--porcelain",
+                                "--untracked-files=no"));
         if (!status.successful()) {
             return List.of();
         }
-        return status.standardOutput().lines()
+        return status.standardOutput()
+                .lines()
                 .map(String::strip)
                 .filter(line -> line.length() > 3)
                 .map(line -> line.substring(2).strip())
@@ -623,19 +782,29 @@ public final class Reconcile {
      * @param older The commit in force.
      * @param newer The commit that was verified.
      * @return {@code true} when moving from one to the other only goes forwards. An older commit
-     *         this clone no longer has counts as not descending - the safe answer.
+     *     this clone no longer has counts as not descending - the safe answer.
      */
     private boolean descends(final Path clone, final String older, final String newer) {
         try {
-            return context.runner().run(Command.of("git", "-C", clone.toString(), "merge-base",
-                    "--is-ancestor", older, newer)).successful();
+            return context.runner()
+                    .run(
+                            Command.of(
+                                    "git",
+                                    "-C",
+                                    clone.toString(),
+                                    "merge-base",
+                                    "--is-ancestor",
+                                    older,
+                                    newer))
+                    .successful();
         } catch (final RuntimeException ex) {
             return false;
         }
     }
 
     private String vaultHint() {
-        return context.opener().isPresent() ? ""
+        return context.opener().isPresent()
+                ? ""
                 : ". This account's vault is shut, so nothing here holds a credential for it -"
                         + " open it if that repository needs one";
     }
@@ -647,15 +816,22 @@ public final class Reconcile {
      * @param result What the attempt did.
      * @return What is now known.
      */
-    public static FollowedProjects.Followed after(final FollowedProjects.Followed followed,
-            final Result result) {
+    public static FollowedProjects.Followed after(
+            final FollowedProjects.Followed followed, final Result result) {
         // 'unverified' is carried, not defaulted. It was dropped here: a follow written with the
         // flag was rewritten by this method one line later, so a project taken WITHOUT an anchor
         // reported itself as one whose signature had been checked - the single field that tells a
         // person that whoever can push there decides what this machine runs. Found through
         // the interface, whose dialog shows it on every project.
-        return new FollowedProjects.Followed(followed.name(), followed.url(), result.commit(),
-                Instant.now().toString(), result.outcome().name(), result.detail(),
-                result.refused(), result.signer(), followed.unverified());
+        return new FollowedProjects.Followed(
+                followed.name(),
+                followed.url(),
+                result.commit(),
+                Instant.now().toString(),
+                result.outcome().name(),
+                result.detail(),
+                result.refused(),
+                result.signer(),
+                followed.unverified());
     }
 }

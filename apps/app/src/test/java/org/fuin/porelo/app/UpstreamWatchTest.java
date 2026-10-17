@@ -8,9 +8,9 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Tests for how often {@link UpstreamWatch} looks, and whether it looks at all.
- * <p>
- * A daemon that reaches the network on its own is something an operator is entitled to refuse - on
- * a metered connection, or on a machine meant to be quiet - so the switch is part of the feature
+ *
+ * <p>A daemon that reaches the network on its own is something an operator is entitled to refuse -
+ * on a metered connection, or on a machine meant to be quiet - so the switch is part of the feature
  * rather than an afterthought.
  */
 class UpstreamWatchTest {
@@ -45,8 +45,8 @@ class UpstreamWatchTest {
         final UpstreamWatch watch = new UpstreamWatch(null, Duration.ZERO);
         watch.start();
 
-        assertThat(Thread.getAllStackTraces().keySet().stream()
-                .map(Thread::getName)).noneMatch("porelo-upstream"::equals);
+        assertThat(Thread.getAllStackTraces().keySet().stream().map(Thread::getName))
+                .noneMatch("porelo-upstream"::equals);
     }
 
     @Test

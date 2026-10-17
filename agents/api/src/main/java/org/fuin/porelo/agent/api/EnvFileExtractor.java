@@ -8,11 +8,11 @@ import java.util.Optional;
 
 /**
  * Reads {@code NAME=value} from a dotenv-style file.
- * <p>
- * One of the two shapes common enough to belong in the agent API rather than in an agent. In the
- * reference implementation this same thing appears as a registry entry
- * {@code ("vibe": (extract_api_key_env, ".env", "MISTRAL_API_KEY"))} - a parameterised function
- * held in a name-keyed map, which is data wearing a function's clothing.
+ *
+ * <p>One of the two shapes common enough to belong in the agent API rather than in an agent. In the
+ * reference implementation this same thing appears as a registry entry {@code ("vibe":
+ * (extract_api_key_env, ".env", "MISTRAL_API_KEY"))} - a parameterised function held in a
+ * name-keyed map, which is data wearing a function's clothing.
  */
 public class EnvFileExtractor implements CredentialExtractor {
 
@@ -47,7 +47,8 @@ public class EnvFileExtractor implements CredentialExtractor {
                 final String trimmed = line.strip();
                 if (trimmed.startsWith(variable + "=")) {
                     final String value = unquote(trimmed.substring(variable.length() + 1).strip());
-                    return value.isEmpty() ? Optional.empty()
+                    return value.isEmpty()
+                            ? Optional.empty()
                             : Optional.of(Credential.of(credentialType, value));
                 }
             }

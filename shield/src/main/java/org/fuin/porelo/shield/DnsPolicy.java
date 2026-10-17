@@ -8,16 +8,17 @@ import org.fuin.porelo.core.project.SecurityClass;
 
 /**
  * Generates the dnsmasq configuration for a task container's resolver.
- * <p>
- * A resolver of Porelo's own runs inside the container's network namespace, and the container's
- * {@code resolv.conf} points at it. Without one, the agent talks to whatever resolver the host
- * uses and the firewall sees only addresses - so a name an operator would have recognized arrives
- * as an IP nobody can place, and the Allow prompt becomes a guess.
- * <p>
- * <strong>The default answer is NXDOMAIN.</strong> Names resolve only if the project allows them,
- * which makes DNS the same shape as the packet filter: deny by default, widen deliberately. It does
- * not close DNS exfiltration on its own: port 53 to the upstream resolvers is open to every process in
- * the task, so a name asked past this resolver is answered - {@code doc/security.md} says so.
+ *
+ * <p>A resolver of Porelo's own runs inside the container's network namespace, and the container's
+ * {@code resolv.conf} points at it. Without one, the agent talks to whatever resolver the host uses
+ * and the firewall sees only addresses - so a name an operator would have recognized arrives as an
+ * IP nobody can place, and the Allow prompt becomes a guess.
+ *
+ * <p><strong>The default answer is NXDOMAIN.</strong> Names resolve only if the project allows
+ * them, which makes DNS the same shape as the packet filter: deny by default, widen deliberately.
+ * It does not close DNS exfiltration on its own: port 53 to the upstream resolvers is open to every
+ * process in the task, so a name asked past this resolver is answered - {@code doc/security.md}
+ * says so.
  */
 public class DnsPolicy {
 
@@ -29,17 +30,17 @@ public class DnsPolicy {
 
     /**
      * Name of the file holding the per-domain {@code server=} lines, beside the configuration.
-     * <p>
-     * <strong>Separate because it is the only part dnsmasq re-reads.</strong> A {@code
+     *
+     * <p><strong>Separate because it is the only part dnsmasq re-reads.</strong> A {@code
      * servers-file} is re-read on {@code SIGHUP}; the configuration file is not, and neither is
-     * anything else. Measured against dnsmasq 2.x: a name that answered NXDOMAIN answered with
-     * real addresses after a line was appended here and the process signaled - same process, no
-     * restart, no window in which the container resolves nothing.
-     * <p>
-     * That is what lets a running task be widened by name. It costs the separation: a servers-file
-     * may contain nothing but {@code server=} and {@code rev-server=}, so the {@code nftset=} lines
-     * stay in the configuration and cannot be added later. The firewall half of a live widening
-     * therefore goes through the clearance watcher rather than through this.
+     * anything else. Measured against dnsmasq 2.x: a name that answered NXDOMAIN answered with real
+     * addresses after a line was appended here and the process signaled - same process, no restart,
+     * no window in which the container resolves nothing.
+     *
+     * <p>That is what lets a running task be widened by name. It costs the separation: a
+     * servers-file may contain nothing but {@code server=} and {@code rev-server=}, so the {@code
+     * nftset=} lines stay in the configuration and cannot be added later. The firewall half of a
+     * live widening therefore goes through the clearance watcher rather than through this.
      */
     public static final String SERVERS_FILE = "dnsmasq.servers";
 
@@ -80,14 +81,14 @@ public class DnsPolicy {
     /**
      * Marks a domain whose resolved addresses are added to the firewall's allow set as they are
      * looked up.
-     * <p>
-     * This is what a declared domain means: resolving a name and being allowed to reach it are
+     *
+     * <p>This is what a declared domain means: resolving a name and being allowed to reach it are
      * one decision, not two. Without it a declared host resolves and is then dropped, raising a
-     * clearance prompt about something the definition already declared - measured on
-     * {@code github.com}, dropped twenty times while the person saw only a hang. The prompt
-     * exists for what an agent reached for that nobody declared.
-     * <p>
-     * Resolved rather than pinned because pinning does not work: a large host rotates addresses,
+     * clearance prompt about something the definition already declared - measured on {@code
+     * github.com}, dropped twenty times while the person saw only a hang. The prompt exists for
+     * what an agent reached for that nobody declared.
+     *
+     * <p>Resolved rather than pinned because pinning does not work: a large host rotates addresses,
      * and the address this machine resolves at task start is measurably not the one the container
      * gets a minute later. dnsmasq adds whatever it actually answered, so the set and the answer
      * cannot disagree.
@@ -102,13 +103,14 @@ public class DnsPolicy {
 
     /**
      * Refuses a domain and everything under it, whatever allows it.
-     * <p>
-     * dnsmasq takes the longest matching domain, so an {@code address=} line answering NXDOMAIN for
-     * the refused name wins over the {@code server=} line that allows its parent - measured on
+     *
+     * <p>dnsmasq takes the longest matching domain, so an {@code address=} line answering NXDOMAIN
+     * for the refused name wins over the {@code server=} line that allows its parent - measured on
      * dnsmasq 2.92, with the allowance in the servers file, for a child of an allowed name and for
      * the allowed name itself, and still after a widening of it was appended and the resolver
-     * signalled. A name answered NXDOMAIN never puts an address into the allow set. What it does not
-     * refuse is an address: a refused host that shares one with an allowed host is reachable there.
+     * signalled. A name answered NXDOMAIN never puts an address into the allow set. What it does
+     * not refuse is an address: a refused host that shares one with an allowed host is reachable
+     * there.
      *
      * @param domain Domain name, without a leading dot.
      * @return This instance.
@@ -156,8 +158,10 @@ public class DnsPolicy {
 
         final List<String> lines = new ArrayList<>();
 
-        lines.add("# Generated by Porelo for security class '"
-                + securityClass.name().toLowerCase() + "'. Do not edit.");
+        lines.add(
+                "# Generated by Porelo for security class '"
+                        + securityClass.name().toLowerCase()
+                        + "'. Do not edit.");
         lines.add("# Runs inside the container's network namespace.");
         lines.add("");
         lines.add("# Answer only the container, and only on loopback: the nftables chain already");
@@ -180,7 +184,8 @@ public class DnsPolicy {
         lines.add("log-facility=-");
         lines.add("");
         lines.add("# Inside 'podman unshare' the process is root only within the user namespace:");
-        lines.add("# /var/run belongs to the real root, and there is no mapped 'nobody' to drop to.");
+        lines.add(
+                "# /var/run belongs to the real root, and there is no mapped 'nobody' to drop to.");
         lines.add("# Both defaults fail there, so both are turned off.");
         lines.add("pid-file=");
         lines.add("user=root");
@@ -201,9 +206,12 @@ public class DnsPolicy {
             lines.add("servers-file=" + serversFile);
             if (!refusedDomains.isEmpty()) {
                 lines.add("");
-                lines.add("# Refused by name, whatever allows them: the longest match wins, so these");
-                lines.add("# answer NXDOMAIN under an allowed parent too, and none of their addresses");
-                lines.add("# reaches the firewall's allow set. Here rather than in the servers file, so");
+                lines.add(
+                        "# Refused by name, whatever allows them: the longest match wins, so these");
+                lines.add(
+                        "# answer NXDOMAIN under an allowed parent too, and none of their addresses");
+                lines.add(
+                        "# reaches the firewall's allow set. Here rather than in the servers file, so");
                 lines.add("# a widening of a running task cannot take one back.");
                 for (final String domain : refusedDomains) {
                     lines.add(REFUSED_PREFIX + domain + "/");
@@ -215,14 +223,21 @@ public class DnsPolicy {
             } else {
                 if (!autoAllowed.isEmpty()) {
                     lines.add("");
-                    lines.add("# Every address answered for these is added to the firewall's allow");
-                    lines.add("# set as it is answered, so what the container was told and what it");
-                    lines.add("# may reach cannot drift apart. Note dnsmasq matches subdomains here.");
-                    lines.add("# Both families: a declared name that answers AAAA was reachable by");
+                    lines.add(
+                            "# Every address answered for these is added to the firewall's allow");
+                    lines.add(
+                            "# set as it is answered, so what the container was told and what it");
+                    lines.add(
+                            "# may reach cannot drift apart. Note dnsmasq matches subdomains here.");
+                    lines.add(
+                            "# Both families: a declared name that answers AAAA was reachable by");
                     lines.add("# name and blocked by address, which reached the operator as a");
                     lines.add("# clearance prompt for a bare IPv6 address they could not place.");
                     for (final String domain : autoAllowed) {
-                        lines.add("nftset=/" + domain + "/inet#porelo#allowed_v4,inet#porelo#allowed_v6");
+                        lines.add(
+                                "nftset=/"
+                                        + domain
+                                        + "/inet#porelo#allowed_v4,inet#porelo#allowed_v6");
                     }
                 }
             }
@@ -234,9 +249,9 @@ public class DnsPolicy {
     /**
      * Returns the file the configuration points at, holding one {@code server=} line per allowed
      * name.
-     * <p>
-     * Written beside the configuration and re-read on {@code SIGHUP}, which is the whole reason it
-     * is a file of its own. A name added here while a task runs resolves as soon as the resolver
+     *
+     * <p>Written beside the configuration and re-read on {@code SIGHUP}, which is the whole reason
+     * it is a file of its own. A name added here while a task runs resolves as soon as the resolver
      * is signaled; nothing is restarted and nothing else in the configuration is touched.
      *
      * @return The file's content, empty of rules when nothing may resolve.
@@ -260,10 +275,10 @@ public class DnsPolicy {
 
     /**
      * Writes the configuration and its servers file, and returns the configuration's path.
-     * <p>
-     * The two belong together and are written together: a configuration pointing at a servers file
-     * that is not there makes dnsmasq refuse to start, which reaches an operator as a container
-     * that came up with no resolver at all.
+     *
+     * <p>The two belong together and are written together: a configuration pointing at a servers
+     * file that is not there makes dnsmasq refuse to start, which reaches an operator as a
+     * container that came up with no resolver at all.
      *
      * @param configFile Where the configuration goes. The servers file is written beside it.
      * @return The configuration's path, for a caller that passes it to dnsmasq.
@@ -271,10 +286,10 @@ public class DnsPolicy {
      */
     public java.nio.file.Path writeTo(java.nio.file.Path configFile) throws java.io.IOException {
         final java.nio.file.Path servers = configFile.resolveSibling(SERVERS_FILE);
-        java.nio.file.Files.writeString(servers, renderServers(),
-                java.nio.charset.StandardCharsets.UTF_8);
-        java.nio.file.Files.writeString(configFile, render(servers.toString()),
-                java.nio.charset.StandardCharsets.UTF_8);
+        java.nio.file.Files.writeString(
+                servers, renderServers(), java.nio.charset.StandardCharsets.UTF_8);
+        java.nio.file.Files.writeString(
+                configFile, render(servers.toString()), java.nio.charset.StandardCharsets.UTF_8);
         return configFile;
     }
 
@@ -286,7 +301,8 @@ public class DnsPolicy {
      * @return Full argument list.
      */
     public static List<String> command(long containerPid, String configFile) {
-        return EgressPolicy.inNamespace(containerPid, List.of(
-                "dnsmasq", "--keep-in-foreground", "--conf-file=" + configFile));
+        return EgressPolicy.inNamespace(
+                containerPid,
+                List.of("dnsmasq", "--keep-in-foreground", "--conf-file=" + configFile));
     }
 }

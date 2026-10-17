@@ -8,8 +8,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Converts an {@link AgentDefinition} to and from the JSON that crosses the varlink boundary.
- * <p>
- * Written by hand and symmetric, so that both halves of the conversion sit on one screen: an
+ *
+ * <p>Written by hand and symmetric, so that both halves of the conversion sit on one screen: an
  * asymmetry between them is a field that Porelo reads as absent while the agent believes it sent
  * it, which produces behavior nobody declared.
  */
@@ -58,12 +58,12 @@ public final class AgentDefinitionJson {
             final Map<String, Object> provider = new java.util.LinkedHashMap<>();
             provider.put("dialect", definition.provider().dialect());
             putIfPresent(provider, "default", definition.provider().defaultProvider());
-            provider.put("endpoint", definition.provider().endpoint().name().toLowerCase(
-                    java.util.Locale.ROOT));
-            putIfPresent(provider, "socketEnvironment",
-                    definition.provider().socketEnvironment());
-            putIfPresent(provider, "baseUrlEnvironment",
-                    definition.provider().baseUrlEnvironment());
+            provider.put(
+                    "endpoint",
+                    definition.provider().endpoint().name().toLowerCase(java.util.Locale.ROOT));
+            putIfPresent(provider, "socketEnvironment", definition.provider().socketEnvironment());
+            putIfPresent(
+                    provider, "baseUrlEnvironment", definition.provider().baseUrlEnvironment());
             out.put("provider", provider);
         }
         out.put("allowedDomains", definition.allowedDomains());
@@ -74,16 +74,27 @@ public final class AgentDefinitionJson {
         out.put("sandboxedArguments", definition.sandboxedArguments());
         out.put("instructionArguments", definition.instructionArguments());
         if (definition.atRest() != null) {
-            out.put("atRest", Map.of("shows", definition.atRest().shows(), "lacks", definition.atRest().lacks()));
+            out.put(
+                    "atRest",
+                    Map.of(
+                            "shows",
+                            definition.atRest().shows(),
+                            "lacks",
+                            definition.atRest().lacks()));
         }
         if (!definition.grants().isEmpty()) {
-            out.put("grants", definition.grants().stream().map(grant -> {
-                final Map<String, Object> one = new LinkedHashMap<>();
-                one.put("provider", grant.provider());
-                one.put("hosts", grant.hosts());
-                putIfPresent(one, "owner", grant.owner());
-                return one;
-            }).toList());
+            out.put(
+                    "grants",
+                    definition.grants().stream()
+                            .map(
+                                    grant -> {
+                                        final Map<String, Object> one = new LinkedHashMap<>();
+                                        one.put("provider", grant.provider());
+                                        one.put("hosts", grant.hosts());
+                                        putIfPresent(one, "owner", grant.owner());
+                                        return one;
+                                    })
+                            .toList());
         }
         if (definition.ready() != null) {
             out.put("readyMarker", definition.ready().text());
@@ -101,8 +112,9 @@ public final class AgentDefinitionJson {
             out.put("sessionIds", ids);
         }
         putIfPresent(out, "version", definition.version());
-        out.put("artifacts", definition.artifacts().stream()
-                .map(AgentDefinitionJson::writeArtifact).toList());
+        out.put(
+                "artifacts",
+                definition.artifacts().stream().map(AgentDefinitionJson::writeArtifact).toList());
         out.put("installAsRoot", definition.installAsRoot());
         out.put("installAsAgent", definition.installAsAgent());
         return out;
@@ -126,7 +138,8 @@ public final class AgentDefinitionJson {
                 string(source, "binary"),
                 new GitIdentity(string(git, "name"), string(git, "email")),
                 new HeadlessFlags(
-                        headless.get("promptFlag") == null ? ""
+                        headless.get("promptFlag") == null
+                                ? ""
                                 : String.valueOf(headless.get("promptFlag")),
                         optional(headless, "modelFlag"),
                         optional(headless, "maxTurnsFlag"),
@@ -143,33 +156,53 @@ public final class AgentDefinitionJson {
                 strings(source.get("installAsRoot")),
                 strings(source.get("installAsAgent")),
                 packaged(source.get("packaged")),
-                source.get("configDirectory") == null ? null
+                source.get("configDirectory") == null
+                        ? null
                         : String.valueOf(source.get("configDirectory")),
-                source.get("loginArguments") == null ? null
-                        : strings(source.get("loginArguments")),
-                source.get("loginDocumentation") == null ? null
+                source.get("loginArguments") == null ? null : strings(source.get("loginArguments")),
+                source.get("loginDocumentation") == null
+                        ? null
                         : String.valueOf(source.get("loginDocumentation")),
                 strings(source.get("sandboxedArguments")),
-                source.get("readyMarker") == null ? null
-                        : new ReadyMarker(String.valueOf(source.get("readyMarker")),
-                                source.get("readyWithinSeconds") instanceof Number within ? within.intValue() : null),
+                source.get("readyMarker") == null
+                        ? null
+                        : new ReadyMarker(
+                                String.valueOf(source.get("readyMarker")),
+                                source.get("readyWithinSeconds") instanceof Number within
+                                        ? within.intValue()
+                                        : null),
                 source.get("waiting") instanceof Map<?, ?> waiting ? readWaiting(waiting) : null,
-                source.get("sessionIds") instanceof Map<?, ?> ids ? new SessionIds(map(ids.get("record")),
-                        optional(ids, "key"), optional(ids, "directory"), optional(ids, "suffix")) : null,
+                source.get("sessionIds") instanceof Map<?, ?> ids
+                        ? new SessionIds(
+                                map(ids.get("record")),
+                                optional(ids, "key"),
+                                optional(ids, "directory"),
+                                optional(ids, "suffix"))
+                        : null,
                 strings(source.get("instructionArguments")),
                 source.get("atRest") instanceof Map<?, ?> rest
-                        ? new AtRest(strings(rest.get("shows")), strings(rest.get("lacks"))) : null,
-                source.get("grants") instanceof List<?> grants ? grants.stream()
-                        .filter(Map.class::isInstance).map(Map.class::cast)
-                        .map(grant -> new AgentGrant(String.valueOf(grant.get("provider")), map(grant.get("hosts")),
-                                optional(grant, "owner")))
-                        .toList() : List.of());
+                        ? new AtRest(strings(rest.get("shows")), strings(rest.get("lacks")))
+                        : null,
+                source.get("grants") instanceof List<?> grants
+                        ? grants.stream()
+                                .filter(Map.class::isInstance)
+                                .map(Map.class::cast)
+                                .map(
+                                        grant ->
+                                                new AgentGrant(
+                                                        String.valueOf(grant.get("provider")),
+                                                        map(grant.get("hosts")),
+                                                        optional(grant, "owner")))
+                                .toList()
+                        : List.of());
     }
 
     private static Map<String, Object> writeWaiting(Waiting waiting) {
         final Map<String, Object> out = new LinkedHashMap<>();
         out.put("screen", waiting.screen().stream().map(AgentDefinitionJson::writeRule).toList());
-        out.put("notItsScreen", waiting.notItsScreen().stream().map(AgentDefinitionJson::writeRule).toList());
+        out.put(
+                "notItsScreen",
+                waiting.notItsScreen().stream().map(AgentDefinitionJson::writeRule).toList());
         if (waiting.lastMessage() != null) {
             final Map<String, Object> last = new LinkedHashMap<>();
             last.put("record", waiting.lastMessage().record());
@@ -188,9 +221,12 @@ public final class AgentDefinitionJson {
     }
 
     private static Waiting readWaiting(Map<?, ?> source) {
-        final Waiting.LastMessage last = source.get("lastMessage") instanceof Map<?, ?> found
-                ? new Waiting.LastMessage(map(found.get("record")), string(found, "text")) : null;
-        return new Waiting(readRules(source.get("screen")), readRules(source.get("notItsScreen")), last);
+        final Waiting.LastMessage last =
+                source.get("lastMessage") instanceof Map<?, ?> found
+                        ? new Waiting.LastMessage(map(found.get("record")), string(found, "text"))
+                        : null;
+        return new Waiting(
+                readRules(source.get("screen")), readRules(source.get("notItsScreen")), last);
     }
 
     private static List<Waiting.Rule> readRules(@Nullable Object value) {
@@ -200,8 +236,13 @@ public final class AgentDefinitionJson {
         final List<Waiting.Rule> rules = new ArrayList<>();
         for (final Object each : list) {
             if (each instanceof Map<?, ?> rule) {
-                rules.add(new Waiting.Rule(string(rule, "contains"),
-                        rule.get("inLastLines") instanceof Number lines ? lines.intValue() : null, optional(rule, "for")));
+                rules.add(
+                        new Waiting.Rule(
+                                string(rule, "contains"),
+                                rule.get("inLastLines") instanceof Number lines
+                                        ? lines.intValue()
+                                        : null,
+                                optional(rule, "for")));
             }
         }
         return rules;
@@ -226,20 +267,22 @@ public final class AgentDefinitionJson {
         final List<InstallArtifact> result = new ArrayList<>();
         for (final Object item : list) {
             if (item instanceof Map<?, ?> map) {
-                result.add(new InstallArtifact(
-                        string(map, "url"),
-                        optional(map, "sha256"),
-                        string(map, "target"),
-                        string(map, "mode"),
-                        Boolean.TRUE.equals(map.get("unverified")),
-                        optional(map, "reason"),
-                        optional(map, "license")));
+                result.add(
+                        new InstallArtifact(
+                                string(map, "url"),
+                                optional(map, "sha256"),
+                                string(map, "target"),
+                                string(map, "mode"),
+                                Boolean.TRUE.equals(map.get("unverified")),
+                                optional(map, "reason"),
+                                optional(map, "license")));
             }
         }
         return List.copyOf(result);
     }
 
-    private static void putIfPresent(Map<String, Object> target, String key, @Nullable Object value) {
+    private static void putIfPresent(
+            Map<String, Object> target, String key, @Nullable Object value) {
         if (value != null) {
             target.put(key, value);
         }
@@ -288,10 +331,14 @@ public final class AgentDefinitionJson {
         if (dialect == null) {
             return null;
         }
-        return new AgentProvider(String.valueOf(dialect),
+        return new AgentProvider(
+                String.valueOf(dialect),
                 text(source.get("default")),
-                ProviderRoute.Endpoint.of(source.get("endpoint") == null ? null
-                        : String.valueOf(source.get("endpoint")), "the agent's own description"),
+                ProviderRoute.Endpoint.of(
+                        source.get("endpoint") == null
+                                ? null
+                                : String.valueOf(source.get("endpoint")),
+                        "the agent's own description"),
                 text(source.get("socketEnvironment")),
                 text(source.get("baseUrlEnvironment")));
     }
@@ -306,8 +353,10 @@ public final class AgentDefinitionJson {
         if (value instanceof java.util.List<?> list) {
             for (final Object element : list) {
                 if (element instanceof Map<?, ?> entry) {
-                    trees.add(new PackagedTree(String.valueOf(entry.get("source")),
-                            String.valueOf(entry.get("target"))));
+                    trees.add(
+                            new PackagedTree(
+                                    String.valueOf(entry.get("source")),
+                                    String.valueOf(entry.get("target"))));
                 }
             }
         }

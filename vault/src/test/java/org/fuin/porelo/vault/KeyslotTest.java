@@ -9,9 +9,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * A device opens the vault with a share, and the node cannot open it alone.
- */
+/** A device opens the vault with a share, and the node cannot open it alone. */
 class KeyslotTest {
 
     private static final char[] PASSPHRASE = "correct horse".toCharArray();
@@ -33,10 +31,13 @@ class KeyslotTest {
 
     @Test
     void a_new_vault_has_one_way_in_and_it_is_the_passphrase(@TempDir final Path dir) {
-        assertThat(vault(dir).slots()).singleElement().satisfies(slot -> {
-            assertThat(slot.recovery()).isTrue();
-            assertThat(slot.id()).isEqualTo(Keyslot.PASSPHRASE);
-        });
+        assertThat(vault(dir).slots())
+                .singleElement()
+                .satisfies(
+                        slot -> {
+                            assertThat(slot.recovery()).isTrue();
+                            assertThat(slot.id()).isEqualTo(Keyslot.PASSPHRASE);
+                        });
     }
 
     @Test
@@ -44,8 +45,12 @@ class KeyslotTest {
         final VaultFile vault = vault(dir);
         final byte[] share = share(1);
 
-        final Keyslot slot = vault.enroll(VaultFile.Opener.passphrase(PASSPHRASE), share,
-                "the laptop", "USER_SCOPED");
+        final Keyslot slot =
+                vault.enroll(
+                        VaultFile.Opener.passphrase(PASSPHRASE),
+                        share,
+                        "the laptop",
+                        "USER_SCOPED");
 
         assertThat(vault.read(share)).containsKey("github.token");
         assertThat(slot.recovery()).isFalse();
@@ -55,8 +60,8 @@ class KeyslotTest {
     @Test
     void the_passphrase_still_opens_it_with_no_device_present(@TempDir final Path dir) {
         final VaultFile vault = vault(dir);
-        vault.enroll(VaultFile.Opener.passphrase(PASSPHRASE), share(1), "the laptop",
-                "USER_SCOPED");
+        vault.enroll(
+                VaultFile.Opener.passphrase(PASSPHRASE), share(1), "the laptop", "USER_SCOPED");
 
         assertThat(vault.read(PASSPHRASE)).containsKey("github.token");
     }
@@ -76,21 +81,22 @@ class KeyslotTest {
         assertThat(indexOf(stored, share)).as("the share itself is not in the file").isEqualTo(-1);
         for (final Path each : Files.list(dir).toList()) {
             assertThat(indexOf(Files.readAllBytes(each), share))
-                    .as("the share is not in " + each.getFileName()).isEqualTo(-1);
+                    .as("the share is not in " + each.getFileName())
+                    .isEqualTo(-1);
         }
     }
 
     /**
      * The property the whole design rests on: if the node could unwrap with only what it stores, a
      * copy of this machine would be a copy of the vault and enrolling a device would be theatre.
-     * <p>
-     * <strong>What this test shows on its own is narrower than the property</strong>, and saying so
-     * matters: it shows that a share other than the enrolled one does not open the slot, including
-     * the all-zero one. The property itself is carried by this together with
-     * {@link #the_nodes_copy_of_the_share_is_gone()} and by the construction - the wrapping key is
-     * {@code HKDF(share, salt)}, the salt is public, and the share is nowhere on this machine. No
-     * test can enumerate everything the node does not have; what it can do is prove the share is
-     * not among what it has.
+     *
+     * <p><strong>What this test shows on its own is narrower than the property</strong>, and saying
+     * so matters: it shows that a share other than the enrolled one does not open the slot,
+     * including the all-zero one. The property itself is carried by this together with {@link
+     * #the_nodes_copy_of_the_share_is_gone()} and by the construction - the wrapping key is {@code
+     * HKDF(share, salt)}, the salt is public, and the share is nowhere on this machine. No test can
+     * enumerate everything the node does not have; what it can do is prove the share is not among
+     * what it has.
      */
     @Test
     void the_node_alone_cannot_unwrap(@TempDir final Path dir) {
@@ -105,8 +111,7 @@ class KeyslotTest {
                 .isInstanceOf(VaultException.class)
                 .hasMessageContaining("No keyslot");
         // And the slot's salt is public, which must not be enough either.
-        assertThatThrownBy(() -> vault.read(new byte[32]))
-                .isInstanceOf(VaultException.class);
+        assertThatThrownBy(() -> vault.read(new byte[32])).isInstanceOf(VaultException.class);
     }
 
     @Test
@@ -114,10 +119,11 @@ class KeyslotTest {
         final VaultFile vault = vault(dir);
         final byte[] one = share(1);
         final byte[] two = share(2);
-        final Keyslot first = vault.enroll(VaultFile.Opener.passphrase(PASSPHRASE), one,
-                "the laptop", "USER_SCOPED");
-        vault.enroll(VaultFile.Opener.passphrase(PASSPHRASE), two, "the phone",
-                "APPLICATION_SCOPED");
+        final Keyslot first =
+                vault.enroll(
+                        VaultFile.Opener.passphrase(PASSPHRASE), one, "the laptop", "USER_SCOPED");
+        vault.enroll(
+                VaultFile.Opener.passphrase(PASSPHRASE), two, "the phone", "APPLICATION_SCOPED");
 
         final var remaining = vault.revoke(VaultFile.Opener.passphrase(PASSPHRASE), first.id());
 
@@ -131,8 +137,11 @@ class KeyslotTest {
     void the_last_way_in_cannot_be_revoked(@TempDir final Path dir) {
         final VaultFile vault = vault(dir);
 
-        assertThatThrownBy(() -> vault.revoke(VaultFile.Opener.passphrase(PASSPHRASE),
-                Keyslot.PASSPHRASE))
+        assertThatThrownBy(
+                        () ->
+                                vault.revoke(
+                                        VaultFile.Opener.passphrase(PASSPHRASE),
+                                        Keyslot.PASSPHRASE))
                 .isInstanceOf(VaultException.class)
                 .hasMessageContaining("last way into");
     }
@@ -149,8 +158,9 @@ class KeyslotTest {
 
         vault.rekey(PASSPHRASE, "a different one".toCharArray());
 
-        assertThat(vault.read(share)).as("the device never heard about it").containsKey(
-                "github.token");
+        assertThat(vault.read(share))
+                .as("the device never heard about it")
+                .containsKey("github.token");
         assertThat(vault.read("a different one".toCharArray())).containsKey("github.token");
         assertThatThrownBy(() -> vault.read(PASSPHRASE)).isInstanceOf(VaultException.class);
     }
@@ -161,8 +171,13 @@ class KeyslotTest {
         final byte[] share = share(1);
         vault.enroll(VaultFile.Opener.passphrase(PASSPHRASE), share, "the laptop", "USER_SCOPED");
 
-        assertThatThrownBy(() -> vault.enroll(VaultFile.Opener.passphrase(PASSPHRASE), share,
-                "the laptop again", "USER_SCOPED"))
+        assertThatThrownBy(
+                        () ->
+                                vault.enroll(
+                                        VaultFile.Opener.passphrase(PASSPHRASE),
+                                        share,
+                                        "the laptop again",
+                                        "USER_SCOPED"))
                 .isInstanceOf(VaultException.class)
                 .hasMessageContaining("already enrolled as 'the laptop'");
     }
@@ -170,41 +185,65 @@ class KeyslotTest {
     @Test
     void recording_a_devices_use_never_loses_a_credential_stored_meanwhile(@TempDir final Path dir)
             throws Exception {
-        // 'used', 'enroll' and 'revoke' read the vault, changed it and wrote it back without the lock 'update' holds:
-        // a device unlocking while a credential was stored wrote back what it had read, and the credential was gone.
+        // 'used', 'enroll' and 'revoke' read the vault, changed it and wrote it back without the
+        // lock 'update' holds:
+        // a device unlocking while a credential was stored wrote back what it had read, and the
+        // credential was gone.
         final VaultFile vault = vault(dir);
         final byte[] share = share(1);
-        final Keyslot device = vault.enroll(VaultFile.Opener.passphrase(PASSPHRASE), share, "the laptop",
-                "USER_SCOPED");
-        final java.util.concurrent.atomic.AtomicBoolean storing = new java.util.concurrent.atomic.AtomicBoolean(true);
-        final Thread unlocking = Thread.ofPlatform().start(() -> {
-            while (storing.get()) {
-                vault.used(VaultFile.Opener.share(share), device.id());
-            }
-        });
+        final Keyslot device =
+                vault.enroll(
+                        VaultFile.Opener.passphrase(PASSPHRASE),
+                        share,
+                        "the laptop",
+                        "USER_SCOPED");
+        final java.util.concurrent.atomic.AtomicBoolean storing =
+                new java.util.concurrent.atomic.AtomicBoolean(true);
+        final Thread unlocking =
+                Thread.ofPlatform()
+                        .start(
+                                () -> {
+                                    while (storing.get()) {
+                                        vault.used(VaultFile.Opener.share(share), device.id());
+                                    }
+                                });
         try {
             for (int i = 0; i < 6; i++) {
                 final String name = "stored." + i;
-                vault.update(PASSPHRASE, entries -> {
-                    entries.put(name, VaultEntry.of("value-" + name));
-                    return entries;
-                });
+                vault.update(
+                        PASSPHRASE,
+                        entries -> {
+                            entries.put(name, VaultEntry.of("value-" + name));
+                            return entries;
+                        });
             }
         } finally {
             storing.set(false);
             unlocking.join();
         }
 
-        assertThat(vault.read(PASSPHRASE)).containsKeys("stored.0", "stored.1", "stored.2", "stored.3",
-                "stored.4", "stored.5", "github.token");
+        assertThat(vault.read(PASSPHRASE))
+                .containsKeys(
+                        "stored.0",
+                        "stored.1",
+                        "stored.2",
+                        "stored.3",
+                        "stored.4",
+                        "stored.5",
+                        "github.token");
     }
 
     @Test
     void a_storage_kind_nobody_declared_is_refused(@TempDir final Path dir) {
         final VaultFile vault = vault(dir);
 
-        assertThatThrownBy(() -> vault.enroll(VaultFile.Opener.passphrase(PASSPHRASE), share(1),
-                "the laptop", "A_DRAWER"))
+        assertThatThrownBy(
+                        () ->
+                                vault.enroll(
+                                        VaultFile.Opener.passphrase(PASSPHRASE),
+                                        share(1),
+                                        "the laptop",
+                                        "A_DRAWER"))
                 .isInstanceOf(VaultException.class)
                 .hasMessageContaining("not a kind of storage");
     }

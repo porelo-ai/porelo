@@ -11,19 +11,19 @@ import java.nio.file.Path;
 
 /**
  * Labels a unix socket so a task container is allowed to connect to it under SELinux.
- * <p>
- * <strong>The label goes on the socket, not on the file.</strong> SELinux checks {@code connectto}
- * against the context of the socket object, which by default is the context of whoever created it -
- * for any program an operator starts, {@code unconfined_t}, which containers may not reach. The
- * container runtime relabels the socket's directory entry and that is a different check; getting
- * only that one right still leaves the connection refused.
- * <p>
- * Measured on Fedora 44: without this the request never arrives, the proxy log stays empty, and the
- * agent reports an authentication failure.
- * <p>
- * Does nothing where there is no SELinux, and nothing where the policy module is not installed -
- * binding must not fail because a machine lacks a policy, or no task would run there at all.
- * {@link #available()} is what reports that, and {@code porelo doctor} asks it.
+ *
+ * <p><strong>The label goes on the socket, not on the file.</strong> SELinux checks {@code
+ * connectto} against the context of the socket object, which by default is the context of whoever
+ * created it - for any program an operator starts, {@code unconfined_t}, which containers may not
+ * reach. The container runtime relabels the socket's directory entry and that is a different check;
+ * getting only that one right still leaves the connection refused.
+ *
+ * <p>Measured on Fedora 44: without this the request never arrives, the proxy log stays empty, and
+ * the agent reports an authentication failure.
+ *
+ * <p>Does nothing where there is no SELinux, and nothing where the policy module is not installed -
+ * binding must not fail because a machine lacks a policy, or no task would run there at all. {@link
+ * #available()} is what reports that, and {@code porelo doctor} asks it.
  */
 public final class SocketContext implements Closeable {
 
@@ -50,8 +50,8 @@ public final class SocketContext implements Closeable {
 
     /**
      * Opens a unix socket channel carrying the label.
-     * <p>
-     * The label belongs to the socket, and the kernel assigns it when the socket is
+     *
+     * <p>The label belongs to the socket, and the kernel assigns it when the socket is
      * <em>created</em> - not when it is bound. Wrapping the bind instead leaves the socket
      * unlabelled and the container's connection refused, with everything else looking correct.
      * Opening it here is what keeps that mistake from being possible at a call site.
@@ -67,8 +67,8 @@ public final class SocketContext implements Closeable {
 
     /**
      * Applies the label to every socket this thread creates until the returned handle is closed.
-     * <p>
-     * The attribute is per-thread, so the socket must be created on the thread that called this.
+     *
+     * <p>The attribute is per-thread, so the socket must be created on the thread that called this.
      *
      * @return Handle that clears the label again.
      */
@@ -85,9 +85,9 @@ public final class SocketContext implements Closeable {
     /**
      * Tells whether this machine accepts the label, which is true only if the policy module is
      * installed.
-     * <p>
-     * Asking is the whole test: an unknown type is rejected outright, so nothing has to be started
-     * and no privileges are needed.
+     *
+     * <p>Asking is the whole test: an unknown type is rejected outright, so nothing has to be
+     * started and no privileges are needed.
      *
      * @return {@code true} if a socket bound now would carry the label.
      */
@@ -106,8 +106,8 @@ public final class SocketContext implements Closeable {
 
     /**
      * Tells whether this machine runs SELinux at all.
-     * <p>
-     * The attribute file exists whatever the security module is, so the filesystem is what
+     *
+     * <p>The attribute file exists whatever the security module is, so the filesystem is what
      * distinguishes them.
      *
      * @return {@code true} if SELinux is present.
@@ -123,7 +123,8 @@ public final class SocketContext implements Closeable {
      * @return {@code true} if SELinux is present.
      */
     static boolean selinuxPresent(Path selinuxfs) {
-        // The directory alone is no answer: a kernel with SELinux built in but not running keeps it as an empty
+        // The directory alone is no answer: a kernel with SELinux built in but not running keeps it
+        // as an empty
         // mount point. 'enforce' is there only when selinuxfs is mounted.
         return Files.isRegularFile(selinuxfs.resolve("enforce"));
     }

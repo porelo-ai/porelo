@@ -10,22 +10,22 @@ upstream: https://api.githubcopilot.com
 # Every path at the root - /chat/completions, /responses, /v1/messages, /models - so no prefix. The first
 # dialect is what an agent asking for 'native' gets.
 dialects:
-  openai: ""
+    openai: ""
 
 auth_header:
-  _default: Authorization
+    _default: Authorization
 auth_prefix:
-  _default: "Bearer "
+    _default: "Bearer "
 
 # Where a task's token goes: the variable the Pi family reads for Copilot. Without one nothing is brokered,
 # and a task that cannot authenticate is started.
 token_env:
-  _default: COPILOT_GITHUB_TOKEN
+    _default: COPILOT_GITHUB_TOKEN
 
 # What a person grants once, the same for everybody: GitHub's device flow and the scope Copilot asks. The client
 # id is not here - it is the signing-in agent's own, in its definition's login.grants.
 grant:
-  kind: oauth-device
-  device_authorization_url: https://github.com/login/device/code
-  token_url: https://github.com/login/oauth/access_token
-  scopes: read:user
+    kind: oauth-device
+    device_authorization_url: https://github.com/login/device/code
+    token_url: https://github.com/login/oauth/access_token
+    scopes: read:user

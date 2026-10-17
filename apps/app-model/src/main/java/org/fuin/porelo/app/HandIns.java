@@ -24,23 +24,27 @@ import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Files handed to a running task: taken in parts, placed whole in {@code /porelo/files}, and written down.
- * <p>
- * <strong>Inbound only.</strong> Nothing here takes a file out of a task: content leaving a task is what the gate is
- * for, and a copy out would put bytes the agent controls on the host.
- * <p>
- * <strong>Complete or not at all.</strong> A file arrives on the host in parts, under a name of its own in the
- * runtime directory, and goes into the container only once its size and its sha256 are what the caller said. There it
- * is written into {@code /porelo/.incoming}, which the agent cannot look into, and renamed into {@code /porelo/files} on
- * the same filesystem - so an agent that looks at any moment sees the whole file or none of it.
- * <p>
- * <strong>Root's, read-only to the agent.</strong> Placed as root, mode 0644, in a directory the agent cannot write:
- * the agent reads what it was given and cannot change or remove it; taking it back is a person's act.
- * <p>
- * <strong>Written down, never kept.</strong> Every hand-in, replacement and removal is a line in the state directory -
- * who, when, which run, the name, the size and the sha256 - and the record outlives the task, as the clearance journal
- * does. The content is not in it: a handed-in file is often the very thing that is deliberately not in git. And it
- * records what this did, not what reached the container: a {@code podman cp} by hand is not in it.
+ * Files handed to a running task: taken in parts, placed whole in {@code /porelo/files}, and
+ * written down.
+ *
+ * <p><strong>Inbound only.</strong> Nothing here takes a file out of a task: content leaving a task
+ * is what the gate is for, and a copy out would put bytes the agent controls on the host.
+ *
+ * <p><strong>Complete or not at all.</strong> A file arrives on the host in parts, under a name of
+ * its own in the runtime directory, and goes into the container only once its size and its sha256
+ * are what the caller said. There it is written into {@code /porelo/.incoming}, which the agent
+ * cannot look into, and renamed into {@code /porelo/files} on the same filesystem - so an agent
+ * that looks at any moment sees the whole file or none of it.
+ *
+ * <p><strong>Root's, read-only to the agent.</strong> Placed as root, mode 0644, in a directory the
+ * agent cannot write: the agent reads what it was given and cannot change or remove it; taking it
+ * back is a person's act.
+ *
+ * <p><strong>Written down, never kept.</strong> Every hand-in, replacement and removal is a line in
+ * the state directory - who, when, which run, the name, the size and the sha256 - and the record
+ * outlives the task, as the clearance journal does. The content is not in it: a handed-in file is
+ * often the very thing that is deliberately not in git. And it records what this did, not what
+ * reached the container: a {@code podman cp} by hand is not in it.
  */
 public final class HandIns {
 
@@ -64,7 +68,10 @@ public final class HandIns {
 
     private static final Pattern SHA256 = Pattern.compile("[0-9a-f]{64}");
 
-    /** One lock per task, so two calls for the same task never interleave their parts or their record. */
+    /**
+     * One lock per task, so two calls for the same task never interleave their parts or their
+     * record.
+     */
     private static final Map<String, Object> LOCKS = new ConcurrentHashMap<>();
 
     private final TaskPaths paths;
@@ -75,9 +82,7 @@ public final class HandIns {
 
     private final Clock clock;
 
-    /**
-     * Runs a command, feeding it a file on standard input when one is given.
-     */
+    /** Runs a command, feeding it a file on standard input when one is given. */
     @FunctionalInterface
     public interface Runner {
 
@@ -102,7 +107,8 @@ public final class HandIns {
      * @param by Who handed it in: an account, or {@link #PORELO}.
      * @param run The container id of the task it went to.
      */
-    public record HandedFile(String name, long bytes, String sha256, String at, String by, String run) {
+    public record HandedFile(
+            String name, long bytes, String sha256, String at, String by, String run) {
 
         /**
          * Returns it as the daemon sends it.
@@ -165,14 +171,12 @@ public final class HandIns {
      * How far a hand-in has come.
      *
      * @param received Bytes the daemon holds for it.
-     * @param file The file, once the last part made it complete and it is in the task; {@code null} before.
+     * @param file The file, once the last part made it complete and it is in the task; {@code null}
+     *     before.
      */
-    public record Progress(long received, @Nullable HandedFile file) {
-    }
+    public record Progress(long received, @Nullable HandedFile file) {}
 
-    /**
-     * A hand-in refused, as a named answer: the daemon sends it as the error of that name.
-     */
+    /** A hand-in refused, as a named answer: the daemon sends it as the error of that name. */
     public static final class Refused extends RuntimeException {
 
         private static final long serialVersionUID = 1L;
@@ -216,7 +220,10 @@ public final class HandIns {
      * @param runner Runs those commands.
      * @param clock The time a record line carries.
      */
-    public HandIns(final TaskPaths paths, final org.fuin.porelo.runtime.Podman podman, final Runner runner,
+    public HandIns(
+            final TaskPaths paths,
+            final org.fuin.porelo.runtime.Podman podman,
+            final Runner runner,
             final Clock clock) {
         this.paths = paths;
         this.podman = podman;
@@ -231,7 +238,8 @@ public final class HandIns {
      * @return Hand-ins for it.
      */
     public static HandIns of(final PoreloContext context) {
-        return new HandIns(context.paths().tasks(), context.podman(), HandIns::process, Clock.systemUTC());
+        return new HandIns(
+                context.paths().tasks(), context.podman(), HandIns::process, Clock.systemUTC());
     }
 
     /**
@@ -248,16 +256,27 @@ public final class HandIns {
      * @throws Refused When the name, the size, the order or the content is not what it has to be.
      * @throws IOException When the part cannot be kept or the file cannot be placed.
      */
-    public Progress part(final String container, final String name, final long bytes, final String sha256,
-            final long offset, final byte[] part, final String by) throws IOException {
+    public Progress part(
+            final String container,
+            final String name,
+            final long bytes,
+            final String sha256,
+            final long offset,
+            final byte[] part,
+            final String by)
+            throws IOException {
         checkName(name);
         if (!SHA256.matcher(sha256).matches()) {
-            throw new Refused("FileNameRefused", Map.of("name", name, "reason",
-                    "sha256 must be 64 lower-case hex digits"), "sha256 must be 64 lower-case hex digits");
+            throw new Refused(
+                    "FileNameRefused",
+                    Map.of("name", name, "reason", "sha256 must be 64 lower-case hex digits"),
+                    "sha256 must be 64 lower-case hex digits");
         }
         final long limit = limit(container);
         if (bytes < 0 || bytes > limit) {
-            throw new Refused("FileTooLarge", Map.of("bytes", bytes, "limit", limit),
+            throw new Refused(
+                    "FileTooLarge",
+                    Map.of("bytes", bytes, "limit", limit),
                     name + " has " + bytes + " bytes; this task takes at most " + limit);
         }
         synchronized (LOCKS.computeIfAbsent(container, any -> new Object())) {
@@ -266,35 +285,59 @@ public final class HandIns {
             final Path data = staging.resolve(name + ".part");
             final Path meta = staging.resolve(name + ".json");
             if (Files.isRegularFile(meta)) {
-                final Map<?, ?> was = (Map<?, ?>) Json.parse(Files.readString(meta, StandardCharsets.UTF_8));
+                final Map<?, ?> was =
+                        (Map<?, ?>) Json.parse(Files.readString(meta, StandardCharsets.UTF_8));
                 final long received = Files.size(data);
-                if (was == null || !String.valueOf(was.get("sha256")).equals(sha256)
+                if (was == null
+                        || !String.valueOf(was.get("sha256")).equals(sha256)
                         || number(was.get("bytes")) != bytes) {
-                    throw new Refused("HandInInProgress", Map.of("name", name, "received", received, "bytes",
-                            was == null ? 0L : number(was.get("bytes"))),
+                    throw new Refused(
+                            "HandInInProgress",
+                            Map.of(
+                                    "name",
+                                    name,
+                                    "received",
+                                    received,
+                                    "bytes",
+                                    was == null ? 0L : number(was.get("bytes"))),
                             "a different file named " + name + " is being handed in");
                 }
                 if (offset != received) {
-                    throw new Refused("PartOutOfOrder", Map.of("name", name, "received", received),
-                            "the part starts at " + offset + "; " + received + " bytes of " + name
+                    throw new Refused(
+                            "PartOutOfOrder",
+                            Map.of("name", name, "received", received),
+                            "the part starts at "
+                                    + offset
+                                    + "; "
+                                    + received
+                                    + " bytes of "
+                                    + name
                                     + " are here");
                 }
             } else {
                 if (offset != 0) {
-                    throw new Refused("PartOutOfOrder", Map.of("name", name, "received", 0L),
+                    throw new Refused(
+                            "PartOutOfOrder",
+                            Map.of("name", name, "received", 0L),
                             "the part starts at " + offset + "; nothing of " + name + " is here");
                 }
-                Files.createDirectories(staging, PosixFilePermissions.asFileAttribute(
-                        PosixFilePermissions.fromString("rwx------")));
-                Files.writeString(meta, Json.write(Map.of("bytes", bytes, "sha256", sha256)),
+                Files.createDirectories(
+                        staging,
+                        PosixFilePermissions.asFileAttribute(
+                                PosixFilePermissions.fromString("rwx------")));
+                Files.writeString(
+                        meta,
+                        Json.write(Map.of("bytes", bytes, "sha256", sha256)),
                         StandardCharsets.UTF_8);
                 Files.write(data, new byte[0]);
             }
             final long received = Files.size(data) + part.length;
             if (received > bytes) {
                 drop(data, meta);
-                throw new Refused("FileDiffers", Map.of("expected", sha256, "actual",
-                        "more than " + bytes + " bytes"), name + " is longer than the " + bytes + " bytes it said");
+                throw new Refused(
+                        "FileDiffers",
+                        Map.of("expected", sha256, "actual", "more than " + bytes + " bytes"),
+                        name + " is longer than the " + bytes + " bytes it said");
             }
             Files.write(data, part, StandardOpenOption.APPEND);
             if (received < bytes) {
@@ -303,7 +346,9 @@ public final class HandIns {
             final String actual = sha256Of(data);
             if (!actual.equals(sha256)) {
                 drop(data, meta);
-                throw new Refused("FileDiffers", Map.of("expected", sha256, "actual", actual),
+                throw new Refused(
+                        "FileDiffers",
+                        Map.of("expected", sha256, "actual", actual),
                         name + " does not hash to what was said");
             }
             try {
@@ -325,13 +370,16 @@ public final class HandIns {
      * @throws Refused When the name or the size is refused.
      * @throws IOException When the file cannot be read or placed.
      */
-    public HandedFile give(final String container, final String name, final Path source, final String by)
+    public HandedFile give(
+            final String container, final String name, final Path source, final String by)
             throws IOException {
         checkName(name);
         final long bytes = Files.size(source);
         final long limit = limit(container);
         if (bytes > limit) {
-            throw new Refused("FileTooLarge", Map.of("bytes", bytes, "limit", limit),
+            throw new Refused(
+                    "FileTooLarge",
+                    Map.of("bytes", bytes, "limit", limit),
                     name + " has " + bytes + " bytes; this task takes at most " + limit);
         }
         synchronized (LOCKS.computeIfAbsent(container, any -> new Object())) {
@@ -349,22 +397,38 @@ public final class HandIns {
      * @throws Refused When the task holds no such file.
      * @throws IOException When it cannot be removed.
      */
-    public HandedFile takeBack(final String container, final String name, final String by) throws IOException {
+    public HandedFile takeBack(final String container, final String name, final String by)
+            throws IOException {
         synchronized (LOCKS.computeIfAbsent(container, any -> new Object())) {
-            final HandedFile file = summary(container).files().stream()
-                    .filter(each -> each.name().equals(name)).findFirst()
-                    .orElseThrow(() -> new Refused("NoSuchFile", Map.of("task", container, "name", name),
-                            container + " holds no file " + name + " that was handed in"));
-            run(podman.asRootArguments(container, List.of("rm", "-f", Containerfile.HAND_IN_FILES + "/" + name)),
-                    null, "Could not remove " + name + " from " + container);
-            final HandedFile taken = new HandedFile(name, file.bytes(), file.sha256(), now(), by, file.run());
+            final HandedFile file =
+                    summary(container).files().stream()
+                            .filter(each -> each.name().equals(name))
+                            .findFirst()
+                            .orElseThrow(
+                                    () ->
+                                            new Refused(
+                                                    "NoSuchFile",
+                                                    Map.of("task", container, "name", name),
+                                                    container
+                                                            + " holds no file "
+                                                            + name
+                                                            + " that was handed in"));
+            run(
+                    podman.asRootArguments(
+                            container,
+                            List.of("rm", "-f", Containerfile.HAND_IN_FILES + "/" + name)),
+                    null,
+                    "Could not remove " + name + " from " + container);
+            final HandedFile taken =
+                    new HandedFile(name, file.bytes(), file.sha256(), now(), by, file.run());
             append(container, TAKEN_BACK, taken);
             return taken;
         }
     }
 
     /**
-     * Returns every hand-in, replacement and removal for a task name, oldest first: of every run that had it.
+     * Returns every hand-in, replacement and removal for a task name, oldest first: of every run
+     * that had it.
      *
      * @param container The task's name.
      * @return The record, empty when nothing was handed in.
@@ -378,10 +442,15 @@ public final class HandIns {
         final List<Entry> entries = new ArrayList<>();
         for (final String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
             if (!line.isBlank() && Json.parse(line) instanceof Map<?, ?> map) {
-                entries.add(new Entry(String.valueOf(map.get("event")), new HandedFile(
-                        String.valueOf(map.get("name")), number(map.get("bytes")),
-                        String.valueOf(map.get("sha256")), String.valueOf(map.get("at")),
-                        String.valueOf(map.get("by")), String.valueOf(map.get("run")))));
+                entries.add(
+                        new Entry(
+                                String.valueOf(map.get("event")),
+                                new HandedFile(
+                                        String.valueOf(map.get("name")), number(map.get("bytes")),
+                                        String.valueOf(map.get("sha256")),
+                                                String.valueOf(map.get("at")),
+                                        String.valueOf(map.get("by")),
+                                                String.valueOf(map.get("run")))));
             }
         }
         return entries;
@@ -408,7 +477,8 @@ public final class HandIns {
                 }
             }
         } catch (IOException | RuntimeException ex) {
-            // An unreadable record says nothing is held rather than failing the listing it is a part of.
+            // An unreadable record says nothing is held rather than failing the listing it is a
+            // part of.
             held.clear();
         }
         return new Summary(run, limit(container), List.copyOf(held.values()));
@@ -435,21 +505,38 @@ public final class HandIns {
         } else {
             return;
         }
-        throw new Refused("FileNameRefused", Map.of("name", name, "reason", reason),
+        throw new Refused(
+                "FileNameRefused",
+                Map.of("name", name, "reason", reason),
                 "'" + name + "' cannot be a handed-in file's name: " + reason);
     }
 
-    private HandedFile place(final String container, final String name, final long bytes, final String sha256,
-            final Path source, final String by) throws IOException {
+    private HandedFile place(
+            final String container,
+            final String name,
+            final long bytes,
+            final String sha256,
+            final Path source,
+            final String by)
+            throws IOException {
         final String incoming = Containerfile.HAND_IN_INCOMING + "/" + name;
         final String target = Containerfile.HAND_IN_FILES + "/" + name;
-        final boolean replaced = summary(container).files().stream().anyMatch(each -> each.name().equals(name));
-        run(podman.asRootWithInputArguments(container, List.of("dd", "of=" + incoming, "bs=1M", "status=none")),
-                source, "Could not write " + name + " into " + container);
-        run(podman.asRootArguments(container, List.of("chmod", "0644", incoming)), null,
+        final boolean replaced =
+                summary(container).files().stream().anyMatch(each -> each.name().equals(name));
+        run(
+                podman.asRootWithInputArguments(
+                        container, List.of("dd", "of=" + incoming, "bs=1M", "status=none")),
+                source,
+                "Could not write " + name + " into " + container);
+        run(
+                podman.asRootArguments(container, List.of("chmod", "0644", incoming)),
+                null,
                 "Could not set the permissions of " + name + " in " + container);
-        // Renamed into place on the same filesystem: whole or not at all, to an agent that looks at any moment.
-        run(podman.asRootArguments(container, List.of("mv", "-f", incoming, target)), null,
+        // Renamed into place on the same filesystem: whole or not at all, to an agent that looks at
+        // any moment.
+        run(
+                podman.asRootArguments(container, List.of("mv", "-f", incoming, target)),
+                null,
                 "Could not move " + name + " into place in " + container);
         final HandedFile file = new HandedFile(name, bytes, sha256, now(), by, run(container));
         append(container, replaced ? REPLACED : GIVEN, file);
@@ -463,18 +550,23 @@ public final class HandIns {
         }
     }
 
-    private void append(final String container, final String event, final HandedFile file) throws IOException {
+    private void append(final String container, final String event, final HandedFile file)
+            throws IOException {
         final Path record = recordOf(container);
-        Files.createDirectories(record.getParent(), PosixFilePermissions.asFileAttribute(
-                PosixFilePermissions.fromString("rwx------")));
+        Files.createDirectories(
+                record.getParent(),
+                PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")));
         final Map<String, Object> line = new LinkedHashMap<>();
         line.put("event", event);
         line.putAll(file.asMap());
         if (!Files.exists(record)) {
-            Files.createFile(record, PosixFilePermissions.asFileAttribute(
-                    PosixFilePermissions.fromString("rw-------")));
+            Files.createFile(
+                    record,
+                    PosixFilePermissions.asFileAttribute(
+                            PosixFilePermissions.fromString("rw-------")));
         }
-        Files.writeString(record, Json.write(line) + "\n", StandardCharsets.UTF_8, StandardOpenOption.APPEND);
+        Files.writeString(
+                record, Json.write(line) + "\n", StandardCharsets.UTF_8, StandardOpenOption.APPEND);
     }
 
     /** The record, in the state directory like the clearance journal, so it outlives the task. */
@@ -482,7 +574,10 @@ public final class HandIns {
         return paths.paths().xdg().state().resolve("hand-ins").resolve(container + ".jsonl");
     }
 
-    /** Where parts wait until the file is complete: the runtime directory, gone at logout like any part. */
+    /**
+     * Where parts wait until the file is complete: the runtime directory, gone at logout like any
+     * part.
+     */
     private Path staging(final String container) {
         return paths.containerState(container).resolveSibling("hand-in").resolve(container);
     }
@@ -492,7 +587,8 @@ public final class HandIns {
     }
 
     /**
-     * Returns the container id of a task's current run, which tells a task from a later one of the same name.
+     * Returns the container id of a task's current run, which tells a task from a later one of the
+     * same name.
      *
      * @param paths Where tasks keep their state.
      * @param container The task.
@@ -507,14 +603,16 @@ public final class HandIns {
     }
 
     private long limit(final String container) {
-        for (final Path state : List.of(paths.containerState(container), paths.taskRecord(container))) {
+        for (final Path state :
+                List.of(paths.containerState(container), paths.taskRecord(container))) {
             final Path file = state.resolve(LIMIT_FILE);
             try {
                 if (Files.isRegularFile(file)) {
                     return Long.parseLong(Files.readString(file, StandardCharsets.UTF_8).strip());
                 }
             } catch (IOException | NumberFormatException ex) {
-                // Unreadable, it is the default: a limit that cannot be read must not let a larger file in.
+                // Unreadable, it is the default: a limit that cannot be read must not let a larger
+                // file in.
                 return org.fuin.porelo.core.project.Limits.DEFAULT_HAND_IN;
             }
         }
@@ -527,10 +625,14 @@ public final class HandIns {
         }
         final Instant cutoff = clock.instant().minus(ABANDONED);
         try (var parts = Files.list(staging)) {
-            for (final Path data : parts.filter(path -> path.toString().endsWith(".part")).toList()) {
+            for (final Path data :
+                    parts.filter(path -> path.toString().endsWith(".part")).toList()) {
                 if (Files.getLastModifiedTime(data).toInstant().isBefore(cutoff)) {
                     final String base = data.getFileName().toString();
-                    drop(data, staging.resolve(base.substring(0, base.length() - ".part".length()) + ".json"));
+                    drop(
+                            data,
+                            staging.resolve(
+                                    base.substring(0, base.length() - ".part".length()) + ".json"));
                 }
             }
         }
@@ -563,7 +665,8 @@ public final class HandIns {
         }
     }
 
-    private static int process(final List<String> arguments, final @Nullable Path stdin) throws IOException {
+    private static int process(final List<String> arguments, final @Nullable Path stdin)
+            throws IOException {
         final ProcessBuilder builder = new ProcessBuilder(arguments);
         if (stdin != null) {
             builder.redirectInput(stdin.toFile());

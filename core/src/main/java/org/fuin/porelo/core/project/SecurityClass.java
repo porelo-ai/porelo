@@ -2,13 +2,14 @@ package org.fuin.porelo.core.project;
 
 /**
  * How much the agent in a task container is trusted with the outside world.
- * <p>
- * The class decides the egress policy and whether an agent's work is reviewed before it reaches
+ *
+ * <p>The class decides the egress policy and whether an agent's work is reviewed before it reaches
  * the upstream. It is a property of the project, not of a single run: a task cannot raise it from
  * the command line.
- * <p>
- * Only {@link #OFFLINE} currently changes the egress policy; {@link #GUARDED} and {@link #ONLINE}
- * produce the same resolver configuration and the same firewall ruleset, and differ in git.
+ *
+ * <p>Only {@link #OFFLINE} currently changes the egress policy; {@link #GUARDED} and {@link
+ * #ONLINE} produce the same resolver configuration and the same firewall ruleset, and differ in
+ * git.
  */
 public enum SecurityClass {
 
@@ -22,8 +23,8 @@ public enum SecurityClass {
     GUARDED,
 
     /**
-     * The same egress as {@link #GUARDED}, and no gate: the agent's remote is the upstream, so
-     * what it pushes lands there unreviewed. This is why the class requires an upstream and why a
+     * The same egress as {@link #GUARDED}, and no gate: the agent's remote is the upstream, so what
+     * it pushes lands there unreviewed. This is why the class requires an upstream and why a
      * project has to opt into it.
      */
     ONLINE;
@@ -41,7 +42,9 @@ public enum SecurityClass {
                 return candidate;
             }
         }
-        throw new ProjectException("Unknown security class '" + value
-                + "', expected one of: offline, guarded, online");
+        throw new ProjectException(
+                "Unknown security class '"
+                        + value
+                        + "', expected one of: offline, guarded, online");
     }
 }

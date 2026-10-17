@@ -1,8 +1,8 @@
 package org.fuin.porelo.legs;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -11,9 +11,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Tests for the guard that stops a leg reporting success on nothing.
- */
+/** Tests for the guard that stops a leg reporting success on nothing. */
 class LegTest {
 
     @Test
@@ -62,8 +60,7 @@ class LegTest {
     @Test
     void namesWhereItLooked(@TempDir Path reports) {
         assertThat(Leg.class).isNotNull();
-        assertThatThrownBy(() -> Leg.proved(reports))
-                .hasMessageContaining(reports.toString());
+        assertThatThrownBy(() -> Leg.proved(reports)).hasMessageContaining(reports.toString());
     }
 
     @Test
@@ -88,15 +85,14 @@ class LegTest {
         // compiled on. Passing nothing lets the root pom's local-package profile say so.
         final String command = Leg.build(null, null);
 
-        assertThat(command)
-                .doesNotContain("GITHUB_RUN_ID")
-                .doesNotContain("porelo.snapshot.run");
+        assertThat(command).doesNotContain("GITHUB_RUN_ID").doesNotContain("porelo.snapshot.run");
     }
 
     @Test
     void buildsWithTheSettingsOfTheCheckout() throws IOException {
 
-        // The machine has no settings of its own, and the build tooling's snapshots are found only through porelo's.
+        // The machine has no settings of its own, and the build tooling's snapshots are found only
+        // through porelo's.
         assertThat(Files.readString(Path.of("../..", Leg.BUILD_SCRIPT)))
                 .contains("./mvnw -B -s settings.xml ");
     }
@@ -116,8 +112,10 @@ class LegTest {
     void anExtraAccountIsPreparedAsTheBuildUserWas() {
         final String command = Leg.prepare("accept2");
 
-        // Lingering, subordinate ranges for rootless podman, this run's key, and the build user's install.
-        assertThat(command).contains("useradd -m -s /bin/bash accept2")
+        // Lingering, subordinate ranges for rootless podman, this run's key, and the build user's
+        // install.
+        assertThat(command)
+                .contains("useradd -m -s /bin/bash accept2")
                 .contains("grep -q '^accept2:' /etc/subuid")
                 .contains("loginctl enable-linger accept2")
                 .contains("/root/.ssh/authorized_keys /home/accept2/.ssh/authorized_keys")
@@ -129,22 +127,31 @@ class LegTest {
     @org.junit.jupiter.api.Test
     void aReportThatCannotBeReadAfterTheScenariosNeverFailsTheLeg() {
 
-        // The first cache report ran on a session a restart had closed, and turned two green legs red.
-        org.assertj.core.api.Assertions.assertThat(Leg.reported(() -> {
-            throw new java.io.IOException("Not connected");
-        })).contains("could not be read").contains("Not connected");
-        org.assertj.core.api.Assertions.assertThat(Leg.reported(() -> "  manifests answered by the cache: 4\n"))
+        // The first cache report ran on a session a restart had closed, and turned two green legs
+        // red.
+        org.assertj.core.api.Assertions.assertThat(
+                        Leg.reported(
+                                () -> {
+                                    throw new java.io.IOException("Not connected");
+                                }))
+                .contains("could not be read")
+                .contains("Not connected");
+        org.assertj.core.api.Assertions.assertThat(
+                        Leg.reported(() -> "  manifests answered by the cache: 4\n"))
                 .contains("4");
     }
 
     @Test
     void theAcceptanceAccountsMayRestartTheMachineAndDoNothingElseAsRoot() {
 
-        // 'systemd-run' and 'systemctl' with any arguments run anything as root, which the grant's own comment said it
+        // 'systemd-run' and 'systemctl' with any arguments run anything as root, which the grant's
+        // own comment said it
         // did not allow: the suite asks for exactly a delayed reboot, and a reboot when that fails.
-        assertThat(Leg.restartGrant(List.of("build", "accept2"))).containsExactly(
-                "build ALL=(root) NOPASSWD: /usr/bin/systemd-run --on-active\\=1s /sbin/reboot, /sbin/reboot",
-                "accept2 ALL=(root) NOPASSWD: /usr/bin/systemd-run --on-active\\=1s /sbin/reboot, /sbin/reboot");
-        assertThat(Leg.grantRestart(List.of("build"))).endsWith("visudo -c -f " + Leg.RESTART_GRANT);
+        assertThat(Leg.restartGrant(List.of("build", "accept2")))
+                .containsExactly(
+                        "build ALL=(root) NOPASSWD: /usr/bin/systemd-run --on-active\\=1s /sbin/reboot, /sbin/reboot",
+                        "accept2 ALL=(root) NOPASSWD: /usr/bin/systemd-run --on-active\\=1s /sbin/reboot, /sbin/reboot");
+        assertThat(Leg.grantRestart(List.of("build")))
+                .endsWith("visudo -c -f " + Leg.RESTART_GRANT);
     }
 }

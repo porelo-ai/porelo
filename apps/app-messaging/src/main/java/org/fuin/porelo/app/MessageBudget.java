@@ -7,16 +7,17 @@ import org.fuin.porelo.core.project.Mail;
 
 /**
  * How much one task and one peer may say to each other in a day.
- * <p>
- * <strong>In both directions, and the same number both ways.</strong> The work a message causes is
- * paid for by whoever receives it, so a limit that only counted what left would leave a task
+ *
+ * <p><strong>In both directions, and the same number both ways.</strong> The work a message causes
+ * is paid for by whoever receives it, so a limit that only counted what left would leave a task
  * defenceless against a peer that talks too much - and a limit that only counted what arrived would
  * let this machine be the one that talks too much.
- * <p>
- * <strong>Counted from the record</strong>, not from a counter kept beside it. A counter is a second
- * thing that can disagree with what happened; the record is written by the thing that happened.
- * <p>
- * Beyond the limit a message is <em>held with a reason</em>, never dropped and never queued. An
+ *
+ * <p><strong>Counted from the record</strong>, not from a counter kept beside it. A counter is a
+ * second thing that can disagree with what happened; the record is written by the thing that
+ * happened.
+ *
+ * <p>Beyond the limit a message is <em>held with a reason</em>, never dropped and never queued. An
  * agent that is told it is over its budget can wait or say something shorter; one whose messages
  * vanish learns nothing.
  */
@@ -56,7 +57,7 @@ public final class MessageBudget {
      *
      * @param peer The peer.
      * @param thisPass How many have already gone to it in the pass now running, which the record
-     *        does not know yet because it is written when the pass ends.
+     *     does not know yet because it is written when the pass ends.
      * @return An empty string when it may, otherwise why it may not.
      * @throws IOException Reading the record failed.
      */
@@ -99,7 +100,8 @@ public final class MessageBudget {
     }
 
     /**
-     * Says how many messages from a peer reached the agent in the last day - what {@link #inbound} counts.
+     * Says how many messages from a peer reached the agent in the last day - what {@link #inbound}
+     * counts.
      *
      * @param peer The peer.
      * @return The count.
@@ -109,8 +111,9 @@ public final class MessageBudget {
         return record.count(MessageRecord.DELIVERED, peer, Instant.now().minus(DAY));
     }
 
-    private String beyond(final String peer, final String event, final String direction,
-            final int thisPass) throws IOException {
+    private String beyond(
+            final String peer, final String event, final String direction, final int thisPass)
+            throws IOException {
         final Mail.Peer known = mail.peer(peer);
         if (known == null) {
             // Not this step's refusal to make: a peer the project does not list is turned away
@@ -124,7 +127,13 @@ public final class MessageBudget {
         if (used < known.perDay()) {
             return "";
         }
-        return "the last day already " + direction + " " + peer + " " + used + " message(s), which"
+        return "the last day already "
+                + direction
+                + " "
+                + peer
+                + " "
+                + used
+                + " message(s), which"
                 + " is what this project allows";
     }
 }

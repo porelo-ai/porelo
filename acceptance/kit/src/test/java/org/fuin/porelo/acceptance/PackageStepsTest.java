@@ -5,12 +5,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link PackageSteps}.
- */
+/** Tests for {@link PackageSteps}. */
 class PackageStepsTest {
 
-    private static final String BILL = """
+    private static final String BILL =
+            """
             {"bomFormat": "CycloneDX", "specVersion": "1.6",
              "components": [
                {"name": "porelo-agent-claude", "components": [{"name": "claude-code"}]},
@@ -20,21 +19,27 @@ class PackageStepsTest {
     @Test
     void readsEveryComponentNestedOnesIncluded() {
         // The fetched CLI sits inside the agent's own component, not beside it.
-        assertThat(PackageSteps.components(BILL)).containsExactly("claude-code", "jspecify", "porelo-agent-claude");
+        assertThat(PackageSteps.components(BILL))
+                .containsExactly("claude-code", "jspecify", "porelo-agent-claude");
     }
 
     @Test
     void refusesJsonThatIsNotACycloneDxBill() {
-        assertThatThrownBy(() -> PackageSteps.components("{\"bomFormat\": \"SPDX\", \"components\": [{\"name\": \"x\"}]}"))
-                .isInstanceOf(AssertionError.class).hasMessage("not a CycloneDX bill");
+        assertThatThrownBy(
+                        () ->
+                                PackageSteps.components(
+                                        "{\"bomFormat\": \"SPDX\", \"components\": [{\"name\": \"x\"}]}"))
+                .isInstanceOf(AssertionError.class)
+                .hasMessage("not a CycloneDX bill");
         assertThatThrownBy(() -> PackageSteps.components("[]"))
-                .isInstanceOf(AssertionError.class).hasMessage("not a CycloneDX bill");
+                .isInstanceOf(AssertionError.class)
+                .hasMessage("not a CycloneDX bill");
     }
 
     @Test
     void refusesWhatIsNotJson() {
         assertThatThrownBy(() -> PackageSteps.components("cat: /usr/share/doc/x: No such file"))
-                .isInstanceOf(AssertionError.class).hasMessageStartingWith("not JSON: ");
+                .isInstanceOf(AssertionError.class)
+                .hasMessageStartingWith("not JSON: ");
     }
-
 }

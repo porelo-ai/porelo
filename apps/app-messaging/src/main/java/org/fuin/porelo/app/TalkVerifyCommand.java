@@ -9,11 +9,12 @@ import picocli.CommandLine.Spec;
 
 /**
  * Says whether a task's record still holds together.
- * <p>
- * The question an operator asks after something went wrong: was this mailbox tampered with. It is
- * answered by walking rather than by trusting a flag somebody could set.
+ *
+ * <p>The question an operator asks after something went wrong: was this mailbox tampered with. It
+ * is answered by walking rather than by trusting a flag somebody could set.
  */
-@Command(name = "verify",
+@Command(
+        name = "verify",
         mixinStandardHelpOptions = true,
         description = "Walks the record and names the first entry that does not check out.")
 public class TalkVerifyCommand implements Callable<Integer>, PoreloFactory.ContextAware {
@@ -21,8 +22,7 @@ public class TalkVerifyCommand implements Callable<Integer>, PoreloFactory.Conte
     @Parameters(index = "0", paramLabel = "<task>", description = "Container name of the task.")
     private String container;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -43,18 +43,26 @@ public class TalkVerifyCommand implements Callable<Integer>, PoreloFactory.Conte
             err.flush();
             return 1;
         }
-        final MessageVerify.Report report = new MessageVerify().check(mailbox,
-                AllowedSigners.read(context.paths().messaging().allowedSigners()));
-        out.println("record    " + report.lines() + " line(s), " + report.signatures()
-                + " signature(s) checked");
+        final MessageVerify.Report report =
+                new MessageVerify()
+                        .check(
+                                mailbox,
+                                AllowedSigners.read(context.paths().messaging().allowedSigners()));
+        out.println(
+                "record    "
+                        + report.lines()
+                        + " line(s), "
+                        + report.signatures()
+                        + " signature(s) checked");
         if (report.faults().isEmpty()) {
             out.println("intact");
             out.flush();
             return 0;
         }
         out.flush();
-        report.faults().forEach(fault ->
-                err.println("broken    " + fault.what() + " - " + fault.detail()));
+        report.faults()
+                .forEach(
+                        fault -> err.println("broken    " + fault.what() + " - " + fault.detail()));
         err.flush();
         // A failure, because this command exists to be run by something that acts on the answer.
         return 1;

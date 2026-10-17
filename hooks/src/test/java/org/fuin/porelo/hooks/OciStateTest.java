@@ -6,15 +6,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.fuin.porelo.wire.JsonException;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link OciState}.
- */
+/** Tests for {@link OciState}. */
 class OciStateTest {
 
     @Test
     void readsWhatCrunWrites() {
 
-        final OciState state = OciState.parse("""
+        final OciState state =
+                OciState.parse(
+                        """
                 {"ociVersion":"1.0.2","id":"abc","status":"created","pid":1234,
                  "bundle":"/run/user/1000/crun/abc",
                  "annotations":{"org.fuin.porelo.sidecar":"/x.json","io.podman.annotations.init":"FALSE"}}

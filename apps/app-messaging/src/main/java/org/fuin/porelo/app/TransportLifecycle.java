@@ -16,25 +16,24 @@ import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Runs a transport's lifecycle - {@code setup}, {@code enroll}, {@code retire}, {@code join} - for a transport
- * that keeps a conversation of its own, and keeps what it hands back.
- * <p>
- * <strong>Porelo knows no transport here.</strong> What a room is, how an account is made, which homeserver
- * runs where: all the transport's, behind these four verbs (decided on 2026-09-30). Porelo
- * hands each verb the project's settings for it as JSON on stdin, exactly as {@code mail.transports.<scheme>}
- * says them, and the secrets it kept as environment variables; it keeps the {@code secrets} and
- * {@code account} a verb prints in the account's vault, opaque, and hands them back as they were printed.
- * <p>
- * <strong>Three scopes, three entries, none ever in a task:</strong> the account's
- * ({@code transport/<scheme>/account}, only for the lifecycle verbs), a project's
- * ({@code transport/<scheme>/project/<p>}, what {@code poll} reads), and a task's
- * ({@code transport/<scheme>/task/<t>}, what {@code send}, {@code read} and {@code receipt} read).
+ * Runs a transport's lifecycle - {@code setup}, {@code enroll}, {@code retire}, {@code join} - for
+ * a transport that keeps a conversation of its own, and keeps what it hands back.
+ *
+ * <p><strong>Porelo knows no transport here.</strong> What a room is, how an account is made, which
+ * homeserver runs where: all the transport's, behind these four verbs (decided on 2026-09-30).
+ * Porelo hands each verb the project's settings for it as JSON on stdin, exactly as {@code
+ * mail.transports.<scheme>} says them, and the secrets it kept as environment variables; it keeps
+ * the {@code secrets} and {@code account} a verb prints in the account's vault, opaque, and hands
+ * them back as they were printed.
+ *
+ * <p><strong>Three scopes, three entries, none ever in a task:</strong> the account's ({@code
+ * transport/<scheme>/account}, only for the lifecycle verbs), a project's ({@code
+ * transport/<scheme>/project/<p>}, what {@code poll} reads), and a task's ({@code
+ * transport/<scheme>/task/<t>}, what {@code send}, {@code read} and {@code receipt} read).
  */
 final class TransportLifecycle {
 
-    /**
-     * What a transport could not do, said in its own words and with its exit code.
-     */
+    /** What a transport could not do, said in its own words and with its exit code. */
     static final class Refused extends Exception {
 
         private static final long serialVersionUID = 1L;
@@ -59,20 +58,28 @@ final class TransportLifecycle {
     /**
      * What {@code setup} said of a project's conversation.
      *
-     * @param conversation What a peer address {@code <scheme>:} stands for, handed to {@code send} as
-     *        {@code --to}.
+     * @param conversation What a peer address {@code <scheme>:} stands for, handed to {@code send}
+     *     as {@code --to}.
      * @param reaches The hosts the project's messages reach through this transport.
      * @param machine The name this machine goes by there, as the transport kept it, or "".
-     * @param admitted Whether this machine is in the conversation. False on a shared server until a person there
-     *        has let this machine's account in; absent from what the transport said means true.
+     * @param admitted Whether this machine is in the conversation. False on a shared server until a
+     *     person there has let this machine's account in; absent from what the transport said means
+     *     true.
      * @param address This machine's account there, as the server names it, or "".
-     * @param room The conversation as a person names it - an alias or the id the settings give - or "".
+     * @param room The conversation as a person names it - an alias or the id the settings give - or
+     *     "".
      */
-    record Conversation(String conversation, List<String> reaches, String machine, boolean admitted, String address,
+    record Conversation(
+            String conversation,
+            List<String> reaches,
+            String machine,
+            boolean admitted,
+            String address,
             String room) {
 
         /**
-         * Constructor for a conversation this machine is in, as a transport without a shared server says it.
+         * Constructor for a conversation this machine is in, as a transport without a shared server
+         * says it.
          *
          * @param conversation What a peer address stands for.
          * @param reaches The hosts the project's messages reach.
@@ -82,10 +89,14 @@ final class TransportLifecycle {
         }
 
         private static Conversation of(Map<?, ?> said) {
-            return new Conversation(text(said.get("conversation")),
-                    said.get("reaches") instanceof List<?> hosts ? hosts.stream().map(String::valueOf).toList()
+            return new Conversation(
+                    text(said.get("conversation")),
+                    said.get("reaches") instanceof List<?> hosts
+                            ? hosts.stream().map(String::valueOf).toList()
                             : List.of(),
-                    text(said.get("machine")), !Boolean.FALSE.equals(said.get("admitted")), text(said.get("address")),
+                    text(said.get("machine")),
+                    !Boolean.FALSE.equals(said.get("admitted")),
+                    text(said.get("address")),
                     text(said.get("room")));
         }
 
@@ -110,7 +121,8 @@ final class TransportLifecycle {
     }
 
     /**
-     * Sets up a project's conversation on a transport, or confirms it: run every time, it keeps what exists.
+     * Sets up a project's conversation on a transport, or confirms it: run every time, it keeps
+     * what exists.
      *
      * @param scheme The transport.
      * @param project The project.
@@ -123,12 +135,13 @@ final class TransportLifecycle {
     }
 
     /**
-     * Sets up a project's conversation, telling the transport when it may reach nothing beyond this machine.
-     * <p>
-     * <strong>{@code --loopback-only}</strong> for an offline project: the transport refuses (78) before it
-     * contacts anything but this machine's loopback. Checking {@code reaches} afterwards alone came too late -
-     * the transport had already reached out (found on 2026-09-30). Both hold: the transport is
-     * told, and what it says it reaches is still checked.
+     * Sets up a project's conversation, telling the transport when it may reach nothing beyond this
+     * machine.
+     *
+     * <p><strong>{@code --loopback-only}</strong> for an offline project: the transport refuses
+     * (78) before it contacts anything but this machine's loopback. Checking {@code reaches}
+     * afterwards alone came too late - the transport had already reached out (found on 2026-09-30).
+     * Both hold: the transport is told, and what it says it reaches is still checked.
      *
      * @param scheme The transport.
      * @param project The project.
@@ -137,21 +150,25 @@ final class TransportLifecycle {
      * @return What the conversation is and what it reaches.
      * @throws Refused If the transport refused, or its secrets cannot be kept.
      */
-    Conversation setup(String scheme, String project, Map<String, Object> settings, boolean loopbackOnly)
+    Conversation setup(
+            String scheme, String project, Map<String, Object> settings, boolean loopbackOnly)
             throws Refused {
         writable(scheme);
-        // The account's and the project's, as they were printed: so it keeps what it made - the project's relay
+        // The account's and the project's, as they were printed: so it keeps what it made - the
+        // project's relay
         // - rather than making it again (asked on 2026-09-30).
         final Map<String, String> given = new LinkedHashMap<>(secrets(scheme, "account"));
         given.putAll(secrets(scheme, "project/" + project));
-        final Map<?, ?> said = run(scheme, settings, given, loopbackOnly, "setup", "--project", project);
+        final Map<?, ?> said =
+                run(scheme, settings, given, loopbackOnly, "setup", "--project", project);
         if (said.get("account") instanceof Map<?, ?> account && !account.isEmpty()) {
             keep(scheme, "account", account);
         }
         if (said.get("secrets") instanceof Map<?, ?> secrets && !secrets.isEmpty()) {
             keep(scheme, "project/" + project, secrets);
         }
-        // Kept even when this machine is not admitted yet: the account the transport registered is in the
+        // Kept even when this machine is not admitted yet: the account the transport registered is
+        // in the
         // vault by now, and the name a person needs to let it in is in what is remembered.
         final Conversation found = Conversation.of(said);
         remember(scheme, project, found);
@@ -167,7 +184,8 @@ final class TransportLifecycle {
      * @param settings What the project says to this transport.
      * @throws Refused If the transport refused, or its secrets cannot be kept.
      */
-    void enroll(String scheme, String project, String task, Map<String, Object> settings) throws Refused {
+    void enroll(String scheme, String project, String task, Map<String, Object> settings)
+            throws Refused {
         enroll(scheme, project, task, settings, false);
     }
 
@@ -181,18 +199,33 @@ final class TransportLifecycle {
      * @param loopbackOnly Whether the project is offline.
      * @throws Refused If the transport refused, or its secrets cannot be kept.
      */
-    void enroll(String scheme, String project, String task, Map<String, Object> settings, boolean loopbackOnly)
+    void enroll(
+            String scheme,
+            String project,
+            String task,
+            Map<String, Object> settings,
+            boolean loopbackOnly)
             throws Refused {
         writable(scheme);
         final Map<String, String> given = new LinkedHashMap<>(secrets(scheme, "account"));
         given.putAll(secrets(scheme, "project/" + project));
-        final Map<?, ?> said = run(scheme, settings, given, loopbackOnly, "enroll", "--project", project, "--task",
-                task);
+        final Map<?, ?> said =
+                run(
+                        scheme,
+                        settings,
+                        given,
+                        loopbackOnly,
+                        "enroll",
+                        "--project",
+                        project,
+                        "--task",
+                        task);
         if (said.get("secrets") instanceof Map<?, ?> secrets && !secrets.isEmpty()) {
             keep(scheme, "task/" + task, secrets);
         }
         if (said.get("address") instanceof String address && !address.isBlank()) {
-            // How the task is named in the conversation - not a secret - so what is sent to it can be asked
+            // How the task is named in the conversation - not a secret - so what is sent to it can
+            // be asked
             // about: 'receipt --by' takes it.
             final Map<String, String> addresses = new LinkedHashMap<>(addresses(scheme, project));
             addresses.put(task, address);
@@ -207,7 +240,8 @@ final class TransportLifecycle {
     }
 
     /**
-     * Returns how each enrolled task of a project is named in its conversation, as {@code enroll} said.
+     * Returns how each enrolled task of a project is named in its conversation, as {@code enroll}
+     * said.
      *
      * @param scheme The transport.
      * @param project The project.
@@ -225,12 +259,23 @@ final class TransportLifecycle {
      * @return Person to their account.
      */
     Map<String, String> people(String scheme, String project) {
-        return names(context.paths().xdg().state().resolve("transport").resolve(scheme).resolve("members")
-                .resolve(project + ".json"));
+        return names(
+                context.paths()
+                        .xdg()
+                        .state()
+                        .resolve("transport")
+                        .resolve(scheme)
+                        .resolve("members")
+                        .resolve(project + ".json"));
     }
 
     private Path addressesFile(String scheme, String project) {
-        return context.paths().xdg().state().resolve("transport").resolve(scheme).resolve("addresses")
+        return context.paths()
+                .xdg()
+                .state()
+                .resolve("transport")
+                .resolve(scheme)
+                .resolve("addresses")
                 .resolve(project + ".json");
     }
 
@@ -239,7 +284,8 @@ final class TransportLifecycle {
             return Map.of();
         }
         try {
-            if (Json.parse(Files.readString(file, StandardCharsets.UTF_8)) instanceof Map<?, ?> read) {
+            if (Json.parse(Files.readString(file, StandardCharsets.UTF_8))
+                    instanceof Map<?, ?> read) {
                 final Map<String, String> names = new LinkedHashMap<>();
                 read.forEach((key, value) -> names.put(String.valueOf(key), String.valueOf(value)));
                 return names;
@@ -251,8 +297,8 @@ final class TransportLifecycle {
     }
 
     /**
-     * Retires a task from its project's conversation and forgets its secrets. A task the transport holds
-     * nothing for is left as it is.
+     * Retires a task from its project's conversation and forgets its secrets. A task the transport
+     * holds nothing for is left as it is.
      *
      * @param scheme The transport.
      * @param project The task's project.
@@ -260,7 +306,8 @@ final class TransportLifecycle {
      * @param settings What the project says to this transport.
      * @throws Refused If the transport refused; its secrets are then kept, so it can be retried.
      */
-    void retire(String scheme, String project, String task, Map<String, Object> settings) throws Refused {
+    void retire(String scheme, String project, String task, Map<String, Object> settings)
+            throws Refused {
         final Map<String, String> own = secrets(scheme, "task/" + task);
         if (own.isEmpty()) {
             return;
@@ -273,20 +320,23 @@ final class TransportLifecycle {
     }
 
     /**
-     * Clears a project's conversation, or with no project the account's, and forgets what Porelo kept for it.
-     * <p>
-     * The transport's {@code clear} runs where its {@code describe} offers it; Porelo's own entries go either way:
-     * kept, a task started again after the transport had cleared ran no {@code setup} and stayed outside a
-     * conversation that was gone. A project's are its own and its tasks'; the account's is cleared only with no
-     * project, after the last.
+     * Clears a project's conversation, or with no project the account's, and forgets what Porelo
+     * kept for it.
+     *
+     * <p>The transport's {@code clear} runs where its {@code describe} offers it; Porelo's own
+     * entries go either way: kept, a task started again after the transport had cleared ran no
+     * {@code setup} and stayed outside a conversation that was gone. A project's are its own and
+     * its tasks'; the account's is cleared only with no project, after the last.
      *
      * @param scheme The transport.
      * @param project The project, or {@code null} for the account.
      * @param settings What the project says to this transport; empty for the account.
      * @return What the transport said it removed.
-     * @throws Refused If the transport refused; what Porelo kept is then kept too, so it can be retried.
+     * @throws Refused If the transport refused; what Porelo kept is then kept too, so it can be
+     *     retried.
      */
-    List<String> clear(String scheme, @Nullable String project, Map<String, Object> settings) throws Refused {
+    List<String> clear(String scheme, @Nullable String project, Map<String, Object> settings)
+            throws Refused {
         final List<String> removed = new java.util.ArrayList<>();
         final Path adapter = transports.find(scheme);
         if (adapter != null && TransportDescription.of(context.runner(), adapter).offers("clear")) {
@@ -294,8 +344,10 @@ final class TransportLifecycle {
             if (project != null) {
                 given.putAll(secrets(scheme, "project/" + project));
             }
-            final Map<?, ?> said = project == null ? run(scheme, settings, given, false, "clear")
-                    : run(scheme, settings, given, false, "clear", "--project", project);
+            final Map<?, ?> said =
+                    project == null
+                            ? run(scheme, settings, given, false, "clear")
+                            : run(scheme, settings, given, false, "clear", "--project", project);
             if (said.get("removed") instanceof List<?> listed) {
                 listed.forEach(each -> removed.add(String.valueOf(each)));
             }
@@ -307,19 +359,34 @@ final class TransportLifecycle {
             forget(scheme, "account");
             return removed;
         }
-        final String tasks = TaskSecrets.TRANSPORT_PREFIX + scheme + "/task/porelo-" + project + "-";
-        update(scheme, all -> {
-            all.remove(entry(scheme, "project/" + project));
-            all.keySet().removeIf(name -> name.startsWith(tasks));
-        });
+        final String tasks =
+                TaskSecrets.TRANSPORT_PREFIX + scheme + "/task/porelo-" + project + "-";
+        update(
+                scheme,
+                all -> {
+                    all.remove(entry(scheme, "project/" + project));
+                    all.keySet().removeIf(name -> name.startsWith(tasks));
+                });
         try {
             Files.deleteIfExists(state(scheme, project));
             Files.deleteIfExists(addressesFile(scheme, project));
-            Files.deleteIfExists(context.paths().xdg().state().resolve("transport").resolve(scheme)
-                    .resolve("members").resolve(project + ".json"));
+            Files.deleteIfExists(
+                    context.paths()
+                            .xdg()
+                            .state()
+                            .resolve("transport")
+                            .resolve(scheme)
+                            .resolve("members")
+                            .resolve(project + ".json"));
         } catch (IOException ex) {
-            throw new Refused("what this machine kept of the " + scheme + " conversation of " + project
-                    + " could not be removed: " + ex.getMessage(), 0);
+            throw new Refused(
+                    "what this machine kept of the "
+                            + scheme
+                            + " conversation of "
+                            + project
+                            + " could not be removed: "
+                            + ex.getMessage(),
+                    0);
         }
         return removed;
     }
@@ -335,7 +402,12 @@ final class TransportLifecycle {
      * @return What the transport printed: {@code login} and {@code shown}. Never kept.
      * @throws Refused If the transport refused.
      */
-    Map<?, ?> join(String scheme, String project, String person, boolean reset, Map<String, Object> settings)
+    Map<?, ?> join(
+            String scheme,
+            String project,
+            String person,
+            boolean reset,
+            Map<String, Object> settings)
             throws Refused {
         return join(scheme, project, person, reset, settings, false);
     }
@@ -352,12 +424,38 @@ final class TransportLifecycle {
      * @return What the transport printed.
      * @throws Refused If the transport refused.
      */
-    Map<?, ?> join(String scheme, String project, String person, boolean reset, Map<String, Object> settings,
-            boolean loopbackOnly) throws Refused {
+    Map<?, ?> join(
+            String scheme,
+            String project,
+            String person,
+            boolean reset,
+            Map<String, Object> settings,
+            boolean loopbackOnly)
+            throws Refused {
         final Map<String, String> given = new LinkedHashMap<>(secrets(scheme, "account"));
         given.putAll(secrets(scheme, "project/" + project));
-        return reset ? run(scheme, settings, given, loopbackOnly, "join", "--project", project, "--person", person,
-                "--reset") : run(scheme, settings, given, loopbackOnly, "join", "--project", project, "--person", person);
+        return reset
+                ? run(
+                        scheme,
+                        settings,
+                        given,
+                        loopbackOnly,
+                        "join",
+                        "--project",
+                        project,
+                        "--person",
+                        person,
+                        "--reset")
+                : run(
+                        scheme,
+                        settings,
+                        given,
+                        loopbackOnly,
+                        "join",
+                        "--project",
+                        project,
+                        "--person",
+                        person);
     }
 
     /**
@@ -373,7 +471,8 @@ final class TransportLifecycle {
             return null;
         }
         try {
-            if (Json.parse(Files.readString(file, StandardCharsets.UTF_8)) instanceof Map<?, ?> read) {
+            if (Json.parse(Files.readString(file, StandardCharsets.UTF_8))
+                    instanceof Map<?, ?> read) {
                 return Conversation.of(read);
             }
         } catch (IOException | RuntimeException ex) {
@@ -408,7 +507,8 @@ final class TransportLifecycle {
         try {
             if (Json.parse(entry.value()) instanceof Map<?, ?> read) {
                 final Map<String, String> secrets = new LinkedHashMap<>();
-                read.forEach((name, value) -> secrets.put(String.valueOf(name), String.valueOf(value)));
+                read.forEach(
+                        (name, value) -> secrets.put(String.valueOf(name), String.valueOf(value)));
                 return secrets;
             }
         } catch (RuntimeException ex) {
@@ -423,23 +523,24 @@ final class TransportLifecycle {
      * @param refused What it would refuse wherever it runs.
      * @param warnings What only this machine lacks, or what is allowed but not advised.
      */
-    record SettingsCheck(List<String> refused, List<String> warnings) {
-    }
+    record SettingsCheck(List<String> refused, List<String> warnings) {}
 
     /**
-     * Asks a transport what it makes of the settings a project gives it, without the network, the vault
-     * or any secret - so a draft is checked before it is committed rather than refused at the first task
-     * start. Only a transport whose {@code describe} lists {@code settings} is asked.
+     * Asks a transport what it makes of the settings a project gives it, without the network, the
+     * vault or any secret - so a draft is checked before it is committed rather than refused at the
+     * first task start. Only a transport whose {@code describe} lists {@code settings} is asked.
      *
      * @param scheme The transport.
      * @param settings What the project says to it.
-     * @return What it said, or {@code null} when it is not installed here or does not offer the check.
+     * @return What it said, or {@code null} when it is not installed here or does not offer the
+     *     check.
      * @throws Refused If it offers the check and could not answer it.
      */
     @org.jspecify.annotations.Nullable
     SettingsCheck settings(String scheme, Map<String, Object> settings) throws Refused {
         final Path adapter = transports.find(scheme);
-        if (adapter == null || !TransportDescription.of(context.runner(), adapter).offers("settings")) {
+        if (adapter == null
+                || !TransportDescription.of(context.runner(), adapter).offers("settings")) {
             return null;
         }
         final Map<?, ?> said = run(scheme, settings, Map.of(), false, "settings");
@@ -447,12 +548,14 @@ final class TransportLifecycle {
     }
 
     private static List<String> strings(@org.jspecify.annotations.Nullable Object listed) {
-        return listed instanceof List<?> each ? each.stream().map(String::valueOf).toList() : List.of();
+        return listed instanceof List<?> each
+                ? each.stream().map(String::valueOf).toList()
+                : List.of();
     }
 
     /**
-     * Refuses before a verb runs when what it hands back could not be kept: a transport that made an
-     * account whose token is then dropped has an account nobody can use or remove (found on
+     * Refuses before a verb runs when what it hands back could not be kept: a transport that made
+     * an account whose token is then dropped has an account nobody can use or remove (found on
      * 2026-09-30, with a locked vault: the homeserver's administrator registered and lost).
      *
      * @param scheme The transport.
@@ -460,17 +563,30 @@ final class TransportLifecycle {
      */
     private void writable(String scheme) throws Refused {
         if (!context.vault().exists()) {
-            throw new Refused("there is no vault, and what the " + scheme + " transport hands back has to be kept in"
-                    + " one; 'porelo vault init' at the machine", 0);
+            throw new Refused(
+                    "there is no vault, and what the "
+                            + scheme
+                            + " transport hands back has to be kept in"
+                            + " one; 'porelo vault init' at the machine",
+                    0);
         }
         if (context.opener().isEmpty()) {
-            throw new Refused("the vault is locked, and what the " + scheme + " transport hands back has to be kept"
-                    + " in it; 'porelo vault unlock' at the machine", 0);
+            throw new Refused(
+                    "the vault is locked, and what the "
+                            + scheme
+                            + " transport hands back has to be kept"
+                            + " in it; 'porelo vault unlock' at the machine",
+                    0);
         }
     }
 
-    private Map<?, ?> run(String scheme, Map<String, Object> settings, Map<String, String> secrets,
-            boolean loopbackOnly, String... verb) throws Refused {
+    private Map<?, ?> run(
+            String scheme,
+            Map<String, Object> settings,
+            Map<String, String> secrets,
+            boolean loopbackOnly,
+            String... verb)
+            throws Refused {
         final Path adapter = transports.find(scheme);
         if (adapter == null) {
             throw new Refused("no transport for '" + scheme + "' is installed", 0);
@@ -481,35 +597,59 @@ final class TransportLifecycle {
         if (loopbackOnly) {
             arguments.add("--loopback-only");
         }
-        // This machine's name, to a transport that takes it: two machines on one homeserver run tasks of the
-        // same name, and without it the second one's enroll would take the first one's account over. The
+        // This machine's name, to a transport that takes it: two machines on one homeserver run
+        // tasks of the
+        // same name, and without it the second one's enroll would take the first one's account
+        // over. The
         // transport keeps the name it first used, so a machine renamed later keeps its accounts.
-        if (!"settings".equals(verb[0]) && TransportDescription.of(context.runner(), adapter).takes("machine")) {
+        if (!"settings".equals(verb[0])
+                && TransportDescription.of(context.runner(), adapter).takes("machine")) {
             arguments.add("--machine");
             arguments.add(DeployKeys.hostName());
         }
-        final CommandResult result = context.runner().run(HelperEnvironment.chosen(Command.of(arguments)
-                .withInput(Json.write(settings)).withEnvironment(secrets)));
+        final CommandResult result =
+                context.runner()
+                        .run(
+                                HelperEnvironment.chosen(
+                                        Command.of(arguments)
+                                                .withInput(Json.write(settings))
+                                                .withEnvironment(secrets)));
         if (!result.successful()) {
             final String said = result.standardError().strip();
-            throw new Refused("the " + scheme + " transport could not " + verb[0] + " (exit " + result.exitCode()
-                    + ")" + (said.isEmpty() ? "" : ": " + said), result.exitCode());
+            throw new Refused(
+                    "the "
+                            + scheme
+                            + " transport could not "
+                            + verb[0]
+                            + " (exit "
+                            + result.exitCode()
+                            + ")"
+                            + (said.isEmpty() ? "" : ": " + said),
+                    result.exitCode());
         }
         try {
             if (Json.parse(result.standardOutput()) instanceof Map<?, ?> said) {
                 return said;
             }
         } catch (RuntimeException ex) {
-            // Falls through to the refusal below; what it printed is never repeated - it may hold a secret.
+            // Falls through to the refusal below; what it printed is never repeated - it may hold a
+            // secret.
         }
-        throw new Refused("the " + scheme + " transport answered " + verb[0] + " with something that is not a"
-                + " JSON object", 76);
+        throw new Refused(
+                "the "
+                        + scheme
+                        + " transport answered "
+                        + verb[0]
+                        + " with something that is not a"
+                        + " JSON object",
+                76);
     }
 
     private void keep(String scheme, String scope, Map<?, ?> secrets) throws Refused {
         final Map<String, String> kept = new LinkedHashMap<>();
         secrets.forEach((name, value) -> kept.put(String.valueOf(name), String.valueOf(value)));
-        final VaultEntry entry = new VaultEntry(Json.write(kept), "transport-secrets", Map.of("transport", scheme));
+        final VaultEntry entry =
+                new VaultEntry(Json.write(kept), "transport-secrets", Map.of("transport", scheme));
         update(scheme, all -> all.put(entry(scheme, scope), entry));
     }
 
@@ -517,17 +657,25 @@ final class TransportLifecycle {
         update(scheme, all -> all.remove(entry(scheme, scope)));
     }
 
-    private void update(String scheme, java.util.function.Consumer<Map<String, VaultEntry>> change) throws Refused {
+    private void update(String scheme, java.util.function.Consumer<Map<String, VaultEntry>> change)
+            throws Refused {
         final Optional<VaultFile.Opener> opener = context.opener();
         if (opener.isEmpty()) {
-            throw new Refused("the vault is locked, and what the " + scheme + " transport handed back goes into it;"
-                    + " 'porelo vault unlock' at the machine", 0);
+            throw new Refused(
+                    "the vault is locked, and what the "
+                            + scheme
+                            + " transport handed back goes into it;"
+                            + " 'porelo vault unlock' at the machine",
+                    0);
         }
         try {
-            context.vault().update(opener.get(), all -> {
-                change.accept(all);
-                return all;
-            });
+            context.vault()
+                    .update(
+                            opener.get(),
+                            all -> {
+                                change.accept(all);
+                                return all;
+                            });
         } catch (org.fuin.porelo.vault.VaultException ex) {
             throw new Refused("the vault cannot be written: " + ex.getMessage(), 0);
         }
@@ -546,12 +694,19 @@ final class TransportLifecycle {
             Files.createDirectories(file.getParent());
             Files.writeString(file, Json.write(written), StandardCharsets.UTF_8);
         } catch (IOException ex) {
-            throw new Refused("the conversation of " + project + " cannot be recorded: " + ex.getMessage(), 0);
+            throw new Refused(
+                    "the conversation of " + project + " cannot be recorded: " + ex.getMessage(),
+                    0);
         }
     }
 
     private Path state(String scheme, String project) {
-        return context.paths().xdg().state().resolve("transport").resolve(scheme).resolve(project + ".json");
+        return context.paths()
+                .xdg()
+                .state()
+                .resolve("transport")
+                .resolve(scheme)
+                .resolve(project + ".json");
     }
 
     private static String entry(String scheme, String scope) {

@@ -23,14 +23,15 @@ class LegTreePathsTest {
     private static final Path ROOT = Path.of("../..").toAbsolutePath().normalize();
 
     /** A binary a build leaves: {@code <module>/target/<image name>}. */
-    private static final Pattern BUILT = Pattern.compile("([a-z][a-z0-9/-]*)/target/([a-z][a-z0-9-]*)");
+    private static final Pattern BUILT =
+            Pattern.compile("([a-z][a-z0-9/-]*)/target/([a-z][a-z0-9-]*)");
 
-    @TempDir
-    Path dir;
+    @TempDir Path dir;
 
     @Test
     void everyBinaryTheLegNamesIsAnImageAModuleItBuildsMakes() throws IOException {
-        // The install copied app/target/porelo after the grouping moved the module to apps/app: the build passed,
+        // The install copied app/target/porelo after the grouping moved the module to apps/app: the
+        // build passed,
         // and both legs failed one step later, on rented machines only.
         final List<String> binaries = binaries();
         assertThat(binaries).as(Leg.BINARIES).isNotEmpty().contains("apps/app/target/porelo");
@@ -54,13 +55,18 @@ class LegTreePathsTest {
 
     @Test
     void everyBinaryThePackagesAreMadeOfComesBackFromTheLeg() throws IOException {
-        // Publish packages what the leg sent home: a path the packaging reads that the leg does not fetch is a
+        // Publish packages what the leg sent home: a path the packaging reads that the leg does not
+        // fetch is a
         // package built from nothing.
         final Set<String> packaged = new LinkedHashSet<>();
         try (Stream<Path> poms = Files.walk(ROOT.resolve("dist"))) {
             for (final Path pom : poms.filter(path -> path.endsWith("pom.xml")).toList()) {
-                final Matcher read = Pattern.compile("\\$\\{project\\.basedir}/\\.\\./\\.\\./(" + BUILT.pattern() + ")")
-                        .matcher(Files.readString(pom));
+                final Matcher read =
+                        Pattern.compile(
+                                        "\\$\\{project\\.basedir}/\\.\\./\\.\\./("
+                                                + BUILT.pattern()
+                                                + ")")
+                                .matcher(Files.readString(pom));
                 while (read.find()) {
                     packaged.add(read.group(1));
                 }
@@ -84,7 +90,8 @@ class LegTreePathsTest {
         for (final String kept : List.of("providers", "egress")) {
             Files.createDirectories(tree.resolve(kept));
             try (Stream<Path> yaml = Files.list(ROOT.resolve(kept))) {
-                for (final Path file : yaml.filter(path -> path.toString().endsWith(".yaml")).toList()) {
+                for (final Path file :
+                        yaml.filter(path -> path.toString().endsWith(".yaml")).toList()) {
                     Files.copy(file, tree.resolve(kept).resolve(file.getFileName()));
                 }
             }
@@ -104,7 +111,8 @@ class LegTreePathsTest {
 
     @Test
     void theFilesTheMachineImagesBuildTakesFromTheTreeAreThere() {
-        // porelo-buildtools' snapshot runs these from a checkout of this tree; a released tool cannot follow a move.
+        // porelo-buildtools' snapshot runs these from a checkout of this tree; a released tool
+        // cannot follow a move.
         assertThat(ROOT.resolve(Leg.BUILD_SCRIPT)).isRegularFile();
         assertThat(ROOT.resolve("selinux/install-selinux-policy.sh")).isRegularFile();
         assertThat(ROOT.resolve("systemd/porelod.service")).isRegularFile();
@@ -112,29 +120,38 @@ class LegTreePathsTest {
 
     @Test
     void theDeployLooksForTheDebWhereAModuleOfThisTreeBuildsIt() {
-        // The deploy kept reading dist-deb/target after the grouping moved the module to dist/dist-deb: every
+        // The deploy kept reading dist-deb/target after the grouping moved the module to
+        // dist/dist-deb: every
         // account install said "no porelo deb", with the packages built one directory over.
         final Path module = ROOT.resolve(Deploy.PACKAGES).getParent();
-        assertThat(module.resolve("pom.xml")).as("the module that leaves " + Deploy.PACKAGES).isRegularFile();
+        assertThat(module.resolve("pom.xml"))
+                .as("the module that leaves " + Deploy.PACKAGES)
+                .isRegularFile();
     }
 
     private static void assertBuiltByTheLeg(final String binary) throws IOException {
         final Matcher built = BUILT.matcher(binary);
         assertThat(built.matches()).as(binary + " is <module>/target/<image name>").isTrue();
         final String module = built.group(1);
-        assertThat(legModules()).as("the modules " + Leg.BUILD_SCRIPT + " builds, for " + binary).contains(module);
+        assertThat(legModules())
+                .as("the modules " + Leg.BUILD_SCRIPT + " builds, for " + binary)
+                .contains(module);
         assertThat(Files.readString(ROOT.resolve(module).resolve("pom.xml")))
                 .as("the image names " + module + "/pom.xml gives, for " + binary)
                 .contains("<imageName>" + built.group(2) + "</imageName>");
     }
 
     private static List<String> binaries() throws IOException {
-        return Files.readAllLines(ROOT.resolve(Leg.BINARIES)).stream().map(String::strip)
-                .filter(line -> !line.isEmpty()).toList();
+        return Files.readAllLines(ROOT.resolve(Leg.BINARIES)).stream()
+                .map(String::strip)
+                .filter(line -> !line.isEmpty())
+                .toList();
     }
 
     private static List<String> legModules() throws IOException {
-        final Matcher list = Pattern.compile("(?m)^MODULES=(\\S+)$").matcher(Files.readString(ROOT.resolve(Leg.BUILD_SCRIPT)));
+        final Matcher list =
+                Pattern.compile("(?m)^MODULES=(\\S+)$")
+                        .matcher(Files.readString(ROOT.resolve(Leg.BUILD_SCRIPT)));
         assertThat(list.find()).as("a MODULES= line in " + Leg.BUILD_SCRIPT).isTrue();
         return List.of(list.group(1).split(","));
     }
@@ -147,11 +164,14 @@ class LegTreePathsTest {
 
     private static void sh(final Path tree, final Path home, final String command)
             throws IOException, InterruptedException {
-        final ProcessBuilder builder = new ProcessBuilder("sh", "-c", command).directory(tree.toFile())
-                .redirectErrorStream(true);
+        final ProcessBuilder builder =
+                new ProcessBuilder("sh", "-c", command)
+                        .directory(tree.toFile())
+                        .redirectErrorStream(true);
         builder.environment().put("HOME", home.toString());
         final Process process = builder.start();
-        final String out = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).strip();
+        final String out =
+                new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).strip();
         assertThat(process.waitFor()).as(out).isZero();
     }
 }

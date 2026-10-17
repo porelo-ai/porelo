@@ -1,6 +1,4 @@
-/**
- * The acceptance kit: the steps a scenario drives a machine with, over ssh.
- */
+/** The acceptance kit: the steps a scenario drives a machine with, over ssh. */
 @NullMarked
 package org.fuin.porelo.acceptance;
 

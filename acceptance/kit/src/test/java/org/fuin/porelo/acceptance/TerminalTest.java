@@ -11,9 +11,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for how a {@link Terminal} waits, on streams instead of a machine.
- */
+/** Tests for how a {@link Terminal} waits, on streams instead of a machine. */
 class TerminalTest {
 
     /** A wait that is told of a loop on its second look. */
@@ -30,14 +28,18 @@ class TerminalTest {
 
         @Override
         public Optional<String> check() {
-            return looks.incrementAndGet() < 2 ? Optional.empty()
-                    : Optional.of("In porelo-busy-busy the tool failure \"✘ Write\" scrolled by 3 times");
+            return looks.incrementAndGet() < 2
+                    ? Optional.empty()
+                    : Optional.of(
+                            "In porelo-busy-busy the tool failure \"✘ Write\" scrolled by 3 times");
         }
     }
 
     private static Terminal showing(String shown) {
-        return new Terminal(new ByteArrayInputStream(shown.getBytes(java.nio.charset.StandardCharsets.UTF_8)),
-                new ByteArrayOutputStream(), () -> { });
+        return new Terminal(
+                new ByteArrayInputStream(shown.getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+                new ByteArrayOutputStream(),
+                () -> {});
     }
 
     @Test
@@ -52,7 +54,8 @@ class TerminalTest {
                 .hasMessageContaining("\"✘ Write\" scrolled by 3 times")
                 .hasMessageContaining("A message for you waits");
 
-        assertThat(Duration.ofNanos(System.nanoTime() - began)).as("of a 240-second wait")
+        assertThat(Duration.ofNanos(System.nanoTime() - began))
+                .as("of a 240-second wait")
                 .isLessThan(Terminal.LOOK.multipliedBy(3));
         assertThat(loops.resets).as("the wait began by forgetting what came before").isEqualTo(1);
     }
@@ -61,15 +64,19 @@ class TerminalTest {
     void whatAWaitIsForEndsItBeforeAnyLoopIsLookedFor() throws IOException {
         final LoopsOnSecondLook loops = new LoopsOnSecondLook();
 
-        assertThat(showing("5555").watching(loops).await("5555", Duration.ofSeconds(240))).contains("5555");
+        assertThat(showing("5555").watching(loops).await("5555", Duration.ofSeconds(240)))
+                .contains("5555");
         assertThat(loops.looks).hasValue(0);
     }
 
     @Test
     void aFailureSaysNothingTheFilterHides() {
-        final Terminal terminal = showing("").watching(new LoopsOnSecondLook())
-                .showing(text -> text.replace("porelo-busy-busy", "***"));
+        final Terminal terminal =
+                showing("")
+                        .watching(new LoopsOnSecondLook())
+                        .showing(text -> text.replace("porelo-busy-busy", "***"));
 
-        assertThatThrownBy(() -> terminal.await("5555", Duration.ofSeconds(240))).hasMessageNotContaining("porelo-busy-busy");
+        assertThatThrownBy(() -> terminal.await("5555", Duration.ofSeconds(240)))
+                .hasMessageNotContaining("porelo-busy-busy");
     }
 }

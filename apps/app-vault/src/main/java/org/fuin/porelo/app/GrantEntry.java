@@ -11,14 +11,18 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * The entry {@code porelo vault authorize} makes for a provider nothing is stored for yet.
- * <p>
- * What everybody shares - the kind of flow, its URLs, its scopes - is the provider's {@code grant}; the client id is the
- * signing-in agent's own, by the host of the provider's device authorization URL, so Porelo grants the app the agent
- * itself would have asked the person to grant, and ships none of its own. A public client: no secret.
+ *
+ * <p>What everybody shares - the kind of flow, its URLs, its scopes - is the provider's {@code
+ * grant}; the client id is the signing-in agent's own, by the host of the provider's device
+ * authorization URL, so Porelo grants the app the agent itself would have asked the person to
+ * grant, and ships none of its own. A public client: no secret.
  */
 final class GrantEntry {
 
-    /** The value of a public client's entry: no secret, which {@code DeviceGrant.Client} reads as none. */
+    /**
+     * The value of a public client's entry: no secret, which {@code DeviceGrant.Client} reads as
+     * none.
+     */
     static final String NO_SECRET = "-";
 
     /**
@@ -47,14 +51,16 @@ final class GrantEntry {
      * @param agentName The agent the person named with {@code --agent}, or {@code null}.
      * @return The entry and its agent, or why there is none.
      */
-    static Choice choose(final ProviderDefinition provider, final List<AgentDefinition> agents,
+    static Choice choose(
+            final ProviderDefinition provider,
+            final List<AgentDefinition> agents,
             final @Nullable String agentName) {
         return choose(provider, agents, agentName, Offer.NOBODY);
     }
 
     /**
-     * Chooses the entry for a provider from the agents installed, asking which agent where several sign in to it and
-     * none was named.
+     * Chooses the entry for a provider from the agents installed, asking which agent where several
+     * sign in to it and none was named.
      *
      * @param provider The provider the person names.
      * @param agents The agents installed here.
@@ -62,60 +68,108 @@ final class GrantEntry {
      * @param offer Who is asked which agent.
      * @return The entry and its agent, or why there is none.
      */
-    static Choice choose(final ProviderDefinition provider, final List<AgentDefinition> agents,
-            final @Nullable String agentName, final Offer offer) {
+    static Choice choose(
+            final ProviderDefinition provider,
+            final List<AgentDefinition> agents,
+            final @Nullable String agentName,
+            final Offer offer) {
         final Map<String, String> grant = provider.grant();
         if (grant.isEmpty()) {
-            return Choice.refused("'" + provider.name() + "' is reached with a key, which nothing grants; store it with"
-                    + " 'porelo vault put " + provider.name() + "'");
+            return Choice.refused(
+                    "'"
+                            + provider.name()
+                            + "' is reached with a key, which nothing grants; store it with"
+                            + " 'porelo vault put "
+                            + provider.name()
+                            + "'");
         }
-        final List<AgentDefinition> signing = agents.stream()
-                .filter(agent -> agent.grantFor(provider.name()) != null).toList();
+        final List<AgentDefinition> signing =
+                agents.stream().filter(agent -> agent.grantFor(provider.name()) != null).toList();
         if (signing.isEmpty()) {
-            return Choice.refused("no installed agent signs in to '" + provider.name() + "', so there is no client id"
-                    + " to grant; install one that does, or store the entry with 'porelo vault put " + provider.name()
-                    + " --type " + grant.getOrDefault("kind", "oauth-device") + "'");
+            return Choice.refused(
+                    "no installed agent signs in to '"
+                            + provider.name()
+                            + "', so there is no client id"
+                            + " to grant; install one that does, or store the entry with 'porelo vault put "
+                            + provider.name()
+                            + " --type "
+                            + grant.getOrDefault("kind", "oauth-device")
+                            + "'");
         }
         final AgentDefinition chosen;
         if (agentName != null) {
-            chosen = signing.stream().filter(agent -> agent.name().equals(agentName)).findFirst().orElse(null);
+            chosen =
+                    signing.stream()
+                            .filter(agent -> agent.name().equals(agentName))
+                            .findFirst()
+                            .orElse(null);
             if (chosen == null) {
-                return Choice.refused("'" + agentName + "' does not sign in to '" + provider.name() + "'; these do: "
-                        + names(signing));
+                return Choice.refused(
+                        "'"
+                                + agentName
+                                + "' does not sign in to '"
+                                + provider.name()
+                                + "'; these do: "
+                                + names(signing));
             }
         } else if (signing.size() > 1 && offer != Offer.NOBODY) {
-            final String asked = offer.choose("several agents sign in to '" + provider.name() + "', each with its own"
-                    + " app", signing.stream().map(AgentDefinition::name).toList(),
-                    "porelo vault authorize " + provider.name() + " --agent <name>");
+            final String asked =
+                    offer.choose(
+                            "several agents sign in to '"
+                                    + provider.name()
+                                    + "', each with its own"
+                                    + " app",
+                            signing.stream().map(AgentDefinition::name).toList(),
+                            "porelo vault authorize " + provider.name() + " --agent <name>");
             if (asked == null) {
-                return Choice.refused("no agent was chosen to sign in to '" + provider.name() + "'");
+                return Choice.refused(
+                        "no agent was chosen to sign in to '" + provider.name() + "'");
             }
-            chosen = signing.stream().filter(agent -> agent.name().equals(asked)).findFirst().orElseThrow();
+            chosen =
+                    signing.stream()
+                            .filter(agent -> agent.name().equals(asked))
+                            .findFirst()
+                            .orElseThrow();
         } else if (signing.size() > 1) {
-            return Choice.refused("several agents sign in to '" + provider.name() + "', each with its own app: "
-                    + names(signing) + "; name one with --agent");
+            return Choice.refused(
+                    "several agents sign in to '"
+                            + provider.name()
+                            + "', each with its own app: "
+                            + names(signing)
+                            + "; name one with --agent");
         } else {
             chosen = signing.getFirst();
         }
-        final AgentGrant agentGrant = java.util.Objects.requireNonNull(chosen.grantFor(provider.name()));
+        final AgentGrant agentGrant =
+                java.util.Objects.requireNonNull(chosen.grantFor(provider.name()));
         final String host = host(grant.get("device_authorization_url"));
         final String clientId = agentGrant.clientIdFor(host);
         if (clientId == null) {
-            return Choice.refused("'" + chosen.name() + "' names no app for " + host + "; store the entry with 'porelo"
-                    + " vault put " + provider.name() + "'");
+            return Choice.refused(
+                    "'"
+                            + chosen.name()
+                            + "' names no app for "
+                            + host
+                            + "; store the entry with 'porelo"
+                            + " vault put "
+                            + provider.name()
+                            + "'");
         }
         final Map<String, String> settings = new LinkedHashMap<>();
         settings.put("client_id", clientId);
-        grant.forEach((key, value) -> {
-            if (!"kind".equals(key)) {
-                settings.put(key, value);
-            }
-        });
+        grant.forEach(
+                (key, value) -> {
+                    if (!"kind".equals(key)) {
+                        settings.put(key, value);
+                    }
+                });
         if (agentGrant.owner() != null) {
             settings.put("client_owner", agentGrant.owner());
         }
-        return new Choice(new VaultEntry(NO_SECRET, grant.getOrDefault("kind", "oauth-device"), settings),
-                chosen.name(), null);
+        return new Choice(
+                new VaultEntry(NO_SECRET, grant.getOrDefault("kind", "oauth-device"), settings),
+                chosen.name(),
+                null);
     }
 
     private static String host(final @Nullable String url) {

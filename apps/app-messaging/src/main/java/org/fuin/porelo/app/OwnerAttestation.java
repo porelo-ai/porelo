@@ -8,25 +8,27 @@ import org.fuin.porelo.core.project.Mail;
 
 /**
  * Checks what a transport says about who owned an arriving message.
- * <p>
- * Most transports carry bytes and know nothing about their sender; those attest nothing and this
+ *
+ * <p>Most transports carry bytes and know nothing about their sender; those attest nothing and this
  * has nothing to say about them. A transport that carries between Unix users on one machine is
  * different: the kernel told it who wrote the file, and that is a fact the host cannot recover
  * afterwards, because moving the message out of a spool directory loses the ownership with it.
- * <p>
- * <strong>It is a second, independent fact about one message.</strong> The signature says who wrote
- * the bytes; the owner says who put them where the recipient would find them. Somebody who copies a
- * validly signed message of another peer's into a drop still owns the file they wrote, so the two
- * facts disagree and the message is held. Neither check replaces the other.
- * <p>
- * <strong>Fail closed, in both directions.</strong> A transport that promised {@code owner} and
- * handed over a message without one has its message held - a promise nobody kept is worse than none.
- * <p>
- * <strong>An attestation that is there is read, whoever left it.</strong> It was once ignored unless
- * promised, so that nobody could gain trust by volunteering a file; but reading it can only hold a
- * message and never admit one, so there is nothing to gain and one thing to lose. Measured on the VM
- * on 2026-09-18: a message fetched in an earlier pass reached an agent with its owner file lying
- * unread beside it, because the pass that delivered it had watched no transport fetch it.
+ *
+ * <p><strong>It is a second, independent fact about one message.</strong> The signature says who
+ * wrote the bytes; the owner says who put them where the recipient would find them. Somebody who
+ * copies a validly signed message of another peer's into a drop still owns the file they wrote, so
+ * the two facts disagree and the message is held. Neither check replaces the other.
+ *
+ * <p><strong>Fail closed, in both directions.</strong> A transport that promised {@code owner} and
+ * handed over a message without one has its message held - a promise nobody kept is worse than
+ * none.
+ *
+ * <p><strong>An attestation that is there is read, whoever left it.</strong> It was once ignored
+ * unless promised, so that nobody could gain trust by volunteering a file; but reading it can only
+ * hold a message and never admit one, so there is nothing to gain and one thing to lose. Measured
+ * on the VM on 2026-09-18: a message fetched in an earlier pass reached an agent with its owner
+ * file lying unread beside it, because the pass that delivered it had watched no transport fetch
+ * it.
  */
 public final class OwnerAttestation {
 
@@ -51,8 +53,13 @@ public final class OwnerAttestation {
      * @return An empty string when it may go on, otherwise why it may not.
      * @throws IOException Reading failed.
      */
-    public static String refuse(final Mailbox mailbox, final Path message, final String peer,
-            final Mail mail, final boolean attesting) throws IOException {
+    public static String refuse(
+            final Mailbox mailbox,
+            final Path message,
+            final String peer,
+            final Mail mail,
+            final boolean attesting)
+            throws IOException {
         final Path attestation =
                 mailbox.inbound().resolve(message.getFileName().toString() + SUFFIX);
         if (!Files.isRegularFile(attestation)) {
@@ -75,13 +82,22 @@ public final class OwnerAttestation {
         if (known == null) {
             // Attribution let it through because a key vouched for it; the project still has to
             // say who that peer is before an owner can be compared with anything.
-            return "it is signed for '" + peer + "', which this project does not list, so there is"
+            return "it is signed for '"
+                    + peer
+                    + "', which this project does not list, so there is"
                     + " nothing to check its owner against";
         }
         final String expected = known.destination();
         if (!expected.equals(parts[1])) {
-            return "it was written by the user '" + parts[1] + "' (uid " + parts[0] + "), and '"
-                    + peer + "' is registered as the user '" + expected + "'";
+            return "it was written by the user '"
+                    + parts[1]
+                    + "' (uid "
+                    + parts[0]
+                    + "), and '"
+                    + peer
+                    + "' is registered as the user '"
+                    + expected
+                    + "'";
         }
         return "";
     }

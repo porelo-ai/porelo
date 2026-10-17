@@ -1,27 +1,26 @@
 package org.fuin.porelo.runtime;
 
-import org.fuin.porelo.wire.Sidecar;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import org.jspecify.annotations.Nullable;
-import java.time.Duration;
 import java.util.Map;
-import java.util.Set;
 import java.util.Optional;
+import java.util.Set;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.project.Project;
+import org.fuin.porelo.wire.Sidecar;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The subset of podman Porelo drives.
- * <p>
- * The command line is used rather than the REST API. It is the interface podman documents for
+ *
+ * <p>The command line is used rather than the REST API. It is the interface podman documents for
  * humans and keeps working across versions, it needs no socket to be running, and it behaves the
  * same rootless as rooted. The cost is parsing output, which is why every query asks for an
  * explicit format instead of scraping the default table.
@@ -61,10 +60,9 @@ public class Podman {
      * @param runner Runs the commands.
      * @param executable Program name or path.
      * @param networkConfiguration File {@link LoopbackMapping} is written to, or {@code null} to
-     *        start containers with podman's configuration untouched.
+     *     start containers with podman's configuration untouched.
      */
-    public Podman(CommandRunner runner, String executable,
-            @Nullable Path networkConfiguration) {
+    public Podman(CommandRunner runner, String executable, @Nullable Path networkConfiguration) {
         this(runner, executable, networkConfiguration, System::getenv);
     }
 
@@ -76,13 +74,18 @@ public class Podman {
      * @param networkConfiguration File {@link LoopbackMapping} is written to, or {@code null}.
      * @param environment Reads an environment variable, for a test that has its own.
      */
-    public Podman(CommandRunner runner, String executable,
+    public Podman(
+            CommandRunner runner,
+            String executable,
             @Nullable Path networkConfiguration,
             java.util.function.UnaryOperator<String> environment) {
         this(runner, executable, networkConfiguration, environment, null);
     }
 
-    private Podman(CommandRunner runner, String executable, @Nullable Path networkConfiguration,
+    private Podman(
+            CommandRunner runner,
+            String executable,
+            @Nullable Path networkConfiguration,
             java.util.function.UnaryOperator<String> environment,
             java.util.function.@Nullable Function<String, @Nullable String> recorded) {
         this.runner = runner;
@@ -92,16 +95,21 @@ public class Podman {
         this.recorded = recorded;
     }
 
-    /** Each task's name to the container id Porelo recorded when it made it, or {@code null}; absent, nothing is checked. */
+    /**
+     * Each task's name to the container id Porelo recorded when it made it, or {@code null};
+     * absent, nothing is checked.
+     */
     private final java.util.function.@Nullable Function<String, @Nullable String> recorded;
 
     /**
-     * Returns this runtime acting only on the tasks Porelo recorded, each by the container id it recorded.
-     * <p>
-     * <strong>A task is what Porelo made, never what is named like one</strong> (2026-10-04): anything
-     * that runs as the account can start a container with any name and any label. So a task is listed only when its
-     * live id is the one Porelo recorded when it created it, and every act on a task - start, stop, remove, exec, its
-     * screen, a line typed into it - goes to that id, never to the name. A name with no record is acted on by nothing.
+     * Returns this runtime acting only on the tasks Porelo recorded, each by the container id it
+     * recorded.
+     *
+     * <p><strong>A task is what Porelo made, never what is named like one</strong> (2026-10-04):
+     * anything that runs as the account can start a container with any name and any label. So a
+     * task is listed only when its live id is the one Porelo recorded when it created it, and every
+     * act on a task - start, stop, remove, exec, its screen, a line typed into it - goes to that
+     * id, never to the name. A name with no record is acted on by nothing.
      *
      * @param records Each task's name to the id recorded for it, or {@code null} for none.
      * @return The runtime that checks.
@@ -114,7 +122,8 @@ public class Podman {
      * Returns what to hand podman for a container: for a task, the id Porelo recorded for it.
      *
      * @param container A container name.
-     * @return The id recorded for a task; the name itself for anything else, or where nothing is recorded at all.
+     * @return The id recorded for a task; the name itself for anything else, or where nothing is
+     *     recorded at all.
      * @throws NotATaskException For a task name Porelo has no record of.
      */
     String target(String container) {
@@ -140,25 +149,26 @@ public class Podman {
 
     /**
      * Returns the {@code --env} arguments that tell a container what terminal it is on.
-     * <p>
-     * <strong>podman passes no environment through, and invents {@code TERM=xterm}.</strong>
+     *
+     * <p><strong>podman passes no environment through, and invents {@code TERM=xterm}.</strong>
      * Measured on 2026-09-12: {@code podman exec -t} sets that and nothing else, whatever the
      * operator's own terminal is. Everything inside then renders in eight colours, and an agent's
      * interface is the thing that suffers most.
-     * <p>
-     * <strong>The operator's own value is passed only when the container can resolve it.</strong>
-     * The base image carries the ncurses base set - {@code xterm-256color}, {@code screen-256color}
-     * and {@code tmux-256color} are there - and nothing else: no {@code alacritty}, no
-     * {@code xterm-kitty}, no {@code foot}. Sending one of those names to a container that has
-     * never heard of it is worse than saying nothing, because a program that cannot look its
-     * terminal up falls back further than {@code xterm} would have. So the container is asked
-     * first, and {@link #FALLBACK_TERMINAL} is what an unknown name becomes - a superset for
-     * colour, and compatible in practice with every terminal that would have reported one.
-     * <p>
-     * {@code COLORTERM} rides along when it is set. It names no terminfo entry, so nothing can
+     *
+     * <p><strong>The operator's own value is passed only when the container can resolve
+     * it.</strong> The base image carries the ncurses base set - {@code xterm-256color}, {@code
+     * screen-256color} and {@code tmux-256color} are there - and nothing else: no {@code
+     * alacritty}, no {@code xterm-kitty}, no {@code foot}. Sending one of those names to a
+     * container that has never heard of it is worse than saying nothing, because a program that
+     * cannot look its terminal up falls back further than {@code xterm} would have. So the
+     * container is asked first, and {@link #FALLBACK_TERMINAL} is what an unknown name becomes - a
+     * superset for colour, and compatible in practice with every terminal that would have reported
+     * one.
+     *
+     * <p>{@code COLORTERM} rides along when it is set. It names no terminfo entry, so nothing can
      * fail to resolve it, and it is how a program decides it may emit 24-bit colour at all.
      *
-     * <strong>This asks the container, so it is not part of building an argument list.</strong>
+     * <p><strong>This asks the container, so it is not part of building an argument list.</strong>
      * The builders below are pure on purpose - what they return is handed straight to {@code exec}
      * - and a builder that ran a command would make every caller pay for a round trip whether it
      * was attaching a person's terminal or not. The callers that are pass the result in.
@@ -167,24 +177,28 @@ public class Podman {
      * @return Arguments to insert, possibly empty.
      */
     public List<String> terminalFor(String container) {
-        return terminalEnvironment.computeIfAbsent(container, name -> {
-            final List<String> arguments = new ArrayList<>();
-            final String wanted = environment.apply("TERM");
-            if (wanted != null && !wanted.isBlank() && !NOTHING.equals(wanted)) {
-                final String usable = knows(name, wanted) ? wanted
-                        : knows(name, FALLBACK_TERMINAL) ? FALLBACK_TERMINAL : null;
-                if (usable != null) {
-                    arguments.add("--env");
-                    arguments.add("TERM=" + usable);
-                }
-            }
-            final String colour = environment.apply("COLORTERM");
-            if (colour != null && !colour.isBlank()) {
-                arguments.add("--env");
-                arguments.add("COLORTERM=" + colour);
-            }
-            return List.copyOf(arguments);
-        });
+        return terminalEnvironment.computeIfAbsent(
+                container,
+                name -> {
+                    final List<String> arguments = new ArrayList<>();
+                    final String wanted = environment.apply("TERM");
+                    if (wanted != null && !wanted.isBlank() && !NOTHING.equals(wanted)) {
+                        final String usable =
+                                knows(name, wanted)
+                                        ? wanted
+                                        : knows(name, FALLBACK_TERMINAL) ? FALLBACK_TERMINAL : null;
+                        if (usable != null) {
+                            arguments.add("--env");
+                            arguments.add("TERM=" + usable);
+                        }
+                    }
+                    final String colour = environment.apply("COLORTERM");
+                    if (colour != null && !colour.isBlank()) {
+                        arguments.add("--env");
+                        arguments.add("COLORTERM=" + colour);
+                    }
+                    return List.copyOf(arguments);
+                });
     }
 
     /**
@@ -196,7 +210,8 @@ public class Podman {
      */
     private boolean knows(String container, String terminal) {
         try {
-            return runner.run(podman("exec", target(container), "infocmp", terminal)).exitCode() == 0;
+            return runner.run(podman("exec", target(container), "infocmp", terminal)).exitCode()
+                    == 0;
         } catch (RuntimeException ex) {
             // A container that cannot be asked is one that cannot be attached to either, and the
             // attach itself is about to say so far better than this could.
@@ -213,19 +228,26 @@ public class Podman {
 
     /**
      * Says how a podman call failed: its exit code and the first line it wrote to standard error.
-     * <p>
-     * That line is the one an operator can act on; a report that says only "failed" drops it.
+     *
+     * <p>That line is the one an operator can act on; a report that says only "failed" drops it.
      *
      * @param result The failed call.
      * @return For example {@code exit 125: Error: cannot set up namespace}.
      */
     private static String failure(CommandResult result) {
-        final String first = result.standardError().lines().map(String::strip)
-                .filter(line -> !line.isEmpty()).findFirst().orElse("");
+        final String first =
+                result.standardError()
+                        .lines()
+                        .map(String::strip)
+                        .filter(line -> !line.isEmpty())
+                        .findFirst()
+                        .orElse("");
         if (first.isEmpty()) {
             return "exit " + result.exitCode() + ", nothing on standard error";
         }
-        return "exit " + result.exitCode() + ": "
+        return "exit "
+                + result.exitCode()
+                + ": "
                 + (first.length() > 200 ? first.substring(0, 200) + "..." : first);
     }
 
@@ -238,18 +260,19 @@ public class Podman {
      * @return Version string such as {@code 5.7.0}.
      */
     public String version() {
-        return runner.runOrFail(podman("version", "--format", "{{.Client.Version}}")).trimmedOutput();
+        return runner.runOrFail(podman("version", "--format", "{{.Client.Version}}"))
+                .trimmedOutput();
     }
 
     /**
      * Tells whether this podman is one Porelo supports.
-     * <p>
-     * podman 4 is refused rather than run with less than the guarantees Porelo describes. It has no
-     * pasta, so the host's loopback cannot be mapped into a container and the git gate has to bind
-     * every interface - the endpoint a task pushes to then sits on the operator's network, held
-     * shut by the per-task token alone. Carrying two networking paths, only one of which keeps the
-     * property the documentation states, is worse than naming the version this needs. Ubuntu 24.04
-     * LTS ships 4.9.3, so this is a real refusal and not a theoretical one.
+     *
+     * <p>podman 4 is refused rather than run with less than the guarantees Porelo describes. It has
+     * no pasta, so the host's loopback cannot be mapped into a container and the git gate has to
+     * bind every interface - the endpoint a task pushes to then sits on the operator's network,
+     * held shut by the per-task token alone. Carrying two networking paths, only one of which keeps
+     * the property the documentation states, is worse than naming the version this needs. Ubuntu
+     * 24.04 LTS ships 4.9.3, so this is a real refusal and not a theoretical one.
      *
      * @return Empty when the version is supported, otherwise what to say about it.
      */
@@ -257,8 +280,12 @@ public class Podman {
         final CommandResult result =
                 runner.run(podman("version", "--format", "{{.Client.Version}}"));
         if (!result.successful()) {
-            return Optional.of("podman fails 'podman version' (" + failure(result)
-                    + "); Porelo needs podman " + MINIMUM_MAJOR + " or newer");
+            return Optional.of(
+                    "podman fails 'podman version' ("
+                            + failure(result)
+                            + "); Porelo needs podman "
+                            + MINIMUM_MAJOR
+                            + " or newer");
         }
         final String reported = result.trimmedOutput();
         final int dot = reported.indexOf('.');
@@ -270,34 +297,42 @@ public class Podman {
         } catch (NumberFormatException ex) {
             // A version that cannot be read is not a version that can be trusted to be new
             // enough, and saying which one was found is what makes that reviewable.
-            return Optional.of("podman reports '" + reported + "', which is not a version Porelo"
-                    + " can read; it needs podman " + MINIMUM_MAJOR + " or newer");
+            return Optional.of(
+                    "podman reports '"
+                            + reported
+                            + "', which is not a version Porelo"
+                            + " can read; it needs podman "
+                            + MINIMUM_MAJOR
+                            + " or newer");
         }
-        return Optional.of("podman " + reported + " is too old; Porelo needs podman "
-                + MINIMUM_MAJOR + " or newer, because older ones cannot map this host's loopback"
-                + " into a container and the git gate would sit on your local network");
+        return Optional.of(
+                "podman "
+                        + reported
+                        + " is too old; Porelo needs podman "
+                        + MINIMUM_MAJOR
+                        + " or newer, because older ones cannot map this host's loopback"
+                        + " into a container and the git gate would sit on your local network");
     }
 
     /**
      * Returns the address a container reaches this host at.
-     * <p>
-     * Asked rather than assumed, because podman decides it and the answer differs by version:
+     *
+     * <p>Asked rather than assumed, because podman decides it and the answer differs by version:
      * measured on 2026-09-05, podman 5.8.1 gives {@code 169.254.1.2} and podman 4.9.3 gives the
-     * host's own LAN address. Ubuntu 24.04 LTS ships 4.9.3, so a hardcoded constant firewalled
-     * the git gate off for everyone on that release, with a push that hung until it timed out as
-     * the only symptom.
-     * <p>
-     * It has to be a throwaway container rather than a query: the name is written into a
+     * host's own LAN address. Ubuntu 24.04 LTS ships 4.9.3, so a hardcoded constant firewalled the
+     * git gate off for everyone on that release, with a push that hung until it timed out as the
+     * only symptom.
+     *
+     * <p>It has to be a throwaway container rather than a query: the name is written into a
      * container's {@code /etc/hosts}, and podman fills that in only once the container starts -
-     * after {@code create} there is not even a file. The image is one the caller already needs,
-     * so nothing extra is pulled.
+     * after {@code create} there is not even a file. The image is one the caller already needs, so
+     * nothing extra is pulled.
      *
      * @param image Image to ask with, which must already be present.
      * @return The address, or empty when it cannot be determined.
      */
     public Optional<String> hostAddressFromContainer(String image) {
-        final CommandResult result = runner.run(podman("run", "--rm", image,
-                "cat", "/etc/hosts"));
+        final CommandResult result = runner.run(podman("run", "--rm", image, "cat", "/etc/hosts"));
         if (!result.successful()) {
             return Optional.empty();
         }
@@ -349,8 +384,8 @@ public class Podman {
         final Path containerfile = contextDirectory.resolve("Containerfile");
         try {
             Files.createDirectories(contextDirectory);
-            Files.writeString(containerfile, Containerfile.render(project, layers),
-                    StandardCharsets.UTF_8);
+            Files.writeString(
+                    containerfile, Containerfile.render(project, layers), StandardCharsets.UTF_8);
         } catch (IOException ex) {
             throw new ContainerException("Cannot write " + containerfile, ex);
         }
@@ -362,18 +397,18 @@ public class Podman {
 
         /**
          * Whatever podman's cache still considers valid is reused.
-         * <p>
-         * What every task start does. Not "skip the build": the build runs and the cache decides
+         *
+         * <p>What every task start does. Not "skip the build": the build runs and the cache decides
          * layer by layer, so an edited project file rebuilds what it changed and nothing else.
          */
         CACHED,
 
         /**
          * The agent's tooling is rebuilt; the base image and its packages are kept.
-         * <p>
-         * Done by passing a value podman has not seen for the argument that marks where the
-         * agent's layers begin, which invalidates the cache from that line down. There is no
-         * podman flag for "rebuild from here", so this is a mechanism rather than an option.
+         *
+         * <p>Done by passing a value podman has not seen for the argument that marks where the
+         * agent's layers begin, which invalidates the cache from that line down. There is no podman
+         * flag for "rebuild from here", so this is a mechanism rather than an option.
          */
         AGENT,
 
@@ -390,20 +425,20 @@ public class Podman {
      * @param rebuild How much to discard.
      * @return The image name.
      */
-    public String buildImage(Project project, Path contextDirectory, ImageLayers layers,
-            Rebuild rebuild) {
+    public String buildImage(
+            Project project, Path contextDirectory, ImageLayers layers, Rebuild rebuild) {
         runner.runOrFail(Command.of(buildArguments(project, contextDirectory, layers, rebuild)));
         return project.imageName();
     }
 
     /**
      * Writes the Containerfile and returns the command that would build it.
-     * <p>
-     * Exists so a caller that has a terminal can run the build on it rather than through the
-     * runner, which collects output and hands it over at the end. A build takes minutes and says
-     * a great deal while it works - which layer is cached, what is being fetched - and none of
-     * that reached anybody: the only line was Porelo's own "building", followed by silence long
-     * enough to look like a hang.
+     *
+     * <p>Exists so a caller that has a terminal can run the build on it rather than through the
+     * runner, which collects output and hands it over at the end. A build takes minutes and says a
+     * great deal while it works - which layer is cached, what is being fetched - and none of that
+     * reached anybody: the only line was Porelo's own "building", followed by silence long enough
+     * to look like a hang.
      *
      * @param project The project.
      * @param contextDirectory Where the Containerfile is written.
@@ -411,26 +446,31 @@ public class Podman {
      * @param rebuild How much of any previous build to discard.
      * @return The executable and its arguments.
      */
-    public List<String> buildArguments(Project project, Path contextDirectory, ImageLayers layers,
-            Rebuild rebuild) {
+    public List<String> buildArguments(
+            Project project, Path contextDirectory, ImageLayers layers, Rebuild rebuild) {
         final Path containerfile = contextDirectory.resolve("Containerfile");
         try {
             Files.createDirectories(contextDirectory);
-            Files.writeString(containerfile, Containerfile.render(project, layers),
-                    StandardCharsets.UTF_8);
+            Files.writeString(
+                    containerfile, Containerfile.render(project, layers), StandardCharsets.UTF_8);
         } catch (IOException ex) {
             throw new ContainerException("Cannot write " + containerfile, ex);
         }
-        final List<String> arguments = new ArrayList<>(List.of("build",
-                "--tag", project.imageName(), "--file", containerfile.toString()));
+        final List<String> arguments =
+                new ArrayList<>(
+                        List.of(
+                                "build",
+                                "--tag",
+                                project.imageName(),
+                                "--file",
+                                containerfile.toString()));
         if (rebuild == Rebuild.EVERYTHING) {
             arguments.add("--no-cache");
         } else if (rebuild == Rebuild.AGENT) {
             // A value podman has not seen before. The clock is enough: this only has to differ
             // from whatever the last build used, and nothing in the image reads it.
             arguments.add("--build-arg");
-            arguments.add(Containerfile.LAYER_EPOCH + "="
-                    + java.time.Instant.now().toEpochMilli());
+            arguments.add(Containerfile.LAYER_EPOCH + "=" + java.time.Instant.now().toEpochMilli());
         }
         arguments.add(contextDirectory.toString());
         return arguments(arguments);
@@ -448,35 +488,44 @@ public class Podman {
         // The arguments name the variables; the values travel in this process's environment, where
         // they are not world-readable. The two halves come from the same object so neither can be
         // sent without the other.
-        return runner.runOrFail(podman(arguments.toArray(String[]::new))
-                .withEnvironment(specification.environment())).trimmedOutput();
+        return runner.runOrFail(
+                        podman(arguments.toArray(String[]::new))
+                                .withEnvironment(specification.environment()))
+                .trimmedOutput();
     }
 
     /**
      * Starts a created container.
-     * <p>
-     * This is where {@link LoopbackMapping} has to be applied - podman builds the pasta command
+     *
+     * <p>This is where {@link LoopbackMapping} has to be applied - podman builds the pasta command
      * line here and nowhere else - and it is applied to every start rather than to the one in
-     * {@code task start}, so that a task started again later comes up with the same networking as one
-     * that never stopped. A gate the container cannot reach only shows up as a push that hangs.
+     * {@code task start}, so that a task started again later comes up with the same networking as
+     * one that never stopped. A gate the container cannot reach only shows up as a push that hangs.
      *
      * @param container Container name or id.
      */
     public void start(String container) {
-        // In a scope of its own: 'podman start' leaves the container's monitor (conmon), its network
-        // and whatever the hooks start in the caller's control group, and a monitor that dies takes the
+        // In a scope of its own: 'podman start' leaves the container's monitor (conmon), its
+        // network
+        // and whatever the hooks start in the caller's control group, and a monitor that dies takes
+        // the
         // container with it - measured, when the caller was the daemon and the daemon was stopped.
         final Command start = withNetworkConfiguration(podman("start", target(container)));
-        runner.runOrFail(new Command(org.fuin.porelo.core.process.Scope.around("porelo " + container, start.arguments()),
-                start.workingDirectory(), start.environment(), start.input()));
+        runner.runOrFail(
+                new Command(
+                        org.fuin.porelo.core.process.Scope.around(
+                                "porelo " + container, start.arguments()),
+                        start.workingDirectory(),
+                        start.environment(),
+                        start.input()));
     }
 
     /**
      * Returns the command with Porelo's own network configuration in its environment, writing that
      * configuration first.
-     * <p>
-     * Written on every start rather than once at setup: the file belongs to this build of Porelo,
-     * and an operator who upgraded would otherwise keep whatever the older one left behind.
+     *
+     * <p>Written on every start rather than once at setup: the file belongs to this build of
+     * Porelo, and an operator who upgraded would otherwise keep whatever the older one left behind.
      *
      * @param command Command to run.
      * @return The command, unchanged when there is no configuration to apply.
@@ -486,15 +535,17 @@ public class Podman {
             return command;
         }
         LoopbackMapping.write(networkConfiguration);
-        return new Command(command.arguments(), command.workingDirectory(),
+        return new Command(
+                command.arguments(),
+                command.workingDirectory(),
                 Map.of(LoopbackMapping.VARIABLE, networkConfiguration.toString()),
                 command.input());
     }
 
     /**
      * Returns how podman connects a rootless container to the network.
-     * <p>
-     * Asked rather than assumed, because it decides whether the git gate can bind loopback only:
+     *
+     * <p>Asked rather than assumed, because it decides whether the git gate can bind loopback only:
      * {@link LoopbackMapping} is a pasta option, and podman ignores it under slirp4netns without
      * saying so.
      *
@@ -511,15 +562,15 @@ public class Podman {
 
     /**
      * Returns how many paths the container has that its image does not.
-     * <p>
-     * What an agent installs inside a container - packages, a toolchain, a cache it warmed - is
+     *
+     * <p>What an agent installs inside a container - packages, a toolchain, a cache it warmed - is
      * destroyed with the container and has nowhere to arrive, unlike the workspace, which the gate
      * holds. Nothing else records it, so removal is the last moment it can be counted.
-     * <p>
-     * Added paths only. {@code podman diff} also reports a directory as changed the moment
-     * anything under it moves, which is true of {@code /etc} and {@code /var} on any container
-     * that ran at all, and counting those would put a number in front of an operator that is never
-     * zero and therefore means nothing.
+     *
+     * <p>Added paths only. {@code podman diff} also reports a directory as changed the moment
+     * anything under it moves, which is true of {@code /etc} and {@code /var} on any container that
+     * ran at all, and counting those would put a number in front of an operator that is never zero
+     * and therefore means nothing.
      *
      * @param container Container name or id.
      * @return How many paths were added, or zero when podman cannot say.
@@ -545,12 +596,13 @@ public class Podman {
         try {
             target = target(container);
         } catch (final NotATaskException ex) {
-            // A task Porelo has no record of does not exist as one: thrown, it replaced the refusal of a start that made
+            // A task Porelo has no record of does not exist as one: thrown, it replaced the refusal
+            // of a start that made
             // nothing and asked here while cleaning up.
             return Optional.empty();
         }
-        final CommandResult result = runner.run(podman("container", "inspect",
-                "--format", "{{.Id}}", target));
+        final CommandResult result =
+                runner.run(podman("container", "inspect", "--format", "{{.Id}}", target));
         return result.successful() && !result.trimmedOutput().isEmpty()
                 ? Optional.of(result.trimmedOutput())
                 : Optional.empty();
@@ -563,8 +615,14 @@ public class Podman {
      * @return Process id, or empty if the container is not running.
      */
     public Optional<Long> pidOf(String container) {
-        final CommandResult result = runner.run(podman("container", "inspect",
-                "--format", "{{.State.Pid}}", target(container)));
+        final CommandResult result =
+                runner.run(
+                        podman(
+                                "container",
+                                "inspect",
+                                "--format",
+                                "{{.State.Pid}}",
+                                target(container)));
         if (!result.successful()) {
             return Optional.empty();
         }
@@ -578,8 +636,8 @@ public class Podman {
 
     /**
      * Stops a container without removing it.
-     * <p>
-     * A stopped container keeps its filesystem, so the task's workspace and everything the agent
+     *
+     * <p>A stopped container keeps its filesystem, so the task's workspace and everything the agent
      * did in it survive and can be resumed. Removing it is a separate decision.
      *
      * @param container Container name or id.
@@ -607,7 +665,8 @@ public class Podman {
      */
     public List<String> poreloContainers() {
         return runner.runOrFail(podman("ps", "--all", "--format", "{{.Names}}"))
-                .standardOutput().lines()
+                .standardOutput()
+                .lines()
                 .map(String::strip)
                 .filter(name -> !name.isEmpty())
                 .filter(ContainerName::isPorelo)
@@ -616,8 +675,8 @@ public class Podman {
 
     /**
      * Removes a project image, if it is there.
-     * <p>
-     * An image that is not there is the outcome asked for, not a failure - the same rule as
+     *
+     * <p>An image that is not there is the outcome asked for, not a failure - the same rule as
      * removing a container. A project whose image was never built, or was pruned, must not make a
      * deletion look as though it went wrong.
      *
@@ -633,19 +692,22 @@ public class Podman {
 
     /**
      * Lists the project images Porelo has built, by name.
-     * <p>
-     * One call rather than {@link #hasImage} per project. Anything reporting on every project asks
-     * this once: a subprocess per project is a cost nothing on screen explains, and the interface
-     * re-asks for the project list after every task start and every approval.
+     *
+     * <p>One call rather than {@link #hasImage} per project. Anything reporting on every project
+     * asks this once: a subprocess per project is a cost nothing on screen explains, and the
+     * interface re-asks for the project list after every task start and every approval.
      *
      * @return Image names, as {@code porelo/<project>}, possibly empty.
      */
     public Set<String> poreloImages() {
         return runner.run(podman("images", "--format", "{{.Repository}}"))
-                .standardOutput().lines()
+                .standardOutput()
+                .lines()
                 .map(String::strip)
-                // podman names an image it built here 'localhost/porelo/<project>'. Kept only when it began 'porelo/', not
-                // one was found: every project read as never prepared, and an unfollow never named its image.
+                // podman names an image it built here 'localhost/porelo/<project>'. Kept only when
+                // it began 'porelo/', not
+                // one was found: every project read as never prepared, and an unfollow never named
+                // its image.
                 .map(name -> name.startsWith(LOCAL) ? name.substring(LOCAL.length()) : name)
                 .filter(name -> name.startsWith("porelo/"))
                 .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
@@ -653,9 +715,9 @@ public class Podman {
 
     /**
      * Runs a short command in a container and returns what it printed.
-     * <p>
-     * For the small questions - what does the workspace look like, what is this variable set to -
-     * where the answer is the point and it fits in memory. {@link #execute} is for an agent run,
+     *
+     * <p>For the small questions - what does the workspace look like, what is this variable set to
+     * - where the answer is the point and it fits in memory. {@link #execute} is for an agent run,
      * whose output is measured in megabytes and belongs in a file.
      *
      * @param container Container name or id.
@@ -663,8 +725,8 @@ public class Podman {
      * @param command Program and arguments.
      * @return The result, successful or not.
      */
-    public CommandResult ask(String container, Map<String, String> environment,
-            List<String> command) {
+    public CommandResult ask(
+            String container, Map<String, String> environment, List<String> command) {
         final List<String> arguments = new ArrayList<>(List.of("exec"));
         arguments.addAll(ContainerSpec.passedThrough(environment.keySet()));
         arguments.add(target(container));
@@ -674,17 +736,23 @@ public class Podman {
 
     /**
      * Returns the image a container was created from, as name and id.
-     * <p>
-     * Both are needed to tell an operator that a task is running something older than the project's
-     * current image: the name is what was asked for, and the id is what it actually resolved to
-     * when the container was made.
+     *
+     * <p>Both are needed to tell an operator that a task is running something older than the
+     * project's current image: the name is what was asked for, and the id is what it actually
+     * resolved to when the container was made.
      *
      * @param container Container name or id.
      * @return {@code name} and {@code id}, or empty if the container is unknown.
      */
     public Optional<String[]> imageOf(String container) {
-        final CommandResult result = runner.run(podman("container", "inspect",
-                "--format", "{{.ImageName}}\t{{.Image}}", target(container)));
+        final CommandResult result =
+                runner.run(
+                        podman(
+                                "container",
+                                "inspect",
+                                "--format",
+                                "{{.ImageName}}\t{{.Image}}",
+                                target(container)));
         if (!result.successful()) {
             return Optional.empty();
         }
@@ -699,8 +767,8 @@ public class Podman {
      * @return Image id, or empty if there is no such image.
      */
     public Optional<String> imageId(String image) {
-        final CommandResult result = runner.run(podman("image", "inspect",
-                "--format", "{{.Id}}", image));
+        final CommandResult result =
+                runner.run(podman("image", "inspect", "--format", "{{.Id}}", image));
         return result.successful() && !result.trimmedOutput().isBlank()
                 ? Optional.of(result.trimmedOutput())
                 : Optional.empty();
@@ -708,8 +776,8 @@ public class Podman {
 
     /**
      * Returns what an image records about the recipe it was built from.
-     * <p>
-     * Empty when there is no such image, and also when the image predates the label - an older
+     *
+     * <p>Empty when there is no such image, and also when the image predates the label - an older
      * image cannot be called stale on the strength of a label nobody wrote, so it reads as built
      * and unknown rather than as out of date.
      *
@@ -717,8 +785,14 @@ public class Podman {
      * @return The recipe fingerprint, or empty.
      */
     public Optional<String> imageRecipe(String image) {
-        final CommandResult result = runner.run(podman("image", "inspect", "--format",
-                "{{index .Labels \"org.fuin.porelo.recipe\"}}", image));
+        final CommandResult result =
+                runner.run(
+                        podman(
+                                "image",
+                                "inspect",
+                                "--format",
+                                "{{index .Labels \"org.fuin.porelo.recipe\"}}",
+                                image));
         if (!result.successful()) {
             return Optional.empty();
         }
@@ -741,32 +815,58 @@ public class Podman {
         // and the test agreed with each other and with nothing else. 'index' answers the one
         // value, and empty when the container carries no such label, so there is no format to
         // get wrong.
-        return runner.runOrFail(podman("ps", "--all", "--no-trunc", "--format",
-                        "{{.Names}}\t{{.Status}}\t{{.StartedAt}}\t{{.ExitedAt}}"
-                        + "\t{{index .Labels \"" + Sidecar.PROJECT_LABEL + "\"}}"
-                        + "\t{{index .Labels \"" + Sidecar.CLASS_LABEL + "\"}}"
-                        + "\t{{index .Labels \"" + Sidecar.REPOSITORY_LABEL + "\"}}"
-                        + "\t{{index .Labels \"" + Sidecar.COMMIT_LABEL + "\"}}\t{{.ID}}"))
-                .standardOutput().lines()
+        return runner.runOrFail(
+                        podman(
+                                "ps",
+                                "--all",
+                                "--no-trunc",
+                                "--format",
+                                "{{.Names}}\t{{.Status}}\t{{.StartedAt}}\t{{.ExitedAt}}"
+                                        + "\t{{index .Labels \""
+                                        + Sidecar.PROJECT_LABEL
+                                        + "\"}}"
+                                        + "\t{{index .Labels \""
+                                        + Sidecar.CLASS_LABEL
+                                        + "\"}}"
+                                        + "\t{{index .Labels \""
+                                        + Sidecar.REPOSITORY_LABEL
+                                        + "\"}}"
+                                        + "\t{{index .Labels \""
+                                        + Sidecar.COMMIT_LABEL
+                                        + "\"}}\t{{.ID}}"))
+                .standardOutput()
+                .lines()
                 .map(String::strip)
                 .filter(line -> !line.isEmpty())
                 .map(line -> line.split("\t", 9))
                 .filter(parts -> ContainerName.isTask(parts[0]))
                 // Only what Porelo made: the live id is the one it recorded at create.
-                .filter(parts -> recorded == null || parts.length > 8 && !parts[8].isBlank()
-                        && parts[8].strip().equals(recorded.apply(parts[0])))
-                .map(parts -> new ContainerSummary(parts[0], parts.length > 1 ? parts[1] : "",
-                        since(parts),
-                        label(parts, 4), label(parts, 5), label(parts, 6), label(parts, 7)))
+                .filter(
+                        parts ->
+                                recorded == null
+                                        || parts.length > 8
+                                                && !parts[8].isBlank()
+                                                && parts[8].strip()
+                                                        .equals(recorded.apply(parts[0])))
+                .map(
+                        parts ->
+                                new ContainerSummary(
+                                        parts[0],
+                                        parts.length > 1 ? parts[1] : "",
+                                        since(parts),
+                                        label(parts, 4),
+                                        label(parts, 5),
+                                        label(parts, 6),
+                                        label(parts, 7)))
                 .toList();
     }
 
     /**
      * Returns one label from a {@code ps} line, or {@code null} when it carries none.
-     * <p>
-     * The field is the label's value, because the format asked for it by name rather than for the
-     * whole map. Empty means the container has no such label - a container created before Porelo
-     * wrote them, which the sidecar still answers for.
+     *
+     * <p>The field is the label's value, because the format asked for it by name rather than for
+     * the whole map. Empty means the container has no such label - a container created before
+     * Porelo wrote them, which the sidecar still answers for.
      *
      * @param parts The ps line, split.
      * @param field Which field the label was asked for in.
@@ -783,13 +883,13 @@ public class Podman {
 
     /**
      * Returns when the container's current state began, as an instant.
-     * <p>
-     * The state that matters is the current one: a running container has been up since it started,
-     * a stopped one has been down since it exited. Both come from {@code ps} rather than from an
-     * inspect per task, which would be one call per row of a list an interface redraws.
-     * <p>
-     * <strong>Both fields can be nonsense.</strong> A container that was created and never started
-     * answers {@code -62135596800} - Go's zero time, the year 1 - and podman renders it as
+     *
+     * <p>The state that matters is the current one: a running container has been up since it
+     * started, a stopped one has been down since it exited. Both come from {@code ps} rather than
+     * from an inspect per task, which would be one call per row of a list an interface redraws.
+     *
+     * <p><strong>Both fields can be nonsense.</strong> A container that was created and never
+     * started answers {@code -62135596800} - Go's zero time, the year 1 - and podman renders it as
      * "Exited (0) 292 years ago". Measured on a machine with one such container left over from a
      * failed start. Anything at or below zero is treated as "the runtime did not say".
      *
@@ -812,8 +912,8 @@ public class Podman {
 
     /**
      * Runs a command inside a running container and writes its output to a file.
-     * <p>
-     * Output goes to a file rather than being collected in memory: an agent run produces a great
+     *
+     * <p>Output goes to a file rather than being collected in memory: an agent run produces a great
      * deal of it, and the file is also what the agent's own formatter is later asked to render.
      *
      * @param container Container name or id.
@@ -826,8 +926,8 @@ public class Podman {
      */
     /**
      * Returns the argument list an unattended run is started with.
-     * <p>
-     * Separate so it can be read without starting anything, which is the only way to assert what
+     *
+     * <p>Separate so it can be read without starting anything, which is the only way to assert what
      * it does NOT contain.
      *
      * @param container Container name or id.
@@ -835,8 +935,8 @@ public class Podman {
      * @param command Program and arguments.
      * @return Arguments.
      */
-    List<String> executeArguments(String container, Map<String, String> environment,
-            List<String> command) {
+    List<String> executeArguments(
+            String container, Map<String, String> environment, List<String> command) {
         final List<String> arguments = new ArrayList<>(List.of(executable, "exec"));
         arguments.addAll(ContainerSpec.passedThrough(environment.keySet()));
         arguments.add(target(container));
@@ -844,8 +944,12 @@ public class Podman {
         return List.copyOf(arguments);
     }
 
-    public int execute(String container, Map<String, String> environment, List<String> command,
-            Path output, Duration timeout) {
+    public int execute(
+            String container,
+            Map<String, String> environment,
+            List<String> command,
+            Path output,
+            Duration timeout) {
 
         // NO --interactive, and that is load-bearing rather than an omission. Measured on
         // 2026-09-12: pi and omp block at startup when stdin is an open pipe - omp sat in
@@ -857,16 +961,17 @@ public class Podman {
         final List<String> arguments = executeArguments(container, environment, command);
 
         try {
-            final ProcessBuilder builder = new ProcessBuilder(arguments)
-                    .redirectErrorStream(true)
-                    .redirectOutput(output.toFile());
+            final ProcessBuilder builder =
+                    new ProcessBuilder(arguments)
+                            .redirectErrorStream(true)
+                            .redirectOutput(output.toFile());
             // Where the values go, since the arguments above carry only the names.
             builder.environment().putAll(environment);
             final Process process = builder.start();
             if (!process.waitFor(timeout.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS)) {
                 process.destroyForcibly();
-                throw new ContainerException("The agent did not finish within "
-                        + timeout.toSeconds() + " seconds");
+                throw new ContainerException(
+                        "The agent did not finish within " + timeout.toSeconds() + " seconds");
             }
             return process.exitValue();
         } catch (IOException ex) {
@@ -879,9 +984,9 @@ public class Podman {
 
     /**
      * Returns the arguments that write a file inside a container, reading it from standard input.
-     * <p>
-     * Over standard input rather than as an argument: one of these files carries the task's token,
-     * and a command line is readable by every process on the host.
+     *
+     * <p>Over standard input rather than as an argument: one of these files carries the task's
+     * token, and a command line is readable by every process on the host.
      *
      * @param container Container name.
      * @param path Absolute path inside the container.
@@ -901,26 +1006,27 @@ public class Podman {
     }
 
     /**
-     * Returns the arguments that run a command as root in a task's container: what Porelo does with the files it
-     * hands to a task, which the agent may read but not change.
-     * <p>
-     * The command and its arguments stay separate, never one string for a shell: a file name a person chose must
-     * only ever be a path.
+     * Returns the arguments that run a command as root in a task's container: what Porelo does with
+     * the files it hands to a task, which the agent may read but not change.
+     *
+     * <p>The command and its arguments stay separate, never one string for a shell: a file name a
+     * person chose must only ever be a path.
      *
      * @param container Container name.
      * @param command The command and its arguments.
      * @return Arguments.
      */
     public List<String> asRootArguments(String container, List<String> command) {
-        final List<String> arguments = new java.util.ArrayList<>(
-                List.of(executable, "exec", "--user", "root", target(container)));
+        final List<String> arguments =
+                new java.util.ArrayList<>(
+                        List.of(executable, "exec", "--user", "root", target(container)));
         arguments.addAll(command);
         return arguments;
     }
 
     /**
-     * Returns the arguments that start a command as root in a task's container and return at once, the command going
-     * on in the container: a writer that lives as long as the container does.
+     * Returns the arguments that start a command as root in a task's container and return at once,
+     * the command going on in the container: a writer that lives as long as the container does.
      *
      * @param container Container name.
      * @param command The command and its arguments.
@@ -931,30 +1037,41 @@ public class Podman {
     }
 
     /**
-     * Returns the arguments that start a command as a given user in a task's container and return at once.
+     * Returns the arguments that start a command as a given user in a task's container and return
+     * at once.
      *
      * @param container Container name.
      * @param user The user in the container.
      * @param command The command and its arguments.
      * @return Arguments.
      */
-    public List<String> asUserDetachedArguments(String container, String user, List<String> command) {
-        final List<String> arguments = new java.util.ArrayList<>(
-                List.of(executable, "exec", "--detach", "--user", user, target(container)));
+    public List<String> asUserDetachedArguments(
+            String container, String user, List<String> command) {
+        final List<String> arguments =
+                new java.util.ArrayList<>(
+                        List.of(executable, "exec", "--detach", "--user", user, target(container)));
         arguments.addAll(command);
         return arguments;
     }
 
     /**
-     * Returns the arguments that run a command as root in a task's container, reading standard input.
+     * Returns the arguments that run a command as root in a task's container, reading standard
+     * input.
      *
      * @param container Container name.
      * @param command The command and its arguments.
      * @return Arguments.
      */
     public List<String> asRootWithInputArguments(String container, List<String> command) {
-        final List<String> arguments = new java.util.ArrayList<>(
-                List.of(executable, "exec", "--interactive", "--user", "root", target(container)));
+        final List<String> arguments =
+                new java.util.ArrayList<>(
+                        List.of(
+                                executable,
+                                "exec",
+                                "--interactive",
+                                "--user",
+                                "root",
+                                target(container)));
         arguments.addAll(command);
         return arguments;
     }
@@ -967,7 +1084,12 @@ public class Podman {
      * @return Arguments.
      */
     public List<String> makeParentArguments(String container, String path) {
-        return List.of(executable, "exec", target(container), "mkdir", "-p",
+        return List.of(
+                executable,
+                "exec",
+                target(container),
+                "mkdir",
+                "-p",
                 path.substring(0, path.lastIndexOf('/')));
     }
 
@@ -985,9 +1107,9 @@ public class Podman {
 
     /**
      * Returns the argument list that attaches an interactive shell to a running container.
-     * <p>
-     * Returned rather than executed: attaching replaces the Porelo process with the shell, so the
-     * caller does that with {@code execvp} and never comes back.
+     *
+     * <p>Returned rather than executed: attaching replaces the Porelo process with the shell, so
+     * the caller does that with {@code execvp} and never comes back.
      *
      * @param container Container name or id.
      * @param shell Shell to run.
@@ -995,9 +1117,9 @@ public class Podman {
      */
     /**
      * Returns the arguments that attach a terminal to a program in a running container.
-     * <p>
-     * The program and its arguments stay separate: joining them into one string would have podman
-     * look for an executable whose name contains spaces.
+     *
+     * <p>The program and its arguments stay separate: joining them into one string would have
+     * podman look for an executable whose name contains spaces.
      *
      * @param container Container name.
      * @param command Program and arguments to run inside it.
@@ -1009,8 +1131,8 @@ public class Podman {
 
     /**
      * Returns the arguments that attach to a container, with extra arguments for {@code exec}.
-     * <p>
-     * Pure: nothing here runs anything. {@code environment} is what {@link #terminalFor(String)}
+     *
+     * <p>Pure: nothing here runs anything. {@code environment} is what {@link #terminalFor(String)}
      * returned, resolved by the caller because resolving it costs a round trip into the container.
      *
      * @param container Container name.
@@ -1018,10 +1140,10 @@ public class Podman {
      * @param environment Extra arguments for {@code exec}, before the container name.
      * @return Arguments.
      */
-    public List<String> attachArguments(String container, List<String> command,
-            List<String> environment) {
-        final List<String> arguments = new ArrayList<>(
-                List.of(executable, "exec", "--interactive", "--tty"));
+    public List<String> attachArguments(
+            String container, List<String> command, List<String> environment) {
+        final List<String> arguments =
+                new ArrayList<>(List.of(executable, "exec", "--interactive", "--tty"));
         arguments.addAll(environment);
         arguments.add(target(container));
         arguments.addAll(command);
@@ -1030,10 +1152,10 @@ public class Podman {
 
     /**
      * Returns an argument list for the runtime, for a caller that runs it on this terminal.
-     * <p>
-     * Exists because an interactive login has to reach the person's own terminal: a command whose
-     * output this collected would show them nothing, and a login that prints a URL nobody sees is
-     * a login that never finishes.
+     *
+     * <p>Exists because an interactive login has to reach the person's own terminal: a command
+     * whose output this collected would show them nothing, and a login that prints a URL nobody
+     * sees is a login that never finishes.
      *
      * @param arguments What to pass to the runtime.
      * @return The executable followed by those arguments.
@@ -1047,8 +1169,8 @@ public class Podman {
 
     /**
      * Copies a path out of a container onto this machine.
-     * <p>
-     * Used to collect what a login left behind, so the credential is read by the same extractor
+     *
+     * <p>Used to collect what a login left behind, so the credential is read by the same extractor
      * that reads one from a directory on the node - rather than by a second implementation that
      * would eventually disagree with the first about where an agent keeps things.
      *
@@ -1066,8 +1188,8 @@ public class Podman {
 
     /**
      * Returns the arguments that run a command first and leave a shell behind afterwards.
-     * <p>
-     * The shell outlives the command on purpose: when the command ends - finished, failed, or
+     *
+     * <p>The shell outlives the command on purpose: when the command ends - finished, failed, or
      * refused a credential - the workspace is still there to look at and its work can still be
      * pushed by hand. Attaching to the command alone would take the container down with it.
      *
@@ -1089,8 +1211,8 @@ public class Podman {
      * @param label Text for the prompt, or {@code null} to leave the shell's own.
      * @return Arguments.
      */
-    public List<String> attachArguments(String container, String shell,
-            @Nullable String command, @Nullable String label) {
+    public List<String> attachArguments(
+            String container, String shell, @Nullable String command, @Nullable String label) {
         return attachArguments(container, shell, command, label, List.of());
     }
 
@@ -1106,13 +1228,13 @@ public class Podman {
      */
     /**
      * Returns the arguments that join a task's session, creating it if it is not there.
-     * <p>
-     * <strong>One session per task, whichever command reaches it.</strong> {@code new-session -A}
-     * attaches when the session exists and creates it when it does not, so starting a task and
-     * attaching to one are the same operation against the same name - which is what makes leaving
-     * a window and coming back find what was left.
-     * <p>
-     * The command goes in as a single argument on purpose: tmux joins several into one string
+     *
+     * <p><strong>One session per task, whichever command reaches it.</strong> {@code new-session
+     * -A} attaches when the session exists and creates it when it does not, so starting a task and
+     * attaching to one are the same operation against the same name - which is what makes leaving a
+     * window and coming back find what was left.
+     *
+     * <p>The command goes in as a single argument on purpose: tmux joins several into one string
      * with spaces, which would take a script apart at its quoting.
      *
      * @param container Container name.
@@ -1120,10 +1242,18 @@ public class Podman {
      * @param environment Extra arguments for {@code exec}, from {@link #terminalFor(String)}.
      * @return Arguments.
      */
-    public List<String> sessionArguments(String container, @Nullable String script,
-            List<String> environment) {
-        final List<String> session = new ArrayList<>(List.of("tmux", "-f", Containerfile.TMUX_CONF,
-                "new-session", "-A", "-s", Containerfile.SESSION));
+    public List<String> sessionArguments(
+            String container, @Nullable String script, List<String> environment) {
+        final List<String> session =
+                new ArrayList<>(
+                        List.of(
+                                "tmux",
+                                "-f",
+                                Containerfile.TMUX_CONF,
+                                "new-session",
+                                "-A",
+                                "-s",
+                                Containerfile.SESSION));
         if (script != null) {
             session.add(script);
         }
@@ -1134,32 +1264,34 @@ public class Podman {
      * What a task's terminal shows, read without attaching to it.
      *
      * @param lines Its last lines, the blank screen below them left out.
-     * @param live Whether the task has a terminal session to read: {@code false} for work without one, and then
-     *        {@code lines} is empty.
+     * @param live Whether the task has a terminal session to read: {@code false} for work without
+     *     one, and then {@code lines} is empty.
      */
-    public record Screen(List<String> lines, boolean live) {
-    }
+    public record Screen(List<String> lines, boolean live) {}
 
     /** As many lines as a session keeps, and so the most a screen can show. */
     public static final int SCREEN_LINES = Integer.parseInt(Containerfile.SCROLLBACK);
 
     /**
-     * Reads the last lines of a task's terminal session, as tmux keeps them, without attaching to it.
-     * <p>
-     * For a console showing what runs there: nobody attached sees anything happen, and the screen is read
-     * as it is, a snapshot a client asks for again rather than a stream.
+     * Reads the last lines of a task's terminal session, as tmux keeps them, without attaching to
+     * it.
+     *
+     * <p>For a console showing what runs there: nobody attached sees anything happen, and the
+     * screen is read as it is, a snapshot a client asks for again rather than a stream.
      *
      * @param container The task.
      * @param last How many lines, at most {@link #SCREEN_LINES}.
-     * @param escapes Whether to keep the colour and attribute escapes, for a client that draws them.
+     * @param escapes Whether to keep the colour and attribute escapes, for a client that draws
+     *     them.
      * @return What it shows.
      */
     public Screen screen(String container, int last, boolean escapes) {
         final int lines = Math.max(1, Math.min(last, SCREEN_LINES));
         final CommandResult result;
         try {
-            final List<String> capture = new ArrayList<>(List.of("exec", target(container), "tmux", "capture-pane",
-                    "-p", "-J"));
+            final List<String> capture =
+                    new ArrayList<>(
+                            List.of("exec", target(container), "tmux", "capture-pane", "-p", "-J"));
             if (escapes) {
                 capture.add("-e");
             }
@@ -1171,18 +1303,21 @@ public class Podman {
         if (result.exitCode() != 0) {
             return new Screen(List.of(), false);
         }
-        final List<String> shown = new ArrayList<>(List.of(result.standardOutput().split("\n", -1)));
-        while (!shown.isEmpty() && shown.get(shown.size() - 1).replaceAll("\u001b\\[[0-9;]*m", "").isBlank()) {
+        final List<String> shown =
+                new ArrayList<>(List.of(result.standardOutput().split("\n", -1)));
+        while (!shown.isEmpty()
+                && shown.get(shown.size() - 1).replaceAll("\u001b\\[[0-9;]*m", "").isBlank()) {
             shown.remove(shown.size() - 1);
         }
-        return new Screen(List.copyOf(shown.subList(Math.max(0, shown.size() - lines), shown.size())), true);
+        return new Screen(
+                List.copyOf(shown.subList(Math.max(0, shown.size() - lines), shown.size())), true);
     }
 
     /**
      * Types one line into a task's terminal session, then Enter, as a person at its keyboard would.
-     * <p>
-     * Only ever a line of Porelo's own, never anything somebody wrote: what arrives for an agent reaches it as a file
-     * the host checked, and a line typed here is read as the person's.
+     *
+     * <p>Only ever a line of Porelo's own, never anything somebody wrote: what arrives for an agent
+     * reaches it as a file the host checked, and a line typed here is read as the person's.
      *
      * @param container The task.
      * @param line What to type.
@@ -1191,26 +1326,55 @@ public class Podman {
     public boolean type(String container, String line) {
         try {
             final String id = target(container);
-            return runner.run(podman("exec", id, "tmux", "send-keys", "-t", Containerfile.SESSION, "-l", line))
-                    .exitCode() == 0
-                    && runner.run(podman("exec", id, "tmux", "send-keys", "-t", Containerfile.SESSION, "Enter"))
-                            .exitCode() == 0;
+            return runner.run(
+                                            podman(
+                                                    "exec",
+                                                    id,
+                                                    "tmux",
+                                                    "send-keys",
+                                                    "-t",
+                                                    Containerfile.SESSION,
+                                                    "-l",
+                                                    line))
+                                    .exitCode()
+                            == 0
+                    && runner.run(
+                                            podman(
+                                                    "exec",
+                                                    id,
+                                                    "tmux",
+                                                    "send-keys",
+                                                    "-t",
+                                                    Containerfile.SESSION,
+                                                    "Enter"))
+                                    .exitCode()
+                            == 0;
         } catch (RuntimeException ex) {
             return false;
         }
     }
 
     /**
-     * Presses Enter in a task's terminal session, once, and types nothing: for a line of Porelo's own that stood in the
-     * agent's input box because the agent took the first Enter while it drew something.
+     * Presses Enter in a task's terminal session, once, and types nothing: for a line of Porelo's
+     * own that stood in the agent's input box because the agent took the first Enter while it drew
+     * something.
      *
      * @param container The task.
      * @return Whether the keystroke reached the session.
      */
     public boolean enter(String container) {
         try {
-            return runner.run(podman("exec", target(container), "tmux", "send-keys", "-t", Containerfile.SESSION,
-                    "Enter")).exitCode() == 0;
+            return runner.run(
+                                    podman(
+                                            "exec",
+                                            target(container),
+                                            "tmux",
+                                            "send-keys",
+                                            "-t",
+                                            Containerfile.SESSION,
+                                            "Enter"))
+                            .exitCode()
+                    == 0;
         } catch (RuntimeException ex) {
             return false;
         }
@@ -1218,14 +1382,14 @@ public class Podman {
 
     /**
      * Says whether the session's own shell reported that it ended.
-     * <p>
-     * This is how leaving a window is told from finishing the work. Nothing observable from
+     *
+     * <p>This is how leaving a window is told from finishing the work. Nothing observable from
      * outside distinguishes them - both end the command that was attached - so the shell says so
      * itself, into {@link Containerfile#SESSION_ENDED} inside the container, and the host reads it.
-     * Asking tmux whether the session survived would answer the same question and fail in the
-     * wrong direction; {@link Containerfile#SESSION_ENDED} says which and why.
-     * <p>
-     * <strong>Absence means "keep", not "remove".</strong> A killed session, a crashed container
+     * Asking tmux whether the session survived would answer the same question and fail in the wrong
+     * direction; {@link Containerfile#SESSION_ENDED} says which and why.
+     *
+     * <p><strong>Absence means "keep", not "remove".</strong> A killed session, a crashed container
      * or a container that cannot be asked all leave no marker, and all of them keep the task.
      *
      * @param container Container name.
@@ -1233,8 +1397,15 @@ public class Podman {
      */
     public boolean sessionEnded(String container) {
         try {
-            return runner.run(podman("exec", target(container), "test", "-f", Containerfile.SESSION_ENDED))
-                    .exitCode() == 0;
+            return runner.run(
+                                    podman(
+                                            "exec",
+                                            target(container),
+                                            "test",
+                                            "-f",
+                                            Containerfile.SESSION_ENDED))
+                            .exitCode()
+                    == 0;
         } catch (RuntimeException ex) {
             // A container that cannot be asked has not told us it finished, and "not finished"
             // keeps the task. Never discard work because a question could not be put.
@@ -1242,16 +1413,20 @@ public class Podman {
         }
     }
 
-    public List<String> attachArguments(String container, String shell,
-            @Nullable String command, @Nullable String label, List<String> environment) {
-        return attachArguments(container, List.of(shell, "-lc", attachScript(shell, command, label)),
-                environment);
+    public List<String> attachArguments(
+            String container,
+            String shell,
+            @Nullable String command,
+            @Nullable String label,
+            List<String> environment) {
+        return attachArguments(
+                container, List.of(shell, "-lc", attachScript(shell, command, label)), environment);
     }
 
     /**
      * Builds what a task's window runs: the command, the terminal put back, then a shell.
-     * <p>
-     * Separate from the argument list because the same script is run two ways - directly by a
+     *
+     * <p>Separate from the argument list because the same script is run two ways - directly by a
      * shell, and as a session's first window - and a second copy of it would drift.
      *
      * @param shell Shell to leave behind.
@@ -1297,19 +1472,25 @@ public class Podman {
             // result reads as a hung session: the last output at the bottom, the cursor at the
             // top, and a shell that is running and does not look like it.
             //
-            // Erased rather than the cursor moved, because what is on the screen belongs to the agent
+            // Erased rather than the cursor moved, because what is on the screen belongs to the
+            // agent
             // that just ended - and erased as at the start, the screen only: 'clear' on a current
-            // terminfo erases the scrollback too, where the conversation is kept for anyone who wants
+            // terminfo erases the scrollback too, where the conversation is kept for anyone who
+            // wants
             // to read back (2026-10-01).
-            script.append("printf '\\033[?1049l\\033[?25h\\033[0m\\033[r\\033[?7h"
-                    + "\\033[?1000l\\033[?1002l\\033[?1003l\\033[?1006l'; stty sane; ");
+            script.append(
+                    "printf '\\033[?1049l\\033[?25h\\033[0m\\033[r\\033[?7h"
+                            + "\\033[?1000l\\033[?1002l\\033[?1003l\\033[?1006l'; stty sane; ");
             script.append("printf '\\033[H\\033[2J'; ");
         }
         if (label != null) {
             // A container hostname says nothing about which task it is, and an operator with
             // several open shells has no other way to tell them apart.
-            // Quoted as a word, not put between quotes as it came: a quote in it would end the string.
-            script.append("export PORELO_PROMPT=").append(ShellWords.quote(List.of(label))).append("; ");
+            // Quoted as a word, not put between quotes as it came: a quote in it would end the
+            // string.
+            script.append("export PORELO_PROMPT=")
+                    .append(ShellWords.quote(List.of(label)))
+                    .append("; ");
             script.append("export PROMPT_COMMAND=\"PS1='porelo[\\$PORELO_PROMPT] \\w\\$ '\"; ");
         }
         // NOT 'exec', and that is the whole mechanism. 'exec' replaces this process with the

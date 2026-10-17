@@ -13,19 +13,31 @@ import org.fuin.porelo.core.process.ProcessCommandRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Tests for {@link TaskWorkspace}.
- */
+/** Tests for {@link TaskWorkspace}. */
 class TaskWorkspaceTest {
 
     private final ProcessCommandRunner runner = new ProcessCommandRunner();
 
     private String git(Path directory, String... arguments) {
-        final List<String> all = new ArrayList<>(List.of("git", "-c", "user.name=T",
-                "-c", "user.email=t@example.com", "-c", "init.defaultBranch=main"));
+        final List<String> all =
+                new ArrayList<>(
+                        List.of(
+                                "git",
+                                "-c",
+                                "user.name=T",
+                                "-c",
+                                "user.email=t@example.com",
+                                "-c",
+                                "init.defaultBranch=main"));
         all.addAll(List.of(arguments));
-        return runner.runOrFail(new Command(all, directory,
-                Map.of("GIT_TERMINAL_PROMPT", "0", "LC_ALL", "C"), null)).standardOutput().strip();
+        return runner.runOrFail(
+                        new Command(
+                                all,
+                                directory,
+                                Map.of("GIT_TERMINAL_PROMPT", "0", "LC_ALL", "C"),
+                                null))
+                .standardOutput()
+                .strip();
     }
 
     /** A repository with one commit on the given branch, and a mirror of it. */
@@ -44,77 +56,120 @@ class TaskWorkspaceTest {
 
     /** Runs the workspace script the way the container does, with the mirror as the remote. */
     private void runCloneScript(Path workspace, Path mirror, String taskRef) {
-        final String script = TaskWorkspace.cloneScript()
-                .replace("cd " + TaskWorkspace.MOUNT + ";", "cd " + workspace + ";");
-        runner.runOrFail(new Command(List.of("sh", "-c", script), workspace,
-                Map.of("PORELO_REMOTE_URL", mirror.toString(), "PORELO_TASK_REF", taskRef,
-                        "GIT_TERMINAL_PROMPT", "0"), null));
+        final String script =
+                TaskWorkspace.cloneScript()
+                        .replace("cd " + TaskWorkspace.MOUNT + ";", "cd " + workspace + ";");
+        runner.runOrFail(
+                new Command(
+                        List.of("sh", "-c", script),
+                        workspace,
+                        Map.of(
+                                "PORELO_REMOTE_URL",
+                                mirror.toString(),
+                                "PORELO_TASK_REF",
+                                taskRef,
+                                "GIT_TERMINAL_PROMPT",
+                                "0"),
+                        null));
     }
 
     @Test
-    void aRemoteThatNeverAnswersIsGivenUpOnAndSaidRatherThanWaitedForSilently(@TempDir Path root) throws Exception {
+    void aRemoteThatNeverAnswersIsGivenUpOnAndSaidRatherThanWaitedForSilently(@TempDir Path root)
+            throws Exception {
 
-        // An online task's remote over ssh, its port dropped: the fetch never ended, and the launch waited with it.
+        // An online task's remote over ssh, its port dropped: the fetch never ended, and the launch
+        // waited with it.
         final Path workspace = Files.createDirectories(root.resolve("workspace"));
-        final String script = TaskWorkspace.cloneScript(2)
-                .replace("cd " + TaskWorkspace.MOUNT + ";", "cd " + workspace + ";");
-        final ProcessBuilder builder = new ProcessBuilder("sh", "-c", script).redirectErrorStream(true);
+        final String script =
+                TaskWorkspace.cloneScript(2)
+                        .replace("cd " + TaskWorkspace.MOUNT + ";", "cd " + workspace + ";");
+        final ProcessBuilder builder =
+                new ProcessBuilder("sh", "-c", script).redirectErrorStream(true);
         builder.environment().put("PORELO_REMOTE_URL", "ssh://git@forge.invalid/you/repo.git");
         builder.environment().put("GIT_SSH_COMMAND", "sleep 30; :");
         builder.environment().put("GIT_TERMINAL_PROMPT", "0");
         final long started = System.nanoTime();
         final Process process = builder.start();
         final boolean ended = process.waitFor(20, java.util.concurrent.TimeUnit.SECONDS);
-        final String said = new String(process.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        final String said =
+                new String(
+                        process.getInputStream().readAllBytes(),
+                        java.nio.charset.StandardCharsets.UTF_8);
         process.destroyForcibly();
 
         assertThat(ended).as("the script gave up on the fetch").isTrue();
-        assertThat(java.time.Duration.ofNanos(System.nanoTime() - started)).isLessThan(java.time.Duration.ofSeconds(15));
-        assertThat(said).as("and said why, for the launch to report").contains(TaskWorkspace.FETCH_FAILED + " 124");
+        assertThat(java.time.Duration.ofNanos(System.nanoTime() - started))
+                .isLessThan(java.time.Duration.ofSeconds(15));
+        assertThat(said)
+                .as("and said why, for the launch to report")
+                .contains(TaskWorkspace.FETCH_FAILED + " 124");
         assertThat(TaskWorkspace.fetchProblem(said)).contains("did not answer within");
         assertThat(TaskWorkspace.fetchProblem("nothing of the kind\n")).isNull();
     }
 
-    /** Runs the script with a remote whose ssh refuses, as GitHub refuses a task holding no key; returns its output. */
+    /**
+     * Runs the script with a remote whose ssh refuses, as GitHub refuses a task holding no key;
+     * returns its output.
+     */
     private String refusedFetch(final Path workspace) throws Exception {
-        final String script = TaskWorkspace.cloneScript(10)
-                .replace("cd " + TaskWorkspace.MOUNT + ";", "cd " + workspace + ";");
-        final ProcessBuilder builder = new ProcessBuilder("sh", "-c", script).redirectErrorStream(true);
+        final String script =
+                TaskWorkspace.cloneScript(10)
+                        .replace("cd " + TaskWorkspace.MOUNT + ";", "cd " + workspace + ";");
+        final ProcessBuilder builder =
+                new ProcessBuilder("sh", "-c", script).redirectErrorStream(true);
         builder.environment().put("PORELO_REMOTE_URL", "git@forge.invalid:you/repo.git");
-        builder.environment().put("GIT_SSH_COMMAND", "echo 'git@forge.invalid: Permission denied (publickey).' >&2; exit 255; :");
+        builder.environment()
+                .put(
+                        "GIT_SSH_COMMAND",
+                        "echo 'git@forge.invalid: Permission denied (publickey).' >&2; exit 255; :");
         builder.environment().put("GIT_TERMINAL_PROMPT", "0");
         final Process process = builder.start();
         assertThat(process.waitFor(20, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
-        assertThat(process.exitValue()).as("the script itself still ends well; the launch decides").isZero();
-        return new String(process.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(process.exitValue())
+                .as("the script itself still ends well; the launch decides")
+                .isZero();
+        return new String(
+                process.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
     }
 
     @Test
-    void theBranchTracksTheTasksOwnPlaceSoStatusSaysWhatWasHandedIn(@TempDir Path root) throws IOException {
+    void theBranchTracksTheTasksOwnPlaceSoStatusSaysWhatWasHandedIn(@TempDir Path root)
+            throws IOException {
 
         // After 'git push' landed on the task's ref, 'git status' still said "ahead of
-        // 'porelo/develop' by 1 commit" - the gate's branch, which moves only on approval. An agent pushes again.
+        // 'porelo/develop' by 1 commit" - the gate's branch, which moves only on approval. An agent
+        // pushes again.
         final Path mirror = seededMirror(root, "main");
         final Path workspace = Files.createDirectories(root.resolve("workspace"));
         runCloneScript(workspace, mirror, "refs/porelo/incoming/shell");
-        assertThat(git(workspace, "status", "-sb").lines().findFirst().orElseThrow()).as("nothing done yet")
-                .contains("porelo/incoming/shell").doesNotContain("ahead");
+        assertThat(git(workspace, "status", "-sb").lines().findFirst().orElseThrow())
+                .as("nothing done yet")
+                .contains("porelo/incoming/shell")
+                .doesNotContain("ahead");
         git(workspace, "fetch", "porelo");
 
         Files.writeString(workspace.resolve("NEW.md"), "the agent's work\n");
         git(workspace, "add", "-A");
         git(workspace, "commit", "-q", "-m", "agent work");
-        assertThat(git(workspace, "status", "-sb").lines().findFirst().orElseThrow()).contains("ahead 1");
+        assertThat(git(workspace, "status", "-sb").lines().findFirst().orElseThrow())
+                .contains("ahead 1");
 
         git(workspace, "push", "-q", "porelo");
-        assertThat(git(workspace, "status", "-sb").lines().findFirst().orElseThrow()).as("handed in")
-                .contains("porelo/incoming/shell").doesNotContain("ahead");
+        assertThat(git(workspace, "status", "-sb").lines().findFirst().orElseThrow())
+                .as("handed in")
+                .contains("porelo/incoming/shell")
+                .doesNotContain("ahead");
 
         // Again, as a resumed task runs it: nothing doubles, nothing handed in is forgotten.
         runCloneScript(workspace, mirror, "refs/porelo/incoming/shell");
-        assertThat(git(workspace, "config", "--get-all", "remote.porelo.fetch").lines()
-                .filter(line -> line.contains("incoming")).count()).isEqualTo(1);
-        assertThat(git(workspace, "status", "-sb").lines().findFirst().orElseThrow()).doesNotContain("ahead");
+        assertThat(
+                        git(workspace, "config", "--get-all", "remote.porelo.fetch")
+                                .lines()
+                                .filter(line -> line.contains("incoming"))
+                                .count())
+                .isEqualTo(1);
+        assertThat(git(workspace, "status", "-sb").lines().findFirst().orElseThrow())
+                .doesNotContain("ahead");
     }
 
     @Test
@@ -167,7 +222,12 @@ class TaskWorkspaceTest {
         // "git push <Name>" usage line and sends nothing. The default keeps it going to the gate.
         final Path mirror = seededMirror(root, "main");
         final Path elsewhere = root.resolve("elsewhere.git");
-        git(root, "clone", "-q", "--mirror", root.resolve("source").toString(),
+        git(
+                root,
+                "clone",
+                "-q",
+                "--mirror",
+                root.resolve("source").toString(),
                 elsewhere.toString());
         final Path workspace = Files.createDirectories(root.resolve("workspace"));
         runCloneScript(workspace, mirror, "refs/porelo/incoming/shell");
@@ -189,10 +249,15 @@ class TaskWorkspaceTest {
     private void runCloneScript(Path workspace, Path mirror) {
         // The only substitution is the mount point: the container has /workspace and this
         // machine has a temporary directory. Everything else is the script that really runs.
-        final String script = TaskWorkspace.cloneScript()
-                .replace("cd " + TaskWorkspace.MOUNT + ";", "cd " + workspace + ";");
-        runner.runOrFail(new Command(List.of("sh", "-c", script), workspace,
-                Map.of("PORELO_REMOTE_URL", mirror.toString(), "GIT_TERMINAL_PROMPT", "0"), null));
+        final String script =
+                TaskWorkspace.cloneScript()
+                        .replace("cd " + TaskWorkspace.MOUNT + ";", "cd " + workspace + ";");
+        runner.runOrFail(
+                new Command(
+                        List.of("sh", "-c", script),
+                        workspace,
+                        Map.of("PORELO_REMOTE_URL", mirror.toString(), "GIT_TERMINAL_PROMPT", "0"),
+                        null));
     }
 
     @Test
@@ -264,8 +329,7 @@ class TaskWorkspaceTest {
 
         assertThat(workspace.resolve(".git")).isDirectory();
         try (var entries = Files.list(workspace)) {
-            assertThat(entries.map(path -> path.getFileName().toString()))
-                    .containsExactly(".git");
+            assertThat(entries.map(path -> path.getFileName().toString())).containsExactly(".git");
         }
     }
 
@@ -331,7 +395,8 @@ class TaskWorkspaceTest {
     void acceptsTheMappingPodmanWrites() {
 
         // Given
-        final String hosts = """
+        final String hosts =
+                """
                 127.0.0.1\tlocalhost
                 169.254.1.2\thost.containers.internal host.docker.internal
                 """;
@@ -381,9 +446,10 @@ class TaskWorkspaceTest {
     void ignoresCommentsAndBlankLines() {
 
         // Given
-        final String hosts = """
+        final String hosts =
+                """
                 # added by podman
-                
+
                 169.254.1.2\thost.containers.internal
                 """;
 

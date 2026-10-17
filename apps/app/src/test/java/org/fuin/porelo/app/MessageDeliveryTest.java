@@ -13,9 +13,7 @@ import org.fuin.porelo.vault.SshSignature;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Test for {@link MessageDelivery}.
- */
+/** Test for {@link MessageDelivery}. */
 class MessageDeliveryTest {
 
     private final SigningKey peerKey = SigningKey.generate("peer");
@@ -32,8 +30,9 @@ class MessageDeliveryTest {
         return List.of(new MessageDelivery.Peer("reviewer", List.of(peerKey.keyBlob())));
     }
 
-    private void arrive(final Mailbox mailbox, final String name, final String json,
-            final String signature) throws IOException {
+    private void arrive(
+            final Mailbox mailbox, final String name, final String json, final String signature)
+            throws IOException {
         Files.writeString(mailbox.inbound().resolve(name), json);
         if (signature != null) {
             Files.writeString(mailbox.inbound().resolve(name + ".sig"), signature);
@@ -44,17 +43,23 @@ class MessageDeliveryTest {
     void delivers_what_a_known_peer_signed(@TempDir final Path dir) throws IOException {
         final Mailbox mailbox = mailbox(dir);
         final String json = "{\"messageId\":\"m-1\"}";
-        arrive(mailbox, "m-1.json", json, SshSignature.sign(peerKey,
-                json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
+        arrive(
+                mailbox,
+                "m-1.json",
+                json,
+                SshSignature.sign(
+                        peerKey, json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
 
         final MessageDelivery.Outcome outcome = delivery.deliver(mailbox, reviewer());
 
-        assertThat(outcome.delivered()).extracting(MessageDelivery.Delivered::message)
+        assertThat(outcome.delivered())
+                .extracting(MessageDelivery.Delivered::message)
                 .containsExactly("m-1.json");
         assertThat(outcome.held()).isEmpty();
         assertThat(mailbox.inboxNew().resolve("m-1.json")).exists();
         assertThat(mailbox.inboxTmp()).isEmptyDirectory();
-        assertThat(mailbox.record().resolve("m-1.json.sig")).as("evidence stays on the host")
+        assertThat(mailbox.record().resolve("m-1.json.sig"))
+                .as("evidence stays on the host")
                 .exists();
     }
 
@@ -66,7 +71,8 @@ class MessageDeliveryTest {
         final MessageDelivery.Outcome outcome = delivery.deliver(mailbox, reviewer());
 
         assertThat(outcome.delivered()).isEmpty();
-        assertThat(outcome.held()).singleElement()
+        assertThat(outcome.held())
+                .singleElement()
                 .satisfies(held -> assertThat(held.reason()).contains("without a signature"));
         assertThat(mailbox.inboxNew()).isEmptyDirectory();
         assertThat(mailbox.hold().resolve("m-2.json")).as("kept, because somebody tried").exists();
@@ -77,33 +83,41 @@ class MessageDeliveryTest {
         final Mailbox mailbox = mailbox(dir);
         final String json = "{\"messageId\":\"m-3\"}";
         final SigningKey stranger = SigningKey.generate("stranger");
-        arrive(mailbox, "m-3.json", json, SshSignature.sign(stranger,
-                json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
+        arrive(
+                mailbox,
+                "m-3.json",
+                json,
+                SshSignature.sign(
+                        stranger, json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
 
         final MessageDelivery.Outcome outcome = delivery.deliver(mailbox, reviewer());
 
         assertThat(outcome.delivered()).isEmpty();
-        assertThat(outcome.held()).singleElement()
+        assertThat(outcome.held())
+                .singleElement()
                 .satisfies(held -> assertThat(held.reason()).contains("no peer is allowed"));
         assertThat(mailbox.inboxNew()).isEmptyDirectory();
     }
 
-    /**
-     * The case the signature exists for: the bytes changed after they were signed.
-     */
+    /** The case the signature exists for: the bytes changed after they were signed. */
     @Test
     void holds_a_message_that_changed_after_it_was_signed(@TempDir final Path dir)
             throws IOException {
         final Mailbox mailbox = mailbox(dir);
         final String signed = "{\"messageId\":\"m-4\"}";
         final String arrivedAs = "{\"messageId\":\"m-4 \"}";
-        arrive(mailbox, "m-4.json", arrivedAs, SshSignature.sign(peerKey,
-                signed.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
+        arrive(
+                mailbox,
+                "m-4.json",
+                arrivedAs,
+                SshSignature.sign(
+                        peerKey, signed.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
 
         final MessageDelivery.Outcome outcome = delivery.deliver(mailbox, reviewer());
 
         assertThat(outcome.delivered()).isEmpty();
-        assertThat(outcome.held()).singleElement()
+        assertThat(outcome.held())
+                .singleElement()
                 .satisfies(held -> assertThat(held.reason()).contains("does not match"));
         assertThat(mailbox.inboxNew()).isEmptyDirectory();
     }
@@ -116,18 +130,24 @@ class MessageDeliveryTest {
     void drops_a_message_whose_id_was_delivered_before(@TempDir final Path dir) throws IOException {
         final Mailbox mailbox = mailbox(dir);
         final String json = "{\"messageId\":\"m-6\"}";
-        arrive(mailbox, "m-6.json", json, SshSignature.sign(peerKey,
-                json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
+        arrive(
+                mailbox,
+                "m-6.json",
+                json,
+                SshSignature.sign(
+                        peerKey, json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
 
         final MessageDelivery.Outcome outcome =
                 delivery.deliver(mailbox, reviewer(), Set.of("m-6"));
 
         assertThat(outcome.delivered()).isEmpty();
         assertThat(outcome.held()).isEmpty();
-        assertThat(outcome.duplicates()).singleElement()
+        assertThat(outcome.duplicates())
+                .singleElement()
                 .satisfies(repeat -> assertThat(repeat.id()).isEqualTo("m-6"));
         assertThat(mailbox.inboxNew()).isEmptyDirectory();
-        assertThat(mailbox.inbound().resolve("m-6.json")).as("nothing is left to arrive again")
+        assertThat(mailbox.inbound().resolve("m-6.json"))
+                .as("nothing is left to arrive again")
                 .doesNotExist();
         assertThat(mailbox.inbound().resolve("m-6.json.sig")).doesNotExist();
     }
@@ -137,16 +157,19 @@ class MessageDeliveryTest {
             throws IOException {
         final Mailbox mailbox = mailbox(dir);
         final String json = "{\"messageId\":\"m-7\"}";
-        final String signature = SshSignature.sign(peerKey,
-                json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE);
+        final String signature =
+                SshSignature.sign(
+                        peerKey, json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE);
         arrive(mailbox, "m-7.json", json, signature);
         arrive(mailbox, "m-7-again.json", json, signature);
 
         final MessageDelivery.Outcome outcome = delivery.deliver(mailbox, reviewer());
 
-        assertThat(outcome.delivered()).extracting(MessageDelivery.Delivered::message)
+        assertThat(outcome.delivered())
+                .extracting(MessageDelivery.Delivered::message)
                 .containsExactly("m-7-again.json");
-        assertThat(outcome.duplicates()).extracting(MessageDelivery.Repeat::message)
+        assertThat(outcome.duplicates())
+                .extracting(MessageDelivery.Repeat::message)
                 .containsExactly("m-7.json");
     }
 
@@ -155,20 +178,30 @@ class MessageDeliveryTest {
         final Mailbox mailbox = mailbox(dir);
         for (final String id : List.of("m-8", "m-9")) {
             final String json = "{\"messageId\":\"" + id + "\"}";
-            arrive(mailbox, id + ".json", json, SshSignature.sign(peerKey,
-                    json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
+            arrive(
+                    mailbox,
+                    id + ".json",
+                    json,
+                    SshSignature.sign(
+                            peerKey,
+                            json.getBytes(StandardCharsets.UTF_8),
+                            MessageIntake.NAMESPACE));
         }
-        final MessageBudget budget = new MessageBudget(new MessageRecord(mailbox),
-                new org.fuin.porelo.core.project.Mail(List.of(
-                        new org.fuin.porelo.core.project.Mail.Peer("reviewer",
-                                "local:/peer/inbound", "vouched", 1))));
+        final MessageBudget budget =
+                new MessageBudget(
+                        new MessageRecord(mailbox),
+                        new org.fuin.porelo.core.project.Mail(
+                                List.of(
+                                        new org.fuin.porelo.core.project.Mail.Peer(
+                                                "reviewer", "local:/peer/inbound", "vouched", 1))));
 
         final MessageDelivery.Outcome outcome =
                 delivery.deliver(mailbox, reviewer(), Set.of(), null, budget);
 
         assertThat(outcome.delivered()).hasSize(1);
-        assertThat(outcome.held()).singleElement().satisfies(held ->
-                assertThat(held.reason()).contains("accepted from reviewer"));
+        assertThat(outcome.held())
+                .singleElement()
+                .satisfies(held -> assertThat(held.reason()).contains("accepted from reviewer"));
     }
 
     @Test
@@ -179,25 +212,42 @@ class MessageDeliveryTest {
 
         final MessageDelivery.Outcome outcome = delivery.deliver(mailbox, reviewer());
 
-        assertThat(outcome.held()).singleElement()
+        assertThat(outcome.held())
+                .singleElement()
                 .satisfies(held -> assertThat(held.reason()).contains("cannot be read"));
     }
 
     @Test
-    void aSignedMessageThatIsNoJsonIsHeldAndTheNextOneIsStillDelivered(@TempDir final Path dir) throws IOException {
+    void aSignedMessageThatIsNoJsonIsHeldAndTheNextOneIsStillDelivered(@TempDir final Path dir)
+            throws IOException {
 
-        // Its id could not be read, the pass threw, and the file stayed in inbound: the task never received anything
+        // Its id could not be read, the pass threw, and the file stayed in inbound: the task never
+        // received anything
         // again.
         final Mailbox mailbox = mailbox(dir);
-        arrive(mailbox, "a.json", "not json", SshSignature.sign(peerKey,
-                "not json".getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
+        arrive(
+                mailbox,
+                "a.json",
+                "not json",
+                SshSignature.sign(
+                        peerKey,
+                        "not json".getBytes(StandardCharsets.UTF_8),
+                        MessageIntake.NAMESPACE));
         final String json = "{\"messageId\":\"b\"}";
-        arrive(mailbox, "b.json", json, SshSignature.sign(peerKey, json.getBytes(StandardCharsets.UTF_8),
-                MessageIntake.NAMESPACE));
+        arrive(
+                mailbox,
+                "b.json",
+                json,
+                SshSignature.sign(
+                        peerKey, json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
 
         final MessageDelivery.Outcome outcome = delivery.deliver(mailbox, reviewer());
 
-        assertThat(outcome.held()).extracting(MessageDelivery.Held::message).containsExactly("a.json");
-        assertThat(outcome.delivered()).extracting(MessageDelivery.Delivered::message).containsExactly("b.json");
+        assertThat(outcome.held())
+                .extracting(MessageDelivery.Held::message)
+                .containsExactly("a.json");
+        assertThat(outcome.delivered())
+                .extracting(MessageDelivery.Delivered::message)
+                .containsExactly("b.json");
     }
 }

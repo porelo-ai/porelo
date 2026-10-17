@@ -9,18 +9,18 @@ import org.fuin.porelo.wire.Sidecar;
 
 /**
  * Starts the reader that turns dropped packets into an audit trail.
- * <p>
- * The reader itself cannot live in this binary: reading NFLOG needs the Foreign Function &amp;
+ *
+ * <p>The reader itself cannot live in this binary: reading NFLOG needs the Foreign Function &amp;
  * Memory API, and a hook that used FFM could not be linked statically ({@code S5}). So the hook
  * starts the {@code porelo} binary instead, inside the container's network namespace, and that
  * process does the work.
- * <p>
- * Events are written to a file rather than sent anywhere. Nothing may need to be listening yet -
+ *
+ * <p>Events are written to a file rather than sent anywhere. Nothing may need to be listening yet -
  * the clearance watcher is started after the container is up, and may be stopped and restarted
- * while a task runs. A file means the audit trail exists either way, which is the point of an
- * audit trail.
- * <p>
- * <strong>Soft-fail.</strong> Losing this costs visibility, not containment: the firewall is
+ * while a task runs. A file means the audit trail exists either way, which is the point of an audit
+ * trail.
+ *
+ * <p><strong>Soft-fail.</strong> Losing this costs visibility, not containment: the firewall is
  * already loaded by the time this runs and keeps dropping whether anyone is reading or not.
  */
 public class ReaderHook extends Hook {
@@ -31,9 +31,7 @@ public class ReaderHook extends Hook {
     /** File the reader's process id is written to, so poststop can reap it. */
     static final String PID_FILE = "reader.pid";
 
-    /**
-     * Constructor.
-     */
+    /** Constructor. */
     public ReaderHook() {
         super("reader", false);
     }
@@ -59,18 +57,29 @@ public class ReaderHook extends Hook {
         final Path stateDirectory = Path.of(sidecar.stateDirectory());
         Files.createDirectories(stateDirectory);
 
-        final List<String> command = List.of("nsenter", "--target", String.valueOf(state.pid()),
-                "--net", porelo.toString(), "shield", "read");
+        final List<String> command =
+                List.of(
+                        "nsenter",
+                        "--target",
+                        String.valueOf(state.pid()),
+                        "--net",
+                        porelo.toString(),
+                        "shield",
+                        "read");
 
-        final Process reader = new ProcessBuilder(command)
-                .redirectErrorStream(false)
-                .redirectOutput(ProcessBuilder.Redirect.appendTo(
-                        stateDirectory.resolve(EVENTS_FILE).toFile()))
-                .redirectError(ProcessBuilder.Redirect.appendTo(
-                        stateDirectory.resolve("reader.err").toFile()))
-                .start();
+        final Process reader =
+                new ProcessBuilder(command)
+                        .redirectErrorStream(false)
+                        .redirectOutput(
+                                ProcessBuilder.Redirect.appendTo(
+                                        stateDirectory.resolve(EVENTS_FILE).toFile()))
+                        .redirectError(
+                                ProcessBuilder.Redirect.appendTo(
+                                        stateDirectory.resolve("reader.err").toFile()))
+                        .start();
 
-        // With its start time, as every helper's record is: poststop verifies both before it signals,
+        // With its start time, as every helper's record is: poststop verifies both before it
+        // signals,
         // and a bare pid is refused - which left this process, and conmon above it, running after
         // every task was removed.
         org.fuin.porelo.wire.HelperPid.record(stateDirectory.resolve(PID_FILE), reader.toHandle());
@@ -79,8 +88,11 @@ public class ReaderHook extends Hook {
         // is silent otherwise.
         try {
             if (reader.waitFor(500, TimeUnit.MILLISECONDS)) {
-                throw new IOException("The reader exited immediately with " + reader.exitValue()
-                        + "; see " + stateDirectory.resolve("reader.err"));
+                throw new IOException(
+                        "The reader exited immediately with "
+                                + reader.exitValue()
+                                + "; see "
+                                + stateDirectory.resolve("reader.err"));
             }
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();

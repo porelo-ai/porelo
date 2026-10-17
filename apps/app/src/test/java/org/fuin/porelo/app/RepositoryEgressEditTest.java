@@ -11,18 +11,19 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Writing a grant back into the repository it belongs to, rather than into the project.
- * <p>
- * <strong>This is what decides whether a repository's own egress is worth anything.</strong>
- * A repository may declare its own egress, but if allowing a blocked connection still remembers it
- * at project level, then every project drifts back to one wide grant the first time somebody
- * presses allow - and nothing on screen would say so.
- * <p>
- * Every case here checks the file the operator has to read afterwards, not a model: the comments,
- * the quoting and the key order in it are the reason this is a text edit at all.
+ *
+ * <p><strong>This is what decides whether a repository's own egress is worth anything.</strong> A
+ * repository may declare its own egress, but if allowing a blocked connection still remembers it at
+ * project level, then every project drifts back to one wide grant the first time somebody presses
+ * allow - and nothing on screen would say so.
+ *
+ * <p>Every case here checks the file the operator has to read afterwards, not a model: the
+ * comments, the quoting and the key order in it are the reason this is a text edit at all.
  */
 class RepositoryEgressEditTest {
 
-    private static final String FILE = """
+    private static final String FILE =
+            """
             # Porelo's own project.
             project:
               name: "acme"
@@ -56,8 +57,8 @@ class RepositoryEgressEditTest {
     @Test
     void addsToTheRepositorysOwnBlockAndLeavesTheProjectsAlone() {
 
-        final String edited = EgressEdit.withEgress(FILE, "frontend",
-                List.of("flutter"), List.of("pub.dev"));
+        final String edited =
+                EgressEdit.withEgress(FILE, "frontend", List.of("flutter"), List.of("pub.dev"));
         final Project after = read(edited);
 
         assertThat(after.repository("frontend").egress().domains()).containsExactly("pub.dev");
@@ -72,8 +73,8 @@ class RepositoryEgressEditTest {
 
         // The case the additive rule was chosen for. With replacement, this one call would have
         // given the backend 'nexus.corp.example' and taken 'maven' away in the same breath.
-        final String edited = EgressEdit.withEgress(FILE, "backend",
-                List.of(), List.of("nexus.corp.example"));
+        final String edited =
+                EgressEdit.withEgress(FILE, "backend", List.of(), List.of("nexus.corp.example"));
         final Project after = read(edited);
 
         assertThat(after.repository("backend").egress().domains())
@@ -86,8 +87,7 @@ class RepositoryEgressEditTest {
 
         // A bare 'scratch:' is a repository with no upstream, which is legitimate - and it has no
         // mapping to insert into, so the block has to be created rather than found.
-        final String edited = EgressEdit.withEgress(FILE, "scratch",
-                List.of("maven"), List.of());
+        final String edited = EgressEdit.withEgress(FILE, "scratch", List.of("maven"), List.of());
         final Project after = read(edited);
 
         assertThat(after.repository("scratch").egress().sets()).containsExactly("maven");
@@ -97,10 +97,11 @@ class RepositoryEgressEditTest {
     @Test
     void leavesEveryCommentAndEveryQuoteWhereItWas() {
 
-        final String edited = EgressEdit.withEgress(FILE, "frontend",
-                List.of("flutter"), List.of("pub.dev"));
+        final String edited =
+                EgressEdit.withEgress(FILE, "frontend", List.of("flutter"), List.of("pub.dev"));
 
-        assertThat(edited).contains("# Porelo's own project.")
+        assertThat(edited)
+                .contains("# Porelo's own project.")
                 .contains("# What every repository needs.")
                 .contains("# Drives Flutter through Maven.")
                 .contains("# Work that stays on this machine.")
@@ -111,8 +112,8 @@ class RepositoryEgressEditTest {
     @Test
     void doesNotTouchTheProjectsOwnEgressLine() {
 
-        final String edited = EgressEdit.withEgress(FILE, "frontend",
-                List.of("flutter"), List.of("pub.dev"));
+        final String edited =
+                EgressEdit.withEgress(FILE, "frontend", List.of("flutter"), List.of("pub.dev"));
 
         // Found by looking at the file rather than at the model: the top-level block being
         // rewritten at all is the failure this guards against, and a model would only show its
@@ -126,8 +127,8 @@ class RepositoryEgressEditTest {
 
         // Falling back to the project's block would put the grant in the one place this exists to
         // keep it out of, and it would look as though it had worked.
-        assertThatThrownBy(() -> EgressEdit.withEgress(FILE, "nowhere",
-                List.of(), List.of("pub.dev")))
+        assertThatThrownBy(
+                        () -> EgressEdit.withEgress(FILE, "nowhere", List.of(), List.of("pub.dev")))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("nowhere");
     }
@@ -135,7 +136,8 @@ class RepositoryEgressEditTest {
     @Test
     void aFileWithNoRepositoriesAtAllIsRefusedForANamedRepository() {
 
-        final String plain = """
+        final String plain =
+                """
                 project:
                   name: "acme"
                   security_class: "guarded"
@@ -143,8 +145,10 @@ class RepositoryEgressEditTest {
                   base_image: "ubuntu:24.04"
                 """;
 
-        assertThatThrownBy(() -> EgressEdit.withEgress(plain, "frontend",
-                List.of(), List.of("pub.dev")))
+        assertThatThrownBy(
+                        () ->
+                                EgressEdit.withEgress(
+                                        plain, "frontend", List.of(), List.of("pub.dev")))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("names no repositories");
     }
@@ -153,8 +157,8 @@ class RepositoryEgressEditTest {
     void nullMeansTheProjectsOwnBlock() {
 
         // The project's own repository has no block of its own: its egress IS the project's.
-        final String edited = EgressEdit.withEgress(FILE, null,
-                List.of("maven"), List.of("nexus.corp.example"));
+        final String edited =
+                EgressEdit.withEgress(FILE, null, List.of("maven"), List.of("nexus.corp.example"));
         final Project after = read(edited);
 
         assertThat(after.egress().domains()).containsExactly("nexus.corp.example");

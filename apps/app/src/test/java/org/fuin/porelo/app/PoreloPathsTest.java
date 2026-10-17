@@ -9,9 +9,7 @@ import org.fuin.porelo.core.config.XdgPaths;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Tests for {@link PoreloPaths}.
- */
+/** Tests for {@link PoreloPaths}. */
 class PoreloPathsTest {
 
     @Test
@@ -95,7 +93,6 @@ class PoreloPathsTest {
         assertThat(one.vault().vaultKeyringKey()).isEqualTo(one.vault().vaultKeyringKey());
     }
 
-
     @Test
     void putsAReviewCopyWhereSomebodyWillFindIt(@TempDir Path dir) {
 
@@ -106,13 +103,14 @@ class PoreloPathsTest {
         // either: this is the one thing Porelo makes for a person to open in their own editor, and
         // a file dialog does not show .local/share.
         final XdgPaths xdg = XdgPaths.of(name -> null, dir);
-        final Path review = new PoreloPaths(xdg, dir.resolve("bin"))
-                .gate().reviewCheckout("utils4j", "shell");
+        final Path review =
+                new PoreloPaths(xdg, dir.resolve("bin")).gate().reviewCheckout("utils4j", "shell");
 
-        assertThat(review).isEqualTo(dir.resolve("porelo").resolve("reviews")
-                .resolve("utils4j-shell"));
+        assertThat(review)
+                .isEqualTo(dir.resolve("porelo").resolve("reviews").resolve("utils4j-shell"));
         assertThat(review.startsWith(xdg.data()))
-                .as("visible, not under the data directory").isFalse();
+                .as("visible, not under the data directory")
+                .isFalse();
     }
 
     @Test
@@ -120,7 +118,10 @@ class PoreloPathsTest {
 
         // The negative case: an override that leaked in by accident would send every command at
         // a vault the operator never chose.
-        assertThat(new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin")).vault().vaultFile())
+        assertThat(
+                        new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin"))
+                                .vault()
+                                .vaultFile())
                 .isEqualTo(XdgPaths.of(name -> null, dir).data().resolve("vault.bin"));
     }
 }

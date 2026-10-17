@@ -19,16 +19,16 @@ import org.fuin.porelo.wire.Json;
 
 /**
  * What happened to every message, as a log whose lines are chained.
- * <p>
- * Each line carries the hash of the one before it, so a line edited or removed after the fact stops
- * the chain verifying. That is what a transport cannot give us on every route: a branch in a shared
- * repository proves order and immutability to everybody who fetches it, and a log on a laptop proves
- * it to whoever owns the laptop. The second is worth having and is not the first, which is why the
- * head of the chain can be published later rather than trusted harder now.
- * <p>
- * <strong>It holds what happened, never what was said.</strong> Ids, peers, events and reasons - no
- * message text, because a record of refusals that quoted them would be a second copy of exactly what
- * the filter refused to let out.
+ *
+ * <p>Each line carries the hash of the one before it, so a line edited or removed after the fact
+ * stops the chain verifying. That is what a transport cannot give us on every route: a branch in a
+ * shared repository proves order and immutability to everybody who fetches it, and a log on a
+ * laptop proves it to whoever owns the laptop. The second is worth having and is not the first,
+ * which is why the head of the chain can be published later rather than trusted harder now.
+ *
+ * <p><strong>It holds what happened, never what was said.</strong> Ids, peers, events and reasons -
+ * no message text, because a record of refusals that quoted them would be a second copy of exactly
+ * what the filter refused to let out.
  */
 public final class MessageRecord {
 
@@ -91,8 +91,9 @@ public final class MessageRecord {
      * @param detail Why, for the events that have a why. "" otherwise.
      * @throws IOException Writing failed.
      */
-    public void append(final String event, final String message, final String id,
-            final String detail) throws IOException {
+    public void append(
+            final String event, final String message, final String id, final String detail)
+            throws IOException {
         append(event, message, id, "", detail);
     }
 
@@ -106,8 +107,13 @@ public final class MessageRecord {
      * @param detail Why, for the events that have a why. "" otherwise.
      * @throws IOException Writing failed.
      */
-    public void append(final String event, final String message, final String id,
-            final String peer, final String detail) throws IOException {
+    public void append(
+            final String event,
+            final String message,
+            final String id,
+            final String peer,
+            final String detail)
+            throws IOException {
         append(event, message, id, peer, detail, "");
     }
 
@@ -122,18 +128,33 @@ public final class MessageRecord {
      * @param direction {@link #OUT} or {@link #IN}, or "" when that is not this line's to say.
      * @throws IOException Writing failed.
      */
-    public void append(final String event, final String message, final String id,
-            final String peer, final String detail, final String direction) throws IOException {
-        // Read and written under one lock: the daemon's pass and a command at the terminal wrote at once, both read
+    public void append(
+            final String event,
+            final String message,
+            final String id,
+            final String peer,
+            final String detail,
+            final String direction)
+            throws IOException {
+        // Read and written under one lock: the daemon's pass and a command at the terminal wrote at
+        // once, both read
         // the same last hash, and the record then said it had been changed when nobody had.
-        FileLocks.holding(file.resolveSibling(".record.lock"), () -> {
-            appendHeld(event, message, id, peer, detail, direction);
-            return Boolean.TRUE;
-        });
+        FileLocks.holding(
+                file.resolveSibling(".record.lock"),
+                () -> {
+                    appendHeld(event, message, id, peer, detail, direction);
+                    return Boolean.TRUE;
+                });
     }
 
-    private void appendHeld(final String event, final String message, final String id,
-            final String peer, final String detail, final String direction) throws IOException {
+    private void appendHeld(
+            final String event,
+            final String message,
+            final String id,
+            final String peer,
+            final String detail,
+            final String direction)
+            throws IOException {
         final String previous = lastHash();
         final Map<String, Object> line = new LinkedHashMap<>();
         line.put("at", Instant.now().toString());
@@ -148,15 +169,19 @@ public final class MessageRecord {
         line.put("previous", previous);
         line.put("hash", hash(previous, event, message, id, peer, detail, direction));
         Files.createDirectories(file.getParent());
-        Files.writeString(file, Json.write(line) + System.lineSeparator(), StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        Files.writeString(
+                file,
+                Json.write(line) + System.lineSeparator(),
+                StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.APPEND);
     }
 
     /**
      * Returns the ids of messages already handed to this agent.
-     * <p>
-     * Read from the record rather than kept beside it: a second list is a second thing to keep in
-     * step, and this one is written by the act it describes.
+     *
+     * <p>Read from the record rather than kept beside it: a second list is a second thing to keep
+     * in step, and this one is written by the act it describes.
      *
      * @return The ids, in the order they were delivered.
      * @throws IOException Reading failed.
@@ -164,8 +189,7 @@ public final class MessageRecord {
     public Set<String> delivered() throws IOException {
         final Set<String> ids = new LinkedHashSet<>();
         for (final Map<String, Object> line : lines()) {
-            if (DELIVERED.equals(line.get("event"))
-                    && !String.valueOf(line.get("id")).isBlank()) {
+            if (DELIVERED.equals(line.get("event")) && !String.valueOf(line.get("id")).isBlank()) {
                 ids.add(String.valueOf(line.get("id")));
             }
         }
@@ -174,9 +198,9 @@ public final class MessageRecord {
 
     /**
      * Returns the ids of messages that were held for this agent, where their id could be read.
-     * <p>
-     * A held message is one the agent may still be handed, by a person's release: a second copy of it is the same
-     * message, and counted as seen it is not held a second time.
+     *
+     * <p>A held message is one the agent may still be handed, by a person's release: a second copy
+     * of it is the same message, and counted as seen it is not held a second time.
      *
      * @return The ids, in the order they were held.
      * @throws IOException Reading failed.
@@ -184,7 +208,8 @@ public final class MessageRecord {
     public Set<String> held() throws IOException {
         final Set<String> ids = new LinkedHashSet<>();
         for (final Map<String, Object> line : lines()) {
-            if (HELD.equals(line.get("event")) && IN.equals(line.get("direction"))
+            if (HELD.equals(line.get("event"))
+                    && IN.equals(line.get("direction"))
                     && !String.valueOf(line.get("id")).isBlank()) {
                 ids.add(String.valueOf(line.get("id")));
             }
@@ -205,7 +230,8 @@ public final class MessageRecord {
             throws IOException {
         int found = 0;
         for (final Map<String, Object> line : lines()) {
-            if (event.equals(line.get("event")) && peer.equals(line.get("peer"))
+            if (event.equals(line.get("event"))
+                    && peer.equals(line.get("peer"))
                     && at(line).isAfter(since)) {
                 found++;
             }
@@ -227,7 +253,7 @@ public final class MessageRecord {
      * Checks the chain.
      *
      * @return The number of the first line that does not verify, or zero when the whole record
-     *         holds together. An absent record holds together: nothing has happened yet.
+     *     holds together. An absent record holds together: nothing has happened yet.
      * @throws IOException Reading failed.
      */
     public int firstBrokenLine() throws IOException {
@@ -235,10 +261,15 @@ public final class MessageRecord {
         int number = 0;
         for (final Map<String, Object> line : lines()) {
             number++;
-            final String expected = hash(previous, String.valueOf(line.get("event")),
-                    String.valueOf(line.get("message")), String.valueOf(line.get("id")),
-                    String.valueOf(line.get("peer")), String.valueOf(line.get("detail")),
-                    line.get("direction") instanceof String direction ? direction : "");
+            final String expected =
+                    hash(
+                            previous,
+                            String.valueOf(line.get("event")),
+                            String.valueOf(line.get("message")),
+                            String.valueOf(line.get("id")),
+                            String.valueOf(line.get("peer")),
+                            String.valueOf(line.get("detail")),
+                            line.get("direction") instanceof String direction ? direction : "");
             if (!expected.equals(String.valueOf(line.get("hash")))
                     || !previous.equals(String.valueOf(line.get("previous")))) {
                 return number;
@@ -250,9 +281,9 @@ public final class MessageRecord {
 
     /**
      * Returns every line, in the order they were written.
-     * <p>
-     * For something that shows a conversation rather than checks it: the record is the only place
-     * that says what happened to a message, so following it is following the conversation.
+     *
+     * <p>For something that shows a conversation rather than checks it: the record is the only
+     * place that says what happened to a message, so following it is following the conversation.
      *
      * @return The lines, each as it was written.
      * @throws IOException Reading failed.
@@ -287,8 +318,22 @@ public final class MessageRecord {
             } else {
                 // A line that is not an object breaks the chain by being unreadable, and saying so
                 // is the point of the record.
-                parsed.add(Map.of("event", "", "message", "", "id", "", "peer", "",
-                        "detail", "", "previous", "?", "hash", "?"));
+                parsed.add(
+                        Map.of(
+                                "event",
+                                "",
+                                "message",
+                                "",
+                                "id",
+                                "",
+                                "peer",
+                                "",
+                                "detail",
+                                "",
+                                "previous",
+                                "?",
+                                "hash",
+                                "?"));
             }
         }
         return parsed;
@@ -299,8 +344,14 @@ public final class MessageRecord {
         return lines.isEmpty() ? "" : String.valueOf(lines.get(lines.size() - 1).get("hash"));
     }
 
-    private String hash(final String previous, final String event, final String message,
-            final String id, final String peer, final String detail, final String direction) {
+    private String hash(
+            final String previous,
+            final String event,
+            final String message,
+            final String id,
+            final String peer,
+            final String detail,
+            final String direction) {
         try {
             final MessageDigest digest = MessageDigest.getInstance("SHA-256");
             // Length-prefixed rather than separated: a separator can appear inside a reason, and
@@ -309,7 +360,8 @@ public final class MessageRecord {
             for (final String field : List.of(previous, event, message, id, peer, detail)) {
                 material.append(field.length()).append(':').append(field);
             }
-            // Only when there is one: a line written before directions were recorded keeps the hash it
+            // Only when there is one: a line written before directions were recorded keeps the hash
+            // it
             // was written with, so the chain of an existing record still verifies.
             if (!direction.isEmpty()) {
                 material.append(direction.length()).append(':').append(direction);

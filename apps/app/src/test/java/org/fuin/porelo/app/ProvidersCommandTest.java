@@ -14,16 +14,39 @@ class ProvidersCommandTest {
     @Test
     void saysWhatTheVaultHoldsWithoutEverSayingWhatItIs() {
 
-        final Map<String, Object> underTheAgent = Map.of("authenticated", true,
-                "credentialName", "claude", "credentialType", "api-key");
+        final Map<String, Object> underTheAgent =
+                Map.of(
+                        "authenticated",
+                        true,
+                        "credentialName",
+                        "claude",
+                        "credentialType",
+                        "api-key");
 
         assertThat(ProvidersCommand.credential(underTheAgent, true))
                 .isEqualTo("stored as 'claude' (api-key)");
-        assertThat(ProvidersCommand.credential(Map.of("authenticated", true,
-                "credentialName", "anthropic", "credentialType", ""), true))
+        assertThat(
+                        ProvidersCommand.credential(
+                                Map.of(
+                                        "authenticated",
+                                        true,
+                                        "credentialName",
+                                        "anthropic",
+                                        "credentialType",
+                                        ""),
+                                true))
                 .isEqualTo("stored as 'anthropic'");
-        assertThat(ProvidersCommand.credential(Map.of("authenticated", false,
-                "credentialName", "anthropic", "credentialType", ""), true)).isEqualTo("none");
+        assertThat(
+                        ProvidersCommand.credential(
+                                Map.of(
+                                        "authenticated",
+                                        false,
+                                        "credentialName",
+                                        "anthropic",
+                                        "credentialType",
+                                        ""),
+                                true))
+                .isEqualTo("none");
         // Locked is not empty: "unlock first" and "store one" send somebody to different places.
         assertThat(ProvidersCommand.credential(underTheAgent, false))
                 .isEqualTo("unknown - vault locked");

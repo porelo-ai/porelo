@@ -16,14 +16,14 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * An agent binary installed on this machine.
- * <p>
- * Porelo never links an agent, so everything it knows comes from asking one. The process is started
- * on demand and stopped when the work is done: agents are used a handful of times per task, and a
- * resident process per installed agent would be cost with no matching benefit.
- * <p>
- * <strong>The protocol version is checked before anything else.</strong> Porelo and the agents ship
- * as separate packages, so an untested combination is a matter of time; refusing it with a clear
- * message beats reading a field that means something else now.
+ *
+ * <p>Porelo never links an agent, so everything it knows comes from asking one. The process is
+ * started on demand and stopped when the work is done: agents are used a handful of times per task,
+ * and a resident process per installed agent would be cost with no matching benefit.
+ *
+ * <p><strong>The protocol version is checked before anything else.</strong> Porelo and the agents
+ * ship as separate packages, so an untested combination is a matter of time; refusing it with a
+ * clear message beats reading a field that means something else now.
  */
 public class InstalledAgent implements AutoCloseable {
 
@@ -45,21 +45,28 @@ public class InstalledAgent implements AutoCloseable {
 
     /**
      * Returns a socket path no other lookup uses, in this process or another.
-     * <p>
-     * Named after the pid alone, two lookups at once shared it: the second adapter found the first one's socket live
-     * and exited, the lookup listed no agent, and one finishing deleted the path from under one still starting.
+     *
+     * <p>Named after the pid alone, two lookups at once shared it: the second adapter found the
+     * first one's socket live and exited, the lookup listed no agent, and one finishing deleted the
+     * path from under one still starting.
      *
      * @param executable The agent binary.
      * @param socketDirectory Directory the socket is created in.
      * @return The path.
      */
     static Path socketFor(final Path executable, final Path socketDirectory) {
-        return socketDirectory.resolve(executable.getFileName() + "-" + ProcessHandle.current().pid() + "-"
-                + LOOKUPS.incrementAndGet() + ".sock");
+        return socketDirectory.resolve(
+                executable.getFileName()
+                        + "-"
+                        + ProcessHandle.current().pid()
+                        + "-"
+                        + LOOKUPS.incrementAndGet()
+                        + ".sock");
     }
 
     /** Counts the lookups of this process, so each has a socket of its own. */
-    private static final java.util.concurrent.atomic.AtomicLong LOOKUPS = new java.util.concurrent.atomic.AtomicLong();
+    private static final java.util.concurrent.atomic.AtomicLong LOOKUPS =
+            new java.util.concurrent.atomic.AtomicLong();
 
     /**
      * Starts an agent binary and completes its handshake.
@@ -67,7 +74,7 @@ public class InstalledAgent implements AutoCloseable {
      * @param executable The agent binary.
      * @param socketDirectory Directory to create the socket in.
      * @throws AgentException If the agent cannot be started, or speaks a protocol this Porelo does
-     *         not understand.
+     *     not understand.
      */
     public InstalledAgent(Path executable, Path socketDirectory) {
 
@@ -77,9 +84,10 @@ public class InstalledAgent implements AutoCloseable {
         try {
             Files.createDirectories(socketDirectory);
             Files.deleteIfExists(socket);
-            this.process = new ProcessBuilder(executable.toString(), "serve", socket.toString())
-                    .redirectErrorStream(true)
-                    .start();
+            this.process =
+                    new ProcessBuilder(executable.toString(), "serve", socket.toString())
+                            .redirectErrorStream(true)
+                            .start();
         } catch (IOException ex) {
             throw new AgentException("Cannot start " + executable, ex);
         }
@@ -91,7 +99,8 @@ public class InstalledAgent implements AutoCloseable {
             this.client = opened;
             this.definition = bounded(this::handshake);
         } catch (RuntimeException ex) {
-            // Everything it left goes, and the failure is the agent's: as a VarlinkException it escaped the list, which
+            // Everything it left goes, and the failure is the agent's: as a VarlinkException it
+            // escaped the list, which
             // threw the whole lookup away and left the agents started before it running.
             process.destroyForcibly();
             if (opened != null) {
@@ -106,34 +115,41 @@ public class InstalledAgent implements AutoCloseable {
             } catch (IOException deleting) {
                 // A socket left in the runtime directory is named for this lookup alone.
             }
-            throw ex instanceof AgentException agent ? agent
+            throw ex instanceof AgentException agent
+                    ? agent
                     : new AgentException(executable + " failed to start: " + ex.getMessage(), ex);
         }
     }
 
     /**
-     * Keeps reading what the agent writes after its ready line, on a thread of its own, until it ends.
-     * <p>
-     * Read rather than closed: closed, an agent that wrote one more line met a broken pipe, and what it wrote is what
-     * says why it did not answer. The last few thousand characters are kept for that.
+     * Keeps reading what the agent writes after its ready line, on a thread of its own, until it
+     * ends.
+     *
+     * <p>Read rather than closed: closed, an agent that wrote one more line met a broken pipe, and
+     * what it wrote is what says why it did not answer. The last few thousand characters are kept
+     * for that.
      */
     private void drain(BufferedReader reader) {
-        Thread.ofPlatform().daemon().name("porelo-agent-output").start(() -> {
-            try (reader) {
-                final char[] chunk = new char[1024];
-                int read;
-                while ((read = reader.read(chunk)) >= 0) {
-                    synchronized (afterReady) {
-                        afterReady.append(chunk, 0, read);
-                        if (afterReady.length() > 4096) {
-                            afterReady.delete(0, afterReady.length() - 4096);
-                        }
-                    }
-                }
-            } catch (IOException ex) {
-                // The agent ended, or was ended.
-            }
-        });
+        Thread.ofPlatform()
+                .daemon()
+                .name("porelo-agent-output")
+                .start(
+                        () -> {
+                            try (reader) {
+                                final char[] chunk = new char[1024];
+                                int read;
+                                while ((read = reader.read(chunk)) >= 0) {
+                                    synchronized (afterReady) {
+                                        afterReady.append(chunk, 0, read);
+                                        if (afterReady.length() > 4096) {
+                                            afterReady.delete(0, afterReady.length() - 4096);
+                                        }
+                                    }
+                                }
+                            } catch (IOException ex) {
+                                // The agent ended, or was ended.
+                            }
+                        });
     }
 
     private void awaitReady() {
@@ -143,13 +159,15 @@ public class InstalledAgent implements AutoCloseable {
         final StringBuilder said = new StringBuilder();
         boolean exited = false;
 
-        final BufferedReader reader = new BufferedReader(
-                new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8));
+        final BufferedReader reader =
+                new BufferedReader(
+                        new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8));
         boolean draining = false;
         try {
-            final long deadline = System.nanoTime()
-                    + TimeUnit.SECONDS.toNanos(READY_TIMEOUT_SECONDS);
-            // Character by character, only what is there: a whole line was read once anything was ready, and an
+            final long deadline =
+                    System.nanoTime() + TimeUnit.SECONDS.toNanos(READY_TIMEOUT_SECONDS);
+            // Character by character, only what is there: a whole line was read once anything was
+            // ready, and an
             // adapter that printed a word with no line end and hung held every task start for ever.
             final StringBuilder line = new StringBuilder();
             while (System.nanoTime() < deadline) {
@@ -211,23 +229,26 @@ public class InstalledAgent implements AutoCloseable {
         // "did not become ready within 10 seconds" about the first sends an operator looking for
         // a slow agent when they have a crashing one.
         if (exited) {
-            throw new AgentException(executable + " exited without becoming ready"
-                    + (said.isEmpty() ? "" : ", saying: " + said));
+            throw new AgentException(
+                    executable
+                            + " exited without becoming ready"
+                            + (said.isEmpty() ? "" : ", saying: " + said));
         }
-        throw new AgentException(executable + " did not become ready within "
-                + READY_TIMEOUT_SECONDS + " seconds");
+        throw new AgentException(
+                executable + " did not become ready within " + READY_TIMEOUT_SECONDS + " seconds");
     }
 
     /**
-     * Runs a step that talks to the agent within the limit a start has: the client waits without one, and an agent
-     * that accepted the connection and never answered held every task start.
+     * Runs a step that talks to the agent within the limit a start has: the client waits without
+     * one, and an agent that accepted the connection and never answered held every task start.
      */
     private <T> T bounded(java.util.function.Supplier<T> step) {
         try {
             return bounded(executable, step, READY_TIMEOUT_SECONDS);
         } catch (AgentException ex) {
             if (ex.getMessage() != null && ex.getMessage().contains(" within ")) {
-                throw new AgentException(ex.getMessage() + diagnosis(process.isAlive(), afterReady.toString()));
+                throw new AgentException(
+                        ex.getMessage() + diagnosis(process.isAlive(), afterReady.toString()));
             }
             throw ex;
         }
@@ -235,11 +256,11 @@ public class InstalledAgent implements AutoCloseable {
 
     /**
      * Runs a step that talks to an agent within a limit, on a thread of its own that ends with it.
-     * <p>
-     * A platform thread, not a virtual one: on a virtual thread the one step of a lookup that waits on the agent waited
-     * on the scheduler too, and on a machine of two processors under load an agent that answered in a tenth of a
-     * second was given up on. Closed after each use, and interrupted at the limit, so a step that never ends leaves
-     * no thread behind.
+     *
+     * <p>A platform thread, not a virtual one: on a virtual thread the one step of a lookup that
+     * waits on the agent waited on the scheduler too, and on a machine of two processors under load
+     * an agent that answered in a tenth of a second was given up on. Closed after each use, and
+     * interrupted at the limit, so a step that never ends leaves no thread behind.
      *
      * @param executable The agent, for the message.
      * @param step What to run.
@@ -247,22 +268,24 @@ public class InstalledAgent implements AutoCloseable {
      * @return What the step returned.
      */
     static <T> T bounded(Path executable, java.util.function.Supplier<T> step, long seconds) {
-        final java.util.concurrent.ExecutorService runner = java.util.concurrent.Executors.newSingleThreadExecutor(
-                task -> {
-                    final Thread thread = new Thread(task, "porelo-agent-describe");
-                    thread.setDaemon(true);
-                    return thread;
-                });
+        final java.util.concurrent.ExecutorService runner =
+                java.util.concurrent.Executors.newSingleThreadExecutor(
+                        task -> {
+                            final Thread thread = new Thread(task, "porelo-agent-describe");
+                            thread.setDaemon(true);
+                            return thread;
+                        });
         try {
             return runner.submit(step::get).get(seconds, TimeUnit.SECONDS);
         } catch (java.util.concurrent.TimeoutException ex) {
-            throw new AgentException(executable + " did not describe itself within " + seconds
-                    + " seconds");
+            throw new AgentException(
+                    executable + " did not describe itself within " + seconds + " seconds");
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw new AgentException("Interrupted while asking " + executable, ex);
         } catch (java.util.concurrent.ExecutionException ex) {
-            throw ex.getCause() instanceof RuntimeException failed ? failed
+            throw ex.getCause() instanceof RuntimeException failed
+                    ? failed
                     : new AgentException(executable + " failed to describe itself", ex);
         } finally {
             runner.shutdownNow();
@@ -270,8 +293,9 @@ public class InstalledAgent implements AutoCloseable {
     }
 
     /**
-     * Says what is known of an agent that did not answer in time: whether it still runs, and what it wrote after it
-     * said it was ready - what tells a slow agent from a stuck one from a dead one.
+     * Says what is known of an agent that did not answer in time: whether it still runs, and what
+     * it wrote after it said it was ready - what tells a slow agent from a stuck one from a dead
+     * one.
      *
      * @param alive Whether its process still runs.
      * @param said What it wrote since its ready line.
@@ -279,20 +303,26 @@ public class InstalledAgent implements AutoCloseable {
      */
     static String diagnosis(boolean alive, String said) {
         final String last = said.strip();
-        return (alive ? " (still running" : " (it had exited") + "; since it was ready it wrote "
-                + (last.isEmpty() ? "nothing" : "'" + last.replaceAll("\\p{Cntrl}+", " ") + "'") + ")";
+        return (alive ? " (still running" : " (it had exited")
+                + "; since it was ready it wrote "
+                + (last.isEmpty() ? "nothing" : "'" + last.replaceAll("\\p{Cntrl}+", " ") + "'")
+                + ")";
     }
 
     private AgentDefinition handshake() {
 
         final Map<String, Object> answer = client.call(AgentProtocol.DESCRIBE, Map.of());
 
-        final int version = answer.get("protocolVersion") instanceof Number number
-                ? number.intValue() : -1;
+        final int version =
+                answer.get("protocolVersion") instanceof Number number ? number.intValue() : -1;
         if (version != AgentProtocol.VERSION) {
-            throw new AgentException(executable + " speaks agent protocol " + version
-                    + ", this build of Porelo speaks " + AgentProtocol.VERSION
-                    + ". Install a matching version of one of them.");
+            throw new AgentException(
+                    executable
+                            + " speaks agent protocol "
+                            + version
+                            + ", this build of Porelo speaks "
+                            + AgentProtocol.VERSION
+                            + ". Install a matching version of one of them.");
         }
         if (!(answer.get("definition") instanceof Map<?, ?> definition)) {
             throw new AgentException(executable + " returned no definition");
@@ -335,16 +365,19 @@ public class InstalledAgent implements AutoCloseable {
      */
     public Optional<Credential> extractCredential(Path configDirectory) {
 
-        final Map<String, Object> answer = client.call(AgentProtocol.EXTRACT_CREDENTIAL,
-                Map.of("configDirectory", configDirectory.toString()));
+        final Map<String, Object> answer =
+                client.call(
+                        AgentProtocol.EXTRACT_CREDENTIAL,
+                        Map.of("configDirectory", configDirectory.toString()));
 
         if (!Boolean.TRUE.equals(answer.get("found"))) {
             return Optional.empty();
         }
-        return Optional.of(new Credential(
-                String.valueOf(answer.get("type")),
-                String.valueOf(answer.get("secret")),
-                attributes(answer.get("attributes"))));
+        return Optional.of(
+                new Credential(
+                        String.valueOf(answer.get("type")),
+                        String.valueOf(answer.get("secret")),
+                        attributes(answer.get("attributes"))));
     }
 
     /**
@@ -362,9 +395,11 @@ public class InstalledAgent implements AutoCloseable {
         if (answer.get("files") instanceof List<?> list) {
             for (final Object element : list) {
                 if (element instanceof Map<?, ?> entry) {
-                    files.add(new ContainerFile(String.valueOf(entry.get("path")),
-                            String.valueOf(entry.get("content")),
-                            Boolean.TRUE.equals(entry.get("ownerOnly"))));
+                    files.add(
+                            new ContainerFile(
+                                    String.valueOf(entry.get("path")),
+                                    String.valueOf(entry.get("content")),
+                                    Boolean.TRUE.equals(entry.get("ownerOnly"))));
                 }
             }
         }
@@ -409,24 +444,28 @@ public class InstalledAgent implements AutoCloseable {
      * @param line Receives each formatted line.
      */
     public void formatLog(Path source, java.util.function.Consumer<String> line) {
-        client.callMore(AgentProtocol.FORMAT_LOG, Map.of("source", source.toString()), reply -> {
-            if (reply.get("line") instanceof String text) {
-                line.accept(text);
-            }
-            return true;
-        });
+        client.callMore(
+                AgentProtocol.FORMAT_LOG,
+                Map.of("source", source.toString()),
+                reply -> {
+                    if (reply.get("line") instanceof String text) {
+                        line.accept(text);
+                    }
+                    return true;
+                });
     }
 
     /**
      * Asks the agent to format lines of its output in place.
      *
      * @param lines Lines of its raw output.
-     * @return Each line as the agent shows it, or {@code null} for a line it hides; the lines as they are from an
-     *         agent that does not format them.
+     * @return Each line as the agent shows it, or {@code null} for a line it hides; the lines as
+     *     they are from an agent that does not format them.
      */
     public List<@Nullable String> format(List<String> lines) {
         try {
-            final Map<String, Object> reply = client.call(AgentProtocol.FORMAT, Map.of("lines", lines));
+            final Map<String, Object> reply =
+                    client.call(AgentProtocol.FORMAT, Map.of("lines", lines));
             if (reply.get("lines") instanceof List<?> shown && shown.size() == lines.size()) {
                 final List<@Nullable String> result = new ArrayList<>();
                 shown.forEach(line -> result.add(line instanceof String text ? text : null));
@@ -442,11 +481,13 @@ public class InstalledAgent implements AutoCloseable {
      * Asks the agent whether a line of its output is the end of its run.
      *
      * @param line One line of its raw output.
-     * @return How the run ended, or {@code null} for a line that is not its end, or for an agent that does not say.
+     * @return How the run ended, or {@code null} for a line that is not its end, or for an agent
+     *     that does not say.
      */
     public @Nullable AgentEnd ended(String line) {
         try {
-            final Map<String, Object> reply = client.call(AgentProtocol.ENDED, Map.of("line", line));
+            final Map<String, Object> reply =
+                    client.call(AgentProtocol.ENDED, Map.of("line", line));
             return reply.get("ended") instanceof Map<?, ?> ended ? AgentEnd.of(ended) : null;
         } catch (org.fuin.porelo.wire.varlink.VarlinkException ex) {
             // An agent built before the method: it says nothing about its end, as before.

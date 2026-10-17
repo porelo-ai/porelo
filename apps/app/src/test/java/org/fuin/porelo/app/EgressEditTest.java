@@ -5,12 +5,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link EgressEdit}, which edits the one file in this product a person hand-writes.
- */
+/** Tests for {@link EgressEdit}, which edits the one file in this product a person hand-writes. */
 class EgressEditTest {
 
-    private static final String WITH_COMMENTS = """
+    private static final String WITH_COMMENTS =
+            """
             # Written by 'porelo task start'. Everything here can be changed.
             project:
               name: "uc"
@@ -30,7 +29,8 @@ class EgressEditTest {
         // comments, the quoting and the key order in the file people review.
         final String edited = EgressEdit.withEgress(WITH_COMMENTS, List.of("maven"), List.of());
 
-        assertThat(edited).contains("# Written by 'porelo task start'.")
+        assertThat(edited)
+                .contains("# Written by 'porelo task start'.")
                 .contains("# What this project's own tooling may reach.")
                 .contains("  name: \"uc\"")
                 .contains("  base_image: \"ubuntu:24.04\"");
@@ -40,8 +40,8 @@ class EgressEditTest {
     @Test
     void replacesTheSetsWhereTheyStand() {
 
-        final String edited = EgressEdit.withEgress(WITH_COMMENTS,
-                List.of("maven", "npm"), List.of());
+        final String edited =
+                EgressEdit.withEgress(WITH_COMMENTS, List.of("maven", "npm"), List.of());
 
         assertThat(edited).contains("  sets: [maven, npm]").doesNotContain("git-hosting");
     }
@@ -49,23 +49,31 @@ class EgressEditTest {
     @Test
     void addsAKeyTheFileDidNotHave() {
 
-        final String edited = EgressEdit.withEgress(WITH_COMMENTS, List.of("maven", "git-hosting"),
-                List.of("nexus.corp.example"));
+        final String edited =
+                EgressEdit.withEgress(
+                        WITH_COMMENTS,
+                        List.of("maven", "git-hosting"),
+                        List.of("nexus.corp.example"));
 
-        assertThat(edited).contains("  sets: [maven, git-hosting]")
+        assertThat(edited)
+                .contains("  sets: [maven, git-hosting]")
                 .contains("  domains: [\"nexus.corp.example\"]");
     }
 
     @Test
     void writesTheBlockWhenTheFileHasNone() {
 
-        final String edited = EgressEdit.withEgress("""
+        final String edited =
+                EgressEdit.withEgress(
+                        """
                 project:
                   name: "uc"
                   security_class: "guarded"
                 image:
                   base_image: "ubuntu:24.04"
-                """, List.of("maven"), List.of());
+                """,
+                        List.of("maven"),
+                        List.of());
 
         assertThat(edited).endsWith("egress:\n  sets: [maven]\n");
     }
@@ -75,16 +83,21 @@ class EgressEditTest {
 
         // A bare 'egress:' parses as a declaration of nothing, which is exactly the ambiguity the
         // key exists to avoid: an operator would read it as configured.
-        final String edited = EgressEdit.withEgress("""
+        final String edited =
+                EgressEdit.withEgress(
+                        """
                 project:
                   name: "uc"
                 egress:
                   sets: [maven]
                 image:
                   base_image: "ubuntu:24.04"
-                """, List.of(), List.of());
+                """,
+                        List.of(),
+                        List.of());
 
-        assertThat(edited).doesNotContain("egress")
+        assertThat(edited)
+                .doesNotContain("egress")
                 .contains("  name: \"uc\"")
                 .contains("  base_image: \"ubuntu:24.04\"");
     }
@@ -94,7 +107,9 @@ class EgressEditTest {
 
         // Both forms parse; one is written back, so a file does not end up with two spellings of
         // the same list after an edit.
-        final String edited = EgressEdit.withEgress("""
+        final String edited =
+                EgressEdit.withEgress(
+                        """
                 project:
                   name: "uc"
                 egress:
@@ -102,9 +117,12 @@ class EgressEditTest {
                     - maven
                     - git-hosting
                   domains: ["nexus.corp.example"]
-                """, List.of("maven"), List.of("nexus.corp.example"));
+                """,
+                        List.of("maven"),
+                        List.of("nexus.corp.example"));
 
-        assertThat(edited).contains("  sets: [maven]")
+        assertThat(edited)
+                .contains("  sets: [maven]")
                 .doesNotContain("- git-hosting")
                 .contains("  domains: [\"nexus.corp.example\"]");
     }
@@ -113,7 +131,8 @@ class EgressEditTest {
     void leavesAKeyOfTheSameNameThatIsNotThisOne() {
 
         // 'egress' nested under something else is somebody else's key, whatever it means.
-        final String original = """
+        final String original =
+                """
                 project:
                   name: "uc"
                 image:

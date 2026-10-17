@@ -16,15 +16,15 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * The ssh keys this account already has, described without their values.
- * <p>
- * <strong>Why the machine has to answer this.</strong> Deciding what in {@code ~/.ssh} is a
- * private key means reading the files, and an interface cannot read a machine's home directory -
- * so it was left offering a path typed from memory. The operator typed two wrong ones in an
- * afternoon: once a path from his laptop, once the {@code .pub} beside the key he meant. Both were
- * recorded as perfectly good records pointing at nothing.
- * <p>
- * <strong>No value is read out of here.</strong> A private key is opened far enough to say what it
- * is and whether a passphrase protects it, and is never copied, printed or returned.
+ *
+ * <p><strong>Why the machine has to answer this.</strong> Deciding what in {@code ~/.ssh} is a
+ * private key means reading the files, and an interface cannot read a machine's home directory - so
+ * it was left offering a path typed from memory. The operator typed two wrong ones in an afternoon:
+ * once a path from his laptop, once the {@code .pub} beside the key he meant. Both were recorded as
+ * perfectly good records pointing at nothing.
+ *
+ * <p><strong>No value is read out of here.</strong> A private key is opened far enough to say what
+ * it is and whether a passphrase protects it, and is never copied, printed or returned.
  */
 public final class SshKeys {
 
@@ -43,18 +43,25 @@ public final class SshKeys {
      *
      * @param path Where it is.
      * @param type The algorithm, or "" when a passphrase hides it.
-     * @param fingerprint {@code SHA256:...} of the public half, or "" when it cannot be worked
-     *        out - which happens for an encrypted key with no {@code .pub} beside it.
+     * @param fingerprint {@code SHA256:...} of the public half, or "" when it cannot be worked out
+     *     - which happens for an encrypted key with no {@code .pub} beside it.
      * @param comment What the public half calls it, usually an address. Often the only thing that
-     *        tells two keys apart to the person who made them.
+     *     tells two keys apart to the person who made them.
      * @param encrypted Whether a passphrase protects it.
      * @param privateHalf Whether the private file is there. A {@code .pub} on its own is not a
-     *        credential, and is the mistake anybody makes once.
+     *     credential, and is the mistake anybody makes once.
      * @param usable Whether this machine can sign with it as it stands.
      * @param found Where it was found.
      */
-    public record Key(String path, String type, String fingerprint, String comment,
-            boolean encrypted, boolean privateHalf, boolean usable, Found found) {
+    public record Key(
+            String path,
+            String type,
+            String fingerprint,
+            String comment,
+            boolean encrypted,
+            boolean privateHalf,
+            boolean usable,
+            Found found) {
 
         /**
          * Returns this as plain values, for a caller that has to put it on a wire.
@@ -86,7 +93,9 @@ public final class SshKeys {
             if (encrypted) {
                 return "a passphrase protects it, and nothing here can ask for one."
                         + " Use it where it lies, or store a copy without a passphrase:"
-                        + " 'ssh-keygen -p -f " + path + "' with an empty new passphrase";
+                        + " 'ssh-keygen -p -f "
+                        + path
+                        + "' with an empty new passphrase";
             }
             if (!usable) {
                 return "this machine signs with Ed25519 and this is "
@@ -206,9 +215,17 @@ public final class SshKeys {
         if (!Files.isReadable(path)) {
             // Only the public half is here. Worth listing rather than hiding: it is what somebody
             // points at by mistake, and a list that leaves it out cannot say why it is wrong.
-            return published == null ? null
-                    : new Key(path.toString(), published[0], fingerprintOf(published[1]),
-                            published.length > 2 ? published[2] : "", false, false, false, found);
+            return published == null
+                    ? null
+                    : new Key(
+                            path.toString(),
+                            published[0],
+                            fingerprintOf(published[1]),
+                            published.length > 2 ? published[2] : "",
+                            false,
+                            false,
+                            false,
+                            found);
         }
         final String text;
         try {
@@ -232,16 +249,27 @@ public final class SshKeys {
             // No .pub beside it: the public half is derivable from the seed, for the one kind
             // this machine can read.
             try {
-                fingerprint = new org.fuin.porelo.vault.SigningKey(
-                        Base64.getDecoder().decode(OpenSshPrivateKey.seedBase64(text)), "")
-                        .authorizedKeysLine().split("\\s+")[1];
+                fingerprint =
+                        new org.fuin.porelo.vault.SigningKey(
+                                        Base64.getDecoder()
+                                                .decode(OpenSshPrivateKey.seedBase64(text)),
+                                        "")
+                                .authorizedKeysLine()
+                                .split("\\s+")[1];
                 fingerprint = fingerprintOf(fingerprint);
             } catch (final RuntimeException ex) {
                 fingerprint = "";
             }
         }
-        return new Key(path.toString(), type, fingerprint, comment, described.encrypted(), true,
-                described.usable(), found);
+        return new Key(
+                path.toString(),
+                type,
+                fingerprint,
+                comment,
+                described.encrypted(),
+                true,
+                described.usable(),
+                found);
     }
 
     /**
@@ -255,8 +283,8 @@ public final class SshKeys {
             return null;
         }
         try {
-            final String[] fields = Files.readString(path, StandardCharsets.UTF_8)
-                    .strip().split("\\s+", 3);
+            final String[] fields =
+                    Files.readString(path, StandardCharsets.UTF_8).strip().split("\\s+", 3);
             return fields.length < 2 ? null : fields;
         } catch (final IOException ex) {
             return null;
@@ -265,9 +293,12 @@ public final class SshKeys {
 
     private static String fingerprintOf(final String base64) {
         try {
-            return "SHA256:" + Base64.getEncoder().withoutPadding().encodeToString(
-                    java.security.MessageDigest.getInstance("SHA-256")
-                            .digest(Base64.getDecoder().decode(base64)));
+            return "SHA256:"
+                    + Base64.getEncoder()
+                            .withoutPadding()
+                            .encodeToString(
+                                    java.security.MessageDigest.getInstance("SHA-256")
+                                            .digest(Base64.getDecoder().decode(base64)));
         } catch (final java.security.NoSuchAlgorithmException | IllegalArgumentException ex) {
             return "";
         }

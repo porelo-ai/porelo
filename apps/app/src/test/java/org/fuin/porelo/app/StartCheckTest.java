@@ -11,24 +11,28 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Tests for {@link StartCheck}, for the outcomes reachable without a running agent.
- * <p>
- * The rest - the provider refusals and the two credential ones - are tested where their rule
- * lives, in {@code SelectedProviderTest} and {@code CredentialWiringTest}, and end to end against
- * a real agent in the acceptance suite. Restating them here against a stand-in agent would test a
+ *
+ * <p>The rest - the provider refusals and the two credential ones - are tested where their rule
+ * lives, in {@code SelectedProviderTest} and {@code CredentialWiringTest}, and end to end against a
+ * real agent in the acceptance suite. Restating them here against a stand-in agent would test a
  * stand-in.
  */
 class StartCheckTest {
 
     private PoreloContext context(Path dir) {
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
-        return new PoreloContext(new FakeCommandRunner(),
-                new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
+        return new PoreloContext(
+                new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
     }
 
     @Test
@@ -100,8 +104,10 @@ class StartCheckTest {
         // The same rule as the rest of this contract: "" and never the four characters "null",
         // which would render as a credential name somebody could go looking for.
         assertThat(StartCheck.check(context(dir), null, null, null, null).asMap())
-                .containsEntry("agent", "").containsEntry("provider", "")
-                .containsEntry("credential", "").containsEntry("ready", false)
+                .containsEntry("agent", "")
+                .containsEntry("provider", "")
+                .containsEntry("credential", "")
+                .containsEntry("ready", false)
                 .containsKey("detail");
     }
 
@@ -109,7 +115,9 @@ class StartCheckTest {
     private Path threeRepositories(Path dir) throws Exception {
         Files.createDirectories(dir.resolve("project"));
         final Path project = dir.resolve("project/project.yml");
-        Files.writeString(project, """
+        Files.writeString(
+                project,
+                """
                 project:
                   name: "uc"
                   security_class: "guarded"
@@ -124,24 +132,33 @@ class StartCheckTest {
 
     /**
      * What everything except the repository answers when nothing is in its way.
-     * <p>
-     * The names are deliberately not any agent's or provider's: nothing here depends on which they
-     * are, and a real one written down outside the agent modules is what
-     * {@code AgentIsolationTest} refuses - it caught this fixture.
+     *
+     * <p>The names are deliberately not any agent's or provider's: nothing here depends on which
+     * they are, and a real one written down outside the agent modules is what {@code
+     * AgentIsolationTest} refuses - it caught this fixture.
      */
     private static final StartCheck.Result READY =
             new StartCheck.Result(StartCheck.Outcome.READY, "an-agent", "a-provider", "key", "");
 
     @Test
-    void theRepositoryIsAskedLastSoARefusalNeverHidesTheOthers(@TempDir Path dir)
-            throws Exception {
+    void theRepositoryIsAskedLastSoARefusalNeverHidesTheOthers(@TempDir Path dir) throws Exception {
 
-        // The point a question from the interface exposed: an interface asking "can work start in this
+        // The point a question from the interface exposed: an interface asking "can work start in
+        // this
         // project at all" must not be told to choose a repository and learn nothing about a
         // missing agent. There is no agent on this machine, so that is the answer - even though no
         // repository was named either.
-        assertThat(StartCheck.check(context(dir), threeRepositories(dir), null, null, null, null,
-                null, true).outcome())
+        assertThat(
+                        StartCheck.check(
+                                        context(dir),
+                                        threeRepositories(dir),
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        true)
+                                .outcome())
                 .isEqualTo(StartCheck.Outcome.NO_AGENT);
     }
 
@@ -165,20 +182,25 @@ class StartCheckTest {
     }
 
     @Test
-    void theOwnRepositoryOfAProjectThatNamesOthersIsNeverWorkedIn(@TempDir Path dir) throws Exception {
+    void theOwnRepositoryOfAProjectThatNamesOthersIsNeverWorkedIn(@TempDir Path dir)
+            throws Exception {
 
         // It holds project.yml, which decides what every task of the project may reach.
-        final StartCheck.Result result = StartCheck.withRepository(READY, threeRepositories(dir), "uc", true);
+        final StartCheck.Result result =
+                StartCheck.withRepository(READY, threeRepositories(dir), "uc", true);
 
         assertThat(result.outcome()).isEqualTo(StartCheck.Outcome.UNKNOWN_REPOSITORY);
-        assertThat(result.detail()).contains("'uc' is the project's own repository")
+        assertThat(result.detail())
+                .contains("'uc' is the project's own repository")
                 .contains("works in: backend, frontend");
     }
 
     @Test
-    void theChoicesNeverIncludeTheOwnRepositoryOfAProjectThatNamesOthers(@TempDir Path dir) throws Exception {
+    void theChoicesNeverIncludeTheOwnRepositoryOfAProjectThatNamesOthers(@TempDir Path dir)
+            throws Exception {
 
-        final StartCheck.Result result = StartCheck.withRepository(READY, threeRepositories(dir), null, true);
+        final StartCheck.Result result =
+                StartCheck.withRepository(READY, threeRepositories(dir), null, true);
 
         assertThat(result.detail()).endsWith("works in: backend, frontend");
     }
@@ -187,7 +209,9 @@ class StartCheckTest {
     void aProjectWithoutRepositoriesWorksInItsOwn(@TempDir Path dir) throws Exception {
 
         final Path file = dir.resolve("project.yml");
-        java.nio.file.Files.writeString(file, """
+        java.nio.file.Files.writeString(
+                file,
+                """
                 project:
                   name: "solo"
                   security_class: "guarded"
@@ -230,7 +254,9 @@ class StartCheckTest {
     private Path credentialed(Path dir) throws Exception {
         Files.createDirectories(dir.resolve("project"));
         final Path project = dir.resolve("project/project.yml");
-        Files.writeString(project, """
+        Files.writeString(
+                project,
+                """
                 project:
                   name: "uc"
                   security_class: "guarded"
@@ -243,26 +269,34 @@ class StartCheckTest {
     }
 
     @Test
-    void anUndeclaredDestinationIsItsOwnOutcomeAndSaysWhoNamedIt(@TempDir Path dir) throws Exception {
+    void anUndeclaredDestinationIsItsOwnOutcomeAndSaysWhoNamedIt(@TempDir Path dir)
+            throws Exception {
 
         // Measured: the launch blamed the project for what the run had named, and an
         // interface could not tell the refusal from any other failed launch.
         final Path empty = threeRepositories(dir);
-        final StartCheck.Result fromRun = StartCheck.withCredentials(context(dir), READY, empty,
-                java.util.Map.of("f56-api", "nowhere"));
+        final StartCheck.Result fromRun =
+                StartCheck.withCredentials(
+                        context(dir), READY, empty, java.util.Map.of("f56-api", "nowhere"));
         assertThat(fromRun.outcome()).isEqualTo(StartCheck.Outcome.UNKNOWN_DESTINATION);
         assertThat(fromRun.credential()).isEqualTo("f56-api");
         assertThat(fromRun.detail()).startsWith("the run names credential 'f56-api' for 'nowhere'");
 
-        final StartCheck.Result fromProject = StartCheck.withCredentials(context(dir), READY, credentialed(dir),
-                java.util.Map.of());
-        assertThat(fromProject.detail()).startsWith("the project names credential 'search' for 'nowhere'");
+        final StartCheck.Result fromProject =
+                StartCheck.withCredentials(
+                        context(dir), READY, credentialed(dir), java.util.Map.of());
+        assertThat(fromProject.detail())
+                .startsWith("the project names credential 'search' for 'nowhere'");
     }
 
     @Test
     void aRunPointingAProjectsCredentialElsewhereIsRefused(@TempDir Path dir) throws Exception {
-        final StartCheck.Result result = StartCheck.withCredentials(context(dir), READY, credentialed(dir),
-                java.util.Map.of("search", "somewhere-else"));
+        final StartCheck.Result result =
+                StartCheck.withCredentials(
+                        context(dir),
+                        READY,
+                        credentialed(dir),
+                        java.util.Map.of("search", "somewhere-else"));
 
         assertThat(result.outcome()).isEqualTo(StartCheck.Outcome.UNKNOWN_DESTINATION);
         assertThat(result.detail()).contains("cannot point one of the project's elsewhere");
@@ -271,39 +305,68 @@ class StartCheckTest {
     @Test
     void aDeclaredDestinationLetsTheAnswerStand(@TempDir Path dir) throws Exception {
         Files.createDirectories(dir.resolve("data/porelo/destinations"));
-        Files.writeString(dir.resolve("data/porelo/destinations/nowhere.yaml"),
+        Files.writeString(
+                dir.resolve("data/porelo/destinations/nowhere.yaml"),
                 "name: nowhere\nupstream: https://api.example.com\n");
 
-        assertThat(StartCheck.withCredentials(context(dir), READY, credentialed(dir), java.util.Map.of()))
+        assertThat(
+                        StartCheck.withCredentials(
+                                context(dir), READY, credentialed(dir), java.util.Map.of()))
                 .isEqualTo(READY);
     }
 
     @Test
-    void anUndeclaredDestinationIsAnsweredBeforeAMissingCredential(@TempDir Path dir) throws Exception {
+    void anUndeclaredDestinationIsAnsweredBeforeAMissingCredential(@TempDir Path dir)
+            throws Exception {
 
         // Measured: told only that the agent's credential was missing, an interface offered a
         // shell, and Start then refused it for the destination - which refuses in every mode.
-        final StartCheck.Result missing = new StartCheck.Result(StartCheck.Outcome.CREDENTIAL_MISSING, "asker", "p",
-                "anthropic", "the vault holds no credential for 'anthropic'");
+        final StartCheck.Result missing =
+                new StartCheck.Result(
+                        StartCheck.Outcome.CREDENTIAL_MISSING,
+                        "asker",
+                        "p",
+                        "anthropic",
+                        "the vault holds no credential for 'anthropic'");
 
-        assertThat(StartCheck.withCredentials(context(dir), missing, credentialed(dir), java.util.Map.of())
-                .outcome()).isEqualTo(StartCheck.Outcome.UNKNOWN_DESTINATION);
-        final StartCheck.Result declared = StartCheck.withCredentials(context(dir), missing, threeRepositories(dir),
-                java.util.Map.of());
-        assertThat(declared).as("nothing else in the way: the missing credential stands").isEqualTo(missing);
+        assertThat(
+                        StartCheck.withCredentials(
+                                        context(dir),
+                                        missing,
+                                        credentialed(dir),
+                                        java.util.Map.of())
+                                .outcome())
+                .isEqualTo(StartCheck.Outcome.UNKNOWN_DESTINATION);
+        final StartCheck.Result declared =
+                StartCheck.withCredentials(
+                        context(dir), missing, threeRepositories(dir), java.util.Map.of());
+        assertThat(declared)
+                .as("nothing else in the way: the missing credential stands")
+                .isEqualTo(missing);
     }
 
     @Test
-    void aCredentialNobodyGrantedIsItsOwnOutcomeWithTheCommandThatGrantsIt(@TempDir Path dir) throws Exception {
-        org.junit.jupiter.api.Assumptions.assumeTrue(org.fuin.porelo.vault.KernelKeyring.available(),
-                "libkeyutils is not installed");
+    void aCredentialNobodyGrantedIsItsOwnOutcomeWithTheCommandThatGrantsIt(@TempDir Path dir)
+            throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+                org.fuin.porelo.vault.KernelKeyring.available(), "libkeyutils is not installed");
         final PoreloContext context = context(dir);
         Files.createDirectories(dir.resolve("data/porelo/destinations"));
-        Files.writeString(dir.resolve("data/porelo/destinations/nowhere.yaml"),
+        Files.writeString(
+                dir.resolve("data/porelo/destinations/nowhere.yaml"),
                 "name: nowhere\nupstream: https://api.example.com\n");
         final char[] passphrase = "correct horse battery staple".toCharArray();
-        final org.fuin.porelo.vault.VaultEntry service = new org.fuin.porelo.vault.VaultEntry("-", "oauth-device",
-                java.util.Map.of("client_id", "x", "device_authorization_url", "https://a/d", "token_url", "https://a/t"));
+        final org.fuin.porelo.vault.VaultEntry service =
+                new org.fuin.porelo.vault.VaultEntry(
+                        "-",
+                        "oauth-device",
+                        java.util.Map.of(
+                                "client_id",
+                                "x",
+                                "device_authorization_url",
+                                "https://a/d",
+                                "token_url",
+                                "https://a/t"));
         final org.fuin.porelo.vault.KernelKeyring keyring =
                 new org.fuin.porelo.vault.KernelKeyring(context.paths().vault().vaultKeyringKey());
         try {
@@ -311,16 +374,27 @@ class StartCheckTest {
             context.vault().write(java.util.Map.of("search", service), passphrase);
             keyring.store(passphrase);
 
-            final StartCheck.Result needed = StartCheck.withCredentials(context, READY, credentialed(dir),
-                    java.util.Map.of());
+            final StartCheck.Result needed =
+                    StartCheck.withCredentials(
+                            context, READY, credentialed(dir), java.util.Map.of());
             assertThat(needed.outcome()).isEqualTo(StartCheck.Outcome.AUTHORIZATION_NEEDED);
             assertThat(needed.credential()).isEqualTo("search");
             assertThat(needed.detail()).contains("porelo vault authorize search");
 
-            context.vault().write(java.util.Map.of("search", service, TaskSecrets.GRANT_PREFIX + "search",
-                    new org.fuin.porelo.vault.VaultEntry("rt-1", "refresh-token", java.util.Map.of())), passphrase);
-            assertThat(StartCheck.withCredentials(context, READY, credentialed(dir), java.util.Map.of()))
-                    .as("granted: nothing in the way").isEqualTo(READY);
+            context.vault()
+                    .write(
+                            java.util.Map.of(
+                                    "search",
+                                    service,
+                                    TaskSecrets.GRANT_PREFIX + "search",
+                                    new org.fuin.porelo.vault.VaultEntry(
+                                            "rt-1", "refresh-token", java.util.Map.of())),
+                            passphrase);
+            assertThat(
+                            StartCheck.withCredentials(
+                                    context, READY, credentialed(dir), java.util.Map.of()))
+                    .as("granted: nothing in the way")
+                    .isEqualTo(READY);
         } finally {
             keyring.forget();
         }
@@ -329,7 +403,9 @@ class StartCheckTest {
     private Path upstreams(Path dir) throws Exception {
         Files.createDirectories(dir.resolve("project"));
         final Path project = dir.resolve("project/project.yml");
-        Files.writeString(project, """
+        Files.writeString(
+                project,
+                """
                 project:
                   name: "uc"
                   security_class: "guarded"
@@ -347,13 +423,16 @@ class StartCheckTest {
     }
 
     @Test
-    void aRepositoryAtAHostThisMachineNeverMetIsRefusedBeforeAnythingIsMade(@TempDir Path dir) throws Exception {
+    void aRepositoryAtAHostThisMachineNeverMetIsRefusedBeforeAnythingIsMade(@TempDir Path dir)
+            throws Exception {
 
-        // The start went ahead, ssh refused the workspace's fetch, and the task ran without a gate; the only trace
+        // The start went ahead, ssh refused the workspace's fetch, and the task ran without a gate;
+        // the only trace
         // was a line of prose in its output (found on 2026-10-02).
         final PoreloContext context = context(dir);
 
-        final StartCheck.Result result = StartCheck.withHost(context, READY, upstreams(dir), "backend");
+        final StartCheck.Result result =
+                StartCheck.withHost(context, READY, upstreams(dir), "backend");
 
         assertThat(result.outcome()).isEqualTo(StartCheck.Outcome.UNKNOWN_HOST_KEY);
         assertThat(result.host()).isEqualTo("forge.example.org");
@@ -366,95 +445,129 @@ class StartCheckTest {
         final PoreloContext context = context(dir);
         final Path project = upstreams(dir);
 
-        assertThat(StartCheck.withHost(context, READY, project, "web")).as("https is TLS's").isEqualTo(READY);
+        assertThat(StartCheck.withHost(context, READY, project, "web"))
+                .as("https is TLS's")
+                .isEqualTo(READY);
 
         final Path known = FollowCredential.knownHostsFile(context);
         Files.createDirectories(known.getParent());
-        Files.writeString(known, "forge.example.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample\n");
+        Files.writeString(
+                known, "forge.example.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample\n");
         assertThat(StartCheck.withHost(context, READY, project, "backend")).isEqualTo(READY);
     }
 
     @Test
-    void anUnknownHostIsSaidBeforeALockedVaultBecauseTrustingItNeedsNone(@TempDir Path dir) throws Exception {
+    void anUnknownHostIsSaidBeforeALockedVaultBecauseTrustingItNeedsNone(@TempDir Path dir)
+            throws Exception {
 
-        // Asked only once all else was ready, it hid behind a locked vault, and a person unlocked first only to be
+        // Asked only once all else was ready, it hid behind a locked vault, and a person unlocked
+        // first only to be
         // asked about the host next (found on 2026-10-02).
         final StartCheck.Result locked =
-                new StartCheck.Result(StartCheck.Outcome.VAULT_LOCKED, "an-agent", "a-provider", "key", "locked");
+                new StartCheck.Result(
+                        StartCheck.Outcome.VAULT_LOCKED, "an-agent", "a-provider", "key", "locked");
 
         assertThat(StartCheck.withHost(context(dir), locked, upstreams(dir), "backend").outcome())
                 .isEqualTo(StartCheck.Outcome.UNKNOWN_HOST_KEY);
     }
 
     @Test
-    void aHostIsKnownOnlyByItsOwnEntryAndPortAndAUserlessAddressIsSshToo(@TempDir Path dir) throws Exception {
+    void aHostIsKnownOnlyByItsOwnEntryAndPortAndAUserlessAddressIsSshToo(@TempDir Path dir)
+            throws Exception {
 
-        // A line for '[forge.example.org.evil]:22' counted for forge.example.org, a port-22 line for an upstream on
-        // another port, and 'forge:org/repo.git' was not taken for ssh at all - each fell back to a start without a
+        // A line for '[forge.example.org.evil]:22' counted for forge.example.org, a port-22 line
+        // for an upstream on
+        // another port, and 'forge:org/repo.git' was not taken for ssh at all - each fell back to a
+        // start without a
         // gate.
         final PoreloContext context = context(dir);
         final Path known = FollowCredential.knownHostsFile(context);
         Files.createDirectories(known.getParent());
-        Files.writeString(known, "[forge.example.org.evil]:22 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample\n"
-                + "other.example.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample\n");
+        Files.writeString(
+                known,
+                "[forge.example.org.evil]:22 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample\n"
+                        + "other.example.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample\n");
 
-        assertThat(StartCheck.unknownHostOf(context, "git@forge.example.org:o/r.git")).isEqualTo("forge.example.org");
+        assertThat(StartCheck.unknownHostOf(context, "git@forge.example.org:o/r.git"))
+                .isEqualTo("forge.example.org");
         assertThat(StartCheck.unknownHostOf(context, "ssh://git@other.example.org:2222/o/r.git"))
                 .isEqualTo("other.example.org:2222");
-        assertThat(StartCheck.unknownHostOf(context, "forge.example.org:o/r.git")).isEqualTo("forge.example.org");
+        assertThat(StartCheck.unknownHostOf(context, "forge.example.org:o/r.git"))
+                .isEqualTo("forge.example.org");
         assertThat(StartCheck.unknownHostOf(context, "git@other.example.org:o/r.git")).isNull();
     }
 
     @Test
     void aHostOnItsOwnPortIsNamedWithItSoTheHintCanBeTypedBack(@TempDir Path dir) throws Exception {
 
-        // The hint named the bare host, trust-host asked port 22 and wrote the bare name, and the start still said it
+        // The hint named the bare host, trust-host asked port 22 and wrote the bare name, and the
+        // start still said it
         // had never met the forge on 7999 (found on 2026-10-13).
         final PoreloContext context = context(dir);
         final String upstream = "ssh://git@forge.example.org:7999/project/backend.git";
 
         assertThat(StartCheck.unknownHostOf(context, upstream)).isEqualTo("forge.example.org:7999");
-        assertThat(StartCheck.unknownHostOf(context, "ssh://git@forge.example.org:22/project/backend.git"))
-                .as("22 written out is the same as none").isEqualTo("forge.example.org");
-        final StartCheck.Result refused = StartCheck.withHost(context, READY, upstreams(dir), "own-port");
+        assertThat(
+                        StartCheck.unknownHostOf(
+                                context, "ssh://git@forge.example.org:22/project/backend.git"))
+                .as("22 written out is the same as none")
+                .isEqualTo("forge.example.org");
+        final StartCheck.Result refused =
+                StartCheck.withHost(context, READY, upstreams(dir), "own-port");
         assertThat(refused.host()).isEqualTo("forge.example.org:7999");
-        assertThat(refused.detail()).contains("'porelo credentials trust-host forge.example.org:7999'");
+        assertThat(refused.detail())
+                .contains("'porelo credentials trust-host forge.example.org:7999'");
 
         final Path known = FollowCredential.knownHostsFile(context);
         Files.createDirectories(known.getParent());
-        Files.writeString(known, "[forge.example.org]:7999 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample\n");
+        Files.writeString(
+                known, "[forge.example.org]:7999 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample\n");
 
         assertThat(StartCheck.unknownHostOf(context, upstream)).isNull();
         assertThat(StartCheck.unknownHostOf(context, "git@forge.example.org:project/backend.git"))
-                .as("a key on 7999 says nothing about 22").isEqualTo("forge.example.org");
+                .as("a key on 7999 says nothing about 22")
+                .isEqualTo("forge.example.org");
     }
 
     @Test
-    void anUpstreamThatRefusedTheKeyIsSaidBeforeAnythingIsMadeUnlessAMirrorIsThere(@TempDir Path dir)
-            throws Exception {
+    void anUpstreamThatRefusedTheKeyIsSaidBeforeAnythingIsMadeUnlessAMirrorIsThere(
+            @TempDir Path dir) throws Exception {
 
-        // The refused key surfaced from the gate's clone as "no git gate for this task", after the task was half made,
+        // The refused key surfaced from the gate's clone as "no git gate for this task", after the
+        // task was half made,
         // and a shell was offered that fixed nothing about it (found on 2026-10-13).
-        final FakeCommandRunner runner = new FakeCommandRunner()
-                .failing("uc/backend.git", 128, "git@forge.example.org: Permission denied (publickey).");
+        final FakeCommandRunner runner =
+                new FakeCommandRunner()
+                        .failing(
+                                "uc/backend.git",
+                                128,
+                                "git@forge.example.org: Permission denied (publickey).");
         final PoreloContext plain = context(dir);
         final PoreloContext context = new PoreloContext(runner, plain.paths(), arguments -> 0);
         final Path project = upstreams(dir);
         final Path known = FollowCredential.knownHostsFile(context);
         Files.createDirectories(known.getParent());
-        Files.writeString(known, "forge.example.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample\n");
+        Files.writeString(
+                known, "forge.example.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample\n");
 
-        final StartCheck.Result refused = StartCheck.withUpstream(context, READY, project, "backend");
+        final StartCheck.Result refused =
+                StartCheck.withUpstream(context, READY, project, "backend");
 
         assertThat(refused.outcome()).isEqualTo(StartCheck.Outcome.UPSTREAM_KEY_REFUSED);
-        assertThat(refused.detail()).contains("refused this machine").contains("Then: 'porelo vault put git.ssh.");
-        assertThat(StartCheck.withUpstream(context, READY, project, "web")).as("https, read the same way")
+        assertThat(refused.detail())
+                .contains("refused this machine")
+                .contains("Then: 'porelo vault put git.ssh.");
+        assertThat(StartCheck.withUpstream(context, READY, project, "web"))
+                .as("https, read the same way")
                 .isEqualTo(READY);
 
-        final org.fuin.porelo.core.project.Project read = org.fuin.porelo.core.project.ProjectReader.read(project);
-        Files.createDirectories(GateSupport.mirror(context, read, read.repository("backend")).resolve("objects"));
+        final org.fuin.porelo.core.project.Project read =
+                org.fuin.porelo.core.project.ProjectReader.read(project);
+        Files.createDirectories(
+                GateSupport.mirror(context, read, read.repository("backend")).resolve("objects"));
         final int asked = runner.invocations().size();
-        assertThat(StartCheck.withUpstream(context, READY, project, "backend")).as("it starts from the mirror")
+        assertThat(StartCheck.withUpstream(context, READY, project, "backend"))
+                .as("it starts from the mirror")
                 .isEqualTo(READY);
         assertThat(runner.invocations()).as("and the network is not asked").hasSize(asked);
     }

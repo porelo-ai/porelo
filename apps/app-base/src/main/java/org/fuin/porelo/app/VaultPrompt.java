@@ -4,9 +4,9 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Asks a person for the vault passphrase, where there is a person at a terminal to ask.
- * <p>
- * Without one - a script, a pipe, the daemon, a watcher - nobody is asked and nothing waits for input: the command
- * refuses as it always did and names {@code porelo vault unlock}.
+ *
+ * <p>Without one - a script, a pipe, the daemon, a watcher - nobody is asked and nothing waits for
+ * input: the command refuses as it always did and names {@code porelo vault unlock}.
  */
 @FunctionalInterface
 public interface VaultPrompt {
@@ -31,7 +31,9 @@ public interface VaultPrompt {
         return prompt -> {
             final java.io.Console console = System.console();
             // A console object alone is no terminal: since Java 22 one exists for a pipe too.
-            return console == null || !console.isTerminal() ? null : console.readPassword("%s", prompt);
+            return console == null || !console.isTerminal()
+                    ? null
+                    : console.readPassword("%s", prompt);
         };
     }
 }

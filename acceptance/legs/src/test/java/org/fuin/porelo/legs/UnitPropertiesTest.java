@@ -11,7 +11,8 @@ class UnitPropertiesTest {
 
     @Test
     void takesOnlyTheServiceSectionsPropertiesAndLeavesOutHowItRuns() {
-        final String unit = """
+        final String unit =
+                """
                 [Unit]
                 Description=Porelo daemon
 
@@ -29,7 +30,8 @@ class UnitPropertiesTest {
                 WantedBy=default.target
                 """;
 
-        assertThat(UnitProperties.service(unit)).containsExactly("SuccessExitStatus=143", "NoNewPrivileges=yes");
+        assertThat(UnitProperties.service(unit))
+                .containsExactly("SuccessExitStatus=143", "NoNewPrivileges=yes");
     }
 
     @Test
@@ -39,12 +41,14 @@ class UnitPropertiesTest {
 
     @Test
     void keepsAValueWithSpacesAndEqualsSignsWhole() {
-        assertThat(UnitProperties.service("[Service]\nEnvironment=A=b c\n")).containsExactly("Environment=A=b c");
+        assertThat(UnitProperties.service("[Service]\nEnvironment=A=b c\n"))
+                .containsExactly("Environment=A=b c");
     }
 
     @Test
     void readsTheDaemonsOwnUnitAsItIsShipped() throws IOException {
-        // The unit this tree ships, two levels up: in the same tree as the leg, so read on every build.
+        // The unit this tree ships, two levels up: in the same tree as the leg, so read on every
+        // build.
         final Path unit = Path.of("../../systemd/porelod.service");
 
         assertThat(UnitProperties.service(Files.readString(unit)))
@@ -55,15 +59,18 @@ class UnitPropertiesTest {
 
     @Test
     void quotesEachPropertyWholeForTheOnePodmanCall() {
-        assertThat(Leg.underTheUnit(java.util.List.of("SuccessExitStatus=143", "Environment=A=b c")))
-                .isEqualTo("systemd-run --user --wait --pipe --collect --quiet -p 'SuccessExitStatus=143'"
-                        + " -p 'Environment=A=b c' podman unshare true");
+        assertThat(
+                        Leg.underTheUnit(
+                                java.util.List.of("SuccessExitStatus=143", "Environment=A=b c")))
+                .isEqualTo(
+                        "systemd-run --user --wait --pipe --collect --quiet -p 'SuccessExitStatus=143'"
+                                + " -p 'Environment=A=b c' podman unshare true");
     }
 
     @Test
     void aUnitWithNoPropertiesStillMakesTheNamespace() {
         assertThat(Leg.underTheUnit(java.util.List.of()))
-                .isEqualTo("systemd-run --user --wait --pipe --collect --quiet podman unshare true");
+                .isEqualTo(
+                        "systemd-run --user --wait --pipe --collect --quiet podman unshare true");
     }
-
 }

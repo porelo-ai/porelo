@@ -10,8 +10,8 @@ import java.util.stream.Stream;
 
 /**
  * Every mailbox on this machine.
- * <p>
- * One subscription over the daemon's socket carries all of them, so something has to be able to
+ *
+ * <p>One subscription over the daemon's socket carries all of them, so something has to be able to
  * name them all. They are found by looking rather than by keeping a list: a mailbox is a directory
  * made when a task is made, and a second list of them would be a second thing to keep in step.
  */

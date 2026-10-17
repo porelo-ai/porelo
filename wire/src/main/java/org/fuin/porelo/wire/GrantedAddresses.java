@@ -12,16 +12,16 @@ import java.util.Set;
 
 /**
  * Which address a task was let through to, and the name it was reached by.
- * <p>
- * <strong>Written at the one moment both are known.</strong> The clearance watcher sees a blocked
- * packet, looks the address up to a name, and lets it through; from then on the firewall holds an
- * address and nothing holds the pair. Taking a grant back needs it - a name has to become the
- * addresses to remove - and re-resolving the name later was rejected for a specific reason:
- * a CDN, GeoDNS or plain round-robin answers Porelo and the container differently, and the
- * addresses that differ are precisely the ones a withdrawal would leave open.
- * <p>
- * Append-only, beside the granted names, in the task's own state directory. It outlives a watcher
- * restart, which matters because a replayed decision carries no name.
+ *
+ * <p><strong>Written at the one moment both are known.</strong> The clearance watcher sees a
+ * blocked packet, looks the address up to a name, and lets it through; from then on the firewall
+ * holds an address and nothing holds the pair. Taking a grant back needs it - a name has to become
+ * the addresses to remove - and re-resolving the name later was rejected for a specific reason: a
+ * CDN, GeoDNS or plain round-robin answers Porelo and the container differently, and the addresses
+ * that differ are precisely the ones a withdrawal would leave open.
+ *
+ * <p>Append-only, beside the granted names, in the task's own state directory. It outlives a
+ * watcher restart, which matters because a replayed decision carries no name.
  */
 public final class GrantedAddresses {
 
@@ -41,16 +41,19 @@ public final class GrantedAddresses {
      * @throws IOException If it cannot be written.
      */
     public static void add(Path stateDirectory, String name, String address) throws IOException {
-        Files.writeString(stateDirectory.resolve(FILE),
+        Files.writeString(
+                stateDirectory.resolve(FILE),
                 name.strip() + "\t" + address.strip() + System.lineSeparator(),
-                StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+                StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.APPEND);
     }
 
     /**
      * Returns every address recorded for one name.
-     * <p>
-     * Exact, never by suffix. A grant for {@code example.com} covers {@code api.example.com} when
-     * deciding what to let through - that is what {@link GrantedNames} does - but a withdrawal
+     *
+     * <p>Exact, never by suffix. A grant for {@code example.com} covers {@code api.example.com}
+     * when deciding what to let through - that is what {@link GrantedNames} does - but a withdrawal
      * must not remove an address that was let through under a different name, which may still be
      * granted.
      *

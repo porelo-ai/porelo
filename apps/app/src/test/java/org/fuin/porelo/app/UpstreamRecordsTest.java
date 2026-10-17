@@ -12,8 +12,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Tests for {@link UpstreamRecords}.
- * <p>
- * Written from a timer while every project listing reads it, so what matters is that a reader
+ *
+ * <p>Written from a timer while every project listing reads it, so what matters is that a reader
  * never sees half a record and never sees a number it should not trust.
  */
 class UpstreamRecordsTest {
@@ -23,8 +23,9 @@ class UpstreamRecordsTest {
 
         final Instant when = Instant.parse("2026-09-07T17:44:30Z");
         final UpstreamRecords records = new UpstreamRecords(dir);
-        records.put("uc", new UpstreamDistance.Distance(3, when,
-                UpstreamDistance.Reason.MEASURED, null));
+        records.put(
+                "uc",
+                new UpstreamDistance.Distance(3, when, UpstreamDistance.Reason.MEASURED, null));
 
         final UpstreamDistance.Distance back = records.get("uc");
         assertThat(back.behind()).isEqualTo(3);
@@ -47,8 +48,13 @@ class UpstreamRecordsTest {
     void keepsTheReasonAndTheDetailOfAFailure(@TempDir Path dir) {
 
         final UpstreamRecords records = new UpstreamRecords(dir);
-        records.put("uc", new UpstreamDistance.Distance(0, null, UpstreamDistance.Reason.FAILED,
-                "could not read from remote repository"));
+        records.put(
+                "uc",
+                new UpstreamDistance.Distance(
+                        0,
+                        null,
+                        UpstreamDistance.Reason.FAILED,
+                        "could not read from remote repository"));
 
         final UpstreamDistance.Distance back = records.get("uc");
         assertThat(back.reason()).isEqualTo(UpstreamDistance.Reason.FAILED);
@@ -62,8 +68,13 @@ class UpstreamRecordsTest {
         // git's own output is what goes in here, and it contains whatever it contains. A record
         // that could be split by its own content would come back as a different reason entirely.
         final UpstreamRecords records = new UpstreamRecords(dir);
-        records.put("uc", new UpstreamDistance.Distance(0, null, UpstreamDistance.Reason.FAILED,
-                "fatal:\tcould not read\tfrom remote"));
+        records.put(
+                "uc",
+                new UpstreamDistance.Distance(
+                        0,
+                        null,
+                        UpstreamDistance.Reason.FAILED,
+                        "fatal:\tcould not read\tfrom remote"));
 
         assertThat(new UpstreamRecords(dir).get("uc").reason())
                 .isEqualTo(UpstreamDistance.Reason.FAILED);
@@ -98,16 +109,24 @@ class UpstreamRecordsTest {
         final java.util.List<Thread> threads = new java.util.ArrayList<>();
         for (int i = 0; i < writers; i++) {
             final int index = i;
-            threads.add(Thread.ofVirtual().start(() -> {
-                try {
-                    start.await();
-                } catch (InterruptedException ex) {
-                    Thread.currentThread().interrupt();
-                    return;
-                }
-                records.put("project-" + index, new UpstreamDistance.Distance(index,
-                        Instant.now(), UpstreamDistance.Reason.MEASURED, null));
-            }));
+            threads.add(
+                    Thread.ofVirtual()
+                            .start(
+                                    () -> {
+                                        try {
+                                            start.await();
+                                        } catch (InterruptedException ex) {
+                                            Thread.currentThread().interrupt();
+                                            return;
+                                        }
+                                        records.put(
+                                                "project-" + index,
+                                                new UpstreamDistance.Distance(
+                                                        index,
+                                                        Instant.now(),
+                                                        UpstreamDistance.Reason.MEASURED,
+                                                        null));
+                                    }));
         }
         start.countDown();
         for (final Thread thread : threads) {
@@ -115,8 +134,7 @@ class UpstreamRecordsTest {
         }
 
         for (int i = 0; i < writers; i++) {
-            assertThat(records.get("project-" + i).behind())
-                    .as("project-%d", i).isEqualTo(i);
+            assertThat(records.get("project-" + i).behind()).as("project-%d", i).isEqualTo(i);
         }
     }
 }

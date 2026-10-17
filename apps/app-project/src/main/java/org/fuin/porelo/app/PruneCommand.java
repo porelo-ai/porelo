@@ -9,14 +9,16 @@ import picocli.CommandLine.Spec;
 
 /**
  * Shows what nothing on this machine owns any more, and removes it with {@code --yes}.
- * <p>
- * Without {@code --yes} it removes nothing: deleting is the one thing a person sees first. What holds work - a push
- * nobody reviewed, a stopped task's workspace, a message waiting for a person - is listed and kept unless
- * {@code --including-work} says otherwise.
+ *
+ * <p>Without {@code --yes} it removes nothing: deleting is the one thing a person sees first. What
+ * holds work - a push nobody reviewed, a stopped task's workspace, a message waiting for a person -
+ * is listed and kept unless {@code --including-work} says otherwise.
  */
-@Command(name = "prune",
+@Command(
+        name = "prune",
         mixinStandardHelpOptions = true,
-        description = "Shows what nothing on this machine owns any more, and removes it with --yes.")
+        description =
+                "Shows what nothing on this machine owns any more, and removes it with --yes.")
 public class PruneCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
     @Option(names = "--yes", description = "Remove what is listed. Without it nothing is removed.")
@@ -28,12 +30,14 @@ public class PruneCommand implements Callable<Integer>, PoreloFactory.ContextAwa
     /** Who is asked to remove what is listed: this process's terminal, or nobody without one. */
     Offer.Asker asker = Offer.atTerminal() ? Offer.Asker.terminal() : Offer.Asker.NOBODY;
 
-    @Option(names = "--including-work", description = "Remove what holds work nobody has looked at too: a push"
-            + " nobody reviewed, a stopped task's workspace, a message waiting for a person.")
+    @Option(
+            names = "--including-work",
+            description =
+                    "Remove what holds work nobody has looked at too: a push"
+                            + " nobody reviewed, a stopped task's workspace, a message waiting for a person.")
     private boolean includingWork;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -44,7 +48,8 @@ public class PruneCommand implements Callable<Integer>, PoreloFactory.ContextAwa
 
     @Override
     public Integer call() {
-        // A deploy key left over is found only in the vault: at a terminal a shut vault is opened for this alone.
+        // A deploy key left over is found only in the vault: at a terminal a shut vault is opened
+        // for this alone.
         context.openIfShut(true, false, spec.commandLine().getErr());
         final PrintWriter out = spec.commandLine().getOut();
         final Prune.Result result = new Prune(context).run(yes, includingWork);
@@ -53,18 +58,23 @@ public class PruneCommand implements Callable<Integer>, PoreloFactory.ContextAwa
             out.flush();
             return 0;
         }
-        final java.util.List<Prune.Item> kept = result.keeps().stream()
-                .filter(item -> !item.holds().startsWith("not removed")).toList();
-        final java.util.List<Prune.Item> failed = result.keeps().stream()
-                .filter(item -> item.holds().startsWith("not removed")).toList();
+        final java.util.List<Prune.Item> kept =
+                result.keeps().stream()
+                        .filter(item -> !item.holds().startsWith("not removed"))
+                        .toList();
+        final java.util.List<Prune.Item> failed =
+                result.keeps().stream()
+                        .filter(item -> item.holds().startsWith("not removed"))
+                        .toList();
         if (!result.removes().isEmpty()) {
             out.println(yes ? "Removed:" : "Would be removed - nothing is, without --yes:");
             result.removes().forEach(item -> show(out, item, null));
             out.println();
         }
         if (!kept.isEmpty()) {
-            out.println("Kept, because it may hold work nobody has looked at"
-                    + (includingWork ? ":" : " - --including-work removes it too:"));
+            out.println(
+                    "Kept, because it may hold work nobody has looked at"
+                            + (includingWork ? ":" : " - --including-work removes it too:"));
             kept.forEach(item -> show(out, item, item.holds()));
             out.println();
         }
@@ -79,12 +89,17 @@ public class PruneCommand implements Callable<Integer>, PoreloFactory.ContextAwa
             out.println();
         }
         if (!yes && !result.removes().isEmpty()) {
-            // What a second command with --yes would remove is asked here instead, no by default: removing is the
+            // What a second command with --yes would remove is asked here instead, no by default:
+            // removing is the
             // one step a person decides, and the list they decide on is the one just shown.
             if (!noInput && asker != Offer.Asker.NOBODY) {
                 out.flush();
-                if (new Offer(asker, false, false, new PrintWriter(out, true)).confirm(
-                        result.removes().size() + " left over listed above", "Remove them now?", "", true)) {
+                if (new Offer(asker, false, false, new PrintWriter(out, true))
+                        .confirm(
+                                result.removes().size() + " left over listed above",
+                                "Remove them now?",
+                                "",
+                                true)) {
                     final Prune.Result done = new Prune(context).run(true, includingWork);
                     out.println("Removed:");
                     done.removes().forEach(item -> show(out, item, null));
@@ -101,11 +116,14 @@ public class PruneCommand implements Callable<Integer>, PoreloFactory.ContextAwa
     }
 
     /**
-     * Shows one thing found: its kind and name on a line of its own, then why it is kept, then what of it there is -
-     * one to a line for a project, whose list is long, and on the same line for anything else.
+     * Shows one thing found: its kind and name on a line of its own, then why it is kept, then what
+     * of it there is - one to a line for a project, whose list is long, and on the same line for
+     * anything else.
      */
-    private static void show(final PrintWriter out, final Prune.Item item, final @org.jspecify.annotations.Nullable
-            String why) {
+    private static void show(
+            final PrintWriter out,
+            final Prune.Item item,
+            final @org.jspecify.annotations.Nullable String why) {
         if ("PROJECT".equals(item.kind())) {
             out.println("  " + label(item));
             if (why != null) {
@@ -114,8 +132,11 @@ public class PruneCommand implements Callable<Integer>, PoreloFactory.ContextAwa
             item.what().forEach(each -> out.println("        " + each));
             return;
         }
-        out.println("  " + label(item) + (item.what().isEmpty() ? "" : " - " + String.join(", ", item.what()))
-                + (why == null ? "" : " - " + why));
+        out.println(
+                "  "
+                        + label(item)
+                        + (item.what().isEmpty() ? "" : " - " + String.join(", ", item.what()))
+                        + (why == null ? "" : " - " + why));
     }
 
     private static String label(final Prune.Item item) {

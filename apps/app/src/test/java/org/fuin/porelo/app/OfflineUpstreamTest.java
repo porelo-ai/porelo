@@ -13,30 +13,42 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Tests that a task of an offline project is never given an upstream on the command line: the host would clone its
- * mirror from it over the network.
+ * Tests that a task of an offline project is never given an upstream on the command line: the host
+ * would clone its mirror from it over the network.
  */
 class OfflineUpstreamTest {
 
     @Test
     void anOfflineStartWithAnUpstreamIsRefusedBeforeAnythingConnects(@TempDir final Path dir) {
         final FakeCommandRunner runner = new FakeCommandRunner();
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
-        final PoreloContext context = new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
+        final PoreloContext context =
+                new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
         final Project offline = new Project("uc", "", SecurityClass.OFFLINE, "ubuntu:24.04", null);
         final StringWriter err = new StringWriter();
 
-        final TaskWorkspace workspace = new WorkspaceSetup(context, "t", "https://example.org/uc.git")
-                .openWorkspace(offline, true, new PrintWriter(new StringWriter()), new PrintWriter(err));
+        final TaskWorkspace workspace =
+                new WorkspaceSetup(context, "t", "https://example.org/uc.git")
+                        .openWorkspace(
+                                offline,
+                                true,
+                                new PrintWriter(new StringWriter()),
+                                new PrintWriter(err));
 
         assertThat(workspace).isNull();
-        assertThat(err.toString()).contains("is offline, so it takes no --upstream").contains("porelo gate restore");
+        assertThat(err.toString())
+                .contains("is offline, so it takes no --upstream")
+                .contains("porelo gate restore");
         assertThat(runner.invocations()).as("no git command ran").isEmpty();
     }
 }

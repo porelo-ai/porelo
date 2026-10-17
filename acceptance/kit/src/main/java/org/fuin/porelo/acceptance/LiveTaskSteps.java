@@ -25,12 +25,12 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * A task that really runs: starting it, what its container holds, and what it left behind.
- * <p>
- * The last stage of each agent repository, which proves what an operator gets rather than what the
- * code does. <strong>No step here names an agent.</strong> The one thing that differs - how an agent
- * is asked a question inside its container - is written in the scenario, as the script it is.
- * <p>
- * <strong>A secret never goes on a command line</strong>, which every process on the machine can
+ *
+ * <p>The last stage of each agent repository, which proves what an operator gets rather than what
+ * the code does. <strong>No step here names an agent.</strong> The one thing that differs - how an
+ * agent is asked a question inside its container - is written in the scenario, as the script it is.
+ *
+ * <p><strong>A secret never goes on a command line</strong>, which every process on the machine can
  * read. It reaches the machine on standard input, through the vault steps, and is searched for here
  * on the runner's side: what is searched is fetched, the secret is never sent.
  */
@@ -42,7 +42,8 @@ public class LiveTaskSteps {
     /** How long one command in the container may take - an agent answering a prompt among them. */
     static final int EXEC_SECONDS = 300;
 
-    private static final Pattern CONTAINER = Pattern.compile("^container\\s+(\\S+)", Pattern.MULTILINE);
+    private static final Pattern CONTAINER =
+            Pattern.compile("^container\\s+(\\S+)", Pattern.MULTILINE);
 
     private static final Pattern SIDECAR = Pattern.compile("^sidecar\\s+(\\S+)", Pattern.MULTILINE);
 
@@ -61,11 +62,12 @@ public class LiveTaskSteps {
 
     /**
      * Removes every task a failed scenario started and left running.
-     * <p>
-     * A failing step skips the scenario's own clean-up, and its agent kept running into every scenario after it: on a
-     * leased machine one left behind took the memory the next start needed, and three scenarios after it failed for
-     * that alone (2026-10-04). Only a failed scenario's, and only what it started itself, so a passing
-     * scenario's task is its own business. Best effort: a removal that fails must not hide why the scenario did.
+     *
+     * <p>A failing step skips the scenario's own clean-up, and its agent kept running into every
+     * scenario after it: on a leased machine one left behind took the memory the next start needed,
+     * and three scenarios after it failed for that alone (2026-10-04). Only a failed scenario's,
+     * and only what it started itself, so a passing scenario's task is its own business. Best
+     * effort: a removal that fails must not hide why the scenario did.
      *
      * @param scenario The scenario that ended.
      */
@@ -76,7 +78,8 @@ public class LiveTaskSteps {
         }
         for (final World.Task started : world.started()) {
             try {
-                world.machine().run("porelo task remove " + Shell.quote(started.container()) + " --force");
+                world.machine()
+                        .run("porelo task remove " + Shell.quote(started.container()) + " --force");
             } catch (final IOException | RuntimeException ex) {
                 scenario.log("could not remove " + started.container() + ": " + ex.getMessage());
             }
@@ -97,8 +100,8 @@ public class LiveTaskSteps {
 
     /**
      * Starts a task of a name the scenario chooses and leaves it running.
-     * <p>
-     * For scenarios that share one project, and so one image: each names its own task, because a
+     *
+     * <p>For scenarios that share one project, and so one image: each names its own task, because a
      * start of a task that is already running is refused.
      *
      * @param task The task's name.
@@ -120,7 +123,8 @@ public class LiveTaskSteps {
      * @throws IOException If the machine cannot be reached.
      */
     @When("a task is started in {string} for the {string} agent through {string} and left running")
-    public void aTaskIsStartedThrough(String project, String agent, String provider) throws IOException {
+    public void aTaskIsStartedThrough(String project, String agent, String provider)
+            throws IOException {
         started(world.run(startCommand(project, agent, provider)));
     }
 
@@ -145,21 +149,29 @@ public class LiveTaskSteps {
      * @param provider The provider, or {@code null} for the agent's default.
      * @return The command.
      */
-    static String startCommand(@Nullable String task, String project, String agent, @Nullable String provider) {
-        // --clearance deny: a scenario must never raise a prompt on somebody's desktop and then wait for it.
-        return "timeout " + START_SECONDS + " porelo task start "
-                + (task == null ? "" : Shell.quote(TaskSteps.aName(task)) + " ") + "--project " + Shell.quote(TaskSteps.aName(project))
-                + " --repository " + Shell.quote(TaskSteps.aName(project))
-                + " --agent " + Shell.quote(agent)
+    static String startCommand(
+            @Nullable String task, String project, String agent, @Nullable String provider) {
+        // --clearance deny: a scenario must never raise a prompt on somebody's desktop and then
+        // wait for it.
+        return "timeout "
+                + START_SECONDS
+                + " porelo task start "
+                + (task == null ? "" : Shell.quote(TaskSteps.aName(task)) + " ")
+                + "--project "
+                + Shell.quote(TaskSteps.aName(project))
+                + " --repository "
+                + Shell.quote(TaskSteps.aName(project))
+                + " --agent "
+                + Shell.quote(agent)
                 + (provider == null ? "" : " --provider " + Shell.quote(provider))
                 + " --detach --clearance deny";
     }
 
     /**
      * Says why a start did not start a task, or nothing when it did.
-     * <p>
-     * The container line alone was enough, so a start that printed it and then failed - a hook, the agent - passed
-     * every step after it.
+     *
+     * <p>The container line alone was enough, so a start that printed it and then failed - a hook,
+     * the agent - passed every step after it.
      *
      * @param status What the start exited with.
      * @param said What it printed.
@@ -169,7 +181,9 @@ public class LiveTaskSteps {
         if (task(said).isEmpty()) {
             return "the task did not start (exit " + status + ")";
         }
-        return status == 0 ? null : "the task's container was made, but the start failed (exit " + status + ")";
+        return status == 0
+                ? null
+                : "the task's container was made, but the start failed (exit " + status + ")";
     }
 
     private void started(Ssh.Output output) {
@@ -195,13 +209,15 @@ public class LiveTaskSteps {
         }
         final Matcher sidecar = SIDECAR.matcher(said);
         final Path parent = sidecar.find() ? Path.of(sidecar.group(1)).getParent() : null;
-        return Optional.of(new World.Task(container.group(1), parent == null ? null : parent.toString(), said));
+        return Optional.of(
+                new World.Task(
+                        container.group(1), parent == null ? null : parent.toString(), said));
     }
 
     /**
      * Runs a script inside the task's container, as the agent's user.
-     * <p>
-     * {@code ${NAME}} in the script is handed to the container as an environment variable and
+     *
+     * <p>{@code ${NAME}} in the script is handed to the container as an environment variable and
      * expanded there, never pasted into the command: a value carrying a quote would otherwise end
      * the argument and run whatever followed it. A secret is refused, because the variable is on
      * {@code podman exec}'s command line.
@@ -216,13 +232,18 @@ public class LiveTaskSteps {
         while (placeholder.find()) {
             final String name = placeholder.group(1);
             if (world.remembers(name)) {
-                throw new AssertionError(name + " holds a secret, and would be on a command line; a credential"
-                        + " reaches a task through the vault, never through the scenario");
+                throw new AssertionError(
+                        name
+                                + " holds a secret, and would be on a command line; a credential"
+                                + " reaches a task through the vault, never through the scenario");
             }
             final String value = System.getenv(name);
             if (value == null) {
-                throw new AssertionError("The scenario names ${" + name + "} and the environment running this"
-                        + " suite does not set it");
+                throw new AssertionError(
+                        "The scenario names ${"
+                                + name
+                                + "} and the environment running this"
+                                + " suite does not set it");
             }
             passed.put(name, value);
         }
@@ -239,16 +260,20 @@ public class LiveTaskSteps {
      */
     static String execCommand(String container, String script, Map<String, String> environment) {
         final StringBuilder command = new StringBuilder("timeout " + EXEC_SECONDS + " podman exec");
-        environment.forEach((name, value) -> command.append(" --env ").append(Shell.quote(name + "=" + value)));
-        return command.append(' ').append(Shell.quote(container)).append(" sh -c ").append(Shell.quote(script))
+        environment.forEach(
+                (name, value) -> command.append(" --env ").append(Shell.quote(name + "=" + value)));
+        return command.append(' ')
+                .append(Shell.quote(container))
+                .append(" sh -c ")
+                .append(Shell.quote(script))
                 .toString();
     }
 
     /**
      * Asserts that the container's environment does not hold a secret.
-     * <p>
-     * A scheme that authenticates by handing the agent the real key has not failed loudly - it has
-     * failed quietly, and only a real credential makes the leak searchable.
+     *
+     * <p>A scheme that authenticates by handing the agent the real key has not failed loudly - it
+     * has failed quietly, and only a real credential makes the leak searchable.
      *
      * @param variable The variable the secret came from.
      * @throws IOException If the machine cannot be reached.
@@ -256,18 +281,22 @@ public class LiveTaskSteps {
     @Then("the task's container environment does not contain the value of {string}")
     public void theContainerEnvironmentDoesNotContain(String variable) throws IOException {
         final Ssh.Output output = world.run(execCommand(world.task().container(), "env", Map.of()));
-        assertThat(output.status()).as("the container's environment could not be read:%n%s",
-                world.redact(output.all())).isZero();
+        assertThat(output.status())
+                .as(
+                        "the container's environment could not be read:%n%s",
+                        world.redact(output.all()))
+                .isZero();
         assertThat(world.contains(variable, output.out()))
-                .as("the container's environment holds the value of %s", variable).isFalse();
+                .as("the container's environment holds the value of %s", variable)
+                .isFalse();
     }
 
     /**
      * Asserts that nothing the task left behind holds a secret, with or without line breaks in it.
-     * <p>
-     * Searched: what the start printed, and every readable file under Porelo's runtime directory and
-     * the task's own state directory. At least one file must have been searched, or the check proves
-     * nothing and says so.
+     *
+     * <p>Searched: what the start printed, and every readable file under Porelo's runtime directory
+     * and the task's own state directory. At least one file must have been searched, or the check
+     * proves nothing and says so.
      *
      * @param variable The variable the secret came from.
      * @throws IOException If the machine cannot be reached.
@@ -276,20 +305,25 @@ public class LiveTaskSteps {
     public void noLogContains(String variable) throws IOException {
         final World.Task task = world.task();
         final Ssh.Output listing = world.run(logListing(task.state()));
-        assertThat(listing.status()).as("the logs could not be read:%n%s", world.redact(listing.err())).isZero();
+        assertThat(listing.status())
+                .as("the logs could not be read:%n%s", world.redact(listing.err()))
+                .isZero();
         final Map<String, String> files = files(listing.out());
         assertThat(files).as("no file was found to search, so this proves nothing").isNotEmpty();
         final List<String> leaked = leaks(files, text -> world.containsAcrossLines(variable, text));
         assertThat(world.containsAcrossLines(variable, task.said()))
-                .as("what the start printed holds the value of %s", variable).isFalse();
-        assertThat(leaked).as("these hold the value of %s, searched in %d files", variable, files.size()).isEmpty();
+                .as("what the start printed holds the value of %s", variable)
+                .isFalse();
+        assertThat(leaked)
+                .as("these hold the value of %s, searched in %d files", variable, files.size())
+                .isEmpty();
     }
 
     /**
      * Builds the command that prints every file a task may have logged to, one per line.
-     * <p>
-     * Each line is the path and the content, both in base64, so that no content can break the line
-     * and no secret needs to leave the runner to be looked for.
+     *
+     * <p>Each line is the path and the content, both in base64, so that no content can break the
+     * line and no secret needs to leave the runner to be looked for.
      *
      * @param state The task's state directory, or {@code null}.
      * @return The command.
@@ -316,7 +350,8 @@ public class LiveTaskSteps {
                 continue;
             }
             final Base64.Decoder decoder = Base64.getDecoder();
-            files.put(new String(decoder.decode(line.substring(0, tab)), StandardCharsets.UTF_8),
+            files.put(
+                    new String(decoder.decode(line.substring(0, tab)), StandardCharsets.UTF_8),
                     new String(decoder.decode(line.substring(tab + 1)), StandardCharsets.UTF_8));
         }
         return files;
@@ -332,38 +367,42 @@ public class LiveTaskSteps {
      */
     static List<String> leaks(Map<String, String> files, Predicate<String> holds) {
         final List<String> leaked = new ArrayList<>();
-        files.forEach((path, content) -> {
-            if (holds.test(content)) {
-                leaked.add(path);
-            }
-        });
+        files.forEach(
+                (path, content) -> {
+                    if (holds.test(content)) {
+                        leaked.add(path);
+                    }
+                });
         return leaked;
     }
 
     /**
      * Stops the scenario unless it runs as an unprivileged user.
-     * <p>
-     * Rootless podman and one operator's own directories are what a task runs in, so a run as root
-     * proves something else and says so nowhere: it passed every check but the broker's for two days,
-     * because a leg connected as root and nothing objected.
+     *
+     * <p>Rootless podman and one operator's own directories are what a task runs in, so a run as
+     * root proves something else and says so nowhere: it passed every check but the broker's for
+     * two days, because a leg connected as root and nothing objected.
      *
      * @throws IOException If the machine cannot be reached.
      */
     @Given("the suite runs as an unprivileged user")
     public void theSuiteRunsUnprivileged() throws IOException {
         final Ssh.Output output = world.run("id -u");
-        assertThat(output.status()).as("could not ask who this suite runs as:%n%s", output.all()).isZero();
-        assertThat(output.out().strip()).as("this suite must run as an unprivileged user, not as root")
+        assertThat(output.status())
+                .as("could not ask who this suite runs as:%n%s", output.all())
+                .isZero();
+        assertThat(output.out().strip())
+                .as("this suite must run as an unprivileged user, not as root")
                 .isNotEqualTo("0");
     }
 
     /**
      * Asserts that the agent's traffic went through the task's broker.
-     * <p>
-     * The one piece of evidence that the agent read what Porelo gave it: a setup file with a token in
-     * it proves what Porelo wrote, and an agent that ignores it passes every check of that file. On
-     * failure the end of the relay's log is attached, which is where a request that went elsewhere
-     * shows.
+     *
+     * <p>The one piece of evidence that the agent read what Porelo gave it: a setup file with a
+     * token in it proves what Porelo wrote, and an agent that ignores it passes every check of that
+     * file. On failure the end of the relay's log is attached, which is where a request that went
+     * elsewhere shows.
      *
      * @throws IOException If the machine cannot be reached.
      */
@@ -371,15 +410,19 @@ public class LiveTaskSteps {
     public void theBrokerSawARequest() throws IOException {
         final String state = world.task().state();
         if (state == null) {
-            throw new AssertionError("the start named no state directory, so there is no broker log to read");
+            throw new AssertionError(
+                    "the start named no state directory, so there is no broker log to read");
         }
         final Ssh.Output requests = world.run(brokerCommand(state));
         world.output(requests);
         if (requests.status() != 0 || requests.out().isBlank()) {
             final Ssh.Output relay = world.run("tail -n 5 " + Shell.quote(state + "/relay.log"));
-            throw new AssertionError("nothing reached the broker - the agent did not use the endpoint it was"
-                    + " given.\nvault.log:\n" + world.redact(requests.all()) + "\nrelay.log, last lines:\n"
-                    + world.redact(relay.all()));
+            throw new AssertionError(
+                    "nothing reached the broker - the agent did not use the endpoint it was"
+                            + " given.\nvault.log:\n"
+                            + world.redact(requests.all())
+                            + "\nrelay.log, last lines:\n"
+                            + world.redact(relay.all()));
         }
     }
 
@@ -406,8 +449,8 @@ public class LiveTaskSteps {
 
     /**
      * Asserts that an agent installs the version its own bill names for a component.
-     * <p>
-     * Asked of the machine, not of the build: two sources that cannot drift apart unnoticed.
+     *
+     * <p>Asked of the machine, not of the build: two sources that cannot drift apart unnoticed.
      *
      * @param agent The agent.
      * @param bill Where its package installed its bill.
@@ -415,11 +458,15 @@ public class LiveTaskSteps {
      * @throws IOException If the machine cannot be reached.
      */
     @Then("the {string} agent installs the version the bill at {string} names for {string}")
-    public void theAgentInstallsWhatTheBillNames(String agent, String bill, String component) throws IOException {
+    public void theAgentInstallsWhatTheBillNames(String agent, String bill, String component)
+            throws IOException {
         final String declared = installed(agent);
         final Ssh.Output read = world.run("cat " + Shell.quote(bill));
-        assertThat(read.status()).as("the bill at %s could not be read:%n%s", bill, read.err()).isZero();
-        assertThat(versionIn(read.out(), component)).as("the version the bill at %s names for %s", bill, component)
+        assertThat(read.status())
+                .as("the bill at %s could not be read:%n%s", bill, read.err())
+                .isZero();
+        assertThat(versionIn(read.out(), component))
+                .as("the version the bill at %s names for %s", bill, component)
                 .contains(declared);
     }
 
@@ -434,23 +481,35 @@ public class LiveTaskSteps {
     public void theAgentInstallsTheVersionIn(String agent, String variable) throws IOException {
         final String expected = System.getenv(variable);
         if (expected == null || expected.isBlank()) {
-            throw new AssertionError("The environment variable " + variable + " is not set on the machine"
-                    + " running this suite");
+            throw new AssertionError(
+                    "The environment variable "
+                            + variable
+                            + " is not set on the machine"
+                            + " running this suite");
         }
-        assertThat(installed(agent)).as("the version the %s agent installs", agent).isEqualTo(expected);
+        assertThat(installed(agent))
+                .as("the version the %s agent installs", agent)
+                .isEqualTo(expected);
     }
 
     private String installed(String agent) throws IOException {
         final Ssh.Output output = world.run("porelo agents --supply-chain");
         world.output(output);
-        return installs(output.out(), agent).orElseThrow(() -> new AssertionError(
-                "the installed " + agent + " agent does not say which version it installs:\n" + output.all()));
+        return installs(output.out(), agent)
+                .orElseThrow(
+                        () ->
+                                new AssertionError(
+                                        "the installed "
+                                                + agent
+                                                + " agent does not say which version it installs:\n"
+                                                + output.all()));
     }
 
     /**
      * Reads what one agent's row of {@code porelo agents --supply-chain} says it installs.
-     * <p>
-     * That agent's row, not the first {@code installs:}: a machine with two agents reported the other.
+     *
+     * <p>That agent's row, not the first {@code installs:}: a machine with two agents reported the
+     * other.
      *
      * @param supplyChain The output.
      * @param agent The agent.
@@ -478,7 +537,9 @@ public class LiveTaskSteps {
      */
     static Optional<String> versionIn(String bill, String component) {
         final Object parsed = Json.parse(bill);
-        return parsed instanceof Map<?, ?> root ? find(root.get("components"), component) : Optional.empty();
+        return parsed instanceof Map<?, ?> root
+                ? find(root.get("components"), component)
+                : Optional.empty();
     }
 
     private static Optional<String> find(@Nullable Object components, String name) {
@@ -487,7 +548,8 @@ public class LiveTaskSteps {
         }
         for (final Object item : list) {
             if (item instanceof Map<?, ?> component) {
-                if (name.equals(component.get("name")) && component.get("version") instanceof String version) {
+                if (name.equals(component.get("name"))
+                        && component.get("version") instanceof String version) {
                     return Optional.of(version);
                 }
                 final Optional<String> nested = find(component.get("components"), name);
@@ -501,7 +563,8 @@ public class LiveTaskSteps {
 
     private static String tail(String text, int lines) {
         final String[] all = text.strip().split("\n");
-        return String.join("\n", java.util.Arrays.copyOfRange(all, Math.max(0, all.length - lines), all.length));
+        return String.join(
+                "\n",
+                java.util.Arrays.copyOfRange(all, Math.max(0, all.length - lines), all.length));
     }
-
 }

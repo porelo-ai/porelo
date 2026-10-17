@@ -12,14 +12,14 @@ import java.util.Map;
 
 /**
  * Who may speak for a peer, read from an OpenSSH {@code allowed_signers} file.
- * <p>
- * The same file {@code ssh-keygen -Y verify} takes, and deliberately so: the keys that decide what
- * a task is allowed to read can be checked by somebody with no Porelo, and written by somebody who
- * has only ever used ssh.
- * <p>
- * <strong>What cannot be read is not silently skipped.</strong> A line this cannot parse makes the
- * whole file refused, because a keyring that quietly lost an entry is a keyring that quietly stops
- * delivering - or, worse, quietly stops recognising the peer whose key was on that line.
+ *
+ * <p>The same file {@code ssh-keygen -Y verify} takes, and deliberately so: the keys that decide
+ * what a task is allowed to read can be checked by somebody with no Porelo, and written by somebody
+ * who has only ever used ssh.
+ *
+ * <p><strong>What cannot be read is not silently skipped.</strong> A line this cannot parse makes
+ * the whole file refused, because a keyring that quietly lost an entry is a keyring that quietly
+ * stops delivering - or, worse, quietly stops recognising the peer whose key was on that line.
  */
 public final class AllowedSigners {
 
@@ -43,10 +43,10 @@ public final class AllowedSigners {
 
     /**
      * Reads lines in the {@code allowed_signers} format.
-     * <p>
-     * Separate from the file so that keys published elsewhere - one file per user, in a directory
-     * the users of a machine share - are read by exactly the same parser rather than by a second
-     * one that drifts.
+     *
+     * <p>Separate from the file so that keys published elsewhere - one file per user, in a
+     * directory the users of a machine share - are read by exactly the same parser rather than by a
+     * second one that drifts.
      *
      * @param lines The lines.
      * @param origin What to call them in an error.
@@ -66,8 +66,12 @@ public final class AllowedSigners {
             }
             final String[] fields = trimmed.split("\\s+");
             if (fields.length < 3 || !"ssh-ed25519".equals(fields[1])) {
-                throw new IOException(file + ":" + number
-                        + ": expected '<principal> ssh-ed25519 <key>', got: " + trimmed);
+                throw new IOException(
+                        file
+                                + ":"
+                                + number
+                                + ": expected '<principal> ssh-ed25519 <key>', got: "
+                                + trimmed);
             }
             final byte[] key;
             try {
@@ -78,8 +82,9 @@ public final class AllowedSigners {
             byPrincipal.computeIfAbsent(fields[0], principal -> new ArrayList<>()).add(key);
         }
         final List<MessageDelivery.Peer> peers = new ArrayList<>();
-        byPrincipal.forEach((principal, keys) ->
-                peers.add(new MessageDelivery.Peer(principal, List.copyOf(keys))));
+        byPrincipal.forEach(
+                (principal, keys) ->
+                        peers.add(new MessageDelivery.Peer(principal, List.copyOf(keys))));
         return List.copyOf(peers);
     }
 }

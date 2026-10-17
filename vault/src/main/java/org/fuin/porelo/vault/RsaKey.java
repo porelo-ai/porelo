@@ -7,14 +7,14 @@ import java.util.Base64;
 
 /**
  * An RSA key that signs on the host, and never leaves it.
- * <p>
- * <strong>Why RSA is here at all.</strong> Ed25519 is the better default and this machine's own
+ *
+ * <p><strong>Why RSA is here at all.</strong> Ed25519 is the better default and this machine's own
  * keys are Ed25519 - but the key somebody already uses every day for git is frequently RSA, and a
  * vault that refuses it is a vault they keep their key beside instead of in.
- * <p>
- * <strong>The hash is the client's choice, and getting it wrong is silent.</strong> An ssh agent
- * is asked to sign with flags that say SHA-256 or SHA-512; plain {@code ssh-rsa} means SHA-1,
- * which GitHub stopped accepting in 2022. An agent that ignores the flags therefore answers with a
+ *
+ * <p><strong>The hash is the client's choice, and getting it wrong is silent.</strong> An ssh agent
+ * is asked to sign with flags that say SHA-256 or SHA-512; plain {@code ssh-rsa} means SHA-1, which
+ * GitHub stopped accepting in 2022. An agent that ignores the flags therefore answers with a
  * signature the forge rejects, and the forge does not say why. So the flags are read, and the
  * algorithm the blob names is the one that was used.
  */
@@ -36,8 +36,11 @@ public final class RsaKey implements AgentKey {
      * @param exponent Its public exponent, for the public blob.
      * @param comment What to call it.
      */
-    RsaKey(final java.security.interfaces.RSAPrivateKey privateKey, final BigInteger modulus,
-            final BigInteger exponent, final String comment) {
+    RsaKey(
+            final java.security.interfaces.RSAPrivateKey privateKey,
+            final BigInteger modulus,
+            final BigInteger exponent,
+            final String comment) {
         this.privateKey = privateKey;
         this.modulus = modulus;
         this.exponent = exponent;

@@ -10,9 +10,7 @@ import org.fuin.porelo.vault.SigningKey;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Test for {@link AllowedSigners}.
- */
+/** Test for {@link AllowedSigners}. */
 class AllowedSignersTest {
 
     private final SigningKey one = SigningKey.generate("one");
@@ -27,15 +25,20 @@ class AllowedSignersTest {
     @Test
     void reads_what_ssh_keygen_would_read(@TempDir final Path dir) throws IOException {
         final Path file = dir.resolve("allowed_signers");
-        Files.writeString(file, "# our machines\n"
-                + "reviewer " + one.authorizedKeysLine() + "\n"
-                + "\n"
-                + "ops " + two.authorizedKeysLine() + "\n");
+        Files.writeString(
+                file,
+                "# our machines\n"
+                        + "reviewer "
+                        + one.authorizedKeysLine()
+                        + "\n"
+                        + "\n"
+                        + "ops "
+                        + two.authorizedKeysLine()
+                        + "\n");
 
         final var peers = AllowedSigners.read(file);
 
-        assertThat(peers).extracting(MessageDelivery.Peer::name)
-                .containsExactly("reviewer", "ops");
+        assertThat(peers).extracting(MessageDelivery.Peer::name).containsExactly("reviewer", "ops");
         assertThat(peers.get(0).keys()).singleElement().isEqualTo(one.keyBlob());
     }
 
@@ -46,10 +49,17 @@ class AllowedSignersTest {
     @Test
     void a_peer_may_hold_more_than_one_key(@TempDir final Path dir) throws IOException {
         final Path file = dir.resolve("allowed_signers");
-        Files.writeString(file, "reviewer " + one.authorizedKeysLine() + "\n"
-                + "reviewer " + two.authorizedKeysLine() + "\n");
+        Files.writeString(
+                file,
+                "reviewer "
+                        + one.authorizedKeysLine()
+                        + "\n"
+                        + "reviewer "
+                        + two.authorizedKeysLine()
+                        + "\n");
 
-        assertThat(AllowedSigners.read(file)).singleElement()
+        assertThat(AllowedSigners.read(file))
+                .singleElement()
                 .satisfies(peer -> assertThat(peer.keys()).hasSize(2));
     }
 
@@ -61,10 +71,12 @@ class AllowedSignersTest {
     void one_line_it_cannot_read_refuses_the_whole_file(@TempDir final Path dir)
             throws IOException {
         final Path file = dir.resolve("allowed_signers");
-        Files.writeString(file, "reviewer " + one.authorizedKeysLine() + "\n"
-                + "ops ssh-rsa AAAAB3NzaC1yc2E\n");
+        Files.writeString(
+                file,
+                "reviewer " + one.authorizedKeysLine() + "\n" + "ops ssh-rsa AAAAB3NzaC1yc2E\n");
 
-        assertThatThrownBy(() -> AllowedSigners.read(file)).isInstanceOf(IOException.class)
+        assertThatThrownBy(() -> AllowedSigners.read(file))
+                .isInstanceOf(IOException.class)
                 .hasMessageContaining(":2:");
     }
 }

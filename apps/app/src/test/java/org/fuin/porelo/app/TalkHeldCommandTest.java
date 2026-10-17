@@ -14,7 +14,8 @@ import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 
 /**
- * Test for {@link TalkHeldCommand}: the terminal's view of the list the daemon's {@code Held} answers.
+ * Test for {@link TalkHeldCommand}: the terminal's view of the list the daemon's {@code Held}
+ * answers.
  */
 class TalkHeldCommandTest {
 
@@ -23,19 +24,28 @@ class TalkHeldCommandTest {
     private final StringWriter out = new StringWriter();
 
     @Test
-    void listsWhereEachMessageStandsAndWhyWithoutWhatItSays(@TempDir final Path dir) throws IOException {
+    void listsWhereEachMessageStandsAndWhyWithoutWhatItSays(@TempDir final Path dir)
+            throws IOException {
         final PoreloContext context = context(dir);
         final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox(TASK));
         mailbox.create();
-        Files.writeString(mailbox.hold().resolve("m-1.json"), """
+        Files.writeString(
+                mailbox.hold().resolve("m-1.json"),
+                """
                 {"messageId":"m-1","role":"ROLE_AGENT","parts":[{"text":"the secret plan"}],"metadata":{"to":"reviewer"}}
                 """);
-        new MessageRecord(mailbox).append(MessageRecord.HELD, "m-1.json", "m-1", "rev\u001b[2Jiewer",
-                "held for a person");
+        new MessageRecord(mailbox)
+                .append(
+                        MessageRecord.HELD,
+                        "m-1.json",
+                        "m-1",
+                        "rev\u001b[2Jiewer",
+                        "held for a person");
 
         assertThat(execute(context)).isEqualTo(0);
 
-        assertThat(out.toString()).contains("m-1.json   held   rev\\x1b[2Jiewer   held for a person")
+        assertThat(out.toString())
+                .contains("m-1.json   held   rev\\x1b[2Jiewer   held for a person")
                 .doesNotContain("the secret plan");
     }
 
@@ -56,10 +66,15 @@ class TalkHeldCommandTest {
     }
 
     private static PoreloContext context(final Path dir) {
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            default -> null;
-        }, dir);
-        return new PoreloContext(new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    default -> null;
+                                },
+                        dir);
+        return new PoreloContext(
+                new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
     }
 }

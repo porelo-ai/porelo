@@ -7,14 +7,12 @@ import org.fuin.porelo.core.project.SecurityClass;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What an interface may ask about a project's conversation - its room on a transport that keeps one - and the
- * one thing it may do there: let a person in.
+ * What an interface may ask about a project's conversation - its room on a transport that keeps one
+ * - and the one thing it may do there: let a person in.
  */
 public final class Conversations {
 
-    /**
-     * Why a person could not be let in.
-     */
+    /** Why a person could not be let in. */
     public static final class Refused extends Exception {
 
         private static final long serialVersionUID = 1L;
@@ -48,8 +46,7 @@ public final class Conversations {
         }
     }
 
-    private Conversations() {
-    }
+    private Conversations() {}
 
     /**
      * Lets a person into a project's conversation, and returns what they are shown - once.
@@ -59,14 +56,18 @@ public final class Conversations {
      * @param person Whom the account is for.
      * @param reset Whether to give an existing one a new password.
      * @return What the transport printed: {@code login} and {@code shown}.
-     * @throws Refused If the person has joined already and {@code reset} was not asked, or the transport refused.
+     * @throws Refused If the person has joined already and {@code reset} was not asked, or the
+     *     transport refused.
      */
-    public static Map<?, ?> join(PoreloContext context, Project project, String person, boolean reset)
-            throws Refused {
+    public static Map<?, ?> join(
+            PoreloContext context, Project project, String person, boolean reset) throws Refused {
         final TaskConversations conversations = new TaskConversations(context);
         final String existing = conversations.members(context, project).get(person);
         if (existing != null && !reset) {
-            throw new Refused("'" + person + "' has joined " + project.name() + " already, as " + existing, 0, existing);
+            throw new Refused(
+                    "'" + person + "' has joined " + project.name() + " already, as " + existing,
+                    0,
+                    existing);
         }
         try {
             return conversations.join(context, project, person, reset);
@@ -94,13 +95,14 @@ public final class Conversations {
      * @return The row's {@code messages}, or {@code null} for a project with no conversation.
      */
     public static @Nullable Map<String, Object> row(PoreloContext context, Project project) {
-        final TaskConversations.Described described = new TaskConversations(context).describe(project);
+        final TaskConversations.Described described =
+                new TaskConversations(context).describe(project);
         return described == null ? null : row(context, project, described);
     }
 
     /**
-     * Sets a project's conversation up on this machine, or confirms it, without starting a task - so a machine
-     * being bound learns the name it goes by there and whether it is let in yet.
+     * Sets a project's conversation up on this machine, or confirms it, without starting a task -
+     * so a machine being bound learns the name it goes by there and whether it is let in yet.
      *
      * @param context Where the vault, the state and the adapters are.
      * @param project The project.
@@ -115,9 +117,11 @@ public final class Conversations {
         }
     }
 
-    private static Map<String, Object> row(PoreloContext context, Project project,
-            TaskConversations.Described described) {
-        final boolean installed = context.paths().messaging().transportDirectory().find(described.transport()) != null;
+    private static Map<String, Object> row(
+            PoreloContext context, Project project, TaskConversations.Described described) {
+        final boolean installed =
+                context.paths().messaging().transportDirectory().find(described.transport())
+                        != null;
         final TransportLifecycle.Conversation said = described.said();
         final boolean admitted = described.setUp() && said.admitted();
         final Map<String, Object> row = new LinkedHashMap<>();
@@ -125,9 +129,17 @@ public final class Conversations {
         row.put("conversation", described.conversation());
         row.put("reaches", described.reaches());
         row.put("ready", installed && admitted);
-        row.put("detail", !installed ? "no '" + described.transport() + "' transport is installed on this machine"
-                : !described.setUp() ? "set up when the project's first task starts, or when somebody joins"
-                : !admitted ? TaskConversations.notAdmitted(described.transport(), said) : "");
+        row.put(
+                "detail",
+                !installed
+                        ? "no '"
+                                + described.transport()
+                                + "' transport is installed on this machine"
+                        : !described.setUp()
+                                ? "set up when the project's first task starts, or when somebody joins"
+                                : !admitted
+                                        ? TaskConversations.notAdmitted(described.transport(), said)
+                                        : "");
         row.put("loopbackOnly", project.securityClass() == SecurityClass.OFFLINE);
         row.put("machine", said.machine());
         row.put("admitted", admitted);
@@ -138,22 +150,26 @@ public final class Conversations {
     }
 
     /** What a conversation waits for while the vault is locked. */
-    static final String VAULT_LOCKED = "the vault is locked, so no conversation can be read or written: 'porelo vault"
-            + " unlock' lets them go on";
+    static final String VAULT_LOCKED =
+            "the vault is locked, so no conversation can be read or written: 'porelo vault"
+                    + " unlock' lets them go on";
 
     /**
-     * Says why every conversation waits now: a locked vault holds every project's and task's account.
-     * <p>
-     * A vault unlocked for a time locked itself, and every message stopped without a word - none was fetched, an
-     * answer was deferred, nothing in the journal (2026-10-04).
+     * Says why every conversation waits now: a locked vault holds every project's and task's
+     * account.
+     *
+     * <p>A vault unlocked for a time locked itself, and every message stopped without a word - none
+     * was fetched, an answer was deferred, nothing in the journal (2026-10-04).
      *
      * @param context The machine.
      * @return {@link #VAULT_LOCKED}, or "" when the vault is open or there is none.
      */
     public static String vaultWait(PoreloContext context) {
         try {
-            return java.nio.file.Files.isRegularFile(context.paths().vault().vaultFile()) && context.opener().isEmpty()
-                    ? VAULT_LOCKED : "";
+            return java.nio.file.Files.isRegularFile(context.paths().vault().vaultFile())
+                            && context.opener().isEmpty()
+                    ? VAULT_LOCKED
+                    : "";
         } catch (RuntimeException ex) {
             return "";
         }

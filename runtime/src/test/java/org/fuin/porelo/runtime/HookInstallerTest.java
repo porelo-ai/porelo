@@ -12,9 +12,7 @@ import org.fuin.porelo.wire.Sidecar;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Tests for {@link HookInstaller}.
- */
+/** Tests for {@link HookInstaller}. */
 class HookInstallerTest {
 
     private HookInstaller installer(Path root) {
@@ -26,14 +24,16 @@ class HookInstallerTest {
 
         // The runtime does not tell a hook which stage fired, so the stage has to be in the
         // arguments - which means one file per stage, not one file per hook.
-        assertThat(installer(root).descriptors()).containsOnlyKeys(
-                "porelo-hook-nft-createRuntime.json",
-                "porelo-hook-nft-poststop.json",
-                "porelo-hook-supervisor-createRuntime.json",
-                "porelo-hook-supervisor-poststop.json",
-                "porelo-hook-reader-createRuntime.json",
-                // The reader starts a long-running process, so it needs a stage that stops it.
-                "porelo-hook-reader-poststop.json");
+        assertThat(installer(root).descriptors())
+                .containsOnlyKeys(
+                        "porelo-hook-nft-createRuntime.json",
+                        "porelo-hook-nft-poststop.json",
+                        "porelo-hook-supervisor-createRuntime.json",
+                        "porelo-hook-supervisor-poststop.json",
+                        "porelo-hook-reader-createRuntime.json",
+                        // The reader starts a long-running process, so it needs a stage that stops
+                        // it.
+                        "porelo-hook-reader-poststop.json");
     }
 
     @Test
@@ -43,7 +43,10 @@ class HookInstallerTest {
 
         assertThat(hook(descriptors.get("porelo-hook-nft-poststop.json")).get("args").toString())
                 .contains("poststop");
-        assertThat(descriptor(descriptors.get("porelo-hook-nft-poststop.json")).get("stages").toString())
+        assertThat(
+                        descriptor(descriptors.get("porelo-hook-nft-poststop.json"))
+                                .get("stages")
+                                .toString())
                 .contains("poststop");
     }
 
@@ -88,7 +91,8 @@ class HookInstallerTest {
 
         assertThat(written).hasSize(7);
         assertThat(root.resolve("containers/containers.conf.d/50-porelo.conf")).exists();
-        assertThat(root.resolve("containers/oci/hooks.d/porelo-hook-nft-createRuntime.json")).exists();
+        assertThat(root.resolve("containers/oci/hooks.d/porelo-hook-nft-createRuntime.json"))
+                .exists();
     }
 
     @Test
@@ -123,10 +127,14 @@ class HookInstallerTest {
         // beside the hooks, so a count with one directory beside it reported the one file
         // somebody is most likely to go looking for by hand in the wrong place.
         assertThat(removed).containsExactlyInAnyOrderElementsOf(written);
-        assertThat(removed).anySatisfy(file ->
-                assertThat(file.getParent().getFileName()).hasToString("hooks.d"));
-        assertThat(removed).anySatisfy(file ->
-                assertThat(file.getParent().getFileName()).hasToString("containers.conf.d"));
+        assertThat(removed)
+                .anySatisfy(
+                        file -> assertThat(file.getParent().getFileName()).hasToString("hooks.d"));
+        assertThat(removed)
+                .anySatisfy(
+                        file ->
+                                assertThat(file.getParent().getFileName())
+                                        .hasToString("containers.conf.d"));
         assertThat(installer(root).uninstall()).isEmpty();
     }
 
@@ -136,7 +144,8 @@ class HookInstallerTest {
         assertThat(installer(root).binariesPresent()).isFalse();
 
         Files.createDirectories(root.resolve("bin"));
-        for (final String name : new String[] { "porelo-hook-nft", "porelo-hook-supervisor", "porelo-hook-reader" }) {
+        for (final String name :
+                new String[] {"porelo-hook-nft", "porelo-hook-supervisor", "porelo-hook-reader"}) {
             final Path binary = root.resolve("bin").resolve(name);
             Files.writeString(binary, "#!/bin/sh\n");
             binary.toFile().setExecutable(true);
@@ -186,9 +195,11 @@ class HookInstallerTest {
         binaries(root);
         installer.install();
 
-        final Path descriptor = root.resolve("containers/oci/hooks.d/porelo-hook-nft-poststop.json");
-        Files.writeString(descriptor, Files.readString(descriptor)
-                .replace("\"timeout\":30", "\"timeout\":10"));
+        final Path descriptor =
+                root.resolve("containers/oci/hooks.d/porelo-hook-nft-poststop.json");
+        Files.writeString(
+                descriptor,
+                Files.readString(descriptor).replace("\"timeout\":30", "\"timeout\":10"));
 
         assertThat(installer.registration()).isEqualTo(HookInstaller.Registration.STALE);
         assertThat(installer.outdated()).containsExactly(descriptor);
@@ -202,8 +213,8 @@ class HookInstallerTest {
         final HookInstaller installer = installer(root);
         binaries(root);
         installer.install();
-        Files.writeString(installer.dropInFile(),
-                installer.podmanDropIn() + "# edited by somebody\n");
+        Files.writeString(
+                installer.dropInFile(), installer.podmanDropIn() + "# edited by somebody\n");
 
         assertThat(installer.registration()).isEqualTo(HookInstaller.Registration.STALE);
         assertThat(installer.outdated()).containsExactly(installer.dropInFile());
@@ -273,8 +284,9 @@ class HookInstallerTest {
 
     private void binaries(Path root) throws IOException {
         java.nio.file.Files.createDirectories(root.resolve("bin"));
-        for (final String name : java.util.List.of("porelo-hook-nft", "porelo-hook-supervisor",
-                "porelo-hook-reader")) {
+        for (final String name :
+                java.util.List.of(
+                        "porelo-hook-nft", "porelo-hook-supervisor", "porelo-hook-reader")) {
             final Path binary = root.resolve("bin").resolve(name);
             java.nio.file.Files.writeString(binary, "#!/bin/sh\n");
             binary.toFile().setExecutable(true);

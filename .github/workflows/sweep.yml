@@ -3,28 +3,28 @@ name: Sweep abandoned test servers
 run-name: "${{ github.workflow }} · ${{ github.ref_name }}: ${{ github.event.head_commit.message || github.event.pull_request.title || github.workflow }}"
 
 on:
-  schedule:
-    - cron: '17 * * * *'
-  workflow_dispatch:
+    schedule:
+        - cron: '17 * * * *'
+    workflow_dispatch:
 
 # Read for the workflow as a whole; a job that needs to write says so in its own block.
 permissions:
-  contents: read
+    contents: read
 
 jobs:
-  sweep:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+    sweep:
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
 
-      - name: The pinned GraalVM
-        uses: ./.github/actions/pinned-jdk
+            - name: The pinned GraalVM
+              uses: ./.github/actions/pinned-jdk
 
-      - name: Delete anything older than an hour
-        env:
-          HETZNER_API: ${{ secrets.HETZNER_API }}
-        # porelo-machines from Central, at the root pom's porelo.buildtools.version.
-        run: ./mvnw -B -q -U -s settings.xml -N exec:exec@machines -Dmachines.args="sweep --older-than 60 --now"
+            - name: Delete anything older than an hour
+              env:
+                  HETZNER_API: ${{ secrets.HETZNER_API }}
+              # porelo-machines from Central, at the root pom's porelo.buildtools.version.
+              run: ./mvnw -B -q -U -s settings.xml -N exec:exec@machines -Dmachines.args="sweep --older-than 60 --now"

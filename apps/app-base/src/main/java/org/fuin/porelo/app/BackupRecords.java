@@ -12,19 +12,19 @@ import java.util.List;
 
 /**
  * What backups have been taken, and where they were put.
- * <p>
- * <strong>Nothing recorded this before, and nothing could have worked out the answer.</strong>
+ *
+ * <p><strong>Nothing recorded this before, and nothing could have worked out the answer.</strong>
  * {@code gate backup &lt;file&gt;} writes a bundle wherever the operator names and forgets it, so
  * "what has been taken" was not a question this machine could answer - and an interface cannot
  * offer to restore from a list it cannot read.
- * <p>
- * <strong>A record is not the bundle.</strong> The file it names can be moved, deleted or filled
+ *
+ * <p><strong>A record is not the bundle.</strong> The file it names can be moved, deleted or filled
  * with something else afterwards, and this cannot know. So a listing says whether the file is still
  * there and how big it is now, and never claims the contents are what was written. What was true
  * when it was taken is what the record carries.
- * <p>
- * Append-only, one line per backup, one file per project. A project has many backups over time and
- * the interesting ones are the recent ones, so nothing is rewritten and nothing is lost by a
+ *
+ * <p>Append-only, one line per backup, one file per project. A project has many backups over time
+ * and the interesting ones are the recent ones, so nothing is rewritten and nothing is lost by a
  * concurrent writer appending at the same moment.
  */
 public final class BackupRecords {
@@ -38,7 +38,7 @@ public final class BackupRecords {
      * @param present Whether that file is there now.
      * @param bytes Its size now, or 0 when it is gone.
      */
-    public record Backup(Instant taken, Path bundle, int refs, boolean present, long bytes) { }
+    public record Backup(Instant taken, Path bundle, int refs, boolean present, long bytes) {}
 
     private final Path directory;
 
@@ -63,10 +63,19 @@ public final class BackupRecords {
             Files.createDirectories(directory);
             // Absolute, because a relative path recorded from one directory means something else
             // read from another - and this is read by a daemon that was started somewhere else.
-            final String line = String.join("\t", Instant.now().toString(),
-                    bundle.toAbsolutePath().toString(), String.valueOf(refs)) + "\n";
-            Files.writeString(directory.resolve(project), line, StandardCharsets.UTF_8,
-                    StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            final String line =
+                    String.join(
+                                    "\t",
+                                    Instant.now().toString(),
+                                    bundle.toAbsolutePath().toString(),
+                                    String.valueOf(refs))
+                            + "\n";
+            Files.writeString(
+                    directory.resolve(project),
+                    line,
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.APPEND);
         } catch (IOException ex) {
             throw new UncheckedIOException("Cannot record the backup of " + project, ex);
         }
@@ -90,9 +99,13 @@ public final class BackupRecords {
                 try {
                     final Path bundle = Path.of(parts[1]);
                     final boolean present = Files.isRegularFile(bundle);
-                    found.add(new Backup(Instant.parse(parts[0]), bundle,
-                            Integer.parseInt(parts[2]), present,
-                            present ? Files.size(bundle) : 0L));
+                    found.add(
+                            new Backup(
+                                    Instant.parse(parts[0]),
+                                    bundle,
+                                    Integer.parseInt(parts[2]),
+                                    present,
+                                    present ? Files.size(bundle) : 0L));
                 } catch (RuntimeException | IOException malformed) {
                     // A half-written line from a crash, or a path this platform cannot parse.
                     // Skipping it loses one entry; failing the whole listing would hide every
@@ -113,8 +126,8 @@ public final class BackupRecords {
 
     /**
      * Forgets one backup, without touching the file it names.
-     * <p>
-     * Deleting the bundle is a separate act with a separate consequence, and the caller decides
+     *
+     * <p>Deleting the bundle is a separate act with a separate consequence, and the caller decides
      * it. Forgetting a record for a file somebody already deleted must not fail.
      *
      * @param project Project name.
@@ -139,7 +152,9 @@ public final class BackupRecords {
                 }
             }
             if (removed) {
-                Files.writeString(file, kept.isEmpty() ? "" : String.join("\n", kept) + "\n",
+                Files.writeString(
+                        file,
+                        kept.isEmpty() ? "" : String.join("\n", kept) + "\n",
                         StandardCharsets.UTF_8);
             }
             return removed;

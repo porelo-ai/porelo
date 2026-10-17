@@ -15,41 +15,53 @@ import picocli.CommandLine.Spec;
 
 /**
  * Stores one credential in the vault.
- * <p>
- * <strong>The value is read from standard input, never from an argument.</strong> A command-line
+ *
+ * <p><strong>The value is read from standard input, never from an argument.</strong> A command-line
  * argument is visible in the host's process list to every user on the machine for as long as the
  * command runs, and it lands in the shell history afterwards. Neither is acceptable for the thing
  * this tool exists to protect.
  */
-@Command(name = "put",
+@Command(
+        name = "put",
         mixinStandardHelpOptions = true,
         description = "Stores a credential, read from standard input.")
 public class VaultPutCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
-    @Parameters(index = "0", paramLabel = "<name>",
-            description = "Name to store it under: the provider it is for, as 'porelo providers'"
-                    + " lists them.")
+    @Parameters(
+            index = "0",
+            paramLabel = "<name>",
+            description =
+                    "Name to store it under: the provider it is for, as 'porelo providers'"
+                            + " lists them.")
     private String name;
 
-    @picocli.CommandLine.Option(names = "--type", paramLabel = "<kind>",
-            description = "Kind of credential, as the agent names it, for example 'oauth'."
-                    + " Stored with the entry, so no task has to repeat it.")
+    @picocli.CommandLine.Option(
+            names = "--type",
+            paramLabel = "<kind>",
+            description =
+                    "Kind of credential, as the agent names it, for example 'oauth'."
+                            + " Stored with the entry, so no task has to repeat it.")
     private @Nullable String type;
 
-    @picocli.CommandLine.Option(names = "--from-file", paramLabel = "<path>",
-            description = "Reads the value from this file ON THIS MACHINE, instead of from"
-                    + " standard input. For a key that is already here: nothing has to be sent,"
-                    + " and an interface can ask for this without ever holding the value.")
+    @picocli.CommandLine.Option(
+            names = "--from-file",
+            paramLabel = "<path>",
+            description =
+                    "Reads the value from this file ON THIS MACHINE, instead of from"
+                            + " standard input. For a key that is already here: nothing has to be sent,"
+                            + " and an interface can ask for this without ever holding the value.")
     private @Nullable String fromFile;
 
-    @picocli.CommandLine.Option(names = "--setting", paramLabel = "<name>=<value>",
-            description = "A setting that goes with the credential and is not secret, for example"
-                    + " 'token_url=https://auth.example.com/token'. Repeatable. Settings are configuration:"
-                    + " they are listed and printed, so no secret belongs in one.")
+    @picocli.CommandLine.Option(
+            names = "--setting",
+            paramLabel = "<name>=<value>",
+            description =
+                    "A setting that goes with the credential and is not secret, for example"
+                            + " 'token_url=https://auth.example.com/token'. Repeatable. Settings are configuration:"
+                            + " they are listed and printed, so no secret belongs in one.")
     private java.util.Map<String, String> settings = new java.util.LinkedHashMap<>();
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -61,11 +73,11 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
     /**
      * Reads the credential from a person at a terminal or from standard input, and leaves standard
      * input open.
-     * <p>
-     * <strong>Never closed.</strong> Closing a reader over standard input closes descriptor 0, and
-     * the next file opened takes that number - here the vault itself. The passphrase prompt that
-     * follows then switched echo off on a regular file and failed with "Inappropriate ioctl for
-     * device", every time the vault was locked.
+     *
+     * <p><strong>Never closed.</strong> Closing a reader over standard input closes descriptor 0,
+     * and the next file opened takes that number - here the vault itself. The passphrase prompt
+     * that follows then switched echo off on a regular file and failed with "Inappropriate ioctl
+     * for device", every time the vault was locked.
      *
      * @param name The entry's name, for the prompt.
      * @param tty The console, or {@code null} when there is none.
@@ -73,30 +85,43 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
      * @return The value, stripped, or empty when there was none.
      * @throws IOException If standard input cannot be read.
      */
-    static String valueFrom(String name, java.io.@org.jspecify.annotations.Nullable Console tty,
-            java.io.InputStream in, @org.jspecify.annotations.Nullable String kind) throws IOException {
+    static String valueFrom(
+            String name,
+            java.io.@org.jspecify.annotations.Nullable Console tty,
+            java.io.InputStream in,
+            @org.jspecify.annotations.Nullable String kind)
+            throws IOException {
         // isTerminal() rather than a null check: since Java 22 a Console is handed out even when
         // standard input is a pipe, and reading a piped secret through readPassword would hang.
         final boolean interactive = tty != null && tty.isTerminal();
-        return grantValue(readValue(interactive,
-                () -> tty == null ? new char[0] : tty.readPassword("%s", prompt(name, kind)),
-                new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))), kind);
+        return grantValue(
+                readValue(
+                        interactive,
+                        () ->
+                                tty == null
+                                        ? new char[0]
+                                        : tty.readPassword("%s", prompt(name, kind)),
+                        new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))),
+                kind);
     }
 
     /**
-     * Returns what a person is asked for: the client secret for a grant, the value for anything else.
+     * Returns what a person is asked for: the client secret for a grant, the value for anything
+     * else.
      *
      * @param name The entry's name.
      * @param kind The entry's kind, or {@code null}.
      * @return The prompt.
      */
     static String prompt(String name, @org.jspecify.annotations.Nullable String kind) {
-        return granted(kind) ? "Client secret for '" + name + "' (none for a public client: press Enter): "
+        return granted(kind)
+                ? "Client secret for '" + name + "' (none for a public client: press Enter): "
                 : "Value for '" + name + "': ";
     }
 
     /**
-     * Returns the value to store for a grant: nothing typed is a public client, which has no secret.
+     * Returns the value to store for a grant: nothing typed is a public client, which has no
+     * secret.
      *
      * @param value What was typed or read.
      * @param kind The entry's kind, or {@code null}.
@@ -113,24 +138,24 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
 
     /**
      * Returns the key in a form this machine reads, converting it if it has to.
-     * <p>
-     * <strong>The machine does this, not the person.</strong> {@code ssh-keygen} writes RSA keys
-     * in its own container by default, which is not a format read here - and the first answer was
-     * a message telling somebody to run {@code ssh-keygen -p -m PEM} themselves. That is our work
-     * to do: the tool is on this machine, the conversion is one command, and what should be easy
-     * is using your own key rather than knowing which of its formats we happened to implement.
-     * <p>
-     * <strong>The original is never touched.</strong> {@code ssh-keygen -p} rewrites a key file
-     * in place, so the conversion runs on a copy in a directory only this account can read, and
-     * the copy is overwritten and removed afterwards. Somebody's daily key is not ours to rewrite.
+     *
+     * <p><strong>The machine does this, not the person.</strong> {@code ssh-keygen} writes RSA keys
+     * in its own container by default, which is not a format read here - and the first answer was a
+     * message telling somebody to run {@code ssh-keygen -p -m PEM} themselves. That is our work to
+     * do: the tool is on this machine, the conversion is one command, and what should be easy is
+     * using your own key rather than knowing which of its formats we happened to implement.
+     *
+     * <p><strong>The original is never touched.</strong> {@code ssh-keygen -p} rewrites a key file
+     * in place, so the conversion runs on a copy in a directory only this account can read, and the
+     * copy is overwritten and removed afterwards. Somebody's daily key is not ours to rewrite.
      *
      * @param text The key as it arrived.
      * @param out Where to report what was done.
      * @param err Where to report what could not be.
      * @return The key to store, or {@code null} when it could not be converted.
      */
-    private @org.jspecify.annotations.Nullable String converted(final String text,
-            final PrintWriter out, final PrintWriter err) {
+    private @org.jspecify.annotations.Nullable String converted(
+            final String text, final PrintWriter out, final PrintWriter err) {
 
         if (!org.fuin.porelo.vault.OpenSshPrivateKey.looksLikeOne(text)) {
             return text;
@@ -144,22 +169,38 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
         java.nio.file.Path directory = null;
         try {
             directory = java.nio.file.Files.createTempDirectory("porelo-key-");
-            java.nio.file.Files.setPosixFilePermissions(directory,
+            java.nio.file.Files.setPosixFilePermissions(
+                    directory,
                     java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
             final java.nio.file.Path copy = directory.resolve("key");
             java.nio.file.Files.writeString(copy, text);
-            java.nio.file.Files.setPosixFilePermissions(copy,
-                    java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));
-            final var result = context.runner().run(org.fuin.porelo.core.process.Command.of(
-                    "ssh-keygen", "-p", "-m", "PEM", "-N", "", "-P", "", "-f", copy.toString()));
+            java.nio.file.Files.setPosixFilePermissions(
+                    copy, java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));
+            final var result =
+                    context.runner()
+                            .run(
+                                    org.fuin.porelo.core.process.Command.of(
+                                            "ssh-keygen",
+                                            "-p",
+                                            "-m",
+                                            "PEM",
+                                            "-N",
+                                            "",
+                                            "-P",
+                                            "",
+                                            "-f",
+                                            copy.toString()));
             if (!result.successful()) {
-                err.println("porelo: this key is in OpenSSH's own format and converting it here"
-                        + " failed: " + result.standardError().strip());
+                err.println(
+                        "porelo: this key is in OpenSSH's own format and converting it here"
+                                + " failed: "
+                                + result.standardError().strip());
                 err.flush();
                 return null;
             }
-            out.println("read      an OpenSSH-wrapped key; converted a copy to PEM to store it"
-                    + " (your file is untouched)");
+            out.println(
+                    "read      an OpenSSH-wrapped key; converted a copy to PEM to store it"
+                            + " (your file is untouched)");
             return java.nio.file.Files.readString(copy);
         } catch (final IOException ex) {
             err.println("porelo: cannot convert this key here: " + ex.getMessage());
@@ -174,9 +215,9 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
 
     /**
      * Removes a directory that held a key, overwriting what was in it first.
-     * <p>
-     * Not a guarantee on a copy-on-write filesystem, and worth doing anyway: it is the difference
-     * between a key that is gone and a key that is merely unlinked.
+     *
+     * <p>Not a guarantee on a copy-on-write filesystem, and worth doing anyway: it is the
+     * difference between a key that is gone and a key that is merely unlinked.
      *
      * @param directory What to remove.
      */
@@ -206,20 +247,31 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
      * @param agents The agents installed here.
      * @return One sentence, without the "porelo: " prefix.
      */
-    static String unknownName(String name, java.util.Set<String> providers,
-            java.util.Set<String> agents) {
-        final String declared = providers.isEmpty() ? "none"
-                : String.join(", ", new java.util.TreeSet<>(providers));
+    static String unknownName(
+            String name, java.util.Set<String> providers, java.util.Set<String> agents) {
+        final String declared =
+                providers.isEmpty()
+                        ? "none"
+                        : String.join(", ", new java.util.TreeSet<>(providers));
         if (agents.contains(name)) {
             // A task running this agent still finds it, as the fallback for vaults written before
             // credentials were keyed by provider - so "nothing will find it" would be untrue.
-            return "'" + name + "' is an agent's name, not a provider's. A task running " + name
+            return "'"
+                    + name
+                    + "' is an agent's name, not a provider's. A task running "
+                    + name
                     + " still finds this credential, but it belongs under the provider that issued"
-                    + " it: store it with 'porelo vault put <provider>' (declared: " + declared
+                    + " it: store it with 'porelo vault put <provider>' (declared: "
+                    + declared
                     + "; 'porelo providers' shows which agent uses which), then 'porelo vault remove "
-                    + name + "'";
+                    + name
+                    + "'";
         }
-        return "no provider '" + name + "' is declared (declared: " + declared + "); a task will"
+        return "no provider '"
+                + name
+                + "' is declared (declared: "
+                + declared
+                + "); a task will"
                 + " only find this credential if something asks for it by that name";
     }
 
@@ -229,18 +281,20 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
      * @param matches The destinations whose declaration reads it, in the order they are declared.
      * @param misfit Why what was stored does not fit one of them, or {@code null} when it does.
      */
-    record Use(java.util.List<String> matches, @Nullable String misfit) {
-    }
+    record Use(java.util.List<String> matches, @Nullable String misfit) {}
 
     /**
      * Finds the declarations that read a vault entry, and whether what was stored fits them.
      *
      * @param name The entry.
-     * @param type What was stored - {@code ssh-key} for a private key - or {@code null} when not stated.
+     * @param type What was stored - {@code ssh-key} for a private key - or {@code null} when not
+     *     stated.
      * @param declared Every declaration on this machine.
      * @return The destinations, empty when none reads it.
      */
-    static Use useOf(final String name, final @Nullable String type,
+    static Use useOf(
+            final String name,
+            final @Nullable String type,
             final java.util.Collection<org.fuin.porelo.core.credential.Credential> declared) {
         final java.util.List<String> matches = new java.util.ArrayList<>();
         String misfit = null;
@@ -250,16 +304,28 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
                 continue;
             }
             matches.add(credential.match());
-            final boolean wantsKey = credential.kind() == org.fuin.porelo.core.credential.Credential.Kind.SSH_KEY;
+            final boolean wantsKey =
+                    credential.kind() == org.fuin.porelo.core.credential.Credential.Kind.SSH_KEY;
             final boolean isKey = "ssh-key".equals(type);
             // Said now rather than at a start days later, which refuses it as unusable.
-            // A private key is always recognised, so one stated as nothing is no key; a token is not, so no kind stated
+            // A private key is always recognised, so one stated as nothing is no key; a token is
+            // not, so no kind stated
             // is no sign of a misfit there.
             if (misfit == null && wantsKey != isKey && (type != null || wantsKey)) {
-                misfit = credential.match() + " is declared to take " + (wantsKey ? "an ssh key" : "a "
-                        + credential.kind().name().toLowerCase(java.util.Locale.ROOT).replace('_', '-'))
-                        + ", and what was stored is " + (isKey ? "an ssh key" : type == null ? "no ssh key" : "a " + type)
-                        + " - a start will refuse it";
+                misfit =
+                        credential.match()
+                                + " is declared to take "
+                                + (wantsKey
+                                        ? "an ssh key"
+                                        : "a "
+                                                + credential
+                                                        .kind()
+                                                        .name()
+                                                        .toLowerCase(java.util.Locale.ROOT)
+                                                        .replace('_', '-'))
+                                + ", and what was stored is "
+                                + (isKey ? "an ssh key" : type == null ? "no ssh key" : "a " + type)
+                                + " - a start will refuse it";
             }
         }
         return new Use(java.util.List.copyOf(matches), misfit);
@@ -267,23 +333,25 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
 
     /**
      * Says so when nothing will look this credential up, or when its kind cannot be brokered.
-     * <p>
-     * Checked here as well as at task start, because storing is where the choice is made and a
-     * task may not be run for days. A name nobody knows is worth saying whether or not a kind
-     * was given: the commonest way to get this wrong is to type the agent's name instead of the
+     *
+     * <p>Checked here as well as at task start, because storing is where the choice is made and a
+     * task may not be run for days. A name nobody knows is worth saying whether or not a kind was
+     * given: the commonest way to get this wrong is to type the agent's name instead of the
      * provider's.
      *
      * @param out Where the destinations it is used for are said.
      * @param err Where to report.
      */
     private void warnIfNothingWillUseIt(PrintWriter out, PrintWriter err) {
-        // A declaration that reads this entry asks for it by that name: warning that nothing would find it was untrue
+        // A declaration that reads this entry asks for it by that name: warning that nothing would
+        // find it was untrue
         // right after 'credentials declare ... --vault <name>' (found on 2026-10-13).
         java.util.List<org.fuin.porelo.core.credential.Credential> declared;
         try {
             declared = context.credentialRegistry().all();
         } catch (RuntimeException ex) {
-            // A registry that cannot be read is the start's to report; here it only means nothing is known to use it.
+            // A registry that cannot be read is the start's to report; here it only means nothing
+            // is known to use it.
             declared = java.util.List.of();
         }
         final Use use = useOf(name, type, declared);
@@ -310,10 +378,17 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
             // operator may have names of their own. Said once, so a typo is findable.
             java.util.Set<String> agents;
             try {
-                agents = context.paths().agents().agentDirectory().executables().stream()
-                        .map(path -> path.getFileName().toString()
-                                .substring(org.fuin.porelo.agent.api.AgentDirectory.PREFIX.length()))
-                        .collect(java.util.stream.Collectors.toSet());
+                agents =
+                        context.paths().agents().agentDirectory().executables().stream()
+                                .map(
+                                        path ->
+                                                path.getFileName()
+                                                        .toString()
+                                                        .substring(
+                                                                org.fuin.porelo.agent.api
+                                                                        .AgentDirectory.PREFIX
+                                                                        .length()))
+                                .collect(java.util.stream.Collectors.toSet());
             } catch (RuntimeException ex) {
                 agents = java.util.Set.of();
             }
@@ -326,23 +401,29 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
         }
         final String reason = provider.unbrokerableReason(type);
         if (reason != null) {
-            err.println("porelo: '" + name + "' cannot use a '" + type + "' credential"
-                    + " through the proxy - " + reason);
+            err.println(
+                    "porelo: '"
+                            + name
+                            + "' cannot use a '"
+                            + type
+                            + "' credential"
+                            + " through the proxy - "
+                            + reason);
             err.flush();
         }
     }
 
     /**
      * Reads the credential, without putting it on the screen when a person is typing it.
-     * <p>
-     * <strong>This was a leak, and the product contradicted itself about it.</strong> The vault
-     * passphrase has always been read through {@code Console.readPassword}, which does not echo.
-     * A credential was read with a plain {@code readLine}, so pasting one into a terminal printed
-     * it and left it in the scrollback - which many terminals persist to disk. Advice to "store it
-     * at the machine rather than over the wire" was therefore recommending the path that wrote the
+     *
+     * <p><strong>This was a leak, and the product contradicted itself about it.</strong> The vault
+     * passphrase has always been read through {@code Console.readPassword}, which does not echo. A
+     * credential was read with a plain {@code readLine}, so pasting one into a terminal printed it
+     * and left it in the scrollback - which many terminals persist to disk. Advice to "store it at
+     * the machine rather than over the wire" was therefore recommending the path that wrote the
      * secret down.
-     * <p>
-     * The piped form stays exactly as it was. {@code printf %s ... | porelo vault put} is how
+     *
+     * <p>The piped form stays exactly as it was. {@code printf %s ... | porelo vault put} is how
      * scripts do this and how the acceptance suite does it, and there is no terminal there to not
      * echo to.
      *
@@ -352,8 +433,9 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
      * @return The value, stripped, or empty when there was none.
      * @throws IOException If standard input cannot be read.
      */
-    static String readValue(boolean interactive, java.util.function.Supplier<char[]> typed,
-            BufferedReader piped) throws IOException {
+    static String readValue(
+            boolean interactive, java.util.function.Supplier<char[]> typed, BufferedReader piped)
+            throws IOException {
         if (interactive) {
             final char[] secret = typed.get();
             if (secret == null) {
@@ -395,7 +477,10 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
 
         if (TaskSecrets.reserved(name)) {
             // Refused before anything is asked for: a name here would look like a task's own token.
-            err.println("porelo: names starting with '" + TaskSecrets.PREFIX + "' belong to tasks; choose another");
+            err.println(
+                    "porelo: names starting with '"
+                            + TaskSecrets.PREFIX
+                            + "' belong to tasks; choose another");
             err.flush();
             return 64;
         }
@@ -416,8 +501,11 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
             if (fromFile.endsWith(".pub")) {
                 // The public half is not a credential. It is the commonest mistake there is here,
                 // and it fails silently later rather than now.
-                err.println("porelo: " + fromFile + " is a public key. A machine signs with the"
-                        + " private half - the same path without '.pub'.");
+                err.println(
+                        "porelo: "
+                                + fromFile
+                                + " is a public key. A machine signs with the"
+                                + " private half - the same path without '.pub'.");
                 err.flush();
                 return 70;
             }
@@ -442,8 +530,10 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
                 if (type == null) {
                     type = "ssh-key";
                 }
-                out.println("read      " + read.authorizedKeysLine().split("\\s+")[0]
-                        + "; this machine can sign with it");
+                out.println(
+                        "read      "
+                                + read.authorizedKeysLine().split("\\s+")[0]
+                                + "; this machine can sign with it");
             } catch (final VaultException ex) {
                 err.println("porelo: " + ex.getMessage());
                 err.flush();
@@ -451,8 +541,9 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
             }
         }
         if (value.isEmpty()) {
-            err.println("porelo: nothing on standard input. Use: echo <secret> | porelo vault put "
-                    + name);
+            err.println(
+                    "porelo: nothing on standard input. Use: echo <secret> | porelo vault put "
+                            + name);
             err.flush();
             return 2;
         }
@@ -467,10 +558,13 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
         }
 
         try {
-            context.vault().update(context.requirePassphrase(), entries -> {
-                entries.put(name, entry);
-                return entries;
-            });
+            context.vault()
+                    .update(
+                            context.requirePassphrase(),
+                            entries -> {
+                                entries.put(name, entry);
+                                return entries;
+                            });
         } catch (VaultException ex) {
             err.println("porelo: " + ex.getMessage());
             err.flush();
@@ -478,9 +572,16 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
         }
 
         // The value is never echoed, not even truncated: a terminal scrollback is a file.
-        out.println("stored    " + name + " (" + (type == null ? "kind not stated" : type) + ", "
-                + stored.length() + " characters)");
-        entry.settings().forEach((setting, text) -> out.println("setting   " + setting + " = " + text));
+        out.println(
+                "stored    "
+                        + name
+                        + " ("
+                        + (type == null ? "kind not stated" : type)
+                        + ", "
+                        + stored.length()
+                        + " characters)");
+        entry.settings()
+                .forEach((setting, text) -> out.println("setting   " + setting + " = " + text));
         warnIfNothingWillUseIt(out, err);
         final String suspicious = entry.suspicious();
         if (suspicious != null) {

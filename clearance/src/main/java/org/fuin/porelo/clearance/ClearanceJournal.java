@@ -15,14 +15,14 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * The record of what a task was allowed and refused, one JSON object per line.
- * <p>
- * <strong>It outlives the task on purpose.</strong> Everything else a task writes is under the
+ *
+ * <p><strong>It outlives the task on purpose.</strong> Everything else a task writes is under the
  * runtime directory, which the kernel clears at logout and {@code task stop --remove} deletes
  * outright - and a record of what an agent tried to reach that disappears with the task is not an
  * audit record. This one is written under the state directory instead.
- * <p>
- * It is also what a restarted watcher reads back. A resumed task starts a fresh watcher against a
- * fresh firewall, and without this file every destination already decided would be asked about
+ *
+ * <p>It is also what a restarted watcher reads back. A resumed task starts a fresh watcher against
+ * a fresh firewall, and without this file every destination already decided would be asked about
  * again - which is both an operator answering the same questions twice and, after a deny, an agent
  * getting a second attempt at an answer it did not like.
  */
@@ -53,7 +53,7 @@ public class ClearanceJournal {
      *
      * @param decision What was decided.
      * @throws ClearanceException If it cannot be written, because a decision that was not recorded
-     *         has to be said out loud rather than assumed.
+     *     has to be said out loud rather than assumed.
      */
     public void record(Decision decision) {
         final Map<String, Object> line = new java.util.LinkedHashMap<>();
@@ -72,27 +72,36 @@ public class ClearanceJournal {
                 if (file.getParent() != null) {
                     Files.createDirectories(file.getParent());
                 }
-                // Made owner-only before its first line, not restricted after it: what a task reached is nobody
-                // else's business, and the directory it sits in is shared with every other Porelo state file.
+                // Made owner-only before its first line, not restricted after it: what a task
+                // reached is nobody
+                // else's business, and the directory it sits in is shared with every other Porelo
+                // state file.
                 try {
-                    Files.createFile(file, PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString(
-                            "rw-------")));
+                    Files.createFile(
+                            file,
+                            PosixFilePermissions.asFileAttribute(
+                                    PosixFilePermissions.fromString("rw-------")));
                 } catch (java.nio.file.FileAlreadyExistsException ex) {
                     // Another thread made it first, owner-only as well.
                 }
             }
-            Files.writeString(file, Json.write(line) + System.lineSeparator(),
-                    StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            Files.writeString(
+                    file,
+                    Json.write(line) + System.lineSeparator(),
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.APPEND);
         } catch (IOException ex) {
-            throw new ClearanceException("Cannot record the decision in " + file + ": "
-                    + ex.getMessage(), ex);
+            throw new ClearanceException(
+                    "Cannot record the decision in " + file + ": " + ex.getMessage(), ex);
         }
     }
 
     /**
      * Reads back what was decided, oldest first.
-     * <p>
-     * A file that is not there yet is not an error: it is a task that has not been asked anything.
+     *
+     * <p>A file that is not there yet is not an error: it is a task that has not been asked
+     * anything.
      *
      * @return The decisions, in the order they were made.
      * @throws ClearanceException If the file exists and cannot be read.
@@ -120,8 +129,8 @@ public class ClearanceJournal {
      *
      * @param line One line of the file.
      * @return The decision, or {@code null} if the line is not one - a process killed mid-write
-     *         leaves a partial last line, and refusing to start over it would cost the task every
-     *         decision before it.
+     *     leaves a partial last line, and refusing to start over it would cost the task every
+     *     decision before it.
      */
     private static @Nullable Decision parse(String line) {
         try {

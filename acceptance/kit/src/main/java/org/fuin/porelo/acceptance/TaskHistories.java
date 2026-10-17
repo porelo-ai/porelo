@@ -5,11 +5,11 @@ import java.util.Optional;
 import org.fuin.porelo.machines.Ssh;
 
 /**
- * Watches the sessions of every task the scenario's account runs while a terminal waits, for an agent that repeats
- * a failure.
- * <p>
- * Every task of the account, not only the ones a step started: a scenario that starts its agent by typing
- * {@code porelo task start} at the terminal is the one that waits longest on a model.
+ * Watches the sessions of every task the scenario's account runs while a terminal waits, for an
+ * agent that repeats a failure.
+ *
+ * <p>Every task of the account, not only the ones a step started: a scenario that starts its agent
+ * by typing {@code porelo task start} at the terminal is the one that waits longest on a model.
  */
 final class TaskHistories implements Terminal.Loops {
 

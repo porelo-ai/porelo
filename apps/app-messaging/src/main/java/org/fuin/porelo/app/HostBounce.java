@@ -17,15 +17,15 @@ import org.fuin.porelo.wire.Json;
 
 /**
  * Tells a task, in its own inbox, that something it sent did not go out.
- * <p>
- * The filter already answers what it refuses. This is for the refusals the filter never sees: a peer
- * a person has held, a mode that says nothing leaves unread, a transport that gave up for good. An
- * agent that gets no answer either waits forever or sends again, and both are worse than a refusal
- * it can read.
- * <p>
- * <strong>It is written in the same shape the filter's answers have</strong>, so the agent needs no
- * second format for the same event, and it is written into {@code feedback/} so it reaches the inbox
- * the way every other answer does - around the filter, because it never left the machine.
+ *
+ * <p>The filter already answers what it refuses. This is for the refusals the filter never sees: a
+ * peer a person has held, a mode that says nothing leaves unread, a transport that gave up for
+ * good. An agent that gets no answer either waits forever or sends again, and both are worse than a
+ * refusal it can read.
+ *
+ * <p><strong>It is written in the same shape the filter's answers have</strong>, so the agent needs
+ * no second format for the same event, and it is written into {@code feedback/} so it reaches the
+ * inbox the way every other answer does - around the filter, because it never left the machine.
  */
 public final class HostBounce {
 
@@ -42,12 +42,13 @@ public final class HostBounce {
      * @param message The message that did not go out, wherever it now lies.
      * @param reason Why, in words the agent can act on.
      * @param settled Whether nothing will change: {@code true} for a refusal, {@code false} for
-     *        something that is waiting and may still go.
+     *     something that is waiting and may still go.
      * @return The file name written.
      * @throws IOException Writing failed.
      */
-    public String write(final Mailbox mailbox, final Path message, final String reason,
-            final boolean settled) throws IOException {
+    public String write(
+            final Mailbox mailbox, final Path message, final String reason, final boolean settled)
+            throws IOException {
         final Instant now = Instant.now();
         final String id = "porelo-" + UUID.randomUUID();
         final Map<String, Object> data = new LinkedHashMap<>();

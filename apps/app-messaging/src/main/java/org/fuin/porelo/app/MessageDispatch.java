@@ -16,8 +16,8 @@ import org.fuin.porelo.wire.Json;
 
 /**
  * Decides which transport carries an accepted message, and queues it for that one.
- * <p>
- * <strong>The filter never learns this.</strong> Resolving a peer name to a transport is policy,
+ *
+ * <p><strong>The filter never learns this.</strong> Resolving a peer name to a transport is policy,
  * and policy stays where the peer table is - which is the same reason a container never sees an
  * address. The filter writes what it accepted into one directory; this reads the peer out of the
  * message and moves it into that transport's queue.
@@ -33,11 +33,15 @@ public final class MessageDispatch {
      * @param queued Message file name to the transport it was queued for.
      * @param held Messages that reached no queue, with why.
      */
-    public record Outcome(Map<String, String> queued, List<MessageDelivery.Held> held,
-            Map<String, String> peers) {
-    }
+    public record Outcome(
+            Map<String, String> queued,
+            List<MessageDelivery.Held> held,
+            Map<String, String> peers) {}
 
-    /** Beside a message in {@code accepted/}: a person released it, so no mode or hold keeps it back. */
+    /**
+     * Beside a message in {@code accepted/}: a person released it, so no mode or hold keeps it
+     * back.
+     */
     static final String RELEASED_SUFFIX = ".released";
 
     /**
@@ -61,12 +65,16 @@ public final class MessageDispatch {
      * @param mail The project's peers.
      * @param moderation What a person decided about each of them.
      * @param budget How much this task and a peer may say to each other, or {@code null} for no
-     *        limit.
+     *     limit.
      * @return What was queued and what was held.
      * @throws IOException Reading or moving failed.
      */
-    public Outcome dispatch(final Mailbox mailbox, final Mail mail, final Moderation moderation,
-            final @org.jspecify.annotations.Nullable MessageBudget budget) throws IOException {
+    public Outcome dispatch(
+            final Mailbox mailbox,
+            final Mail mail,
+            final Moderation moderation,
+            final @org.jspecify.annotations.Nullable MessageBudget budget)
+            throws IOException {
         final Map<String, String> queued = new LinkedHashMap<>();
         final Map<String, String> addressedTo = new LinkedHashMap<>();
         final Map<String, Integer> queuedNow = new LinkedHashMap<>();
@@ -76,42 +84,58 @@ public final class MessageDispatch {
             final List<String> addressed = addressees(message);
             if (addressed.size() != 1) {
                 hold(mailbox, message, name);
-                held.add(new MessageDelivery.Held(name, addressed.isEmpty()
-                        ? "it addresses nobody: metadata.to is missing or empty"
-                        // Fan-out is a copy per peer and a receipt per copy. Refusing it plainly is
-                        // better than delivering to the first name and saying nothing about the rest.
-                        : "it addresses " + addressed.size()
-                                + " peers, and sending to more than one is not built"));
+                held.add(
+                        new MessageDelivery.Held(
+                                name,
+                                addressed.isEmpty()
+                                        ? "it addresses nobody: metadata.to is missing or empty"
+                                        // Fan-out is a copy per peer and a receipt per copy.
+                                        // Refusing it plainly is
+                                        // better than delivering to the first name and saying
+                                        // nothing about the rest.
+                                        : "it addresses "
+                                                + addressed.size()
+                                                + " peers, and sending to more than one is not built"));
                 continue;
             }
             final Mail.Peer peer = mail.peer(addressed.get(0));
             if (peer == null) {
                 hold(mailbox, message, name);
-                held.add(new MessageDelivery.Held(name,
-                        "this project may not address '" + addressed.get(0) + "'"));
+                held.add(
+                        new MessageDelivery.Held(
+                                name, "this project may not address '" + addressed.get(0) + "'"));
                 continue;
             }
             // Last, and after the peer is known to exist: a person's decision is about a peer,
             // and "held" is a different answer from "this project may not address that name".
             final Path released = mailbox.accepted().resolve(name + RELEASED_SUFFIX);
-            final String waiting = Files.isRegularFile(released) && !moderation.refuses(addressed.get(0)) ? ""
-                    : moderation.whyNotNow(addressed.get(0));
+            final String waiting =
+                    Files.isRegularFile(released) && !moderation.refuses(addressed.get(0))
+                            ? ""
+                            : moderation.whyNotNow(addressed.get(0));
             if (!waiting.isEmpty()) {
                 hold(mailbox, message, name);
                 held.add(new MessageDelivery.Held(name, waiting));
                 continue;
             }
-            // And what the filter flagged, though it let it through because it only reports: only that waits for a
-            // person, whatever the peer's mode (the operator in walk 10, 2026-10-04). Held until a person releases it.
-            final String flagged = Files.isRegularFile(released) ? ""
-                    : MessageLookup.heldBack(mailbox, MessageFile.id(message));
+            // And what the filter flagged, though it let it through because it only reports: only
+            // that waits for a
+            // person, whatever the peer's mode (the operator in walk 10, 2026-10-04). Held until a
+            // person releases it.
+            final String flagged =
+                    Files.isRegularFile(released)
+                            ? ""
+                            : MessageLookup.heldBack(mailbox, MessageFile.id(message));
             if (!flagged.isEmpty()) {
                 hold(mailbox, message, name);
                 held.add(new MessageDelivery.Held(name, flagged));
                 continue;
             }
-            final String full = budget == null ? "" : budget.outbound(addressed.get(0),
-                    queuedNow.getOrDefault(addressed.get(0), 0));
+            final String full =
+                    budget == null
+                            ? ""
+                            : budget.outbound(
+                                    addressed.get(0), queuedNow.getOrDefault(addressed.get(0), 0));
             if (!full.isEmpty()) {
                 hold(mailbox, message, name);
                 held.add(new MessageDelivery.Held(name, full));
@@ -122,7 +146,9 @@ public final class MessageDispatch {
             // The destination is written down here rather than resolved again at send time: the
             // peer table can change between the two, and a message must go where it was addressed
             // when it was accepted.
-            Files.writeString(active.resolve(name + DESTINATION_SUFFIX), peer.destination(),
+            Files.writeString(
+                    active.resolve(name + DESTINATION_SUFFIX),
+                    peer.destination(),
                     StandardCharsets.UTF_8);
             move(mailbox.accepted().resolve(name + ".sig"), active.resolve(name + ".sig"));
             Files.move(message, active.resolve(name), StandardCopyOption.ATOMIC_MOVE);
@@ -171,7 +197,8 @@ public final class MessageDispatch {
         try (Stream<Path> entries = Files.list(directory)) {
             return entries.filter(Files::isRegularFile)
                     .filter(path -> path.getFileName().toString().endsWith(".json"))
-                    .sorted(Comparator.comparing(path -> path.getFileName().toString())).toList();
+                    .sorted(Comparator.comparing(path -> path.getFileName().toString()))
+                    .toList();
         }
     }
 }

@@ -7,8 +7,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * What may and may not pass a provider's answer on its way into a container.
- * <p>
- * Each case here is a way the earlier check could be walked past, and the last two are the ways
+ *
+ * <p>Each case here is a way the earlier check could be walked past, and the last two are the ways
  * an over-eager one would withhold answers that carry nothing.
  */
 class CredentialScanTest {
@@ -48,7 +48,8 @@ class CredentialScanTest {
         // The defect this class exists for: the earlier check read a bounded prefix and streamed
         // the rest unread, so a credential past that point crossed the boundary untouched.
         final CredentialScan scan = new CredentialScan();
-        final byte[] filler = ("{\"text\":\"" + "x".repeat(20000) + "\",").getBytes(StandardCharsets.UTF_8);
+        final byte[] filler =
+                ("{\"text\":\"" + "x".repeat(20000) + "\",").getBytes(StandardCharsets.UTF_8);
         assertThat(scan.sees(filler, filler.length)).as("nothing yet").isFalse();
         final byte[] tail = "\"access_token\":\"real\"}".getBytes(StandardCharsets.UTF_8);
         assertThat(scan.sees(tail, tail.length)).as("and now there is").isTrue();

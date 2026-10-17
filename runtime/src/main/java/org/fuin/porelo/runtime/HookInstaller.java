@@ -12,12 +12,12 @@ import org.fuin.porelo.wire.Sidecar;
 
 /**
  * Installs the OCI hook descriptors podman reads before creating a container.
- * <p>
- * Installation is per operator, into {@code $XDG_CONFIG_HOME/containers/oci/hooks.d}, and needs no
- * privileges. The descriptors are rewritten on every install so that an upgrade cannot leave a
+ *
+ * <p>Installation is per operator, into {@code $XDG_CONFIG_HOME/containers/oci/hooks.d}, and needs
+ * no privileges. The descriptors are rewritten on every install so that an upgrade cannot leave a
  * descriptor pointing at a binary that no longer exists.
- * <p>
- * <strong>Every descriptor is gated on the sidecar annotation.</strong> Without that gate these
+ *
+ * <p><strong>Every descriptor is gated on the sidecar annotation.</strong> Without that gate these
  * hooks would fire for every container the operator runs, including ones that have nothing to do
  * with Porelo - and the nft hook would then refuse to start them.
  */
@@ -60,10 +60,11 @@ public class HookInstaller {
     }
 
     /** The hook binaries and the stages each of them runs at. */
-    private static final Map<String, List<String>> HOOKS = Map.of(
-            "porelo-hook-nft", List.of(CREATE_RUNTIME, POSTSTOP),
-            "porelo-hook-supervisor", List.of(CREATE_RUNTIME, POSTSTOP),
-            "porelo-hook-reader", List.of(CREATE_RUNTIME, POSTSTOP));
+    private static final Map<String, List<String>> HOOKS =
+            Map.of(
+                    "porelo-hook-nft", List.of(CREATE_RUNTIME, POSTSTOP),
+                    "porelo-hook-supervisor", List.of(CREATE_RUNTIME, POSTSTOP),
+                    "porelo-hook-reader", List.of(CREATE_RUNTIME, POSTSTOP));
 
     private String descriptor(String binary, String stage) {
 
@@ -96,9 +97,9 @@ public class HookInstaller {
 
     /**
      * Returns the podman drop-in that points podman at the hook directory.
-     * <p>
-     * A drop-in rather than an edit of {@code containers.conf}: podman's own default
-     * {@code hooks_dir} is a root-owned system path, so an unprivileged operator must add one, and
+     *
+     * <p>A drop-in rather than an edit of {@code containers.conf}: podman's own default {@code
+     * hooks_dir} is a root-owned system path, so an unprivileged operator must add one, and
      * rewriting a configuration file Porelo does not own is how installers destroy settings.
      *
      * @return File content.
@@ -110,7 +111,8 @@ public class HookInstaller {
                 # installation has to add its own.
                 [engine]
                 hooks_dir = ["%s"]
-                """.formatted(hooksDirectory);
+                """
+                .formatted(hooksDirectory);
     }
 
     /**
@@ -125,14 +127,16 @@ public class HookInstaller {
 
     /**
      * What an operator's podman will actually do with Porelo's hooks.
-     * <p>
-     * Distinguished rather than collapsed into a boolean, because the repairs differ: a machine
+     *
+     * <p>Distinguished rather than collapsed into a boolean, because the repairs differ: a machine
      * that never ran {@code porelo setup} needs it run, while descriptors pointing at binaries that
      * are gone is what a package upgrade leaves behind.
      */
     public enum Registration {
 
-        /** Every descriptor is in place, in a directory podman reads, naming binaries that exist. */
+        /**
+         * Every descriptor is in place, in a directory podman reads, naming binaries that exist.
+         */
         ACTIVE,
 
         /** No descriptors, or no drop-in: {@code porelo setup} has not been run for this user. */
@@ -146,8 +150,8 @@ public class HookInstaller {
 
         /**
          * Installed, but not what this version of Porelo writes.
-         * <p>
-         * What an upgrade leaves behind. The package replaces the binaries and never touches
+         *
+         * <p>What an upgrade leaves behind. The package replaces the binaries and never touches
          * these files, and nothing runs {@code porelo setup} for the operator - so a release that
          * changes what a descriptor says leaves the old one in place, and every check that asks
          * only whether the files are <em>there</em> answers yes.
@@ -157,12 +161,12 @@ public class HookInstaller {
 
     /**
      * Returns what podman will do with Porelo's hooks on this machine.
-     * <p>
-     * The question is what the runtime reads, not what Porelo would write: a descriptor in a
+     *
+     * <p>The question is what the runtime reads, not what Porelo would write: a descriptor in a
      * directory no {@code hooks_dir} names is not installed, however correct its contents.
      *
      * @return The state, worst first: a machine can be several of these at once and the most
-     *         damaging is the one worth reporting.
+     *     damaging is the one worth reporting.
      */
     public Registration registration() {
 
@@ -187,14 +191,14 @@ public class HookInstaller {
 
     /**
      * Returns the installed files whose contents are not what this version writes.
-     * <p>
-     * <strong>Presence was never enough.</strong> A descriptor's contents carry the path of the
+     *
+     * <p><strong>Presence was never enough.</strong> A descriptor's contents carry the path of the
      * hook binary, the arguments it is given and the annotation it fires on; a release can change
-     * any of those without changing a file name, and then the operator's podman goes on running
-     * the old one. The visible failure is a container that starts without its firewall, which
-     * looks exactly like a container that started correctly.
-     * <p>
-     * A file that was hand-edited counts as outdated too, and deliberately: this answers what
+     * any of those without changing a file name, and then the operator's podman goes on running the
+     * old one. The visible failure is a container that starts without its firewall, which looks
+     * exactly like a container that started correctly.
+     *
+     * <p>A file that was hand-edited counts as outdated too, and deliberately: this answers what
      * podman will read against what this version means, and there is no third thing it could be.
      *
      * @return Paths that {@code porelo setup} would rewrite, empty when everything matches.
@@ -216,8 +220,8 @@ public class HookInstaller {
 
     private static boolean contentIs(Path file, String expected) {
         try {
-            return Files.exists(file) && Files.readString(file, StandardCharsets.UTF_8)
-                    .equals(expected);
+            return Files.exists(file)
+                    && Files.readString(file, StandardCharsets.UTF_8).equals(expected);
         } catch (IOException ex) {
             // Unreadable is not "the same as what we would write". Treating it as a match would
             // turn a broken installation into a silent one.
@@ -227,8 +231,8 @@ public class HookInstaller {
 
     /**
      * Returns the hook directories podman ends up with, after every drop-in has had its say.
-     * <p>
-     * Drop-ins are read in name order and each {@code hooks_dir} replaces the last, so a file
+     *
+     * <p>Drop-ins are read in name order and each {@code hooks_dir} replaces the last, so a file
      * sorting after Porelo's own silently switches the hooks off. That is invisible in every other
      * way: the descriptors are still there and still correct.
      *
@@ -236,15 +240,20 @@ public class HookInstaller {
      */
     public List<String> effectiveHooksDirectories() {
 
-        final Path directory = java.util.Objects.requireNonNull(dropInFile().getParent(), "a drop-in is in a directory");
+        final Path directory =
+                java.util.Objects.requireNonNull(
+                        dropInFile().getParent(), "a drop-in is in a directory");
         if (!Files.isDirectory(directory)) {
             return List.of();
         }
         List<String> winner = List.of();
         try (java.util.stream.Stream<Path> files = Files.list(directory)) {
-            for (final Path file : files.filter(path -> path.toString().endsWith(".conf"))
-                    .sorted(java.util.Comparator.comparing(path -> path.getFileName().toString()))
-                    .toList()) {
+            for (final Path file :
+                    files.filter(path -> path.toString().endsWith(".conf"))
+                            .sorted(
+                                    java.util.Comparator.comparing(
+                                            path -> path.getFileName().toString()))
+                            .toList()) {
                 final List<String> named = hooksDirectoriesIn(file);
                 if (!named.isEmpty()) {
                     winner = named;

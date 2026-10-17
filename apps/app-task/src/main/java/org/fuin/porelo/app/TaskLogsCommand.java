@@ -17,21 +17,22 @@ import picocli.CommandLine.Spec;
 
 /**
  * Shows what a task's host-side helpers wrote.
- * <p>
- * <strong>These are the node's logs, not the container's.</strong> The gate, the credential
- * broker, the relay, the resolver and the clearance watcher all run on this machine; what the
- * agent itself printed went to whoever was attached. So this is where an operator looks when a
- * task started and then did nothing.
- * <p>
- * <strong>Why it had to exist.</strong> {@code Logs} and {@code Tail} have been on the contract
+ *
+ * <p><strong>These are the node's logs, not the container's.</strong> The gate, the credential
+ * broker, the relay, the resolver and the clearance watcher all run on this machine; what the agent
+ * itself printed went to whoever was attached. So this is where an operator looks when a task
+ * started and then did nothing.
+ *
+ * <p><strong>Why it had to exist.</strong> {@code Logs} and {@code Tail} have been on the contract
  * for a while, so an interface on another machine could read these and a person sitting at the
  * machine could not - they had to know the path under {@code $XDG_RUNTIME_DIR}. That is backwards
  * for a tool whose first audience is at the terminal.
- * <p>
- * Which files exist is asked rather than assumed: a task with no gate has no {@code gate.log}, and
- * one run with {@code --clearance off} has no {@code clearance.log}.
+ *
+ * <p>Which files exist is asked rather than assumed: a task with no gate has no {@code gate.log},
+ * and one run with {@code --clearance off} has no {@code clearance.log}.
  */
-@Command(name = "logs",
+@Command(
+        name = "logs",
         mixinStandardHelpOptions = true,
         description = "Shows what a task's helpers on this machine wrote.")
 public class TaskLogsCommand implements Callable<Integer>, PoreloFactory.ContextAware, Suggests {
@@ -39,31 +40,45 @@ public class TaskLogsCommand implements Callable<Integer>, PoreloFactory.Context
     /** How often a followed log is re-read. */
     private static final long FOLLOW_INTERVAL = 500;
 
-    @Parameters(index = "0", arity = "0..1", paramLabel = "TASK",
-            description = "Container name, as shown by 'porelo task list', or the task's own. Default: the task"
-                    + " started from the checkout you stand in.")
+    @Parameters(
+            index = "0",
+            arity = "0..1",
+            paramLabel = "TASK",
+            description =
+                    "Container name, as shown by 'porelo task list', or the task's own. Default: the task"
+                            + " started from the checkout you stand in.")
     private @Nullable String container;
 
-    @Parameters(index = "1", arity = "0..1", paramLabel = "LOG",
+    @Parameters(
+            index = "1",
+            arity = "0..1",
+            paramLabel = "LOG",
             description = "Which log. Leave it out to list what this task has.")
     private @Nullable String log;
 
-    @Option(names = { "-f", "--follow" },
+    @Option(
+            names = {"-f", "--follow"},
             description = "Keeps printing as the log grows. Ends with Ctrl-C.")
     private boolean follow;
 
-    @Option(names = "--zip", arity = "0..1", paramLabel = "FILE", fallbackValue = "",
-            description = "Writes every log of the task, and what Porelo says about it, into one archive readable by"
-                    + " you only. Default FILE: porelo-logs-<task>-<UTC time>.zip here. An existing file is refused.")
+    @Option(
+            names = "--zip",
+            arity = "0..1",
+            paramLabel = "FILE",
+            fallbackValue = "",
+            description =
+                    "Writes every log of the task, and what Porelo says about it, into one archive readable by"
+                            + " you only. Default FILE: porelo-logs-<task>-<UTC time>.zip here. An existing file is refused.")
     private @Nullable String zip;
 
-    @Option(names = "--with-agent-output",
-            description = "With --zip: also what the agent itself printed (task.log), which may hold confidential"
-                    + " data.")
+    @Option(
+            names = "--with-agent-output",
+            description =
+                    "With --zip: also what the agent itself printed (task.log), which may hold confidential"
+                            + " data.")
     private boolean withAgentOutput;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -90,16 +105,21 @@ public class TaskLogsCommand implements Callable<Integer>, PoreloFactory.Context
         final PrintWriter out = spec.commandLine().getOut();
         final PrintWriter err = spec.commandLine().getErr();
 
-        // One word may be the log of the task started here: 'porelo task logs gate.log' in its checkout.
-        if (container != null && log == null && !TaskTarget.spelled(context, container).startsWith("porelo-")) {
-            final java.util.List<String> started = TaskTarget.fromCheckout(context, java.nio.file.Path.of("."));
+        // One word may be the log of the task started here: 'porelo task logs gate.log' in its
+        // checkout.
+        if (container != null
+                && log == null
+                && !TaskTarget.spelled(context, container).startsWith("porelo-")) {
+            final java.util.List<String> started =
+                    TaskTarget.fromCheckout(context, java.nio.file.Path.of("."));
             if (started != null && started.size() == 1) {
                 log = container;
                 container = null;
             }
         }
-        final TaskTarget.Found found = TaskTarget.resolve(context, container, java.nio.file.Path.of("."),
-                TaskTarget.console(out));
+        final TaskTarget.Found found =
+                TaskTarget.resolve(
+                        context, container, java.nio.file.Path.of("."), TaskTarget.console(out));
         if (found.container() == null) {
             err.println("porelo: " + found.refusal());
             if ((Object) this instanceof Suggests suggests) {
@@ -124,9 +144,13 @@ public class TaskLogsCommand implements Callable<Integer>, PoreloFactory.Context
         //
         // Existing OR having logs, not existing alone: a container somebody removed by hand can
         // leave its state directory behind, and those logs are worth reading precisely then.
-        final boolean known = context.podman().poreloTasks().stream()
-                .anyMatch(task -> task.name().equals(container));
-        if (!known && new TaskInventory(context).unrecognized(java.util.List.of()).contains(container)) {
+        final boolean known =
+                context.podman().poreloTasks().stream()
+                        .anyMatch(task -> task.name().equals(container));
+        if (!known
+                && new TaskInventory(context)
+                        .unrecognized(java.util.List.of())
+                        .contains(container)) {
             err.println("porelo: " + TaskInventory.unrecognizedNote(container));
             err.flush();
             return 69;
@@ -151,8 +175,11 @@ public class TaskLogsCommand implements Callable<Integer>, PoreloFactory.Context
             if (logs.isEmpty()) {
                 // Two different reasons, and neither is an error: a task that started nothing
                 // worth logging, or one whose state directory went with a restart.
-                out.println("no logs for " + container + " - either nothing wrote one, or the"
-                        + " machine has restarted since it ran");
+                out.println(
+                        "no logs for "
+                                + container
+                                + " - either nothing wrote one, or the"
+                                + " machine has restarted since it ran");
                 out.flush();
                 return 0;
             }
@@ -177,8 +204,10 @@ public class TaskLogsCommand implements Callable<Integer>, PoreloFactory.Context
         if (logs.stream().noneMatch(each -> each.name().equals(log))) {
             err.println("porelo: " + container + " has no log called " + log);
             if (!logs.isEmpty()) {
-                err.println("porelo: it has: " + String.join(", ",
-                        logs.stream().map(TaskInventory.Log::name).toList()));
+                err.println(
+                        "porelo: it has: "
+                                + String.join(
+                                        ", ", logs.stream().map(TaskInventory.Log::name).toList()));
             }
             err.flush();
             return 69;
@@ -200,8 +229,8 @@ public class TaskLogsCommand implements Callable<Integer>, PoreloFactory.Context
 
     /**
      * Prints what the file has gained, and returns where to carry on from.
-     * <p>
-     * By byte position rather than by line count: a log an agent is writing to grows between two
+     *
+     * <p>By byte position rather than by line count: a log an agent is writing to grows between two
      * reads, and counting lines would reprint whatever arrived in between.
      *
      * @param file The log.
@@ -226,19 +255,24 @@ public class TaskLogsCommand implements Callable<Integer>, PoreloFactory.Context
             // open and close a channel twice a second for as long as somebody watches it.
             return from;
         }
-        try (var channel = java.nio.channels.FileChannel.open(file,
-                java.nio.file.StandardOpenOption.READ)) {
+        try (var channel =
+                java.nio.channels.FileChannel.open(file, java.nio.file.StandardOpenOption.READ)) {
             channel.position(from);
-            // In blocks, never the whole rest at once: a log past 2 GiB did not fit one buffer. A character cut at
-            // a block's end is carried into the next; one cut at the file's end is printed as unreadable, as before.
-            final java.nio.charset.CharsetDecoder decoder = StandardCharsets.UTF_8.newDecoder()
-                    .onMalformedInput(java.nio.charset.CodingErrorAction.REPLACE)
-                    .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPLACE);
+            // In blocks, never the whole rest at once: a log past 2 GiB did not fit one buffer. A
+            // character cut at
+            // a block's end is carried into the next; one cut at the file's end is printed as
+            // unreadable, as before.
+            final java.nio.charset.CharsetDecoder decoder =
+                    StandardCharsets.UTF_8
+                            .newDecoder()
+                            .onMalformedInput(java.nio.charset.CodingErrorAction.REPLACE)
+                            .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPLACE);
             final java.nio.ByteBuffer bytes = java.nio.ByteBuffer.allocate(64 * 1024);
             final java.nio.CharBuffer chars = java.nio.CharBuffer.allocate(64 * 1024);
             long read = 0;
             while (read < size - from) {
-                bytes.limit((int) Math.min(bytes.capacity(), bytes.position() + (size - from - read)));
+                bytes.limit(
+                        (int) Math.min(bytes.capacity(), bytes.position() + (size - from - read)));
                 final int got = channel.read(bytes);
                 if (got <= 0) {
                     break;
@@ -270,24 +304,41 @@ public class TaskLogsCommand implements Callable<Integer>, PoreloFactory.Context
      * @param logs The task's logs.
      * @return 0 when it was written.
      */
-    private int archive(final PrintWriter out, final PrintWriter err, final String container,
+    private int archive(
+            final PrintWriter out,
+            final PrintWriter err,
+            final String container,
             final List<TaskInventory.Log> logs) {
         final String name = container.substring("porelo-".length());
-        final java.nio.file.Path target = zip == null || zip.isBlank()
-                ? java.nio.file.Path.of(TaskLogArchive.defaultName(name, java.time.Instant.now()))
-                : java.nio.file.Path.of(zip);
+        final java.nio.file.Path target =
+                zip == null || zip.isBlank()
+                        ? java.nio.file.Path.of(
+                                TaskLogArchive.defaultName(name, java.time.Instant.now()))
+                        : java.nio.file.Path.of(zip);
         try {
             final List<String> kept = archive(context, container, target, withAgentOutput);
             if (logs.isEmpty()) {
-                // Not an error: a restart took them, or nothing wrote one. What Porelo says about the task is in it.
-                out.println("no logs for " + container + " - either nothing wrote one, or the machine has restarted"
-                        + " since it ran; the archive holds what Porelo says about the task");
+                // Not an error: a restart took them, or nothing wrote one. What Porelo says about
+                // the task is in it.
+                out.println(
+                        "no logs for "
+                                + container
+                                + " - either nothing wrote one, or the machine has restarted"
+                                + " since it ran; the archive holds what Porelo says about the task");
             }
-            out.println("written   " + target.toAbsolutePath() + " (" + kept.size() + " files, readable by you only)");
+            out.println(
+                    "written   "
+                            + target.toAbsolutePath()
+                            + " ("
+                            + kept.size()
+                            + " files, readable by you only)");
             out.flush();
             return 0;
         } catch (final java.nio.file.FileAlreadyExistsException ex) {
-            err.println("porelo: " + target + " is already there; nothing was written. Name another file.");
+            err.println(
+                    "porelo: "
+                            + target
+                            + " is already there; nothing was written. Name another file.");
         } catch (final IOException ex) {
             err.println("porelo: the archive could not be written: " + ex.getMessage());
         }
@@ -296,22 +347,31 @@ public class TaskLogsCommand implements Callable<Integer>, PoreloFactory.Context
     }
 
     /**
-     * Writes a task's archive: its logs and what Porelo says about it. The CLI and the daemon both write it here.
+     * Writes a task's archive: its logs and what Porelo says about it. The CLI and the daemon both
+     * write it here.
      *
      * @param context The machine.
      * @param container The task.
      * @param target Where; must not exist yet.
      * @param withAgentOutput Whether what the agent printed goes in.
      * @return The file names in the archive.
-     * @throws IOException If it cannot be written, {@link java.nio.file.FileAlreadyExistsException} for a target
-     *         that is there.
+     * @throws IOException If it cannot be written, {@link java.nio.file.FileAlreadyExistsException}
+     *     for a target that is there.
      */
-    public static List<String> archive(final PoreloContext context, final String container,
-            final java.nio.file.Path target, final boolean withAgentOutput) throws IOException {
+    public static List<String> archive(
+            final PoreloContext context,
+            final String container,
+            final java.nio.file.Path target,
+            final boolean withAgentOutput)
+            throws IOException {
         final java.nio.file.Path state = context.paths().tasks().containerState(container);
-        return TaskLogArchive.write(target, container.substring("porelo-".length()),
-                new TaskInventory(context).logs(container).stream().map(each -> state.resolve(each.name())).toList(),
-                said(context, container), withAgentOutput);
+        return TaskLogArchive.write(
+                target,
+                container.substring("porelo-".length()),
+                new TaskInventory(context)
+                        .logs(container).stream().map(each -> state.resolve(each.name())).toList(),
+                said(context, container),
+                withAgentOutput);
     }
 
     /**
@@ -329,13 +389,19 @@ public class TaskLogsCommand implements Callable<Integer>, PoreloFactory.Context
         return said;
     }
 
-    private static String rendered(final PoreloContext context, final Object command, final String container) {
+    private static String rendered(
+            final PoreloContext context, final Object command, final String container) {
         final java.io.StringWriter text = new java.io.StringWriter();
         final PrintWriter writer = new PrintWriter(text, true);
-        // The same code a person runs, so the archive cannot say something the command would not. Its refusal is kept
-        // as well: a stopped task has no answer from its container, and an empty file would hide why.
-        final int code = new picocli.CommandLine(command, new PoreloFactory(context)).setOut(writer).setErr(writer)
-                .execute(container);
+        // The same code a person runs, so the archive cannot say something the command would not.
+        // Its refusal is kept
+        // as well: a stopped task has no answer from its container, and an empty file would hide
+        // why.
+        final int code =
+                new picocli.CommandLine(command, new PoreloFactory(context))
+                        .setOut(writer)
+                        .setErr(writer)
+                        .execute(container);
         writer.flush();
         return text + (code == 0 ? "" : "(exit " + code + ")\n");
     }

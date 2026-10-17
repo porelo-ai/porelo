@@ -11,21 +11,23 @@ import org.fuin.porelo.testing.FakeCommandRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Test for the half of {@link MessageWatch} that does not wait for the timer.
- */
+/** Test for the half of {@link MessageWatch} that does not wait for the timer. */
 class MessageWatchNoticeTest {
 
     private PoreloContext context(final Path dir) {
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
-        return new PoreloContext(new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")),
-                arguments -> 0);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
+        return new PoreloContext(
+                new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
     }
 
     /**
@@ -47,23 +49,30 @@ class MessageWatchNoticeTest {
 
             // Unsigned, so the pass holds them - which is exactly the evidence that a pass ran.
             assertThat(appears(mailbox.hold().resolve("m-2.json")))
-                    .as("it was noticed, with the timer off").isTrue();
+                    .as("it was noticed, with the timer off")
+                    .isTrue();
         }
     }
 
     /**
-     * A directory the kernel will not watch - out of inotify watches, or not readable - is reached by the timed pass
-     * alone, and that is said: it was skipped without a word, and its messages simply took a minute.
+     * A directory the kernel will not watch - out of inotify watches, or not readable - is reached
+     * by the timed pass alone, and that is said: it was skipped without a word, and its messages
+     * simply took a minute.
      */
     @Test
-    void a_directory_that_cannot_be_watched_is_named_with_why(@TempDir final Path dir) throws IOException {
+    void a_directory_that_cannot_be_watched_is_named_with_why(@TempDir final Path dir)
+            throws IOException {
         final PoreloContext context = context(dir);
         final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox("porelo-p-t"));
         mailbox.create();
-        // inotify_add_watch needs read access, so this one is refused as the kernel refuses a watch past its limit.
-        Files.setPosixFilePermissions(mailbox.inbound(), java.nio.file.attribute.PosixFilePermissions.fromString("---------"));
+        // inotify_add_watch needs read access, so this one is refused as the kernel refuses a watch
+        // past its limit.
+        Files.setPosixFilePermissions(
+                mailbox.inbound(),
+                java.nio.file.attribute.PosixFilePermissions.fromString("---------"));
         try (MessageWatch watch = new MessageWatch(context, Duration.ZERO)) {
-            org.junit.jupiter.api.Assumptions.assumeFalse(Files.isReadable(mailbox.inbound()),
+            org.junit.jupiter.api.Assumptions.assumeFalse(
+                    Files.isReadable(mailbox.inbound()),
                     "this account reads a directory whatever its mode, as root does");
 
             assertThat(watch.startNotices()).as("the other directories are still watched").isTrue();
@@ -71,13 +80,17 @@ class MessageWatchNoticeTest {
             assertThat(watch.unwatched()).containsOnlyKeys(mailbox.inbound());
             assertThat(watch.unwatched().get(mailbox.inbound())).isNotBlank();
         } finally {
-            Files.setPosixFilePermissions(mailbox.inbound(), java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+            Files.setPosixFilePermissions(
+                    mailbox.inbound(),
+                    java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
         }
     }
 
     @Test
-    void a_message_that_lands_moves_while_a_conversation_step_runs(@TempDir final Path dir) throws Exception {
-        // Every pass asked each conversation's transport first, under the one lock a notice waited for too: a written
+    void a_message_that_lands_moves_while_a_conversation_step_runs(@TempDir final Path dir)
+            throws Exception {
+        // Every pass asked each conversation's transport first, under the one lock a notice waited
+        // for too: a written
         // message took 4-8 s to be taken, and a file a long-poll handed in 5-20 s to be delivered.
         final PoreloContext context = context(dir);
         final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox("porelo-p-t"));
@@ -87,24 +100,31 @@ class MessageWatchNoticeTest {
             final java.lang.reflect.Field passing = MessageWatch.class.getDeclaredField("passing");
             passing.setAccessible(true);
             final Object lock = passing.get(watch);
-            final java.util.concurrent.CountDownLatch held = new java.util.concurrent.CountDownLatch(1);
-            final java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
-            final Thread step = Thread.ofVirtual().start(() -> {
-                synchronized (lock) {
-                    held.countDown();
-                    try {
-                        release.await(30, java.util.concurrent.TimeUnit.SECONDS);
-                    } catch (final InterruptedException ex) {
-                        Thread.currentThread().interrupt();
-                    }
-                }
-            });
+            final java.util.concurrent.CountDownLatch held =
+                    new java.util.concurrent.CountDownLatch(1);
+            final java.util.concurrent.CountDownLatch release =
+                    new java.util.concurrent.CountDownLatch(1);
+            final Thread step =
+                    Thread.ofVirtual()
+                            .start(
+                                    () -> {
+                                        synchronized (lock) {
+                                            held.countDown();
+                                            try {
+                                                release.await(
+                                                        30, java.util.concurrent.TimeUnit.SECONDS);
+                                            } catch (final InterruptedException ex) {
+                                                Thread.currentThread().interrupt();
+                                            }
+                                        }
+                                    });
             assertThat(held.await(5, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
             try {
                 Files.writeString(mailbox.inbound().resolve("m-3.json"), "{\"messageId\":\"m-3\"}");
 
                 assertThat(appearsWithin(mailbox.hold().resolve("m-3.json"), Duration.ofSeconds(3)))
-                        .as("moved while the conversation step still runs").isTrue();
+                        .as("moved while the conversation step still runs")
+                        .isTrue();
             } finally {
                 release.countDown();
                 step.join();
@@ -134,9 +154,12 @@ class MessageWatchNoticeTest {
     }
 
     @Test
-    void a_move_asked_while_another_waits_its_turn_is_merged_into_it(@TempDir final Path dir) throws Exception {
-        // A notice and a long-poll's answer close together each ran a move, the second one waiting for the first
-        // ("after waiting 116-200 ms for the move before it") only to find nothing left. The one that waits now takes
+    void a_move_asked_while_another_waits_its_turn_is_merged_into_it(@TempDir final Path dir)
+            throws Exception {
+        // A notice and a long-poll's answer close together each ran a move, the second one waiting
+        // for the first
+        // ("after waiting 116-200 ms for the move before it") only to find nothing left. The one
+        // that waits now takes
         // both: it starts after the second was asked, so it sees what that one would have moved.
         final PoreloContext context = context(dir);
         final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox("porelo-p-t"));
@@ -146,40 +169,54 @@ class MessageWatchNoticeTest {
         moving.setAccessible(true);
         final Object lock = moving.get(watch);
         final java.util.concurrent.CountDownLatch held = new java.util.concurrent.CountDownLatch(1);
-        final java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
-        final Thread running = Thread.ofVirtual().start(() -> {
-            synchronized (lock) {
-                held.countDown();
-                try {
-                    release.await(30, java.util.concurrent.TimeUnit.SECONDS);
-                } catch (final InterruptedException ex) {
-                    Thread.currentThread().interrupt();
-                }
-            }
-        });
+        final java.util.concurrent.CountDownLatch release =
+                new java.util.concurrent.CountDownLatch(1);
+        final Thread running =
+                Thread.ofVirtual()
+                        .start(
+                                () -> {
+                                    synchronized (lock) {
+                                        held.countDown();
+                                        try {
+                                            release.await(
+                                                    30, java.util.concurrent.TimeUnit.SECONDS);
+                                        } catch (final InterruptedException ex) {
+                                            Thread.currentThread().interrupt();
+                                        }
+                                    }
+                                });
         assertThat(held.await(5, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
-        final java.util.concurrent.atomic.AtomicInteger first = new java.util.concurrent.atomic.AtomicInteger(-1);
-        final Thread waiting = Thread.ofVirtual().start(() -> first.set(watch.moveOnce("a notice")));
+        final java.util.concurrent.atomic.AtomicInteger first =
+                new java.util.concurrent.atomic.AtomicInteger(-1);
+        final Thread waiting =
+                Thread.ofVirtual().start(() -> first.set(watch.moveOnce("a notice")));
         while (waiting.getState() != Thread.State.BLOCKED && waiting.isAlive()) {
             Thread.sleep(5);
         }
         Files.writeString(mailbox.inbound().resolve("m-6.json"), "{\"messageId\":\"m-6\"}");
 
-        final Thread second = Thread.ofVirtual().start(() -> watch.moveOnce("a conversation's answer"));
+        final Thread second =
+                Thread.ofVirtual().start(() -> watch.moveOnce("a conversation's answer"));
         second.join(java.time.Duration.ofSeconds(2));
 
-        assertThat(second.isAlive()).as("merged into the move that waits, not queued behind it").isFalse();
+        assertThat(second.isAlive())
+                .as("merged into the move that waits, not queued behind it")
+                .isFalse();
         release.countDown();
         running.join(java.time.Duration.ofSeconds(5));
         waiting.join(java.time.Duration.ofSeconds(10));
-        assertThat(Files.exists(mailbox.hold().resolve("m-6.json"))).as("the waiting move took it").isTrue();
+        assertThat(Files.exists(mailbox.hold().resolve("m-6.json")))
+                .as("the waiting move took it")
+                .isTrue();
         watch.close();
     }
 
     @Test
     void closing_waits_for_the_notices_to_stop(@TempDir final Path dir) throws Exception {
-        // It closed and returned while the notice thread was still settling and then moving: the caller deleted the
-        // mail directories under it. Seen as a test whose temp directory could not be deleted, 1 run in 6 on the VM.
+        // It closed and returned while the notice thread was still settling and then moving: the
+        // caller deleted the
+        // mail directories under it. Seen as a test whose temp directory could not be deleted, 1
+        // run in 6 on the VM.
         final PoreloContext context = context(dir);
         final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox("porelo-p-t"));
         mailbox.create();
@@ -195,41 +232,50 @@ class MessageWatchNoticeTest {
     }
 
     @Test
-    void a_fresh_account_whose_first_mailbox_comes_after_the_start_is_watched_too(@TempDir final Path dir)
-            throws IOException {
-        // No mail/ when the daemon started: the watch gave up, and every message waited for the timed pass, 37-60 s.
+    void a_fresh_account_whose_first_mailbox_comes_after_the_start_is_watched_too(
+            @TempDir final Path dir) throws IOException {
+        // No mail/ when the daemon started: the watch gave up, and every message waited for the
+        // timed pass, 37-60 s.
         final PoreloContext context = context(dir);
         try (MessageWatch watch = new MessageWatch(context, Duration.ZERO)) {
-            assertThat(watch.startNotices()).as("nothing to watch yet is no reason to stop watching").isTrue();
+            assertThat(watch.startNotices())
+                    .as("nothing to watch yet is no reason to stop watching")
+                    .isTrue();
             final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox("porelo-p-t"));
             mailbox.create();
             Files.writeString(mailbox.inbound().resolve("m-4.json"), "{\"messageId\":\"m-4\"}");
 
             assertThat(appearsWithin(mailbox.hold().resolve("m-4.json"), Duration.ofSeconds(5)))
-                    .as("noticed in a mailbox made after the start").isTrue();
+                    .as("noticed in a mailbox made after the start")
+                    .isTrue();
         }
     }
 
     @Test
     void a_conversations_answer_is_one_line_in_the_journal() {
-        // The key holds a line break, so the timing landed on a line of its own that no search for 'messages' found.
+        // The key holds a line break, so the timing landed on a line of its own that no search for
+        // 'messages' found.
         assertThat(MessageWatch.answered(TransportConversations.key("matrix", "sluicetest"), 35, 1))
                 .isEqualTo("messages  matrix sluicetest answered after 35 ms with 1 message(s)");
     }
 
     @Test
-    void a_persons_message_written_on_the_host_is_noticed(@TempDir final Path dir) throws IOException {
-        // 'porelo talk say' writes into person/, which was not watched: such a message went with the next pass of any
+    void a_persons_message_written_on_the_host_is_noticed(@TempDir final Path dir)
+            throws IOException {
+        // 'porelo talk say' writes into person/, which was not watched: such a message went with
+        // the next pass of any
         // other cause, up to the timed one a minute on.
         final PoreloContext context = context(dir);
         final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox("porelo-p-t"));
         mailbox.create();
         try (MessageWatch watch = new MessageWatch(context, Duration.ZERO)) {
             assertThat(watch.startNotices()).isTrue();
-            Files.writeString(mailbox.person().resolve("m-5.json"), "{\"metadata\":{\"to\":\"nobody\"}}");
+            Files.writeString(
+                    mailbox.person().resolve("m-5.json"), "{\"metadata\":{\"to\":\"nobody\"}}");
 
             final long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
-            while (Files.exists(mailbox.person().resolve("m-5.json")) && System.nanoTime() < deadline) {
+            while (Files.exists(mailbox.person().resolve("m-5.json"))
+                    && System.nanoTime() < deadline) {
                 try {
                     Thread.sleep(50);
                 } catch (final InterruptedException ex) {
@@ -237,7 +283,9 @@ class MessageWatchNoticeTest {
                     return;
                 }
             }
-            assertThat(mailbox.person().resolve("m-5.json")).as("taken on its notice").doesNotExist();
+            assertThat(mailbox.person().resolve("m-5.json"))
+                    .as("taken on its notice")
+                    .doesNotExist();
         }
     }
 }

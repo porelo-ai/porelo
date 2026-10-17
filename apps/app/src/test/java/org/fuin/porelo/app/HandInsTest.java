@@ -29,8 +29,7 @@ class HandInsTest {
 
     private static final String RUN = "0123456789ab";
 
-    @TempDir
-    Path dir;
+    @TempDir Path dir;
 
     /** The container's filesystem, as far as the commands HandIns runs reach it. */
     private Path container;
@@ -45,12 +44,16 @@ class HandInsTest {
 
     @BeforeEach
     void aRunningTask() throws IOException {
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
         paths = new PoreloPaths(xdg, dir.resolve("bin")).tasks();
         Files.createDirectories(paths.containerState(TASK));
         Sidecar.recordId(paths.containerState(TASK), RUN);
@@ -61,38 +64,56 @@ class HandInsTest {
     }
 
     private HandIns handIns() {
-        final Clock clock = new Clock() {
-            @Override
-            public java.time.ZoneId getZone() {
-                return ZoneOffset.UTC;
-            }
+        final Clock clock =
+                new Clock() {
+                    @Override
+                    public java.time.ZoneId getZone() {
+                        return ZoneOffset.UTC;
+                    }
 
-            @Override
-            public Clock withZone(final java.time.ZoneId zone) {
-                return this;
-            }
+                    @Override
+                    public Clock withZone(final java.time.ZoneId zone) {
+                        return this;
+                    }
 
-            @Override
-            public Instant instant() {
-                return now;
-            }
-        };
-        return new HandIns(paths, new Podman(command -> {
-            throw new AssertionError("nothing is run through podman's own runner");
-        }), this::inContainer, clock);
+                    @Override
+                    public Instant instant() {
+                        return now;
+                    }
+                };
+        return new HandIns(
+                paths,
+                new Podman(
+                        command -> {
+                            throw new AssertionError("nothing is run through podman's own runner");
+                        }),
+                this::inContainer,
+                clock);
     }
 
-    /** dd, chmod, mv and rm as they act on the container's files, run as root after 'exec ... --user root TASK'. */
-    private int inContainer(final List<String> arguments, final @Nullable Path stdin) throws IOException {
+    /**
+     * dd, chmod, mv and rm as they act on the container's files, run as root after 'exec ... --user
+     * root TASK'.
+     */
+    private int inContainer(final List<String> arguments, final @Nullable Path stdin)
+            throws IOException {
         ran.add(arguments);
-        final List<String> command = arguments.subList(arguments.indexOf(TASK) + 1, arguments.size());
+        final List<String> command =
+                arguments.subList(arguments.indexOf(TASK) + 1, arguments.size());
         switch (command.get(0)) {
-            case "dd" -> Files.copy(stdin, inside(command.get(1).substring("of=".length())),
-                    StandardCopyOption.REPLACE_EXISTING);
+            case "dd" ->
+                    Files.copy(
+                            stdin,
+                            inside(command.get(1).substring("of=".length())),
+                            StandardCopyOption.REPLACE_EXISTING);
             case "chmod" -> {
                 // Permissions are root's business in the container; the fake has none to set.
             }
-            case "mv" -> Files.move(inside(command.get(2)), inside(command.get(3)), StandardCopyOption.REPLACE_EXISTING);
+            case "mv" ->
+                    Files.move(
+                            inside(command.get(2)),
+                            inside(command.get(3)),
+                            StandardCopyOption.REPLACE_EXISTING);
             case "rm" -> Files.deleteIfExists(inside(command.get(2)));
             default -> throw new AssertionError("unexpected " + command);
         }
@@ -120,21 +141,27 @@ class HandInsTest {
     void aSmallFileInOnePartLandsInTheTaskAndIsWrittenDown() throws IOException {
         final byte[] content = "the build log\n".getBytes(StandardCharsets.UTF_8);
 
-        final HandIns.Progress progress = handIns.part(TASK, "build.log", content.length, sha256(content), 0,
-                content, "alice");
+        final HandIns.Progress progress =
+                handIns.part(
+                        TASK, "build.log", content.length, sha256(content), 0, content, "alice");
 
         assertThat(progress.received()).isEqualTo(content.length);
         assertThat(progress.file()).isNotNull();
         assertThat(container.resolve("porelo/files/build.log")).hasBinaryContent(content);
         assertThat(container.resolve("porelo/.incoming")).isEmptyDirectory();
-        assertThat(handIns.summary(TASK).files()).singleElement().satisfies(file -> {
-            assertThat(file.name()).isEqualTo("build.log");
-            assertThat(file.bytes()).isEqualTo(content.length);
-            assertThat(file.by()).isEqualTo("alice");
-            assertThat(file.run()).isEqualTo(RUN);
-            assertThat(file.at()).isEqualTo("2026-10-06T10:00:00Z");
-        });
-        assertThat(handIns.record(TASK)).extracting(HandIns.Entry::event).containsExactly(HandIns.GIVEN);
+        assertThat(handIns.summary(TASK).files())
+                .singleElement()
+                .satisfies(
+                        file -> {
+                            assertThat(file.name()).isEqualTo("build.log");
+                            assertThat(file.bytes()).isEqualTo(content.length);
+                            assertThat(file.by()).isEqualTo("alice");
+                            assertThat(file.run()).isEqualTo(RUN);
+                            assertThat(file.at()).isEqualTo("2026-10-06T10:00:00Z");
+                        });
+        assertThat(handIns.record(TASK))
+                .extracting(HandIns.Entry::event)
+                .containsExactly(HandIns.GIVEN);
     }
 
     @Test
@@ -142,17 +169,38 @@ class HandInsTest {
         final byte[] content = bytes(10_000);
         final String sha = sha256(content);
 
-        final HandIns.Progress first = handIns.part(TASK, "big.bin", content.length, sha, 0,
-                Arrays.copyOfRange(content, 0, 4_000), "alice");
+        final HandIns.Progress first =
+                handIns.part(
+                        TASK,
+                        "big.bin",
+                        content.length,
+                        sha,
+                        0,
+                        Arrays.copyOfRange(content, 0, 4_000),
+                        "alice");
 
         assertThat(first.received()).isEqualTo(4_000);
         assertThat(first.file()).isNull();
         assertThat(container.resolve("porelo/files/big.bin")).doesNotExist();
         assertThat(ran).as("nothing reaches the task before it is complete").isEmpty();
 
-        handIns.part(TASK, "big.bin", content.length, sha, 4_000, Arrays.copyOfRange(content, 4_000, 9_000), "alice");
-        final HandIns.Progress last = handIns.part(TASK, "big.bin", content.length, sha, 9_000,
-                Arrays.copyOfRange(content, 9_000, 10_000), "alice");
+        handIns.part(
+                TASK,
+                "big.bin",
+                content.length,
+                sha,
+                4_000,
+                Arrays.copyOfRange(content, 4_000, 9_000),
+                "alice");
+        final HandIns.Progress last =
+                handIns.part(
+                        TASK,
+                        "big.bin",
+                        content.length,
+                        sha,
+                        9_000,
+                        Arrays.copyOfRange(content, 9_000, 10_000),
+                        "alice");
 
         assertThat(last.file()).isNotNull();
         assertThat(container.resolve("porelo/files/big.bin")).hasBinaryContent(content);
@@ -162,49 +210,109 @@ class HandInsTest {
     void aPartOutOfOrderSaysWhereToGoOn() throws IOException {
         final byte[] content = bytes(1_000);
         final String sha = sha256(content);
-        handIns.part(TASK, "x.bin", content.length, sha, 0, Arrays.copyOfRange(content, 0, 300), "alice");
+        handIns.part(
+                TASK,
+                "x.bin",
+                content.length,
+                sha,
+                0,
+                Arrays.copyOfRange(content, 0, 300),
+                "alice");
 
-        assertThatThrownBy(() -> handIns.part(TASK, "x.bin", content.length, sha, 600,
-                Arrays.copyOfRange(content, 600, 1_000), "alice"))
-                .isInstanceOfSatisfying(HandIns.Refused.class, refused -> {
-                    assertThat(refused.error()).isEqualTo("PartOutOfOrder");
-                    assertThat(refused.parameters()).containsEntry("received", 300L).containsEntry("name", "x.bin");
-                });
+        assertThatThrownBy(
+                        () ->
+                                handIns.part(
+                                        TASK,
+                                        "x.bin",
+                                        content.length,
+                                        sha,
+                                        600,
+                                        Arrays.copyOfRange(content, 600, 1_000),
+                                        "alice"))
+                .isInstanceOfSatisfying(
+                        HandIns.Refused.class,
+                        refused -> {
+                            assertThat(refused.error()).isEqualTo("PartOutOfOrder");
+                            assertThat(refused.parameters())
+                                    .containsEntry("received", 300L)
+                                    .containsEntry("name", "x.bin");
+                        });
 
         // Resumed where it said, it completes.
-        assertThat(handIns.part(TASK, "x.bin", content.length, sha, 300, Arrays.copyOfRange(content, 300, 1_000),
-                "alice").file()).isNotNull();
+        assertThat(
+                        handIns.part(
+                                        TASK,
+                                        "x.bin",
+                                        content.length,
+                                        sha,
+                                        300,
+                                        Arrays.copyOfRange(content, 300, 1_000),
+                                        "alice")
+                                .file())
+                .isNotNull();
     }
 
     @Test
     void aFirstPartThatDoesNotStartAtZeroIsOutOfOrderToo() {
-        assertThatThrownBy(() -> handIns.part(TASK, "x.bin", 10, "0".repeat(64), 5, new byte[5], "alice"))
-                .isInstanceOfSatisfying(HandIns.Refused.class, refused -> {
-                    assertThat(refused.error()).isEqualTo("PartOutOfOrder");
-                    assertThat(refused.parameters()).containsEntry("received", 0L);
-                });
+        assertThatThrownBy(
+                        () ->
+                                handIns.part(
+                                        TASK, "x.bin", 10, "0".repeat(64), 5, new byte[5], "alice"))
+                .isInstanceOfSatisfying(
+                        HandIns.Refused.class,
+                        refused -> {
+                            assertThat(refused.error()).isEqualTo("PartOutOfOrder");
+                            assertThat(refused.parameters()).containsEntry("received", 0L);
+                        });
     }
 
     @Test
     void aSecondFileOfTheSameNameWhileOneIsInFlightIsRefused() throws IOException {
         final byte[] content = bytes(1_000);
-        handIns.part(TASK, "x.bin", content.length, sha256(content), 0, Arrays.copyOfRange(content, 0, 100), "alice");
+        handIns.part(
+                TASK,
+                "x.bin",
+                content.length,
+                sha256(content),
+                0,
+                Arrays.copyOfRange(content, 0, 100),
+                "alice");
 
         final byte[] other = bytes(2_000);
         final String otherSha = sha256(other);
-        assertThatThrownBy(() -> handIns.part(TASK, "x.bin", other.length, otherSha, 0,
-                Arrays.copyOfRange(other, 0, 100), "someone"))
-                .isInstanceOfSatisfying(HandIns.Refused.class, refused -> {
-                    assertThat(refused.error()).isEqualTo("HandInInProgress");
-                    assertThat(refused.parameters()).containsEntry("received", 100L).containsEntry("bytes", 1_000L);
-                });
+        assertThatThrownBy(
+                        () ->
+                                handIns.part(
+                                        TASK,
+                                        "x.bin",
+                                        other.length,
+                                        otherSha,
+                                        0,
+                                        Arrays.copyOfRange(other, 0, 100),
+                                        "someone"))
+                .isInstanceOfSatisfying(
+                        HandIns.Refused.class,
+                        refused -> {
+                            assertThat(refused.error()).isEqualTo("HandInInProgress");
+                            assertThat(refused.parameters())
+                                    .containsEntry("received", 100L)
+                                    .containsEntry("bytes", 1_000L);
+                        });
     }
 
     @Test
     void aHandInNobodyContinuesIsDroppedAfterTenMinutes() throws IOException {
         final byte[] content = bytes(1_000);
-        handIns.part(TASK, "x.bin", content.length, sha256(content), 0, Arrays.copyOfRange(content, 0, 100), "alice");
-        try (var parts = Files.list(paths.containerState(TASK).resolveSibling("hand-in").resolve(TASK))) {
+        handIns.part(
+                TASK,
+                "x.bin",
+                content.length,
+                sha256(content),
+                0,
+                Arrays.copyOfRange(content, 0, 100),
+                "alice");
+        try (var parts =
+                Files.list(paths.containerState(TASK).resolveSibling("hand-in").resolve(TASK))) {
             for (final Path part : parts.toList()) {
                 Files.setLastModifiedTime(part, java.nio.file.attribute.FileTime.from(now));
             }
@@ -212,8 +320,18 @@ class HandInsTest {
         now = now.plus(Duration.ofMinutes(11));
 
         final byte[] other = bytes(2_000);
-        assertThat(handIns.part(TASK, "x.bin", other.length, sha256(other), 0, other, "someone").file())
-                .as("the abandoned one is gone, so a new one starts").isNotNull();
+        assertThat(
+                        handIns.part(
+                                        TASK,
+                                        "x.bin",
+                                        other.length,
+                                        sha256(other),
+                                        0,
+                                        other,
+                                        "someone")
+                                .file())
+                .as("the abandoned one is gone, so a new one starts")
+                .isNotNull();
         assertThat(container.resolve("porelo/files/x.bin")).hasBinaryContent(other);
     }
 
@@ -221,11 +339,24 @@ class HandInsTest {
     void aFileOverTheLimitIsRefusedBeforeAnyByteIsKept() throws IOException {
         Files.writeString(paths.containerState(TASK).resolve(HandIns.LIMIT_FILE), "1000");
 
-        assertThatThrownBy(() -> handIns.part(TASK, "big.bin", 1_001, "0".repeat(64), 0, new byte[10], "alice"))
-                .isInstanceOfSatisfying(HandIns.Refused.class, refused -> {
-                    assertThat(refused.error()).isEqualTo("FileTooLarge");
-                    assertThat(refused.parameters()).containsEntry("bytes", 1_001L).containsEntry("limit", 1_000L);
-                });
+        assertThatThrownBy(
+                        () ->
+                                handIns.part(
+                                        TASK,
+                                        "big.bin",
+                                        1_001,
+                                        "0".repeat(64),
+                                        0,
+                                        new byte[10],
+                                        "alice"))
+                .isInstanceOfSatisfying(
+                        HandIns.Refused.class,
+                        refused -> {
+                            assertThat(refused.error()).isEqualTo("FileTooLarge");
+                            assertThat(refused.parameters())
+                                    .containsEntry("bytes", 1_001L)
+                                    .containsEntry("limit", 1_000L);
+                        });
         assertThat(paths.containerState(TASK).resolveSibling("hand-in")).doesNotExist();
         assertThat(handIns.summary(TASK).limit()).isEqualTo(1_000L);
     }
@@ -239,20 +370,35 @@ class HandInsTest {
     void contentThatDoesNotHashToWhatWasSaidIsNotPlaced() throws IOException {
         final byte[] content = bytes(500);
 
-        assertThatThrownBy(() -> handIns.part(TASK, "x.bin", content.length, "0".repeat(64), 0, content, "alice"))
-                .isInstanceOfSatisfying(HandIns.Refused.class, refused -> {
-                    assertThat(refused.error()).isEqualTo("FileDiffers");
-                    assertThat(refused.parameters()).containsEntry("expected", "0".repeat(64));
-                });
+        assertThatThrownBy(
+                        () ->
+                                handIns.part(
+                                        TASK,
+                                        "x.bin",
+                                        content.length,
+                                        "0".repeat(64),
+                                        0,
+                                        content,
+                                        "alice"))
+                .isInstanceOfSatisfying(
+                        HandIns.Refused.class,
+                        refused -> {
+                            assertThat(refused.error()).isEqualTo("FileDiffers");
+                            assertThat(refused.parameters())
+                                    .containsEntry("expected", "0".repeat(64));
+                        });
         assertThat(container.resolve("porelo/files/x.bin")).doesNotExist();
         assertThat(handIns.record(TASK)).isEmpty();
     }
 
     @Test
     void aNameThatIsNotAPlainFileNameIsRefused() {
-        for (final String name : List.of("", "../etc/passwd", "a/b", ".hidden", "line\nbreak", "x".repeat(256))) {
-            assertThatThrownBy(() -> HandIns.checkName(name)).as("'%s'", name)
-                    .isInstanceOfSatisfying(HandIns.Refused.class,
+        for (final String name :
+                List.of("", "../etc/passwd", "a/b", ".hidden", "line\nbreak", "x".repeat(256))) {
+            assertThatThrownBy(() -> HandIns.checkName(name))
+                    .as("'%s'", name)
+                    .isInstanceOfSatisfying(
+                            HandIns.Refused.class,
                             refused -> assertThat(refused.error()).isEqualTo("FileNameRefused"));
         }
         HandIns.checkName("spec v2 (final).pdf");
@@ -266,17 +412,20 @@ class HandInsTest {
         handIns.part(TASK, "spec.txt", second.length, sha256(second), 0, second, "alice");
 
         assertThat(container.resolve("porelo/files/spec.txt")).hasBinaryContent(second);
-        assertThat(handIns.summary(TASK).files()).singleElement()
+        assertThat(handIns.summary(TASK).files())
+                .singleElement()
                 .satisfies(file -> assertThat(file.sha256()).isEqualTo(sha256(second)));
 
         handIns.takeBack(TASK, "spec.txt", "alice");
 
         assertThat(container.resolve("porelo/files/spec.txt")).doesNotExist();
         assertThat(handIns.summary(TASK).files()).isEmpty();
-        assertThat(handIns.record(TASK)).extracting(HandIns.Entry::event)
+        assertThat(handIns.record(TASK))
+                .extracting(HandIns.Entry::event)
                 .containsExactly(HandIns.GIVEN, HandIns.REPLACED, HandIns.TAKEN_BACK);
         assertThatThrownBy(() -> handIns.takeBack(TASK, "spec.txt", "alice"))
-                .isInstanceOfSatisfying(HandIns.Refused.class,
+                .isInstanceOfSatisfying(
+                        HandIns.Refused.class,
                         refused -> assertThat(refused.error()).isEqualTo("NoSuchFile"));
     }
 
@@ -285,16 +434,25 @@ class HandInsTest {
         final byte[] content = "x".getBytes(StandardCharsets.UTF_8);
         handIns.part(TASK, "a.txt", content.length, sha256(content), 0, content, "alice");
 
-        // The task is removed: its runtime state goes. A later task gets the same name and a new container.
+        // The task is removed: its runtime state goes. A later task gets the same name and a new
+        // container.
         deleteTree(paths.containerState(TASK));
         Files.createDirectories(paths.containerState(TASK));
         Sidecar.recordId(paths.containerState(TASK), "ba9876543210");
 
         assertThat(handIns.summary(TASK).files()).as("the new run was handed nothing").isEmpty();
-        assertThat(handIns.record(TASK)).singleElement()
+        assertThat(handIns.record(TASK))
+                .singleElement()
                 .satisfies(entry -> assertThat(entry.file().run()).isEqualTo(RUN));
-        assertThat(Files.readString(paths.paths().xdg().state().resolve("hand-ins").resolve(TASK + ".jsonl")))
-                .as("the record names the file, never its content").doesNotContain("\"x\"")
+        assertThat(
+                        Files.readString(
+                                paths.paths()
+                                        .xdg()
+                                        .state()
+                                        .resolve("hand-ins")
+                                        .resolve(TASK + ".jsonl")))
+                .as("the record names the file, never its content")
+                .doesNotContain("\"x\"")
                 .contains("\"name\":\"a.txt\"");
     }
 

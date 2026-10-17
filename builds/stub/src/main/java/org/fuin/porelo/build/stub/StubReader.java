@@ -16,10 +16,11 @@ import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
 /**
- * A build reader for the tests: it answers from a file instead of a forge, read again on every call, so a test moves a
- * build from running to failed by writing the file.
- * <p>
- * The file is {@code answers.json} beside the executable, or what {@code PORELO_BUILD_STUB_ANSWERS} names:
+ * A build reader for the tests: it answers from a file instead of a forge, read again on every
+ * call, so a test moves a build from running to failed by writing the file.
+ *
+ * <p>The file is {@code answers.json} beside the executable, or what {@code
+ * PORELO_BUILD_STUB_ANSWERS} names:
  *
  * <pre>
  * {"token": "the one the vault holds",
@@ -29,18 +30,25 @@ import org.jspecify.annotations.Nullable;
  *  "refuse": {"reason": "RATE_LIMITED", "detail": "…", "retryAfter": 30}}
  * </pre>
  *
- * {@code heads} maps a branch at the forge to its head commit: the branch the task's work reaches there, which for an
- * online task is {@code porelo/<task>}, not the task's name. A {@code token} there is the only one accepted; any other is refused as the forge would refuse it, so a test sees
- * that the token Porelo sends is the vault's. A {@code refuse} refuses every call. Its jobs are listed once the
- * verdict is failure or final, each with its log when it failed, or every one's when every log is asked for and the
- * verdict is final - as a forge's reader does.
+ * {@code heads} maps a branch at the forge to its head commit: the branch the task's work reaches
+ * there, which for an online task is {@code porelo/<task>}, not the task's name. A {@code token}
+ * there is the only one accepted; any other is refused as the forge would refuse it, so a test sees
+ * that the token Porelo sends is the vault's. A {@code refuse} refuses every call. Its jobs are
+ * listed once the verdict is failure or final, each with its log when it failed, or every one's
+ * when every log is asked for and the verdict is final - as a forge's reader does.
  */
 public final class StubReader implements BuildReader {
 
-    /** The forge a project file names to read builds from this reader, chosen apart from the stub agent's name. */
+    /**
+     * The forge a project file names to read builds from this reader, chosen apart from the stub
+     * agent's name.
+     */
     public static final String FORGE = "stub-forge";
 
-    /** The environment variable that names the answers, for a test that cannot write beside the executable. */
+    /**
+     * The environment variable that names the answers, for a test that cannot write beside the
+     * executable.
+     */
     public static final String ANSWERS = "PORELO_BUILD_STUB_ANSWERS";
 
     private final Path answers;
@@ -60,8 +68,12 @@ public final class StubReader implements BuildReader {
      * @param arguments {@code describe}, or {@code serve <socket>}.
      */
     public static void main(final String[] arguments) {
-        BuildMain.run(new StubReader(answers(System.getenv(ANSWERS),
-                ProcessHandle.current().info().command().orElse(FORGE))), arguments);
+        BuildMain.run(
+                new StubReader(
+                        answers(
+                                System.getenv(ANSWERS),
+                                ProcessHandle.current().info().command().orElse(FORGE))),
+                arguments);
     }
 
     /**
@@ -88,26 +100,36 @@ public final class StubReader implements BuildReader {
     public String head(final Target target, final String branch) {
         final Map<?, ?> read = read(target);
         return read.get("heads") instanceof Map<?, ?> heads && heads.get(branch) != null
-                ? String.valueOf(heads.get(branch)) : "";
+                ? String.valueOf(heads.get(branch))
+                : "";
     }
 
     @Override
     public Build look(final Target target, final String commit, final Build.Logs logs) {
         final Map<?, ?> read = read(target);
-        if (!(read.get("builds") instanceof Map<?, ?> builds) || !(builds.get(commit) instanceof Map<?, ?> build)) {
+        if (!(read.get("builds") instanceof Map<?, ?> builds)
+                || !(builds.get(commit) instanceof Map<?, ?> build)) {
             return Build.unknown("no build of " + commit);
         }
         final String verdict = text(build.get("verdict"));
-        final boolean done = List.of(Build.SUCCESS, Build.FAILURE, Build.CANCELLED).contains(verdict);
+        final boolean done =
+                List.of(Build.SUCCESS, Build.FAILURE, Build.CANCELLED).contains(verdict);
         final List<Build.Job> jobs = new ArrayList<>();
         if (done && build.get("jobs") instanceof List<?> listed) {
             for (final Object each : listed) {
                 if (each instanceof Map<?, ?> job) {
                     final String result = text(job.get("result"));
-                    final Object log = "failure".equals(result) || logs == Build.Logs.ALL ? job.get("log") : null;
-                    jobs.add(log == null ? new Build.Job(text(job.get("name")), result)
-                            : new Build.Job(text(job.get("name")), result,
-                                    String.valueOf(log).getBytes(StandardCharsets.UTF_8)));
+                    final Object log =
+                            "failure".equals(result) || logs == Build.Logs.ALL
+                                    ? job.get("log")
+                                    : null;
+                    jobs.add(
+                            log == null
+                                    ? new Build.Job(text(job.get("name")), result)
+                                    : new Build.Job(
+                                            text(job.get("name")),
+                                            result,
+                                            String.valueOf(log).getBytes(StandardCharsets.UTF_8)));
                 }
             }
         }
@@ -119,17 +141,22 @@ public final class StubReader implements BuildReader {
         try {
             parsed = Json.parse(Files.readString(answers, StandardCharsets.UTF_8));
         } catch (IOException ex) {
-            throw new BuildRefused(BuildRefused.Reason.UNREACHABLE, "the stub has no answers at " + answers);
+            throw new BuildRefused(
+                    BuildRefused.Reason.UNREACHABLE, "the stub has no answers at " + answers);
         }
         if (!(parsed instanceof Map<?, ?> read)) {
-            throw new BuildRefused(BuildRefused.Reason.UNREACHABLE, answers + " is not a JSON object");
+            throw new BuildRefused(
+                    BuildRefused.Reason.UNREACHABLE, answers + " is not a JSON object");
         }
         if (read.get("refuse") instanceof Map<?, ?> refuse) {
-            throw new BuildRefused(BuildRefused.Reason.valueOf(text(refuse.get("reason"))), text(refuse.get("detail")),
+            throw new BuildRefused(
+                    BuildRefused.Reason.valueOf(text(refuse.get("reason"))),
+                    text(refuse.get("detail")),
                     refuse.get("retryAfter") instanceof Number number ? number.longValue() : 0);
         }
         if (read.get("token") != null && !text(read.get("token")).equals(target.token())) {
-            throw new BuildRefused(BuildRefused.Reason.CREDENTIAL_REFUSED, "the stub was given another token");
+            throw new BuildRefused(
+                    BuildRefused.Reason.CREDENTIAL_REFUSED, "the stub was given another token");
         }
         return read;
     }

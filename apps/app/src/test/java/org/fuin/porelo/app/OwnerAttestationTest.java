@@ -20,9 +20,11 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class OwnerAttestationTest {
 
-    private final Mail mail = new Mail(List.of(
-            new Mail.Peer("bob", "spool:bob", "vouched"),
-            new Mail.Peer("reviewer", "local:/peer/inbound", "vouched")));
+    private final Mail mail =
+            new Mail(
+                    List.of(
+                            new Mail.Peer("bob", "spool:bob", "vouched"),
+                            new Mail.Peer("reviewer", "local:/peer/inbound", "vouched")));
 
     private Mailbox arrived(final Path dir, final String name) throws IOException {
         final Mailbox mailbox = new Mailbox(dir.resolve("porelo-p-t"));
@@ -33,7 +35,9 @@ class OwnerAttestationTest {
 
     private void attest(final Mailbox mailbox, final String name, final String said)
             throws IOException {
-        Files.writeString(mailbox.inbound().resolve(name + OwnerAttestation.SUFFIX), said,
+        Files.writeString(
+                mailbox.inbound().resolve(name + OwnerAttestation.SUFFIX),
+                said,
                 StandardCharsets.UTF_8);
     }
 
@@ -43,8 +47,10 @@ class OwnerAttestationTest {
         final Mailbox mailbox = arrived(dir, "m-1.json");
         attest(mailbox, "m-1.json", "1004 bob\n");
 
-        assertThat(OwnerAttestation.refuse(mailbox, mailbox.inbound().resolve("m-1.json"), "bob",
-                mail, true)).isEmpty();
+        assertThat(
+                        OwnerAttestation.refuse(
+                                mailbox, mailbox.inbound().resolve("m-1.json"), "bob", mail, true))
+                .isEmpty();
     }
 
     /**
@@ -57,9 +63,11 @@ class OwnerAttestationTest {
         final Mailbox mailbox = arrived(dir, "m-1.json");
         attest(mailbox, "m-1.json", "1009 carol");
 
-        assertThat(OwnerAttestation.refuse(mailbox, mailbox.inbound().resolve("m-1.json"), "bob",
-                mail, true))
-                .contains("written by the user 'carol'").contains("registered as the user 'bob'");
+        assertThat(
+                        OwnerAttestation.refuse(
+                                mailbox, mailbox.inbound().resolve("m-1.json"), "bob", mail, true))
+                .contains("written by the user 'carol'")
+                .contains("registered as the user 'bob'");
     }
 
     @Test
@@ -67,8 +75,10 @@ class OwnerAttestationTest {
             throws IOException {
         final Mailbox mailbox = arrived(dir, "m-1.json");
 
-        assertThat(OwnerAttestation.refuse(mailbox, mailbox.inbound().resolve("m-1.json"), "bob",
-                mail, true)).contains("it attests who owned it, and it did not");
+        assertThat(
+                        OwnerAttestation.refuse(
+                                mailbox, mailbox.inbound().resolve("m-1.json"), "bob", mail, true))
+                .contains("it attests who owned it, and it did not");
     }
 
     /**
@@ -80,14 +90,20 @@ class OwnerAttestationTest {
             throws IOException {
         final Mailbox mailbox = arrived(dir, "m-1.json");
 
-        assertThat(OwnerAttestation.refuse(mailbox, mailbox.inbound().resolve("m-1.json"),
-                "reviewer", mail, false)).isEmpty();
+        assertThat(
+                        OwnerAttestation.refuse(
+                                mailbox,
+                                mailbox.inbound().resolve("m-1.json"),
+                                "reviewer",
+                                mail,
+                                false))
+                .isEmpty();
     }
 
     /**
      * But an attestation that is there is read whoever left it, because reading it can only hold a
-     * message and never admit one. Found on the VM: a message fetched in an earlier pass reached
-     * an agent with its owner file lying unread beside it.
+     * message and never admit one. Found on the VM: a message fetched in an earlier pass reached an
+     * agent with its owner file lying unread beside it.
      */
     @Test
     void an_attestation_that_is_there_is_read_even_unpromised(@TempDir final Path dir)
@@ -95,8 +111,10 @@ class OwnerAttestationTest {
         final Mailbox mailbox = arrived(dir, "m-1.json");
         attest(mailbox, "m-1.json", "1009 carol");
 
-        assertThat(OwnerAttestation.refuse(mailbox, mailbox.inbound().resolve("m-1.json"), "bob",
-                mail, false)).contains("written by the user 'carol'");
+        assertThat(
+                        OwnerAttestation.refuse(
+                                mailbox, mailbox.inbound().resolve("m-1.json"), "bob", mail, false))
+                .contains("written by the user 'carol'");
     }
 
     @Test
@@ -104,8 +122,10 @@ class OwnerAttestationTest {
         final Mailbox mailbox = arrived(dir, "m-1.json");
         attest(mailbox, "m-1.json", "bob");
 
-        assertThat(OwnerAttestation.refuse(mailbox, mailbox.inbound().resolve("m-1.json"), "bob",
-                mail, true)).contains("cannot be read");
+        assertThat(
+                        OwnerAttestation.refuse(
+                                mailbox, mailbox.inbound().resolve("m-1.json"), "bob", mail, true))
+                .contains("cannot be read");
     }
 
     @Test
@@ -114,8 +134,14 @@ class OwnerAttestationTest {
         final Mailbox mailbox = arrived(dir, "m-1.json");
         attest(mailbox, "m-1.json", "1004 bob");
 
-        assertThat(OwnerAttestation.refuse(mailbox, mailbox.inbound().resolve("m-1.json"),
-                "a-stranger", mail, true)).contains("does not list");
+        assertThat(
+                        OwnerAttestation.refuse(
+                                mailbox,
+                                mailbox.inbound().resolve("m-1.json"),
+                                "a-stranger",
+                                mail,
+                                true))
+                .contains("does not list");
     }
 
     /** And through delivery, where it has to stop a message that is otherwise perfect. */
@@ -126,18 +152,28 @@ class OwnerAttestationTest {
         mailbox.create();
         final String json = "{\"messageId\":\"m-1\"}";
         Files.writeString(mailbox.inbound().resolve("m-1.json"), json);
-        Files.writeString(mailbox.inbound().resolve("m-1.json.sig"), SshSignature.sign(bobs,
-                json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
+        Files.writeString(
+                mailbox.inbound().resolve("m-1.json.sig"),
+                SshSignature.sign(
+                        bobs, json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
         attest(mailbox, "m-1.json", "1009 carol");
 
-        final MessageDelivery.Outcome outcome = new MessageDelivery().deliver(mailbox,
-                List.of(new MessageDelivery.Peer("bob", List.of(bobs.keyBlob()))), Set.of(), null,
-                null, (box, message, peer) ->
-                        OwnerAttestation.refuse(box, message, peer, mail, true));
+        final MessageDelivery.Outcome outcome =
+                new MessageDelivery()
+                        .deliver(
+                                mailbox,
+                                List.of(new MessageDelivery.Peer("bob", List.of(bobs.keyBlob()))),
+                                Set.of(),
+                                null,
+                                null,
+                                (box, message, peer) ->
+                                        OwnerAttestation.refuse(box, message, peer, mail, true));
 
         assertThat(outcome.delivered()).isEmpty();
-        assertThat(outcome.held()).singleElement().satisfies(held ->
-                assertThat(held.reason()).contains("written by the user 'carol'"));
+        assertThat(outcome.held())
+                .singleElement()
+                .satisfies(
+                        held -> assertThat(held.reason()).contains("written by the user 'carol'"));
         assertThat(mailbox.inboxNew()).isEmptyDirectory();
     }
 
@@ -149,14 +185,21 @@ class OwnerAttestationTest {
         mailbox.create();
         final String json = "{\"messageId\":\"m-1\"}";
         Files.writeString(mailbox.inbound().resolve("m-1.json"), json);
-        Files.writeString(mailbox.inbound().resolve("m-1.json.sig"), SshSignature.sign(bobs,
-                json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
+        Files.writeString(
+                mailbox.inbound().resolve("m-1.json.sig"),
+                SshSignature.sign(
+                        bobs, json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
         attest(mailbox, "m-1.json", "1004 bob");
 
-        new MessageDelivery().deliver(mailbox,
-                List.of(new MessageDelivery.Peer("bob", List.of(bobs.keyBlob()))), Set.of(), null,
-                null, (box, message, peer) -> OwnerAttestation.refuse(box, message, peer, mail,
-                        true));
+        new MessageDelivery()
+                .deliver(
+                        mailbox,
+                        List.of(new MessageDelivery.Peer("bob", List.of(bobs.keyBlob()))),
+                        Set.of(),
+                        null,
+                        null,
+                        (box, message, peer) ->
+                                OwnerAttestation.refuse(box, message, peer, mail, true));
 
         assertThat(mailbox.inbound().resolve("m-1.json.owner")).doesNotExist();
         assertThat(mailbox.record().resolve("m-1.json.owner")).as("kept as evidence").exists();
@@ -171,14 +214,21 @@ class OwnerAttestationTest {
         mailbox.create();
         final String json = "{\"messageId\":\"m-1\"}";
         Files.writeString(mailbox.inbound().resolve("m-1.json"), json);
-        Files.writeString(mailbox.inbound().resolve("m-1.json.sig"), SshSignature.sign(bobs,
-                json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
+        Files.writeString(
+                mailbox.inbound().resolve("m-1.json.sig"),
+                SshSignature.sign(
+                        bobs, json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
         attest(mailbox, "m-1.json", "1009 carol");
 
-        new MessageDelivery().deliver(mailbox,
-                List.of(new MessageDelivery.Peer("bob", List.of(bobs.keyBlob()))), Set.of(), null,
-                null, (box, message, peer) -> OwnerAttestation.refuse(box, message, peer, mail,
-                        true));
+        new MessageDelivery()
+                .deliver(
+                        mailbox,
+                        List.of(new MessageDelivery.Peer("bob", List.of(bobs.keyBlob()))),
+                        Set.of(),
+                        null,
+                        null,
+                        (box, message, peer) ->
+                                OwnerAttestation.refuse(box, message, peer, mail, true));
 
         assertThat(mailbox.hold().resolve("m-1.json.owner")).exists();
         assertThat(mailbox.inbound().resolve("m-1.json.owner")).doesNotExist();

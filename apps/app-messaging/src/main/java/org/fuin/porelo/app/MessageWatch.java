@@ -15,26 +15,26 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Moves every mailbox on this machine along, on a schedule.
- * <p>
- * <strong>Why a timer at all.</strong> The daemon binds no network interface, in this arrangement
- * as in every other, so nothing can be pushed to it: a message arrives because this goes and looks.
- * Until it existed, a message waited in an outbox until a person ran {@code porelo talk pass}, which
- * is fine for a demonstration and not for two agents holding a conversation.
- * <p>
- * <strong>Every mailbox, not every running task.</strong> A mailbox outlives its container, so a
+ *
+ * <p><strong>Why a timer at all.</strong> The daemon binds no network interface, in this
+ * arrangement as in every other, so nothing can be pushed to it: a message arrives because this
+ * goes and looks. Until it existed, a message waited in an outbox until a person ran {@code porelo
+ * talk pass}, which is fine for a demonstration and not for two agents holding a conversation.
+ *
+ * <p><strong>Every mailbox, not every running task.</strong> A mailbox outlives its container, so a
  * task that is stopped still has messages delivered into it - and finds them when it comes back.
  * That is the whole reason the mailbox is not in the runtime directory.
- * <p>
- * <strong>And a timer is not the only thing that starts a pass.</strong> Where both halves of a
+ *
+ * <p><strong>And a timer is not the only thing that starts a pass.</strong> Where both halves of a
  * conversation are on one machine - which is the ordinary case for somebody running several agents
  * on their laptop - waiting up to a minute for an answer that is already lying in a directory is a
  * delay with no cause. So the mailboxes are also watched, and a message that lands is noticed at
  * once. The timer stays, because a watch can miss things and a transport that fetches from
  * elsewhere still has to be gone and asked.
- * <p>
- * <strong>One mailbox's failure is not another's.</strong> A project file that has been deleted, a
- * filter that will not start, a transport whose destination is gone: each stops that mailbox's pass
- * and no other, and the next tick tries again.
+ *
+ * <p><strong>One mailbox's failure is not another's.</strong> A project file that has been deleted,
+ * a filter that will not start, a transport whose destination is gone: each stops that mailbox's
+ * pass and no other, and the next tick tries again.
  */
 public final class MessageWatch implements AutoCloseable {
 
@@ -63,14 +63,16 @@ public final class MessageWatch implements AutoCloseable {
     private final Object passing = new Object();
 
     /**
-     * Held while messages are moved, and only then: a written message, or a file a long-poll handed in, waits for no
-     * conversation step, which asks every conversation's transport and took seconds.
+     * Held while messages are moved, and only then: a written message, or a file a long-poll handed
+     * in, waits for no conversation step, which asks every conversation's transport and took
+     * seconds.
      */
     private final Object moving = new Object();
 
     /**
-     * Whether a move waits for its turn at {@link #moving}. A move asked meanwhile is merged into it: that one starts
-     * after it was asked, so it moves what the second would have, and a second move behind it found nothing left.
+     * Whether a move waits for its turn at {@link #moving}. A move asked meanwhile is merged into
+     * it: that one starts after it was asked, so it moves what the second would have, and a second
+     * move behind it found nothing left.
      */
     private final java.util.concurrent.atomic.AtomicBoolean waitingToMove =
             new java.util.concurrent.atomic.AtomicBoolean();
@@ -78,7 +80,8 @@ public final class MessageWatch implements AutoCloseable {
     private java.nio.file.@org.jspecify.annotations.Nullable WatchService watcher;
 
     /** The directories the kernel would not watch, and why: the timed pass alone reaches them. */
-    private final java.util.Map<Path, String> unwatched = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.Map<Path, String> unwatched =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -97,7 +100,9 @@ public final class MessageWatch implements AutoCloseable {
      * @param interval How often to look.
      * @param vaultOpen Whether this account's vault can be read now without asking anybody.
      */
-    MessageWatch(final PoreloContext context, final Duration interval,
+    MessageWatch(
+            final PoreloContext context,
+            final Duration interval,
             final java.util.function.BooleanSupplier vaultOpen) {
         this.context = context;
         this.interval = interval;
@@ -113,8 +118,9 @@ public final class MessageWatch implements AutoCloseable {
     private volatile boolean wasOpen;
 
     /**
-     * Tells whether the vault opened since the last look - the first look after the daemon started counts when it is
-     * open then. A message written while it was shut waited for the first timed pass, a minute after the start.
+     * Tells whether the vault opened since the last look - the first look after the daemon started
+     * counts when it is open then. A message written while it was shut waited for the first timed
+     * pass, a minute after the start.
      *
      * @return {@code true} once for each time it opened.
      */
@@ -132,16 +138,14 @@ public final class MessageWatch implements AutoCloseable {
     /** How often a pass's wait looks whether the vault opened for messages that wait for it. */
     static final Duration VAULT_LOOK = Duration.ofSeconds(2);
 
-    /**
-     * Notes that a pass found the conversations waiting for the vault.
-     */
+    /** Notes that a pass found the conversations waiting for the vault. */
     void waitedForTheVault() {
         waitedForTheVault = true;
     }
 
     /**
-     * Passes now when the last pass waited for the vault and it is open: left to the next pass, messages waited up to
-     * a minute after it was opened.
+     * Passes now when the last pass waited for the vault and it is open: left to the next pass,
+     * messages waited up to a minute after it was opened.
      *
      * @param pass What a pass is.
      * @return Whether it passed.
@@ -157,10 +161,10 @@ public final class MessageWatch implements AutoCloseable {
 
     /**
      * Returns how often to look on this machine.
-     * <p>
-     * Switchable off, because a machine whose tasks exchange no messages should not be walking its
-     * mailboxes every minute, and because an operator is entitled to refuse a background activity
-     * they did not ask for.
+     *
+     * <p>Switchable off, because a machine whose tasks exchange no messages should not be walking
+     * its mailboxes every minute, and because an operator is entitled to refuse a background
+     * activity they did not ask for.
      *
      * @param environment Reads an environment variable.
      * @return The interval, or {@link Duration#ZERO} when it is turned off.
@@ -181,8 +185,8 @@ public final class MessageWatch implements AutoCloseable {
 
     /**
      * Runs one pass over every mailbox on this machine.
-     * <p>
-     * Never throws: what one mailbox cannot do must not stop the rest.
+     *
+     * <p>Never throws: what one mailbox cannot do must not stop the rest.
      *
      * @return How many mailboxes were moved along.
      */
@@ -201,7 +205,11 @@ public final class MessageWatch implements AutoCloseable {
             final long conversed = System.nanoTime();
             synchronized (moving) {
                 final int moved = move(prepared, mailboxes);
-                timed("the timed pass, its conversation step " + millis(started, conversed) + " ms", conversed,
+                timed(
+                        "the timed pass, its conversation step "
+                                + millis(started, conversed)
+                                + " ms",
+                        conversed,
                         moved);
                 return moved;
             }
@@ -209,8 +217,9 @@ public final class MessageWatch implements AutoCloseable {
     }
 
     /**
-     * Moves what waits in every mailbox - filter, send, delivery - and nothing else: no conversation is asked
-     * anything. What a written message, a file a long-poll handed in, and the vault opening run.
+     * Moves what waits in every mailbox - filter, send, delivery - and nothing else: no
+     * conversation is asked anything. What a written message, a file a long-poll handed in, and the
+     * vault opening run.
      *
      * @return How many mailboxes were moved along.
      */
@@ -219,7 +228,8 @@ public final class MessageWatch implements AutoCloseable {
     }
 
     /**
-     * Moves what waits, as {@link #moveOnce()}, saying in the journal what started it and how long it took.
+     * Moves what waits, as {@link #moveOnce()}, saying in the journal what started it and how long
+     * it took.
      *
      * @param why What started it: a notice, a long-poll's answer, the vault opening.
      * @return How many mailboxes were moved along.
@@ -231,7 +241,8 @@ public final class MessageWatch implements AutoCloseable {
             return 0;
         }
         synchronized (moving) {
-            // Cleared before the mailboxes are looked at: what arrives after this needs a move of its own.
+            // Cleared before the mailboxes are looked at: what arrives after this needs a move of
+            // its own.
             waitingToMove.set(false);
             final long started = System.nanoTime();
             final List<Path> mailboxes = mailboxes();
@@ -251,21 +262,39 @@ public final class MessageWatch implements AutoCloseable {
                     projects.put(mailbox.getFileName().toString(), project);
                 }
             }
-            prepared.pass().acting((transport, container) -> projects.get(container) == null ? null
-                    : conversations.acting(transport, projects.get(container), container));
+            prepared.pass()
+                    .acting(
+                            (transport, container) ->
+                                    projects.get(container) == null
+                                            ? null
+                                            : conversations.acting(
+                                                    transport, projects.get(container), container));
             final int moved = move(prepared, mailboxes);
-            timed(why + (started - asked > 50_000_000L ? ", after waiting " + millis(asked, started)
-                    + " ms for the move before it" : ""), started, moved);
+            timed(
+                    why
+                            + (started - asked > 50_000_000L
+                                    ? ", after waiting "
+                                            + millis(asked, started)
+                                            + " ms for the move before it"
+                                    : ""),
+                    started,
+                    moved);
             return moved;
         }
     }
 
     /**
-     * Returns the journal's line for a conversation's long-poll that answered: one line, so a search for the lines that
-     * begin with {@code messages} finds each - the key holds a line break between its scheme and its name.
+     * Returns the journal's line for a conversation's long-poll that answered: one line, so a
+     * search for the lines that begin with {@code messages} finds each - the key holds a line break
+     * between its scheme and its name.
      */
     static String answered(final String key, final long millis, final int messages) {
-        return "messages  " + key.replace('\n', ' ') + " answered after " + millis + " ms with " + messages
+        return "messages  "
+                + key.replace('\n', ' ')
+                + " answered after "
+                + millis
+                + " ms with "
+                + messages
                 + " message(s)";
     }
 
@@ -274,12 +303,20 @@ public final class MessageWatch implements AutoCloseable {
     }
 
     /**
-     * Says in the daemon's journal how long a move took and what it read: where the seconds of a message go is then
-     * measured, not guessed.
+     * Says in the daemon's journal how long a move took and what it read: where the seconds of a
+     * message go is then measured, not guessed.
      */
     private void timed(final String why, final long started, final int mailboxes) {
-        said("messages  moved " + mailboxes + " mailbox(es) in " + millis(started, System.nanoTime())
-                + " ms (" + why + "; " + VaultCache.counted() + ")");
+        said(
+                "messages  moved "
+                        + mailboxes
+                        + " mailbox(es) in "
+                        + millis(started, System.nanoTime())
+                        + " ms ("
+                        + why
+                        + "; "
+                        + VaultCache.counted()
+                        + ")");
     }
 
     /** One line in the daemon's journal; a watch a command or a test made says nothing. */
@@ -292,16 +329,20 @@ public final class MessageWatch implements AutoCloseable {
     }
 
     /** What a pass moves with: its filter and key, and the peers it may reach. */
-    private record Moving(MessagePass pass, List<MessageDelivery.Peer> peers) {
-    }
+    private record Moving(MessagePass pass, List<MessageDelivery.Peer> peers) {}
 
     private @org.jspecify.annotations.Nullable Moving prepared(final List<Path> mailboxes) {
         final MessagePass pass;
         final List<MessageDelivery.Peer> peers;
         try {
-            pass = new MessagePass(context.runner(),
-                    HostKey.loadOrCreate(context.paths().messaging().messageKey(), "porelo@" + hostName()),
-                    context.paths().messaging().messageFilter(), context.paths().messaging().transportDirectory());
+            pass =
+                    new MessagePass(
+                            context.runner(),
+                            HostKey.loadOrCreate(
+                                    context.paths().messaging().messageKey(),
+                                    "porelo@" + hostName()),
+                            context.paths().messaging().messageFilter(),
+                            context.paths().messaging().transportDirectory());
             peers = KnownPeers.of(context);
         } catch (final IOException ex) {
             // No key that can be written, or a keyring with a line nobody can read. Both are the
@@ -309,8 +350,10 @@ public final class MessageWatch implements AutoCloseable {
             // and the next tick tries again.
             return null;
         }
-        // Each pass, every mailbox again: one made after the watch started announced its directory before its outbox
-        // existed, so the watch on it failed then and was never tried again - and its agent's answers waited for this
+        // Each pass, every mailbox again: one made after the watch started announced its directory
+        // before its outbox
+        // existed, so the watch on it failed then and was never tried again - and its agent's
+        // answers waited for this
         // timer, a minute. Registering a directory twice is the same watch.
         if (watcher != null) {
             mailboxes.forEach(this::watch);
@@ -335,10 +378,16 @@ public final class MessageWatch implements AutoCloseable {
                 // A mailbox whose project is gone has no peers to send to, so nothing it decides is
                 // read; its own name keeps it from reading another project's holds.
                 final Mail reachable = peersOf(container);
-                // Whom it can reach changes as its project's tasks come and go; the guide beside it does not.
+                // Whom it can reach changes as its project's tasks come and go; the guide beside it
+                // does not.
                 MailboxGuide.write(new Mailbox(mailbox), reachable);
-                final MessagePass.Report report = prepared.pass().run(new Mailbox(mailbox), reachable,
-                        prepared.peers(), moderationOf(container));
+                final MessagePass.Report report =
+                        prepared.pass()
+                                .run(
+                                        new Mailbox(mailbox),
+                                        reachable,
+                                        prepared.peers(),
+                                        moderationOf(container));
                 woken(container, new Mailbox(mailbox), report);
                 moved++;
             } catch (final IOException | RuntimeException ex) {
@@ -350,67 +399,81 @@ public final class MessageWatch implements AutoCloseable {
 
     /**
      * Starts the passes, on a thread of its own.
-     * <p>
-     * The first pass waits one interval: a daemon that came up and immediately ran every filter on
-     * the machine would make starting it expensive, and nothing is waiting for a message that early.
+     *
+     * <p>The first pass waits one interval: a daemon that came up and immediately ran every filter
+     * on the machine would make starting it expensive, and nothing is waiting for a message that
+     * early.
      */
     public void start() {
         if (interval.isZero() || interval.isNegative()) {
             return;
         }
-        // Only the daemon's conversations hold what they read of the vault; a command reads it each time.
+        // Only the daemon's conversations hold what they read of the vault; a command reads it each
+        // time.
         VaultCache.hold();
-        // The waiting polls at once, without a pass: started by the first pass, which waits an interval on purpose, a
+        // The waiting polls at once, without a pass: started by the first pass, which waits an
+        // interval on purpose, a
         // person's first word after the daemon came up waited for it too (2026-10-04).
-        BackgroundPass.start("porelo-conversations", () -> {
-            try {
-                Thread.sleep(SETTLE);
-                if (running) {
-                    waiting(context.paths().messaging().transportDirectory(),
-                            members(mailboxes(), new java.util.LinkedHashMap<>()));
-                }
-            } catch (final InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            } catch (final RuntimeException ex) {
-                // The first pass starts them.
-            }
-        });
-        BackgroundPass.start("porelo-messages", () -> {
-            while (running) {
-                // The pass's wait in short steps, each looking whether the vault opened for what waits for it.
-                final long round = System.nanoTime() + interval.toNanos();
-                boolean passed = false;
-                while (running && !passed && System.nanoTime() < round) {
+        BackgroundPass.start(
+                "porelo-conversations",
+                () -> {
                     try {
-                        Thread.sleep(Math.min(VAULT_LOOK.toMillis(),
-                                Math.max(1, (round - System.nanoTime()) / 1_000_000)));
+                        Thread.sleep(SETTLE);
+                        if (running) {
+                            waiting(
+                                    context.paths().messaging().transportDirectory(),
+                                    members(mailboxes(), new java.util.LinkedHashMap<>()));
+                        }
                     } catch (final InterruptedException ex) {
                         Thread.currentThread().interrupt();
-                        return;
+                    } catch (final RuntimeException ex) {
+                        // The first pass starts them.
                     }
-                    if (running && opened()) {
-                        // What waited for the vault leaves once it opens, not at the first pass a minute on.
-                        moveOnce("the vault open");
+                });
+        BackgroundPass.start(
+                "porelo-messages",
+                () -> {
+                    while (running) {
+                        // The pass's wait in short steps, each looking whether the vault opened for
+                        // what waits for it.
+                        final long round = System.nanoTime() + interval.toNanos();
+                        boolean passed = false;
+                        while (running && !passed && System.nanoTime() < round) {
+                            try {
+                                Thread.sleep(
+                                        Math.min(
+                                                VAULT_LOOK.toMillis(),
+                                                Math.max(
+                                                        1,
+                                                        (round - System.nanoTime()) / 1_000_000)));
+                            } catch (final InterruptedException ex) {
+                                Thread.currentThread().interrupt();
+                                return;
+                            }
+                            if (running && opened()) {
+                                // What waited for the vault leaves once it opens, not at the first
+                                // pass a minute on.
+                                moveOnce("the vault open");
+                            }
+                            passed = running && afterTheVault(this::passOnce);
+                        }
+                        if (running && !passed) {
+                            passOnce();
+                        }
                     }
-                    passed = running && afterTheVault(this::passOnce);
-                }
-                if (running && !passed) {
-                    passOnce();
-                }
-            }
-        });
+                });
     }
 
     /**
      * Starts noticing, on a thread of its own.
-     * <p>
-     * What is watched is the two directories a message appears in without anybody being told: the
-     * agent's outbox, and the inbound directory a local transport delivers into. The mail root is
-     * watched too, so a mailbox made after this started is picked up rather than being the one
+     *
+     * <p>What is watched is the two directories a message appears in without anybody being told:
+     * the agent's outbox, and the inbound directory a local transport delivers into. The mail root
+     * is watched too, so a mailbox made after this started is picked up rather than being the one
      * that stays slow.
      *
      * @return {@code true} when the machine can watch directories at all. A machine that cannot
-     *         still has the timer, which is why this reports rather than throws.
+     *     still has the timer, which is why this reports rather than throws.
      */
     public boolean startNotices() {
         final Path root = context.paths().messaging().mailboxes();
@@ -418,7 +481,8 @@ public final class MessageWatch implements AutoCloseable {
             return false;
         }
         try {
-            // Made here when it is not there yet: on a fresh account it came with the first task, after the daemon's
+            // Made here when it is not there yet: on a fresh account it came with the first task,
+            // after the daemon's
             // start, and nothing was ever noticed - every message waited for the timed pass.
             Files.createDirectories(root);
             watcher = root.getFileSystem().newWatchService();
@@ -477,7 +541,8 @@ public final class MessageWatch implements AutoCloseable {
                 return;
             }
             if (running) {
-                // Only the moving: a written message leaves now, not after every conversation was asked.
+                // Only the moving: a written message leaves now, not after every conversation was
+                // asked.
                 moveOnce("a notice");
             }
         }
@@ -485,17 +550,22 @@ public final class MessageWatch implements AutoCloseable {
 
     private void watch(final Path mailbox) {
         final Mailbox box = new Mailbox(mailbox);
-        // And accepted/, where a person's release puts a held message back: it went out only at the next minute's pass
+        // And accepted/, where a person's release puts a held message back: it went out only at the
+        // next minute's pass
         // (walk 10, 2026-10-04).
-        // And person/, where 'porelo talk say' writes a person's message: unwatched, it went only with whatever pass
+        // And person/, where 'porelo talk say' writes a person's message: unwatched, it went only
+        // with whatever pass
         // came next, up to the timed one.
-        for (final Path directory : List.of(box.outboxNew(), box.inbound(), box.accepted(), box.person())) {
+        for (final Path directory :
+                List.of(box.outboxNew(), box.inbound(), box.accepted(), box.person())) {
             try {
                 register(directory);
             } catch (final IOException | RuntimeException ex) {
                 // A mailbox that cannot be watched is one the timer still reaches. Refusing to
-                // watch anything because one directory is missing would be worse; saying nothing left a person
-                // wondering why its messages took a minute, as when the machine's inotify watches run out.
+                // watch anything because one directory is missing would be worse; saying nothing
+                // left a person
+                // wondering why its messages took a minute, as when the machine's inotify watches
+                // run out.
                 notWatched(directory, ex);
             }
         }
@@ -504,8 +574,14 @@ public final class MessageWatch implements AutoCloseable {
     private void notWatched(final Path directory, final Exception why) {
         final String reason = why.getMessage() == null ? why.toString() : why.getMessage();
         unwatched.put(directory, reason);
-        said("message watch: not watching " + directory + " (" + reason + "); what lands there moves with the pass every "
-                + interval.toSeconds() + " seconds");
+        said(
+                "message watch: not watching "
+                        + directory
+                        + " ("
+                        + reason
+                        + "); what lands there moves with the pass every "
+                        + interval.toSeconds()
+                        + " seconds");
     }
 
     /**
@@ -537,7 +613,8 @@ public final class MessageWatch implements AutoCloseable {
                 watcher = null;
             }
         }
-        // Waited for, never interrupted: a pass that is moving a message finishes the move, and only then may the
+        // Waited for, never interrupted: a pass that is moving a message finishes the move, and
+        // only then may the
         // caller take the mail directories away.
         final Thread thread = noticing;
         if (thread != null && thread != Thread.currentThread()) {
@@ -556,15 +633,16 @@ public final class MessageWatch implements AutoCloseable {
      * @return Its project's name.
      */
     /**
-     * Runs every project's conversation once, so what arrived there is in each task's inbound before that
-     * task's pass delivers, and lets the pass send as each task.
+     * Runs every project's conversation once, so what arrived there is in each task's inbound
+     * before that task's pass delivers, and lets the pass send as each task.
      *
      * @param pass The pass that follows.
      * @param mailboxes The mailboxes it moves along.
      * @return What the conversations could not do.
      */
     List<String> conversations(final MessagePass pass, final List<Path> mailboxes) {
-        final TransportConversations conversations = new TransportConversations(context, pass.transports());
+        final TransportConversations conversations =
+                new TransportConversations(context, pass.transports());
         final java.util.Map<String, String> projects = new java.util.LinkedHashMap<>();
         final List<TransportConversations.Member> members = members(mailboxes, projects);
         waiting(pass.transports(), members);
@@ -575,8 +653,12 @@ public final class MessageWatch implements AutoCloseable {
             failures.add("messages wait: " + waits);
             waitedForTheVault();
         }
-        pass.acting((transport, container) -> projects.get(container) == null ? null
-                : conversations.acting(transport, projects.get(container), container));
+        pass.acting(
+                (transport, container) ->
+                        projects.get(container) == null
+                                ? null
+                                : conversations.acting(
+                                        transport, projects.get(container), container));
         return failures;
     }
 
@@ -587,8 +669,8 @@ public final class MessageWatch implements AutoCloseable {
      * @param projects Filled with each of those tasks' project.
      * @return Each task once per conversation it takes part in.
      */
-    private List<TransportConversations.Member> members(final List<Path> mailboxes,
-            final java.util.Map<String, String> projects) {
+    private List<TransportConversations.Member> members(
+            final List<Path> mailboxes, final java.util.Map<String, String> projects) {
         final List<TransportConversations.Member> members = new ArrayList<>();
         for (final Path mailbox : mailboxes) {
             final String container = mailbox.getFileName().toString();
@@ -597,15 +679,21 @@ public final class MessageWatch implements AutoCloseable {
                 projects.put(container, project);
             }
         }
-        // Every task of those projects on this machine takes part, not only the ones this pass moves: what arrives in a
-        // conversation is for whichever task it names. A pass for one task handed out to that task alone, so a message
-        // for its peer named nobody here and was deleted - lost after the transport had delivered it.
+        // Every task of those projects on this machine takes part, not only the ones this pass
+        // moves: what arrives in a
+        // conversation is for whichever task it names. A pass for one task handed out to that task
+        // alone, so a message
+        // for its peer named nobody here and was deleted - lost after the transport had delivered
+        // it.
         final java.util.Set<Path> taking = new java.util.LinkedHashSet<>(mailboxes);
         final Path all = context.paths().messaging().mailbox("porelo-x-x").getParent();
         if (all != null && Files.isDirectory(all)) {
             try (java.util.stream.Stream<Path> found = Files.list(all)) {
                 found.filter(Files::isDirectory)
-                        .filter(each -> projects.containsValue(projectOf(each.getFileName().toString())))
+                        .filter(
+                                each ->
+                                        projects.containsValue(
+                                                projectOf(each.getFileName().toString())))
                         .forEach(taking::add);
             } catch (final java.io.IOException ex) {
                 // The ones asked for still take part.
@@ -618,15 +706,17 @@ public final class MessageWatch implements AutoCloseable {
                 continue;
             }
             for (final String scheme : peersOf(container).conversations()) {
-                members.add(new TransportConversations.Member(container, new Mailbox(mailbox), project, scheme));
+                members.add(
+                        new TransportConversations.Member(
+                                container, new Mailbox(mailbox), project, scheme));
             }
         }
         return members;
     }
 
     /**
-     * Says what a conversation could not do, once per sentence: a transport that is misconfigured stays so
-     * until somebody fixes it, and saying it every minute buries everything else.
+     * Says what a conversation could not do, once per sentence: a transport that is misconfigured
+     * stays so until somebody fixes it, and saying it every minute buries everything else.
      *
      * @param failures What went wrong this pass.
      */
@@ -635,88 +725,133 @@ public final class MessageWatch implements AutoCloseable {
             new java.util.concurrent.ConcurrentHashMap<>();
 
     /**
-     * Keeps a poll waiting on the server for each conversation whose transport can wait, so a person's word reaches
-     * the task in seconds rather than at the next minute's pass (walk 10, 2026-10-04).
+     * Keeps a poll waiting on the server for each conversation whose transport can wait, so a
+     * person's word reaches the task in seconds rather than at the next minute's pass (walk 10,
+     * 2026-10-04).
      */
-    private void waiting(final TransportDirectory transports, final List<TransportConversations.Member> members) {
-        final java.util.Map<String, List<TransportConversations.Member>> groups = new java.util.LinkedHashMap<>();
-        members.forEach(member -> groups.computeIfAbsent(TransportConversations.key(member.scheme(), member.project()),
-                key -> new ArrayList<>()).add(member));
+    private void waiting(
+            final TransportDirectory transports,
+            final List<TransportConversations.Member> members) {
+        final java.util.Map<String, List<TransportConversations.Member>> groups =
+                new java.util.LinkedHashMap<>();
+        members.forEach(
+                member ->
+                        groups.computeIfAbsent(
+                                        TransportConversations.key(
+                                                member.scheme(), member.project()),
+                                        key -> new ArrayList<>())
+                                .add(member));
         conversing.keySet().retainAll(groups.keySet());
         conversing.putAll(groups);
         if (interval.isZero() || interval.isNegative()) {
             // A pass by hand, never a daemon: nothing keeps a loop running after it.
             return;
         }
-        // And each task's direct chats, in a loop of its own, so no other poll of its account runs beside it.
+        // And each task's direct chats, in a loop of its own, so no other poll of its account runs
+        // beside it.
         for (final TransportConversations.Member member : members) {
             final Path adapter = transports.find(member.scheme());
             final String key = TransportConversations.key(member.scheme(), member.container());
             if (adapter == null) {
                 continue;
             }
-            final TransportDescription described = TransportDescription.of(context.runner(), adapter);
-            if (!described.takes(TransportConversations.WAITS) || !described.takes(TransportConversations.DIRECT)
+            final TransportDescription described =
+                    TransportDescription.of(context.runner(), adapter);
+            if (!described.takes(TransportConversations.WAITS)
+                    || !described.takes(TransportConversations.DIRECT)
                     || !TransportConversations.WAITING.add(key)) {
                 continue;
             }
             final String group = TransportConversations.key(member.scheme(), member.project());
-            BackgroundPass.start("porelo-direct-" + member.container(), () -> {
-                try {
-                    while (running && conversing.getOrDefault(group, List.of()).stream()
-                            .anyMatch(each -> each.container().equals(member.container()))) {
-                        final long asked = System.nanoTime();
-                        final TransportConversations conversations = new TransportConversations(context, transports);
-                        final TransportConversations.Outcome got = conversations.waitDirect(member);
-                        say(got.failures());
-                        if (!got.handed().isEmpty() && running) {
-                            // Delivered now, then marked read: no conversation step stands in between.
-                            System.out.println("messages  " + member.container() + "'s direct chat answered after "
-                                    + millis(asked, System.nanoTime()) + " ms with " + got.handed().size()
-                                    + " message(s)");
-                            moveOnce("a direct chat's answer");
-                            say(conversations.confirm(List.of(member)));
+            BackgroundPass.start(
+                    "porelo-direct-" + member.container(),
+                    () -> {
+                        try {
+                            while (running
+                                    && conversing.getOrDefault(group, List.of()).stream()
+                                            .anyMatch(
+                                                    each ->
+                                                            each.container()
+                                                                    .equals(member.container()))) {
+                                final long asked = System.nanoTime();
+                                final TransportConversations conversations =
+                                        new TransportConversations(context, transports);
+                                final TransportConversations.Outcome got =
+                                        conversations.waitDirect(member);
+                                say(got.failures());
+                                if (!got.handed().isEmpty() && running) {
+                                    // Delivered now, then marked read: no conversation step stands
+                                    // in between.
+                                    System.out.println(
+                                            "messages  "
+                                                    + member.container()
+                                                    + "'s direct chat answered after "
+                                                    + millis(asked, System.nanoTime())
+                                                    + " ms with "
+                                                    + got.handed().size()
+                                                    + " message(s)");
+                                    moveOnce("a direct chat's answer");
+                                    say(conversations.confirm(List.of(member)));
+                                }
+                                Thread.sleep(
+                                        pause(got, Duration.ofNanos(System.nanoTime() - asked))
+                                                .toMillis());
+                            }
+                        } catch (final InterruptedException ex) {
+                            Thread.currentThread().interrupt();
+                        } finally {
+                            TransportConversations.WAITING.remove(key);
                         }
-                        Thread.sleep(pause(got, Duration.ofNanos(System.nanoTime() - asked)).toMillis());
-                    }
-                } catch (final InterruptedException ex) {
-                    Thread.currentThread().interrupt();
-                } finally {
-                    TransportConversations.WAITING.remove(key);
-                }
-            });
+                    });
         }
-        groups.forEach((key, group) -> {
-            final Path adapter = transports.find(group.getFirst().scheme());
-            if (adapter == null || !TransportDescription.of(context.runner(), adapter).takes(TransportConversations.WAITS)
-                    || !TransportConversations.WAITING.add(key)) {
-                return;
-            }
-            BackgroundPass.start("porelo-conversation-" + group.getFirst().project(), () -> {
-                try {
-                    while (running) {
-                        final List<TransportConversations.Member> now = conversing.get(key);
-                        if (now == null || now.isEmpty()) {
-                            return;
-                        }
-                        final long asked = System.nanoTime();
-                        final TransportConversations conversations = new TransportConversations(context, transports);
-                        final TransportConversations.Outcome got = conversations.waitOnce(now);
-                        say(got.failures());
-                        if (!got.handed().isEmpty() && running) {
-                            System.out.println(answered(key, millis(asked, System.nanoTime()), got.handed().size()));
-                            moveOnce("a conversation's answer");
-                            say(conversations.confirm(now));
-                        }
-                        Thread.sleep(pause(got, Duration.ofNanos(System.nanoTime() - asked)).toMillis());
+        groups.forEach(
+                (key, group) -> {
+                    final Path adapter = transports.find(group.getFirst().scheme());
+                    if (adapter == null
+                            || !TransportDescription.of(context.runner(), adapter)
+                                    .takes(TransportConversations.WAITS)
+                            || !TransportConversations.WAITING.add(key)) {
+                        return;
                     }
-                } catch (final InterruptedException ex) {
-                    Thread.currentThread().interrupt();
-                } finally {
-                    TransportConversations.WAITING.remove(key);
-                }
-            });
-        });
+                    BackgroundPass.start(
+                            "porelo-conversation-" + group.getFirst().project(),
+                            () -> {
+                                try {
+                                    while (running) {
+                                        final List<TransportConversations.Member> now =
+                                                conversing.get(key);
+                                        if (now == null || now.isEmpty()) {
+                                            return;
+                                        }
+                                        final long asked = System.nanoTime();
+                                        final TransportConversations conversations =
+                                                new TransportConversations(context, transports);
+                                        final TransportConversations.Outcome got =
+                                                conversations.waitOnce(now);
+                                        say(got.failures());
+                                        if (!got.handed().isEmpty() && running) {
+                                            System.out.println(
+                                                    answered(
+                                                            key,
+                                                            millis(asked, System.nanoTime()),
+                                                            got.handed().size()));
+                                            moveOnce("a conversation's answer");
+                                            say(conversations.confirm(now));
+                                        }
+                                        Thread.sleep(
+                                                pause(
+                                                                got,
+                                                                Duration.ofNanos(
+                                                                        System.nanoTime() - asked))
+                                                        .toMillis());
+                                    }
+                                } catch (final InterruptedException ex) {
+                                    Thread.currentThread().interrupt();
+                                } finally {
+                                    TransportConversations.WAITING.remove(key);
+                                }
+                            });
+                });
     }
 
     /** How long a loop that waits on a transport rests when the transport did not wait. */
@@ -726,10 +861,10 @@ public final class MessageWatch implements AutoCloseable {
     static final Duration WAITED = Duration.ofSeconds(2);
 
     /**
-     * Returns how long a loop rests before it waits on its transport again: not at all after something came or after a
-     * wait that waited, {@link #IDLE} after a failure or a wait that came back at once with nothing. Without a vault
-     * entry for an account, or with the vault shut, a wait returns at once, and two such loops turned two cores for
-     * hours.
+     * Returns how long a loop rests before it waits on its transport again: not at all after
+     * something came or after a wait that waited, {@link #IDLE} after a failure or a wait that came
+     * back at once with nothing. Without a vault entry for an account, or with the vault shut, a
+     * wait returns at once, and two such loops turned two cores for hours.
      *
      * @param got What the wait brought.
      * @param took How long it took.
@@ -751,25 +886,32 @@ public final class MessageWatch implements AutoCloseable {
         reported.retainAll(failures);
     }
 
-    private final java.util.Set<String> reported = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private final java.util.Set<String> reported =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     /**
-     * Wakes a task's agent at rest when what this pass gave it names it: {@code @agentname}, or a direct chat.
-     * Once a pass, however many arrived; never for the room's other talk, which it reads when it next looks.
+     * Wakes a task's agent at rest when what this pass gave it names it: {@code @agentname}, or a
+     * direct chat. Once a pass, however many arrived; never for the room's other talk, which it
+     * reads when it next looks.
      */
-    private void woken(final String container, final Mailbox mailbox, final MessagePass.Report report) {
+    private void woken(
+            final String container, final Mailbox mailbox, final MessagePass.Report report) {
         final AgentWake wake = new AgentWake(context);
         wake.announce(mailbox, container, projectOf(container));
-        // And of a file that arrived while it worked: a hand-in tells it at once only when it waits at its prompt.
+        // And of a file that arrived while it worked: a hand-in tells it at once only when it waits
+        // at its prompt.
         wake.announceFiles(container);
     }
 
-    /** The projects as the move on this thread read them once, so each of its mailboxes does not read them again. */
+    /**
+     * The projects as the move on this thread read them once, so each of its mailboxes does not
+     * read them again.
+     */
     private static final ThreadLocal<List<ProjectInventory.Summary>> READ = new ThreadLocal<>();
 
     /**
-     * Returns this machine's projects: as the running move read them, else read now. A move asked for them three times
-     * a mailbox, each time reading every project's file.
+     * Returns this machine's projects: as the running move read them, else read now. A move asked
+     * for them three times a mailbox, each time reading every project's file.
      */
     private List<ProjectInventory.Summary> projects() {
         final List<ProjectInventory.Summary> read = READ.get();
@@ -777,11 +919,16 @@ public final class MessageWatch implements AutoCloseable {
     }
 
     private @Nullable String projectOf(final String container) {
-        return ProjectNames.of(container, labels(),
+        return ProjectNames.of(
+                container,
+                labels(),
                 projects().stream().map(ProjectInventory.Summary::name).toList());
     }
 
-    /** How long the runtime's labels are taken as they were: a pass asks for every mailbox, and podman is slow. */
+    /**
+     * How long the runtime's labels are taken as they were: a pass asks for every mailbox, and
+     * podman is slow.
+     */
     private static final long LABELS_KEPT_MILLIS = 5000;
 
     private volatile java.util.Map<String, String> labels = java.util.Map.of();
@@ -801,8 +948,8 @@ public final class MessageWatch implements AutoCloseable {
      * Returns how a task's messages are watched: by its project's file, and held by a person.
      *
      * @param container The task.
-     * @return Its project's moderation; for a mailbox whose project or its file is gone, one where every peer
-     *         waits for a person, under the project's name or else the task's own.
+     * @return Its project's moderation; for a mailbox whose project or its file is gone, one where
+     *     every peer waits for a person, under the project's name or else the task's own.
      */
     Moderation moderationOf(final String container) {
         final String owner = projectOf(container);
@@ -839,18 +986,18 @@ public final class MessageWatch implements AutoCloseable {
 
     /**
      * Returns the project's written peers with its own other tasks added.
-     * <p>
-     * <strong>Nobody writes these down.</strong> A project is a unit of work over one or more
+     *
+     * <p><strong>Nobody writes these down.</strong> A project is a unit of work over one or more
      * repositories and a task works on exactly one of them, so coordination between repositories
      * happens between tasks - and a peer list somebody has to maintain for tasks this machine
      * starts and stops by itself would be wrong most of the time. The tasks of one project are
      * peers because they are tasks of one project.
-     * <p>
-     * <strong>A written peer of the same name wins.</strong> That is how an exception stays
+     *
+     * <p><strong>A written peer of the same name wins.</strong> That is how an exception stays
      * possible and stays explicit: naming a task in {@code mail.peers} sends to what the file says
      * rather than to the task next door.
-     * <p>
-     * <strong>Vouched, because this machine wrote them.</strong> Both mailboxes belong to this
+     *
+     * <p><strong>Vouched, because this machine wrote them.</strong> Both mailboxes belong to this
      * installation and this Unix user; a message between them was checked where it was written.
      *
      * @param project The project both tasks belong to.
@@ -865,46 +1012,66 @@ public final class MessageWatch implements AutoCloseable {
         if (people != null) {
             peers.add(people);
         }
-        // And each of them by the name they joined with, reached in a direct chat with them (2026-10-04).
+        // And each of them by the name they joined with, reached in a direct chat with them
+        // (2026-10-04).
         final java.util.Set<String> rooms = project.mail().conversations();
         if (!rooms.isEmpty()) {
-            final List<String> named = peers.stream().map(org.fuin.porelo.core.project.Mail.Peer::name).toList();
-            Conversations.members(context, project).forEach((person, account) -> {
-                if (!named.contains(person) && !org.fuin.porelo.core.project.Mail.PEOPLE.equals(person)) {
-                    try {
-                        peers.add(new org.fuin.porelo.core.project.Mail.Peer(person,
-                                rooms.iterator().next() + ":" + account,
-                                org.fuin.porelo.core.project.Mail.Peer.EXTERNAL));
-                    } catch (final org.fuin.porelo.core.project.ProjectException ex) {
-                        // A name no peer can carry: that person is reached in the room, as all of them are.
-                    }
-                }
-            });
+            final List<String> named =
+                    peers.stream().map(org.fuin.porelo.core.project.Mail.Peer::name).toList();
+            Conversations.members(context, project)
+                    .forEach(
+                            (person, account) -> {
+                                if (!named.contains(person)
+                                        && !org.fuin.porelo.core.project.Mail.PEOPLE.equals(
+                                                person)) {
+                                    try {
+                                        peers.add(
+                                                new org.fuin.porelo.core.project.Mail.Peer(
+                                                        person,
+                                                        rooms.iterator().next() + ":" + account,
+                                                        org.fuin.porelo.core.project.Mail.Peer
+                                                                .EXTERNAL));
+                                    } catch (
+                                            final org.fuin.porelo.core.project.ProjectException
+                                                    ex) {
+                                        // A name no peer can carry: that person is reached in the
+                                        // room, as all of them are.
+                                    }
+                                }
+                            });
         }
-        final List<String> written = peers.stream()
-                .map(org.fuin.porelo.core.project.Mail.Peer::name).toList();
+        final List<String> written =
+                peers.stream().map(org.fuin.porelo.core.project.Mail.Peer::name).toList();
         for (final org.fuin.porelo.runtime.ContainerSummary task : context.podman().poreloTasks()) {
             final String name = task.name();
-            if (name.equals(container) || !name.startsWith("porelo-" + project.name() + "-")
+            if (name.equals(container)
+                    || !name.startsWith("porelo-" + project.name() + "-")
                     || TaskInventory.ofAnotherProject(task, project.name()) != null) {
                 // Its label says whose it is: 'web-app''s tasks begin with 'porelo-web-' too.
                 continue;
             }
-            final String sibling = org.fuin.porelo.runtime.ContainerName.taskIn(project.name(), name);
+            final String sibling =
+                    org.fuin.porelo.runtime.ContainerName.taskIn(project.name(), name);
             if (sibling == null || written.contains(sibling)) {
                 continue;
             }
-            // Through the project's conversation, on whichever transport keeps it: a person in it sees what the
-            // tasks say to each other. A project without one is standalone - its tasks do not message each
+            // Through the project's conversation, on whichever transport keeps it: a person in it
+            // sees what the
+            // tasks say to each other. A project without one is standalone - its tasks do not
+            // message each
             // other at all (decided on 2026-09-30, when the local transport was retired).
             final java.util.Set<String> conversations = project.mail().conversations();
             if (conversations.isEmpty()) {
                 break;
             }
-            peers.add(new org.fuin.porelo.core.project.Mail.Peer(sibling, conversations.iterator().next() + ":",
-                    org.fuin.porelo.core.project.Mail.Peer.VOUCHED));
+            peers.add(
+                    new org.fuin.porelo.core.project.Mail.Peer(
+                            sibling,
+                            conversations.iterator().next() + ":",
+                            org.fuin.porelo.core.project.Mail.Peer.VOUCHED));
         }
-        return new Mail(List.copyOf(peers), project.mail().transports(), project.mail().outgoingReported());
+        return new Mail(
+                List.copyOf(peers), project.mail().transports(), project.mail().outgoingReported());
     }
 
     private List<Path> mailboxes() {

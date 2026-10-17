@@ -14,38 +14,46 @@ import picocli.CommandLine.Spec;
 
 /**
  * Reads dropped packets from an NFLOG group and prints them as line JSON.
- * <p>
- * Started by the reader hook, which enters the container's network namespace first. It is not a
+ *
+ * <p>Started by the reader hook, which enters the container's network namespace first. It is not a
  * command an operator would normally type, but it is genuinely useful when diagnosing a container
  * that cannot reach something, so it is not hidden.
- * <p>
- * This is also where the netlink downcalls are exercised in the shipped binary, which is how the
+ *
+ * <p>This is also where the netlink downcalls are exercised in the shipped binary, which is how the
  * hand-written FFM registrations in {@code porelo-shield} get verified rather than assumed.
  */
-@Command(name = "read",
+@Command(
+        name = "read",
         mixinStandardHelpOptions = true,
         description = "Reads blocked connections from the container's firewall log.")
 public class ShieldReadCommand implements Callable<Integer> {
 
-    @Option(names = "--group", paramLabel = "<n>",
+    @Option(
+            names = "--group",
+            paramLabel = "<n>",
             description = "NFLOG group to bind. Default: ${DEFAULT-VALUE}")
     private int group = NftRuleset.NFLOG_GROUP;
 
-    @Option(names = "--count", paramLabel = "<n>",
+    @Option(
+            names = "--count",
+            paramLabel = "<n>",
             description = "Stop after this many events. Zero means run until killed.")
     private int count;
 
-    @Option(names = "--all",
-            description = "Reports every dropped packet, including multicast and link-local noise and the retries of"
-                    + " one connection attempt.")
+    @Option(
+            names = "--all",
+            description =
+                    "Reports every dropped packet, including multicast and link-local noise and the retries of"
+                            + " one connection attempt.")
     private boolean all;
 
-    @Option(names = "--report-to", paramLabel = "<socket>",
+    @Option(
+            names = "--report-to",
+            paramLabel = "<socket>",
             description = "Sends each event to a clearance service over varlink instead of stdout.")
     private java.nio.file.@Nullable Path reportTo;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     @Override
     public Integer call() throws java.io.IOException {
@@ -56,28 +64,31 @@ public class ShieldReadCommand implements Callable<Integer> {
         try (NflogReader reader = new NflogReader(group);
                 org.fuin.porelo.wire.varlink.VarlinkClient client = connect()) {
 
-            final int[] seen = { 0 };
+            final int[] seen = {0};
             final org.fuin.porelo.shield.RetryFold fold = new org.fuin.porelo.shield.RetryFold();
-            reader.readUntilStopped(event -> {
-                if (!all && !event.worthAsking()) {
-                    // Router solicitations and multicast listener reports are dropped by the
-                    // default-deny chain too. Passing them on would bury the events that matter.
-                    return;
-                }
-                if (!all && !fold.isNew(event)) {
-                    // A retry of an attempt already said: one attempt is one line.
-                    return;
-                }
-                if (client == null) {
-                    out.println(event.toJson());
-                    out.flush();
-                } else {
-                    report(client, event, err);
-                }
-                if (count > 0 && ++seen[0] >= count) {
-                    reader.stop();
-                }
-            });
+            reader.readUntilStopped(
+                    event -> {
+                        if (!all && !event.worthAsking()) {
+                            // Router solicitations and multicast listener reports are dropped by
+                            // the
+                            // default-deny chain too. Passing them on would bury the events that
+                            // matter.
+                            return;
+                        }
+                        if (!all && !fold.isNew(event)) {
+                            // A retry of an attempt already said: one attempt is one line.
+                            return;
+                        }
+                        if (client == null) {
+                            out.println(event.toJson());
+                            out.flush();
+                        } else {
+                            report(client, event, err);
+                        }
+                        if (count > 0 && ++seen[0] >= count) {
+                            reader.stop();
+                        }
+                    });
             return 0;
 
         } catch (NetlinkException ex) {
@@ -91,14 +102,16 @@ public class ShieldReadCommand implements Callable<Integer> {
     }
 
     private org.fuin.porelo.wire.varlink.@Nullable VarlinkClient connect() {
-        return reportTo == null ? null
-                : new org.fuin.porelo.wire.varlink.VarlinkClient(reportTo);
+        return reportTo == null ? null : new org.fuin.porelo.wire.varlink.VarlinkClient(reportTo);
     }
 
-    private void report(org.fuin.porelo.wire.varlink.VarlinkClient client,
-            BlockedConnection event, PrintWriter err) {
+    private void report(
+            org.fuin.porelo.wire.varlink.VarlinkClient client,
+            BlockedConnection event,
+            PrintWriter err) {
         try {
-            client.call(org.fuin.porelo.clearance.ClearanceService.INTERFACE + ".Report",
+            client.call(
+                    org.fuin.porelo.clearance.ClearanceService.INTERFACE + ".Report",
                     java.util.Map.of(
                             "prefix", event.prefix(),
                             "protocol", event.protocolName(),

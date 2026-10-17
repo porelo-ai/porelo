@@ -13,8 +13,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Tests for logging in with an agent.
- * <p>
- * What can be asserted without a real agent is the shape of the refusals and the shape of the
+ *
+ * <p>What can be asserted without a real agent is the shape of the refusals and the shape of the
  * image this builds - and the second matters more than it looks, because a login container that
  * came out looking like a task container would be given a task's ruleset and a task's broker, and
  * an agent cannot log in through a broker that swaps in the credential it is trying to obtain.
@@ -26,11 +26,15 @@ class AgentLoginTest {
     private final StringWriter out = new StringWriter();
 
     private PoreloContext context(Path dir) {
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
         return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), command -> 0);
     }
 
@@ -45,8 +49,10 @@ class AgentLoginTest {
         AgentLogin.login(context(dir), null, false, false, new PrintWriter(out, true));
 
         assertThat(runner.lines())
-                .anyMatch(line -> line.startsWith("podman rm")
-                        && line.contains("porelo-login-1788886971400"));
+                .anyMatch(
+                        line ->
+                                line.startsWith("podman rm")
+                                        && line.contains("porelo-login-1788886971400"));
         // And nothing else: a task is not litter, whatever state it is in.
         assertThat(runner.lines()).noneMatch(line -> line.contains("porelo-uc-shell-1"));
     }
@@ -54,8 +60,8 @@ class AgentLoginTest {
     @Test
     void aMachineWithNoAgentSaysSoRatherThanFailing(@TempDir Path dir) {
 
-        final AgentLogin.Result result = AgentLogin.login(context(dir), null, false, false,
-                new PrintWriter(out, true));
+        final AgentLogin.Result result =
+                AgentLogin.login(context(dir), null, false, false, new PrintWriter(out, true));
 
         assertThat(result.outcome()).isEqualTo(AgentLogin.Outcome.NO_SUCH_AGENT);
         assertThat(result.detail()).isNotBlank();
@@ -79,14 +85,17 @@ class AgentLoginTest {
         // browser, a container has none and no display, and the attempt neither succeeds nor
         // reports anything - leaving somebody at a prompt that never continues, inside a
         // container they did not know how to leave. That is what happened the first time.
-        final String rendered = org.fuin.porelo.runtime.Containerfile.render(
-                AgentLogin.loginProject(),
-                org.fuin.porelo.runtime.ImageLayers.none()
-                        .and(AgentLogin.browserShim(), java.util.List.of()));
+        final String rendered =
+                org.fuin.porelo.runtime.Containerfile.render(
+                        AgentLogin.loginProject(),
+                        org.fuin.porelo.runtime.ImageLayers.none()
+                                .and(AgentLogin.browserShim(), java.util.List.of()));
 
         // All three standard names, because which one an agent reaches for is its own business.
-        assertThat(rendered).contains("/usr/local/bin/xdg-open")
-                .contains("sensible-browser").contains("www-browser");
+        assertThat(rendered)
+                .contains("/usr/local/bin/xdg-open")
+                .contains("sensible-browser")
+                .contains("www-browser");
         // BROWSER is set again, and both reversals happened for measured reasons rather than
         // taste. With it set, Claude Code redirects to a port on localhost instead of printing a
         // code; that port is unreachable from the operator's computer unless the
@@ -132,8 +141,8 @@ class AgentLoginTest {
 
         AgentLogin.login(context(dir), null, true, false, new PrintWriter(out, true));
 
-        assertThat(runner.invocations()).noneSatisfy(command ->
-                assertThat(command.arguments()).contains("build"));
+        assertThat(runner.invocations())
+                .noneSatisfy(command -> assertThat(command.arguments()).contains("build"));
     }
 
     @Test

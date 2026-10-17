@@ -5,12 +5,11 @@ import java.util.List;
 
 /**
  * A command that can say which names it would have accepted.
- * <p>
- * <strong>The name is not the hard part; finding it is.</strong> Every command here takes an
+ *
+ * <p><strong>The name is not the hard part; finding it is.</strong> Every command here takes an
  * argument naming something Porelo already knows about - a container, a project, an agent - and
- * refusing with "missing required parameter" makes somebody go and run another command to read
- * back a thirty-eight character name they then retype. What the machine knows, the refusal
- * should say.
+ * refusing with "missing required parameter" makes somebody go and run another command to read back
+ * a thirty-eight character name they then retype. What the machine knows, the refusal should say.
  */
 public interface Suggests {
 
@@ -30,13 +29,13 @@ public interface Suggests {
 
     /**
      * Writes the candidates, or says there are none.
-     * <p>
-     * <strong>An empty list is said out loud.</strong> Printing nothing would read as a command
-     * that had nothing to add, when what it means is that there is nothing on this machine to
-     * name - which is usually the actual answer somebody needed.
-     * <p>
-     * Never throws. This runs while a command is already failing, and asking the runtime can fail
-     * too; a stack trace here would replace a useful message with a worse one.
+     *
+     * <p><strong>An empty list is said out loud.</strong> Printing nothing would read as a command
+     * that had nothing to add, when what it means is that there is nothing on this machine to name
+     * - which is usually the actual answer somebody needed.
+     *
+     * <p>Never throws. This runs while a command is already failing, and asking the runtime can
+     * fail too; a stack trace here would replace a useful message with a worse one.
      *
      * @param err Where to write.
      * @param command The command that was refused.
@@ -45,8 +44,8 @@ public interface Suggests {
         try {
             final List<String> candidates = command.candidates();
             if (candidates.isEmpty()) {
-                err.println("porelo: there are no " + command.candidateLabel()
-                        + " on this machine");
+                err.println(
+                        "porelo: there are no " + command.candidateLabel() + " on this machine");
             } else {
                 err.println("porelo: the " + command.candidateLabel() + " here are:");
                 candidates.forEach(name -> err.println("         " + name));

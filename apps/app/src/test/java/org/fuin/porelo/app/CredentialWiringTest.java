@@ -9,8 +9,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Tests for what a task is told when it starts without a credential.
- * <p>
- * A launch does not stop for a missing credential - the task comes up and the agent fails to
+ *
+ * <p>A launch does not stop for a missing credential - the task comes up and the agent fails to
  * authenticate from inside - so this line is the only warning anybody gets, and it has to name the
  * thing they actually have to do.
  */
@@ -68,9 +68,11 @@ class CredentialWiringTest {
         // refusal for a missing agent two checks later already argues this exact case: a person
         // who asked for an agent must not be handed something that is not one.
         assertThat(TaskLaunch.refusesWithoutCredential(org.fuin.porelo.wire.TaskMode.AGENT))
-                .as("--attach agent asked for the agent itself").isTrue();
+                .as("--attach agent asked for the agent itself")
+                .isTrue();
         assertThat(TaskLaunch.refusesWithoutCredential(org.fuin.porelo.wire.TaskMode.UNATTENDED))
-                .as("nobody is watching an unattended run").isTrue();
+                .as("nobody is watching an unattended run")
+                .isTrue();
     }
 
     @Test
@@ -87,7 +89,9 @@ class CredentialWiringTest {
     void namesTheOneCommandThatGetsTheCredential() {
         // On 2026-10-09 a start said only that the vault held nothing for 'github-copilot'.
         final org.fuin.porelo.agent.api.ProviderDefinition copilot =
-                org.fuin.porelo.agent.api.ProviderDefinitionReader.read(new java.io.StringReader("""
+                org.fuin.porelo.agent.api.ProviderDefinitionReader.read(
+                        new java.io.StringReader(
+                                """
                         name: github-copilot
                         upstream: https://api.githubcopilot.com
                         dialects:
@@ -96,14 +100,18 @@ class CredentialWiringTest {
                           kind: oauth-device
                           device_authorization_url: https://github.com/login/device/code
                           token_url: https://github.com/login/oauth/access_token
-                        """), "github-copilot.yaml");
+                        """),
+                        "github-copilot.yaml");
         final org.fuin.porelo.agent.api.ProviderDefinition openrouter =
-                org.fuin.porelo.agent.api.ProviderDefinitionReader.read(new java.io.StringReader("""
+                org.fuin.porelo.agent.api.ProviderDefinitionReader.read(
+                        new java.io.StringReader(
+                                """
                         name: openrouter
                         upstream: https://openrouter.ai
                         dialects:
                           openai: "/api/v1"
-                        """), "openrouter.yaml");
+                        """),
+                        "openrouter.yaml");
 
         assertThat(TaskLaunch.nextStep(null, false, copilot, "github-copilot"))
                 .isEqualTo("Grant it first with 'porelo vault authorize github-copilot'; ");

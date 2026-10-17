@@ -7,10 +7,10 @@ import org.jspecify.annotations.Nullable;
 /**
  * The git endpoint a task pushes to: where it binds, where the firewall must let the container
  * reach it, and whether the two agree.
- * <p>
- * Split out of {@code TaskRunCommand} after {@link CredentialWiring}. The three questions here are
- * one decision seen from three sides, and getting them out of step is a push that hangs until it
- * times out - which is what happened when the address was a constant and podman answered with
+ *
+ * <p>Split out of {@code TaskRunCommand} after {@link CredentialWiring}. The three questions here
+ * are one decision seen from three sides, and getting them out of step is a push that hangs until
+ * it times out - which is what happened when the address was a constant and podman answered with
  * something else.
  */
 final class GateWiring {
@@ -34,7 +34,10 @@ final class GateWiring {
      * @param projectFile The project file this task runs from.
      * @param upstream Value of {@code --upstream}, or {@code null}.
      */
-    GateWiring(PoreloContext context, CredentialWiring.Recorder recorder, Path projectFile,
+    GateWiring(
+            PoreloContext context,
+            CredentialWiring.Recorder recorder,
+            Path projectFile,
             @Nullable String upstream) {
         this(context, recorder, projectFile, upstream, null);
     }
@@ -48,8 +51,12 @@ final class GateWiring {
      * @param upstream Value of {@code --upstream}, or {@code null}.
      * @param repository Which repository of the project, or {@code null} for its own.
      */
-    GateWiring(PoreloContext context, CredentialWiring.Recorder recorder, Path projectFile,
-            @Nullable String upstream, @Nullable String repository) {
+    GateWiring(
+            PoreloContext context,
+            CredentialWiring.Recorder recorder,
+            Path projectFile,
+            @Nullable String upstream,
+            @Nullable String repository) {
         this.context = context;
         this.recorder = recorder;
         this.projectFile = projectFile;
@@ -58,15 +65,17 @@ final class GateWiring {
     }
 
     /**
-     * What a task's gate and every git it starts may take together on the host. The agent holds the gate's token and
-     * can send it as much as it likes; beyond these the scope ends what exceeded them, never {@code porelod} or another
-     * task. Half the default CPU weight, so the daemon and the rest of the machine come first.
+     * What a task's gate and every git it starts may take together on the host. The agent holds the
+     * gate's token and can send it as much as it likes; beyond these the scope ends what exceeded
+     * them, never {@code porelod} or another task. Half the default CPU weight, so the daemon and
+     * the rest of the machine come first.
      */
-    static final java.util.List<String> LIMITS = java.util.List.of("MemoryMax=1G", "TasksMax=256", "CPUWeight=50");
+    static final java.util.List<String> LIMITS =
+            java.util.List.of("MemoryMax=1G", "TasksMax=256", "CPUWeight=50");
 
     /**
-     * Returns the command that serves a task's gate: apart from starting it, so what it is told is checked without a
-     * {@code porelo} on the machine to start.
+     * Returns the command that serves a task's gate: apart from starting it, so what it is told is
+     * checked without a {@code porelo} on the machine to start.
      *
      * @param project The task's project.
      * @param bind Where the gate listens.
@@ -76,23 +85,39 @@ final class GateWiring {
      * @param repository Which repository of the project, or {@code null} for its own.
      * @return The command.
      */
-    static java.util.List<String> serving(final org.fuin.porelo.core.project.Project project, final String bind,
-            final int port, final java.nio.file.Path state, final String taskName,
+    static java.util.List<String> serving(
+            final org.fuin.porelo.core.project.Project project,
+            final String bind,
+            final int port,
+            final java.nio.file.Path state,
+            final String taskName,
             final @Nullable String repository) {
-        final java.util.List<String> command = new java.util.ArrayList<>(java.util.List.of(
-                PoreloBinary.path(),
-                "gate", "serve",
-                // The NAME, because that is what 'gate serve' takes now. It resolves on its own
-                // side, and by the time this runs the launch has recorded where the file is - so
-                // the gate and the task cannot end up reading two different files.
-                "--project", project.name(),
-                "--address", bind,
-                "--port", String.valueOf(port),
-                "--pid-file", state.resolve("gate.pid").toString(),
-                // The one ref this task may push to: nothing else in the mirror is the task's to move.
-                "--ref", org.fuin.porelo.gate.GitGate.INCOMING + taskName));
+        final java.util.List<String> command =
+                new java.util.ArrayList<>(
+                        java.util.List.of(
+                                PoreloBinary.path(),
+                                "gate",
+                                "serve",
+                                // The NAME, because that is what 'gate serve' takes now. It
+                                // resolves on its own
+                                // side, and by the time this runs the launch has recorded where the
+                                // file is - so
+                                // the gate and the task cannot end up reading two different files.
+                                "--project",
+                                project.name(),
+                                "--address",
+                                bind,
+                                "--port",
+                                String.valueOf(port),
+                                "--pid-file",
+                                state.resolve("gate.pid").toString(),
+                                // The one ref this task may push to: nothing else in the mirror is
+                                // the task's to move.
+                                "--ref",
+                                org.fuin.porelo.gate.GitGate.INCOMING + taskName));
         if (project.securityClass() == org.fuin.porelo.core.project.SecurityClass.ONLINE) {
-            // An online task's push goes on to the upstream at once, from here, with the host's key; its container
+            // An online task's push goes on to the upstream at once, from here, with the host's
+            // key; its container
             // holds none.
             command.add("--pass-on");
         }
@@ -106,35 +131,57 @@ final class GateWiring {
         return command;
     }
 
-    void startGate(TaskRunner runner, TaskWorkspace workspace,
-            @org.jspecify.annotations.Nullable String gateAddress, String container, String taskName,
-            org.fuin.porelo.core.project.Project project, PrintWriter out,
+    void startGate(
+            TaskRunner runner,
+            TaskWorkspace workspace,
+            @org.jspecify.annotations.Nullable String gateAddress,
+            String container,
+            String taskName,
+            org.fuin.porelo.core.project.Project project,
+            PrintWriter out,
             PrintWriter err) {
 
         final java.nio.file.Path state = context.paths().tasks().containerState(container);
-        final java.util.List<String> command = serving(project, gateBind(gateAddress, err), workspace.port(), state,
-                taskName, repository);
+        final java.util.List<String> command =
+                serving(
+                        project,
+                        gateBind(gateAddress, err),
+                        workspace.port(),
+                        state,
+                        taskName,
+                        repository);
 
         try {
-            final ProcessBuilder builder = new ProcessBuilder(org.fuin.porelo.core.process.Scope.around(
-                    "porelo " + container + " gate", command, LIMITS))
-                    .redirectErrorStream(true)
-                    .redirectOutput(state.resolve("gate.log").toFile());
-            builder.environment().put("PORELO_GATE_TOKEN", java.util.Objects.requireNonNull(workspace.token(),
-                    "a gated workspace has a token").value());
+            final ProcessBuilder builder =
+                    new ProcessBuilder(
+                                    org.fuin.porelo.core.process.Scope.around(
+                                            "porelo " + container + " gate", command, LIMITS))
+                            .redirectErrorStream(true)
+                            .redirectOutput(state.resolve("gate.log").toFile());
+            builder.environment()
+                    .put(
+                            "PORELO_GATE_TOKEN",
+                            java.util.Objects.requireNonNull(
+                                            workspace.token(), "a gated workspace has a token")
+                                    .value());
             if (upstream != null) {
                 builder.environment().put("PORELO_GATE_UPSTREAM", upstream);
             }
             builder.start();
-            recorder.record("gate", command, java.util.Map.copyOf(builder.environment().entrySet()
-                    .stream()
-                    .filter(entry -> entry.getKey().startsWith("PORELO_GATE_"))
-                    .collect(java.util.stream.Collectors.toMap(
-                            java.util.Map.Entry::getKey, java.util.Map.Entry::getValue))),
+            recorder.record(
+                    "gate",
+                    command,
+                    java.util.Map.copyOf(
+                            builder.environment().entrySet().stream()
+                                    .filter(entry -> entry.getKey().startsWith("PORELO_GATE_"))
+                                    .collect(
+                                            java.util.stream.Collectors.toMap(
+                                                    java.util.Map.Entry::getKey,
+                                                    java.util.Map.Entry::getValue))),
                     TaskHelpers.AFTER);
             out.println("gate      " + workspace.url(project));
-            final String mismatch = gateAddress == null ? null
-                    : gateReachability(runner, container, gateAddress);
+            final String mismatch =
+                    gateAddress == null ? null : gateReachability(runner, container, gateAddress);
             if (mismatch != null) {
                 err.println("porelo: " + mismatch);
                 err.flush();
@@ -148,13 +195,13 @@ final class GateWiring {
 
     /**
      * Returns the address the git gate binds.
-     * <p>
-     * Loopback wherever that works, so the endpoint an agent pushes to is not on the operator's
+     *
+     * <p>Loopback wherever that works, so the endpoint an agent pushes to is not on the operator's
      * network at all. It works because {@link org.fuin.porelo.runtime.LoopbackMapping} tells pasta
-     * to send the container's address for this host to the host's loopback - which podman only
-     * does under pasta, and ignores in silence under slirp4netns.
-     * <p>
-     * The fallback binds every interface rather than refusing to run: an unreachable gate breaks
+     * to send the container's address for this host to the host's loopback - which podman only does
+     * under pasta, and ignores in silence under slirp4netns.
+     *
+     * <p>The fallback binds every interface rather than refusing to run: an unreachable gate breaks
      * the task, while a reachable one still needs the per-task token every request carries. It is
      * said out loud, because that is a difference an operator should know about their machine.
      *
@@ -162,8 +209,7 @@ final class GateWiring {
      * @param err Where the fallback is reported.
      * @return Address to bind.
      */
-    String gateBind(@org.jspecify.annotations.Nullable String gateAddress,
-            PrintWriter err) {
+    String gateBind(@org.jspecify.annotations.Nullable String gateAddress, PrintWriter err) {
 
         final String mapped = org.fuin.porelo.runtime.ContainerSpec.HOST_LOOPBACK;
         final java.util.Optional<String> rootless = context.podman().rootlessNetworkCmd();
@@ -172,27 +218,34 @@ final class GateWiring {
         if (pasta && mapped.equals(gateAddress)) {
             return "127.0.0.1";
         }
-        final String reason = pasta
-                ? "a container reaches this host at " + gateAddress + ", not " + mapped
-                        + ", which is the address pasta was told to map"
-                : "podman connects a rootless container with "
-                        + rootless.orElse("something it will not name")
-                        + ", and only pasta can map the host's loopback";
-        err.println("porelo: the git gate is bound to every interface and is reachable from this"
-                + " machine's network: " + reason + "; the per-task token is what keeps it shut");
+        final String reason =
+                pasta
+                        ? "a container reaches this host at "
+                                + gateAddress
+                                + ", not "
+                                + mapped
+                                + ", which is the address pasta was told to map"
+                        : "podman connects a rootless container with "
+                                + rootless.orElse("something it will not name")
+                                + ", and only pasta can map the host's loopback";
+        err.println(
+                "porelo: the git gate is bound to every interface and is reachable from this"
+                        + " machine's network: "
+                        + reason
+                        + "; the per-task token is what keeps it shut");
         err.flush();
         return "0.0.0.0";
     }
 
     /**
      * Returns the address the firewall must open for the git gate.
-     * <p>
-     * Asked of podman rather than assumed. The name podman uses does not resolve on the host, so
+     *
+     * <p>Asked of podman rather than assumed. The name podman uses does not resolve on the host, so
      * this was a constant - and the constant is wrong on podman 4, which answers with the host's
      * own LAN address instead of pasta's {@code 169.254.1.2}. Ubuntu 24.04 LTS ships podman 4.9.3,
      * so every gate there was firewalled off and every push hung until it timed out.
-     * <p>
-     * Costs one throwaway container against an image the task already needs. When podman cannot
+     *
+     * <p>Costs one throwaway container against an image the task already needs. When podman cannot
      * answer, the old constant is used and said so: a wrong guess breaks the gate, which is
      * recoverable, while refusing to run breaks the task, which is not.
      *
@@ -205,19 +258,21 @@ final class GateWiring {
         if (asked.isPresent()) {
             return asked.get();
         }
-        err.println("porelo: could not ask podman where a container reaches"
-                + " this host; assuming " + TaskWorkspace.gateAddress()
-                + ", and the git gate will not work if that is wrong");
+        err.println(
+                "porelo: could not ask podman where a container reaches"
+                        + " this host; assuming "
+                        + TaskWorkspace.gateAddress()
+                        + ", and the git gate will not work if that is wrong");
         return TaskWorkspace.gateAddress();
     }
 
     /**
      * Asks the container where it reaches this host, and compares that with the address the
      * firewall was told to allow.
-     * <p>
-     * The two are derived independently - one by podman, one by
-     * {@link TaskWorkspace#gateAddress()} - and when they disagreed the only symptom was a push
-     * that hung for two minutes and then failed to connect. Cheap to check, so it is checked.
+     *
+     * <p>The two are derived independently - one by podman, one by {@link
+     * TaskWorkspace#gateAddress()} - and when they disagreed the only symptom was a push that hung
+     * for two minutes and then failed to connect. Cheap to check, so it is checked.
      *
      * @param container Container name.
      * @return {@code null} if the gate is reachable, otherwise a message saying why not.
@@ -226,9 +281,13 @@ final class GateWiring {
         try {
             final java.nio.file.Path out = java.nio.file.Files.createTempFile("porelo-hosts", "");
             try {
-                final int code = runner.execute(container, java.util.Map.of(),
-                        java.util.List.of("cat", "/etc/hosts"), out,
-                        java.time.Duration.ofSeconds(20));
+                final int code =
+                        runner.execute(
+                                container,
+                                java.util.Map.of(),
+                                java.util.List.of("cat", "/etc/hosts"),
+                                out,
+                                java.time.Duration.ofSeconds(20));
                 if (code != 0) {
                     return null;
                 }

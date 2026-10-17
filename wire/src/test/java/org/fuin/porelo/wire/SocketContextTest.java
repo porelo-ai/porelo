@@ -10,14 +10,13 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Tests for {@link SocketContext}.
- * <p>
- * The behavior that matters is only observable on a machine running SELinux, so the checks that
+ *
+ * <p>The behavior that matters is only observable on a machine running SELinux, so the checks that
  * need one say so rather than being asserted everywhere and passing for the wrong reason.
  */
 class SocketContextTest {
 
-    @TempDir
-    Path dir;
+    @TempDir Path dir;
 
     static boolean selinux() {
         return Files.isRegularFile(Path.of("/sys/fs/selinux/enforce"));
@@ -30,7 +29,8 @@ class SocketContextTest {
 
     @Test
     void takesAnEmptyMountPointForNoSelinux() {
-        // WSL2's kernel has SELinux built in and leaves /sys/fs/selinux as an empty directory without running it:
+        // WSL2's kernel has SELinux built in and leaves /sys/fs/selinux as an empty directory
+        // without running it:
         // doctor called the policy missing on a machine that needs none.
         assertThat(SocketContext.selinuxPresent(dir)).isFalse();
     }
@@ -67,8 +67,11 @@ class SocketContextTest {
 
         assertThat(context).endsWith(":object_r:" + SocketContext.TYPE + ":s0");
         assertThat(context.split(":")[0])
-                .isEqualTo(Files.readString(Path.of("/proc/thread-self/attr/current"))
-                        .trim().replace("\0", "").split(":")[0]);
+                .isEqualTo(
+                        Files.readString(Path.of("/proc/thread-self/attr/current"))
+                                .trim()
+                                .replace("\0", "")
+                                .split(":")[0]);
     }
 
     @Test
@@ -79,7 +82,10 @@ class SocketContextTest {
         try (SocketContext ignored = SocketContext.applied()) {
             assertThat(ignored).isNotNull();
         }
-        assertThat(Files.readString(Path.of("/proc/thread-self/attr/sockcreate"))
-                .trim().replace("\0", "")).isEmpty();
+        assertThat(
+                        Files.readString(Path.of("/proc/thread-self/attr/sockcreate"))
+                                .trim()
+                                .replace("\0", ""))
+                .isEmpty();
     }
 }

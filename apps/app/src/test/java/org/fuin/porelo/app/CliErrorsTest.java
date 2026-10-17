@@ -9,8 +9,8 @@ import picocli.CommandLine;
 
 /**
  * Tests for what somebody sees when they type a command wrongly.
- * <p>
- * The case that prompted this: {@code porelo unlock} answered "Unmatched argument at index 0:
+ *
+ * <p>The case that prompted this: {@code porelo unlock} answered "Unmatched argument at index 0:
  * 'unlock'" and then suggested {@code porelo doctor}. The wording described the parser's position
  * in an array, and the advice pointed at an unrelated command - because the built-in suggestion
  * only compares against the names at one level, and {@code unlock} lives one level down.
@@ -19,8 +19,8 @@ class CliErrorsTest {
 
     private String run(String... args) {
         final StringWriter err = new StringWriter();
-        final CommandLine cmd = new CommandLine(new PoreloCli(),
-                new PoreloFactory(PoreloContext.real()));
+        final CommandLine cmd =
+                new CommandLine(new PoreloCli(), new PoreloFactory(PoreloContext.real()));
         cmd.setErr(new PrintWriter(err, true));
         cmd.setOut(new PrintWriter(new StringWriter(), true));
         cmd.setParameterExceptionHandler(CliErrors.handler());
@@ -112,15 +112,20 @@ class CliErrorsTest {
 
     /** Paths rooted in a temporary directory, so a test never writes into the real state. */
     private PoreloPaths pathsIn(java.nio.file.Path dir) {
-        return new PoreloPaths(org.fuin.porelo.core.config.XdgPaths.of(name -> switch (name) {
-            case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-            default -> null;
-        }, dir), dir.resolve("bin"));
+        return new PoreloPaths(
+                org.fuin.porelo.core.config.XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    default -> null;
+                                },
+                        dir),
+                dir.resolve("bin"));
     }
 
     @Test
-    void turnsAnUnhandledFailureIntoOneLine(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir)
-            throws Exception {
+    void turnsAnUnhandledFailureIntoOneLine(
+            @org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
 
         // Reported: 'task resume' answered sixteen frames of picocli. The frames say where in
         // this code it happened, which is of no use to the person being told, and they bury the
@@ -129,8 +134,12 @@ class CliErrorsTest {
         final CommandLine command = new CommandLine(new PoreloCli());
         command.setErr(new PrintWriter(err));
 
-        final int code = CliErrors.failures(pathsIn(dir)).handleExecutionException(
-                new IllegalStateException("Something went wrong in there"), command, null);
+        final int code =
+                CliErrors.failures(pathsIn(dir))
+                        .handleExecutionException(
+                                new IllegalStateException("Something went wrong in there"),
+                                command,
+                                null);
 
         assertThat(code).isEqualTo(70);
         assertThat(err.toString())
@@ -149,8 +158,8 @@ class CliErrorsTest {
     }
 
     @Test
-    void namesTheFailureWhenItCarriesNoMessage(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir)
-            throws Exception {
+    void namesTheFailureWhenItCarriesNoMessage(
+            @org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
 
         // Some exceptions carry only a type. Naming it beats an empty line that says something
         // went wrong without saying anything.
@@ -158,8 +167,8 @@ class CliErrorsTest {
         final CommandLine command = new CommandLine(new PoreloCli());
         command.setErr(new PrintWriter(err));
 
-        CliErrors.failures(pathsIn(dir)).handleExecutionException(
-                new java.util.NoSuchElementException(), command, null);
+        CliErrors.failures(pathsIn(dir))
+                .handleExecutionException(new java.util.NoSuchElementException(), command, null);
 
         assertThat(err.toString()).contains("porelo: NoSuchElementException");
     }
@@ -174,11 +183,16 @@ class CliErrorsTest {
         final CommandLine command = PoreloCli.commandLine(PoreloContext.real());
         command.setErr(new PrintWriter(new StringWriter()));
         final CommandLine.ParseResult parsed =
-                command.parseArgs("gate", "pending", "--project", "uc",
-                        "--upstream", "https://u:s3cret@example.com");
+                command.parseArgs(
+                        "gate",
+                        "pending",
+                        "--project",
+                        "uc",
+                        "--upstream",
+                        "https://u:s3cret@example.com");
 
-        CliErrors.failures(pathsIn(dir)).handleExecutionException(
-                new IllegalStateException("it broke"), command, parsed);
+        CliErrors.failures(pathsIn(dir))
+                .handleExecutionException(new IllegalStateException("it broke"), command, parsed);
 
         final String written = java.nio.file.Files.readString(pathsIn(dir).failureLog());
         assertThat(written).contains("gate pending").doesNotContain("s3cret");
@@ -191,8 +205,8 @@ class CliErrorsTest {
         // A message can quote anything the command was working with.
         final CommandLine command = new CommandLine(new PoreloCli());
         command.setErr(new PrintWriter(new StringWriter()));
-        CliErrors.failures(pathsIn(dir)).handleExecutionException(
-                new IllegalStateException("it broke"), command, null);
+        CliErrors.failures(pathsIn(dir))
+                .handleExecutionException(new IllegalStateException("it broke"), command, null);
 
         assertThat(java.nio.file.Files.getPosixFilePermissions(pathsIn(dir).failureLog()))
                 .containsExactlyInAnyOrder(

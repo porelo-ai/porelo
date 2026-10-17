@@ -10,14 +10,14 @@ import java.nio.file.Path;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * The completion scripts, and the one thing about them a unit test can get wrong.
- */
+/** The completion scripts, and the one thing about them a unit test can get wrong. */
 class CompletionCommandTest {
 
     /** Where the native image is told which resources to carry. */
-    private static final Path METADATA = Path.of("src/main/resources/META-INF/native-image",
-            "org.fuin.porelo/porelo-app/reachability-metadata.json");
+    private static final Path METADATA =
+            Path.of(
+                    "src/main/resources/META-INF/native-image",
+                    "org.fuin.porelo/porelo-app/reachability-metadata.json");
 
     @Test
     void everyScriptIsDeclaredToTheNativeImage() throws IOException {
@@ -29,9 +29,11 @@ class CompletionCommandTest {
         // nothing in a JVM test can see that.
         final String metadata = Files.readString(METADATA, StandardCharsets.UTF_8);
         for (final String shell : List.of("bash", "zsh")) {
-            final String resource = shell.equals("bash") ? "completion/porelo" : "completion/_porelo";
+            final String resource =
+                    shell.equals("bash") ? "completion/porelo" : "completion/_porelo";
             assertThat(metadata)
-                    .as("%s script is not declared in %s, so the native image will not carry it",
+                    .as(
+                            "%s script is not declared in %s, so the native image will not carry it",
                             shell, METADATA)
                     .contains(resource);
         }
@@ -46,7 +48,8 @@ class CompletionCommandTest {
             try (InputStream script = CompletionCommand.class.getResourceAsStream(resource)) {
                 assertThat(script).as("%s is missing", resource).isNotNull();
                 assertThat(new String(script.readAllBytes(), StandardCharsets.UTF_8))
-                        .as("%s is empty", resource).isNotBlank();
+                        .as("%s is empty", resource)
+                        .isNotBlank();
             }
         }
     }
@@ -62,7 +65,8 @@ class CompletionCommandTest {
         for (final String resource : List.of("/completion/porelo", "/completion/_porelo")) {
             try (InputStream script = CompletionCommand.class.getResourceAsStream(resource)) {
                 final String text = new String(script.readAllBytes(), StandardCharsets.UTF_8);
-                assertThat(text).as("%s must quote the partial word", resource)
+                assertThat(text)
+                        .as("%s must quote the partial word", resource)
                         .containsAnyOf("\"${COMP_WORDS[$COMP_CWORD]}\"", "\"${words[CURRENT]}\"");
             }
         }
@@ -79,8 +83,12 @@ class CompletionCommandTest {
         // second call. The first version of this test did exactly that and failed on correct
         // scripts - it was caught by the full suite after a narrower run had reported success.
         for (final String resource : List.of("/completion/porelo", "/completion/_porelo")) {
-            final List<String> code = read(resource).lines()
-                    .map(String::strip).filter(line -> !line.startsWith("#")).toList();
+            final List<String> code =
+                    read(resource)
+                            .lines()
+                            .map(String::strip)
+                            .filter(line -> !line.startsWith("#"))
+                            .toList();
             // Counted rather than matched, and that took three tries to get right. What has to
             // be true is "this script runs the binary once, and that once is the callback" - and
             // a test that merely looked for '__complete' somewhere passed a script that ran
@@ -90,14 +98,18 @@ class CompletionCommandTest {
             final String body = String.join("\n", code);
             final String call = resource.endsWith("_porelo") ? "${words[1]}" : "${COMP_WORDS[0]}";
             assertThat(occurrences(body, call))
-                    .as("%s runs porelo %d times; completion runs it once, to ask", resource,
-                            occurrences(body, call))
+                    .as(
+                            "%s runs porelo %d times; completion runs it once, to ask",
+                            resource, occurrences(body, call))
                     .isEqualTo(1);
             // In bash the expansion is quoted, so the closing quote sits between the two.
-            final String callThenVerb = resource.endsWith("_porelo")
-                    ? "${words[1]} __complete" : "${COMP_WORDS[0]}\" __complete";
-            assertThat(body).as("%s runs porelo as something other than the read-only callback",
-                    resource).contains(callThenVerb);
+            final String callThenVerb =
+                    resource.endsWith("_porelo")
+                            ? "${words[1]} __complete"
+                            : "${COMP_WORDS[0]}\" __complete";
+            assertThat(body)
+                    .as("%s runs porelo as something other than the read-only callback", resource)
+                    .contains(callThenVerb);
         }
     }
 

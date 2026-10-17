@@ -15,55 +15,75 @@ import org.junit.jupiter.api.io.TempDir;
 
 class InstalledBuildReaderTest {
 
-    private static final Target TARGET = new Target("git@forge.example:owner/name.git", "", "secret");
+    private static final Target TARGET =
+            new Target("git@forge.example:owner/name.git", "", "secret");
 
-    @TempDir
-    Path directory;
+    @TempDir Path directory;
 
     @Test
     void asksAReaderOverItsSocketAndHearsEveryAnswerAsItWasGiven() throws IOException {
-        try (InstalledBuildReader reader = new InstalledBuildReader(java(FakeReader.class), "fake", socket())) {
+        try (InstalledBuildReader reader =
+                new InstalledBuildReader(java(FakeReader.class), "fake", socket())) {
 
             assertThat(reader.forge()).isEqualTo("fake");
             assertThat(reader.head(TARGET, "main")).isEqualTo("a".repeat(40));
-            assertThat(reader.head(TARGET, "gone")).as("a branch the forge does not have").isEmpty();
-            assertThat(reader.look(TARGET, "c".repeat(40), Build.Logs.FAILURE)).isEqualTo(new Build(Build.SUCCESS, ""));
+            assertThat(reader.head(TARGET, "gone"))
+                    .as("a branch the forge does not have")
+                    .isEmpty();
+            assertThat(reader.look(TARGET, "c".repeat(40), Build.Logs.FAILURE))
+                    .isEqualTo(new Build(Build.SUCCESS, ""));
             assertThat(reader.look(TARGET, "c".repeat(40), Build.Logs.ALL).jobs())
-                    .as("which logs are wanted crosses the socket").singleElement()
+                    .as("which logs are wanted crosses the socket")
+                    .singleElement()
                     .satisfies(job -> assertThat(job.logText()).isEqualTo("all green\n"));
             final Build failed = reader.look(TARGET, "f".repeat(40), Build.Logs.FAILURE);
             assertThat(failed.verdict()).isEqualTo(Build.FAILURE);
-            assertThat(failed.jobs()).singleElement().satisfies(job -> {
-                assertThat(job.name()).isEqualTo("Build / unit tests");
-                assertThat(job.result()).isEqualTo("failure");
-                assertThat(job.log()).as("the log as bytes, a NUL among them").isEqualTo(FakeReader.LOG);
-            });
+            assertThat(failed.jobs())
+                    .singleElement()
+                    .satisfies(
+                            job -> {
+                                assertThat(job.name()).isEqualTo("Build / unit tests");
+                                assertThat(job.result()).isEqualTo("failure");
+                                assertThat(job.log())
+                                        .as("the log as bytes, a NUL among them")
+                                        .isEqualTo(FakeReader.LOG);
+                            });
         }
     }
 
     @Test
     void hearsARefusalAsTheRefusalItIsWithWhenToAskAgain() throws IOException {
-        try (InstalledBuildReader reader = new InstalledBuildReader(java(FakeReader.class), "fake", socket())) {
+        try (InstalledBuildReader reader =
+                new InstalledBuildReader(java(FakeReader.class), "fake", socket())) {
 
             assertThatThrownBy(() -> reader.look(TARGET, "r".repeat(40), Build.Logs.FAILURE))
-                    .isInstanceOfSatisfying(BuildRefused.class,
-                    refused -> {
-                        assertThat(refused.reason()).isEqualTo(BuildRefused.Reason.RATE_LIMITED);
-                        assertThat(refused.retryAfterSeconds()).isEqualTo(30);
-                        assertThat(refused.detail()).contains("rate limit");
-                    });
-            assertThatThrownBy(() -> reader.head(new Target(TARGET.upstream(), "", "wrong"), "main"))
-                    .isInstanceOfSatisfying(BuildRefused.class, refused -> assertThat(refused.reason())
-                            .isEqualTo(BuildRefused.Reason.CREDENTIAL_REFUSED));
+                    .isInstanceOfSatisfying(
+                            BuildRefused.class,
+                            refused -> {
+                                assertThat(refused.reason())
+                                        .isEqualTo(BuildRefused.Reason.RATE_LIMITED);
+                                assertThat(refused.retryAfterSeconds()).isEqualTo(30);
+                                assertThat(refused.detail()).contains("rate limit");
+                            });
+            assertThatThrownBy(
+                            () -> reader.head(new Target(TARGET.upstream(), "", "wrong"), "main"))
+                    .isInstanceOfSatisfying(
+                            BuildRefused.class,
+                            refused ->
+                                    assertThat(refused.reason())
+                                            .isEqualTo(BuildRefused.Reason.CREDENTIAL_REFUSED));
         }
     }
 
     @Test
     void startsAReaderAgainWhoseProcessEndedSoTheNextQuestionIsAnswered() throws IOException {
 
-        // A reader that did not answer within its limit is killed, and the watch tries again later: with the same
-        // ended reader, every later round said "Porelo cannot read builds" until the task was started again.
-        try (InstalledBuildReader reader = new InstalledBuildReader(java(FakeReader.class), "fake", socket())) {
+        // A reader that did not answer within its limit is killed, and the watch tries again later:
+        // with the same
+        // ended reader, every later round said "Porelo cannot read builds" until the task was
+        // started again.
+        try (InstalledBuildReader reader =
+                new InstalledBuildReader(java(FakeReader.class), "fake", socket())) {
             assertThatThrownBy(() -> reader.look(TARGET, "x".repeat(40), Build.Logs.FAILURE))
                     .isInstanceOf(BuildReaderException.class);
 
@@ -74,51 +94,72 @@ class InstalledBuildReaderTest {
     @Test
     void handsOverTheMostJobsWithTheirLogsInOneAnswer() throws IOException {
 
-        // Fifty full logs are 4.4 MB in base64, past the 4 MiB a varlink message may hold: the answer was refused
+        // Fifty full logs are 4.4 MB in base64, past the 4 MiB a varlink message may hold: the
+        // answer was refused
         // in every round, for as long as the commit was watched.
-        try (InstalledBuildReader reader = new InstalledBuildReader(java(FakeReader.class), "fake", socket())) {
+        try (InstalledBuildReader reader =
+                new InstalledBuildReader(java(FakeReader.class), "fake", socket())) {
             final Build build = reader.look(TARGET, "m".repeat(40), Build.Logs.ALL);
 
-            assertThat(build.jobs()).hasSize(Build.MOST_JOBS)
-                    .allSatisfy(job -> assertThat(job.logText()).as("each log's end, where it failed").endsWith("END\n"));
+            assertThat(build.jobs())
+                    .hasSize(Build.MOST_JOBS)
+                    .allSatisfy(
+                            job ->
+                                    assertThat(job.logText())
+                                            .as("each log's end, where it failed")
+                                            .endsWith("END\n"));
         }
     }
 
     @Test
     void refusesAReaderThatSpeaksAnotherVersionOfTheProtocol() throws IOException {
-        assertThatThrownBy(() -> new InstalledBuildReader(java(OtherVersion.class), "fake", socket()))
+        assertThatThrownBy(
+                        () -> new InstalledBuildReader(java(OtherVersion.class), "fake", socket()))
                 .isInstanceOf(BuildReaderException.class)
-                .hasMessageContaining("version 99").hasMessageContaining("this Porelo speaks version " + BuildProtocol.VERSION);
+                .hasMessageContaining("version 99")
+                .hasMessageContaining("this Porelo speaks version " + BuildProtocol.VERSION);
     }
 
     @Test
     void refusesAReaderOfAnotherForge() throws IOException {
-        assertThatThrownBy(() -> new InstalledBuildReader(java(FakeReader.class), "github", socket()))
-                .isInstanceOf(BuildReaderException.class).hasMessageContaining("reads 'fake', not 'github'");
+        assertThatThrownBy(
+                        () -> new InstalledBuildReader(java(FakeReader.class), "github", socket()))
+                .isInstanceOf(BuildReaderException.class)
+                .hasMessageContaining("reads 'fake', not 'github'");
     }
 
     @Test
     void saysWhatAReaderSaidThatEndedWithoutBecomingReady() throws IOException {
-        assertThatThrownBy(() -> new InstalledBuildReader(script("echo 'no config here'; exit 3"), "fake", socket()))
+        assertThatThrownBy(
+                        () ->
+                                new InstalledBuildReader(
+                                        script("echo 'no config here'; exit 3"), "fake", socket()))
                 .isInstanceOf(BuildReaderException.class)
-                .hasMessageContaining("exited without becoming ready").hasMessageContaining("no config here");
+                .hasMessageContaining("exited without becoming ready")
+                .hasMessageContaining("no config here");
     }
 
     @Test
-    void findsAReaderInTheFirstDirectoryThatHoldsItAndNamesWhereItLookedWhenNoneDoes() throws IOException {
+    void findsAReaderInTheFirstDirectoryThatHoldsItAndNamesWhereItLookedWhenNoneDoes()
+            throws IOException {
         final Path own = Files.createDirectories(directory.resolve("own"));
         final Path packaged = Files.createDirectories(directory.resolve("packaged"));
         executable(packaged.resolve("fake"), "exit 0");
 
-        assertThat(InstalledBuildReader.find("fake", List.of(own, packaged))).isEqualTo(packaged.resolve("fake"));
+        assertThat(InstalledBuildReader.find("fake", List.of(own, packaged)))
+                .isEqualTo(packaged.resolve("fake"));
         executable(own.resolve("fake"), "exit 0");
-        assertThat(InstalledBuildReader.find("fake", List.of(own, packaged))).as("the account's own first")
+        assertThat(InstalledBuildReader.find("fake", List.of(own, packaged)))
+                .as("the account's own first")
                 .isEqualTo(own.resolve("fake"));
         assertThatThrownBy(() -> InstalledBuildReader.find("github", List.of(own, packaged)))
-                .isInstanceOf(BuildReaderException.class).hasMessageContaining("No build reader for 'github'")
-                .hasMessageContaining(own.toString()).hasMessageContaining(packaged.toString());
+                .isInstanceOf(BuildReaderException.class)
+                .hasMessageContaining("No build reader for 'github'")
+                .hasMessageContaining(own.toString())
+                .hasMessageContaining(packaged.toString());
         assertThatThrownBy(() -> InstalledBuildReader.find("../fake", List.of(own)))
-                .as("a name is never a path").isInstanceOf(BuildReaderException.class);
+                .as("a name is never a path")
+                .isInstanceOf(BuildReaderException.class);
     }
 
     /** A reader that answers Describe with a protocol version no Porelo speaks. */
@@ -130,9 +171,12 @@ class InstalledBuildReaderTest {
          * @param arguments {@code serve <socket>}.
          */
         public static void main(final String[] arguments) {
-            try (VarlinkServer server = new VarlinkServer(Path.of(arguments[1]), BuildProtocol.INTERFACE)) {
-                server.method("Describe", (parameters, replies) -> replies.last(Map.of("protocolVersion", 99,
-                        "forge", "fake")));
+            try (VarlinkServer server =
+                    new VarlinkServer(Path.of(arguments[1]), BuildProtocol.INTERFACE)) {
+                server.method(
+                        "Describe",
+                        (parameters, replies) ->
+                                replies.last(Map.of("protocolVersion", 99, "forge", "fake")));
                 System.out.println("ready " + arguments[1]);
                 System.out.flush();
                 server.run();
@@ -145,8 +189,14 @@ class InstalledBuildReaderTest {
     }
 
     private Path java(final Class<?> main) throws IOException {
-        return script("exec '" + Path.of(System.getProperty("java.home"), "bin", "java") + "' -cp '"
-                + System.getProperty("java.class.path") + "' '" + main.getName() + "' \"$@\"");
+        return script(
+                "exec '"
+                        + Path.of(System.getProperty("java.home"), "bin", "java")
+                        + "' -cp '"
+                        + System.getProperty("java.class.path")
+                        + "' '"
+                        + main.getName()
+                        + "' \"$@\"");
     }
 
     private Path script(final String body) throws IOException {

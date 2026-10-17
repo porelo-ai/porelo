@@ -11,8 +11,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * What the machine can say about the keys it already has.
- * <p>
- * Measured against keys written by {@code ssh-keygen}, because what is being read is somebody
+ *
+ * <p>Measured against keys written by {@code ssh-keygen}, because what is being read is somebody
  * else's format and a fixture would only prove this agrees with itself.
  */
 class SshKeysTest {
@@ -22,8 +22,15 @@ class SshKeysTest {
         final Path directory = home.resolve(".ssh");
         Files.createDirectories(directory);
         final Path file = directory.resolve(name);
-        final java.util.List<String> command = new java.util.ArrayList<>(java.util.List.of(
-                "ssh-keygen", "-q", "-f", file.toString(), "-C", name + "@company"));
+        final java.util.List<String> command =
+                new java.util.ArrayList<>(
+                        java.util.List.of(
+                                "ssh-keygen",
+                                "-q",
+                                "-f",
+                                file.toString(),
+                                "-C",
+                                name + "@company"));
         command.addAll(java.util.List.of(extra));
         final Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
         assertThat(process.waitFor()).as("ssh-keygen").isZero();
@@ -46,8 +53,10 @@ class SshKeysTest {
         assertThat(key.obstacle()).isNull();
         // The fingerprint is the one ssh-keygen itself prints, or it is worth nothing as a way to
         // tell two keys apart.
-        final Process shown = new ProcessBuilder("ssh-keygen", "-lf",
-                home.resolve(".ssh/id_ed25519.pub").toString()).start();
+        final Process shown =
+                new ProcessBuilder(
+                                "ssh-keygen", "-lf", home.resolve(".ssh/id_ed25519.pub").toString())
+                        .start();
         assertThat(new String(shown.getInputStream().readAllBytes(), StandardCharsets.UTF_8))
                 .contains(key.fingerprint());
     }
@@ -103,20 +112,37 @@ class SshKeysTest {
         // A list that ignored it would look wrong to exactly the people who need this most.
         final Path elsewhere = home.resolve("work");
         Files.createDirectories(elsewhere);
-        final Process made = new ProcessBuilder("ssh-keygen", "-q", "-t", "ed25519", "-N", "",
-                "-C", "work@company", "-f", elsewhere.resolve("company_key").toString()).start();
+        final Process made =
+                new ProcessBuilder(
+                                "ssh-keygen",
+                                "-q",
+                                "-t",
+                                "ed25519",
+                                "-N",
+                                "",
+                                "-C",
+                                "work@company",
+                                "-f",
+                                elsewhere.resolve("company_key").toString())
+                        .start();
         assertThat(made.waitFor()).isZero();
         Files.createDirectories(home.resolve(".ssh"));
-        Files.writeString(home.resolve(".ssh/config"),
-                "Host forge\n  IdentityFile ~/work/company_key\n", StandardCharsets.UTF_8);
+        Files.writeString(
+                home.resolve(".ssh/config"),
+                "Host forge\n  IdentityFile ~/work/company_key\n",
+                StandardCharsets.UTF_8);
 
         final java.util.List<SshKeys.Key> keys = new SshKeys(home).all();
 
-        assertThat(keys).singleElement().satisfies(key -> {
-            assertThat(key.path()).isEqualTo(elsewhere.resolve("company_key").toString());
-            assertThat(key.found()).isEqualTo(SshKeys.Found.CONFIGURED);
-            assertThat(key.comment()).isEqualTo("work@company");
-        });
+        assertThat(keys)
+                .singleElement()
+                .satisfies(
+                        key -> {
+                            assertThat(key.path())
+                                    .isEqualTo(elsewhere.resolve("company_key").toString());
+                            assertThat(key.found()).isEqualTo(SshKeys.Found.CONFIGURED);
+                            assertThat(key.comment()).isEqualTo("work@company");
+                        });
     }
 
     @Test

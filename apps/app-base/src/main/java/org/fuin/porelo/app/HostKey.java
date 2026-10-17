@@ -13,11 +13,11 @@ import org.fuin.porelo.vault.SigningKey;
 
 /**
  * The key this machine signs messages with.
- * <p>
- * One key per installation, which is one Unix user: Porelo runs as a user unit, so two people on one
- * machine have two of these and neither can read the other's. That is exactly the strength of the
- * boundary - file permissions - and it is worth saying rather than implying, because a signature
- * proves which installation vouched for a message and not which agent wrote it.
+ *
+ * <p>One key per installation, which is one Unix user: Porelo runs as a user unit, so two people on
+ * one machine have two of these and neither can read the other's. That is exactly the strength of
+ * the boundary - file permissions - and it is worth saying rather than implying, because a
+ * signature proves which installation vouched for a message and not which agent wrote it.
  */
 public final class HostKey {
 
@@ -30,10 +30,10 @@ public final class HostKey {
 
     /**
      * Reads the key, creating one the first time.
-     * <p>
-     * Created rather than demanded, because a machine that has never sent a message has no reason
-     * to have been asked for one - and the first message is not the moment to fail on a missing
-     * file.
+     *
+     * <p>Created rather than demanded, because a machine that has never sent a message has no
+     * reason to have been asked for one - and the first message is not the moment to fail on a
+     * missing file.
      *
      * @param file Where the key is kept.
      * @param comment What it is called in an {@code allowed_signers} line.

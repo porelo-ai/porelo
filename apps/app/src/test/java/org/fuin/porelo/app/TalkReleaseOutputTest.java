@@ -20,16 +20,27 @@ class TalkReleaseOutputTest {
     @Test
     void aFileNameTheAgentChoseCannotClearThePersonsScreen(@TempDir Path dir) throws Exception {
 
-        // The name of a held message is the agent's; printed as it came, ESC[2J cleared the screen a person was
+        // The name of a held message is the agent's; printed as it came, ESC[2J cleared the screen
+        // a person was
         // deciding on.
-        final XdgPaths xdg = XdgPaths.of(name -> "XDG_DATA_HOME".equals(name) ? dir.resolve("data").toString() : null,
-                dir);
-        final PoreloContext context = new PoreloContext(new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")),
-                arguments -> 0);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                "XDG_DATA_HOME".equals(name)
+                                        ? dir.resolve("data").toString()
+                                        : null,
+                        dir);
+        final PoreloContext context =
+                new PoreloContext(
+                        new FakeCommandRunner(),
+                        new PoreloPaths(xdg, dir.resolve("bin")),
+                        arguments -> 0);
         final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox("porelo-p-t"));
         mailbox.create();
         final String name = "\u001b[2Jm-1.json";
-        Files.writeString(mailbox.hold().resolve(name), "{\"messageId\":\"m-1\",\"metadata\":{\"to\":\"x\"}}");
+        Files.writeString(
+                mailbox.hold().resolve(name),
+                "{\"messageId\":\"m-1\",\"metadata\":{\"to\":\"x\"}}");
 
         final StringWriter out = new StringWriter();
         final CommandLine cmd = PoreloCli.commandLine(context);

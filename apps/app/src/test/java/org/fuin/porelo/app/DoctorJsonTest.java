@@ -15,16 +15,23 @@ import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 
 /**
- * Tests that {@code porelo doctor --json} says every finding of the text as data, for a client to read.
+ * Tests that {@code porelo doctor --json} says every finding of the text as data, for a client to
+ * read.
  */
 class DoctorJsonTest {
 
     private int exit;
 
     private String doctor(final Path dir, final String... arguments) {
-        final PoreloContext context = new PoreloContext(new FakeCommandRunner(),
-                new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin"), dir.resolve("libexec-hooks"),
-                        dir.resolve("agents")), command -> 0);
+        final PoreloContext context =
+                new PoreloContext(
+                        new FakeCommandRunner(),
+                        new PoreloPaths(
+                                XdgPaths.of(name -> null, dir),
+                                dir.resolve("bin"),
+                                dir.resolve("libexec-hooks"),
+                                dir.resolve("agents")),
+                        command -> 0);
         final StringWriter out = new StringWriter();
         final CommandLine cmd = PoreloCli.commandLine(context);
         cmd.setOut(new PrintWriter(out));
@@ -51,16 +58,19 @@ class DoctorJsonTest {
         int at = -1;
         for (final Map<String, Object> finding : findings) {
             assertThat(finding).containsKeys("check", "state", "detail", "remedy");
-            assertThat(List.of("OK", "DEGRADED", "MISSING", "UNKNOWN")).contains((String) finding.get("state"));
+            assertThat(List.of("OK", "DEGRADED", "MISSING", "UNKNOWN"))
+                    .contains((String) finding.get("state"));
             final int line = text.indexOf((String) finding.get("check"));
-            assertThat(line).as("'%s' is a line of the text, after the one before it", finding.get("check"))
+            assertThat(line)
+                    .as("'%s' is a line of the text, after the one before it", finding.get("check"))
                     .isGreaterThan(at);
             at = line;
             if (!"OK".equals(finding.get("state"))) {
                 assertThat((String) finding.get("remedy")).isNotBlank();
             }
         }
-        assertThat(findings).anySatisfy(finding -> assertThat(finding.get("state")).isEqualTo("MISSING"));
+        assertThat(findings)
+                .anySatisfy(finding -> assertThat(finding.get("state")).isEqualTo("MISSING"));
     }
 
     @Test

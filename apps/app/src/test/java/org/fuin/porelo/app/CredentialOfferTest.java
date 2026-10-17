@@ -13,13 +13,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Tests that a task's start refused for a missing credential offers the very command it would name - a grant, a
- * sign-in or a key typed without echo - runs it on this terminal, and checks again before it goes on.
+ * Tests that a task's start refused for a missing credential offers the very command it would name
+ * - a grant, a sign-in or a key typed without echo - runs it on this terminal, and checks again
+ * before it goes on.
  */
 class CredentialOfferTest {
 
-    @TempDir
-    private Path dir;
+    @TempDir private Path dir;
 
     private final List<List<String>> ran = new ArrayList<>();
 
@@ -27,44 +27,87 @@ class CredentialOfferTest {
 
     private TaskLaunch launch() {
         final XdgPaths xdg = XdgPaths.of(name -> null, dir);
-        final PoreloContext context = new PoreloContext(new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")),
-                command -> {
-                    ran.add(command);
-                    stored[0] = true;
-                    return 0;
-                });
-        return new TaskLaunch(context, new TaskLaunch.Request("t", dir.resolve("project.yml"), null, null, null, 8, null,
-                false, false, "prompt", true, org.fuin.porelo.wire.TaskMode.SHELL, null, null, null, 60, null));
+        final PoreloContext context =
+                new PoreloContext(
+                        new FakeCommandRunner(),
+                        new PoreloPaths(xdg, dir.resolve("bin")),
+                        command -> {
+                            ran.add(command);
+                            stored[0] = true;
+                            return 0;
+                        });
+        return new TaskLaunch(
+                context,
+                new TaskLaunch.Request(
+                        "t",
+                        dir.resolve("project.yml"),
+                        null,
+                        null,
+                        null,
+                        8,
+                        null,
+                        false,
+                        false,
+                        "prompt",
+                        true,
+                        org.fuin.porelo.wire.TaskMode.SHELL,
+                        null,
+                        null,
+                        null,
+                        60,
+                        null));
     }
 
     @Test
     void theCommandIsTheOneTheRefusalNames() {
-        assertThat(TaskLaunch.nextCommand("claude", true, null, "anthropic")).containsExactly("vault", "login", "claude");
-        assertThat(TaskLaunch.nextCommand("pi", false, null, "openrouter")).containsExactly("vault", "put", "openrouter");
+        assertThat(TaskLaunch.nextCommand("claude", true, null, "anthropic"))
+                .containsExactly("vault", "login", "claude");
+        assertThat(TaskLaunch.nextCommand("pi", false, null, "openrouter"))
+                .containsExactly("vault", "put", "openrouter");
         assertThat(TaskLaunch.nextCommand(null, false, null, "")).isEmpty();
         assertThat(TaskLaunch.nextStep("pi", false, null, "openrouter"))
-                .contains("'porelo " + String.join(" ", TaskLaunch.nextCommand("pi", false, null, "openrouter")) + "'");
+                .contains(
+                        "'porelo "
+                                + String.join(
+                                        " ",
+                                        TaskLaunch.nextCommand("pi", false, null, "openrouter"))
+                                + "'");
     }
 
     @Test
     void atATerminalTheCommandRunsHereAndTheStartGoesOnOnceTheCredentialIsThere() {
         final StringWriter err = new StringWriter();
         final TaskLaunch launch = launch();
-        final Offer.Remedy remedy = launch.credentialRemedy("no credential for 'openrouter'",
-                List.of("vault", "put", "openrouter"), () -> stored[0]);
+        final Offer.Remedy remedy =
+                launch.credentialRemedy(
+                        "no credential for 'openrouter'",
+                        List.of("vault", "put", "openrouter"),
+                        () -> stored[0]);
 
-        assertThat(new Offer(question -> "", false, false, null).resolve(remedy, new PrintWriter(err, true))).isTrue();
-        assertThat(ran).singleElement().satisfies(command -> assertThat(command.subList(1, command.size()))
-                .containsExactly("vault", "put", "openrouter"));
+        assertThat(
+                        new Offer(question -> "", false, false, null)
+                                .resolve(remedy, new PrintWriter(err, true)))
+                .isTrue();
+        assertThat(ran)
+                .singleElement()
+                .satisfies(
+                        command ->
+                                assertThat(command.subList(1, command.size()))
+                                        .containsExactly("vault", "put", "openrouter"));
     }
 
     @Test
     void withoutATerminalNothingRunsAndTheCommandIsNamed() {
         final StringWriter err = new StringWriter();
-        final Offer.Remedy remedy = launch().credentialRemedy("no credential for 'openrouter'",
-                List.of("vault", "put", "openrouter"), () -> stored[0]);
+        final Offer.Remedy remedy =
+                launch().credentialRemedy(
+                                "no credential for 'openrouter'",
+                                List.of("vault", "put", "openrouter"),
+                                () -> stored[0]);
 
-        assertThat(new Offer(Offer.Asker.NOBODY, false, false, null).resolve(remedy, new PrintWriter(err, true)))
+        assertThat(
+                        new Offer(Offer.Asker.NOBODY, false, false, null)
+                                .resolve(remedy, new PrintWriter(err, true)))
                 .isFalse();
         assertThat(ran).isEmpty();
         assertThat(err.toString()).contains("'porelo vault put openrouter'");
@@ -74,7 +117,8 @@ class CredentialOfferTest {
     void withoutATerminalOrWithNoInputNothingIsOfferedAndTheRefusalIsTodays() {
         final java.io.PrintWriter err = new java.io.PrintWriter(new java.io.StringWriter());
 
-        // Offered without anybody to ask, the helper said its own line instead of the refusal a script reads.
+        // Offered without anybody to ask, the helper said its own line instead of the refusal a
+        // script reads.
         assertThat(TaskRunCommand.offer(false, false, false, err)).isSameAs(Offer.NOBODY);
         assertThat(TaskRunCommand.offer(true, false, true, err)).isSameAs(Offer.NOBODY);
         assertThat(TaskRunCommand.offer(false, false, true, err)).isNotSameAs(Offer.NOBODY);

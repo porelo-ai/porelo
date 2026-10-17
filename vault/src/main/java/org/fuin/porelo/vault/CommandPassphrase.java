@@ -9,8 +9,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Takes the passphrase from the first line a command prints.
- * <p>
- * This one tier covers {@code pass}, Bitwarden, 1Password, {@code gopass} and every cloud secret
+ *
+ * <p>This one tier covers {@code pass}, Bitwarden, 1Password, {@code gopass} and every cloud secret
  * CLI, which is why it is worth more than any of the integrations it replaces. Porelo does not need
  * to know which one an operator uses.
  */
@@ -18,8 +18,7 @@ public class CommandPassphrase implements PassphraseSource {
 
     private final CommandRunner runner;
 
-    @Nullable
-    private final String command;
+    @Nullable private final String command;
 
     /**
      * Constructor.
@@ -43,9 +42,12 @@ public class CommandPassphrase implements PassphraseSource {
                 // A configured command that fails is a real problem: falling through to the next
                 // tier would prompt for a passphrase the operator has stored precisely so they do
                 // not have to type it.
-                throw new VaultException("The passphrase command failed with exit code "
-                        + result.exitCode()
-                        + (result.standardError().isBlank() ? "" : ": " + result.standardError().strip()));
+                throw new VaultException(
+                        "The passphrase command failed with exit code "
+                                + result.exitCode()
+                                + (result.standardError().isBlank()
+                                        ? ""
+                                        : ": " + result.standardError().strip()));
             }
             final String first = result.standardOutput().lines().findFirst().orElse("");
             return first.isEmpty() ? Optional.empty() : Optional.of(first.toCharArray());

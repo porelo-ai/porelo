@@ -14,8 +14,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 class BuildTest {
 
-    @TempDir
-    Path directory;
+    @TempDir Path directory;
 
     private final Reports out = new Reports();
 
@@ -37,23 +36,29 @@ class BuildTest {
 
         Build.freshness(Map.of(deb, binary), true, out.report);
 
-        assertThat(out.text()).contains("FAIL  porelo_0.1.0_amd64.deb is older than porelo").doesNotContain("PASS");
+        assertThat(out.text())
+                .contains("FAIL  porelo_0.1.0_amd64.deb is older than porelo")
+                .doesNotContain("PASS");
     }
 
     @Test
     void saysItDidNotCheckAPackageWhoseBinaryIsNotHereOutsideCi() throws IOException {
-        // A developer may check packages whose binary arrived from elsewhere; that is allowed, and said, because a
+        // A developer may check packages whose binary arrived from elsewhere; that is allowed, and
+        // said, because a
         // silent pass would read as a fresh package.
         final Path absent = directory.resolve("absent");
         Build.freshness(Map.of(file("porelo_0.1.0_amd64.deb", 1000), absent), false, out.report);
 
         assertThat(out.report.failures()).isZero();
-        assertThat(out.text()).contains("not checked: " + absent + " is absent").doesNotContain("PASS");
+        assertThat(out.text())
+                .contains("not checked: " + absent + " is absent")
+                .doesNotContain("PASS");
     }
 
     @Test
     void failsAPackageWhoseBinaryIsNotHereInCi() throws IOException {
-        // CI builds the binary and the package in one run, so a binary that is not there means the check would
+        // CI builds the binary and the package in one run, so a binary that is not there means the
+        // check would
         // have compared nothing.
         final Path absent = directory.resolve("absent");
         Build.freshness(Map.of(file("porelo_0.1.0_amd64.deb", 1000), absent), true, out.report);
@@ -69,16 +74,21 @@ class BuildTest {
 
         Build.strays(List.of(directory.resolve("agents/target"), api), out.report);
 
-        assertThat(out.text()).contains("FAIL  a non-agent module produced a package").contains("porelo-agent-api_0.1.0_amd64.deb");
+        assertThat(out.text())
+                .contains("FAIL  a non-agent module produced a package")
+                .contains("porelo-agent-api_0.1.0_amd64.deb");
     }
 
     @Test
     void passesModulesThatPackagedNothing() throws IOException {
         Files.createDirectories(directory.resolve("agents/target"));
 
-        Build.strays(List.of(directory.resolve("agents/target"), directory.resolve("agents/api/target")), out.report);
+        Build.strays(
+                List.of(directory.resolve("agents/target"), directory.resolve("agents/api/target")),
+                out.report);
 
-        assertThat(out.text()).contains("PASS  the aggregator and porelo-agent-api produce no package");
+        assertThat(out.text())
+                .contains("PASS  the aggregator and porelo-agent-api produce no package");
     }
 
     private Path file(String name, long seconds) throws IOException {
@@ -86,5 +96,4 @@ class BuildTest {
         Files.setLastModifiedTime(file, FileTime.from(Instant.ofEpochSecond(seconds)));
         return file;
     }
-
 }

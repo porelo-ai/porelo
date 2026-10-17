@@ -18,9 +18,10 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Every Maven execution a document tells a person to run is one of this tree's.
- * <p>
- * {@code AGENTS.md} and {@code doc/build.md} kept naming {@code exec:java@deploy} for installing on a machine,
- * after the command it ran had left the build tools for this tree's {@code acceptance/legs}.
+ *
+ * <p>{@code AGENTS.md} and {@code doc/build.md} kept naming {@code exec:java@deploy} for installing
+ * on a machine, after the command it ran had left the build tools for this tree's {@code
+ * acceptance/legs}.
  */
 @Tag("documents")
 class ExecutionsDocumentedTest {
@@ -33,7 +34,8 @@ class ExecutionsDocumentedTest {
     void everyExecutionTheDocumentsNameIsOneOfThisTree() throws IOException {
         final Set<String> executions = new LinkedHashSet<>();
         for (final Path pom : ExecutionsTest.poms()) {
-            final Matcher execution = ExecutionsTest.EXECUTION.matcher(Files.readString(pom, StandardCharsets.UTF_8));
+            final Matcher execution =
+                    ExecutionsTest.EXECUTION.matcher(Files.readString(pom, StandardCharsets.UTF_8));
             while (execution.find()) {
                 executions.add(execution.group(1).strip());
             }
@@ -51,7 +53,8 @@ class ExecutionsDocumentedTest {
     }
 
     private static List<Path> documents() throws IOException {
-        final List<Path> documents = new ArrayList<>(List.of(ROOT.resolve("AGENTS.md"), ROOT.resolve("README.md")));
+        final List<Path> documents =
+                new ArrayList<>(List.of(ROOT.resolve("AGENTS.md"), ROOT.resolve("README.md")));
         try (Stream<Path> pages = Files.walk(ROOT.resolve("doc"))) {
             pages.filter(path -> path.toString().endsWith(".md")).forEach(documents::add);
         }

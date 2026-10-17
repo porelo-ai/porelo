@@ -5,9 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link ShellWords}.
- */
+/** Tests for {@link ShellWords}. */
 class ShellWordsTest {
 
     @Test
@@ -30,8 +28,7 @@ class ShellWordsTest {
 
         // The one character single quoting cannot contain. Getting this wrong ends the quoting
         // early and hands the rest of the argument to the shell as syntax.
-        assertThat(ShellWords.quote(List.of("say", "it's")))
-                .isEqualTo("'say' 'it'\\''s'");
+        assertThat(ShellWords.quote(List.of("say", "it's"))).isEqualTo("'say' 'it'\\''s'");
     }
 
     @Test

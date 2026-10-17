@@ -18,27 +18,33 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Test for {@link GateReviewCommand}, with real git: what a review shows of work that waits at the gate.
+ * Test for {@link GateReviewCommand}, with real git: what a review shows of work that waits at the
+ * gate.
  */
 class GateReviewCommandTest {
 
     private final CommandRunner runner = new ProcessCommandRunner();
 
     @Test
-    void aReviewWithoutABaseShowsEveryCommitOfTheWorkOnARepositoryWhoseBranchIsNotMain(@TempDir Path dir)
-            throws Exception {
+    void aReviewWithoutABaseShowsEveryCommitOfTheWorkOnARepositoryWhoseBranchIsNotMain(
+            @TempDir Path dir) throws Exception {
 
-        // Without --against it compared with 'main', which a repository on 'trunk' does not have: the patch was the
+        // Without --against it compared with 'main', which a repository on 'trunk' does not have:
+        // the patch was the
         // last commit's alone, and a person approved commits the review never showed.
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
-        final PoreloContext context = new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")),
-                arguments -> 0);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
+        final PoreloContext context =
+                new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
         final Path origin = dir.resolve("origin.git");
         git(dir, "init", "-q", "--bare", "-b", "trunk", origin.toString());
         final Path checkout = dir.resolve("app");
@@ -50,8 +56,13 @@ class GateReviewCommandTest {
         git(checkout, "push", "-q", "origin", "trunk");
         final WorkOrigin.Choice choice = WorkOrigin.fromCheckout(context, checkout);
         final Project project = GateSupport.byName(context, choice.project());
-        final GitGate gate = GateSupport.gate(context, project, project.repository(choice.repository()), null,
-                checkout.toString());
+        final GitGate gate =
+                GateSupport.gate(
+                        context,
+                        project,
+                        project.repository(choice.repository()),
+                        null,
+                        checkout.toString());
         gate.initialize();
         final Path work = dir.resolve("work");
         git(dir, "clone", "-q", checkout.toString(), work.toString());
@@ -69,12 +80,21 @@ class GateReviewCommandTest {
         final picocli.CommandLine cli = PoreloCli.commandLine(context);
         cli.setOut(new PrintWriter(out));
         cli.setErr(new PrintWriter(err));
-        final int code = cli.execute("gate", "review", "-p", choice.project(), "--repository", choice.repository(),
-                "writer");
+        final int code =
+                cli.execute(
+                        "gate",
+                        "review",
+                        "-p",
+                        choice.project(),
+                        "--repository",
+                        choice.repository(),
+                        "writer");
 
         assertThat(code).as(err.toString()).isZero();
-        assertThat(out.toString()).as("both commits' changes are in the patch")
-                .contains("+first").contains("+second");
+        assertThat(out.toString())
+                .as("both commits' changes are in the patch")
+                .contains("+first")
+                .contains("+second");
     }
 
     private void identity(final Path repository) {
@@ -86,7 +106,9 @@ class GateReviewCommandTest {
         final List<String> command = new java.util.ArrayList<>(List.of("git", "-C", in.toString()));
         command.addAll(List.of(arguments));
         final CommandResult result = runner.run(Command.of(command));
-        assertThat(result.successful()).as(String.join(" ", command) + ": " + result.standardError()).isTrue();
+        assertThat(result.successful())
+                .as(String.join(" ", command) + ": " + result.standardError())
+                .isTrue();
         return result.standardOutput().strip();
     }
 }

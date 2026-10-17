@@ -19,9 +19,17 @@ import org.junit.jupiter.api.io.TempDir;
 class ClearanceJournalTest {
 
     private static Decision decision(String destination, Verdict verdict, String source) {
-        return new Decision(Instant.parse("2026-09-07T10:15:30Z"), "uc", "shell",
-                "tcp/" + destination + "/443", destination, 443, "tcp", destination + ":443",
-                verdict, source);
+        return new Decision(
+                Instant.parse("2026-09-07T10:15:30Z"),
+                "uc",
+                "shell",
+                "tcp/" + destination + "/443",
+                destination,
+                443,
+                "tcp",
+                destination + ":443",
+                verdict,
+                source);
     }
 
     @Test
@@ -49,7 +57,8 @@ class ClearanceJournalTest {
         final ClearanceJournal journal = new ClearanceJournal(dir.resolve("uc-shell.jsonl"));
         journal.record(decision("1.1.1.1", Verdict.TIMEOUT, Decision.PROMPT));
 
-        assertThat(journal.read()).singleElement()
+        assertThat(journal.read())
+                .singleElement()
                 .satisfies(read -> assertThat(read.verdict()).isEqualTo(Verdict.TIMEOUT));
     }
 
@@ -79,7 +88,10 @@ class ClearanceJournalTest {
         final Path file = dir.resolve("uc-shell.jsonl");
         final ClearanceJournal journal = new ClearanceJournal(file);
         journal.record(decision("1.1.1.1", Verdict.ALLOW, Decision.PROMPT));
-        Files.writeString(file, "{\"at\":\"2026-09-07T10:1", StandardCharsets.UTF_8,
+        Files.writeString(
+                file,
+                "{\"at\":\"2026-09-07T10:1",
+                StandardCharsets.UTF_8,
                 java.nio.file.StandardOpenOption.APPEND);
 
         assertThat(journal.read()).hasSize(1);
@@ -104,8 +116,12 @@ class ClearanceJournalTest {
         final Path file = dir.resolve("taken");
         Files.createDirectory(file);
 
-        assertThatThrownBy(() -> new ClearanceJournal(file)
-                .record(decision("1.1.1.1", Verdict.ALLOW, Decision.PROMPT)))
+        assertThatThrownBy(
+                        () ->
+                                new ClearanceJournal(file)
+                                        .record(
+                                                decision(
+                                                        "1.1.1.1", Verdict.ALLOW, Decision.PROMPT)))
                 .isInstanceOf(ClearanceException.class)
                 .hasMessageContaining(file.toString());
     }
@@ -122,13 +138,15 @@ class ClearanceJournalTest {
         journal.record(decision("1.1.1.1", Verdict.DENY, Decision.PROMPT));
 
         try (var paths = Files.walk(runtime)) {
-            paths.sorted(java.util.Comparator.reverseOrder()).forEach(path -> {
-                try {
-                    Files.delete(path);
-                } catch (IOException ex) {
-                    throw new IllegalStateException(ex);
-                }
-            });
+            paths.sorted(java.util.Comparator.reverseOrder())
+                    .forEach(
+                            path -> {
+                                try {
+                                    Files.delete(path);
+                                } catch (IOException ex) {
+                                    throw new IllegalStateException(ex);
+                                }
+                            });
         }
 
         assertThat(journal.read()).hasSize(1);
@@ -143,7 +161,8 @@ class ClearanceJournalTest {
         journal.record(decision("1.1.1.1", Verdict.TIMEOUT, Decision.PROMPT));
         journal.record(decision("1.1.1.1", Verdict.ALLOW, Decision.CLIENT));
 
-        assertThat(journal.read()).extracting(Decision::verdict)
+        assertThat(journal.read())
+                .extracting(Decision::verdict)
                 .isEqualTo(List.of(Verdict.TIMEOUT, Verdict.ALLOW));
     }
 }

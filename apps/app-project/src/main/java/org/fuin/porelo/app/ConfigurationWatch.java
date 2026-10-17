@@ -8,19 +8,19 @@ import java.util.function.UnaryOperator;
 
 /**
  * Follows every project this account was told to follow, on a schedule.
- * <p>
- * <strong>The machine pulls; nothing pushes to it.</strong> The same shape as the two watches beside
- * it, and for the same reason: the daemon binds no network interface, so configuration arrives
- * because this goes and looks.
- * <p>
- * <strong>One project's trouble is not another's.</strong> A repository that cannot be reached, a
- * commit nobody signed, a file that does not read as a project - each stops that project and no
+ *
+ * <p><strong>The machine pulls; nothing pushes to it.</strong> The same shape as the two watches
+ * beside it, and for the same reason: the daemon binds no network interface, so configuration
+ * arrives because this goes and looks.
+ *
+ * <p><strong>One project's trouble is not another's.</strong> A repository that cannot be reached,
+ * a commit nobody signed, a file that does not read as a project - each stops that project and no
  * other, and the next tick tries again.
- * <p>
- * <strong>It changes what a project says and nothing else.</strong> Not the vault, not what a person
- * held, not a running task. A commit cannot start work, stop work or release a message somebody
- * stopped - and that boundary is what keeps this a way of configuring a machine rather than a way of
- * operating somebody else's.
+ *
+ * <p><strong>It changes what a project says and nothing else.</strong> Not the vault, not what a
+ * person held, not a running task. A commit cannot start work, stop work or release a message
+ * somebody stopped - and that boundary is what keeps this a way of configuring a machine rather
+ * than a way of operating somebody else's.
  */
 public final class ConfigurationWatch implements AutoCloseable {
 
@@ -58,7 +58,9 @@ public final class ConfigurationWatch implements AutoCloseable {
      * @param interval How often to look.
      * @param vaultOpen Whether this account's vault can be read now without asking anybody.
      */
-    ConfigurationWatch(final PoreloContext context, final Duration interval,
+    ConfigurationWatch(
+            final PoreloContext context,
+            final Duration interval,
             final java.util.function.BooleanSupplier vaultOpen) {
         this.context = context;
         this.interval = interval;
@@ -67,8 +69,8 @@ public final class ConfigurationWatch implements AutoCloseable {
 
     /**
      * Returns how often to look on this machine.
-     * <p>
-     * Switchable off, because an account that follows nothing should not be fetching every five
+     *
+     * <p>Switchable off, because an account that follows nothing should not be fetching every five
      * minutes, and because an operator is entitled to refuse a background activity they did not ask
      * for.
      *
@@ -91,8 +93,8 @@ public final class ConfigurationWatch implements AutoCloseable {
 
     /**
      * Follows every project once.
-     * <p>
-     * Never throws: what one project cannot do must not stop the rest.
+     *
+     * <p>Never throws: what one project cannot do must not stop the rest.
      *
      * @return What each project's attempt did, by name.
      */
@@ -101,19 +103,23 @@ public final class ConfigurationWatch implements AutoCloseable {
     }
 
     /**
-     * Follows again, now, every project that could not be fetched because the vault was shut - once it is open.
-     * <p>
-     * Opening the vault is when what waited for it can go on: left to the next round, a project
-     * said {@code vault_locked} for up to five minutes after the vault had been opened. Asked every few seconds, so
-     * it reads only the list of projects until one of them waits, and the vault only then.
+     * Follows again, now, every project that could not be fetched because the vault was shut - once
+     * it is open.
      *
-     * @return What each project's attempt did, by name; empty when nothing waited or the vault is still shut.
+     * <p>Opening the vault is when what waited for it can go on: left to the next round, a project
+     * said {@code vault_locked} for up to five minutes after the vault had been opened. Asked every
+     * few seconds, so it reads only the list of projects until one of them waits, and the vault
+     * only then.
+     *
+     * @return What each project's attempt did, by name; empty when nothing waited or the vault is
+     *     still shut.
      */
     public Map<String, Reconcile.Result> afterTheVault() {
         final java.util.function.Predicate<FollowedProjects.Followed> waited =
                 followed -> Reconcile.Outcome.VAULT_LOCKED.name().equals(followed.outcome());
         try {
-            if (new FollowedProjects(context.paths().projects().followed()).all().stream().noneMatch(waited)
+            if (new FollowedProjects(context.paths().projects().followed())
+                            .all().stream().noneMatch(waited)
                     || !vaultOpen.getAsBoolean()) {
                 return Map.of();
             }
@@ -127,14 +133,15 @@ public final class ConfigurationWatch implements AutoCloseable {
      * Follows one project now, or every one, at a person's word rather than at the next round.
      *
      * @param name The project, or {@code null} for every project this account follows.
-     * @return What each project's attempt did, by name; {@code null} when a named project is not followed here.
+     * @return What each project's attempt did, by name; {@code null} when a named project is not
+     *     followed here.
      */
     public java.util.@org.jspecify.annotations.Nullable Map<String, Reconcile.Result> refresh(
             final @org.jspecify.annotations.Nullable String name) {
         if (name != null) {
             try {
-                if (new FollowedProjects(context.paths().projects().followed()).all().stream()
-                        .noneMatch(followed -> followed.name().equals(name))) {
+                if (new FollowedProjects(context.paths().projects().followed())
+                        .all().stream().noneMatch(followed -> followed.name().equals(name))) {
                     return null;
                 }
             } catch (final IOException ex) {
@@ -151,12 +158,15 @@ public final class ConfigurationWatch implements AutoCloseable {
      * @return {@code true} when it applied a commit or held it already.
      */
     public static boolean fetched(final Reconcile.Result result) {
-        return result.outcome() == Reconcile.Outcome.APPLIED || result.outcome() == Reconcile.Outcome.UNCHANGED;
+        return result.outcome() == Reconcile.Outcome.APPLIED
+                || result.outcome() == Reconcile.Outcome.UNCHANGED;
     }
 
-    private Map<String, Reconcile.Result> once(final java.util.function.Predicate<FollowedProjects.Followed> which) {
+    private Map<String, Reconcile.Result> once(
+            final java.util.function.Predicate<FollowedProjects.Followed> which) {
         final Map<String, Reconcile.Result> done = new LinkedHashMap<>();
-        final FollowedProjects projects = new FollowedProjects(context.paths().projects().followed());
+        final FollowedProjects projects =
+                new FollowedProjects(context.paths().projects().followed());
         final java.util.List<FollowedProjects.Followed> all;
         try {
             all = projects.all();
@@ -169,15 +179,23 @@ public final class ConfigurationWatch implements AutoCloseable {
                 continue;
             }
             if (FollowedProjects.fromAFile(followed.url())) {
-                // Nothing to fetch, and nothing that may be: an offline project followed from a file never connects.
-                done.put(followed.name(), new Reconcile.Result(Reconcile.Outcome.FROM_A_FILE, followed.commit(),
-                        "followed from a file, so nothing is fetched: follow it again from a newer file to change it,"
-                                + " 'porelo project follow " + followed.name() + " <file>'"));
+                // Nothing to fetch, and nothing that may be: an offline project followed from a
+                // file never connects.
+                done.put(
+                        followed.name(),
+                        new Reconcile.Result(
+                                Reconcile.Outcome.FROM_A_FILE,
+                                followed.commit(),
+                                "followed from a file, so nothing is fetched: follow it again from a newer file to change it,"
+                                        + " 'porelo project follow "
+                                        + followed.name()
+                                        + " <file>'"));
                 continue;
             }
             try {
                 final Reconcile.Result result = reconcile.run(followed);
-                // Only onto the record it read: a project unfollowed, or a first follow refused, while this fetched is
+                // Only onto the record it read: a project unfollowed, or a first follow refused,
+                // while this fetched is
                 // not brought back.
                 if (projects.writeIfUnchanged(followed, Reconcile.after(followed, result))) {
                     done.put(followed.name(), result);
@@ -191,35 +209,43 @@ public final class ConfigurationWatch implements AutoCloseable {
 
     /**
      * Starts following, on a thread of its own.
-     * <p>
-     * The first round waits one interval: a daemon that came up and immediately fetched every
-     * project would make starting it expensive, and nothing is waiting for configuration that early.
+     *
+     * <p>The first round waits one interval: a daemon that came up and immediately fetched every
+     * project would make starting it expensive, and nothing is waiting for configuration that
+     * early.
      */
     public void start() {
         if (interval.isZero() || interval.isNegative()) {
             return;
         }
-        BackgroundPass.start("porelo-follow", () -> {
-            while (running) {
-                // The round's wait in short steps, each looking whether the vault opened for what waits for it.
-                final long round = System.nanoTime() + interval.toNanos();
-                while (running && System.nanoTime() < round) {
-                    try {
-                        Thread.sleep(Math.min(VAULT_LOOK.toMillis(),
-                                Math.max(1, (round - System.nanoTime()) / 1_000_000)));
-                    } catch (final InterruptedException ex) {
-                        Thread.currentThread().interrupt();
-                        return;
+        BackgroundPass.start(
+                "porelo-follow",
+                () -> {
+                    while (running) {
+                        // The round's wait in short steps, each looking whether the vault opened
+                        // for what waits for it.
+                        final long round = System.nanoTime() + interval.toNanos();
+                        while (running && System.nanoTime() < round) {
+                            try {
+                                Thread.sleep(
+                                        Math.min(
+                                                VAULT_LOOK.toMillis(),
+                                                Math.max(
+                                                        1,
+                                                        (round - System.nanoTime()) / 1_000_000)));
+                            } catch (final InterruptedException ex) {
+                                Thread.currentThread().interrupt();
+                                return;
+                            }
+                            if (running) {
+                                afterTheVault();
+                            }
+                        }
+                        if (running) {
+                            once();
+                        }
                     }
-                    if (running) {
-                        afterTheVault();
-                    }
-                }
-                if (running) {
-                    once();
-                }
-            }
-        });
+                });
     }
 
     @Override

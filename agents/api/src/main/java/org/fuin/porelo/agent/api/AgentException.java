@@ -1,8 +1,6 @@
 package org.fuin.porelo.agent.api;
 
-/**
- * An agent definition could not be read, or is not usable as it stands.
- */
+/** An agent definition could not be read, or is not usable as it stands. */
 public class AgentException extends RuntimeException {
 
     private static final long serialVersionUID = 1L;

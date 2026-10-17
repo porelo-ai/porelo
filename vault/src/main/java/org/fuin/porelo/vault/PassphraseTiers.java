@@ -7,8 +7,8 @@ import java.util.Optional;
 
 /**
  * Tries each passphrase source in turn and returns the first answer.
- * <p>
- * Comparable tools ship five tiers. The analysis here is that they overlap heavily and that
+ *
+ * <p>Comparable tools ship five tiers. The analysis here is that they overlap heavily and that
  * {@code passphrase-command} alone covers every password manager worth naming, so Porelo starts
  * with two and adds more when someone asks for one. Shipping fewer tiers is not a limitation here
  * but the point: every tier is another way for the passphrase to end up somewhere unexpected.
@@ -53,8 +53,12 @@ public class PassphraseTiers implements PassphraseSource {
      * @throws VaultException If no tier produced one.
      */
     public char[] require() {
-        return passphrase().orElseThrow(() -> new VaultException(
-                "No passphrase available, tried: " + String.join(", ", names())));
+        return passphrase()
+                .orElseThrow(
+                        () ->
+                                new VaultException(
+                                        "No passphrase available, tried: "
+                                                + String.join(", ", names())));
     }
 
     /**

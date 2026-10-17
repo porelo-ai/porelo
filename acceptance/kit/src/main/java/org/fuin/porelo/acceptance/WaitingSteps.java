@@ -10,20 +10,27 @@ import java.time.Instant;
 import org.fuin.porelo.machines.Ssh;
 
 /**
- * Whether Porelo shows an agent waiting for a person - the reading its declaration gives, asked of Porelo itself.
- * <p>
- * <strong>These steps read what Porelo says, never the screen.</strong> An agent repository proves its own
- * declaration at the version it pins by driving its agent to a question and asking whether Porelo now shows it
- * waiting - so a declaration that stopped matching fails that repository's leg, where the version was moved.
- * A step that matched the screen itself would prove the step, not the product. <strong>No step here names an
- * agent's wording</strong>: that is in the agent's own declaration and nowhere else.
+ * Whether Porelo shows an agent waiting for a person - the reading its declaration gives, asked of
+ * Porelo itself.
+ *
+ * <p><strong>These steps read what Porelo says, never the screen.</strong> An agent repository
+ * proves its own declaration at the version it pins by driving its agent to a question and asking
+ * whether Porelo now shows it waiting - so a declaration that stopped matching fails that
+ * repository's leg, where the version was moved. A step that matched the screen itself would prove
+ * the step, not the product. <strong>No step here names an agent's wording</strong>: that is in the
+ * agent's own declaration and nowhere else.
  */
 public class WaitingSteps {
 
-    /** How long a reading may take to show: a screen is read every few seconds, and a task takes a moment to draw. */
+    /**
+     * How long a reading may take to show: a screen is read every few seconds, and a task takes a
+     * moment to draw.
+     */
     static final Duration SHOWS_WITHIN = Duration.ofSeconds(60);
 
-    /** How long "not waiting" has to hold: a check that looked once would pass between two redraws. */
+    /**
+     * How long "not waiting" has to hold: a check that looked once would pass between two redraws.
+     */
     static final Duration HOLDS_FOR = Duration.ofSeconds(8);
 
     private static final Duration POLL = Duration.ofSeconds(1);
@@ -58,9 +65,14 @@ public class WaitingSteps {
             }
             pause();
         }
-        throw new AssertionError("Porelo did not show the " + agent + " agent waiting within "
-                + SHOWS_WITHIN.toSeconds() + "s. If its screen shows a question, the agent's waiting declaration no"
-                + " longer fits it. 'porelo task status' said:\n" + status);
+        throw new AssertionError(
+                "Porelo did not show the "
+                        + agent
+                        + " agent waiting within "
+                        + SHOWS_WITHIN.toSeconds()
+                        + "s. If its screen shows a question, the agent's waiting declaration no"
+                        + " longer fits it. 'porelo task status' said:\n"
+                        + status);
     }
 
     /**
@@ -79,7 +91,8 @@ public class WaitingSteps {
         while (Instant.now().isBefore(deadline)) {
             status = status(project, task);
             final String screen = screen(status);
-            assertThat(screen).as("the %s agent read as waiting when it asks nothing:%n%s", agent, status)
+            assertThat(screen)
+                    .as("the %s agent read as waiting when it asks nothing:%n%s", agent, status)
                     .doesNotStartWith("reads as waiting");
             if (screen.startsWith("reads as not waiting")) {
                 since = since == null ? Instant.now() : since;
@@ -91,9 +104,13 @@ public class WaitingSteps {
             }
             pause();
         }
-        throw new AssertionError("Porelo did not settle on showing the " + agent + " agent not waiting within "
-                + SHOWS_WITHIN.toSeconds() + "s - 'cannot say' is not 'not waiting'. 'porelo task status' said:\n"
-                + status);
+        throw new AssertionError(
+                "Porelo did not settle on showing the "
+                        + agent
+                        + " agent not waiting within "
+                        + SHOWS_WITHIN.toSeconds()
+                        + "s - 'cannot say' is not 'not waiting'. 'porelo task status' said:\n"
+                        + status);
     }
 
     /**
@@ -105,10 +122,21 @@ public class WaitingSteps {
      * @param seconds How long the whole run may take.
      * @throws IOException If the machine cannot be reached.
      */
-    @When("a task called {string} nobody is watching is started in {string} for the {string} agent and ends within {int} seconds")
-    public void aNamedUnattendedTask(String task, String project, String agent, int seconds) throws IOException {
-        final Ssh.Output output = world.run("timeout " + seconds + " " + TaskSteps.startCommand(project, agent)
-                .replaceFirst("^porelo task start ", "porelo task start " + Shell.quote(TaskSteps.aName(task)) + " "));
+    @When(
+            "a task called {string} nobody is watching is started in {string} for the {string} agent and ends within {int} seconds")
+    public void aNamedUnattendedTask(String task, String project, String agent, int seconds)
+            throws IOException {
+        final Ssh.Output output =
+                world.run(
+                        "timeout "
+                                + seconds
+                                + " "
+                                + TaskSteps.startCommand(project, agent)
+                                        .replaceFirst(
+                                                "^porelo task start ",
+                                                "porelo task start "
+                                                        + Shell.quote(TaskSteps.aName(task))
+                                                        + " "));
         world.output(output);
         final String why = ReadySteps.whyNotEnded(output.status(), seconds);
         assertThat(why).as("%s; it said:%n%s", why, world.redact(output.all())).isNull();
@@ -125,14 +153,17 @@ public class WaitingSteps {
     @Then("porelo says task {string} of {string} last said {string}")
     public void lastSaid(String task, String project, String said) throws IOException {
         final String status = status(project, task);
-        assertThat(status).as("what 'porelo task status' said").containsPattern("(?m)^last said +" + java.util.regex.Pattern.quote(said) + "$");
+        assertThat(status)
+                .as("what 'porelo task status' said")
+                .containsPattern("(?m)^last said +" + java.util.regex.Pattern.quote(said) + "$");
     }
 
     /**
      * Waits for a task typed at a terminal to exist, and says when it did.
-     * <p>
-     * The step's own bound counts from then: before it, the task's image is still being built, which the
-     * agent has no say in - measured, a scenario asked about a task that did not exist yet.
+     *
+     * <p>The step's own bound counts from then: before it, the task's image is still being built,
+     * which the agent has no say in - measured, a scenario asked about a task that did not exist
+     * yet.
      *
      * @param project The task's project.
      * @param task The task.
@@ -142,14 +173,23 @@ public class WaitingSteps {
     private Instant existsBy(String project, String task) throws IOException {
         final Instant deadline = Instant.now().plusSeconds(LiveTaskSteps.START_SECONDS);
         while (true) {
-            final Ssh.Output output = world.run("porelo task status "
-                    + Shell.quote(ReadySteps.container(project, task)));
+            final Ssh.Output output =
+                    world.run(
+                            "porelo task status "
+                                    + Shell.quote(ReadySteps.container(project, task)));
             if (output.status() == 0) {
                 return Instant.now();
             }
             if (Instant.now().isAfter(deadline)) {
-                throw new AssertionError("task " + task + " of " + project + " did not appear within "
-                        + LiveTaskSteps.START_SECONDS + "s:\n" + output.all());
+                throw new AssertionError(
+                        "task "
+                                + task
+                                + " of "
+                                + project
+                                + " did not appear within "
+                                + LiveTaskSteps.START_SECONDS
+                                + "s:\n"
+                                + output.all());
             }
             pause();
         }
@@ -165,14 +205,16 @@ public class WaitingSteps {
     @Then("porelo says task {string} of {string} has a session to continue")
     public void hasASession(String task, String project) throws IOException {
         final String status = status(project, task);
-        assertThat(status).as("what 'porelo task status' said").containsPattern("(?m)^session +\\S+ - the next start continues it$");
+        assertThat(status)
+                .as("what 'porelo task status' said")
+                .containsPattern("(?m)^session +\\S+ - the next start continues it$");
     }
 
     /**
      * Asserts what the screen tmux draws in a task shows, within a bound.
-     * <p>
-     * For a suite that knows its agent's wording - the stub's - and never for a step an agent repository
-     * reuses: those ask Porelo.
+     *
+     * <p>For a suite that knows its agent's wording - the stub's - and never for a step an agent
+     * repository reuses: those ask Porelo.
      *
      * @param task The task.
      * @param project The task's project.
@@ -185,18 +227,21 @@ public class WaitingSteps {
         final Instant deadline = Instant.now().plusSeconds(LiveTaskSteps.START_SECONDS);
         String screen = "";
         while (Instant.now().isBefore(deadline)) {
-            final Ssh.Output pane = world.run("podman exec " + Shell.quote(container) + " tmux capture-pane -p -J");
+            final Ssh.Output pane =
+                    world.run("podman exec " + Shell.quote(container) + " tmux capture-pane -p -J");
             screen = pane.out();
             if (pane.status() == 0 && screen.contains(shown)) {
                 return;
             }
             pause();
         }
-        throw new AssertionError("The screen in " + container + " did not show \"" + shown + "\":\n" + screen);
+        throw new AssertionError(
+                "The screen in " + container + " did not show \"" + shown + "\":\n" + screen);
     }
 
     private String status(String project, String task) throws IOException {
-        final Ssh.Output output = world.run("porelo task status " + Shell.quote(ReadySteps.container(project, task)));
+        final Ssh.Output output =
+                world.run("porelo task status " + Shell.quote(ReadySteps.container(project, task)));
         assertThat(output.status()).as("'porelo task status' failed:%n%s", output.all()).isZero();
         return output.out();
     }

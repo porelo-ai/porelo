@@ -7,20 +7,23 @@ import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Tells an agent that repeats a failure from one that is still working, from what has scrolled into its tasks'
- * histories.
- * <p>
- * <strong>What scrolled by, not what is on the screen.</strong> A spinner, a timer and tmux's status bar redraw in
- * place, so the same line is drawn again many times a minute by an agent that works; they never scroll into the
- * history. A tool call that fails and is tried again adds a new block each time, which does. Measured on a run whose
- * agent wrote one file thousands of times, each try refused the same way, while the step waited out its four minutes.
- * <p>
- * <strong>Two rules.</strong> The marker a scenario declares for a failed tool call, seen {@value #MARKER_REPEATS}
- * times since the step began, is a loop: three tries of one failing call is no longer working on it. Without a marker,
- * or for a loop the marker does not catch, one line seen more often than {@link #REPEATS} allows is one. Lines without
- * a letter or a digit do not count: the bottom edge of every box an agent draws is the same line.
- * <p>
- * Counted from the step's own beginning: what scrolled by before it, in an earlier step, is the agent's past.
+ * Tells an agent that repeats a failure from one that is still working, from what has scrolled into
+ * its tasks' histories.
+ *
+ * <p><strong>What scrolled by, not what is on the screen.</strong> A spinner, a timer and tmux's
+ * status bar redraw in place, so the same line is drawn again many times a minute by an agent that
+ * works; they never scroll into the history. A tool call that fails and is tried again adds a new
+ * block each time, which does. Measured on a run whose agent wrote one file thousands of times,
+ * each try refused the same way, while the step waited out its four minutes.
+ *
+ * <p><strong>Two rules.</strong> The marker a scenario declares for a failed tool call, seen
+ * {@value #MARKER_REPEATS} times since the step began, is a loop: three tries of one failing call
+ * is no longer working on it. Without a marker, or for a loop the marker does not catch, one line
+ * seen more often than {@link #REPEATS} allows is one. Lines without a letter or a digit do not
+ * count: the bottom edge of every box an agent draws is the same line.
+ *
+ * <p>Counted from the step's own beginning: what scrolled by before it, in an earlier step, is the
+ * agent's past.
  */
 final class LoopWatch {
 
@@ -36,9 +39,13 @@ final class LoopWatch {
     /** What separates one container's history from the next in what {@link #COMMAND} prints. */
     static final char SEPARATOR = '\u001e';
 
-    /** Prints the history of every task's session of the account, each after a line naming its container. */
-    static final String COMMAND = "for c in $(podman ps --format '{{.Names}}' --filter name=^porelo-); do"
-            + " printf '\\036%s\\n' \"$c\"; podman exec \"$c\" tmux capture-pane -p -J -S - -E -1 2>/dev/null; done";
+    /**
+     * Prints the history of every task's session of the account, each after a line naming its
+     * container.
+     */
+    static final String COMMAND =
+            "for c in $(podman ps --format '{{.Names}}' --filter name=^porelo-); do"
+                    + " printf '\\036%s\\n' \"$c\"; podman exec \"$c\" tmux capture-pane -p -J -S - -E -1 2>/dev/null; done";
 
     private final @Nullable String marker;
 
@@ -70,7 +77,8 @@ final class LoopWatch {
         try {
             return Integer.parseInt(set.strip());
         } catch (NumberFormatException ex) {
-            throw new IllegalArgumentException(REPEATS + " is a number of lines, not '" + set + "'", ex);
+            throw new IllegalArgumentException(
+                    REPEATS + " is a number of lines, not '" + set + "'", ex);
         }
     }
 
@@ -81,8 +89,8 @@ final class LoopWatch {
 
     /**
      * Looks at the histories once.
-     * <p>
-     * The first look after {@link #reset()} is what the step began with, and finds nothing.
+     *
+     * <p>The first look after {@link #reset()} is what the step began with, and finds nothing.
      *
      * @param histories Each task's history, by its container.
      * @return What repeated, where and how often, or empty while nothing does.
@@ -107,14 +115,31 @@ final class LoopWatch {
                     failure = line.getKey();
                 }
                 if (added > repeats) {
-                    return Optional.of("In " + task.getKey() + " one line scrolled by " + added
-                            + " times since this step began, more than the " + repeats + " that " + REPEATS
-                            + " allows: \"" + line.getKey() + "\"");
+                    return Optional.of(
+                            "In "
+                                    + task.getKey()
+                                    + " one line scrolled by "
+                                    + added
+                                    + " times since this step began, more than the "
+                                    + repeats
+                                    + " that "
+                                    + REPEATS
+                                    + " allows: \""
+                                    + line.getKey()
+                                    + "\"");
                 }
             }
             if (failures >= MARKER_REPEATS) {
-                return Optional.of("In " + task.getKey() + " the tool failure \"" + marker + "\" scrolled by " + failures
-                        + " times since this step began: the agent repeats a failing call. The last: \"" + failure + "\"");
+                return Optional.of(
+                        "In "
+                                + task.getKey()
+                                + " the tool failure \""
+                                + marker
+                                + "\" scrolled by "
+                                + failures
+                                + " times since this step began: the agent repeats a failing call. The last: \""
+                                + failure
+                                + "\"");
             }
         }
         return Optional.empty();

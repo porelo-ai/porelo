@@ -8,8 +8,8 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 /**
- * What {@code porelo-bom} publishes, read from the pom flatten writes for it: the reactor builds {@code bom} first, so it
- * is there when this runs.
+ * What {@code porelo-bom} publishes, read from the pom flatten writes for it: the reactor builds
+ * {@code bom} first, so it is there when this runs.
  */
 class PublishedBomTest {
 
@@ -22,9 +22,12 @@ class PublishedBomTest {
         // and counted as published to Central, which it never was.
         final String published = Files.readString(FLATTENED);
 
-        assertThat(published).as("a BOM, its versions there").contains("<dependencyManagement>")
+        assertThat(published)
+                .as("a BOM, its versions there")
+                .contains("<dependencyManagement>")
                 .contains("<artifactId>porelo-agent-api</artifactId>");
-        assertThat(published).doesNotContain("<skipPublishing>false</skipPublishing>")
+        assertThat(published)
+                .doesNotContain("<skipPublishing>false</skipPublishing>")
                 .doesNotContain("<maven.deploy.skip>false</maven.deploy.skip>");
     }
 }

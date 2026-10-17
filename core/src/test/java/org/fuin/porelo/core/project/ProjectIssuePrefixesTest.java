@@ -6,12 +6,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.io.StringReader;
 import org.junit.jupiter.api.Test;
 
-/**
- * The issue prefixes each repository of a project owns, as its project file names them.
- */
+/** The issue prefixes each repository of a project owns, as its project file names them. */
 class ProjectIssuePrefixesTest {
 
-    private static final String HEAD = """
+    private static final String HEAD =
+            """
             project:
               name: "p"
               security_class: "guarded"
@@ -20,12 +19,15 @@ class ProjectIssuePrefixesTest {
             """;
 
     private static Project read(final String repositories) {
-        return ProjectReader.read(new StringReader(HEAD + "repositories:\n" + repositories), "test");
+        return ProjectReader.read(
+                new StringReader(HEAD + "repositories:\n" + repositories), "test");
     }
 
     @Test
     void readsTheListOfEachRepositoryInItsOrder() {
-        final Project project = read("""
+        final Project project =
+                read(
+                        """
                   core:
                     upstream: "git@github.com:porelo-ai/porelo.git"
                     issues: ["B", "P"]
@@ -38,36 +40,53 @@ class ProjectIssuePrefixesTest {
 
         assertThat(project.repository("core").issues()).containsExactly("B", "P");
         assertThat(project.repository("pi").issues()).containsExactly("PI");
-        assertThat(project.repository("site").issues()).as("a repository without issues has none").isEmpty();
+        assertThat(project.repository("site").issues())
+                .as("a repository without issues has none")
+                .isEmpty();
     }
 
     @Test
     void refusesAPrefixThatIsNotCapitalLetters() {
-        assertThatThrownBy(() -> read("""
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        """
                   core:
                     issues: ["B", "p1"]
-                """)).isInstanceOf(ProjectException.class)
-                .hasMessageContaining("'repositories.core.issues'").hasMessageContaining("'p1'");
+                """))
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("'repositories.core.issues'")
+                .hasMessageContaining("'p1'");
     }
 
     @Test
     void refusesAPrefixTwoRepositoriesName() {
-        assertThatThrownBy(() -> read("""
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        """
                   core:
                     issues: ["B", "P"]
                   frontend:
                     issues: ["F", "P"]
-                """)).isInstanceOf(ProjectException.class)
+                """))
+                .isInstanceOf(ProjectException.class)
                 .as("the prefix and both repositories named")
-                .hasMessageContaining("'P'").hasMessageContaining("core").hasMessageContaining("frontend");
+                .hasMessageContaining("'P'")
+                .hasMessageContaining("core")
+                .hasMessageContaining("frontend");
     }
 
     @Test
     void refusesAnIssuesKeyThatIsNoList() {
-        assertThatThrownBy(() -> read("""
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        """
                   core:
                     issues: "B"
-                """)).isInstanceOf(ProjectException.class)
+                """))
+                .isInstanceOf(ProjectException.class)
                 .hasMessageContaining("'repositories.core.issues' is a list");
     }
 }

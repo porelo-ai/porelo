@@ -14,15 +14,15 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * The transports installed on this machine.
- * <p>
- * A transport carries a message from one task's mailbox to another's. It is a package rather than
- * something Porelo knows about: the same shape agents already have, for the same reason - what a
- * transport is called, what it can do and what it reaches is the transport's own business, and
+ *
+ * <p>A transport carries a message from one task's mailbox to another's. It is a package rather
+ * than something Porelo knows about: the same shape agents already have, for the same reason - what
+ * a transport is called, what it can do and what it reaches is the transport's own business, and
  * Porelo branches on what it answers rather than on its name.
- * <p>
- * <strong>Found by name and executed, never read.</strong> A directory an operator can write to is
- * not a place to run whatever happens to be lying in it, so a candidate has to carry the prefix, be
- * a regular file, and be executable - the same three tests the agent directory makes.
+ *
+ * <p><strong>Found by name and executed, never read.</strong> A directory an operator can write to
+ * is not a place to run whatever happens to be lying in it, so a candidate has to carry the prefix,
+ * be a regular file, and be executable - the same three tests the agent directory makes.
  */
 public class TransportDirectory {
 
@@ -64,9 +64,9 @@ public class TransportDirectory {
 
     /**
      * Returns every adapter, by the name that follows the prefix.
-     * <p>
-     * An adapter in a nearer directory shadows a packaged one of the same name, so an operator can
-     * try one of their own without removing what a package installed.
+     *
+     * <p>An adapter in a nearer directory shadows a packaged one of the same name, so an operator
+     * can try one of their own without removing what a package installed.
      *
      * @return Name to executable, ordered by name.
      */
@@ -78,7 +78,8 @@ public class TransportDirectory {
             }
         }
         final Map<String, Path> ordered = new LinkedHashMap<>();
-        found.entrySet().stream().sorted(Map.Entry.comparingByKey())
+        found.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
                 .forEach(entry -> ordered.put(entry.getKey(), entry.getValue()));
         return ordered;
     }
@@ -108,12 +109,16 @@ public class TransportDirectory {
             return List.of();
         }
         try (Stream<Path> entries = Files.list(location)) {
-            final List<Path> candidates = new ArrayList<>(entries
-                    .filter(path -> path.getFileName().toString().startsWith(PREFIX))
-                    .filter(Files::isRegularFile)
-                    // An adapter is executed. A file somebody dropped here without meaning it to
-                    // run is not one, and neither is a stray note or a leftover archive.
-                    .filter(Files::isExecutable).toList());
+            final List<Path> candidates =
+                    new ArrayList<>(
+                            entries.filter(path -> path.getFileName().toString().startsWith(PREFIX))
+                                    .filter(Files::isRegularFile)
+                                    // An adapter is executed. A file somebody dropped here without
+                                    // meaning it to
+                                    // run is not one, and neither is a stray note or a leftover
+                                    // archive.
+                                    .filter(Files::isExecutable)
+                                    .toList());
             candidates.sort(Comparator.comparing(path -> path.getFileName().toString()));
             return candidates;
         } catch (final IOException e) {

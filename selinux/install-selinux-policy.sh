@@ -10,8 +10,14 @@ set -euo pipefail
 DIRECTORY="$(cd "$(dirname "$0")" && pwd)"
 SOURCE="$DIRECTORY/porelo_socket.te"
 
-[ -f "$SOURCE" ] || { echo "missing $SOURCE" >&2; exit 2; }
-[ "$(id -u)" = 0 ] || { echo "run this with sudo: sudo $0" >&2; exit 2; }
+[ -f "$SOURCE" ] || {
+    echo "missing $SOURCE" >&2
+    exit 2
+}
+[ "$(id -u)" = 0 ] || {
+    echo "run this with sudo: sudo $0" >&2
+    exit 2
+}
 
 for tool in checkmodule semodule_package semodule; do
     command -v "$tool" >/dev/null || {

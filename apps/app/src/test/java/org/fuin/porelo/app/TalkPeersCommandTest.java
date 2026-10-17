@@ -7,18 +7,18 @@ import java.util.Map;
 import org.fuin.porelo.core.project.Mail;
 import org.junit.jupiter.api.Test;
 
-/**
- * Test for {@link TalkPeersCommand}: whom a project's tasks reach, including each other.
- */
+/** Test for {@link TalkPeersCommand}: whom a project's tasks reach, including each other. */
 class TalkPeersCommandTest {
 
     @Test
     void aProjectWithAConversationSaysItsTasksReachEachOther() {
 
-        // It listed only the written peers, and "no peers - this project's tasks address nobody" when there were
+        // It listed only the written peers, and "no peers - this project's tasks address nobody"
+        // when there were
         // none, while its tasks reached each other by name through the conversation.
         assertThat(TalkPeersCommand.tasks(new Mail(List.of(), Map.of("matrix", Map.of()))))
-                .contains("each other").contains("matrix");
+                .contains("each other")
+                .contains("matrix");
     }
 
     @Test
@@ -31,9 +31,14 @@ class TalkPeersCommandTest {
 
         // Found on 2026-10-04: 'people' and the room's members worked as addresses and were not
         // listed, so a person reading the list could not tell they were there.
-        final List<Mail.Peer> listed = TalkPeersCommand.listed(new Mail(List.of(new Mail.Peer("ops",
-                "mail:ops@example.org", Mail.Peer.EXTERNAL)), Map.of("matrix", Map.of())),
-                Map.of("alice", "@alice:localhost"));
+        final List<Mail.Peer> listed =
+                TalkPeersCommand.listed(
+                        new Mail(
+                                List.of(
+                                        new Mail.Peer(
+                                                "ops", "mail:ops@example.org", Mail.Peer.EXTERNAL)),
+                                Map.of("matrix", Map.of())),
+                        Map.of("alice", "@alice:localhost"));
 
         assertThat(listed).extracting(Mail.Peer::name).containsExactly("ops", Mail.PEOPLE, "alice");
         assertThat(listed.get(2).destination()).isEqualTo("@alice:localhost");

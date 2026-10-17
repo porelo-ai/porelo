@@ -9,18 +9,18 @@ import org.fuin.porelo.wire.TaskProfile;
 
 /**
  * Turns enforcement on or off on a task that is already running.
- * <p>
- * <strong>The state was chosen before anybody saw what the task would do.</strong> `Start` takes a
- * clearance mode and nothing changed it afterwards, so somebody watching a task ask about the same
- * host for the twentieth time had to stop it and start again to make it stop asking.
- * <p>
- * <strong>Deliberately not part of widening or narrowing.</strong> Those grant and withdraw names,
- * and that the firewall stays loaded is what they mean. Folding "stop asking about anything" into
- * them would make one method mean two unrelated things, and the quiet one would be the dangerous
- * one.
- * <p>
- * <strong>What it cannot undo.</strong> Turning enforcement off does not recall a connection that
- * was already refused - the packet was dropped and nothing retries it - and turning it back on
+ *
+ * <p><strong>The state was chosen before anybody saw what the task would do.</strong> `Start` takes
+ * a clearance mode and nothing changed it afterwards, so somebody watching a task ask about the
+ * same host for the twentieth time had to stop it and start again to make it stop asking.
+ *
+ * <p><strong>Deliberately not part of widening or narrowing.</strong> Those grant and withdraw
+ * names, and that the firewall stays loaded is what they mean. Folding "stop asking about anything"
+ * into them would make one method mean two unrelated things, and the quiet one would be the
+ * dangerous one.
+ *
+ * <p><strong>What it cannot undo.</strong> Turning enforcement off does not recall a connection
+ * that was already refused - the packet was dropped and nothing retries it - and turning it back on
  * does not recall anything waved through while it was off. The firewall is loaded throughout, so
  * the change never opens anything by itself; what changes is whether a blocked connection produces
  * a question.
@@ -66,7 +66,7 @@ public final class RunningClearance {
      * @param now The mode after, or "" when nothing changed.
      * @param detail Why it failed, or "".
      */
-    public record Result(Outcome outcome, String was, String now, String detail) { }
+    public record Result(Outcome outcome, String was, String now, String detail) {}
 
     private RunningClearance() {
         throw new UnsupportedOperationException("Utility class");
@@ -80,7 +80,8 @@ public final class RunningClearance {
      * @return Whether one was stopped.
      */
     private static boolean stopWatcher(PoreloContext context, String container) {
-        final Path pidFile = context.paths().tasks().containerState(container).resolve("watcher.pid");
+        final Path pidFile =
+                context.paths().tasks().containerState(container).resolve("watcher.pid");
         if (!Files.isRegularFile(pidFile)) {
             return false;
         }
@@ -95,8 +96,10 @@ public final class RunningClearance {
             }
             // Through the runner rather than ProcessHandle: the watcher is a child of whatever
             // started the task, which is not this process when the daemon is asked.
-            context.runner().run(org.fuin.porelo.core.process.Command.of(
-                    List.of("kill", String.valueOf(watcher.get().pid()))));
+            context.runner()
+                    .run(
+                            org.fuin.porelo.core.process.Command.of(
+                                    List.of("kill", String.valueOf(watcher.get().pid()))));
             return true;
         } catch (java.io.IOException | RuntimeException ex) {
             return false;
@@ -113,11 +116,14 @@ public final class RunningClearance {
      * @param out Where progress goes.
      * @return What happened.
      */
-    public static Result set(PoreloContext context, String container, String mode, boolean dryRun,
-            PrintWriter out) {
+    public static Result set(
+            PoreloContext context, String container, String mode, boolean dryRun, PrintWriter out) {
 
         if (!MODES.contains(mode)) {
-            return new Result(Outcome.UNKNOWN_MODE, "", "",
+            return new Result(
+                    Outcome.UNKNOWN_MODE,
+                    "",
+                    "",
                     "expected one of " + String.join(", ", MODES.stream().sorted().toList()));
         }
         if (!org.fuin.porelo.runtime.ContainerName.isTask(container)) {
@@ -131,8 +137,8 @@ public final class RunningClearance {
         if (profile == null) {
             // Changing it without a profile would mean inventing the rest of one, which would
             // claim a mode and a start time nobody recorded.
-            return new Result(Outcome.NOT_RECORDED, "", "",
-                    "started by a Porelo that recorded no profile");
+            return new Result(
+                    Outcome.NOT_RECORDED, "", "", "started by a Porelo that recorded no profile");
         }
         final String was = profile.clearance() == null ? "" : profile.clearance();
         if (was.equals(mode)) {
@@ -142,14 +148,17 @@ public final class RunningClearance {
         if (sidecar == null) {
             // Without it the watcher cannot be told which project and task a prompt is about, and
             // a prompt that names neither is one nobody can act on.
-            return new Result(Outcome.NOT_RECORDED, was, "",
-                    "no sidecar recorded for " + container);
+            return new Result(
+                    Outcome.NOT_RECORDED, was, "", "no sidecar recorded for " + container);
         }
         final java.util.Optional<Long> pid = context.tasks().containerPid(container);
         if (!"off".equals(mode) && pid.isEmpty()) {
             // Turning it off never needs the container: it is stopping a process. Turning it on
             // does, because the watcher enters the container's network namespace.
-            return new Result(Outcome.NOT_RUNNING, was, "",
+            return new Result(
+                    Outcome.NOT_RUNNING,
+                    was,
+                    "",
                     container + " reports no process, so no watcher can be started for it");
         }
         if (dryRun) {
@@ -158,19 +167,31 @@ public final class RunningClearance {
 
         try {
             if (stopWatcher(context, container)) {
-                out.println("stopped   the watcher that was running in "
-                        + (was.isEmpty() ? "an unrecorded" : was) + " mode");
+                out.println(
+                        "stopped   the watcher that was running in "
+                                + (was.isEmpty() ? "an unrecorded" : was)
+                                + " mode");
             }
             if ("off".equals(mode)) {
-                out.println("clearance off - nothing is asked and nothing is refused; the ruleset"
-                        + " stays loaded, so this opens nothing by itself");
+                out.println(
+                        "clearance off - nothing is asked and nothing is refused; the ruleset"
+                                + " stays loaded, so this opens nothing by itself");
                 forgetWatcher(state);
             } else {
-                final List<String> command = ClearanceWiring.watcherCommand(context,
-                        sidecar.project(), taskOf(container, sidecar.project()), pid.get(),
-                        container, mode);
-                new ProcessBuilder(org.fuin.porelo.core.process.Scope.around("porelo " + container + " watcher", command)).redirectErrorStream(true)
-                        .redirectOutput(state.resolve("clearance.log").toFile()).start();
+                final List<String> command =
+                        ClearanceWiring.watcherCommand(
+                                context,
+                                sidecar.project(),
+                                taskOf(container, sidecar.project()),
+                                pid.get(),
+                                container,
+                                mode);
+                new ProcessBuilder(
+                                org.fuin.porelo.core.process.Scope.around(
+                                        "porelo " + container + " watcher", command))
+                        .redirectErrorStream(true)
+                        .redirectOutput(state.resolve("clearance.log").toFile())
+                        .start();
                 rememberWatcher(state, command);
                 out.println("clearance " + mode + ", log at " + state.resolve("clearance.log"));
             }
@@ -184,7 +205,8 @@ public final class RunningClearance {
         }
     }
 
-    private static org.fuin.porelo.wire.@org.jspecify.annotations.Nullable Sidecar sidecarOf(PoreloContext context, String container) {
+    private static org.fuin.porelo.wire.@org.jspecify.annotations.Nullable Sidecar sidecarOf(
+            PoreloContext context, String container) {
         try {
             return org.fuin.porelo.wire.Sidecar.readFrom(
                     context.paths().tasks().containerState(container).resolve("sidecar.json"));
@@ -195,10 +217,10 @@ public final class RunningClearance {
 
     /**
      * Returns the task's own name, given the project the container belongs to.
-     * <p>
-     * A container is {@code porelo-<project>-<task>-<run>} and a project name may contain hyphens,
-     * so this is only answerable once the project is known - which is why it takes it rather than
-     * splitting on hyphens and hoping.
+     *
+     * <p>A container is {@code porelo-<project>-<task>-<run>} and a project name may contain
+     * hyphens, so this is only answerable once the project is known - which is why it takes it
+     * rather than splitting on hyphens and hoping.
      *
      * @param container The container.
      * @param project The project it belongs to.
@@ -224,11 +246,12 @@ public final class RunningClearance {
      */
     private static void rememberWatcher(Path state, List<String> command)
             throws java.io.IOException {
-        final List<TaskHelpers.Helper> kept = new java.util.ArrayList<>(
-                TaskHelpers.readFrom(state).helpers().stream()
-                        .filter(helper -> !"watcher".equals(helper.name())).toList());
-        kept.add(new TaskHelpers.Helper("watcher", command, java.util.Map.of(),
-                TaskHelpers.AFTER));
+        final List<TaskHelpers.Helper> kept =
+                new java.util.ArrayList<>(
+                        TaskHelpers.readFrom(state).helpers().stream()
+                                .filter(helper -> !"watcher".equals(helper.name()))
+                                .toList());
+        kept.add(new TaskHelpers.Helper("watcher", command, java.util.Map.of(), TaskHelpers.AFTER));
         new TaskHelpers(List.copyOf(kept)).writeTo(state);
     }
 
@@ -239,7 +262,10 @@ public final class RunningClearance {
      * @throws java.io.IOException If the record cannot be written.
      */
     private static void forgetWatcher(Path state) throws java.io.IOException {
-        new TaskHelpers(TaskHelpers.readFrom(state).helpers().stream()
-                .filter(helper -> !"watcher".equals(helper.name())).toList()).writeTo(state);
+        new TaskHelpers(
+                        TaskHelpers.readFrom(state).helpers().stream()
+                                .filter(helper -> !"watcher".equals(helper.name()))
+                                .toList())
+                .writeTo(state);
     }
 }

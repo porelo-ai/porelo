@@ -12,17 +12,23 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Holds that the server type a leg rents can be chosen for a run without a commit.
- * <p>
- * A tag's Build runs the tag's own workflow, and its legs rented the shared-vCPU types alone: on a busy host a build
- * took five times its time and the release's leg ran out of its step (2026-10-17), with nothing to set but a new commit.
+ *
+ * <p>A tag's Build runs the tag's own workflow, and its legs rented the shared-vCPU types alone: on
+ * a busy host a build took five times its time and the release's leg ran out of its step
+ * (2026-10-17), with nothing to set but a new commit.
  */
 @Tag("documents")
 class LegTypesTest {
 
     @Test
     void theBuildsLegTakesItsServerTypesFromTheRepositoryVariable() throws IOException {
-        final List<String> legLines = Files.readAllLines(Path.of("../../.github/workflows/build.yml"),
-                StandardCharsets.UTF_8).stream().filter(line -> line.contains("-Dlegs.args=\"leg ")).toList();
+        final List<String> legLines =
+                Files.readAllLines(
+                                Path.of("../../.github/workflows/build.yml"),
+                                StandardCharsets.UTF_8)
+                        .stream()
+                        .filter(line -> line.contains("-Dlegs.args=\"leg "))
+                        .toList();
 
         // A guard that finds nothing passes forever: the line is there, then what it says.
         assertThat(legLines).hasSize(1);

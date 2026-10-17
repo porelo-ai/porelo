@@ -11,18 +11,19 @@ import org.fuin.porelo.vault.SshSignature;
 
 /**
  * Walks a task's record and says what no longer checks out.
- * <p>
- * Two different questions, answered in one pass because an operator asking either is really asking
- * "can I still believe this mailbox":
+ *
+ * <p>Two different questions, answered in one pass because an operator asking either is really
+ * asking "can I still believe this mailbox":
+ *
  * <ul>
- * <li><strong>The chain</strong> - was a line edited or removed after it was written.</li>
- * <li><strong>The signatures</strong> - does each kept signature still match the message it was
- * made over.</li>
+ *   <li><strong>The chain</strong> - was a line edited or removed after it was written.
+ *   <li><strong>The signatures</strong> - does each kept signature still match the message it was
+ *       made over.
  * </ul>
- * <p>
- * <strong>It names the first thing that fails and keeps going.</strong> Stopping at the first would
- * hide how far the damage reaches, and a list with nothing first in it makes a person read all of
- * it to find out whether anything matters.
+ *
+ * <p><strong>It names the first thing that fails and keeps going.</strong> Stopping at the first
+ * would hide how far the damage reaches, and a list with nothing first in it makes a person read
+ * all of it to find out whether anything matters.
  */
 public final class MessageVerify {
 
@@ -32,8 +33,7 @@ public final class MessageVerify {
      * @param what The line number, or the file name.
      * @param detail Why, in words an operator can act on.
      */
-    public record Fault(String what, String detail) {
-    }
+    public record Fault(String what, String detail) {}
 
     /**
      * What the walk found.
@@ -42,8 +42,7 @@ public final class MessageVerify {
      * @param signatures How many kept signatures were checked.
      * @param faults What does not check out, in the order found. Empty means it all holds.
      */
-    public record Report(int lines, int signatures, List<Fault> faults) {
-    }
+    public record Report(int lines, int signatures, List<Fault> faults) {}
 
     /**
      * Checks one mailbox.
@@ -59,9 +58,11 @@ public final class MessageVerify {
         final MessageRecord record = new MessageRecord(mailbox);
         final int broken = record.firstBrokenLine();
         if (broken > 0) {
-            faults.add(new Fault("line " + broken,
-                    "it does not follow the line before it, so the record was changed after it was"
-                            + " written"));
+            faults.add(
+                    new Fault(
+                            "line " + broken,
+                            "it does not follow the line before it, so the record was changed after it was"
+                                    + " written"));
         }
         int checked = 0;
         for (final Path signature : kept(mailbox.record())) {
@@ -77,12 +78,15 @@ public final class MessageVerify {
             final String armored = Files.readString(signature, StandardCharsets.UTF_8);
             final byte[] signer = SshSignature.signerOf(armored);
             if (signer == null || peerFor(peers, signer) == null) {
-                faults.add(new Fault(messageName,
-                        "its signature is not one of the keys a peer may use"));
-            } else if (!SshSignature.verify(Files.readAllBytes(message), armored, signer,
-                    MessageIntake.NAMESPACE)) {
-                faults.add(new Fault(messageName,
-                        "it no longer matches the signature it arrived with"));
+                faults.add(
+                        new Fault(
+                                messageName,
+                                "its signature is not one of the keys a peer may use"));
+            } else if (!SshSignature.verify(
+                    Files.readAllBytes(message), armored, signer, MessageIntake.NAMESPACE)) {
+                faults.add(
+                        new Fault(
+                                messageName, "it no longer matches the signature it arrived with"));
             }
         }
         return new Report(record.size(), checked, List.copyOf(faults));
@@ -100,8 +104,8 @@ public final class MessageVerify {
         return null;
     }
 
-    private @org.jspecify.annotations.Nullable Path messageIn(final Mailbox mailbox,
-            final String name) {
+    private @org.jspecify.annotations.Nullable Path messageIn(
+            final Mailbox mailbox, final String name) {
         for (final Path where : List.of(mailbox.inboxNew(), mailbox.inboxCur(), mailbox.sent())) {
             final Path candidate = where.resolve(name);
             if (Files.isRegularFile(candidate)) {
@@ -117,7 +121,8 @@ public final class MessageVerify {
         }
         try (Stream<Path> entries = Files.list(record)) {
             return entries.filter(Files::isRegularFile)
-                    .filter(path -> path.getFileName().toString().endsWith(".sig")).sorted()
+                    .filter(path -> path.getFileName().toString().endsWith(".sig"))
+                    .sorted()
                     .toList();
         }
     }

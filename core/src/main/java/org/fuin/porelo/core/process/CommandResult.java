@@ -8,7 +8,8 @@ package org.fuin.porelo.core.process;
  * @param standardOutput Everything written to standard output.
  * @param standardError Everything written to standard error.
  */
-public record CommandResult(Command command, int exitCode, String standardOutput, String standardError) {
+public record CommandResult(
+        Command command, int exitCode, String standardOutput, String standardError) {
 
     /**
      * Tells whether the program succeeded.

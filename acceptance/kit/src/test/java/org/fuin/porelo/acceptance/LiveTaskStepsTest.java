@@ -9,9 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for what {@link LiveTaskSteps} builds and reads, nowhere near a machine.
- */
+/** Tests for what {@link LiveTaskSteps} builds and reads, nowhere near a machine. */
 class LiveTaskStepsTest {
 
     private static final String SECRET = "sk-or-v1-0123456789abcdef";
@@ -19,20 +17,23 @@ class LiveTaskStepsTest {
     @Test
     void startsATaskThatIsLeftRunningAndAsksNobody() {
         assertThat(LiveTaskSteps.startCommand("live", "claude", "openrouter"))
-                .isEqualTo("timeout 900 porelo task start --project 'live' --repository 'live' --agent 'claude'"
-                        + " --provider 'openrouter' --detach --clearance deny");
+                .isEqualTo(
+                        "timeout 900 porelo task start --project 'live' --repository 'live' --agent 'claude'"
+                                + " --provider 'openrouter' --detach --clearance deny");
     }
 
     @Test
     void leavesTheProviderToTheAgentWhenNoneIsNamed() {
-        assertThat(LiveTaskSteps.startCommand("live", "pi", null)).doesNotContain("--provider")
+        assertThat(LiveTaskSteps.startCommand("live", "pi", null))
+                .doesNotContain("--provider")
                 .endsWith("--agent 'pi' --detach --clearance deny");
     }
 
     @Test
     void namesTheTaskBeforeItsOptionsWhenTheScenarioChoseOne() {
         assertThat(LiveTaskSteps.startCommand("image", "live", "pi", null))
-                .startsWith("timeout 900 porelo task start 'image' --project 'live' --repository 'live'");
+                .startsWith(
+                        "timeout 900 porelo task start 'image' --project 'live' --repository 'live'");
     }
 
     @Test
@@ -49,31 +50,42 @@ class LiveTaskStepsTest {
 
     @Test
     void readsTheContainerAndTheStateDirectoryFromWhatAStartPrinted() {
-        final String said = "resolver  /run/user/1000/porelo/tasks/live-1/dns.conf (3 domains)\n"
-                + "sidecar   /run/user/1000/porelo/tasks/live-1/sidecar.json\n"
-                + "image     localhost/porelo-live:abc\n"
-                + "container porelo-live-1\n";
+        final String said =
+                "resolver  /run/user/1000/porelo/tasks/live-1/dns.conf (3 domains)\n"
+                        + "sidecar   /run/user/1000/porelo/tasks/live-1/sidecar.json\n"
+                        + "image     localhost/porelo-live:abc\n"
+                        + "container porelo-live-1\n";
 
-        assertThat(LiveTaskSteps.task(said)).hasValueSatisfying(task -> {
-            assertThat(task.container()).isEqualTo("porelo-live-1");
-            assertThat(task.state()).isEqualTo("/run/user/1000/porelo/tasks/live-1");
-        });
+        assertThat(LiveTaskSteps.task(said))
+                .hasValueSatisfying(
+                        task -> {
+                            assertThat(task.container()).isEqualTo("porelo-live-1");
+                            assertThat(task.state())
+                                    .isEqualTo("/run/user/1000/porelo/tasks/live-1");
+                        });
     }
 
     @Test
     void aStartThatNamedNoContainerStartedNothing() {
-        assertThat(LiveTaskSteps.task("sidecar   /run/user/1000/porelo/x/sidecar.json\nrefused: no credential\n"))
+        assertThat(
+                        LiveTaskSteps.task(
+                                "sidecar   /run/user/1000/porelo/x/sidecar.json\nrefused: no credential\n"))
                 .isEmpty();
     }
 
     @Test
     void leavesAPlaceholderForTheContainersShellAndPassesItsValueAsAVariable() {
-        final String command = LiveTaskSteps.execCommand("porelo-live-1",
-                "pi --model \"${PORELO_E2E_MODEL}\" 'say hi'", Map.of("PORELO_E2E_MODEL", "z-ai/glm'5"));
+        final String command =
+                LiveTaskSteps.execCommand(
+                        "porelo-live-1",
+                        "pi --model \"${PORELO_E2E_MODEL}\" 'say hi'",
+                        Map.of("PORELO_E2E_MODEL", "z-ai/glm'5"));
 
-        assertThat(command).startsWith("timeout 300 podman exec --env 'PORELO_E2E_MODEL=z-ai/glm'\\''5'")
+        assertThat(command)
+                .startsWith("timeout 300 podman exec --env 'PORELO_E2E_MODEL=z-ai/glm'\\''5'")
                 .contains(" 'porelo-live-1' sh -c ")
-                .as("the value must not be pasted into the script").contains("${PORELO_E2E_MODEL}");
+                .as("the value must not be pasted into the script")
+                .contains("${PORELO_E2E_MODEL}");
     }
 
     @Test
@@ -82,15 +94,21 @@ class LiveTaskStepsTest {
         world.remember("PORELO_E2E_OPENROUTER_API_KEY", SECRET);
         world.task(new World.Task("porelo-live-1", null, ""));
 
-        assertThatThrownBy(() -> new LiveTaskSteps(world).theTasksContainerRuns("echo ${PORELO_E2E_OPENROUTER_API_KEY}"))
-                .isInstanceOf(AssertionError.class).hasMessageContaining("would be on a command line")
+        assertThatThrownBy(
+                        () ->
+                                new LiveTaskSteps(world)
+                                        .theTasksContainerRuns(
+                                                "echo ${PORELO_E2E_OPENROUTER_API_KEY}"))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("would be on a command line")
                 .hasMessageNotContaining(SECRET);
     }
 
     @Test
     void theLogListingNeverCarriesTheSecret() {
         assertThat(LiveTaskSteps.logListing("/run/user/1000/porelo/tasks/live-1"))
-                .contains("'/run/user/1000/porelo/tasks/live-1'").contains("base64 -w0")
+                .contains("'/run/user/1000/porelo/tasks/live-1'")
+                .contains("base64 -w0")
                 .doesNotContain(SECRET);
     }
 
@@ -99,12 +117,18 @@ class LiveTaskStepsTest {
         final World world = new World();
         world.remember("KEY", SECRET);
         final Map<String, String> files = new LinkedHashMap<>();
-        files.put("/state/relay.log", "request POST /v1\nauth " + SECRET.substring(0, 10) + "\n"
-                + SECRET.substring(10) + "\n");
+        files.put(
+                "/state/relay.log",
+                "request POST /v1\nauth "
+                        + SECRET.substring(0, 10)
+                        + "\n"
+                        + SECRET.substring(10)
+                        + "\n");
         files.put("/state/vault.log", "request POST /v1\n");
 
         assertThat(LiveTaskSteps.leaks(files, text -> world.contains("KEY", text)))
-                .as("line by line, the split value is invisible - which is why the check exists").isEmpty();
+                .as("line by line, the split value is invisible - which is why the check exists")
+                .isEmpty();
         assertThat(LiveTaskSteps.leaks(files, text -> world.containsAcrossLines("KEY", text)))
                 .containsExactly("/state/relay.log");
     }
@@ -117,21 +141,28 @@ class LiveTaskStepsTest {
         files.put("/state/a.log", "x " + SECRET.substring(0, 10));
         files.put("/state/b.log", SECRET.substring(10) + " y");
 
-        assertThat(LiveTaskSteps.leaks(files, text -> world.containsAcrossLines("KEY", text))).isEmpty();
+        assertThat(LiveTaskSteps.leaks(files, text -> world.containsAcrossLines("KEY", text)))
+                .isEmpty();
     }
 
     @Test
     void decodesTheListingWhateverTheFilesContain() {
         final Base64.Encoder encoder = Base64.getEncoder();
-        final String listing = encoder.encodeToString("/state/odd name.log".getBytes(StandardCharsets.UTF_8)) + "\t"
-                + encoder.encodeToString("line one\n\tline two\n".getBytes(StandardCharsets.UTF_8)) + "\n";
+        final String listing =
+                encoder.encodeToString("/state/odd name.log".getBytes(StandardCharsets.UTF_8))
+                        + "\t"
+                        + encoder.encodeToString(
+                                "line one\n\tline two\n".getBytes(StandardCharsets.UTF_8))
+                        + "\n";
 
-        assertThat(LiveTaskSteps.files(listing)).containsExactly(Map.entry("/state/odd name.log", "line one\n\tline two\n"));
+        assertThat(LiveTaskSteps.files(listing))
+                .containsExactly(Map.entry("/state/odd name.log", "line one\n\tline two\n"));
     }
 
     @Test
     void readsThatAgentsRowAndNotTheFirstInstallsLine() {
-        final String supplyChain = """
+        final String supplyChain =
+                """
                 NAME         BINARY           LABEL                  FROM
                 claude       claude           Claude Code            /usr/lib/porelo/agents/porelo-agent-claude
                              installs: 2.1.267
@@ -144,20 +175,24 @@ class LiveTaskStepsTest {
 
         assertThat(LiveTaskSteps.installs(supplyChain, "omp")).contains("18.1.16");
         assertThat(LiveTaskSteps.installs(supplyChain, "claude")).contains("2.1.267");
-        assertThat(LiveTaskSteps.installs(supplyChain, "pi")).as("'nothing' is not a version").isEmpty();
-        assertThat(LiveTaskSteps.installs(supplyChain, "absent")).as("an agent the machine does not have").isEmpty();
+        assertThat(LiveTaskSteps.installs(supplyChain, "pi"))
+                .as("'nothing' is not a version")
+                .isEmpty();
+        assertThat(LiveTaskSteps.installs(supplyChain, "absent"))
+                .as("an agent the machine does not have")
+                .isEmpty();
     }
 
     @Test
     void findsAComponentsVersionNestedInsideAnother() {
-        final String bill = "{\"bomFormat\":\"CycloneDX\",\"components\":[{\"name\":\"adapter\",\"version\":\"1\"},"
-                + "{\"name\":\"porelo-agent-pi-tree\",\"version\":\"1\",\"components\":"
-                + "[{\"name\":\"pi-coding-agent\",\"version\":\"0.85.1\"}]}]}";
+        final String bill =
+                "{\"bomFormat\":\"CycloneDX\",\"components\":[{\"name\":\"adapter\",\"version\":\"1\"},"
+                        + "{\"name\":\"porelo-agent-pi-tree\",\"version\":\"1\",\"components\":"
+                        + "[{\"name\":\"pi-coding-agent\",\"version\":\"0.85.1\"}]}]}";
 
         assertThat(LiveTaskSteps.versionIn(bill, "pi-coding-agent")).contains("0.85.1");
         assertThat(LiveTaskSteps.versionIn(bill, "claude-code")).isEmpty();
     }
-
 
     @Test
     void readsTheBrokersLogInTheTasksOwnStateDirectory() {
@@ -167,8 +202,11 @@ class LiveTaskStepsTest {
 
     @Test
     void aStartThatNamedItsContainerAndThenFailedHasNotStarted() {
-        // The container line was enough: a start that printed it and then failed passed every step after it.
-        assertThat(LiveTaskSteps.notStarted(1, "container porelo-live-1\nporelo: the hook failed\n"))
+        // The container line was enough: a start that printed it and then failed passed every step
+        // after it.
+        assertThat(
+                        LiveTaskSteps.notStarted(
+                                1, "container porelo-live-1\nporelo: the hook failed\n"))
                 .contains("exit 1");
         assertThat(LiveTaskSteps.notStarted(0, "container porelo-live-1\n")).isNull();
         assertThat(LiveTaskSteps.notStarted(0, "nothing\n")).isNotNull();

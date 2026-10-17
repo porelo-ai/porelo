@@ -1,8 +1,8 @@
 package org.fuin.porelo.supervisor;
 
 /**
- * Where the broker gets the token it attaches for a credential that is not a fixed value: one bought with a
- * client secret or a grant, or a sign-in renewed on the host.
+ * Where the broker gets the token it attaches for a credential that is not a fixed value: one
+ * bought with a client secret or a grant, or a sign-in renewed on the host.
  */
 public interface TokenSource {
 

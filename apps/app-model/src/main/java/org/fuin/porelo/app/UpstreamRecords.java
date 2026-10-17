@@ -11,12 +11,12 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * What was last measured about each project's distance from its upstream.
- * <p>
- * Measuring reaches the network, so nothing does it on the way to answering a question. This is
+ *
+ * <p>Measuring reaches the network, so nothing does it on the way to answering a question. This is
  * where the answer waits in between: written by whatever measured, read by anything reporting, and
  * always carrying the time it was taken so an interface can say how much it is worth.
- * <p>
- * <strong>One file per project, like the project registry.</strong> A single shared file was
+ *
+ * <p><strong>One file per project, like the project registry.</strong> A single shared file was
  * measured losing entries under concurrent writers, and this is written from a timer while it is
  * read by every listing - so the same shape is used for the same reason. A unique temporary name
  * per write, because two writers sharing one would trade halves of each other's content.
@@ -36,8 +36,8 @@ final class UpstreamRecords {
 
     /**
      * Returns the key one repository's measurement is stored under.
-     * <p>
-     * <strong>The project's own repository keeps the project's own key</strong>, for the reason
+     *
+     * <p><strong>The project's own repository keeps the project's own key</strong>, for the reason
      * its mirror keeps its own path: what was measured before repositories existed was this, and a
      * rename would throw it away for no gain. The others are {@code <project>.<repository>}, which
      * cannot collide - both halves are lower-case letters, digits and hyphens, so the dot belongs
@@ -60,10 +60,18 @@ final class UpstreamRecords {
     void put(String project, UpstreamDistance.Distance distance) {
         try {
             Files.createDirectories(directory);
-            final Path temporary = directory.resolve("." + project + "."
-                    + ProcessHandle.current().pid() + "." + Thread.currentThread().threadId());
+            final Path temporary =
+                    directory.resolve(
+                            "."
+                                    + project
+                                    + "."
+                                    + ProcessHandle.current().pid()
+                                    + "."
+                                    + Thread.currentThread().threadId());
             Files.writeString(temporary, line(distance), StandardCharsets.UTF_8);
-            Files.move(temporary, directory.resolve(project),
+            Files.move(
+                    temporary,
+                    directory.resolve(project),
                     java.nio.file.StandardCopyOption.REPLACE_EXISTING,
                     java.nio.file.StandardCopyOption.ATOMIC_MOVE);
         } catch (IOException ex) {
@@ -78,8 +86,8 @@ final class UpstreamRecords {
      *
      * @param project Project name.
      * @return The distance, or a never-checked answer when nothing has been recorded or the record
-     *         cannot be read. An unreadable record reads as never checked on purpose: it is the
-     *         one answer that is true whatever the file said.
+     *     cannot be read. An unreadable record reads as never checked on purpose: it is the one
+     *     answer that is true whatever the file said.
      */
     UpstreamDistance.Distance get(String project) {
         final Path file = directory.resolve(project);
@@ -94,12 +102,16 @@ final class UpstreamRecords {
     }
 
     private static String line(UpstreamDistance.Distance distance) {
-        return String.join("\t", distance.reason().name(), String.valueOf(distance.behind()),
-                distance.measured() == null ? "" : distance.measured().toString(),
-                distance.detail() == null ? "" : distance.detail().replace('\t', ' '),
-                // Comma-separated in a tab-separated line: a ref name cannot contain either, so
-                // neither separator can be produced by the content.
-                String.join(",", distance.alreadyUpstream()))
+        return String.join(
+                        "\t",
+                        distance.reason().name(),
+                        String.valueOf(distance.behind()),
+                        distance.measured() == null ? "" : distance.measured().toString(),
+                        distance.detail() == null ? "" : distance.detail().replace('\t', ' '),
+                        // Comma-separated in a tab-separated line: a ref name cannot contain
+                        // either, so
+                        // neither separator can be produced by the content.
+                        String.join(",", distance.alreadyUpstream()))
                 + "\n";
     }
 
@@ -115,7 +127,8 @@ final class UpstreamRecords {
                 // "nothing is known to be upstream" - which leaves every entry in the queue, the
                 // safe direction.
                 parts.length > 4 && !parts[4].isEmpty()
-                        ? java.util.List.of(parts[4].split(",")) : java.util.List.of());
+                        ? java.util.List.of(parts[4].split(","))
+                        : java.util.List.of());
     }
 
     @Nullable

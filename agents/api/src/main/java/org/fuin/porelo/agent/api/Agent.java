@@ -4,12 +4,12 @@ import java.util.List;
 
 /**
  * What an agent module provides.
- * <p>
- * Discovered with {@link java.util.ServiceLoader}, so nothing in Porelo names an implementation.
+ *
+ * <p>Discovered with {@link java.util.ServiceLoader}, so nothing in Porelo names an implementation.
  * Every method but {@link #definition()} has a default drawn from that definition, which is what
  * makes a well-behaved agent a YAML file and six lines of Java.
- * <p>
- * <strong>An agent that needs behavior the definition cannot express overrides a method
+ *
+ * <p><strong>An agent that needs behavior the definition cannot express overrides a method
  * here.</strong> It does not add a branch elsewhere: a branch outside this package would be
  * invisible to the next agent, which would fall into its {@code else} and be quietly wrong.
  */
@@ -35,8 +35,7 @@ public interface Agent {
      * Returns how this agent's credential is read out of its config directory.
      *
      * @return Extractor. The default finds nothing, because an agent that stores its credential in
-     *         a shape the agent API does not know about must say so rather than appear
-     *         unauthenticated.
+     *     a shape the agent API does not know about must say so rather than appear unauthenticated.
      */
     default CredentialExtractor credentialExtractor() {
         return CredentialExtractor.none();
@@ -62,9 +61,9 @@ public interface Agent {
 
     /**
      * Reads one line of this agent's output for the end of its run.
-     * <p>
-     * Each agent ends its output its own way, so the agent reads it: Porelo asks line by line from the end, and the
-     * first line this answers for is how the run ended.
+     *
+     * <p>Each agent ends its output its own way, so the agent reads it: Porelo asks line by line
+     * from the end, and the first line this answers for is how the run ended.
      *
      * @param line One line of the agent's raw output.
      * @return How the run ended, or {@code null} for a line that is not its end.
@@ -82,8 +81,8 @@ public interface Agent {
         // Fetches first: the hand-written fragments almost always operate on what was fetched,
         // and a fragment that runs before its artifact exists fails in a way that reads as a
         // problem with the fragment.
-        final java.util.List<String> asAgent = new java.util.ArrayList<>(
-                InstallScript.render(definition().artifacts()));
+        final java.util.List<String> asAgent =
+                new java.util.ArrayList<>(InstallScript.render(definition().artifacts()));
         if (!asAgent.isEmpty() && !definition().installAsAgent().isEmpty()) {
             asAgent.add("");
         }

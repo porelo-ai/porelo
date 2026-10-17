@@ -7,9 +7,7 @@ import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.jspecify.annotations.Nullable;
 
-/**
- * The git repository a command was started in.
- */
+/** The git repository a command was started in. */
 public final class LocalRepository {
 
     private LocalRepository() {
@@ -26,8 +24,15 @@ public final class LocalRepository {
     @Nullable
     public static Path topLevel(CommandRunner runner, Path directory) {
         // git answers, so a worktree or submodule - where .git is a file - is recognized too.
-        final CommandResult result = runner.run(Command.of(List.of(
-                "git", "-C", directory.toString(), "rev-parse", "--show-toplevel")));
+        final CommandResult result =
+                runner.run(
+                        Command.of(
+                                List.of(
+                                        "git",
+                                        "-C",
+                                        directory.toString(),
+                                        "rev-parse",
+                                        "--show-toplevel")));
         if (!result.successful()) {
             return null;
         }

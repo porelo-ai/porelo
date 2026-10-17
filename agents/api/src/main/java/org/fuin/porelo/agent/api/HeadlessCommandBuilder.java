@@ -5,9 +5,9 @@ import java.util.List;
 
 /**
  * Assembles one agent's command line from its declared flags.
- * <p>
- * <strong>One builder for every agent.</strong> The reference implementation has a
- * {@code build_headless_command} that reads {@code if self.name == "claude"} and dispatches to a
+ *
+ * <p><strong>One builder for every agent.</strong> The reference implementation has a {@code
+ * build_headless_command} that reads {@code if self.name == "claude"} and dispatches to a
  * Claude-specific assembler; every agent added after that either matches the generic shape or is
  * silently wrong. Here the differences are flags, and an agent whose shape genuinely differs
  * overrides {@link Agent#headlessCommand(RunRequest)} in its own module.
@@ -29,24 +29,23 @@ final class HeadlessCommandBuilder {
 
         if (request.resumeSession() != null) {
             if (!definition.supportsResume()) {
-                throw new AgentException("Agent '" + definition.name()
-                        + "' cannot resume a session");
+                throw new AgentException(
+                        "Agent '" + definition.name() + "' cannot resume a session");
             }
             command.add(definition.resumeFlag());
             command.add(request.resumeSession());
         }
         if (request.model() != null) {
             if (flags.modelFlag() == null) {
-                throw new AgentException("Agent '" + definition.name()
-                        + "' does not take a model");
+                throw new AgentException("Agent '" + definition.name() + "' does not take a model");
             }
             command.add(flags.modelFlag());
             command.add(request.model());
         }
         if (request.maxTurns() != null) {
             if (flags.maxTurnsFlag() == null) {
-                throw new AgentException("Agent '" + definition.name()
-                        + "' does not take a turn limit");
+                throw new AgentException(
+                        "Agent '" + definition.name() + "' does not take a turn limit");
             }
             command.add(flags.maxTurnsFlag());
             command.add(String.valueOf(request.maxTurns()));

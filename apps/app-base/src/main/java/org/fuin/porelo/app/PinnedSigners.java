@@ -11,21 +11,21 @@ import java.util.Map;
 
 /**
  * The keys this machine pinned for each project it follows, by fingerprint.
- * <p>
- * Read from the pinned signers file, whose lines are labelled with the project a key was named for. Only the
- * fingerprint is said: it is what a person compares with the key they meant to pin, and nothing else about a key is
- * needed to tell keys apart.
+ *
+ * <p>Read from the pinned signers file, whose lines are labelled with the project a key was named
+ * for. Only the fingerprint is said: it is what a person compares with the key they meant to pin,
+ * and nothing else about a key is needed to tell keys apart.
  */
 public final class PinnedSigners {
 
-    private PinnedSigners() {
-    }
+    private PinnedSigners() {}
 
     /**
      * Returns the fingerprints pinned for each project.
      *
      * @param file The pinned signers file, which need not exist.
-     * @return Project name to its fingerprints, in the order they were pinned. Empty when nothing is pinned.
+     * @return Project name to its fingerprints, in the order they were pinned. Empty when nothing
+     *     is pinned.
      */
     public static Map<String, List<String>> of(final Path file) {
         final Map<String, List<String>> found = new LinkedHashMap<>();
@@ -36,7 +36,8 @@ public final class PinnedSigners {
         try {
             lines = Files.readAllLines(file, StandardCharsets.UTF_8);
         } catch (final IOException ex) {
-            // Said as nothing pinned rather than failing a listing: the follow itself reads the same file and says why.
+            // Said as nothing pinned rather than failing a listing: the follow itself reads the
+            // same file and says why.
             return found;
         }
         for (final String line : lines) {
@@ -48,7 +49,8 @@ public final class PinnedSigners {
             if (fingerprint == null) {
                 continue;
             }
-            final List<String> mine = found.computeIfAbsent(fields[0], ignored -> new ArrayList<>());
+            final List<String> mine =
+                    found.computeIfAbsent(fields[0], ignored -> new ArrayList<>());
             if (!mine.contains(fingerprint)) {
                 mine.add(fingerprint);
             }

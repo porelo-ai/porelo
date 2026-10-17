@@ -4,8 +4,9 @@ import java.io.PrintStream;
 
 /**
  * Where every check writes its verdict, one line each, and what counts the failures.
- * <p>
- * Every check runs even after one has failed: which of them fail together is usually the finding.
+ *
+ * <p>Every check runs even after one has failed: which of them fail together is usually the
+ * finding.
  */
 final class Report {
 
@@ -92,5 +93,4 @@ final class Report {
     int failures() {
         return failures;
     }
-
 }

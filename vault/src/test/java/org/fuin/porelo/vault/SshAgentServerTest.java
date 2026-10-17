@@ -13,9 +13,9 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Tests for {@link SshAgentServer}'s message handling.
- * <p>
- * The wire format is also checked against real OpenSSH in a separate manual run; what these tests
- * pin is the behavior that must not drift, above all the requests the agent refuses.
+ *
+ * <p>The wire format is also checked against real OpenSSH in a separate manual run; what these
+ * tests pin is the behavior that must not drift, above all the requests the agent refuses.
  */
 class SshAgentServerTest {
 
@@ -39,8 +39,10 @@ class SshAgentServerTest {
 
         try (SshAgentServer server = agent(dir)) {
 
-            final ByteBuffer response = ByteBuffer.wrap(
-                    server.handle(new byte[] { SshAgentServer.SSH_AGENTC_REQUEST_IDENTITIES }));
+            final ByteBuffer response =
+                    ByteBuffer.wrap(
+                            server.handle(
+                                    new byte[] {SshAgentServer.SSH_AGENTC_REQUEST_IDENTITIES}));
 
             assertThat(response.get()).isEqualTo(SshAgentServer.SSH_AGENT_IDENTITIES_ANSWER);
             assertThat(response.getInt()).isEqualTo(1);
@@ -56,8 +58,13 @@ class SshAgentServerTest {
         try (SshAgentServer server = agent(dir)) {
 
             final byte[] data = "some bytes to sign".getBytes(StandardCharsets.UTF_8);
-            final ByteBuffer response = ByteBuffer.wrap(server.handle(
-                    request(SshAgentServer.SSH_AGENTC_SIGN_REQUEST, key.keyBlob(), data)));
+            final ByteBuffer response =
+                    ByteBuffer.wrap(
+                            server.handle(
+                                    request(
+                                            SshAgentServer.SSH_AGENTC_SIGN_REQUEST,
+                                            key.keyBlob(),
+                                            data)));
 
             assertThat(response.get()).isEqualTo(SshAgentServer.SSH_AGENT_SIGN_RESPONSE);
             assertThat(key.verify(data, SshWire.readString(response))).isTrue();
@@ -70,8 +77,12 @@ class SshAgentServerTest {
         try (SshAgentServer server = agent(dir)) {
 
             final SigningKey other = SigningKey.generate("someone-else");
-            final byte[] response = server.handle(request(SshAgentServer.SSH_AGENTC_SIGN_REQUEST,
-                    other.keyBlob(), "data".getBytes(StandardCharsets.UTF_8)));
+            final byte[] response =
+                    server.handle(
+                            request(
+                                    SshAgentServer.SSH_AGENTC_SIGN_REQUEST,
+                                    other.keyBlob(),
+                                    "data".getBytes(StandardCharsets.UTF_8)));
 
             assertThat(response).containsExactly(SshAgentServer.SSH_AGENT_FAILURE);
         }
@@ -85,8 +96,8 @@ class SshAgentServerTest {
             // 17 is SSH_AGENTC_ADD_IDENTITY. Accepting keys over this socket is exactly what must
             // not be possible: the container would then be able to make the agent sign for a key
             // of its own choosing. Every unknown request is refused rather than guessed at.
-            for (final byte type : new byte[] { 17, 18, 19, 20, 21, 22, 25, 27, 0, -1 }) {
-                assertThat(server.handle(new byte[] { type }))
+            for (final byte type : new byte[] {17, 18, 19, 20, 21, 22, 25, 27, 0, -1}) {
+                assertThat(server.handle(new byte[] {type}))
                         .as("request type %s", type)
                         .containsExactly(SshAgentServer.SSH_AGENT_FAILURE);
             }
@@ -98,9 +109,9 @@ class SshAgentServerTest {
 
         try (SshAgentServer server = agent(dir)) {
 
-            assertThat(server.handle(new byte[] { SshAgentServer.SSH_AGENTC_SIGN_REQUEST }))
+            assertThat(server.handle(new byte[] {SshAgentServer.SSH_AGENTC_SIGN_REQUEST}))
                     .containsExactly(SshAgentServer.SSH_AGENT_FAILURE);
-            assertThat(server.handle(new byte[] { SshAgentServer.SSH_AGENTC_SIGN_REQUEST, 0, 0, 0 }))
+            assertThat(server.handle(new byte[] {SshAgentServer.SSH_AGENTC_SIGN_REQUEST, 0, 0, 0}))
                     .containsExactly(SshAgentServer.SSH_AGENT_FAILURE);
         }
     }
@@ -130,11 +141,15 @@ class SshAgentServerTest {
         // owner-only agent socket is one no task can ever use. The directory does the work.
         try (SshAgentServer server = agent(dir)) {
 
-            assertThat(java.nio.file.attribute.PosixFilePermissions.toString(
-                    java.nio.file.Files.getPosixFilePermissions(server.socketPath())))
+            assertThat(
+                            java.nio.file.attribute.PosixFilePermissions.toString(
+                                    java.nio.file.Files.getPosixFilePermissions(
+                                            server.socketPath())))
                     .isEqualTo("rw-rw-rw-");
-            assertThat(java.nio.file.attribute.PosixFilePermissions.toString(
-                    java.nio.file.Files.getPosixFilePermissions(server.socketPath().getParent())))
+            assertThat(
+                            java.nio.file.attribute.PosixFilePermissions.toString(
+                                    java.nio.file.Files.getPosixFilePermissions(
+                                            server.socketPath().getParent())))
                     .isEqualTo("rwx------");
         }
     }

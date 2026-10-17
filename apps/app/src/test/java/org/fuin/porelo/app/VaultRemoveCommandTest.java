@@ -13,9 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 
-/**
- * Tests for {@link VaultRemoveCommand}.
- */
+/** Tests for {@link VaultRemoveCommand}. */
 class VaultRemoveCommandTest {
 
     private static final char[] PASSPHRASE = "correct horse battery staple".toCharArray();
@@ -26,8 +24,8 @@ class VaultRemoveCommandTest {
 
     private PoreloContext context(Path dir) {
         final XdgPaths xdg = XdgPaths.of(name -> null, dir);
-        return new PoreloContext(new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")),
-                arguments -> 0);
+        return new PoreloContext(
+                new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
     }
 
     private int execute(PoreloContext context, String... args) {
@@ -48,10 +46,12 @@ class VaultRemoveCommandTest {
         final var vault = context(dir).vault();
         vault.write(Map.of("keep", VaultEntry.of("one"), "drop", VaultEntry.of("two")), PASSPHRASE);
 
-        vault.update(PASSPHRASE, entries -> {
-            entries.remove("drop");
-            return entries;
-        });
+        vault.update(
+                PASSPHRASE,
+                entries -> {
+                    entries.remove("drop");
+                    return entries;
+                });
 
         assertThat(vault.read(PASSPHRASE)).containsOnlyKeys("keep");
     }
@@ -64,10 +64,12 @@ class VaultRemoveCommandTest {
         final var vault = context(dir).vault();
         vault.write(Map.of("keep", VaultEntry.of("one")), PASSPHRASE);
 
-        vault.update(PASSPHRASE, entries -> {
-            assertThat(entries.remove("absent")).isNull();
-            return entries;
-        });
+        vault.update(
+                PASSPHRASE,
+                entries -> {
+                    assertThat(entries.remove("absent")).isNull();
+                    return entries;
+                });
 
         assertThat(vault.read(PASSPHRASE)).containsOnlyKeys("keep");
     }
@@ -75,34 +77,63 @@ class VaultRemoveCommandTest {
     @Test
     void aGrantWhoseServiceCannotBeToldSaysWhy() {
         assertThat(VaultRemoveCommand.revoke(null, "rt-1")).contains("cannot be told");
-        assertThat(VaultRemoveCommand.revoke(new VaultEntry("-", "oauth-device", Map.of("client_id", "x",
-                "device_authorization_url", "https://a.invalid/d", "token_url", "https://a.invalid/t")), "rt-1"))
-                .contains("revocation_url").doesNotContain("rt-1");
+        assertThat(
+                        VaultRemoveCommand.revoke(
+                                new VaultEntry(
+                                        "-",
+                                        "oauth-device",
+                                        Map.of(
+                                                "client_id",
+                                                "x",
+                                                "device_authorization_url",
+                                                "https://a.invalid/d",
+                                                "token_url",
+                                                "https://a.invalid/t")),
+                                "rt-1"))
+                .contains("revocation_url")
+                .doesNotContain("rt-1");
     }
 
     @Test
-    void aTokenThatNeverExpiresIsKeptUntilThePersonSaysTheyKnowItLivesOnAndThenSaysWhereToRevokeIt(@TempDir Path dir) {
-        org.junit.jupiter.api.Assumptions.assumeTrue(org.fuin.porelo.vault.KernelKeyring.available(),
-                "libkeyutils is not installed");
+    void aTokenThatNeverExpiresIsKeptUntilThePersonSaysTheyKnowItLivesOnAndThenSaysWhereToRevokeIt(
+            @TempDir Path dir) {
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+                org.fuin.porelo.vault.KernelKeyring.available(), "libkeyutils is not installed");
         final PoreloContext context = context(dir);
         final org.fuin.porelo.vault.KernelKeyring keyring =
                 new org.fuin.porelo.vault.KernelKeyring(context.paths().vault().vaultKeyringKey());
         try {
-            context.vault().write(Map.of(
-                    "copilot", new VaultEntry("-", "oauth-device", Map.of("client_id", "Ov23li",
-                            "device_authorization_url", "https://github.com/login/device/code",
-                            "token_url", "https://github.com/login/oauth/access_token")),
-                    TaskSecrets.GRANT_PREFIX + "copilot", new VaultEntry("gho_1", VaultAuthorizeCommand.HELD, Map.of())),
-                    PASSPHRASE);
+            context.vault()
+                    .write(
+                            Map.of(
+                                    "copilot",
+                                    new VaultEntry(
+                                            "-",
+                                            "oauth-device",
+                                            Map.of(
+                                                    "client_id",
+                                                    "Ov23li",
+                                                    "device_authorization_url",
+                                                    "https://github.com/login/device/code",
+                                                    "token_url",
+                                                    "https://github.com/login/oauth/access_token")),
+                                    TaskSecrets.GRANT_PREFIX + "copilot",
+                                    new VaultEntry("gho_1", VaultAuthorizeCommand.HELD, Map.of())),
+                            PASSPHRASE);
             keyring.store(PASSPHRASE);
 
-            // Only the application's owner can revoke it at GitHub; forgetting it here would leave it working there.
+            // Only the application's owner can revoke it at GitHub; forgetting it here would leave
+            // it working there.
             assertThat(execute(context, "vault", "remove", "copilot")).isEqualTo(1);
-            assertThat(err.toString()).contains("only the application's owner can")
-                    .contains("Settings → Applications → Authorized OAuth Apps").doesNotContain("gho_1");
-            assertThat(context.vault().read(PASSPHRASE)).containsKey(TaskSecrets.GRANT_PREFIX + "copilot");
+            assertThat(err.toString())
+                    .contains("only the application's owner can")
+                    .contains("Settings → Applications → Authorized OAuth Apps")
+                    .doesNotContain("gho_1");
+            assertThat(context.vault().read(PASSPHRASE))
+                    .containsKey(TaskSecrets.GRANT_PREFIX + "copilot");
 
-            assertThat(execute(context, "vault", "remove", "copilot", "--without-revoking")).isZero();
+            assertThat(execute(context, "vault", "remove", "copilot", "--without-revoking"))
+                    .isZero();
             assertThat(out.toString()).contains("works there until it is revoked on GitHub");
             assertThat(context.vault().read(PASSPHRASE)).isEmpty();
         } finally {

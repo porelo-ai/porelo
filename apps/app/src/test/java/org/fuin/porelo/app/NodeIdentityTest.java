@@ -16,8 +16,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Tests for what a node calls itself.
- * <p>
- * The only property that matters is that the answer is the <em>same</em> one every time and for
+ *
+ * <p>The only property that matters is that the answer is the <em>same</em> one every time and for
  * everybody. An identity that changed would be worse than none: a client would stop recognising a
  * node it already knew, and would show one machine as two.
  */
@@ -55,15 +55,21 @@ class NodeIdentityTest {
         final Path file = dir.resolve("node-id");
         final ExecutorService pool = Executors.newFixedThreadPool(8);
         try {
-            final var tasks = IntStream.range(0, 8)
-                    .<Callable<String>>mapToObj(i -> () -> NodeIdentity.of(file)).toList();
-            final Set<String> answers = pool.invokeAll(tasks).stream().map(future -> {
-                try {
-                    return future.get();
-                } catch (Exception ex) {
-                    throw new IllegalStateException(ex);
-                }
-            }).collect(Collectors.toSet());
+            final var tasks =
+                    IntStream.range(0, 8)
+                            .<Callable<String>>mapToObj(i -> () -> NodeIdentity.of(file))
+                            .toList();
+            final Set<String> answers =
+                    pool.invokeAll(tasks).stream()
+                            .map(
+                                    future -> {
+                                        try {
+                                            return future.get();
+                                        } catch (Exception ex) {
+                                            throw new IllegalStateException(ex);
+                                        }
+                                    })
+                            .collect(Collectors.toSet());
 
             assertThat(answers).hasSize(1);
         } finally {

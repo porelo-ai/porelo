@@ -13,26 +13,25 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Starting a task: from reading the project file to a container that is up, wired and firewalled.
- * <p>
- * Lifted out of {@code TaskRunCommand} after the six wirings, so that starting a task is something
- * the domain does rather than something a CLI class does. The CLI and the interface have to reach
- * identical behavior through the same calls, and this was the last operation where they did not:
- * the daemon had to spawn the CLI and read a line of its output, because running the command was
- * the only way to start a task.
- * <p>
- * <strong>The caller is handed the running task inside this class's own resource scope.</strong>
+ *
+ * <p>Lifted out of {@code TaskRunCommand} after the six wirings, so that starting a task is
+ * something the domain does rather than something a CLI class does. The CLI and the interface have
+ * to reach identical behavior through the same calls, and this was the last operation where they
+ * did not: the daemon had to spawn the CLI and read a line of its output, because running the
+ * command was the only way to start a task.
+ *
+ * <p><strong>The caller is handed the running task inside this class's own resource scope.</strong>
  * The installed agents are processes this opens and closes, and the paths that follow a start -
  * running the agent to completion, attaching a terminal - use them. Returning before closing them
  * would leak a process per task; closing them first would break the attach.
- * <p>
- * Public, unlike the wirings beside it, because the daemon calls it: that is the whole point of
+ *
+ * <p>Public, unlike the wirings beside it, because the daemon calls it: that is the whole point of
  * lifting it out of the command.
  */
 public final class TaskLaunch {
 
     /** The variable a task is told its repository's issue prefixes in, comma-separated. */
     public static final String ISSUE_PREFIXES = "PORELO_ISSUE_PREFIXES";
-
 
     /**
      * What to start, as the operator asked for it.
@@ -49,15 +48,28 @@ public final class TaskLaunch {
      * @param clearance What to do about a blocked connection: prompt, allow, deny or off.
      * @param keep Whether the container survives the end of the run.
      * @param repository Which of the project's repositories the task works on. Never guessed: a
-     *        request that names none is refused, because a command whose meaning depends on how
-     *        many repositories exist today is one nobody can read.
+     *     request that names none is refused, because a command whose meaning depends on how many
+     *     repositories exist today is one nobody can read.
      */
-    public record Request(String task, Path projectFile, @Nullable String agentName,
-            @Nullable String providerName, @Nullable String credentialType, int tokenHours,
-            @Nullable String upstream, boolean noGate, boolean dryRun, String clearance,
-            boolean keep, org.fuin.porelo.wire.TaskMode mode, @Nullable String prompt,
-            @Nullable String model, @Nullable Integer maxTurns, int minutes,
-            @Nullable String repository, java.util.Map<String, String> credentials) {
+    public record Request(
+            String task,
+            Path projectFile,
+            @Nullable String agentName,
+            @Nullable String providerName,
+            @Nullable String credentialType,
+            int tokenHours,
+            @Nullable String upstream,
+            boolean noGate,
+            boolean dryRun,
+            String clearance,
+            boolean keep,
+            org.fuin.porelo.wire.TaskMode mode,
+            @Nullable String prompt,
+            @Nullable String model,
+            @Nullable Integer maxTurns,
+            int minutes,
+            @Nullable String repository,
+            java.util.Map<String, String> credentials) {
 
         /**
          * Constructor for a request that names no credentials of its own beyond the project's.
@@ -80,13 +92,43 @@ public final class TaskLaunch {
          * @param minutes Minutes an unattended run may take.
          * @param repository Which repository, or {@code null}.
          */
-        public Request(String task, Path projectFile, @Nullable String agentName, @Nullable String providerName,
-                @Nullable String credentialType, int tokenHours, @Nullable String upstream, boolean noGate,
-                boolean dryRun, String clearance, boolean keep, org.fuin.porelo.wire.TaskMode mode,
-                @Nullable String prompt, @Nullable String model, @Nullable Integer maxTurns, int minutes,
+        public Request(
+                String task,
+                Path projectFile,
+                @Nullable String agentName,
+                @Nullable String providerName,
+                @Nullable String credentialType,
+                int tokenHours,
+                @Nullable String upstream,
+                boolean noGate,
+                boolean dryRun,
+                String clearance,
+                boolean keep,
+                org.fuin.porelo.wire.TaskMode mode,
+                @Nullable String prompt,
+                @Nullable String model,
+                @Nullable Integer maxTurns,
+                int minutes,
                 @Nullable String repository) {
-            this(task, projectFile, agentName, providerName, credentialType, tokenHours, upstream, noGate, dryRun,
-                    clearance, keep, mode, prompt, model, maxTurns, minutes, repository, java.util.Map.of());
+            this(
+                    task,
+                    projectFile,
+                    agentName,
+                    providerName,
+                    credentialType,
+                    tokenHours,
+                    upstream,
+                    noGate,
+                    dryRun,
+                    clearance,
+                    keep,
+                    mode,
+                    prompt,
+                    model,
+                    maxTurns,
+                    minutes,
+                    repository,
+                    java.util.Map.of());
         }
 
         /**
@@ -109,13 +151,41 @@ public final class TaskLaunch {
          * @param maxTurns Turn limit, or {@code null}.
          * @param minutes How long the agent may run.
          */
-        public Request(String task, Path projectFile, @Nullable String agentName,
-                @Nullable String providerName, @Nullable String credentialType, int tokenHours,
-                @Nullable String upstream, boolean noGate, boolean dryRun, String clearance,
-                boolean keep, org.fuin.porelo.wire.TaskMode mode, @Nullable String prompt,
-                @Nullable String model, @Nullable Integer maxTurns, int minutes) {
-            this(task, projectFile, agentName, providerName, credentialType, tokenHours, upstream,
-                    noGate, dryRun, clearance, keep, mode, prompt, model, maxTurns, minutes, null);
+        public Request(
+                String task,
+                Path projectFile,
+                @Nullable String agentName,
+                @Nullable String providerName,
+                @Nullable String credentialType,
+                int tokenHours,
+                @Nullable String upstream,
+                boolean noGate,
+                boolean dryRun,
+                String clearance,
+                boolean keep,
+                org.fuin.porelo.wire.TaskMode mode,
+                @Nullable String prompt,
+                @Nullable String model,
+                @Nullable Integer maxTurns,
+                int minutes) {
+            this(
+                    task,
+                    projectFile,
+                    agentName,
+                    providerName,
+                    credentialType,
+                    tokenHours,
+                    upstream,
+                    noGate,
+                    dryRun,
+                    clearance,
+                    keep,
+                    mode,
+                    prompt,
+                    model,
+                    maxTurns,
+                    minutes,
+                    null);
         }
 
         /**
@@ -133,13 +203,35 @@ public final class TaskLaunch {
          * @param clearance What to do with a blocked connection.
          * @param keep Whether the container survives the run.
          */
-        public Request(String task, Path projectFile, @Nullable String agentName,
-                @Nullable String providerName, @Nullable String credentialType, int tokenHours,
-                @Nullable String upstream, boolean noGate, boolean dryRun, String clearance,
+        public Request(
+                String task,
+                Path projectFile,
+                @Nullable String agentName,
+                @Nullable String providerName,
+                @Nullable String credentialType,
+                int tokenHours,
+                @Nullable String upstream,
+                boolean noGate,
+                boolean dryRun,
+                String clearance,
                 boolean keep) {
-            this(task, projectFile, agentName, providerName, credentialType, tokenHours, upstream,
-                    noGate, dryRun, clearance, keep, org.fuin.porelo.wire.TaskMode.SHELL, null,
-                    null, null, DEFAULT_MINUTES);
+            this(
+                    task,
+                    projectFile,
+                    agentName,
+                    providerName,
+                    credentialType,
+                    tokenHours,
+                    upstream,
+                    noGate,
+                    dryRun,
+                    clearance,
+                    keep,
+                    org.fuin.porelo.wire.TaskMode.SHELL,
+                    null,
+                    null,
+                    null,
+                    DEFAULT_MINUTES);
         }
 
         /**
@@ -149,9 +241,25 @@ public final class TaskLaunch {
          * @return The request.
          */
         public Request withTask(String name) {
-            return new Request(name, projectFile, agentName, providerName, credentialType,
-                    tokenHours, upstream, noGate, dryRun, clearance, keep, mode, prompt, model,
-                    maxTurns, minutes, repository, credentials);
+            return new Request(
+                    name,
+                    projectFile,
+                    agentName,
+                    providerName,
+                    credentialType,
+                    tokenHours,
+                    upstream,
+                    noGate,
+                    dryRun,
+                    clearance,
+                    keep,
+                    mode,
+                    prompt,
+                    model,
+                    maxTurns,
+                    minutes,
+                    repository,
+                    credentials);
         }
     }
 
@@ -164,25 +272,28 @@ public final class TaskLaunch {
      * @param container Container name.
      * @param environment What the container was given.
      * @param project The project it belongs to.
-     * @param cleanUp Turns an exit code into the final one, removing the container unless the
-     *        run asked to keep it. Handed over rather than duplicated: whether a container
-     *        survives is one decision, and the attaching path needs it too.
+     * @param cleanUp Turns an exit code into the final one, removing the container unless the run
+     *     asked to keep it. Handed over rather than duplicated: whether a container survives is one
+     *     decision, and the attaching path needs it too.
      */
-    public record Running(TaskRunner runner, InstalledAgents agents, @Nullable InstalledAgent selected,
-            String container, java.util.Map<String, String> environment, Project project,
-            IntUnaryOperator cleanUp) {
-    }
+    public record Running(
+            TaskRunner runner,
+            InstalledAgents agents,
+            @Nullable InstalledAgent selected,
+            String container,
+            java.util.Map<String, String> environment,
+            Project project,
+            IntUnaryOperator cleanUp) {}
 
     /** How long an unattended agent may run when nothing says otherwise. */
     public static final int DEFAULT_MINUTES = 30;
 
     /**
      * What {@link #runAgent} answers when there is no agent to run.
-     * <p>
-     * Distinct from the agent's own failure on purpose: "nothing was installed to do this" and
+     *
+     * <p>Distinct from the agent's own failure on purpose: "nothing was installed to do this" and
      * "the agent tried and failed" need different things from whoever reads it, and a caller that
-     * collapsed them would send somebody looking through an empty log for a run that never
-     * started.
+     * collapsed them would send somebody looking through an empty log for a run that never started.
      */
     public static final int NO_AGENT = 69;
 
@@ -218,8 +329,8 @@ public final class TaskLaunch {
 
     /**
      * Takes a container name given where a task name belongs as the task it names, and says so.
-     * <p>
-     * Asked by both halves - bringing a task back and creating one - so whichever runs first
+     *
+     * <p>Asked by both halves - bringing a task back and creating one - so whichever runs first
      * settles it and the other finds it settled.
      *
      * @param project The project read from the request's file.
@@ -229,13 +340,16 @@ public final class TaskLaunch {
         final String task =
                 org.fuin.porelo.runtime.ContainerName.taskFrom(project.name(), request.task());
         if (!task.equals(request.task())) {
-            out.println("task      '" + request.task() + "' is the container of task '" + task
-                    + "'; starting that");
+            out.println(
+                    "task      '"
+                            + request.task()
+                            + "' is the container of task '"
+                            + task
+                            + "'; starting that");
             out.flush();
             request = request.withTask(task);
         }
     }
-
 
     /**
      * A task that was already there, and what bringing it back came to.
@@ -243,8 +357,9 @@ public final class TaskLaunch {
      * @param container Container name.
      * @param project Name of the project it belongs to.
      * @param code Exit code: 0 when it is up again, a refusal otherwise.
-     * @param action What Start did or refused with, in the contract's words - {@code RESUME}, {@code RUNNING},
-     *        {@code NEEDS_VAULT} or {@code PREDATES_RESTART} - or {@code null} for a refusal that has no word there.
+     * @param action What Start did or refused with, in the contract's words - {@code RESUME},
+     *     {@code RUNNING}, {@code NEEDS_VAULT} or {@code PREDATES_RESTART} - or {@code null} for a
+     *     refusal that has no word there.
      */
     public record Existing(String container, String project, int code, @Nullable String action) {
 
@@ -262,19 +377,19 @@ public final class TaskLaunch {
 
     /**
      * Brings back the task's container when it already has one.
-     * <p>
-     * Here rather than in the command, because the daemon starts tasks too: while this lived in
+     *
+     * <p>Here rather than in the command, because the daemon starts tasks too: while this lived in
      * {@code TaskRunCommand}, Start over the socket treated a stopped task as a new one, asked
      * which agent to install and never reached the reason it could not come back.
-     * <p>
-     * A task name maps to exactly one container, so it either exists or it does not. Running is
-     * refused rather than started twice - a second container for one task would share the
-     * project's mirror and its gate with the first.
+     *
+     * <p>A task name maps to exactly one container, so it either exists or it does not. Running is
+     * refused rather than started twice - a second container for one task would share the project's
+     * mirror and its gate with the first.
      *
      * @param out Where to report.
      * @param err Where to refuse.
      * @return What happened, or {@code null} when there is nothing to bring back and the task has
-     *         to be created.
+     *     to be created.
      */
     public @Nullable Existing startExisting(PrintWriter out, PrintWriter err) {
 
@@ -303,7 +418,8 @@ public final class TaskLaunch {
         final String container = context.tasks().containerName(project, request.task());
         final java.util.Optional<org.fuin.porelo.runtime.ContainerSummary> summary =
                 context.podman().poreloTasks().stream()
-                        .filter(found -> found.name().equals(container)).findFirst();
+                        .filter(found -> found.name().equals(container))
+                        .findFirst();
         if (summary.isEmpty()) {
             return null;
         }
@@ -320,10 +436,19 @@ public final class TaskLaunch {
         // rather than acting on either.
         final String named = request.repository();
         final String recorded = summary.get().repository();
-        if (named != null && !named.isBlank() && recorded != null && !recorded.isBlank()
+        if (named != null
+                && !named.isBlank()
+                && recorded != null
+                && !recorded.isBlank()
                 && !named.equals(recorded)) {
-            err.println("porelo: " + container + " works on '" + recorded + "', not '" + named
-                    + "'. A task's repository is fixed when the task is created.");
+            err.println(
+                    "porelo: "
+                            + container
+                            + " works on '"
+                            + recorded
+                            + "', not '"
+                            + named
+                            + "'. A task's repository is fixed when the task is created.");
             err.flush();
             return new Existing(container, project.name(), 64);
         }
@@ -335,30 +460,41 @@ public final class TaskLaunch {
             return new Existing(container, project.name(), 65, "RUNNING");
         }
 
-        // Into the project's conversations again: a task that existed before its project named a transport, or before
-        // a machine took part in it, was never enrolled, and starting it again left it outside - its messages were
-        // queued to a transport that had no account for it. Enrolling keeps what exists, so it is harmless each time;
-        // what it cannot do is said, and the task comes back all the same, its workspace being in it.
+        // Into the project's conversations again: a task that existed before its project named a
+        // transport, or before
+        // a machine took part in it, was never enrolled, and starting it again left it outside -
+        // its messages were
+        // queued to a transport that had no account for it. Enrolling keeps what exists, so it is
+        // harmless each time;
+        // what it cannot do is said, and the task comes back all the same, its workspace being in
+        // it.
         final String outside = new TaskConversations(context).enroll(project, container);
         if (outside != null) {
             err.println("porelo: " + outside);
-            err.println("       it starts again, outside the conversation; its messages wait until it is in");
+            err.println(
+                    "       it starts again, outside the conversation; its messages wait until it is in");
             err.flush();
         }
-        // A task made before its box opened to its agent, or before agents were told about it, gets both now; and its
+        // A task made before its box opened to its agent, or before agents were told about it, gets
+        // both now; and its
         // guide as this version writes it, where its container mounts one.
         try {
             informed(project, container, false);
         } catch (final java.io.IOException ex) {
-            err.println("porelo: its mailbox or its guide could not be made ready: " + ex.getMessage());
-            err.println("       it starts again; its agent may not reach its mailbox or know about it");
+            err.println(
+                    "porelo: its mailbox or its guide could not be made ready: " + ex.getMessage());
+            err.println(
+                    "       it starts again; its agent may not reach its mailbox or know about it");
             err.flush();
         }
         // Its workspace, its branch and its uncommitted changes are all in that container. What
         // has to be started again is everything that lives on the host, which is what resume does.
         final TaskControl.Resumed resumed = new TaskControl(context).resume(container);
-        return new Existing(container, project.name(),
-                TaskResumeCommand.render(resumed, container, out, err, null), switch (resumed.outcome()) {
+        return new Existing(
+                container,
+                project.name(),
+                TaskResumeCommand.render(resumed, container, out, err, null),
+                switch (resumed.outcome()) {
                     case NEEDS_VAULT -> "NEEDS_VAULT";
                     // Neither can come back; the contract has one word for a task that cannot.
                     case PREDATES_RESTART, TOKENS_NOT_KEPT -> "PREDATES_RESTART";
@@ -368,33 +504,59 @@ public final class TaskLaunch {
                 });
     }
 
-    static @Nullable String ofAnotherProject(org.fuin.porelo.runtime.ContainerSummary found, String project) {
+    static @Nullable String ofAnotherProject(
+            org.fuin.porelo.runtime.ContainerSummary found, String project) {
         return TaskInventory.ofAnotherProject(found, project);
     }
 
     /**
-     * Says what a task in {@code default} may not be given, and narrows what it would be given by default.
-     * <p>
-     * {@code default}'s settings are Porelo's and cannot be changed (decided on 2026-10-01): no egress
-     * beyond what the agent needs, so no credential for another destination, no other upstream, and no blocked
-     * connection let through by a prompt. Whoever needs any of that makes a project repository and follows it.
+     * Says what a task in {@code default} may not be given, and narrows what it would be given by
+     * default.
+     *
+     * <p>{@code default}'s settings are Porelo's and cannot be changed (decided on 2026-10-01): no
+     * egress beyond what the agent needs, so no credential for another destination, no other
+     * upstream, and no blocked connection let through by a prompt. Whoever needs any of that makes
+     * a project repository and follows it.
      *
      * @return Why the start is refused, or {@code null} when it may go ahead.
      */
     private @org.jspecify.annotations.Nullable String defaultRefuses() {
-        final String way = "; that is what a project repository is for: write its project.yml and follow it";
+        final String way =
+                "; that is what a project repository is for: write its project.yml and follow it";
         if (!request.credentials().isEmpty()) {
-            return "a task in '" + DefaultProject.NAME + "' holds no credential beyond its agent's own" + way;
+            return "a task in '"
+                    + DefaultProject.NAME
+                    + "' holds no credential beyond its agent's own"
+                    + way;
         }
         if (request.upstream() != null) {
-            return "a task in '" + DefaultProject.NAME + "' sends its approved work to its repository's origin and"
-                    + " nowhere else" + way;
+            return "a task in '"
+                    + DefaultProject.NAME
+                    + "' sends its approved work to its repository's origin and"
+                    + " nowhere else"
+                    + way;
         }
         if ("prompt".equals(request.clearance()) || "allow".equals(request.clearance())) {
-            request = new Request(request.task(), request.projectFile(), request.agentName(), request.providerName(),
-                    request.credentialType(), request.tokenHours(), request.upstream(), request.noGate(),
-                    request.dryRun(), "deny", request.keep(), request.mode(), request.prompt(), request.model(),
-                    request.maxTurns(), request.minutes(), request.repository(), request.credentials());
+            request =
+                    new Request(
+                            request.task(),
+                            request.projectFile(),
+                            request.agentName(),
+                            request.providerName(),
+                            request.credentialType(),
+                            request.tokenHours(),
+                            request.upstream(),
+                            request.noGate(),
+                            request.dryRun(),
+                            "deny",
+                            request.keep(),
+                            request.mode(),
+                            request.prompt(),
+                            request.model(),
+                            request.maxTurns(),
+                            request.minutes(),
+                            request.repository(),
+                            request.credentials());
         }
         return null;
     }
@@ -407,16 +569,24 @@ public final class TaskLaunch {
      * @param after What to do once it is up.
      * @return The exit code.
      */
-    /** Who is offered a remedy where the start would name a command: nobody, unless a terminal is there. */
+    /**
+     * Who is offered a remedy where the start would name a command: nobody, unless a terminal is
+     * there.
+     */
     /** Why the upstream could not be read, when that refused this start. */
     private UpstreamProbe.@Nullable Answer unreadableUpstream;
 
     private Offer offer = Offer.NOBODY;
 
-    /** What a start returns when the person took another way to start: {@link #retry()} says which. */
+    /**
+     * What a start returns when the person took another way to start: {@link #retry()} says which.
+     */
     static final int RETRY = -2;
 
-    /** The way the person took instead of a refusal: {@code "shell"}, or {@code "name:<name>"}; or none. */
+    /**
+     * The way the person took instead of a refusal: {@code "shell"}, or {@code "name:<name>"}; or
+     * none.
+     */
     private @Nullable String retry;
 
     /**
@@ -429,16 +599,21 @@ public final class TaskLaunch {
     }
 
     /**
-     * Asks whether to start under the next free name, where earlier work of this name waits at the gate.
+     * Asks whether to start under the next free name, where earlier work of this name waits at the
+     * gate.
      *
      * @param earlier The refusal.
      * @param free The next free name, or {@code null} when none was found.
      * @param offer Who is asked.
      * @return {@code "name:<free>"} on a yes, or {@code null}.
      */
-    static @Nullable String nameInstead(final String earlier, final @Nullable String free, final Offer offer) {
-        return free != null && offer != Offer.NOBODY && offer.confirm(earlier, "Start it as '" + free + "' instead?",
-                "", false) ? "name:" + free : null;
+    static @Nullable String nameInstead(
+            final String earlier, final @Nullable String free, final Offer offer) {
+        return free != null
+                        && offer != Offer.NOBODY
+                        && offer.confirm(earlier, "Start it as '" + free + "' instead?", "", false)
+                ? "name:" + free
+                : null;
     }
 
     /**
@@ -449,12 +624,15 @@ public final class TaskLaunch {
      * @return {@code "shell"} on a yes, or {@code null}.
      */
     static @Nullable String shellInstead(final String missing, final Offer offer) {
-        return offer != Offer.NOBODY && offer.confirm(missing, "Start a shell in the task instead?", "", false)
-                ? "shell" : null;
+        return offer != Offer.NOBODY
+                        && offer.confirm(missing, "Start a shell in the task instead?", "", false)
+                ? "shell"
+                : null;
     }
 
     /**
-     * Offers what a refusal would name, through the given helper: at a terminal, a person is asked and the remedy run.
+     * Offers what a refusal would name, through the given helper: at a terminal, a person is asked
+     * and the remedy run.
      *
      * @param offer The helper.
      * @return This launch.
@@ -465,8 +643,9 @@ public final class TaskLaunch {
     }
 
     /**
-     * Shows what a host this machine never met offers, and records its key when a person says it is the one its owner
-     * publishes: a trust decision, so it defaults to no and is never taken by {@code --yes}.
+     * Shows what a host this machine never met offers, and records its key when a person says it is
+     * the one its owner publishes: a trust decision, so it defaults to no and is never taken by
+     * {@code --yes}.
      *
      * @param host The host.
      * @param err Where it is shown and a refusal said.
@@ -480,21 +659,37 @@ public final class TaskLaunch {
         if (offered.isEmpty()) {
             return false;
         }
-        final HostKeys.Offered key = offered.stream().filter(one -> one.type().equals("ssh-ed25519")).findFirst()
-                .orElse(offered.get(0));
+        final HostKeys.Offered key =
+                offered.stream()
+                        .filter(one -> one.type().equals("ssh-ed25519"))
+                        .findFirst()
+                        .orElse(offered.get(0));
         err.println("porelo: " + host + " offers:");
         offered.forEach(one -> err.printf("    %-20s %s%n", one.type(), one.fingerprint()));
         err.flush();
-        return offer.resolve(new Offer.Remedy("this machine has never met " + host, "Trust its " + key.type() + " key "
-                + key.fingerprint() + ", as its owner publishes it?", "porelo credentials trust-host " + host, "", true,
-                () -> {
-                    try {
-                        return HostKeys.trust(context, host, key.fingerprint()) != null;
-                    } catch (final java.io.IOException ex) {
-                        err.println("porelo: the key could not be recorded: " + ex.getMessage());
-                        return false;
-                    }
-                }, () -> HostKeys.known(context, host)), err);
+        return offer.resolve(
+                new Offer.Remedy(
+                        "this machine has never met " + host,
+                        "Trust its "
+                                + key.type()
+                                + " key "
+                                + key.fingerprint()
+                                + ", as its owner publishes it?",
+                        "porelo credentials trust-host " + host,
+                        "",
+                        true,
+                        () -> {
+                            try {
+                                return HostKeys.trust(context, host, key.fingerprint()) != null;
+                            } catch (final java.io.IOException ex) {
+                                err.println(
+                                        "porelo: the key could not be recorded: "
+                                                + ex.getMessage());
+                                return false;
+                            }
+                        },
+                        () -> HostKeys.known(context, host)),
+                err);
     }
 
     /**
@@ -514,12 +709,17 @@ public final class TaskLaunch {
      */
     UpstreamProbe.@Nullable Finding upstreamFinding(final Project project) {
         final String upstream = request.upstream();
-        if (project.securityClass() == org.fuin.porelo.core.project.SecurityClass.OFFLINE && upstream != null) {
-            // Refused as itself when the workspace is opened: an offline project takes no --upstream.
+        if (project.securityClass() == org.fuin.porelo.core.project.SecurityClass.OFFLINE
+                && upstream != null) {
+            // Refused as itself when the workspace is opened: an offline project takes no
+            // --upstream.
             return null;
         }
         try {
-            return UpstreamProbe.forStart(context, project, GateSupport.repository(project, request.repository()),
+            return UpstreamProbe.forStart(
+                    context,
+                    project,
+                    GateSupport.repository(project, request.repository()),
                     upstream);
         } catch (final RuntimeException ex) {
             // A repository that is not there is refused as itself, by the check before this one.
@@ -528,44 +728,60 @@ public final class TaskLaunch {
     }
 
     /**
-     * Offers to store a key for an upstream that refused this machine with nothing stored for it, and reads it again.
-     * <p>
-     * Only where nothing is stored: with a key declared and refused, which key the forge expects is the forge's to
-     * know, so nothing is offered that could only be a guess. Never taken by {@code --yes}: there is no harmless
-     * default for a path.
+     * Offers to store a key for an upstream that refused this machine with nothing stored for it,
+     * and reads it again.
+     *
+     * <p>Only where nothing is stored: with a key declared and refused, which key the forge expects
+     * is the forge's to know, so nothing is offered that could only be a guess. Never taken by
+     * {@code --yes}: there is no harmless default for a path.
      *
      * @param finding What the first read found.
      * @param project The project.
      * @param err Where it is asked and said.
      * @return What a second read found, or the first finding when nothing was stored.
      */
-    UpstreamProbe.@Nullable Finding storeRefusedKey(final UpstreamProbe.Finding finding, final Project project,
-            final PrintWriter err) {
-        final String url = request.upstream() != null && !request.upstream().isBlank() ? request.upstream()
-                : GateSupport.repository(project, request.repository()).upstream();
-        if (offer == Offer.NOBODY || url == null || finding.answer().cause() != UpstreamProbe.Cause.KEY_REFUSED
+    UpstreamProbe.@Nullable Finding storeRefusedKey(
+            final UpstreamProbe.Finding finding, final Project project, final PrintWriter err) {
+        final String url =
+                request.upstream() != null && !request.upstream().isBlank()
+                        ? request.upstream()
+                        : GateSupport.repository(project, request.repository()).upstream();
+        if (offer == Offer.NOBODY
+                || url == null
+                || finding.answer().cause() != UpstreamProbe.Cause.KEY_REFUSED
                 || GitCredentialNames.kindOf(url) != GitCredentialNames.Kind.KEY) {
             return finding;
         }
-        final CredentialDeclarations.Check check = new CredentialDeclarations(context).check(url, "git");
+        final CredentialDeclarations.Check check =
+                new CredentialDeclarations(context).check(url, "git");
         if (check.outcome() == CredentialDeclarations.Outcome.READY
                 || check.outcome() == CredentialDeclarations.Outcome.VAULT_LOCKED) {
             return finding;
         }
         final java.util.List<String> names = GitCredentialNames.candidatesFor(url);
-        final String entry = check.credential() != null ? check.credential().id() : names.isEmpty() ? null
-                : names.get(0);
+        final String entry =
+                check.credential() != null
+                        ? check.credential().id()
+                        : names.isEmpty() ? null : names.get(0);
         if (entry == null) {
             return finding;
         }
-        final String path = offer.text(finding.answer().detail(), "Path of a private key to store as '" + entry
-                + "' for it ('porelo credentials keys' lists this account's):",
-                "porelo vault put " + entry + " --from-file <the private key file>");
+        final String path =
+                offer.text(
+                        finding.answer().detail(),
+                        "Path of a private key to store as '"
+                                + entry
+                                + "' for it ('porelo credentials keys' lists this account's):",
+                        "porelo vault put " + entry + " --from-file <the private key file>");
         if (path == null) {
             return finding;
         }
-        // The command's own code, on this terminal: it asks for the vault's passphrase where it has to.
-        context.exec().applyAsInt(java.util.List.of(PoreloBinary.path(), "vault", "put", entry, "--from-file", path));
+        // The command's own code, on this terminal: it asks for the vault's passphrase where it has
+        // to.
+        context.exec()
+                .applyAsInt(
+                        java.util.List.of(
+                                PoreloBinary.path(), "vault", "put", entry, "--from-file", path));
         return upstreamFinding(project);
     }
 
@@ -582,8 +798,11 @@ public final class TaskLaunch {
                     err.flush();
                     return 2;
                 }
-                out.println("project        " + DefaultProject.NAME + " - Porelo's settings: guarded, nothing reachable"
-                        + " beyond the agent's provider, blocked connections refused");
+                out.println(
+                        "project        "
+                                + DefaultProject.NAME
+                                + " - Porelo's settings: guarded, nothing reachable"
+                                + " beyond the agent's provider, blocked connections refused");
             }
 
             // If this machine FOLLOWS a project of that name, the file it verified wins - and the
@@ -597,9 +816,13 @@ public final class TaskLaunch {
                     // Followed and nothing in force: refused, unreachable, nothing pinned. Falling
                     // back to the local file would run the very thing the machine declined to
                     // apply, which is worse than not starting.
-                    err.println("porelo: '" + project.name() + "' is followed and nothing of it is"
-                            + " in force, so there is no configuration to start a task with: "
-                            + Shown.whyNotInForce(context, project.name()) + ".");
+                    err.println(
+                            "porelo: '"
+                                    + project.name()
+                                    + "' is followed and nothing of it is"
+                                    + " in force, so there is no configuration to start a task with: "
+                                    + Shown.whyNotInForce(context, project.name())
+                                    + ".");
                     err.flush();
                     return 2;
                 }
@@ -607,9 +830,14 @@ public final class TaskLaunch {
                 verifiedAt = found.commit();
                 project = ProjectReader.read(projectFile);
                 // Said as it is: a follow taken without an anchor checked no signature, and calling
-                // its commit verified is the one line that tells somebody who decides what this task may reach.
-                out.println("source         " + verifiedAt + (found.verified() ? " (followed, verified)"
-                        : " (followed, unverified - whoever can push there decides what tasks here may reach)"));
+                // its commit verified is the one line that tells somebody who decides what this
+                // task may reach.
+                out.println(
+                        "source         "
+                                + verifiedAt
+                                + (found.verified()
+                                        ? " (followed, verified)"
+                                        : " (followed, unverified - whoever can push there decides what tasks here may reach)"));
             }
 
             // Where this project's file is, for an interface that has no filesystem on this
@@ -652,8 +880,10 @@ public final class TaskLaunch {
 
         out.println("task           " + request.task());
         out.println("project        " + project.name());
-        out.println("repository     " + repository.name()
-                + (repository.name().equals(project.name()) ? " (the project's own)" : ""));
+        out.println(
+                "repository     "
+                        + repository.name()
+                        + (repository.name().equals(project.name()) ? " (the project's own)" : ""));
         out.println("security class " + project.securityClass().name().toLowerCase());
         out.println("base image     " + project.baseImage());
         out.println("task image     " + project.imageName());
@@ -664,8 +894,9 @@ public final class TaskLaunch {
         // project-file errors - before an image is built, and where --dry-run can still see it.
         final java.util.Map<String, String> projectOrigins;
         try {
-            projectOrigins = EgressReport.projectEgress(project, repository,
-                    context.paths().egress().egressSets());
+            projectOrigins =
+                    EgressReport.projectEgress(
+                            project, repository, context.paths().egress().egressSets());
         } catch (org.fuin.porelo.shield.EgressSetException ex) {
             err.println("porelo: " + ex.getMessage());
             err.flush();
@@ -680,8 +911,10 @@ public final class TaskLaunch {
                     && !project.repositories().isEmpty()) {
                 // Said, because otherwise a project-level plan reads as a task's. A repository
                 // adds to this, so what a task actually reaches is this or more - never less.
-                out.println("note      this is what every repository of '" + project.name()
-                        + "' gets; name one with --repository to see what it adds");
+                out.println(
+                        "note      this is what every repository of '"
+                                + project.name()
+                                + "' gets; name one with --repository to see what it adds");
             }
             out.flush();
             return 0;
@@ -704,8 +937,7 @@ public final class TaskLaunch {
         }
 
         final TaskRunner runner = context.tasks();
-        final String container =
-                runner.containerName(project, request.task());
+        final String container = runner.containerName(project, request.task());
 
         try (org.fuin.porelo.agent.api.InstalledAgents agents = context.agents()) {
 
@@ -717,8 +949,9 @@ public final class TaskLaunch {
                 // Before the image, the container and the token: a task that cannot authenticate
                 // fails inside the box with a message about the operator's network.
                 err.println("porelo: " + refusal);
-                err.println("porelo: import or store a usable one, then run again;"
-                        + " --credential-type overrides the stored kind for one run");
+                err.println(
+                        "porelo: import or store a usable one, then run again;"
+                                + " --credential-type overrides the stored kind for one run");
                 err.flush();
                 return 69;
             }
@@ -737,14 +970,22 @@ public final class TaskLaunch {
             // Refused here, before the gate, the image and the container: a refusal that left a
             // workspace and a held container behind would be the warning again with a different
             // exit code.
-            // Every other credential the project names, resolved before anything is made: a destination
-            // nobody declared is a mistake in the project file, not something to find inside the task.
+            // Every other credential the project names, resolved before anything is made: a
+            // destination
+            // nobody declared is a mistake in the project file, not something to find inside the
+            // task.
             final java.util.Map<String, Destination> extras = new java.util.LinkedHashMap<>();
-            // A repository at a host this machine never met: refused here, as CanStart answers it. It went ahead
+            // A repository at a host this machine never met: refused here, as CanStart answers it.
+            // It went ahead
             // before, ssh refused the workspace's fetch, and the task ran without a gate.
-            // The address the gate will use: '--upstream' when given, which the project file does not name.
-            final String unmet = StartCheck.unknownHost(context, request.projectFile(), request.repository(),
-                    request.upstream());
+            // The address the gate will use: '--upstream' when given, which the project file does
+            // not name.
+            final String unmet =
+                    StartCheck.unknownHost(
+                            context,
+                            request.projectFile(),
+                            request.repository(),
+                            request.upstream());
             if (unmet != null && trustUnmet(unmet, err)) {
                 out.println("trusted   " + unmet);
                 out.flush();
@@ -753,15 +994,21 @@ public final class TaskLaunch {
                 err.flush();
                 return 69;
             } else if (unmet != null) {
-                err.println("porelo: this machine has never met " + unmet + ", where the repository is, so it stops"
-                        + " rather than deciding for you. See what it offers with 'porelo credentials trust-host "
-                        + unmet + "', confirm one against what its owner publishes, and start again.");
+                err.println(
+                        "porelo: this machine has never met "
+                                + unmet
+                                + ", where the repository is, so it stops"
+                                + " rather than deciding for you. See what it offers with 'porelo credentials trust-host "
+                                + unmet
+                                + "', confirm one against what its owner publishes, and start again.");
                 err.println("porelo: nothing was created");
                 err.flush();
                 return 69;
             }
-            // The upstream read as the gate's clone will read it, before anything is made: a refused key surfaced from the
-            // clone as "no git gate for this task", after the task was half made (found on 2026-10-13).
+            // The upstream read as the gate's clone will read it, before anything is made: a
+            // refused key surfaced from the
+            // clone as "no git gate for this task", after the task was half made (found on
+            // 2026-10-13).
             if (!request.noGate() && !request.dryRun()) {
                 UpstreamProbe.Finding finding = upstreamFinding(project);
                 if (finding != null && finding.refuses()) {
@@ -775,56 +1022,94 @@ public final class TaskLaunch {
                     return 69;
                 }
                 if (finding != null) {
-                    // A mirror is there, so the task starts from it, as a refresh that fails already lets it.
-                    err.println("porelo: " + StartCheck.said(finding.answer()) + " This task starts from what the"
-                            + " mirror holds, which may be behind, and approved work cannot go back until it is fixed.");
+                    // A mirror is there, so the task starts from it, as a refresh that fails
+                    // already lets it.
+                    err.println(
+                            "porelo: "
+                                    + StartCheck.said(finding.answer())
+                                    + " This task starts from what the"
+                                    + " mirror holds, which may be behind, and approved work cannot go back until it is fixed.");
                     err.flush();
                 }
             }
-            // The same words and the same rule CanStart answers with, so a check and a start cannot disagree.
-            final String undeclared = StartCheck.undeclared(context, request.projectFile(), request.credentials());
+            // The same words and the same rule CanStart answers with, so a check and a start cannot
+            // disagree.
+            final String undeclared =
+                    StartCheck.undeclared(context, request.projectFile(), request.credentials());
             if (undeclared != null) {
                 err.println("porelo: " + undeclared.substring(undeclared.indexOf('\n') + 1));
-                err.println("porelo: nothing was created; declare it in "
-                        + context.paths().xdg().data().resolve("destinations") + ", or correct what names it");
+                err.println(
+                        "porelo: nothing was created; declare it in "
+                                + context.paths().xdg().data().resolve("destinations")
+                                + ", or correct what names it");
                 err.flush();
                 return 69;
             }
-            // The run adds to what the project declares, and never takes one away or points it elsewhere.
-            final java.util.Map<String, String> declaredOrAdded = new java.util.LinkedHashMap<>(project.credentials());
-            for (final java.util.Map.Entry<String, String> added : request.credentials().entrySet()) {
+            // The run adds to what the project declares, and never takes one away or points it
+            // elsewhere.
+            final java.util.Map<String, String> declaredOrAdded =
+                    new java.util.LinkedHashMap<>(project.credentials());
+            for (final java.util.Map.Entry<String, String> added :
+                    request.credentials().entrySet()) {
                 final String declared = declaredOrAdded.get(added.getKey());
                 if (declared != null && !declared.equals(added.getValue())) {
-                    err.println("porelo: the project already names credential '" + added.getKey() + "' for '" + declared
-                            + "'; a run adds credentials and cannot point one of the project's elsewhere");
+                    err.println(
+                            "porelo: the project already names credential '"
+                                    + added.getKey()
+                                    + "' for '"
+                                    + declared
+                                    + "'; a run adds credentials and cannot point one of the project's elsewhere");
                     err.flush();
                     return 2;
                 }
                 declaredOrAdded.put(added.getKey(), added.getValue());
             }
-            // A shut vault is opened here, at a terminal, as 'porelo vault unlock' would: the broker spends its tokens for
-            // the task's life. Only where this start reads it; without a terminal the refusals below stay as they were.
-            context.openIfShut(!declaredOrAdded.isEmpty() || wiring().unavailableFor(select(agents)) != null, true, err);
+            // A shut vault is opened here, at a terminal, as 'porelo vault unlock' would: the
+            // broker spends its tokens for
+            // the task's life. Only where this start reads it; without a terminal the refusals
+            // below stay as they were.
+            context.openIfShut(
+                    !declaredOrAdded.isEmpty() || wiring().unavailableFor(select(agents)) != null,
+                    true,
+                    err);
             for (final java.util.Map.Entry<String, String> named : declaredOrAdded.entrySet()) {
-                final org.fuin.porelo.vault.VaultEntry entry = context.readableCredentials()
-                        .map(stored -> stored.get(named.getKey())).orElse(null);
-                final Destination destination = Destination.resolve(named.getValue(),
-                        Destination.all(context.paths().xdg().data()), context.providers(),
-                        entry == null ? null : entry.type());
+                final org.fuin.porelo.vault.VaultEntry entry =
+                        context.readableCredentials()
+                                .map(stored -> stored.get(named.getKey()))
+                                .orElse(null);
+                final Destination destination =
+                        Destination.resolve(
+                                named.getValue(),
+                                Destination.all(context.paths().xdg().data()),
+                                context.providers(),
+                                entry == null ? null : entry.type());
                 if (destination == null) {
-                    err.println("porelo: the project names credential '" + named.getKey() + "' for '" + named.getValue()
-                            + "', and no destination or provider of that name is declared here");
-                    err.println("porelo: nothing was created; declare it in "
-                            + context.paths().xdg().data().resolve("destinations") + ", or correct the project file");
+                    err.println(
+                            "porelo: the project names credential '"
+                                    + named.getKey()
+                                    + "' for '"
+                                    + named.getValue()
+                                    + "', and no destination or provider of that name is declared here");
+                    err.println(
+                            "porelo: nothing was created; declare it in "
+                                    + context.paths().xdg().data().resolve("destinations")
+                                    + ", or correct the project file");
                     err.flush();
                     return 69;
                 }
                 if (request.mode() == org.fuin.porelo.wire.TaskMode.UNATTENDED
-                        && CredentialWiring.credentialUnavailable(context.readableCredentials(), named.getKey()) != null) {
-                    err.println("porelo: the project names credential '" + named.getKey() + "', and "
-                            + CredentialWiring.credentialUnavailable(context.readableCredentials(), named.getKey()));
-                    err.println("porelo: nothing was created; an unattended run cannot ask anybody, so it is refused"
-                            + " rather than started to fail");
+                        && CredentialWiring.credentialUnavailable(
+                                        context.readableCredentials(), named.getKey())
+                                != null) {
+                    err.println(
+                            "porelo: the project names credential '"
+                                    + named.getKey()
+                                    + "', and "
+                                    + CredentialWiring.credentialUnavailable(
+                                            context.readableCredentials(), named.getKey()));
+                    err.println(
+                            "porelo: nothing was created; an unattended run cannot ask anybody, so it is refused"
+                                    + " rather than started to fail");
                     err.flush();
                     return 69;
                 }
@@ -832,8 +1117,10 @@ public final class TaskLaunch {
             }
             this.extras = java.util.Map.copyOf(extras);
 
-            // A credential that has to be bought is tried once before anything exists: an authorization
-            // server that refuses or cannot be reached makes it as missing as a key the vault lacks.
+            // A credential that has to be bought is tried once before anything exists: an
+            // authorization
+            // server that refuses or cannot be reached makes it as missing as a key the vault
+            // lacks.
             final java.util.Set<String> held = new java.util.LinkedHashSet<>(extras.keySet());
             final org.fuin.porelo.agent.api.InstalledAgent agentHere = select(agents);
             if (agentHere != null) {
@@ -845,28 +1132,47 @@ public final class TaskLaunch {
                     continue;
                 }
                 if (ungrantedAuthorization(name)) {
-                    // Asked of a person too, not only said here: somebody else may be the one who can grant it.
-                    AuthorizationsNeeded.raise(context, name, container, project.name(), AuthorizationsNeeded.NEVER);
+                    // Asked of a person too, not only said here: somebody else may be the one who
+                    // can grant it.
+                    AuthorizationsNeeded.raise(
+                            context, name, container, project.name(), AuthorizationsNeeded.NEVER);
                 }
                 if (refusesWithoutCredential(request.mode())) {
                     err.println("porelo: credential '" + name + "': " + refused);
-                    err.println("porelo: nothing was created; a task that cannot buy its token would fail on its first"
-                            + " request");
+                    err.println(
+                            "porelo: nothing was created; a task that cannot buy its token would fail on its first"
+                                    + " request");
                     err.flush();
                     return 69;
                 }
-                err.println("porelo: credential '" + name + "': " + refused + " - the task starts, and requests that"
-                        + " need it will fail until the authorization server sells a token");
+                err.println(
+                        "porelo: credential '"
+                                + name
+                                + "': "
+                                + refused
+                                + " - the task starts, and requests that"
+                                + " need it will fail until the authorization server sells a token");
                 err.flush();
             }
 
             if (refusesWithoutCredential(request.mode())) {
                 final String unavailable = wiring().unavailableFor(select(agents));
-                final java.util.List<String> command = unavailable == null || offer == Offer.NOBODY
-                        ? java.util.List.of() : signInCommand(select(agents));
-                if (unavailable != null && !command.isEmpty() && offer.resolve(credentialRemedy(unavailable, command,
-                        () -> wiring().unavailableFor(select(agents)) == null), err)) {
-                    out.println("credential " + String.join(" ", command.subList(1, command.size())) + " - in place");
+                final java.util.List<String> command =
+                        unavailable == null || offer == Offer.NOBODY
+                                ? java.util.List.of()
+                                : signInCommand(select(agents));
+                if (unavailable != null
+                        && !command.isEmpty()
+                        && offer.resolve(
+                                credentialRemedy(
+                                        unavailable,
+                                        command,
+                                        () -> wiring().unavailableFor(select(agents)) == null),
+                                err)) {
+                    out.println(
+                            "credential "
+                                    + String.join(" ", command.subList(1, command.size()))
+                                    + " - in place");
                     out.flush();
                 } else if (!command.isEmpty()) {
                     err.println("porelo: nothing was created");
@@ -874,13 +1180,15 @@ public final class TaskLaunch {
                     return 69;
                 } else if (unavailable != null) {
                     err.println("porelo: " + unavailable);
-                    err.println("porelo: nothing was created; "
-                            + (request.mode() == org.fuin.porelo.wire.TaskMode.UNATTENDED
-                                    ? "an unattended run cannot ask anybody, so it is refused"
-                                            + " rather than started to fail"
-                                    : "the agent would start without a credential and fail on its"
-                                            + " first request. " + signIn(select(agents))
-                                            + "'--attach shell' starts the task without one."));
+                    err.println(
+                            "porelo: nothing was created; "
+                                    + (request.mode() == org.fuin.porelo.wire.TaskMode.UNATTENDED
+                                            ? "an unattended run cannot ask anybody, so it is refused"
+                                                    + " rather than started to fail"
+                                            : "the agent would start without a credential and fail on its"
+                                                    + " first request. "
+                                                    + signIn(select(agents))
+                                                    + "'--attach shell' starts the task without one."));
                     err.flush();
                     return 69;
                 }
@@ -893,16 +1201,22 @@ public final class TaskLaunch {
             //
             // Only for AGENT. A SHELL task deliberately needs no agent - working inside the
             // container by hand is exactly what it is for.
-            if (request.mode() == org.fuin.porelo.wire.TaskMode.AGENT && select(agents) == null
+            if (request.mode() == org.fuin.porelo.wire.TaskMode.AGENT
+                    && select(agents) == null
                     && (retry = shellInstead("no agent to attach", offer)) != null) {
                 return RETRY;
             }
             if (request.mode() == org.fuin.porelo.wire.TaskMode.AGENT && select(agents) == null) {
-                err.println("porelo: no agent to attach"
-                        + (request.agentName() == null ? "; none is installed here"
-                                : ": no agent called '" + request.agentName() + "' is installed"));
-                err.println("porelo: nothing was created; run with '--attach shell' for a terminal"
-                        + " without one");
+                err.println(
+                        "porelo: no agent to attach"
+                                + (request.agentName() == null
+                                        ? "; none is installed here"
+                                        : ": no agent called '"
+                                                + request.agentName()
+                                                + "' is installed"));
+                err.println(
+                        "porelo: nothing was created; run with '--attach shell' for a terminal"
+                                + " without one");
                 err.flush();
                 return 69;
             }
@@ -910,7 +1224,8 @@ public final class TaskLaunch {
             final boolean gated = !request.noGate() && !request.dryRun();
             final TaskWorkspace workspace = workspace().openWorkspace(project, gated, out, err);
             final String earlier = workspace().refusal();
-            if (earlier != null && (retry = nameInstead(earlier, workspace().freeName(), offer)) != null) {
+            if (earlier != null
+                    && (retry = nameInstead(earlier, workspace().freeName(), offer)) != null) {
                 return RETRY;
             }
             if (earlier != null) {
@@ -919,15 +1234,22 @@ public final class TaskLaunch {
                 err.flush();
                 return 65;
             }
-            // No shell offered in its place: a shell without a gate has an empty workspace and fixes nothing about what
+            // No shell offered in its place: a shell without a gate has an empty workspace and
+            // fixes nothing about what
             // stopped the gate, which is said above.
-            if (gated && workspace == null && request.mode() != org.fuin.porelo.wire.TaskMode.SHELL) {
-                // An agent's work leaves through the gate. Started without one, it has an empty workspace and
-                // nowhere to hand back what it does - which is how a task in 'default' whose origin was over ssh
-                // started, worked on nothing and said exit 0. A shell, which a person drives, still starts.
-                err.println("porelo: nothing was created; the agent would work in an empty workspace with nowhere to"
-                        + " hand its work back. Fix what is said above, or '--attach shell' starts a shell without"
-                        + " a gate");
+            if (gated
+                    && workspace == null
+                    && request.mode() != org.fuin.porelo.wire.TaskMode.SHELL) {
+                // An agent's work leaves through the gate. Started without one, it has an empty
+                // workspace and
+                // nowhere to hand back what it does - which is how a task in 'default' whose origin
+                // was over ssh
+                // started, worked on nothing and said exit 0. A shell, which a person drives, still
+                // starts.
+                err.println(
+                        "porelo: nothing was created; the agent would work in an empty workspace with nowhere to"
+                                + " hand its work back. Fix what is said above, or '--attach shell' starts a shell without"
+                                + " a gate");
                 err.flush();
                 return 69;
             }
@@ -943,18 +1265,28 @@ public final class TaskLaunch {
 
             final org.fuin.porelo.agent.api.InstalledAgent selected = select(agents);
 
-            // Before anything exists: a model the agent has no flag for would be dropped on the way in,
+            // Before anything exists: a model the agent has no flag for would be dropped on the way
+            // in,
             // attended or not, and the agent would answer on its own default without a word.
-            if (request.model() != null && selected != null && selected.definition().headless().modelFlag() == null) {
-                err.println("porelo: " + selected.name() + " does not take a model, so --model " + request.model()
-                        + " would change nothing; start it without --model");
+            if (request.model() != null
+                    && selected != null
+                    && selected.definition().headless().modelFlag() == null) {
+                err.println(
+                        "porelo: "
+                                + selected.name()
+                                + " does not take a model, so --model "
+                                + request.model()
+                                + " would change nothing; start it without --model");
                 err.flush();
                 return 2;
             }
 
-            // Into the project's conversations before anything exists, and after every other refusal: a task whose
-            // messages reach nobody is refused here, as a credential nobody can reach is - and enrolled earlier, a start
-            // refused afterwards for something else left its account at the transport with nothing to retire it.
+            // Into the project's conversations before anything exists, and after every other
+            // refusal: a task whose
+            // messages reach nobody is refused here, as a credential nobody can reach is - and
+            // enrolled earlier, a start
+            // refused afterwards for something else left its account at the transport with nothing
+            // to retire it.
             final String unreachable = new TaskConversations(context).enroll(project, container);
             if (unreachable != null) {
                 err.println("porelo: " + unreachable);
@@ -975,9 +1307,12 @@ public final class TaskLaunch {
             mailbox.create();
             informed(project, container, true);
 
-            TaskWiring wiring = new TaskWiring(
-                    workspace == null ? null : gate().gateAddress(project, err),
-                    workspace == null ? 0 : workspace.port(), null, mailbox.box());
+            TaskWiring wiring =
+                    new TaskWiring(
+                            workspace == null ? null : gate().gateAddress(project, err),
+                            workspace == null ? 0 : workspace.port(),
+                            null,
+                            mailbox.box());
 
             java.util.Map<String, String> environmentCache = new java.util.LinkedHashMap<>();
 
@@ -998,24 +1333,33 @@ public final class TaskLaunch {
             final CredentialWiring.CredentialPlumbing plumbing =
                     wiring().startVault(selected, container, this.extras, out, err);
             if (!this.extras.isEmpty()) {
-                // By name and destination, for anything that asks what the task holds; never a token.
+                // By name and destination, for anything that asks what the task holds; never a
+                // token.
                 final java.util.Map<String, Object> given = new java.util.LinkedHashMap<>();
                 this.extras.forEach((name, destination) -> given.put(name, destination.name()));
                 try {
-                    java.nio.file.Files.writeString(context.paths().tasks().containerState(container)
-                            .resolve(TaskInventory.CREDENTIALS_FILE), org.fuin.porelo.wire.Json.write(given),
+                    java.nio.file.Files.writeString(
+                            context.paths()
+                                    .tasks()
+                                    .containerState(container)
+                                    .resolve(TaskInventory.CREDENTIALS_FILE),
+                            org.fuin.porelo.wire.Json.write(given),
                             java.nio.charset.StandardCharsets.UTF_8);
                 } catch (java.io.IOException ex) {
-                    err.println("porelo: could not record which credentials this task holds: " + ex.getMessage());
+                    err.println(
+                            "porelo: could not record which credentials this task holds: "
+                                    + ex.getMessage());
                     err.flush();
                 }
                 GrantRecord.record(context, container, project.name(), this.extras.keySet(), err);
             }
-            // The agent's URL endpoint, or any other credential: those are always reached over the URL.
-            final boolean needsRelay = serving != null
-                    && serving.route().endpoint()
-                            == org.fuin.porelo.agent.api.ProviderRoute.Endpoint.URL
-                    || plumbing != null && plumbing.servesOthers();
+            // The agent's URL endpoint, or any other credential: those are always reached over the
+            // URL.
+            final boolean needsRelay =
+                    serving != null
+                                    && serving.route().endpoint()
+                                            == org.fuin.porelo.agent.api.ProviderRoute.Endpoint.URL
+                            || plumbing != null && plumbing.servesOthers();
             if (plumbing != null) {
                 environmentCache.putAll(plumbing.environment());
                 wiring = wiring.withVaultSocket(plumbing.socket());
@@ -1023,54 +1367,88 @@ public final class TaskLaunch {
                 // up before it starts, and what it kept in was the phantom token: random,
                 // task-scoped, and worth nothing to the provider. The real credential is what
                 // must not get out, and it never enters the container at all.
-                out.println("provider  " + plumbing.upstreamHost()
-                        + " reachable; the credential is not, only a task-scoped token");
+                out.println(
+                        "provider  "
+                                + plumbing.upstreamHost()
+                                + " reachable; the credential is not, only a task-scoped token");
             } else {
                 environmentCache.putAll(environment(agents, out, err));
             }
 
-            // The issue prefixes the task's repository owns, so its agent names and cites issues as the repository
+            // The issue prefixes the task's repository owns, so its agent names and cites issues as
+            // the repository
             // does; empty where the repository names none.
             environmentCache.put(ISSUE_PREFIXES, String.join(",", repository.issues()));
             if (workspace != null) {
                 environmentCache.putAll(workspace.environment(project, request.task()));
             }
 
-            final java.util.Map<String, String> refusals = EgressReport.refusals(selected, project, repository);
+            final java.util.Map<String, String> refusals =
+                    EgressReport.refusals(selected, project, repository);
             EgressReport.reportReachable(project, origins, refusals, out);
             runner.refusing(java.util.List.copyOf(refusals.keySet()));
 
             // The port is decided before this, so the firewall rule can name it; the gate itself
             // starts afterwards, because its log lives in the state directory that start()
             // creates. Starting it first silently failed to spawn at all.
-            runner.start(project, repository, verifiedAt, container, layers, environmentCache,
-                    domains, wiring, out);
+            runner.start(
+                    project,
+                    repository,
+                    verifiedAt,
+                    container,
+                    layers,
+                    environmentCache,
+                    domains,
+                    wiring,
+                    out);
 
             if (needsRelay && plumbing != null) {
                 wiring().startRelay(runner, container, plumbing.socket(), out, err);
             }
 
             if (workspace != null) {
-                gate().startGate(runner, workspace, wiring.gateAddress(), container, request.task(), project, out, err);
-                workspace().prepareWorkspace(runner, workspace, container, environmentCache, out, err);
+                gate().startGate(
+                                runner,
+                                workspace,
+                                wiring.gateAddress(),
+                                container,
+                                request.task(),
+                                project,
+                                out,
+                                err);
+                workspace()
+                        .prepareWorkspace(runner, workspace, container, environmentCache, out, err);
             }
 
             placeAgentFiles(runner, selected, container, environmentCache, out, err);
             out.println();
 
             clearance().startClearance(runner, project, container, out, err);
-            new BuildsWiring(context, this::recordHelper).start(project, repository, container,
-                    environmentCache.get("PORELO_TASK_REF"), out, err);
+            new BuildsWiring(context, this::recordHelper)
+                    .start(
+                            project,
+                            repository,
+                            container,
+                            environmentCache.get("PORELO_TASK_REF"),
+                            out,
+                            err);
             writeResumeRecord(container, err);
             // What only this moment knows: which agent, how somebody is meant to be involved,
             // what it was asked to do, and which ref its work goes to. None of it can be
             // recovered from a running container afterwards.
             writeProfile(container, selected, environmentCache.get("PORELO_TASK_REF"), err);
-            // What brings it back after a reboot: its description and records saved where a reboot does not
-            // reach, and its two tokens in the vault. A task that cannot keep them runs, and says so.
+            // What brings it back after a reboot: its description and records saved where a reboot
+            // does not
+            // reach, and its two tokens in the vault. A task that cannot keep them runs, and says
+            // so.
             new TaskState(context).save(container);
-            final String unkept = new TaskSecrets(context).keep(container,
-                    TaskSecrets.fromRuntime(context.paths().tasks().containerState(container)), () -> existingTasks(container));
+            final String unkept =
+                    new TaskSecrets(context)
+                            .keep(
+                                    container,
+                                    TaskSecrets.fromRuntime(
+                                            context.paths().tasks().containerState(container)),
+                                    () -> existingTasks(container));
             if (!unkept.isEmpty()) {
                 out.println("reboot    " + unkept);
             }
@@ -1079,8 +1457,15 @@ public final class TaskLaunch {
             // terminal, or simply say so - is the caller's, and it happens inside this scope
             // on purpose: the installed agents are a resource this owns, and the paths that
             // follow a start use them.
-            return after.started(new Running(runner, agents, selected, container,
-                    environmentCache, project, code -> cleanUp(runner, container, code, out)));
+            return after.started(
+                    new Running(
+                            runner,
+                            agents,
+                            selected,
+                            container,
+                            environmentCache,
+                            project,
+                            code -> cleanUp(runner, container, code, out)));
 
         } catch (CommandException ex) {
             err.println("porelo: " + ex.getMessage());
@@ -1101,8 +1486,8 @@ public final class TaskLaunch {
 
     /**
      * Runs the agent against the prompt this task was started with.
-     * <p>
-     * In the launch rather than in the CLI, because a task started over the socket is as
+     *
+     * <p>In the launch rather than in the CLI, because a task started over the socket is as
      * unattended as one started at a terminal and has to do the same thing. What stays in the CLI
      * is the rendering: the agent formats its own log for a person, and a socket has no person on
      * the far end - only the file, which {@code Tail} already serves.
@@ -1115,8 +1500,13 @@ public final class TaskLaunch {
      * @param err Where a failure is reported.
      * @return Exit code of the agent, or 69 when there is no agent to run.
      */
-    public int runAgent(TaskRunner runner, @Nullable InstalledAgent selected, String container,
-            java.util.Map<String, String> environment, PrintWriter out, PrintWriter err) {
+    public int runAgent(
+            TaskRunner runner,
+            @Nullable InstalledAgent selected,
+            String container,
+            java.util.Map<String, String> environment,
+            PrintWriter out,
+            PrintWriter err) {
 
         if (selected == null) {
             err.println("porelo: a prompt needs an agent, and none is installed");
@@ -1125,28 +1515,41 @@ public final class TaskLaunch {
         }
         final String prompt = request.prompt();
         if (prompt == null) {
-            err.println("porelo: this task was started without a prompt, so there is nothing to run");
+            err.println(
+                    "porelo: this task was started without a prompt, so there is nothing to run");
             err.flush();
             return 2;
         }
         final Path log = context.paths().tasks().containerState(container).resolve("task.log");
-        // Continuing is what starting a task that has a session does - not a verb of its own - and only
-        // where the agent says how to name one: nothing is guessed, and a fresh session says it is one.
+        // Continuing is what starting a task that has a session does - not a verb of its own - and
+        // only
+        // where the agent says how to name one: nothing is guessed, and a fresh session says it is
+        // one.
         final TaskSession sessions = new TaskSession(context);
-        final String continuing = sessions.toContinue(container, selected.definition()).orElse(null);
+        final String continuing =
+                sessions.toContinue(container, selected.definition()).orElse(null);
         final org.fuin.porelo.agent.api.RunRequest agentRequest =
-                new org.fuin.porelo.agent.api.RunRequest(prompt, request.model(),
-                        request.maxTurns(), continuing, false, true);
+                new org.fuin.porelo.agent.api.RunRequest(
+                        prompt, request.model(), request.maxTurns(), continuing, false, true);
 
         out.println();
         out.println("running   " + selected.name() + " (up to " + request.minutes() + " minutes)");
-        out.println("session   " + (continuing != null ? "continuing " + continuing
-                : selected.definition().sessionIds() == null ? "a fresh one - this agent does not say how to continue one"
-                : "a fresh one"));
+        out.println(
+                "session   "
+                        + (continuing != null
+                                ? "continuing " + continuing
+                                : selected.definition().sessionIds() == null
+                                        ? "a fresh one - this agent does not say how to continue one"
+                                        : "a fresh one"));
         out.flush();
 
         try {
-            return runner.runAgent(selected, container, agentRequest, environment, log,
+            return runner.runAgent(
+                    selected,
+                    container,
+                    agentRequest,
+                    environment,
+                    log,
                     java.time.Duration.ofMinutes(request.minutes()));
         } catch (org.fuin.porelo.runtime.ContainerException ex) {
             // Whatever the agent managed to say before it was killed is the most useful thing
@@ -1156,7 +1559,8 @@ public final class TaskLaunch {
             err.flush();
             return 124;
         } finally {
-            // Whatever the run named, even one that was killed: the transcript up to there is worth going on from.
+            // Whatever the run named, even one that was killed: the transcript up to there is worth
+            // going on from.
             final org.fuin.porelo.agent.api.SessionIds ids = selected.definition().sessionIds();
             if (ids != null && selected.definition().supportsResume()) {
                 TaskSession.fromRun(log, ids).ifPresent(id -> sessions.record(container, id));
@@ -1165,28 +1569,39 @@ public final class TaskLaunch {
     }
 
     /**
-     * Runs the prompt in a task that existed already and is up again, with the agent it was made with.
-     * <p>
-     * <strong>Continuing is what starting a task with a prompt does</strong>, whether the task is new or
-     * comes back: a start that brought a stopped task back and then ignored its prompt reported a run nobody
-     * performed. The agent is the task's own, not whatever a caller names - a conversation belongs to the
-     * agent that had it - and the run continues its session where the agent can ({@link #runAgent}).
+     * Runs the prompt in a task that existed already and is up again, with the agent it was made
+     * with.
+     *
+     * <p><strong>Continuing is what starting a task with a prompt does</strong>, whether the task
+     * is new or comes back: a start that brought a stopped task back and then ignored its prompt
+     * reported a run nobody performed. The agent is the task's own, not whatever a caller names - a
+     * conversation belongs to the agent that had it - and the run continues its session where the
+     * agent can ({@link #runAgent}).
      *
      * @param container The task's container, running.
-     * @param rendered What shows the run to a person afterwards, given the agent; the daemon passes nothing.
+     * @param rendered What shows the run to a person afterwards, given the agent; the daemon passes
+     *     nothing.
      * @param out Where progress is reported.
      * @param err Where a failure is reported.
      * @return Exit code of the agent, or {@link #NO_AGENT} when its agent is not installed.
      */
-    public int runAgentInExisting(String container,
-            java.util.function.@Nullable BiConsumer<InstalledAgent, String> rendered, PrintWriter out, PrintWriter err) {
+    public int runAgentInExisting(
+            String container,
+            java.util.function.@Nullable BiConsumer<InstalledAgent, String> rendered,
+            PrintWriter out,
+            PrintWriter err) {
         final org.fuin.porelo.wire.TaskProfile profile =
-                org.fuin.porelo.wire.TaskProfile.readFrom(context.paths().tasks().containerState(container));
+                org.fuin.porelo.wire.TaskProfile.readFrom(
+                        context.paths().tasks().containerState(container));
         try (org.fuin.porelo.agent.api.InstalledAgents agents = context.agents()) {
-            final InstalledAgent selected = profile == null || profile.agent() == null ? null
-                    : agents.find(profile.agent()).orElse(null);
-            // Nothing extra for the exec: a container that exists already carries what it was given.
-            final int code = runAgent(context.tasks(), selected, container, java.util.Map.of(), out, err);
+            final InstalledAgent selected =
+                    profile == null || profile.agent() == null
+                            ? null
+                            : agents.find(profile.agent()).orElse(null);
+            // Nothing extra for the exec: a container that exists already carries what it was
+            // given.
+            final int code =
+                    runAgent(context.tasks(), selected, container, java.util.Map.of(), out, err);
             if (code != NO_AGENT && rendered != null && selected != null) {
                 rendered.accept(selected, container);
             }
@@ -1196,22 +1611,31 @@ public final class TaskLaunch {
 
     /**
      * Writes down what this task is, for anything that asks about it later.
-     * <p>
-     * Never fails the run. A task that cannot describe itself is worse than one that can, and far
-     * better than one that did not start.
+     *
+     * <p>Never fails the run. A task that cannot describe itself is worse than one that can, and
+     * far better than one that did not start.
      *
      * @param container Container name.
      * @param selected The agent, or {@code null} when the task has none.
      * @param branch Ref the work goes to, or {@code null}.
      * @param err Where a failure to record is reported.
      */
-    private void writeProfile(String container, @Nullable InstalledAgent selected,
-            @Nullable String branch, PrintWriter err) {
+    private void writeProfile(
+            String container,
+            @Nullable InstalledAgent selected,
+            @Nullable String branch,
+            PrintWriter err) {
         try {
-            new org.fuin.porelo.wire.TaskProfile(org.fuin.porelo.wire.TaskProfile.VERSION,
-                    selected == null ? null : selected.definition().name(),
-                    request.mode(), request.prompt(), branch,
-                    java.time.Instant.now().toString(), request.clearance(), null, servingName)
+            new org.fuin.porelo.wire.TaskProfile(
+                            org.fuin.porelo.wire.TaskProfile.VERSION,
+                            selected == null ? null : selected.definition().name(),
+                            request.mode(),
+                            request.prompt(),
+                            branch,
+                            java.time.Instant.now().toString(),
+                            request.clearance(),
+                            null,
+                            servingName)
                     .writeTo(context.paths().tasks().containerState(container));
         } catch (java.io.IOException ex) {
             err.println("porelo: could not record what this task is: " + ex.getMessage());
@@ -1227,18 +1651,29 @@ public final class TaskLaunch {
      * @param environment Extra variables it was given.
      * @param phase Whether it has to be up before the container, or needs the running container.
      */
-    private void recordHelper(String name, java.util.List<String> command,
-            java.util.Map<String, String> environment, String phase) {
-        startedHelpers.add(new TaskHelpers.Helper(name, java.util.List.copyOf(command),
-                java.util.Map.copyOf(environment), phase));
+    private void recordHelper(
+            String name,
+            java.util.List<String> command,
+            java.util.Map<String, String> environment,
+            String phase) {
+        startedHelpers.add(
+                new TaskHelpers.Helper(
+                        name,
+                        java.util.List.copyOf(command),
+                        java.util.Map.copyOf(environment),
+                        phase));
     }
 
     private Project project(PrintWriter out, PrintWriter err) {
         final Project project = ProjectReader.read(request.projectFile());
-        // A key this Porelo does not know and that is no provable mistake - a later version's, most likely - is
+        // A key this Porelo does not know and that is no provable mistake - a later version's, most
+        // likely - is
         // taken and said, so nobody believes it applied.
         for (final String unknown : ProjectReader.unknownKeys(request.projectFile())) {
-            err.println("warning   project.yml: '" + unknown + "' is not a setting this Porelo knows; it has no effect");
+            err.println(
+                    "warning   project.yml: '"
+                            + unknown
+                            + "' is not a setting this Porelo knows; it has no effect");
         }
         err.flush();
         return project;
@@ -1246,8 +1681,8 @@ public final class TaskLaunch {
 
     /**
      * Builds the image layers for this run: the agent's, then the project's own.
-     * <p>
-     * The project's go last so they can rely on the agent already being installed - which is the
+     *
+     * <p>The project's go last so they can rely on the agent already being installed - which is the
      * usual reason for having them at all.
      */
     private org.fuin.porelo.runtime.ImageLayers layers(
@@ -1257,19 +1692,29 @@ public final class TaskLaunch {
 
         final org.fuin.porelo.agent.api.InstalledAgent agent = select(agents);
         if (agent != null) {
-            out.println("agent     " + agent.name() + " "
-                    + (agent.definition().version() == null ? "" : agent.definition().version()));
-            layers = layers.and(agent.definition().installAsRoot(),
-                    org.fuin.porelo.agent.api.InstallScript.render(agent.definition().artifacts()));
-            layers = layers.and(
-                    AgentStaging.stage(agent, project, context.paths(),
-                            context.runner(), out),
-                    java.util.List.of());
+            out.println(
+                    "agent     "
+                            + agent.name()
+                            + " "
+                            + (agent.definition().version() == null
+                                    ? ""
+                                    : agent.definition().version()));
+            layers =
+                    layers.and(
+                            agent.definition().installAsRoot(),
+                            org.fuin.porelo.agent.api.InstallScript.render(
+                                    agent.definition().artifacts()));
+            layers =
+                    layers.and(
+                            AgentStaging.stage(
+                                    agent, project, context.paths(), context.runner(), out),
+                            java.util.List.of());
             layers = layers.and(java.util.List.of(), agent.definition().installAsAgent());
         }
 
         if (!project.imageSnippetLines().isEmpty()) {
-            out.println("snippet   " + project.imageSnippetLines().size() + " lines from the project");
+            out.println(
+                    "snippet   " + project.imageSnippetLines().size() + " lines from the project");
             layers = layers.and(project.imageSnippetLines(), java.util.List.of());
         }
         return layers;
@@ -1277,46 +1722,62 @@ public final class TaskLaunch {
 
     @Nullable
     private InstalledAgent select(InstalledAgents agents) {
-        final String named = request.agentName() != null || offer == Offer.NOBODY ? request.agentName()
-                : agentName(agents.all().stream().map(InstalledAgent::name).toList(), null, offer, chosenAgent);
+        final String named =
+                request.agentName() != null || offer == Offer.NOBODY
+                        ? request.agentName()
+                        : agentName(
+                                agents.all().stream().map(InstalledAgent::name).toList(),
+                                null,
+                                offer,
+                                chosenAgent);
         return select(agents, named);
     }
 
-    /** The agent a person chose when several were installed and none was named: asked once per start. */
+    /**
+     * The agent a person chose when several were installed and none was named: asked once per
+     * start.
+     */
     private final String[] chosenAgent = new String[1];
 
     /**
-     * Returns the agent a start works with: the one named, else the one a person chooses when several are installed,
-     * asked once and kept for the rest of the start.
+     * Returns the agent a start works with: the one named, else the one a person chooses when
+     * several are installed, asked once and kept for the rest of the start.
      *
      * @param installed The installed agents' names.
      * @param named The one named, or {@code null}.
      * @param offer Who is asked.
      * @param chosen Where the choice is kept for this start.
-     * @return The name, or {@code null} to leave it to the agent choice, which takes the only one or refuses.
+     * @return The name, or {@code null} to leave it to the agent choice, which takes the only one
+     *     or refuses.
      */
-    static @Nullable String agentName(final java.util.List<String> installed, final @Nullable String named,
-            final Offer offer, final @Nullable String[] chosen) {
+    static @Nullable String agentName(
+            final java.util.List<String> installed,
+            final @Nullable String named,
+            final Offer offer,
+            final @Nullable String[] chosen) {
         if (named != null) {
             return named;
         }
         if (chosen[0] == null && installed.size() > 1) {
-            chosen[0] = offer.choose("several agents are installed (" + String.join(", ", installed) + ")", installed,
-                    "porelo task start --agent <name>");
+            chosen[0] =
+                    offer.choose(
+                            "several agents are installed (" + String.join(", ", installed) + ")",
+                            installed,
+                            "porelo task start --agent <name>");
         }
         return chosen[0];
     }
 
     /**
      * Whether a mode is refused outright when the agent's credential cannot be had.
-     * <p>
-     * The two that asked for the agent itself. {@code SHELL} is not one of them: working inside
+     *
+     * <p>The two that asked for the agent itself. {@code SHELL} is not one of them: working inside
      * the container by hand is what it is for, and whether the agent could authenticate may not
      * matter to it at all - so it warns and starts, which is what every mode used to do.
-     * <p>
-     * Named rather than inlined because it is a decision, taken on 2026-09-12
-     * after a locked vault let an {@code AGENT} task build an image and a container and then land
-     * somebody in an agent that could not authenticate.
+     *
+     * <p>Named rather than inlined because it is a decision, taken on 2026-09-12 after a locked
+     * vault let an {@code AGENT} task build an image and a container and then land somebody in an
+     * agent that could not authenticate.
      *
      * @param mode The mode asked for.
      * @return Whether a credential that cannot be had refuses the start.
@@ -1338,20 +1799,22 @@ public final class TaskLaunch {
      * @param agentName Value of {@code --agent}, or {@code null}.
      * @return The choice, refused or not.
      */
-    public static AgentChoice.Choice considerAgent(InstalledAgents agents, @Nullable String agentName) {
+    public static AgentChoice.Choice considerAgent(
+            InstalledAgents agents, @Nullable String agentName) {
         return AgentChoice.considerAgent(agents, agentName);
     }
 
     /**
      * Builds the environment the container starts with.
-     * <p>
-     * <strong>A phantom token, never the real credential.</strong> The agent inside the container
-     * gets something that only Porelo's broker accepts, only for this task, and only until it ends.
-     * An agent that leaks it has leaked something that stops working when the container does.
-     * <p>
-     * Empty when the vault holds nothing for this agent - which is not an error. A task that only
-     * needs a shell needs no credential, and failing here would make the common case depend on the
-     * uncommon one.
+     *
+     * <p><strong>A phantom token, never the real credential.</strong> The agent inside the
+     * container gets something that only Porelo's broker accepts, only for this task, and only
+     * until it ends. An agent that leaks it has leaked something that stops working when the
+     * container does.
+     *
+     * <p>Empty when the vault holds nothing for this agent - which is not an error. A task that
+     * only needs a shell needs no credential, and failing here would make the common case depend on
+     * the uncommon one.
      */
     private java.util.Map<String, String> environment(
             org.fuin.porelo.agent.api.InstalledAgents agents, PrintWriter out, PrintWriter err) {
@@ -1377,20 +1840,26 @@ public final class TaskLaunch {
         final org.fuin.porelo.vault.TokenBroker broker =
                 new org.fuin.porelo.vault.TokenBroker(() -> secrets);
         final org.fuin.porelo.vault.PhantomToken token =
-                broker.mint(credentials().credentialName(agent), request.task(), java.time.Duration.ofHours(request.tokenHours()));
+                broker.mint(
+                        credentials().credentialName(agent),
+                        request.task(),
+                        java.time.Duration.ofHours(request.tokenHours()));
 
-        out.println("token     " + variable + "="
-                + org.fuin.porelo.vault.PhantomToken.abbreviate(token.value()));
+        out.println(
+                "token     "
+                        + variable
+                        + "="
+                        + org.fuin.porelo.vault.PhantomToken.abbreviate(token.value()));
         return java.util.Map.of(variable, token.value());
     }
 
     /**
      * Writes whatever the agent needs before it will run in a container it has never seen.
-     * <p>
-     * A vendor's tool expects to have been used once already - a wizard answered, a folder
+     *
+     * <p>A vendor's tool expects to have been used once already - a wizard answered, a folder
      * trusted, a credential where its own login would have put it. None of that exists in a fresh
-     * container, so the tool stops and asks a person. The agent says what to write; this writes
-     * it, understanding none of it.
+     * container, so the tool stops and asks a person. The agent says what to write; this writes it,
+     * understanding none of it.
      *
      * @param runner Runs the container.
      * @param agent The selected agent, or {@code null}.
@@ -1399,9 +1868,12 @@ public final class TaskLaunch {
      * @param out Where progress is reported.
      * @param err Where problems are reported.
      */
-    private void placeAgentFiles(TaskRunner runner,
+    private void placeAgentFiles(
+            TaskRunner runner,
             org.fuin.porelo.agent.api.@org.jspecify.annotations.Nullable InstalledAgent agent,
-            String container, java.util.Map<String, String> environment, PrintWriter out,
+            String container,
+            java.util.Map<String, String> environment,
+            PrintWriter out,
             PrintWriter err) {
 
         if (agent == null) {
@@ -1417,17 +1889,24 @@ public final class TaskLaunch {
         final String token = named == null ? "" : named;
         try {
             final SelectedProvider selection = credentials().provider(agent);
-            final var files = agent.containerSetup(
-                    new org.fuin.porelo.agent.api.SetupContext(token,
-                            credentials().credentialType(credentials().credentialName(agent)), TaskWorkspace.MOUNT,
-                            wiring().endpointFor(agent, environment),
-                            selection == null ? "" : selection.name()));
+            final var files =
+                    agent.containerSetup(
+                            new org.fuin.porelo.agent.api.SetupContext(
+                                    token,
+                                    credentials()
+                                            .credentialType(credentials().credentialName(agent)),
+                                    TaskWorkspace.MOUNT,
+                                    wiring().endpointFor(agent, environment),
+                                    selection == null ? "" : selection.name()));
             for (final var file : files) {
                 runner.place(container, file);
             }
             if (!files.isEmpty()) {
-                out.println("prepared  " + files.size() + " file(s) the agent needs to start"
-                        + " without being asked");
+                out.println(
+                        "prepared  "
+                                + files.size()
+                                + " file(s) the agent needs to start"
+                                + " without being asked");
             }
         } catch (java.io.IOException | RuntimeException ex) {
             // Not fatal: the agent still runs, it just asks the questions this would have
@@ -1439,24 +1918,25 @@ public final class TaskLaunch {
 
     /**
      * Makes sure podman will run Porelo's hooks, repairing what a command may repair.
-     * <p>
-     * <strong>Two of the four states are just "write the files".</strong> A user who has never run
-     * {@code porelo setup}, and one whose descriptors an upgrade left behind, were both told to go
-     * and run a command - and being told to run a command is a thing people forget, which is how a
-     * machine ends up with an installation nobody completed. Doing it here costs nothing and
+     *
+     * <p><strong>Two of the four states are just "write the files".</strong> A user who has never
+     * run {@code porelo setup}, and one whose descriptors an upgrade left behind, were both told to
+     * go and run a command - and being told to run a command is a thing people forget, which is how
+     * a machine ends up with an installation nobody completed. Doing it here costs nothing and
      * removes the remembering.
-     * <p>
-     * <strong>Why this is not the package's job.</strong> podman reads hook descriptors per user,
-     * so an install script running as root does not know whose configuration to write, and putting
-     * a {@code hooks_dir} in the system configuration would point every user's podman at Porelo -
-     * which is the {@code SHADOWED} offence Porelo refuses to tolerate in other people's drop-ins.
-     * Here it runs as the user, in their own configuration, because they asked for a task.
-     * <p>
-     * <strong>Why the other two still refuse.</strong> Missing binaries are a broken installation
-     * and writing descriptors would not fix them; a drop-in of somebody else's that sorts later is
-     * theirs, and Porelo does not get to delete or reorder it. And the repair is verified rather
-     * than assumed: what podman will do is asked again afterwards, because installing cannot rule
-     * either of those out.
+     *
+     * <p><strong>Why this is not the package's job.</strong> podman reads hook descriptors per
+     * user, so an install script running as root does not know whose configuration to write, and
+     * putting a {@code hooks_dir} in the system configuration would point every user's podman at
+     * Porelo - which is the {@code SHADOWED} offence Porelo refuses to tolerate in other people's
+     * drop-ins. Here it runs as the user, in their own configuration, because they asked for a
+     * task.
+     *
+     * <p><strong>Why the other two still refuse.</strong> Missing binaries are a broken
+     * installation and writing descriptors would not fix them; a drop-in of somebody else's that
+     * sorts later is theirs, and Porelo does not get to delete or reorder it. And the repair is
+     * verified rather than assumed: what podman will do is asked again afterwards, because
+     * installing cannot rule either of those out.
      *
      * @param out Where a repair is reported.
      * @param err Where a refusal is reported.
@@ -1476,12 +1956,18 @@ public final class TaskLaunch {
                 // podman configuration, and somebody who removed the hooks on purpose should see
                 // them come back rather than discover it later.
                 final java.util.List<java.nio.file.Path> written = installer.install();
-                out.println("hooks     " + (first ? "registered with podman"
-                        : "brought up to date") + ", " + written.size() + " files");
+                out.println(
+                        "hooks     "
+                                + (first ? "registered with podman" : "brought up to date")
+                                + ", "
+                                + written.size()
+                                + " files");
                 out.flush();
             } catch (java.io.IOException ex) {
-                err.println("porelo: the hooks could not be registered with podman: "
-                        + ex.getMessage() + " - try 'porelo setup'");
+                err.println(
+                        "porelo: the hooks could not be registered with podman: "
+                                + ex.getMessage()
+                                + " - try 'porelo setup'");
                 err.flush();
                 return false;
             }
@@ -1496,20 +1982,26 @@ public final class TaskLaunch {
         // only safe outcome: starting it anyway is the failure Porelo exists to prevent. The
         // binaries being present is not enough - podman has to be told to run them, and a
         // later drop-in can point it somewhere else.
-        err.println(switch (hooks) {
-            case MISSING -> "porelo: the hooks are not registered with podman,"
-                    + " run 'porelo setup' first";
-            case DANGLING -> "porelo: the hook descriptors name binaries that are not"
-                    + " installed, run 'porelo setup' again";
-            case SHADOWED -> "porelo: another containers.conf.d drop-in points hooks_dir at "
-                    + installer.effectiveHooksDirectories()
-                    + ", so Porelo's hooks would not run";
-            // Names the files, because "run setup again" after an upgrade that changed
-            // nothing visible reads like superstition until you can see what differs.
-            case STALE -> "porelo: the installed hook files are from a different version of"
-                    + " Porelo, run 'porelo setup' again - " + installer.outdated();
-            case ACTIVE -> "";
-        });
+        err.println(
+                switch (hooks) {
+                    case MISSING ->
+                            "porelo: the hooks are not registered with podman,"
+                                    + " run 'porelo setup' first";
+                    case DANGLING ->
+                            "porelo: the hook descriptors name binaries that are not"
+                                    + " installed, run 'porelo setup' again";
+                    case SHADOWED ->
+                            "porelo: another containers.conf.d drop-in points hooks_dir at "
+                                    + installer.effectiveHooksDirectories()
+                                    + ", so Porelo's hooks would not run";
+                    // Names the files, because "run setup again" after an upgrade that changed
+                    // nothing visible reads like superstition until you can see what differs.
+                    case STALE ->
+                            "porelo: the installed hook files are from a different version of"
+                                    + " Porelo, run 'porelo setup' again - "
+                                    + installer.outdated();
+                    case ACTIVE -> "";
+                });
         err.flush();
         return false;
     }
@@ -1542,8 +2034,9 @@ public final class TaskLaunch {
     }
 
     /**
-     * Says how to sign in, for an agent that has a sign-in of its own: the way out a person is told first, because the
-     * other one - a shell - is where an agent with no credential says "Not logged in".
+     * Says how to sign in, for an agent that has a sign-in of its own: the way out a person is told
+     * first, because the other one - a shell - is where an agent with no credential says "Not
+     * logged in".
      *
      * @param agent The agent, or {@code null}.
      * @return The sentence, ending in a space, or "".
@@ -1552,8 +2045,10 @@ public final class TaskLaunch {
         final SelectedProvider selection = agent == null ? null : credentials().provider(agent);
         final org.fuin.porelo.agent.api.ProviderDefinition provider =
                 selection == null ? null : context.providers().get(selection.name());
-        return nextCommand(agent == null ? null : agent.name(),
-                agent != null && agent.definition().loginArguments() != null, provider,
+        return nextCommand(
+                agent == null ? null : agent.name(),
+                agent != null && agent.definition().loginArguments() != null,
+                provider,
                 agent == null ? "" : credentials().credentialName(agent));
     }
 
@@ -1561,12 +2056,16 @@ public final class TaskLaunch {
         final SelectedProvider selection = agent == null ? null : credentials().provider(agent);
         final org.fuin.porelo.agent.api.ProviderDefinition provider =
                 selection == null ? null : context.providers().get(selection.name());
-        return nextStep(agent == null ? null : agent.name(), agent != null && agent.definition().loginArguments() != null,
-                provider, agent == null ? "" : credentials().credentialName(agent));
+        return nextStep(
+                agent == null ? null : agent.name(),
+                agent != null && agent.definition().loginArguments() != null,
+                provider,
+                agent == null ? "" : credentials().credentialName(agent));
     }
 
     /**
-     * Returns the one command that gets a task its credential, said where a start is refused for want of it.
+     * Returns the one command that gets a task its credential, said where a start is refused for
+     * want of it.
      *
      * @param agent The agent's name, or {@code null} when none is installed.
      * @param logsIn Whether the agent declares a login of its own.
@@ -1574,8 +2073,11 @@ public final class TaskLaunch {
      * @param credential The vault entry the credential would be under.
      * @return The sentence, ending in "; ", or empty when there is nothing to name.
      */
-    static String nextStep(@Nullable String agent, boolean logsIn,
-            org.fuin.porelo.agent.api.@Nullable ProviderDefinition provider, String credential) {
+    static String nextStep(
+            @Nullable String agent,
+            boolean logsIn,
+            org.fuin.porelo.agent.api.@Nullable ProviderDefinition provider,
+            String credential) {
         final java.util.List<String> command = nextCommand(agent, logsIn, provider, credential);
         if (command.isEmpty()) {
             return "";
@@ -1589,7 +2091,8 @@ public final class TaskLaunch {
     }
 
     /**
-     * Returns the one command that gets a task its credential, as {@link #nextStep} says it, as arguments.
+     * Returns the one command that gets a task its credential, as {@link #nextStep} says it, as
+     * arguments.
      *
      * @param agent The agent's name, or {@code null} when none is installed.
      * @param logsIn Whether the agent declares a login of its own.
@@ -1597,73 +2100,116 @@ public final class TaskLaunch {
      * @param credential The vault entry the credential would be under.
      * @return Its arguments after {@code porelo}, or empty when there is nothing to name.
      */
-    static java.util.List<String> nextCommand(@Nullable String agent, boolean logsIn,
-            org.fuin.porelo.agent.api.@Nullable ProviderDefinition provider, String credential) {
+    static java.util.List<String> nextCommand(
+            @Nullable String agent,
+            boolean logsIn,
+            org.fuin.porelo.agent.api.@Nullable ProviderDefinition provider,
+            String credential) {
         if (provider != null && !provider.grant().isEmpty()) {
             return java.util.List.of("vault", "authorize", provider.name());
         }
         if (agent != null && logsIn) {
             return java.util.List.of("vault", "login", agent);
         }
-        return credential.isEmpty() ? java.util.List.of() : java.util.List.of("vault", "put", credential);
+        return credential.isEmpty()
+                ? java.util.List.of()
+                : java.util.List.of("vault", "put", credential);
     }
 
     /**
-     * Returns the remedy for a credential a start lacks: the command a refusal would name, run on this terminal - its
-     * own code, which asks a key without echo or runs the agent's sign-in - and the credential looked for again after.
+     * Returns the remedy for a credential a start lacks: the command a refusal would name, run on
+     * this terminal - its own code, which asks a key without echo or runs the agent's sign-in - and
+     * the credential looked for again after.
      *
      * @param unavailable What is missing, as the refusal says it.
      * @param command The command's arguments after {@code porelo}.
      * @param holds Whether the credential is there.
      * @return The remedy.
      */
-    Offer.Remedy credentialRemedy(final String unavailable, final java.util.List<String> command,
+    Offer.Remedy credentialRemedy(
+            final String unavailable,
+            final java.util.List<String> command,
             final java.util.function.BooleanSupplier holds) {
         final String said = "porelo " + String.join(" ", command);
-        return new Offer.Remedy(unavailable, "Run '" + said + "' now?", said, "", false,
-                () -> context.exec().applyAsInt(java.util.stream.Stream.concat(
-                        java.util.stream.Stream.of(PoreloBinary.path()), command.stream()).toList()) == 0, holds);
+        return new Offer.Remedy(
+                unavailable,
+                "Run '" + said + "' now?",
+                said,
+                "",
+                false,
+                () ->
+                        context.exec()
+                                        .applyAsInt(
+                                                java.util.stream.Stream.concat(
+                                                                java.util.stream.Stream.of(
+                                                                        PoreloBinary.path()),
+                                                                command.stream())
+                                                        .toList())
+                                == 0,
+                holds);
     }
 
     private CredentialChoice credentials() {
         if (credentials == null) {
-            credentials = new CredentialChoice(context, request.providerName(), request.credentialType(),
-                    request.agentName()).offering(offer);
+            credentials =
+                    new CredentialChoice(
+                                    context,
+                                    request.providerName(),
+                                    request.credentialType(),
+                                    request.agentName())
+                            .offering(offer);
         }
         return credentials;
     }
 
     /**
-     * Tries to buy a token with a credential of the kind the broker buys with, once, before anything exists.
+     * Tries to buy a token with a credential of the kind the broker buys with, once, before
+     * anything exists.
      *
      * @param name The credential's vault entry.
      * @return Why it could not be bought, or {@code null} when it could or is not of that kind.
      */
     private boolean ungrantedAuthorization(String name) {
-        final org.fuin.porelo.vault.VaultEntry entry = context.readableCredentials()
-                .map(stored -> stored.get(name)).orElse(null);
+        final org.fuin.porelo.vault.VaultEntry entry =
+                context.readableCredentials().map(stored -> stored.get(name)).orElse(null);
         return entry != null && org.fuin.porelo.supervisor.Grants.isGrant(entry.type());
     }
 
     private @Nullable String purchaseRefused(String name) {
-        final org.fuin.porelo.vault.VaultEntry entry = context.readableCredentials()
-                .map(stored -> stored.get(name)).orElse(null);
+        final org.fuin.porelo.vault.VaultEntry entry =
+                context.readableCredentials().map(stored -> stored.get(name)).orElse(null);
         if (entry != null && org.fuin.porelo.supervisor.Grants.isGrant(entry.type())) {
-            // Only whether a person has granted it: spending it here could rotate it under the broker.
-            final boolean granted = context.opener().map(opener -> context.vault().read(opener)
-                    .containsKey(TaskSecrets.GRANT_PREFIX + name)).orElse(false);
-            return granted ? null : "nobody has granted it yet; a person authorizes it once with 'porelo vault authorize "
-                    + name + "'";
+            // Only whether a person has granted it: spending it here could rotate it under the
+            // broker.
+            final boolean granted =
+                    context.opener()
+                            .map(
+                                    opener ->
+                                            context.vault()
+                                                    .read(opener)
+                                                    .containsKey(TaskSecrets.GRANT_PREFIX + name))
+                            .orElse(false);
+            return granted
+                    ? null
+                    : "nobody has granted it yet; a person authorizes it once with 'porelo vault authorize "
+                            + name
+                            + "'";
         }
         if (entry == null || !org.fuin.porelo.supervisor.TokenPurchase.KIND.equals(entry.type())) {
             return null;
         }
         try {
             new org.fuin.porelo.supervisor.TokenPurchase(
-                    org.fuin.porelo.supervisor.TokenPurchase.Client.of(entry.value(), entry.settings()),
-                    org.fuin.porelo.core.net.TrustedCertificates.builder(org.fuin.porelo.core.net.TrustedCertificates.file(context.paths().xdg())).connectTimeout(java.time.Duration.ofSeconds(30))
-                            .followRedirects(java.net.http.HttpClient.Redirect.NEVER).build(),
-                    java.time.Clock.systemUTC()).current();
+                            org.fuin.porelo.supervisor.TokenPurchase.Client.of(
+                                    entry.value(), entry.settings()),
+                            org.fuin.porelo.core.net.TrustedCertificates.builder(
+                                            org.fuin.porelo.core.net.TrustedCertificates.file(
+                                                    context.paths().xdg()))
+                                    .connectTimeout(java.time.Duration.ofSeconds(30))
+                                    .followRedirects(java.net.http.HttpClient.Redirect.NEVER)
+                                    .build(),
+                            java.time.Clock.systemUTC())
+                    .current();
             return null;
         } catch (IllegalArgumentException ex) {
             return ex.getMessage();
@@ -1677,22 +2223,34 @@ public final class TaskLaunch {
 
     private CredentialWiring wiring() {
         if (wiring == null) {
-            wiring = new CredentialWiring(context, credentials(), this::recordHelper, request.task(),
-                    request.tokenHours(), request.upstream());
+            wiring =
+                    new CredentialWiring(
+                            context,
+                            credentials(),
+                            this::recordHelper,
+                            request.task(),
+                            request.tokenHours(),
+                            request.upstream());
         }
         return wiring;
     }
 
     private GateWiring gate() {
         if (gate == null) {
-            gate = new GateWiring(context, this::recordHelper, request.projectFile(),
-                    request.upstream(), request.repository());
+            gate =
+                    new GateWiring(
+                            context,
+                            this::recordHelper,
+                            request.projectFile(),
+                            request.upstream(),
+                            request.repository());
         }
         return gate;
     }
 
     /**
-     * Returns the earlier work of this task's name that waits at the gate, when the start was refused for it.
+     * Returns the earlier work of this task's name that waits at the gate, when the start was
+     * refused for it.
      *
      * @return The work, or {@code null}.
      */
@@ -1702,27 +2260,29 @@ public final class TaskLaunch {
 
     private WorkspaceSetup workspace() {
         if (workspace == null) {
-            workspace = new WorkspaceSetup(context, request.task(), request.upstream(),
-                    request.repository());
+            workspace =
+                    new WorkspaceSetup(
+                            context, request.task(), request.upstream(), request.repository());
         }
         return workspace;
     }
 
     /**
      * Returns the repository this task works on, refusing a request that names none.
-     * <p>
-     * <strong>There is no case where Porelo picks</strong>, not even when the project has exactly
-     * one. A default would be paid for later and somewhere else: a project that grows a second
-     * repository would silently change what an existing command does, and a command whose meaning
-     * depends on how many repositories exist today is one nobody can read. Naming it is one word.
-     * <p>
-     * A task with no gate is the exception, and not really one: it gets an empty directory and
+     *
+     * <p><strong>There is no case where Porelo picks</strong>, not even when the project has
+     * exactly one. A default would be paid for later and somewhere else: a project that grows a
+     * second repository would silently change what an existing command does, and a command whose
+     * meaning depends on how many repositories exist today is one nobody can read. Naming it is one
+     * word.
+     *
+     * <p>A task with no gate is the exception, and not really one: it gets an empty directory and
      * cannot commit anywhere, so there is no repository for it to be about.
      *
      * @param project The project.
      * @return The repository.
-     * @throws ProjectException When none was named, or none of that name exists. The message
-     *         names what there is to choose from.
+     * @throws ProjectException When none was named, or none of that name exists. The message names
+     *     what there is to choose from.
      */
     private org.fuin.porelo.core.project.Repository chosenRepository(Project project) {
         if (request.repository() == null || request.repository().isBlank()) {
@@ -1739,13 +2299,19 @@ public final class TaskLaunch {
             // answer: the wizard writes the project file moments earlier, and being told what
             // there is to choose from without being told how to say it would make the
             // improvement into an obstacle.
-            throw new ProjectException("say which repository this task is for."
-                    + System.lineSeparator() + "       '" + project.name() + "' works in: "
-                    + String.join(", ", project.workRepositoryNames())
-                    // No task name in it: an unnamed task is named after the repository it gets, and the
-                    // placeholder it carries until then is nothing a person chose.
-                    + System.lineSeparator() + "       porelo task start --repository "
-                    + project.workRepositoryNames().get(0));
+            throw new ProjectException(
+                    "say which repository this task is for."
+                            + System.lineSeparator()
+                            + "       '"
+                            + project.name()
+                            + "' works in: "
+                            + String.join(", ", project.workRepositoryNames())
+                            // No task name in it: an unnamed task is named after the repository it
+                            // gets, and the
+                            // placeholder it carries until then is nothing a person chose.
+                            + System.lineSeparator()
+                            + "       porelo task start --repository "
+                            + project.workRepositoryNames().get(0));
         }
         if (OwnRepository.refused(project, request.repository())) {
             throw new ProjectException(OwnRepository.refusal(project));
@@ -1755,16 +2321,19 @@ public final class TaskLaunch {
 
     private ClearanceWiring clearance() {
         if (clearanceWiring == null) {
-            clearanceWiring = new ClearanceWiring(context, this::recordHelper, request.task(), request.clearance());
+            clearanceWiring =
+                    new ClearanceWiring(
+                            context, this::recordHelper, request.task(), request.clearance());
         }
         return clearanceWiring;
     }
 
     /**
-     * The commit this task's configuration was applied at, or "" for a project nobody follows. Whether a
-     * signature was checked on it is the follow's, and {@link ProjectSource.Found#verified()} says which.
-     * <p>
-     * A field rather than a local, because the start that labels the container happens inside a
+     * The commit this task's configuration was applied at, or "" for a project nobody follows.
+     * Whether a signature was checked on it is the follow's, and {@link
+     * ProjectSource.Found#verified()} says which.
+     *
+     * <p>A field rather than a local, because the start that labels the container happens inside a
      * scope that captures it - and it is written once, where the project is resolved.
      */
     private String verifiedAt = "";
@@ -1795,15 +2364,15 @@ public final class TaskLaunch {
 
     /**
      * Removes a task that finished, and holds one that failed.
-     * <p>
-     * <strong>A failure is kept, because nobody can ask for that in advance.</strong> {@code
-     * --keep} has to be decided before the run, and the run an operator wants to look at is the
-     * one that went wrong - which is known only afterwards. So a non-zero exit stops the container
+     *
+     * <p><strong>A failure is kept, because nobody can ask for that in advance.</strong> {@code
+     * --keep} has to be decided before the run, and the run an operator wants to look at is the one
+     * that went wrong - which is known only afterwards. So a non-zero exit stops the container
      * rather than removing it: the workspace, the logs and anything that never reached the gate
      * stay where they are, {@code task attach} offers to bring it back, and discarding it is a
      * separate decision made by name.
-     * <p>
-     * Stopped through {@link TaskControl}, not by leaving it running: a task nobody is watching
+     *
+     * <p>Stopped through {@link TaskControl}, not by leaving it running: a task nobody is watching
      * that still holds a firewall, a gate and a credential proxy is not "kept", it is abandoned.
      * That is also what writes down what the workspace held.
      *
@@ -1817,8 +2386,10 @@ public final class TaskLaunch {
         try {
             return cleanUpOrFail(runner, container, code, out);
         } catch (final RuntimeException ex) {
-            // Said, never in its place: what failed while cleaning up replaced the refusal that caused the clean-up,
-            // and a start refused for its agent answered over the socket that its container was no task Porelo made.
+            // Said, never in its place: what failed while cleaning up replaced the refusal that
+            // caused the clean-up,
+            // and a start refused for its agent answered over the socket that its container was no
+            // task Porelo made.
             out.println("porelo: cleaning up after it failed: " + ex.getMessage());
             out.flush();
             return code;
@@ -1835,8 +2406,11 @@ public final class TaskLaunch {
             if (held.work() != null) {
                 out.println("          it holds " + held.work());
             }
-            out.println("          look with 'porelo task list', go back in with"
-                    + " 'porelo task attach " + container + "'");
+            out.println(
+                    "          look with 'porelo task list', go back in with"
+                            + " 'porelo task attach "
+                            + container
+                            + "'");
             out.println("          - which offers to start it again -");
             out.println("          discard with 'porelo task remove " + container + "'");
             out.flush();
@@ -1846,12 +2420,17 @@ public final class TaskLaunch {
             // there but not here was the difference between refusing to discard unreviewed work
             // and discarding it because somebody typed 'exit'. Only answerable while the
             // container runs, which it still is: the shell was an exec beside 'sleep infinity'.
-            final String held = exists && context.podman().pidOf(container).orElse(0L) > 0
-                    ? new TaskControl(context).heldBy(container).phrase() : null;
+            final String held =
+                    exists && context.podman().pidOf(container).orElse(0L) > 0
+                            ? new TaskControl(context).heldBy(container).phrase()
+                            : null;
             if (held == null) {
-                // The ordinary ending, as 'task remove' ends a task: the container, and its account in the project's
-                // conversations, its tokens and its mailbox with it. Removed with the container alone, the account
-                // stayed at the transport, and a prune later forgot the only credential that could retire it.
+                // The ordinary ending, as 'task remove' ends a task: the container, and its account
+                // in the project's
+                // conversations, its tokens and its mailbox with it. Removed with the container
+                // alone, the account
+                // stayed at the transport, and a prune later forgot the only credential that could
+                // retire it.
                 if (exists) {
                     new TaskControl(context).remove(container, false, true);
                 } else {
@@ -1862,14 +2441,26 @@ public final class TaskLaunch {
                 // nobody is watching that still holds a firewall, a gate and a credential proxy
                 // is not kept, it is abandoned.
                 new TaskControl(context).stop(container);
-                out.println("kept      " + container + " - it holds " + held
-                        + " that never reached the gate");
-                out.println("          go back in with 'porelo task attach " + container + "',"
-                        + " which offers to start it again,");
-                out.println("          push it with 'porelo task remove " + container + " --rescue'"
-                        + " while it runs,");
-                out.println("          or discard it with 'porelo task remove " + container
-                        + " --force'");
+                out.println(
+                        "kept      "
+                                + container
+                                + " - it holds "
+                                + held
+                                + " that never reached the gate");
+                out.println(
+                        "          go back in with 'porelo task attach "
+                                + container
+                                + "',"
+                                + " which offers to start it again,");
+                out.println(
+                        "          push it with 'porelo task remove "
+                                + container
+                                + " --rescue'"
+                                + " while it runs,");
+                out.println(
+                        "          or discard it with 'porelo task remove "
+                                + container
+                                + " --force'");
                 out.flush();
             }
         }
@@ -1879,12 +2470,13 @@ public final class TaskLaunch {
     }
 
     /**
-     * Makes a task's mailbox as it is now, tells its agent how it works and whom it can reach, and writes the guide to
-     * all of Porelo in the task.
-     * <p>
-     * Before its agent starts: an agent takes the guide in when it starts, and a missing one is never added to its
-     * command. The guide's directory is made only with the task, before its container, which mounts it; a task made
-     * before has no mount for it, and a directory made now would point its agent at a file it cannot see.
+     * Makes a task's mailbox as it is now, tells its agent how it works and whom it can reach, and
+     * writes the guide to all of Porelo in the task.
+     *
+     * <p>Before its agent starts: an agent takes the guide in when it starts, and a missing one is
+     * never added to its command. The guide's directory is made only with the task, before its
+     * container, which mounts it; a task made before has no mount for it, and a directory made now
+     * would point its agent at a file it cannot see.
      *
      * @param project The task's project.
      * @param container The task.
@@ -1902,6 +2494,9 @@ public final class TaskLaunch {
             return;
         }
         mailbox.create();
-        MailboxGuide.write(mailbox, new MessageWatch(context, java.time.Duration.ZERO).withSiblings(project, container));
+        MailboxGuide.write(
+                mailbox,
+                new MessageWatch(context, java.time.Duration.ZERO)
+                        .withSiblings(project, container));
     }
 }

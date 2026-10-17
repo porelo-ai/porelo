@@ -11,12 +11,12 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Copies a credential an agent already holds on this node into the vault.
- * <p>
- * <strong>Nothing secret moves anywhere.</strong> The value is read from a file on the node's own
- * disk and written to the node's own vault. That is what makes this usable from an interface while
- * storing one by hand is not: the caller names an agent, and nothing else crosses.
- * <p>
- * <strong>One implementation, two callers.</strong> The CLI and the daemon differ in exactly one
+ *
+ * <p><strong>Nothing secret moves anywhere.</strong> The value is read from a file on the node's
+ * own disk and written to the node's own vault. That is what makes this usable from an interface
+ * while storing one by hand is not: the caller names an agent, and nothing else crosses.
+ *
+ * <p><strong>One implementation, two callers.</strong> The CLI and the daemon differ in exactly one
  * thing - where a passphrase comes from - so that is a parameter and the rest is shared. Two
  * implementations of "which key does this go under" would eventually disagree, and the way they
  * would disagree is by storing a credential where nothing looks for it, which reads as a missing
@@ -53,13 +53,13 @@ public final class CredentialImport {
      * @param name The vault key it was stored under, or "" when nothing was stored.
      * @param type The kind of credential, or "".
      * @param length How many characters arrived, so a caller can show that something did without
-     *        showing what. Zero when nothing was stored.
+     *     showing what. Zero when nothing was stored.
      * @param source Where it was read from, or "".
-     * @param detail Why it failed, or a warning about what was stored. "" when there is nothing
-     *        to say.
+     * @param detail Why it failed, or a warning about what was stored. "" when there is nothing to
+     *     say.
      */
-    public record Result(Outcome outcome, String name, String type, int length, String source,
-            String detail) { }
+    public record Result(
+            Outcome outcome, String name, String type, int length, String source, String detail) {}
 
     private CredentialImport() {
         throw new UnsupportedOperationException("Utility class");
@@ -78,33 +78,45 @@ public final class CredentialImport {
      * @param passphrase Supplies the vault passphrase, or nothing when it cannot be had.
      * @return What happened.
      */
-    public static Result run(PoreloContext context, @Nullable String agentName,
+    public static Result run(
+            PoreloContext context,
+            @Nullable String agentName,
             @Nullable String configDirectory,
             Supplier<Optional<org.fuin.porelo.vault.VaultFile.Opener>> opener) {
 
         try (var agents = context.agents()) {
 
-            final Optional<InstalledAgent> found = agentName != null ? agents.find(agentName)
-                    : agents.names().size() == 1 ? agents.find(agents.names().getFirst())
-                            : Optional.empty();
+            final Optional<InstalledAgent> found =
+                    agentName != null
+                            ? agents.find(agentName)
+                            : agents.names().size() == 1
+                                    ? agents.find(agents.names().getFirst())
+                                    : Optional.empty();
             if (found.isEmpty()) {
-                return failed(Outcome.NO_SUCH_AGENT,
+                return failed(
+                        Outcome.NO_SUCH_AGENT,
                         "no such agent; installed: " + String.join(", ", agents.names()));
             }
             final InstalledAgent agent = found.get();
 
-            final String declared = configDirectory != null
-                    ? configDirectory : agent.definition().configDirectory();
+            final String declared =
+                    configDirectory != null
+                            ? configDirectory
+                            : agent.definition().configDirectory();
             if (declared == null) {
-                return failed(Outcome.NO_CONFIG_DIRECTORY, "'" + agent.name() + "' does not say"
-                        + " where it keeps its credentials");
+                return failed(
+                        Outcome.NO_CONFIG_DIRECTORY,
+                        "'" + agent.name() + "' does not say" + " where it keeps its credentials");
             }
 
             final Path directory = VaultImportCommand.expand(declared);
             final Optional<Credential> credential = agent.extractCredential(directory);
             if (credential.isEmpty()) {
-                return failed(Outcome.NOTHING_TO_IMPORT, "nothing to import from " + directory
-                        + " - log in with the agent on this node first");
+                return failed(
+                        Outcome.NOTHING_TO_IMPORT,
+                        "nothing to import from "
+                                + directory
+                                + " - log in with the agent on this node first");
             }
             final Credential value = credential.get();
 
@@ -118,14 +130,19 @@ public final class CredentialImport {
             // unlocked stores a credential exactly as one a person unlocked does.
             final Optional<org.fuin.porelo.vault.VaultFile.Opener> way = opener.get();
             if (way.isEmpty()) {
-                return failed(Outcome.VAULT_LOCKED, "the vault is locked, and nothing here can"
-                        + " ask for a passphrase - unlock it at the machine, or with a device");
+                return failed(
+                        Outcome.VAULT_LOCKED,
+                        "the vault is locked, and nothing here can"
+                                + " ask for a passphrase - unlock it at the machine, or with a device");
             }
 
-            context.vault().update(way.get(), entries -> {
-                LoginCredentials.put(entries, key, value, false);
-                return entries;
-            });
+            context.vault()
+                    .update(
+                            way.get(),
+                            entries -> {
+                                LoginCredentials.put(entries, key, value, false);
+                                return entries;
+                            });
 
             // The same check 'vault put' makes. An agent's own file is the likelier source of a
             // real credential, but a half-written or logged-out one still reads as a success.
@@ -134,15 +151,21 @@ public final class CredentialImport {
             if (suspicious != null) {
                 note.append("check what was imported - ").append(suspicious);
             }
-            final String unbrokerable = selection == null ? null
-                    : selection.route().unbrokerableReason(value.type());
+            final String unbrokerable =
+                    selection == null ? null : selection.route().unbrokerableReason(value.type());
             if (unbrokerable != null) {
                 note.append(note.isEmpty() ? "" : "; ")
-                        .append("stored, but a task will refuse it: ").append(unbrokerable);
+                        .append("stored, but a task will refuse it: ")
+                        .append(unbrokerable);
             }
 
-            return new Result(Outcome.IMPORTED, key, value.type(), value.secret().length(),
-                    directory.toString(), note.toString());
+            return new Result(
+                    Outcome.IMPORTED,
+                    key,
+                    value.type(),
+                    value.secret().length(),
+                    directory.toString(),
+                    note.toString());
 
         } catch (VaultException ex) {
             return failed(Outcome.FAILED, CliErrors.reason(ex));

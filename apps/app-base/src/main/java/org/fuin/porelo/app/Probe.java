@@ -4,8 +4,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * One thing outside Porelo that a task depends on, and what this machine has of it.
- * <p>
- * <strong>A probe that is not healthy carries the next action, and the constructor refuses one
+ *
+ * <p><strong>A probe that is not healthy carries the next action, and the constructor refuses one
  * that does not.</strong> Every dependency here fails far from its cause - a missing capability in
  * a resolver, a policy that blocks a mount, a binary that is not installed - so the report is only
  * worth anything if each line ends with the one thing to do about it. Enforced rather than
@@ -17,8 +17,7 @@ import org.jspecify.annotations.Nullable;
  * @param detail What was found, in one line.
  * @param action The single next action, or {@code null} only when the state is {@link State#OK}.
  */
-public record Probe(String name, State state, String detail,
-        @Nullable String action) {
+public record Probe(String name, State state, String detail, @Nullable String action) {
 
     /** What a probe found. */
     public enum State {
@@ -34,8 +33,8 @@ public record Probe(String name, State state, String detail,
 
         /**
          * The probe could not answer.
-         * <p>
-         * Reported as its own state rather than as the good case: every dependency here is
+         *
+         * <p>Reported as its own state rather than as the good case: every dependency here is
          * something whose absence is invisible until a task behaves strangely, and a probe that
          * guesses well is indistinguishable from one that works.
          */

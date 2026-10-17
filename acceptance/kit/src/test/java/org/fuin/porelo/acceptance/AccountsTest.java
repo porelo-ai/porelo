@@ -10,14 +10,13 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for which accounts {@link Accounts} reads from the run's properties.
- */
+/** Tests for which accounts {@link Accounts} reads from the run's properties. */
 class AccountsTest {
 
-    // The run's own, which a leg sets for the kit's tests too: set aside for each test, and put back.
-    private static final List<String> PROPERTIES = List.of(Accounts.USERS, "porelo.acceptance.user",
-            "porelo.acceptance.as");
+    // The run's own, which a leg sets for the kit's tests too: set aside for each test, and put
+    // back.
+    private static final List<String> PROPERTIES =
+            List.of(Accounts.USERS, "porelo.acceptance.user", "porelo.acceptance.as");
 
     private final Map<String, String> before = new HashMap<>();
 
@@ -67,5 +66,4 @@ class AccountsTest {
     void refusesARunThatNamesNoAccountAtAll() {
         assertThatThrownBy(Accounts::configured).hasMessageContaining("porelo.acceptance.user");
     }
-
 }

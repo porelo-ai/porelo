@@ -16,16 +16,16 @@ import org.yaml.snakeyaml.constructor.SafeConstructor;
 
 /**
  * Where curated egress sets are found.
- * <p>
- * A directory scan rather than a list, matching {@code ProviderDirectory}: a set can be added or
- * corrected without changing or rebuilding anything, which is the point of curating them
- * centrally at all. Two locations, the operator's own winning over a packaged one of the same
- * name, so a set can be tried without root.
- * <p>
- * A file that cannot be read is skipped rather than fatal, but a project asking for a set by name
- * and not getting it is an error - see {@link #resolve}. Those are different failures: one broken
- * file an operator dropped in must not stop everything else, while a project that believes it
- * declared Maven and silently reaches nothing is the failure this whole area exists to avoid.
+ *
+ * <p>A directory scan rather than a list, matching {@code ProviderDirectory}: a set can be added or
+ * corrected without changing or rebuilding anything, which is the point of curating them centrally
+ * at all. Two locations, the operator's own winning over a packaged one of the same name, so a set
+ * can be tried without root.
+ *
+ * <p>A file that cannot be read is skipped rather than fatal, but a project asking for a set by
+ * name and not getting it is an error - see {@link #resolve}. Those are different failures: one
+ * broken file an operator dropped in must not stop everything else, while a project that believes
+ * it declared Maven and silently reaches nothing is the failure this whole area exists to avoid.
  */
 public class EgressSetDirectory {
 
@@ -85,10 +85,10 @@ public class EgressSetDirectory {
 
     /**
      * Turns the names a project declared into the hosts they grant.
-     * <p>
-     * An unknown name is refused rather than ignored. A typo that silently granted nothing would
-     * leave a project believing it had declared something, and the resulting failure - a
-     * dependency that will not resolve - points at the build rather than at the project file.
+     *
+     * <p>An unknown name is refused rather than ignored. A typo that silently granted nothing would
+     * leave a project believing it had declared something, and the resulting failure - a dependency
+     * that will not resolve - points at the build rather than at the project file.
      *
      * @param names Set names as written in the project file.
      * @return Hosts, in the order the sets and their entries were declared, without duplicates.
@@ -100,9 +100,13 @@ public class EgressSetDirectory {
         for (final String name : names) {
             final EgressSet set = available.get(name);
             if (set == null) {
-                throw new EgressSetException("Unknown egress set '" + name + "'. Available: "
-                        + (available.isEmpty() ? "(none installed)"
-                                : String.join(", ", available.keySet())));
+                throw new EgressSetException(
+                        "Unknown egress set '"
+                                + name
+                                + "'. Available: "
+                                + (available.isEmpty()
+                                        ? "(none installed)"
+                                        : String.join(", ", available.keySet())));
             }
             for (final String domain : set.domains()) {
                 if (!domains.contains(domain)) {
@@ -164,12 +168,18 @@ public class EgressSetDirectory {
         for (final Object entry : list) {
             final String domain = text(entry);
             if (domain.isEmpty()) {
-                throw new EgressSetException(origin + ": 'domains' has an entry that is not a name");
+                throw new EgressSetException(
+                        origin + ": 'domains' has an entry that is not a name");
             }
             if (!org.fuin.porelo.core.project.Egress.isDomain(domain)) {
-                // Each one becomes resolver configuration: '#' there is every name, a newline is a line of its own.
-                throw new EgressSetException(origin + ": '" + domain + "' is not a host name (lower case,"
-                        + " letters, digits, '-' and '.', at least two labels)");
+                // Each one becomes resolver configuration: '#' there is every name, a newline is a
+                // line of its own.
+                throw new EgressSetException(
+                        origin
+                                + ": '"
+                                + domain
+                                + "' is not a host name (lower case,"
+                                + " letters, digits, '-' and '.', at least two labels)");
             }
             domains.add(domain);
         }

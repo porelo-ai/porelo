@@ -5,22 +5,23 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Tells whether two addresses name the same repository, whichever of git's spellings each uses.
- * <p>
- * {@code git@github.com:you/app.git}, {@code ssh://git@github.com/you/app} and {@code https://github.com/you/app}
- * are one repository. A checkout's {@code origin} is spelt however the person cloned it, and a followed project's
- * {@code upstream} however its author wrote it; comparing the strings would put the same repository in two projects.
+ *
+ * <p>{@code git@github.com:you/app.git}, {@code ssh://git@github.com/you/app} and {@code
+ * https://github.com/you/app} are one repository. A checkout's {@code origin} is spelt however the
+ * person cloned it, and a followed project's {@code upstream} however its author wrote it;
+ * comparing the strings would put the same repository in two projects.
  */
 final class RepositoryAddress {
 
-    private RepositoryAddress() {
-    }
+    private RepositoryAddress() {}
 
     /**
      * Returns whether two addresses name the same repository.
      *
      * @param one An address.
      * @param other Another.
-     * @return {@code true} when host and path agree, ignoring scheme, user, a trailing {@code .git} and the host's case.
+     * @return {@code true} when host and path agree, ignoring scheme, user, a trailing {@code .git}
+     *     and the host's case.
      */
     static boolean same(final @Nullable String one, final @Nullable String other) {
         final String left = key(one);
@@ -42,13 +43,17 @@ final class RepositoryAddress {
             path = path.substring(0, path.length() - ".git".length());
         }
         final int cut = Math.max(path.lastIndexOf('/'), path.lastIndexOf(':'));
-        final String last = path.substring(cut + 1).toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9-]", "-")
-                .replaceAll("^-+", "");
+        final String last =
+                path.substring(cut + 1)
+                        .toLowerCase(Locale.ROOT)
+                        .replaceAll("[^a-z0-9-]", "-")
+                        .replaceAll("^-+", "");
         return last.isEmpty() ? "repository" : last.length() > 63 ? last.substring(0, 63) : last;
     }
 
     /**
-     * Returns host and path, lowercased host, no user, no scheme, no {@code .git}; a local path as it is.
+     * Returns host and path, lowercased host, no user, no scheme, no {@code .git}; a local path as
+     * it is.
      *
      * @param address The address.
      * @return The key, or {@code null} for none.
@@ -84,19 +89,26 @@ final class RepositoryAddress {
         while (trimmed.endsWith("/")) {
             trimmed = trimmed.substring(0, trimmed.length() - 1);
         }
-        return trimmed.endsWith(".git") ? trimmed.substring(0, trimmed.length() - ".git".length()) : trimmed;
+        return trimmed.endsWith(".git")
+                ? trimmed.substring(0, trimmed.length() - ".git".length())
+                : trimmed;
     }
 
-    /** An http(s) address with something before an '@' in its authority: a user, and often a token with it. */
+    /**
+     * An http(s) address with something before an '@' in its authority: a user, and often a token
+     * with it.
+     */
     private static final java.util.regex.Pattern CARRIES_CREDENTIAL =
-            java.util.regex.Pattern.compile("^(https?://)[^/@]+@(.*)$", java.util.regex.Pattern.CASE_INSENSITIVE);
+            java.util.regex.Pattern.compile(
+                    "^(https?://)[^/@]+@(.*)$", java.util.regex.Pattern.CASE_INSENSITIVE);
 
     /**
      * Returns an address without the credential it may carry.
-     * <p>
-     * {@code https://user:token@host/owner/repo.git} is what cloning with a token leaves as a checkout's {@code origin}.
-     * Kept as it is, it would be written into what Porelo keeps and printed in what it says - a secret in a file and in
-     * scrollback. The user of an ssh address ({@code git@host:...}) is not a secret and stays.
+     *
+     * <p>{@code https://user:token@host/owner/repo.git} is what cloning with a token leaves as a
+     * checkout's {@code origin}. Kept as it is, it would be written into what Porelo keeps and
+     * printed in what it says - a secret in a file and in scrollback. The user of an ssh address
+     * ({@code git@host:...}) is not a secret and stays.
      *
      * @param address The address.
      * @return It without the user information of an http(s) address; otherwise unchanged.

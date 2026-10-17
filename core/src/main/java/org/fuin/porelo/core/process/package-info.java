@@ -1,6 +1,4 @@
-/**
- * Running external programs, behind a seam that tests can replace.
- */
+/** Running external programs, behind a seam that tests can replace. */
 @NullMarked
 package org.fuin.porelo.core.process;
 

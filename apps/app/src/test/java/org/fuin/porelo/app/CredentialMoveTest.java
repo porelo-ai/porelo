@@ -8,8 +8,8 @@ import org.fuin.porelo.vault.VaultEntry;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests that a credential stored under its agent's name moves to its provider's without being entered again, and that a
- * move never overwrites what the provider's name holds already.
+ * Tests that a credential stored under its agent's name moves to its provider's without being
+ * entered again, and that a move never overwrites what the provider's name holds already.
  */
 class CredentialMoveTest {
 
@@ -19,7 +19,8 @@ class CredentialMoveTest {
         final VaultEntry key = new VaultEntry("sk-1", "api-key", Map.of());
         entries.put("claude", key);
 
-        final Map<String, VaultEntry> moved = CredentialChoice.moved(entries, "claude", "anthropic");
+        final Map<String, VaultEntry> moved =
+                CredentialChoice.moved(entries, "claude", "anthropic");
 
         assertThat(moved).doesNotContainKey("claude").containsEntry("anthropic", key);
     }
@@ -31,7 +32,8 @@ class CredentialMoveTest {
         final VaultEntry kept = new VaultEntry("new", "api-key", Map.of());
         entries.put("anthropic", kept);
 
-        assertThat(CredentialChoice.moved(entries, "claude", "anthropic")).containsEntry("anthropic", kept)
+        assertThat(CredentialChoice.moved(entries, "claude", "anthropic"))
+                .containsEntry("anthropic", kept)
                 .containsKey("claude");
     }
 }

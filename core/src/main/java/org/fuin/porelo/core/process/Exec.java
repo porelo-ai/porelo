@@ -12,13 +12,13 @@ import java.util.List;
 
 /**
  * Replaces the current process with another program.
- * <p>
- * Used to hand a terminal over to a shell inside a container. Starting a child and copying bytes
+ *
+ * <p>Used to hand a terminal over to a shell inside a container. Starting a child and copying bytes
  * between the terminals would work too, but it leaves Porelo sitting between the operator and the
  * shell for the whole session: job control, window resizes and signals would all have to be
  * forwarded correctly, and each of them is a way for an interactive session to feel broken.
- * <p>
- * After a successful call there is no current process left to return to.
+ *
+ * <p>After a successful call there is no current process left to return to.
  */
 public final class Exec {
 
@@ -36,11 +36,19 @@ public final class Exec {
     }
 
     private static MethodHandle execvp() {
-        final MemorySegment symbol = LINKER.defaultLookup().find("execvp")
-                .orElseThrow(() -> new CommandException(Command.of("execvp"),
-                        new IllegalStateException("Symbol 'execvp' not found in libc")));
-        return LINKER.downcallHandle(symbol,
-                FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS),
+        final MemorySegment symbol =
+                LINKER.defaultLookup()
+                        .find("execvp")
+                        .orElseThrow(
+                                () ->
+                                        new CommandException(
+                                                Command.of("execvp"),
+                                                new IllegalStateException(
+                                                        "Symbol 'execvp' not found in libc")));
+        return LINKER.downcallHandle(
+                symbol,
+                FunctionDescriptor.of(
+                        ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS),
                 Linker.Option.captureCallState("errno"));
     }
 
@@ -60,8 +68,7 @@ public final class Exec {
             final MemorySegment file = arena.allocateFrom(arguments.getFirst());
 
             // argv is NULL-terminated, and argv[0] is the program name by convention.
-            final MemorySegment argv =
-                    arena.allocate(ValueLayout.ADDRESS, arguments.size() + 1L);
+            final MemorySegment argv = arena.allocate(ValueLayout.ADDRESS, arguments.size() + 1L);
             for (int i = 0; i < arguments.size(); i++) {
                 argv.setAtIndex(ValueLayout.ADDRESS, i, arena.allocateFrom(arguments.get(i)));
             }
@@ -69,8 +76,13 @@ public final class Exec {
 
             final int result = (int) EXECVP.invokeExact(errno, file, argv);
 
-            throw new CommandException(command, new IllegalStateException(
-                    "execvp returned " + result + ", errno=" + (int) ERRNO_HANDLE.get(errno, 0L)));
+            throw new CommandException(
+                    command,
+                    new IllegalStateException(
+                            "execvp returned "
+                                    + result
+                                    + ", errno="
+                                    + (int) ERRNO_HANDLE.get(errno, 0L)));
 
         } catch (CommandException ex) {
             throw ex;

@@ -14,28 +14,35 @@ import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
 
 /**
- * Hands a file on this machine to a running task, where the agent reads it in {@code /porelo/files}.
- * <p>
- * The same operation the daemon serves as HandIn, run here at once since the file is here: placed whole, read-only to
- * the agent, and written down - who, when, the name, the size and the sha256, never the content.
+ * Hands a file on this machine to a running task, where the agent reads it in {@code
+ * /porelo/files}.
+ *
+ * <p>The same operation the daemon serves as HandIn, run here at once since the file is here:
+ * placed whole, read-only to the agent, and written down - who, when, the name, the size and the
+ * sha256, never the content.
  */
-@Command(name = "give",
+@Command(
+        name = "give",
         mixinStandardHelpOptions = true,
         description = "Hands a file to a running task: it appears, read-only, in /porelo/files.")
 public class TaskGiveCommand implements Callable<Integer>, PoreloFactory.ContextAware, Suggests {
 
-    @Parameters(index = "0", paramLabel = "TASK", description = "A running task, as shown by 'porelo task list'.")
+    @Parameters(
+            index = "0",
+            paramLabel = "TASK",
+            description = "A running task, as shown by 'porelo task list'.")
     private String container;
 
     @Parameters(index = "1", paramLabel = "FILE", description = "The file on this machine.")
     private Path file;
 
-    @Option(names = "--as", paramLabel = "NAME",
+    @Option(
+            names = "--as",
+            paramLabel = "NAME",
             description = "Its name in /porelo/files. Default: the file's own name.")
     private @Nullable String name;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -61,8 +68,11 @@ public class TaskGiveCommand implements Callable<Integer>, PoreloFactory.Context
         final PrintWriter out = spec.commandLine().getOut();
         final PrintWriter err = spec.commandLine().getErr();
         if (!TaskCandidates.running(context).contains(container)) {
-            err.println("porelo: no running task named '" + container + "' - a file goes only to a running task; "
-                    + Shown.tasks(context));
+            err.println(
+                    "porelo: no running task named '"
+                            + container
+                            + "' - a file goes only to a running task; "
+                            + Shown.tasks(context));
             err.flush();
             return 69;
         }
@@ -73,10 +83,18 @@ public class TaskGiveCommand implements Callable<Integer>, PoreloFactory.Context
         }
         final String as = name == null ? String.valueOf(file.getFileName()) : name;
         try {
-            final HandIns.HandedFile given = HandIns.of(context).give(container, as, file,
-                    System.getProperty("user.name", ""));
-            out.println("given     " + container + ": /porelo/files/" + given.name() + ", " + given.bytes()
-                    + " bytes, sha256 " + given.sha256());
+            final HandIns.HandedFile given =
+                    HandIns.of(context)
+                            .give(container, as, file, System.getProperty("user.name", ""));
+            out.println(
+                    "given     "
+                            + container
+                            + ": /porelo/files/"
+                            + given.name()
+                            + ", "
+                            + given.bytes()
+                            + " bytes, sha256 "
+                            + given.sha256());
             out.flush();
             // Its agent, when it waits at its prompt; otherwise the daemon's next pass tells it.
             new AgentWake(context).announceFiles(container);

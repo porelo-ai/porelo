@@ -7,12 +7,12 @@ import java.util.stream.Stream;
 
 /**
  * Stops what a task left running, from the pids it recorded.
- * <p>
- * Every helper a task starts writes its pid into the task's state directory, and the poststop hook
- * reads them when the container goes away. That covers a container that ran. It does not cover one
- * that never started - a refused ruleset, an image that will not build - because no hook fires for
- * a container that never existed, and the helpers started before it then outlive the run holding
- * their sockets.
+ *
+ * <p>Every helper a task starts writes its pid into the task's state directory, and the poststop
+ * hook reads them when the container goes away. That covers a container that ran. It does not cover
+ * one that never started - a refused ruleset, an image that will not build - because no hook fires
+ * for a container that never existed, and the helpers started before it then outlive the run
+ * holding their sockets.
  */
 final class TaskLifecycle {
 
@@ -32,9 +32,10 @@ final class TaskLifecycle {
 
     /**
      * Returns handles on every helper the state directory records as running.
-     * <p>
-     * Taken before anything is stopped: the poststop hook deletes the pid files as it reaps them,
-     * so afterwards there is nothing left to count and "how many were stopped" cannot be answered.
+     *
+     * <p>Taken before anything is stopped: the poststop hook deletes the pid files as it reaps
+     * them, so afterwards there is nothing left to count and "how many were stopped" cannot be
+     * answered.
      *
      * @param stateDirectory The task's state directory.
      * @return Handles, in no particular order.
@@ -68,10 +69,13 @@ final class TaskLifecycle {
         long stopped = 0;
         try (Stream<Path> files = Files.list(stateDirectory)) {
             for (final Path file : files.filter(TaskLifecycle::isPidFile).toList()) {
-                if (handle(file).map(handle -> {
-                    org.fuin.porelo.wire.HelperPid.stop(handle);
-                    return true;
-                }).orElse(false)) {
+                if (handle(file)
+                        .map(
+                                handle -> {
+                                    org.fuin.porelo.wire.HelperPid.stop(handle);
+                                    return true;
+                                })
+                        .orElse(false)) {
                     stopped++;
                 }
                 try {

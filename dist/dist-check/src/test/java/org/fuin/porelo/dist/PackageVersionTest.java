@@ -12,9 +12,9 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Reads the packages this build wrote, and holds each to the version its packaging must give it.
- * <p>
- * A test of the pom saw nothing when a plugin wrote its own version into a package: the version an installer compares
- * is the one in the built file, so that is what is read.
+ *
+ * <p>A test of the pom saw nothing when a plugin wrote its own version into a package: the version
+ * an installer compares is the one in the built file, so that is what is read.
  */
 class PackageVersionTest {
 
@@ -24,36 +24,56 @@ class PackageVersionTest {
         return value;
     }
 
-    /** The project's version as the packaging maps it: -SNAPSHOT as ~snapshot.<run><suffix>, a release unchanged. */
+    /**
+     * The project's version as the packaging maps it: -SNAPSHOT as ~snapshot.<run><suffix>, a
+     * release unchanged.
+     */
     private static String expected() {
         final String version = property("porelo.check.projectVersion");
         return version.endsWith("-SNAPSHOT")
-                ? version.substring(0, version.length() - "-SNAPSHOT".length()) + "~snapshot."
-                        + property("porelo.check.run") + System.getProperty("porelo.check.suffix", "")
+                ? version.substring(0, version.length() - "-SNAPSHOT".length())
+                        + "~snapshot."
+                        + property("porelo.check.run")
+                        + System.getProperty("porelo.check.suffix", "")
                 : version;
     }
 
-    /** The newest file of a kind in a build's target: the one this build wrote, where earlier ones lie beside it. */
+    /**
+     * The newest file of a kind in a build's target: the one this build wrote, where earlier ones
+     * lie beside it.
+     */
     private static Path newest(final String directory, final String glob) throws IOException {
         try (Stream<Path> files = Files.list(Path.of(directory))) {
-            return files.filter(file -> file.getFileSystem().getPathMatcher("glob:" + glob)
-                    .matches(file.getFileName())).max(Comparator.comparing(file -> {
-                        try {
-                            return Files.getLastModifiedTime(file);
-                        } catch (IOException ex) {
-                            throw new java.io.UncheckedIOException(ex);
-                        }
-                    })).orElseThrow(() -> new AssertionError("no " + glob + " in " + directory));
+            return files.filter(
+                            file ->
+                                    file.getFileSystem()
+                                            .getPathMatcher("glob:" + glob)
+                                            .matches(file.getFileName()))
+                    .max(
+                            Comparator.comparing(
+                                    file -> {
+                                        try {
+                                            return Files.getLastModifiedTime(file);
+                                        } catch (IOException ex) {
+                                            throw new java.io.UncheckedIOException(ex);
+                                        }
+                                    }))
+                    .orElseThrow(() -> new AssertionError("no " + glob + " in " + directory));
         }
     }
 
-    /** What a command printed; its complaints apart, since rpm warns of a database a Debian host does not have. */
+    /**
+     * What a command printed; its complaints apart, since rpm warns of a database a Debian host
+     * does not have.
+     */
     private static String run(final String... command) throws Exception {
         final Path complaints = Files.createTempFile("porelo-check", ".err");
         try {
-            final Process process = new ProcessBuilder(command).redirectError(complaints.toFile()).start();
+            final Process process =
+                    new ProcessBuilder(command).redirectError(complaints.toFile()).start();
             final String said = new String(process.getInputStream().readAllBytes()).strip();
-            assertThat(process.waitFor()).as(String.join(" ", command) + ": " + said + Files.readString(complaints))
+            assertThat(process.waitFor())
+                    .as(String.join(" ", command) + ": " + said + Files.readString(complaints))
                     .isZero();
             return said;
         } finally {
@@ -63,12 +83,14 @@ class PackageVersionTest {
 
     private static void debCarries(final Path deb, final String name) throws Exception {
         assertThat(run("dpkg-deb", "-f", deb.toString(), "Package", "Version").lines().toList())
-                .as(deb.toString()).containsExactly("Package: " + name, "Version: " + expected());
+                .as(deb.toString())
+                .containsExactly("Package: " + name, "Version: " + expected());
     }
 
     private static void rpmCarries(final Path rpm, final String name) throws Exception {
         assertThat(run("rpm", "-qp", "--qf", "%{NAME} %{VERSION} %{RELEASE}", rpm.toString()))
-                .as(rpm.toString()).isEqualTo(name + " " + expected() + " 1");
+                .as(rpm.toString())
+                .isEqualTo(name + " " + expected() + " 1");
     }
 
     @Test
@@ -79,13 +101,18 @@ class PackageVersionTest {
 
     @Test
     void theStubAgentsPackagesCarryTheProjectsVersion() throws Exception {
-        debCarries(newest(property("porelo.check.stub"), "porelo-agent-stub_*.deb"), "porelo-agent-stub");
-        rpmCarries(newest(property("porelo.check.stub"), "porelo-agent-stub-*.rpm"), "porelo-agent-stub");
+        debCarries(
+                newest(property("porelo.check.stub"), "porelo-agent-stub_*.deb"),
+                "porelo-agent-stub");
+        rpmCarries(
+                newest(property("porelo.check.stub"), "porelo-agent-stub-*.rpm"),
+                "porelo-agent-stub");
     }
 
     @Test
     void theMappingIsTheOneInstallersOrder() {
-        // Below the release, as '~' sorts in dpkg and rpm: a snapshot left as -SNAPSHOT outranks its release.
+        // Below the release, as '~' sorts in dpkg and rpm: a snapshot left as -SNAPSHOT outranks
+        // its release.
         assertThat(expected()).doesNotContain("SNAPSHOT");
         assertThat(List.of(expected())).allMatch(version -> !version.endsWith("-"));
     }

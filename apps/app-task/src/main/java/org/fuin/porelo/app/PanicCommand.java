@@ -10,27 +10,26 @@ import picocli.CommandLine.Spec;
 
 /**
  * Stops every running task and every helper any of them started.
- * <p>
- * <strong>It stops; it never removes.</strong> The reason for reaching for this is that something
- * is going wrong and nobody yet knows what, which is exactly when destroying the evidence is
- * worst: the workspace, the logs and what never reached the gate all survive, and
- * {@code task attach} offers to bring a task back with the work it had. Discarding is a separate decision,
- * made afterwards, by name.
- * <p>
- * No container names, on purpose. Somebody reaching for this is not in a position to list what is
- * running first, and a stop that needs an inventory is one they will get wrong.
+ *
+ * <p><strong>It stops; it never removes.</strong> The reason for reaching for this is that
+ * something is going wrong and nobody yet knows what, which is exactly when destroying the evidence
+ * is worst: the workspace, the logs and what never reached the gate all survive, and {@code task
+ * attach} offers to bring a task back with the work it had. Discarding is a separate decision, made
+ * afterwards, by name.
+ *
+ * <p>No container names, on purpose. Somebody reaching for this is not in a position to list what
+ * is running first, and a stop that needs an inventory is one they will get wrong.
  */
-@Command(name = "panic",
+@Command(
+        name = "panic",
         mixinStandardHelpOptions = true,
         description = "Stops every running task and every helper, without removing anything.")
 public class PanicCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
-    @Option(names = "--dry-run",
-            description = "Lists what would be stopped and stops nothing.")
+    @Option(names = "--dry-run", description = "Lists what would be stopped and stops nothing.")
     private boolean dryRun;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -51,31 +50,51 @@ public class PanicCommand implements Callable<Integer>, PoreloFactory.ContextAwa
         final TaskPanic.Result result = new TaskPanic(context).panic(dryRun);
 
         if (result.tasks().isEmpty()) {
-            out.println("nothing is running" + (result.journalled().isEmpty() ? "" : "; journalled in "
-                    + context.paths().stopJournal()));
+            out.println(
+                    "nothing is running"
+                            + (result.journalled().isEmpty()
+                                    ? ""
+                                    : "; journalled in " + context.paths().stopJournal()));
             out.flush();
             return 0;
         }
 
         if (dryRun) {
-            result.tasks().forEach(task -> out.println("would stop " + task.name()
-                    + " (" + task.helpers() + " helpers)"));
+            result.tasks()
+                    .forEach(
+                            task ->
+                                    out.println(
+                                            "would stop "
+                                                    + task.name()
+                                                    + " ("
+                                                    + task.helpers()
+                                                    + " helpers)"));
             out.flush();
             return 0;
         }
 
-        result.tasks().forEach(task -> out.println("stopped   " + task.name()
-                + " (" + task.helpers() + " helpers)"));
+        result.tasks()
+                .forEach(
+                        task ->
+                                out.println(
+                                        "stopped   "
+                                                + task.name()
+                                                + " ("
+                                                + task.helpers()
+                                                + " helpers)"));
         final List<String> surviving = result.surviving();
 
         out.println();
         out.println("stopped   " + result.clean() + " of " + result.tasks().size() + " tasks");
         // Never removed, and said every time: an operator who believes this cleaned up would go
         // looking for work that is still exactly where it was.
-        out.println("kept      every workspace, log and unpushed commit; 'porelo task list' shows"
-                + " them, 'porelo task attach <name>' offers to bring one back");
-        out.println(result.journalled().isEmpty() ? "journal   could not be written to " + context.paths().stopJournal()
-                : "journal   " + context.paths().stopJournal());
+        out.println(
+                "kept      every workspace, log and unpushed commit; 'porelo task list' shows"
+                        + " them, 'porelo task attach <name>' offers to bring one back");
+        out.println(
+                result.journalled().isEmpty()
+                        ? "journal   could not be written to " + context.paths().stopJournal()
+                        : "journal   " + context.paths().stopJournal());
         out.flush();
 
         if (!surviving.isEmpty()) {

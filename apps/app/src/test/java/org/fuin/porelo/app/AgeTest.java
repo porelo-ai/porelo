@@ -5,9 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link Age}.
- */
+/** Tests for {@link Age}. */
 class AgeTest {
 
     private static final Instant NOW = Instant.parse("2026-09-09T12:00:00Z");

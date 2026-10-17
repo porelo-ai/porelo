@@ -10,16 +10,17 @@ import picocli.CommandLine.Spec;
 
 /**
  * Removes a task: its container, its state, and the workspace inside it.
- * <p>
- * <strong>Its own verb, not a flag on stop.</strong> Stopping ends an agent's session; removing
+ *
+ * <p><strong>Its own verb, not a flag on stop.</strong> Stopping ends an agent's session; removing
  * destroys its work. Those were one command with {@code --purge} between them, which is a verb
  * whose meaning depends on a word people do not read.
- * <p>
- * It refuses a running task rather than stopping one as a side effect, and it refuses a task whose
- * work exists nowhere else. Both refusals are answers, not errors: the caller decides and asks
- * again.
+ *
+ * <p>It refuses a running task rather than stopping one as a side effect, and it refuses a task
+ * whose work exists nowhere else. Both refusals are answers, not errors: the caller decides and
+ * asks again.
  */
-@Command(name = "remove",
+@Command(
+        name = "remove",
         mixinStandardHelpOptions = true,
         description = "Removes a stopped task, its container and its workspace.")
 public class TaskRemoveCommand implements Callable<Integer>, PoreloFactory.ContextAware, Suggests {
@@ -36,31 +37,41 @@ public class TaskRemoveCommand implements Callable<Integer>, PoreloFactory.Conte
         return "tasks";
     }
 
-    @Parameters(index = "0", arity = "0..1", paramLabel = "TASK",
-            description = "Container name, as shown by 'porelo task list'. Default: the task started from the checkout you stand in.")
+    @Parameters(
+            index = "0",
+            arity = "0..1",
+            paramLabel = "TASK",
+            description =
+                    "Container name, as shown by 'porelo task list'. Default: the task started from the checkout you stand in.")
     private @org.jspecify.annotations.Nullable String container;
 
-    @Option(names = "--rescue",
-            description = "Pushes work the agent never handed back to the gate first, under its"
-                    + " own ref, so removing the task does not destroy it.")
+    @Option(
+            names = "--rescue",
+            description =
+                    "Pushes work the agent never handed back to the gate first, under its"
+                            + " own ref, so removing the task does not destroy it.")
     private boolean rescue;
 
-    @Option(names = "--force",
-            description = "Removes it anyway: stops it if it runs, and discards work that never"
-                    + " reached the gate.")
+    @Option(
+            names = "--force",
+            description =
+                    "Removes it anyway: stops it if it runs, and discards work that never"
+                            + " reached the gate.")
     private boolean force;
 
-    @Option(names = "--no-input",
+    @Option(
+            names = "--no-input",
             description = "Asks nothing: a refusal names the option, as without a terminal.")
     private boolean noInput;
 
-    @Option(names = "--yes",
-            description = "Stops or starts the task where that is what removing it needs, without asking; never"
-                    + " discards.")
+    @Option(
+            names = "--yes",
+            description =
+                    "Stops or starts the task where that is what removing it needs, without asking; never"
+                            + " discards.")
     private boolean yes;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -71,8 +82,12 @@ public class TaskRemoveCommand implements Callable<Integer>, PoreloFactory.Conte
 
     @Override
     public Integer call() {
-        final TaskTarget.Found found = TaskTarget.resolve(context, container, java.nio.file.Path.of("."),
-                TaskTarget.console(spec.commandLine().getOut()));
+        final TaskTarget.Found found =
+                TaskTarget.resolve(
+                        context,
+                        container,
+                        java.nio.file.Path.of("."),
+                        TaskTarget.console(spec.commandLine().getOut()));
         if (found.container() == null) {
             spec.commandLine().getErr().println("porelo: " + found.refusal());
             if ((Object) this instanceof Suggests suggests) {
@@ -90,17 +105,34 @@ public class TaskRemoveCommand implements Callable<Integer>, PoreloFactory.Conte
         // and not the other is a task removed, over the other surface, with work in it.
         TaskControl.Stopped result = new TaskControl(context).remove(container, rescue, force);
         if (!noInput && (yes || Offer.atTerminal())) {
-            // What a refusal would name is offered instead, and the removal tried again after it: at most once per kind
+            // What a refusal would name is offered instead, and the removal tried again after it:
+            // at most once per kind
             // of refusal, so a remedy that did not help ends in that refusal rather than in a loop.
             final Offer offer = new Offer(Offer.Asker.terminal(), noInput, yes, err);
-            final java.util.Set<TaskControl.Outcome> offered = java.util.EnumSet.noneOf(TaskControl.Outcome.class);
+            final java.util.Set<TaskControl.Outcome> offered =
+                    java.util.EnumSet.noneOf(TaskControl.Outcome.class);
             String next;
-            while (offered.add(result.outcome()) && (next = nextTry(result.outcome(), container,
-                    result.work() == null ? "" : String.valueOf(result.work()), offer)) != null) {
+            while (offered.add(result.outcome())
+                    && (next =
+                                    nextTry(
+                                            result.outcome(),
+                                            container,
+                                            result.work() == null
+                                                    ? ""
+                                                    : String.valueOf(result.work()),
+                                            offer))
+                            != null) {
                 switch (next) {
                     case "stop" -> new TaskControl(context).stop(container);
-                    case "start" -> context.exec().applyAsInt(java.util.List.of(PoreloBinary.path(), "task", "start",
-                            container, "--detach"));
+                    case "start" ->
+                            context.exec()
+                                    .applyAsInt(
+                                            java.util.List.of(
+                                                    PoreloBinary.path(),
+                                                    "task",
+                                                    "start",
+                                                    container,
+                                                    "--detach"));
                     case "rescue" -> rescue = true;
                     default -> force = true;
                 }
@@ -124,14 +156,20 @@ public class TaskRemoveCommand implements Callable<Integer>, PoreloFactory.Conte
             }
             case STILL_RUNNING -> {
                 err.println("porelo: refusing to remove " + container + ": it is running");
-                err.println("       stop it with 'porelo task stop " + container + "' first,"
-                        + " or --force to stop and remove it in one step.");
+                err.println(
+                        "       stop it with 'porelo task stop "
+                                + container
+                                + "' first,"
+                                + " or --force to stop and remove it in one step.");
                 err.flush();
                 return 65;
             }
             case NOTHING_KNOWS -> {
-                err.println("porelo: refusing to remove " + container + ": it is stopped and"
-                        + " nothing recorded what it holds");
+                err.println(
+                        "porelo: refusing to remove "
+                                + container
+                                + ": it is stopped and"
+                                + " nothing recorded what it holds");
                 // Not "start it to see": after a restart the record this needs is the one that is
                 // gone, so that advice would name a way out that does not exist in this state.
                 err.println("       --force discards it unseen.");
@@ -139,16 +177,20 @@ public class TaskRemoveCommand implements Callable<Integer>, PoreloFactory.Conte
                 return 65;
             }
             case HOLDS_WORK -> {
-                err.println("porelo: refusing to remove " + container + ": it holds "
-                        + result.work());
-                err.println("       it exists nowhere else. Use --rescue to push it to the gate"
-                        + " first, or --force to discard it.");
+                err.println(
+                        "porelo: refusing to remove " + container + ": it holds " + result.work());
+                err.println(
+                        "       it exists nowhere else. Use --rescue to push it to the gate"
+                                + " first, or --force to discard it.");
                 err.flush();
                 return 65;
             }
             case RESCUE_NEEDS_IT_RUNNING -> {
-                err.println("porelo: " + container + " is stopped, so its work cannot be pushed."
-                        + " Start it with 'porelo task start' first.");
+                err.println(
+                        "porelo: "
+                                + container
+                                + " is stopped, so its work cannot be pushed."
+                                + " Start it with 'porelo task start' first.");
                 err.flush();
                 return 70;
             }
@@ -179,17 +221,21 @@ public class TaskRemoveCommand implements Callable<Integer>, PoreloFactory.Conte
             // The other half of what a removal costs. The workspace has the gate to arrive in;
             // what the agent installed in the container has nowhere at all, and nothing else
             // records that it existed.
-            out.println("discarded " + result.discarded() + " files the agent added inside the"
-                    + " container - packages, caches, a built toolchain");
+            out.println(
+                    "discarded "
+                            + result.discarded()
+                            + " files the agent added inside the"
+                            + " container - packages, caches, a built toolchain");
         }
         out.flush();
         return result.clean() ? 0 : 70;
     }
 
     /**
-     * Returns what to do before removing again, where a removal was refused for something a person can settle here:
-     * {@code stop}, {@code start}, {@code rescue} or {@code force}; {@code null} when nothing is offered or it was
-     * declined. Discarding is destructive: no by default, never by {@code --yes}.
+     * Returns what to do before removing again, where a removal was refused for something a person
+     * can settle here: {@code stop}, {@code start}, {@code rescue} or {@code force}; {@code null}
+     * when nothing is offered or it was declined. Discarding is destructive: no by default, never
+     * by {@code --yes}.
      *
      * @param outcome Why the removal was refused.
      * @param container The task.
@@ -197,23 +243,45 @@ public class TaskRemoveCommand implements Callable<Integer>, PoreloFactory.Conte
      * @param offer Who is asked.
      * @return What to do, or {@code null}.
      */
-    static @org.jspecify.annotations.Nullable String nextTry(final TaskControl.Outcome outcome, final String container,
-            final String work, final Offer offer) {
+    static @org.jspecify.annotations.Nullable String nextTry(
+            final TaskControl.Outcome outcome,
+            final String container,
+            final String work,
+            final Offer offer) {
         return switch (outcome) {
-            case STILL_RUNNING -> offer.confirm(container + " is running", "Stop it, then remove it?", "", false)
-                    ? "stop" : null;
+            case STILL_RUNNING ->
+                    offer.confirm(container + " is running", "Stop it, then remove it?", "", false)
+                            ? "stop"
+                            : null;
             case HOLDS_WORK -> {
-                final String chosen = offer.choose(container + " holds " + work + ", which exists nowhere else",
-                        java.util.List.of("push it to the gate, then remove the task",
-                                "discard it with the task", "keep the task"),
-                        "porelo task remove " + container + " --rescue");
-                yield chosen == null || chosen.startsWith("keep") ? null
+                final String chosen =
+                        offer.choose(
+                                container + " holds " + work + ", which exists nowhere else",
+                                java.util.List.of(
+                                        "push it to the gate, then remove the task",
+                                        "discard it with the task",
+                                        "keep the task"),
+                                "porelo task remove " + container + " --rescue");
+                yield chosen == null || chosen.startsWith("keep")
+                        ? null
                         : chosen.startsWith("push") ? "rescue" : "force";
             }
-            case NOTHING_KNOWS -> offer.confirm(container + " is stopped and nothing recorded what it holds",
-                    "Discard it unseen?", "whatever the task holds, unseen", true) ? "force" : null;
-            case RESCUE_NEEDS_IT_RUNNING -> offer.confirm(container + " is stopped, so its work cannot be pushed",
-                    "Start it, push its work to the gate, then remove it?", "", false) ? "start" : null;
+            case NOTHING_KNOWS ->
+                    offer.confirm(
+                                    container + " is stopped and nothing recorded what it holds",
+                                    "Discard it unseen?",
+                                    "whatever the task holds, unseen",
+                                    true)
+                            ? "force"
+                            : null;
+            case RESCUE_NEEDS_IT_RUNNING ->
+                    offer.confirm(
+                                    container + " is stopped, so its work cannot be pushed",
+                                    "Start it, push its work to the gate, then remove it?",
+                                    "",
+                                    false)
+                            ? "start"
+                            : null;
             default -> null;
         };
     }

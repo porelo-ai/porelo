@@ -9,8 +9,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * What porelod does with an argument.
- * <p>
- * Every case here is "and it did not start a daemon", which is the whole point: the defect was
+ *
+ * <p>Every case here is "and it did not start a daemon", which is the whole point: the defect was
  * that asking the binary what it is started one on the asker's runtime socket.
  */
 class PoreloDaemonArgumentsTest {
@@ -20,7 +20,9 @@ class PoreloDaemonArgumentsTest {
     private final ByteArrayOutputStream err = new ByteArrayOutputStream();
 
     private Integer answer(String... args) {
-        return PoreloDaemon.answer(args, new PrintStream(out, true, StandardCharsets.UTF_8),
+        return PoreloDaemon.answer(
+                args,
+                new PrintStream(out, true, StandardCharsets.UTF_8),
                 new PrintStream(err, true, StandardCharsets.UTF_8));
     }
 

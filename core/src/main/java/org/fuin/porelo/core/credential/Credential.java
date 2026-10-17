@@ -4,34 +4,40 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * One credential this machine may use to reach somewhere, described without its secret.
- * <p>
- * <strong>Said, not guessed.</strong> What kind of credential a destination wants cannot be read
+ *
+ * <p><strong>Said, not guessed.</strong> What kind of credential a destination wants cannot be read
  * off its URL: {@code https://} may be a token or a username and password, and inferring it from
  * the scheme worked only as long as git was the only caller. So the kind is part of the record.
- * <p>
- * <strong>The secret is not here.</strong> This is the readable half - what exists, for what, of
+ *
+ * <p><strong>The secret is not here.</strong> This is the readable half - what exists, for what, of
  * what kind, under which name - and it is readable with the vault shut. That is the difference
- * between <em>"a credential for this host is configured, unlock the vault"</em> and <em>"nothing
- * is configured, store one"</em>, which a machine could not tell apart while the only record of a
+ * between <em>"a credential for this host is configured, unlock the vault"</em> and <em>"nothing is
+ * configured, store one"</em>, which a machine could not tell apart while the only record of a
  * credential was the credential itself.
  *
- * @param id What the secret is called: a vault entry, a file, or an environment variable,
- *        depending on {@code source}.
+ * @param id What the secret is called: a vault entry, a file, or an environment variable, depending
+ *     on {@code source}.
  * @param kind What the destination asks for.
  * @param match The URLs this covers, as a prefix of the normalised URL - {@code ssh://github.com}
- *        or {@code https://gitlab.example/acme/}. The longest match wins, so a record for one
- *        group sits beside the one for the rest of a forge.
- * @param user The username, for {@code BASIC} and for a token that needs one. {@code null} lets
- *        the caller use its own default.
+ *     or {@code https://gitlab.example/acme/}. The longest match wins, so a record for one group
+ *     sits beside the one for the rest of a forge.
+ * @param user The username, for {@code BASIC} and for a token that needs one. {@code null} lets the
+ *     caller use its own default.
  * @param purpose What it may be used for - {@code git}, {@code registry}, or {@code any}. A token
- *        that may push packages has no business authenticating a clone unless somebody said so.
+ *     that may push packages has no business authenticating a clone unless somebody said so.
  * @param source Where the secret is read from.
- * @param expires When an {@code OAUTH} token stops working, RFC 3339, or {@code null} when it
- *        does not expire or nothing recorded it. What turns a 401 from the destination into a
- *        sentence this machine can say first.
+ * @param expires When an {@code OAUTH} token stops working, RFC 3339, or {@code null} when it does
+ *     not expire or nothing recorded it. What turns a 401 from the destination into a sentence this
+ *     machine can say first.
  */
-public record Credential(String id, Credential.Kind kind, String match, @Nullable String user,
-        String purpose, Credential.Source source, @Nullable String expires) {
+public record Credential(
+        String id,
+        Credential.Kind kind,
+        String match,
+        @Nullable String user,
+        String purpose,
+        Credential.Source source,
+        @Nullable String expires) {
 
     /**
      * Constructor for a credential that does not expire.
@@ -43,8 +49,13 @@ public record Credential(String id, Credential.Kind kind, String match, @Nullabl
      * @param purpose What it may be used for.
      * @param source Where the secret is read from.
      */
-    public Credential(String id, Credential.Kind kind, String match, @Nullable String user,
-            String purpose, Credential.Source source) {
+    public Credential(
+            String id,
+            Credential.Kind kind,
+            String match,
+            @Nullable String user,
+            String purpose,
+            Credential.Source source) {
         this(id, kind, match, user, purpose, source, null);
     }
 
@@ -84,18 +95,18 @@ public record Credential(String id, Credential.Kind kind, String match, @Nullabl
 
         /**
          * A token obtained by an OAuth flow, and kept until it expires.
-         * <p>
-         * <strong>At the moment of use it is a token</strong> - an https destination is handed the
-         * access token exactly as it is handed a personal one, so the lease is the same. What is
-         * different is everything around it: an access token expires, a refresh token renews it,
+         *
+         * <p><strong>At the moment of use it is a token</strong> - an https destination is handed
+         * the access token exactly as it is handed a personal one, so the lease is the same. What
+         * is different is everything around it: an access token expires, a refresh token renews it,
          * and something has to own that flow.
-         * <p>
-         * <strong>What this does today, said plainly:</strong> the stored access token is used,
-         * and when it is known to have expired the machine refuses by name and says what to run
-         * to renew it - rather than letting the destination answer with a 401 that reads like a
-         * revoked account. Renewing without a person is a flow with a client, endpoints and a
-         * token written back, and it is not built. It is named here so the file format does not
-         * have to change when it is: a record that says {@code oauth} today keeps its meaning.
+         *
+         * <p><strong>What this does today, said plainly:</strong> the stored access token is used,
+         * and when it is known to have expired the machine refuses by name and says what to run to
+         * renew it - rather than letting the destination answer with a 401 that reads like a
+         * revoked account. Renewing without a person is a flow with a client, endpoints and a token
+         * written back, and it is not built. It is named here so the file format does not have to
+         * change when it is: a record that says {@code oauth} today keeps its meaning.
          */
         OAUTH
     }
@@ -110,12 +121,12 @@ public record Credential(String id, Credential.Kind kind, String match, @Nullabl
         VAULT,
 
         /**
-         * A file on this machine, at {@code id}. For somebody working on their own computer who
-         * has a key in {@code ~/.ssh} and no wish to keep a second copy of it - a real case, and
-         * one that used to force either a copy into the vault or no protection at all.
-         * <p>
-         * <strong>It is as protected as the file is.</strong> Nothing here encrypts it and nothing
-         * shuts it; the machine says so wherever this credential is shown, in the way an
+         * A file on this machine, at {@code id}. For somebody working on their own computer who has
+         * a key in {@code ~/.ssh} and no wish to keep a second copy of it - a real case, and one
+         * that used to force either a copy into the vault or no protection at all.
+         *
+         * <p><strong>It is as protected as the file is.</strong> Nothing here encrypts it and
+         * nothing shuts it; the machine says so wherever this credential is shown, in the way an
          * unverified follow says so.
          */
         FILE,
@@ -123,8 +134,8 @@ public record Credential(String id, Credential.Kind kind, String match, @Nullabl
         /**
          * An environment variable named {@code id}, read from the environment of whatever runs
          * Porelo. For a token a person already exports, and for a CI runner that has one.
-         * <p>
-         * As protected as that environment is, and reported the same way.
+         *
+         * <p>As protected as that environment is, and reported the same way.
          */
         ENVIRONMENT,
 
@@ -149,11 +160,12 @@ public record Credential(String id, Credential.Kind kind, String match, @Nullabl
      * Tells whether this record covers a URL.
      *
      * @param normalised The URL as {@link CredentialRegistry#normalise(String)} writes it.
-     * @return {@code true} when {@code match} is it, or it continues {@code match} at a boundary: a {@code /},
-     *         {@code :}, {@code ?} or {@code #}, or one {@code match} ends with.
+     * @return {@code true} when {@code match} is it, or it continues {@code match} at a boundary: a
+     *     {@code /}, {@code :}, {@code ?} or {@code #}, or one {@code match} ends with.
      */
     public boolean covers(final String normalised) {
-        // At a boundary, not as a plain prefix: 'https://github.com' covered 'https://github.com.evil.example', and
+        // At a boundary, not as a plain prefix: 'https://github.com' covered
+        // 'https://github.com.evil.example', and
         // '/org' '/org-evil'.
         if (!normalised.startsWith(match)) {
             return false;

@@ -11,12 +11,13 @@ import picocli.CommandLine.Spec;
 
 /**
  * Tells this account to take a project's configuration from a repository.
- * <p>
- * <strong>A person does this and nothing else does.</strong> No commit adds a project and nothing
- * discovers one: a configuration source that can enrol further configuration sources is a source
- * that grows where nobody is looking.
+ *
+ * <p><strong>A person does this and nothing else does.</strong> No commit adds a project and
+ * nothing discovers one: a configuration source that can enrol further configuration sources is a
+ * source that grows where nobody is looking.
  */
-@Command(name = "follow",
+@Command(
+        name = "follow",
         mixinStandardHelpOptions = true,
         description = "Takes a project's configuration from its repository, from now on.")
 public class ProjectFollowCommand implements Callable<Integer>, PoreloFactory.ContextAware {
@@ -24,38 +25,48 @@ public class ProjectFollowCommand implements Callable<Integer>, PoreloFactory.Co
     @Parameters(index = "0", paramLabel = "<name>", description = "The project's name.")
     private String name;
 
-    @Parameters(index = "1", paramLabel = "<url|file>",
-            description = "Where its repository is: an address, fetched with this account's own credentials and"
-                    + " again in the background, or a file - a bundle or a directory on this machine - read once and"
-                    + " never fetched. An offline project is followed only from a file.")
+    @Parameters(
+            index = "1",
+            paramLabel = "<url|file>",
+            description =
+                    "Where its repository is: an address, fetched with this account's own credentials and"
+                            + " again in the background, or a file - a bundle or a directory on this machine - read once and"
+                            + " never fetched. An offline project is followed only from a file.")
     private String url;
 
-    @picocli.CommandLine.Option(names = "--accept-rewrite",
-            description = "Takes a signed commit that is not a descendant of the one in force."
-                    + " Say this only when you know why the history moved.")
+    @picocli.CommandLine.Option(
+            names = "--accept-rewrite",
+            description =
+                    "Takes a signed commit that is not a descendant of the one in force."
+                            + " Say this only when you know why the history moved.")
     private boolean acceptRewrite;
 
-    @Option(names = "--unverified",
-            description = "Follows without an anchor: what the repository says is applied without"
-                    + " any signature being checked. Whoever may push there then decides what"
-                    + " tasks here may reach. Reported as a state wherever this project is shown.")
+    @Option(
+            names = "--unverified",
+            description =
+                    "Follows without an anchor: what the repository says is applied without"
+                            + " any signature being checked. Whoever may push there then decides what"
+                            + " tasks here may reach. Reported as a state wherever this project is shown.")
     private boolean unverified;
 
-    @Option(names = "--signed-by", paramLabel = "<key>",
-            description = "The public key this project's configuration is signed with, as"
-                    + " 'ssh-ed25519 AAAA...'. Pins it for this project and follows in one"
-                    + " command. Give it once per key when a commit may be signed by several."
-                    + " NEVER read from the repository it verifies.")
+    @Option(
+            names = "--signed-by",
+            paramLabel = "<key>",
+            description =
+                    "The public key this project's configuration is signed with, as"
+                            + " 'ssh-ed25519 AAAA...'. Pins it for this project and follows in one"
+                            + " command. Give it once per key when a commit may be signed by several."
+                            + " NEVER read from the repository it verifies.")
     private java.util.List<String> signedByAll = new java.util.ArrayList<>();
 
     private @Nullable String signedBy;
 
-    @Option(names = "--dry-run",
+    @Option(
+            names = "--dry-run",
             description = "Says whether following this would work, and records nothing.")
     private boolean dryRun;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -73,9 +84,11 @@ public class ProjectFollowCommand implements Callable<Integer>, PoreloFactory.Co
             url = java.nio.file.Path.of(url).toAbsolutePath().normalize().toString();
         }
         final FollowSignedBy following = new FollowSignedBy(context);
-        // One key keeps every way it had, a fingerprint among them; several are whole keys, all pinned or none.
+        // One key keeps every way it had, a fingerprint among them; several are whole keys, all
+        // pinned or none.
         signedBy = signedByAll.size() == 1 ? signedByAll.get(0) : null;
-        final java.util.List<String> several = signedByAll.size() > 1 ? signedByAll : java.util.List.of();
+        final java.util.List<String> several =
+                signedByAll.size() > 1 ? signedByAll : java.util.List.of();
         final FollowSignedBy.Answer answer;
         try {
             FollowSignedBy.refuseConflicting(null, several, unverified);
@@ -91,9 +104,12 @@ public class ProjectFollowCommand implements Callable<Integer>, PoreloFactory.Co
                 return checked(following.check(name, url, signedBy, unverified).result(), out, err);
             }
             // Once, now, rather than at the next tick: somebody who typed this wants to know
-            // whether it works, and a refusal an hour later is one nobody connects to what they did.
-            answer = several.isEmpty() ? following.follow(name, url, signedBy, unverified, acceptRewrite)
-                    : following.follow(name, url, several, acceptRewrite);
+            // whether it works, and a refusal an hour later is one nobody connects to what they
+            // did.
+            answer =
+                    several.isEmpty()
+                            ? following.follow(name, url, signedBy, unverified, acceptRewrite)
+                            : following.follow(name, url, several, acceptRewrite);
         } catch (final FollowSignedBy.Refused ex) {
             err.println("porelo: " + ex.getMessage());
             err.flush();
@@ -124,14 +140,21 @@ public class ProjectFollowCommand implements Callable<Integer>, PoreloFactory.Co
             return 70;
         }
 
-        out.println("following  " + name + "  " + url
-                + (unverified ? "  (unverified - whoever can push there decides what tasks here"
-                        + " may reach)" : ""));
+        out.println(
+                "following  "
+                        + name
+                        + "  "
+                        + url
+                        + (unverified
+                                ? "  (unverified - whoever can push there decides what tasks here"
+                                        + " may reach)"
+                                : ""));
         switch (result.outcome()) {
             case APPLIED, UNCHANGED -> {
                 out.println("applied    " + result.commit());
                 if (!result.detail().isEmpty()) {
-                    // What else the commit did here: a local edit replaced, a key pinned or unpinned.
+                    // What else the commit did here: a local edit replaced, a key pinned or
+                    // unpinned.
                     out.println("           " + result.detail());
                 }
             }
@@ -153,8 +176,10 @@ public class ProjectFollowCommand implements Callable<Integer>, PoreloFactory.Co
                 return 70;
             }
             default -> {
-                err.println(result.outcome().name().toLowerCase(java.util.Locale.ROOT)
-                        + "    " + result.detail());
+                err.println(
+                        result.outcome().name().toLowerCase(java.util.Locale.ROOT)
+                                + "    "
+                                + result.detail());
                 err.flush();
                 out.flush();
                 return 70;
@@ -172,8 +197,8 @@ public class ProjectFollowCommand implements Callable<Integer>, PoreloFactory.Co
      * @param err Where a refusal goes.
      * @return Exit code: zero when following would work.
      */
-    private Integer checked(final Reconcile.Result result, final PrintWriter out,
-            final PrintWriter err) {
+    private Integer checked(
+            final Reconcile.Result result, final PrintWriter out, final PrintWriter err) {
         switch (result.outcome()) {
             case APPLIED, UNCHANGED -> {
                 out.println("ready      following " + name + " from " + url + " would work");
@@ -185,8 +210,10 @@ public class ProjectFollowCommand implements Callable<Integer>, PoreloFactory.Co
                 return 0;
             }
             default -> {
-                err.println(result.outcome().name().toLowerCase(java.util.Locale.ROOT)
-                        + "    " + result.detail());
+                err.println(
+                        result.outcome().name().toLowerCase(java.util.Locale.ROOT)
+                                + "    "
+                                + result.detail());
                 if (!result.refused().isEmpty()) {
                     err.println("           refused    " + result.refused());
                 }

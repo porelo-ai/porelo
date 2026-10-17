@@ -6,16 +6,16 @@ import java.nio.file.Path;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link LocalRepository}.
- */
+/** Tests for {@link LocalRepository}. */
 class LocalRepositoryTest {
 
     @Test
     void returnsTheWorkTreeRoot() {
-        assertThat(LocalRepository.topLevel(
-                new FakeCommandRunner().answering("show-toplevel", "/home/you/project\n"),
-                Path.of(".")))
+        assertThat(
+                        LocalRepository.topLevel(
+                                new FakeCommandRunner()
+                                        .answering("show-toplevel", "/home/you/project\n"),
+                                Path.of(".")))
                 .isEqualTo(Path.of("/home/you/project"));
     }
 
@@ -24,10 +24,16 @@ class LocalRepositoryTest {
 
         // The negative case: treating a failure as a path would seed the gate from whatever
         // string git happened to print on stderr.
-        assertThat(LocalRepository.topLevel(
-                new FakeCommandRunner().failing("show-toplevel", 128, "not a git repository"),
-                Path.of("."))).isNull();
-        assertThat(LocalRepository.topLevel(
-                new FakeCommandRunner().answering("show-toplevel", "  \n"), Path.of("."))).isNull();
+        assertThat(
+                        LocalRepository.topLevel(
+                                new FakeCommandRunner()
+                                        .failing("show-toplevel", 128, "not a git repository"),
+                                Path.of(".")))
+                .isNull();
+        assertThat(
+                        LocalRepository.topLevel(
+                                new FakeCommandRunner().answering("show-toplevel", "  \n"),
+                                Path.of(".")))
+                .isNull();
     }
 }

@@ -11,17 +11,18 @@ import org.fuin.porelo.wire.varlink.VarlinkServer;
 
 /**
  * The clearance hub, reachable over varlink.
- * <p>
- * Three methods, and the split between them is the architecture:
+ *
+ * <p>Three methods, and the split between them is the architecture:
+ *
  * <ul>
- * <li>{@code Report} is called by the NFLOG reader, which runs inside the container's network
- *     namespace and cannot talk to the session bus from there.</li>
- * <li>{@code Subscribe} streams events to whatever wants to watch - a desktop client, a terminal,
- *     later a GUI. It is the reason this is varlink rather than a pipe: a pipe has exactly one
- *     reader, and the events are interesting to more than one. Both the questions and the answers
- *     go out on it; an answer is the same event carrying a {@code verdict}.</li>
- * <li>{@code Verdict} lets a subscriber answer, so a decision can come from somewhere other than
- *     the notification that Porelo itself raised.</li>
+ *   <li>{@code Report} is called by the NFLOG reader, which runs inside the container's network
+ *       namespace and cannot talk to the session bus from there.
+ *   <li>{@code Subscribe} streams events to whatever wants to watch - a desktop client, a terminal,
+ *       later a GUI. It is the reason this is varlink rather than a pipe: a pipe has exactly one
+ *       reader, and the events are interesting to more than one. Both the questions and the answers
+ *       go out on it; an answer is the same event carrying a {@code verdict}.
+ *   <li>{@code Verdict} lets a subscriber answer, so a decision can come from somewhere other than
+ *       the notification that Porelo itself raised.
  * </ul>
  */
 public class ClearanceService implements AutoCloseable {
@@ -33,8 +34,7 @@ public class ClearanceService implements AutoCloseable {
 
     private final ClearanceHub hub;
 
-    private final List<Backlog> subscribers =
-            new CopyOnWriteArrayList<>();
+    private final List<Backlog> subscribers = new CopyOnWriteArrayList<>();
 
     /**
      * Binds the socket and registers the methods.
@@ -53,62 +53,75 @@ public class ClearanceService implements AutoCloseable {
         // showing: nothing will ask again.
         hub.onDecision(decision -> broadcast(decision.event()));
 
-        server.method("Report", (parameters, replies) -> {
-            final String destination = String.valueOf(parameters.get("destination"));
-            final String protocol = String.valueOf(parameters.get("protocol"));
-            final int port = parameters.get("port") instanceof Number number ? number.intValue() : 0;
-            // What was blocked, as read, and nothing its sender added: forwarded as it came, a report carrying
-            // 'verdict' and 'source' read to an interface like an answer.
-            final Map<String, Object> event = new LinkedHashMap<>();
-            event.put("destination", destination);
-            event.put("port", port);
-            event.put("protocol", protocol);
-            broadcast(event);
-            final String shown = port == 0 ? destination : destination + ":" + port;
-            final Verdict verdict = hub.handle(new Blocked(destination, port, protocol, shown));
-            replies.last(Map.of("verdict", verdict.name().toLowerCase()));
-        });
+        server.method(
+                "Report",
+                (parameters, replies) -> {
+                    final String destination = String.valueOf(parameters.get("destination"));
+                    final String protocol = String.valueOf(parameters.get("protocol"));
+                    final int port =
+                            parameters.get("port") instanceof Number number ? number.intValue() : 0;
+                    // What was blocked, as read, and nothing its sender added: forwarded as it
+                    // came, a report carrying
+                    // 'verdict' and 'source' read to an interface like an answer.
+                    final Map<String, Object> event = new LinkedHashMap<>();
+                    event.put("destination", destination);
+                    event.put("port", port);
+                    event.put("protocol", protocol);
+                    broadcast(event);
+                    final String shown = port == 0 ? destination : destination + ":" + port;
+                    final Verdict verdict =
+                            hub.handle(new Blocked(destination, port, protocol, shown));
+                    replies.last(Map.of("verdict", verdict.name().toLowerCase()));
+                });
 
-        server.method("Subscribe", (parameters, replies) -> {
-            if (!replies.streaming()) {
-                // Answering a non-streaming Subscribe with one event would look like it worked and
-                // then deliver nothing ever again.
-                replies.last(Map.of("error", "Subscribe requires more=true"));
-                return;
-            }
-            final Backlog queue = new Backlog(1024);
-            subscribers.add(queue);
-            try {
-                // Until its client goes: a subscriber that left was waited for until the next event, for ever when
-                // none came.
-                while (replies.open()) {
-                    final Map<String, Object> event = queue.poll(1, TimeUnit.SECONDS);
-                    if (event != null) {
-                        replies.more(event);
+        server.method(
+                "Subscribe",
+                (parameters, replies) -> {
+                    if (!replies.streaming()) {
+                        // Answering a non-streaming Subscribe with one event would look like it
+                        // worked and
+                        // then deliver nothing ever again.
+                        replies.last(Map.of("error", "Subscribe requires more=true"));
+                        return;
                     }
-                }
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            } catch (IOException ex) {
-                // The subscriber went away, which is the normal way a subscription ends.
-            } finally {
-                subscribers.remove(queue);
-            }
-        });
+                    final Backlog queue = new Backlog(1024);
+                    subscribers.add(queue);
+                    try {
+                        // Until its client goes: a subscriber that left was waited for until the
+                        // next event, for ever when
+                        // none came.
+                        while (replies.open()) {
+                            final Map<String, Object> event = queue.poll(1, TimeUnit.SECONDS);
+                            if (event != null) {
+                                replies.more(event);
+                            }
+                        }
+                    } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                    } catch (IOException ex) {
+                        // The subscriber went away, which is the normal way a subscription ends.
+                    } finally {
+                        subscribers.remove(queue);
+                    }
+                });
 
-        server.method("Verdict", (parameters, replies) -> {
-            final String key = String.valueOf(parameters.get("key"));
-            final boolean allow = Boolean.TRUE.equals(parameters.get("allow"));
-            hub.decide(key, String.valueOf(parameters.get("address")),
-                    allow ? Verdict.ALLOW : Verdict.DENY);
-            replies.last(Map.of("ok", Boolean.TRUE));
-        });
+        server.method(
+                "Verdict",
+                (parameters, replies) -> {
+                    final String key = String.valueOf(parameters.get("key"));
+                    final boolean allow = Boolean.TRUE.equals(parameters.get("allow"));
+                    hub.decide(
+                            key,
+                            String.valueOf(parameters.get("address")),
+                            allow ? Verdict.ALLOW : Verdict.DENY);
+                    replies.last(Map.of("ok", Boolean.TRUE));
+                });
     }
 
     /**
      * Returns the key that identifies one blocked connection.
-     * <p>
-     * Public and used from both ends on purpose. A subscriber has to send this back with its
+     *
+     * <p>Public and used from both ends on purpose. A subscriber has to send this back with its
      * verdict, and it is derived from fields the event already carries - so a client could build
      * it, and would then be one separator away from answering a prompt that does not exist while
      * the task stays blocked. Deriving it here means there is one derivation.
@@ -124,12 +137,12 @@ public class ClearanceService implements AutoCloseable {
 
     /**
      * Sends an event to every subscriber, for one that did not arrive through {@code Report}.
-     * <p>
-     * The watcher has two ways in. When it starts its own reader, events arrive as {@code Report}
-     * calls and are broadcast on the way past. When the reader hook is already running inside the
-     * container, the watcher <em>follows the file</em> that hook appends to and decides from there
-     * - and that path reached the hub without ever reaching a subscriber. Measured: a client
-     * subscribed to a live task and saw nothing at all, while the log beside it recorded the
+     *
+     * <p>The watcher has two ways in. When it starts its own reader, events arrive as {@code
+     * Report} calls and are broadcast on the way past. When the reader hook is already running
+     * inside the container, the watcher <em>follows the file</em> that hook appends to and decides
+     * from there - and that path reached the hub without ever reaching a subscriber. Measured: a
+     * client subscribed to a live task and saw nothing at all, while the log beside it recorded the
      * decisions. The point of this service is that these events are interesting to more than one
      * thing, so both ways in have to feed it.
      *

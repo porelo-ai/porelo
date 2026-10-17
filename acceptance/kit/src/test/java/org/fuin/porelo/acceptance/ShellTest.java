@@ -4,9 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link Shell}.
- */
+/** Tests for {@link Shell}. */
 class ShellTest {
 
     @Test

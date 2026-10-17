@@ -13,9 +13,9 @@ import org.jspecify.annotations.Nullable;
  * What the forge said about the build of one commit.
  *
  * @param verdict One of {@link #VERDICTS}.
- * @param jobs The jobs whose log is handed over, in the forge's order: each failed one, or with {@link Logs#ALL} every
- *         one once the verdict is final. Empty while the build is queued or running. At most {@link #MOST_JOBS}, their
- *         logs together at most {@link #MOST_LOG_BYTES}.
+ * @param jobs The jobs whose log is handed over, in the forge's order: each failed one, or with
+ *     {@link Logs#ALL} every one once the verdict is final. Empty while the build is queued or
+ *     running. At most {@link #MOST_JOBS}, their logs together at most {@link #MOST_LOG_BYTES}.
  * @param detail Why the verdict is {@link #UNKNOWN}, or what more the forge said; "" otherwise.
  */
 public record Build(String verdict, List<Job> jobs, String detail) {
@@ -35,30 +35,36 @@ public record Build(String verdict, List<Job> jobs, String detail) {
     /** Finished because somebody cancelled it. */
     public static final String CANCELLED = "cancelled";
 
-    /** The forge holds no build of the commit, or none Porelo can read a verdict from; 'detail' says which. */
+    /**
+     * The forge holds no build of the commit, or none Porelo can read a verdict from; 'detail' says
+     * which.
+     */
     public static final String UNKNOWN = "unknown";
 
     /** Every verdict, in the order a build passes through them. */
-    public static final List<String> VERDICTS = List.of(QUEUED, RUNNING, SUCCESS, FAILURE, CANCELLED, UNKNOWN);
+    public static final List<String> VERDICTS =
+            List.of(QUEUED, RUNNING, SUCCESS, FAILURE, CANCELLED, UNKNOWN);
 
-    /** The most of a log's end a reader hands over, per job: enough for a stack trace and the step that failed. */
+    /**
+     * The most of a log's end a reader hands over, per job: enough for a stack trace and the step
+     * that failed.
+     */
     public static final int TAIL = 64 * 1024;
 
     /**
-     * The most of all of a build's logs together; past {@value #MOST_LOG_BYTES} / {@link #TAIL} logs, each keeps an
-     * equal share of its end.
-     * <p>
-     * A build travels as one varlink message of at most 4 MiB, and a log goes in base64, a third larger: fifty full
-     * logs did not fit, and the answer was refused in every round for as long as the commit was watched.
+     * The most of all of a build's logs together; past {@value #MOST_LOG_BYTES} / {@link #TAIL}
+     * logs, each keeps an equal share of its end.
+     *
+     * <p>A build travels as one varlink message of at most 4 MiB, and a log goes in base64, a third
+     * larger: fifty full logs did not fit, and the answer was refused in every round for as long as
+     * the commit was watched.
      */
     public static final int MOST_LOG_BYTES = 2 * 1024 * 1024;
 
     /** The most jobs one build hands logs over for, so a matrix of hundreds cannot flood a task. */
     public static final int MOST_JOBS = 50;
 
-    /**
-     * Which logs a project wants handed to its tasks.
-     */
+    /** Which logs a project wants handed to its tasks. */
     public enum Logs {
 
         /** The log of each failed job. */
@@ -78,7 +84,9 @@ public record Build(String verdict, List<Job> jobs, String detail) {
             return switch (name) {
                 case "failure" -> FAILURE;
                 case "all" -> ALL;
-                default -> throw new IllegalArgumentException("'" + name + "' is not 'failure' or 'all'");
+                default ->
+                        throw new IllegalArgumentException(
+                                "'" + name + "' is not 'failure' or 'all'");
             };
         }
 
@@ -96,7 +104,8 @@ public record Build(String verdict, List<Job> jobs, String detail) {
      * One job of the build and the end of its log.
      *
      * @param name As the forge spells it, workflow and job: {@code Build / unit tests}.
-     * @param result What became of it, as the forge says it, lower case: success, failure, cancelled, skipped, ...
+     * @param result What became of it, as the forge says it, lower case: success, failure,
+     *     cancelled, skipped, ...
      * @param log Its log's last {@link #TAIL} bytes; {@code null} when the forge gave none.
      */
     public record Job(String name, String result, byte @Nullable [] log) {
@@ -110,8 +119,10 @@ public record Build(String verdict, List<Job> jobs, String detail) {
          */
         public Job {
             if (log != null) {
-                log = log.length > TAIL ? java.util.Arrays.copyOfRange(log, log.length - TAIL, log.length)
-                        : log.clone();
+                log =
+                        log.length > TAIL
+                                ? java.util.Arrays.copyOfRange(log, log.length - TAIL, log.length)
+                                : log.clone();
             }
         }
 
@@ -141,7 +152,9 @@ public record Build(String verdict, List<Job> jobs, String detail) {
 
         @Override
         public boolean equals(final @Nullable Object other) {
-            return other instanceof Job that && name.equals(that.name) && result.equals(that.result)
+            return other instanceof Job that
+                    && name.equals(that.name)
+                    && result.equals(that.result)
                     && java.util.Arrays.equals(log, that.log);
         }
 
@@ -152,8 +165,13 @@ public record Build(String verdict, List<Job> jobs, String detail) {
 
         @Override
         public String toString() {
-            return "Job[name=" + name + ", result=" + result + ", log="
-                    + (log == null ? "none" : log.length + " bytes") + "]";
+            return "Job[name="
+                    + name
+                    + ", result="
+                    + result
+                    + ", log="
+                    + (log == null ? "none" : log.length + " bytes")
+                    + "]";
         }
     }
 
@@ -166,12 +184,16 @@ public record Build(String verdict, List<Job> jobs, String detail) {
      */
     public Build {
         if (!VERDICTS.contains(verdict)) {
-            throw new IllegalArgumentException("Not a verdict: '" + verdict + "', expected one of " + VERDICTS);
+            throw new IllegalArgumentException(
+                    "Not a verdict: '" + verdict + "', expected one of " + VERDICTS);
         }
         jobs = sharingTheLogs(jobs.size() > MOST_JOBS ? jobs.subList(0, MOST_JOBS) : jobs);
     }
 
-    /** Cuts the logs to an equal share each of {@link #MOST_LOG_BYTES} when they do not fit it whole, keeping ends. */
+    /**
+     * Cuts the logs to an equal share each of {@link #MOST_LOG_BYTES} when they do not fit it
+     * whole, keeping ends.
+     */
     private static List<Job> sharingTheLogs(final List<Job> jobs) {
         long logs = 0;
         long bytes = 0;
@@ -189,8 +211,13 @@ public record Build(String verdict, List<Job> jobs, String detail) {
         final List<Job> shared = new ArrayList<>(jobs.size());
         for (final Job job : jobs) {
             final byte[] log = job.log;
-            shared.add(log == null || log.length <= share ? job
-                    : new Job(job.name(), job.result(), Arrays.copyOfRange(log, log.length - share, log.length)));
+            shared.add(
+                    log == null || log.length <= share
+                            ? job
+                            : new Job(
+                                    job.name(),
+                                    job.result(),
+                                    Arrays.copyOfRange(log, log.length - share, log.length)));
         }
         return List.copyOf(shared);
     }
@@ -260,9 +287,13 @@ public record Build(String verdict, List<Job> jobs, String detail) {
         if (map.get("jobs") instanceof List<?> carried) {
             for (final Object each : carried) {
                 if (each instanceof Map<?, ?> job) {
-                    jobs.add(job.get("log") instanceof String log
-                            ? new Job(text(job.get("name")), text(job.get("result")), Base64.getDecoder().decode(log))
-                            : new Job(text(job.get("name")), text(job.get("result"))));
+                    jobs.add(
+                            job.get("log") instanceof String log
+                                    ? new Job(
+                                            text(job.get("name")),
+                                            text(job.get("result")),
+                                            Base64.getDecoder().decode(log))
+                                    : new Job(text(job.get("name")), text(job.get("result"))));
                 }
             }
         }

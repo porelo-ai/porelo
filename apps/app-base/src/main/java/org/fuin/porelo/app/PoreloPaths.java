@@ -13,8 +13,8 @@ import org.jspecify.annotations.Nullable;
  * @param packagedHooks Where a package would have put the hook binaries.
  * @param packagedAgents Where a package would have put the agent binaries.
  */
-public record PoreloPaths(XdgPaths xdg, Path binaryDirectory, Path packagedHooks,
-        Path packagedAgents) {
+public record PoreloPaths(
+        XdgPaths xdg, Path binaryDirectory, Path packagedHooks, Path packagedAgents) {
 
     /**
      * Constructor for the real machine, where the packaged locations are fixed.
@@ -27,9 +27,10 @@ public record PoreloPaths(XdgPaths xdg, Path binaryDirectory, Path packagedHooks
     }
 
     /**
-     * Names a directory to read the packaged locations under instead of {@code /}. Set by the build for its unit tests
-     * and nowhere else: a test that read {@code /usr/libexec/porelo} passed on a machine without the package and failed
-     * on one with it - eight of them, the morning the package was installed on a developer's machine.
+     * Names a directory to read the packaged locations under instead of {@code /}. Set by the build
+     * for its unit tests and nowhere else: a test that read {@code /usr/libexec/porelo} passed on a
+     * machine without the package and failed on one with it - eight of them, the morning the
+     * package was installed on a developer's machine.
      */
     static final String PACKAGED_ROOT = "porelo.packaged.root";
 
@@ -41,8 +42,13 @@ public record PoreloPaths(XdgPaths xdg, Path binaryDirectory, Path packagedHooks
      */
     static Path packaged(Path absolute) {
         final String root = System.getProperty(PACKAGED_ROOT);
-        return root == null || root.isBlank() ? absolute
-                : Path.of(root).resolve(absolute.getRoot() == null ? absolute : absolute.getRoot().relativize(absolute));
+        return root == null || root.isBlank()
+                ? absolute
+                : Path.of(root)
+                        .resolve(
+                                absolute.getRoot() == null
+                                        ? absolute
+                                        : absolute.getRoot().relativize(absolute));
     }
 
     /** Where the porelo package puts the hook binaries. */
@@ -71,8 +77,8 @@ public record PoreloPaths(XdgPaths xdg, Path binaryDirectory, Path packagedHooks
 
     /**
      * Returns the paths for the current user.
-     * <p>
-     * The hook binaries come either from a package, which installs them system-wide, or from a
+     *
+     * <p>The hook binaries come either from a package, which installs them system-wide, or from a
      * local build, which leaves them in {@code ~/.local/bin}. The operator's own copy wins, the
      * same order {@code AgentDirectory} uses for agents, so a developer can test a hook without
      * uninstalling the package.
@@ -80,17 +86,21 @@ public record PoreloPaths(XdgPaths xdg, Path binaryDirectory, Path packagedHooks
      * @return Paths.
      */
     public static PoreloPaths current() {
-        return new PoreloPaths(XdgPaths.current(), hookBinaries(
-                org.fuin.porelo.core.config.XdgPaths.home(System::getenv)
-                        .resolve(".local").resolve("bin"), PACKAGED_HOOKS));
+        return new PoreloPaths(
+                XdgPaths.current(),
+                hookBinaries(
+                        org.fuin.porelo.core.config.XdgPaths.home(System::getenv)
+                                .resolve(".local")
+                                .resolve("bin"),
+                        PACKAGED_HOOKS));
     }
 
     /**
      * Picks the first directory that actually holds the hooks.
      *
      * @param locations Directories to consider, the operator's own first.
-     * @return The first directory containing a hook binary, or the first location if none does -
-     *         so that an error message names the place a developer would look.
+     * @return The first directory containing a hook binary, or the first location if none does - so
+     *     that an error message names the place a developer would look.
      */
     static Path hookBinaries(Path... locations) {
         for (final Path location : locations) {
@@ -134,9 +144,9 @@ public record PoreloPaths(XdgPaths xdg, Path binaryDirectory, Path packagedHooks
 
     /**
      * Returns where the users of this machine exchange messages, drops and keys.
-     * <p>
-     * Overridable through {@link #SPOOL_VARIABLE}, for the same reason the vault's path is: a test
-     * needs somewhere that is not the machine's real one, and a machine may keep it elsewhere.
+     *
+     * <p>Overridable through {@link #SPOOL_VARIABLE}, for the same reason the vault's path is: a
+     * test needs somewhere that is not the machine's real one, and a machine may keep it elsewhere.
      * The default is what the setup script makes.
      *
      * @return The directory, which need not exist.
@@ -144,7 +154,8 @@ public record PoreloPaths(XdgPaths xdg, Path binaryDirectory, Path packagedHooks
     public Path spool() {
         final String override = System.getenv(SPOOL_VARIABLE);
         return override == null || override.isBlank()
-                ? Path.of("/var/spool/porelo") : Path.of(override);
+                ? Path.of("/var/spool/porelo")
+                : Path.of(override);
     }
 
     /**
@@ -154,14 +165,15 @@ public record PoreloPaths(XdgPaths xdg, Path binaryDirectory, Path packagedHooks
      */
     public Path hooksDirectory() {
         // Not under the Porelo config directory: podman decides where to look, and it looks here.
-        return java.util.Objects.requireNonNull(xdg.config().getParent(), "the config directory has a parent")
+        return java.util.Objects.requireNonNull(
+                        xdg.config().getParent(), "the config directory has a parent")
                 .resolve("containers/oci/hooks.d");
     }
 
     /**
      * Returns the directory recording where each project's own file is, one file per project.
-     * <p>
-     * Durable rather than runtime state: an interface asking what projects exist has to be
+     *
+     * <p>Durable rather than runtime state: an interface asking what projects exist has to be
      * answered on a machine where nothing is running. A directory rather than a document because
      * two tasks can start at the same moment, and a file each is a race that cannot happen.
      *
@@ -169,8 +181,8 @@ public record PoreloPaths(XdgPaths xdg, Path binaryDirectory, Path packagedHooks
      */
     /**
      * Returns the file holding this node's identity.
-     * <p>
-     * Under the data directory, so it is per OS user without anything having to say so: two
+     *
+     * <p>Under the data directory, so it is per OS user without anything having to say so: two
      * accounts on one machine are two nodes, and this is what makes that answerable rather than
      * merely true.
      *
@@ -182,18 +194,18 @@ public record PoreloPaths(XdgPaths xdg, Path binaryDirectory, Path packagedHooks
 
     /**
      * Returns the directory recording each project's last measured distance from its upstream.
-     * <p>
-     * Beside the registry and shaped the same way, for the same reason: written from a timer while
-     * every listing reads it, so one file per project is a race that cannot happen.
+     *
+     * <p>Beside the registry and shaped the same way, for the same reason: written from a timer
+     * while every listing reads it, so one file per project is a race that cannot happen.
      *
      * @return The directory.
      */
     /**
      * Returns the socket the daemon serves on.
-     * <p>
-     * Named here rather than in the daemon, because the CLI has to find the same file: it is what
-     * {@code porelo daemon connect} bridges to, and a second spelling of this path is a client that
-     * connects to nothing on a machine where the daemon is running perfectly.
+     *
+     * <p>Named here rather than in the daemon, because the CLI has to find the same file: it is
+     * what {@code porelo daemon connect} bridges to, and a second spelling of this path is a client
+     * that connects to nothing on a machine where the daemon is running perfectly.
      *
      * @return The daemon's socket.
      */
@@ -203,10 +215,10 @@ public record PoreloPaths(XdgPaths xdg, Path binaryDirectory, Path packagedHooks
 
     /**
      * Returns the file unhandled failures are appended to.
-     * <p>
-     * Under the state directory, which is where logs and audit trails live and which
-     * {@code doctor} already prints - so somebody told a command failed has one place to look and
-     * was already shown it.
+     *
+     * <p>Under the state directory, which is where logs and audit trails live and which {@code
+     * doctor} already prints - so somebody told a command failed has one place to look and was
+     * already shown it.
      *
      * @return The failure log.
      */
@@ -215,8 +227,8 @@ public record PoreloPaths(XdgPaths xdg, Path binaryDirectory, Path packagedHooks
     }
 
     /**
-     * Returns the record of every stop of all tasks at once: one line each, with when, who, from where, what stopped
-     * and what survived.
+     * Returns the record of every stop of all tasks at once: one line each, with when, who, from
+     * where, what stopped and what survived.
      *
      * @return The file.
      */
@@ -225,7 +237,8 @@ public record PoreloPaths(XdgPaths xdg, Path binaryDirectory, Path packagedHooks
     }
 
     /**
-     * Returns where the files of a task's own files: its record, its state, its session, its clearance journal and its image's build context are.
+     * Returns where the files of a task's own files: its record, its state, its session, its
+     * clearance journal and its image's build context are.
      *
      * @return Their locations.
      */
@@ -234,7 +247,8 @@ public record PoreloPaths(XdgPaths xdg, Path binaryDirectory, Path packagedHooks
     }
 
     /**
-     * Returns where the files of messages: the mailboxes, the keys, the moderation and the transports are.
+     * Returns where the files of messages: the mailboxes, the keys, the moderation and the
+     * transports are.
      *
      * @return Their locations.
      */
@@ -243,7 +257,8 @@ public record PoreloPaths(XdgPaths xdg, Path binaryDirectory, Path packagedHooks
     }
 
     /**
-     * Returns where the files of projects: what is followed, its clones, its signers and its records are.
+     * Returns where the files of projects: what is followed, its clones, its signers and its
+     * records are.
      *
      * @return Their locations.
      */

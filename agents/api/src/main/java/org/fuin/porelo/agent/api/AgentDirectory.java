@@ -12,19 +12,20 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Where installed agent binaries are found.
- * <p>
- * A directory scan rather than a list, so that installing a package is all it takes for an
+ *
+ * <p>A directory scan rather than a list, so that installing a package is all it takes for an
  * already-built Porelo to start using an agent. This is the whole point of shipping agents
  * separately: nothing here knows what it will find.
- * <p>
- * Two locations, checked in order. A file in the operator's own directory wins over a system one
+ *
+ * <p>Two locations, checked in order. A file in the operator's own directory wins over a system one
  * of the same name, so an operator can try a build of an agent without root and without disturbing
  * the packaged one.
- * <p>
- * <strong>Or by a description.</strong> A vendor's package need not carry Porelo's name: it puts one file,
- * {@code <name>.yaml} with {@code executable: <absolute path>}, into {@code agents.d} - the account's own, then the
- * system's, the account's winning by name - and the agent is wherever the vendor installs it. The file names starting
- * with {@value #PREFIX} are still read, for the agent packages released before.
+ *
+ * <p><strong>Or by a description.</strong> A vendor's package need not carry Porelo's name: it puts
+ * one file, {@code <name>.yaml} with {@code executable: <absolute path>}, into {@code agents.d} -
+ * the account's own, then the system's, the account's winning by name - and the agent is wherever
+ * the vendor installs it. The file names starting with {@value #PREFIX} are still read, for the
+ * agent packages released before.
  */
 public class AgentDirectory {
 
@@ -49,8 +50,8 @@ public class AgentDirectory {
      * @param executable The executable it names, or {@code null} when it is refused.
      * @param refusal Why it is not taken, or {@code null}.
      */
-    public record Description(String name, Path file, @Nullable Path executable, @Nullable String refusal) {
-    }
+    public record Description(
+            String name, Path file, @Nullable Path executable, @Nullable String refusal) {}
 
     /**
      * Constructor.
@@ -79,7 +80,8 @@ public class AgentDirectory {
      * @return Directories, the operator's own first.
      */
     public static AgentDirectory standard(Path dataHome) {
-        return new AgentDirectory(List.of(dataHome.resolve("agents"), PACKAGED),
+        return new AgentDirectory(
+                List.of(dataHome.resolve("agents"), PACKAGED),
                 List.of(dataHome.resolve("agents.d"), PACKAGED_DESCRIPTIONS));
     }
 
@@ -103,10 +105,10 @@ public class AgentDirectory {
 
     /**
      * Finds the agent binaries that are installed.
-     * <p>
-     * The name must start with {@value #PREFIX} and the file must be executable. Both conditions
-     * matter: a directory an operator can write to is not a place to execute whatever happens to
-     * be lying in it.
+     *
+     * <p>The name must start with {@value #PREFIX} and the file must be executable. Both conditions
+     * matter: a directory an operator can write to is not a place to execute whatever happens to be
+     * lying in it.
      *
      * @return Executables, one per agent name, the earliest location winning.
      */
@@ -121,7 +123,8 @@ public class AgentDirectory {
     }
 
     /**
-     * Returns the descriptions in use, one per name, the account's own first - those refused included, with why.
+     * Returns the descriptions in use, one per name, the account's own first - those refused
+     * included, with why.
      *
      * @return Descriptions, in the order found.
      */
@@ -134,8 +137,8 @@ public class AgentDirectory {
     }
 
     /**
-     * Returns each description that is never used, because the account's own of the same name hides it, with that one.
-     * Reported by {@code porelo doctor}.
+     * Returns each description that is never used, because the account's own of the same name hides
+     * it, with that one. Reported by {@code porelo doctor}.
      *
      * @return Hidden description to the one in use, possibly empty.
      */
@@ -159,7 +162,9 @@ public class AgentDirectory {
             }
             try (Stream<Path> entries = Files.list(location)) {
                 entries.filter(path -> path.getFileName().toString().endsWith(".yaml"))
-                        .filter(Files::isRegularFile).sorted().forEach(files::add);
+                        .filter(Files::isRegularFile)
+                        .sorted()
+                        .forEach(files::add);
             } catch (IOException ex) {
                 throw new AgentException("Cannot list " + location, ex);
             }
@@ -173,18 +178,24 @@ public class AgentDirectory {
     }
 
     /**
-     * Reads one description; never throws, since one vendor's broken file must not hide the other agents.
+     * Reads one description; never throws, since one vendor's broken file must not hide the other
+     * agents.
      */
     private static Description read(Path file) {
         final String name = nameOf(file);
         final Object loaded;
-        try (java.io.Reader reader = Files.newBufferedReader(file, java.nio.charset.StandardCharsets.UTF_8)) {
-            loaded = new org.yaml.snakeyaml.Yaml(new org.yaml.snakeyaml.constructor.SafeConstructor(
-                    new org.yaml.snakeyaml.LoaderOptions())).load(reader);
+        try (java.io.Reader reader =
+                Files.newBufferedReader(file, java.nio.charset.StandardCharsets.UTF_8)) {
+            loaded =
+                    new org.yaml.snakeyaml.Yaml(
+                                    new org.yaml.snakeyaml.constructor.SafeConstructor(
+                                            new org.yaml.snakeyaml.LoaderOptions()))
+                            .load(reader);
         } catch (IOException | RuntimeException ex) {
             return new Description(name, file, null, "cannot be read: " + ex.getMessage());
         }
-        if (!(loaded instanceof Map<?, ?> root) || !(root.get("executable") instanceof String named)
+        if (!(loaded instanceof Map<?, ?> root)
+                || !(root.get("executable") instanceof String named)
                 || named.isBlank()) {
             return new Description(name, file, null, "names no 'executable'");
         }
@@ -202,8 +213,8 @@ public class AgentDirectory {
     }
 
     /**
-     * Finds agent binaries that are installed and never used, because an earlier location holds
-     * one of the same name. Reported by {@code porelo doctor}.
+     * Finds agent binaries that are installed and never used, because an earlier location holds one
+     * of the same name. Reported by {@code porelo doctor}.
      *
      * @return Executables that lose to an earlier location, possibly empty.
      */
@@ -213,8 +224,8 @@ public class AgentDirectory {
 
     /**
      * Returns each installed binary that never runs, with the one that runs instead.
-     * <p>
-     * The pairing lives here rather than at the caller because the rule that decides it lives
+     *
+     * <p>The pairing lives here rather than at the caller because the rule that decides it lives
      * here: a caller that matched winners to losers itself would be a second implementation of
      * "which copy is in use", and it would differ exactly when it mattered.
      *

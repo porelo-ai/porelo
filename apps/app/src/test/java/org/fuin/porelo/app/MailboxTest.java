@@ -9,13 +9,10 @@ import java.nio.file.attribute.PosixFilePermissions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Test for {@link Mailbox}.
- */
+/** Test for {@link Mailbox}. */
 class MailboxTest {
 
-    @TempDir
-    private Path temp;
+    @TempDir private Path temp;
 
     @Test
     void creates_every_directory_a_task_needs() throws IOException {
@@ -43,20 +40,31 @@ class MailboxTest {
     }
 
     @Test
-    void nothing_but_the_box_is_open_and_the_mailbox_around_it_shuts_every_other_account_out() throws IOException {
+    void nothing_but_the_box_is_open_and_the_mailbox_around_it_shuts_every_other_account_out()
+            throws IOException {
         final Mailbox mailbox = new Mailbox(temp.resolve("porelo-p-t"));
 
         mailbox.create();
 
-        for (final Path directory : new Path[] {mailbox.root(), mailbox.incoming(), mailbox.accepted(),
-                mailbox.rejected(), mailbox.error(), mailbox.record(), mailbox.hold(), mailbox.inbound()}) {
+        for (final Path directory :
+                new Path[] {
+                    mailbox.root(),
+                    mailbox.incoming(),
+                    mailbox.accepted(),
+                    mailbox.rejected(),
+                    mailbox.error(),
+                    mailbox.record(),
+                    mailbox.hold(),
+                    mailbox.inbound()
+                }) {
             assertThat(mode(directory)).as(directory.toString()).isEqualTo("rwx------");
         }
     }
 
     /**
-     * Found in walk 9 on 2026-10-04: the agent could not read its own mailbox. The account running Porelo is root in
-     * the container, and the agent is another user there; every directory was the account's alone.
+     * Found in walk 9 on 2026-10-04: the agent could not read its own mailbox. The account running
+     * Porelo is root in the container, and the agent is another user there; every directory was the
+     * account's alone.
      */
     @Test
     void the_agent_reads_its_inbox_moves_what_it_read_and_writes_its_outbox() throws IOException {
@@ -64,14 +72,27 @@ class MailboxTest {
 
         mailbox.create();
 
-        for (final Path directory : new Path[] {mailbox.box(), mailbox.box().resolve("inbox"),
-                mailbox.box().resolve("outbox"), mailbox.inboxTmp(), mailbox.sentCopies()}) {
-            assertThat(mode(directory)).as("passed and read, not written: " + directory).isEqualTo("rwxr-xr-x");
+        for (final Path directory :
+                new Path[] {
+                    mailbox.box(),
+                    mailbox.box().resolve("inbox"),
+                    mailbox.box().resolve("outbox"),
+                    mailbox.inboxTmp(),
+                    mailbox.sentCopies()
+                }) {
+            assertThat(mode(directory))
+                    .as("passed and read, not written: " + directory)
+                    .isEqualTo("rwxr-xr-x");
         }
-        for (final Path directory : new Path[] {mailbox.inboxNew(), mailbox.inboxCur(), mailbox.outboxTmp(),
-                mailbox.outboxNew()}) {
-            // Not sticky: the agent renames what the host put into inbox/new, and the host what the agent wrote.
-            assertThat(mode(directory)).as("written by the agent: " + directory).isEqualTo("rwxrwxrwx");
+        for (final Path directory :
+                new Path[] {
+                    mailbox.inboxNew(), mailbox.inboxCur(), mailbox.outboxTmp(), mailbox.outboxNew()
+                }) {
+            // Not sticky: the agent renames what the host put into inbox/new, and the host what the
+            // agent wrote.
+            assertThat(mode(directory))
+                    .as("written by the agent: " + directory)
+                    .isEqualTo("rwxrwxrwx");
         }
     }
 
@@ -93,7 +114,8 @@ class MailboxTest {
     void creating_it_again_opens_the_box_of_a_task_made_before() throws IOException {
         final Mailbox mailbox = new Mailbox(temp.resolve("porelo-p-t"));
         mailbox.create();
-        Files.setPosixFilePermissions(mailbox.outboxNew(), PosixFilePermissions.fromString("rwx------"));
+        Files.setPosixFilePermissions(
+                mailbox.outboxNew(), PosixFilePermissions.fromString("rwx------"));
 
         mailbox.create();
 
@@ -106,8 +128,8 @@ class MailboxTest {
 
     /**
      * The mount hands the agent its own inbox and outbox. Anything else in the mailbox - the
-     * refused originals above all - has to stay on the host's side of it, so this asserts on
-     * where the directories are rather than on how the mount is spelt somewhere else.
+     * refused originals above all - has to stay on the host's side of it, so this asserts on where
+     * the directories are rather than on how the mount is spelt somewhere else.
      */
     @Test
     void what_the_container_sees_holds_no_refusal_and_no_record() throws IOException {

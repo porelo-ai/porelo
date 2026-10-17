@@ -26,8 +26,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link CodeGrant}: a person answers in a browser, and the answer comes back to this machine's
- * loopback.
+ * Tests for {@link CodeGrant}: a person answers in a browser, and the answer comes back to this
+ * machine's loopback.
  */
 class CodeGrantTest {
 
@@ -40,16 +40,22 @@ class CodeGrantTest {
     @BeforeEach
     void start() throws IOException {
         service = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        service.createContext("/token", exchange -> {
-            tokenBodies.add(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
-            final byte[] payload = "{\"access_token\":\"at-1\",\"refresh_token\":\"rt-1\",\"expires_in\":3600}"
-                    .getBytes(StandardCharsets.UTF_8);
-            exchange.getResponseHeaders().set("Content-Type", "application/json");
-            exchange.sendResponseHeaders(200, payload.length);
-            try (OutputStream out = exchange.getResponseBody()) {
-                out.write(payload);
-            }
-        });
+        service.createContext(
+                "/token",
+                exchange -> {
+                    tokenBodies.add(
+                            new String(
+                                    exchange.getRequestBody().readAllBytes(),
+                                    StandardCharsets.UTF_8));
+                    final byte[] payload =
+                            "{\"access_token\":\"at-1\",\"refresh_token\":\"rt-1\",\"expires_in\":3600}"
+                                    .getBytes(StandardCharsets.UTF_8);
+                    exchange.getResponseHeaders().set("Content-Type", "application/json");
+                    exchange.sendResponseHeaders(200, payload.length);
+                    try (OutputStream out = exchange.getResponseBody()) {
+                        out.write(payload);
+                    }
+                });
         service.start();
     }
 
@@ -65,9 +71,16 @@ class CodeGrantTest {
     }
 
     private CodeGrant grant(int port) {
-        return new CodeGrant(new CodeGrant.Client("https://auth.example.invalid/authorize",
-                "http://127.0.0.1:" + service.getAddress().getPort() + "/token", "porelo-client", null,
-                "repo offline_access", port, null), http);
+        return new CodeGrant(
+                new CodeGrant.Client(
+                        "https://auth.example.invalid/authorize",
+                        "http://127.0.0.1:" + service.getAddress().getPort() + "/token",
+                        "porelo-client",
+                        null,
+                        "repo offline_access",
+                        port,
+                        null),
+                http);
     }
 
     private static Map<String, String> query(String link) {
@@ -82,8 +95,16 @@ class CodeGrantTest {
     private int answer(int port, String query) throws Exception {
         // A browser's request: its own connection, nothing pooled from another test's listener.
         try (HttpClient browser = HttpClient.newHttpClient()) {
-            return browser.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/callback?" + query))
-                    .build(), HttpResponse.BodyHandlers.discarding()).statusCode();
+            return browser.send(
+                            HttpRequest.newBuilder(
+                                            URI.create(
+                                                    "http://127.0.0.1:"
+                                                            + port
+                                                            + "/callback?"
+                                                            + query))
+                                    .build(),
+                            HttpResponse.BodyHandlers.discarding())
+                    .statusCode();
         }
     }
 
@@ -94,9 +115,12 @@ class CodeGrantTest {
         try {
             final Map<String, String> query = query(grant.start(Duration.ofSeconds(5)).link());
 
-            assertThat(query).containsEntry("response_type", "code").containsEntry("client_id", "porelo-client")
+            assertThat(query)
+                    .containsEntry("response_type", "code")
+                    .containsEntry("client_id", "porelo-client")
                     .containsEntry("redirect_uri", "http://127.0.0.1:" + port + "/callback")
-                    .containsEntry("scope", "repo offline_access").containsEntry("code_challenge_method", "S256")
+                    .containsEntry("scope", "repo offline_access")
+                    .containsEntry("code_challenge_method", "S256")
                     .containsKeys("state", "code_challenge");
             assertThat(query.get("code_challenge")).doesNotContain("=").hasSize(43);
         } finally {
@@ -115,18 +139,25 @@ class CodeGrantTest {
         try {
             final Future<DeviceGrant.Outcome> waiting = pool.submit(() -> grant.await(started));
 
-            assertThat(answer(port, "code=c-1&state=wrong")).as("a stale tab is not the answer").isEqualTo(400);
+            assertThat(answer(port, "code=c-1&state=wrong"))
+                    .as("a stale tab is not the answer")
+                    .isEqualTo(400);
             assertThat(answer(port, "code=c-1&state=" + state)).isEqualTo(200);
             final DeviceGrant.Outcome outcome = waiting.get();
 
             assertThat(outcome.state()).isEqualTo("granted");
             assertThat(outcome.refreshToken()).isEqualTo("rt-1");
             final String body = tokenBodies.getFirst();
-            assertThat(body).contains("grant_type=authorization_code").contains("code=c-1")
+            assertThat(body)
+                    .contains("grant_type=authorization_code")
+                    .contains("code=c-1")
                     .contains("redirect_uri=http%3A%2F%2F127.0.0.1%3A" + port + "%2Fcallback");
-            final String verifier = URLDecoder.decode(body.replaceAll(".*code_verifier=([^&]*).*", "$1"),
-                    StandardCharsets.UTF_8);
-            assertThat(CodeGrant.challenge(verifier)).as("the verifier is the one the challenge was made from")
+            final String verifier =
+                    URLDecoder.decode(
+                            body.replaceAll(".*code_verifier=([^&]*).*", "$1"),
+                            StandardCharsets.UTF_8);
+            assertThat(CodeGrant.challenge(verifier))
+                    .as("the verifier is the one the challenge was made from")
                     .isEqualTo(challenge);
         } finally {
             pool.shutdownNow();
@@ -156,16 +187,19 @@ class CodeGrantTest {
         final CodeGrant grant = grant(port);
 
         assertThat(grant.await(grant.start(Duration.ofMillis(200))).state()).isEqualTo("expired");
-        try (ServerSocket again = new ServerSocket(port, 0, java.net.InetAddress.getLoopbackAddress())) {
+        try (ServerSocket again =
+                new ServerSocket(port, 0, java.net.InetAddress.getLoopbackAddress())) {
             assertThat(again.getLocalPort()).isEqualTo(port);
         }
     }
 
     @Test
     void aTakenPortIsSaidWithWhatToChange() throws Exception {
-        try (ServerSocket taken = new ServerSocket(0, 0, java.net.InetAddress.getLoopbackAddress())) {
+        try (ServerSocket taken =
+                new ServerSocket(0, 0, java.net.InetAddress.getLoopbackAddress())) {
             assertThatThrownBy(() -> grant(taken.getLocalPort()).start(Duration.ofSeconds(1)))
-                    .isInstanceOf(TokenPurchase.Refused.class).hasMessageContaining("redirect_port");
+                    .isInstanceOf(TokenPurchase.Refused.class)
+                    .hasMessageContaining("redirect_port");
         }
     }
 
@@ -173,15 +207,59 @@ class CodeGrantTest {
     void aClientNeedsItsEndpointsHttpsAndAPort() {
         assertThatThrownBy(() -> CodeGrant.Client.of("", Map.of("client_id", "x")))
                 .hasMessageContaining("authorization_url");
-        assertThatThrownBy(() -> CodeGrant.Client.of("", Map.of("client_id", "x", "authorization_url", "http://a/a",
-                "token_url", "https://a/t"))).hasMessageContaining("must be https");
-        assertThatThrownBy(() -> CodeGrant.Client.of("", Map.of("client_id", "x", "authorization_url", "https://a/a",
-                "token_url", "https://a/t", "redirect_port", "80"))).hasMessageContaining("between 1024");
-        final CodeGrant.Client client = CodeGrant.Client.of("-", Map.of("client_id", "x",
-                "authorization_url", "https://a/a", "token_url", "https://a/t"));
+        assertThatThrownBy(
+                        () ->
+                                CodeGrant.Client.of(
+                                        "",
+                                        Map.of(
+                                                "client_id",
+                                                "x",
+                                                "authorization_url",
+                                                "http://a/a",
+                                                "token_url",
+                                                "https://a/t")))
+                .hasMessageContaining("must be https");
+        assertThatThrownBy(
+                        () ->
+                                CodeGrant.Client.of(
+                                        "",
+                                        Map.of(
+                                                "client_id",
+                                                "x",
+                                                "authorization_url",
+                                                "https://a/a",
+                                                "token_url",
+                                                "https://a/t",
+                                                "redirect_port",
+                                                "80")))
+                .hasMessageContaining("between 1024");
+        final CodeGrant.Client client =
+                CodeGrant.Client.of(
+                        "-",
+                        Map.of(
+                                "client_id",
+                                "x",
+                                "authorization_url",
+                                "https://a/a",
+                                "token_url",
+                                "https://a/t"));
         assertThat(client.clientSecret()).as("a public client").isNull();
-        assertThat(client.redirectUri()).isEqualTo("http://127.0.0.1:" + CodeGrant.DEFAULT_PORT + "/callback");
-        assertThat(Grants.service(CodeGrant.KIND, "-", Map.of("client_id", "x", "authorization_url", "https://a/a",
-                "token_url", "https://a/t", "revocation_url", "https://a/r")).revocationUrl()).isEqualTo("https://a/r");
+        assertThat(client.redirectUri())
+                .isEqualTo("http://127.0.0.1:" + CodeGrant.DEFAULT_PORT + "/callback");
+        assertThat(
+                        Grants.service(
+                                        CodeGrant.KIND,
+                                        "-",
+                                        Map.of(
+                                                "client_id",
+                                                "x",
+                                                "authorization_url",
+                                                "https://a/a",
+                                                "token_url",
+                                                "https://a/t",
+                                                "revocation_url",
+                                                "https://a/r"))
+                                .revocationUrl())
+                .isEqualTo("https://a/r");
     }
 }

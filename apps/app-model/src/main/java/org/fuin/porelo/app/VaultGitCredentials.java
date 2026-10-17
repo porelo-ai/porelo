@@ -6,8 +6,8 @@ import org.fuin.porelo.gate.GitCredentials;
 
 /**
  * The vault, answering the gate's question about a URL.
- * <p>
- * The seam exists because the module that runs git cannot see the vault. This is the one
+ *
+ * <p>The seam exists because the module that runs git cannot see the vault. This is the one
  * implementation that matters: it hands out what {@link FollowCredential} lends, so a push
  * forwarded by the gate reaches a private forge by the same key a follow fetches with and a task
  * pushes with.

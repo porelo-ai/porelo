@@ -21,12 +21,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Test for {@link CheckoutApproval}, with real git: a checkout a task started from, its gate, and work waiting there.
+ * Test for {@link CheckoutApproval}, with real git: a checkout a task started from, its gate, and
+ * work waiting there.
  */
 class CheckoutApprovalTest {
 
-    @TempDir
-    Path dir;
+    @TempDir Path dir;
 
     private final CommandRunner runner = new ProcessCommandRunner();
 
@@ -49,14 +49,19 @@ class CheckoutApprovalTest {
 
     @BeforeEach
     void aCheckoutATaskStartedFrom() throws Exception {
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
-        context = new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
+        context =
+                new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
         origin = dir.resolve("origin.git");
         git(dir, "init", "-q", "--bare", "-b", "main", origin.toString());
         checkout = dir.resolve("app");
@@ -66,11 +71,17 @@ class CheckoutApprovalTest {
         git(checkout, "add", "README.md");
         git(checkout, "commit", "-q", "-m", "start");
         git(checkout, "push", "-q", "origin", "main");
-        // What starting a task in the checkout does: the repository goes into 'default', and its gate is seeded.
+        // What starting a task in the checkout does: the repository goes into 'default', and its
+        // gate is seeded.
         final WorkOrigin.Choice choice = WorkOrigin.fromCheckout(context, checkout);
         final Project project = GateSupport.byName(context, choice.project());
-        gate = GateSupport.gate(context, project, project.repository(choice.repository()), null,
-                checkout.toString());
+        gate =
+                GateSupport.gate(
+                        context,
+                        project,
+                        project.repository(choice.repository()),
+                        null,
+                        checkout.toString());
         gate.initialize();
     }
 
@@ -82,10 +93,16 @@ class CheckoutApprovalTest {
         assertThat(approve(null, false)).as(err.toString()).isZero();
 
         assertThat(git(checkout, "rev-parse", "porelo/writer")).isEqualTo(work);
-        assertThat(git(checkout, "symbolic-ref", "--short", "HEAD")).as("the branch checked out").isEqualTo("main");
+        assertThat(git(checkout, "symbolic-ref", "--short", "HEAD"))
+                .as("the branch checked out")
+                .isEqualTo("main");
         assertThat(git(checkout, "status", "--porcelain")).as("the working copy").isEmpty();
-        assertThat(git(origin, "branch", "--list", "porelo/*")).as("nothing reaches the forge").isEmpty();
-        assertThat(out.toString()).as("what came was shown before the question").contains("the agent's change")
+        assertThat(git(origin, "branch", "--list", "porelo/*"))
+                .as("nothing reaches the forge")
+                .isEmpty();
+        assertThat(out.toString())
+                .as("what came was shown before the question")
+                .contains("the agent's change")
                 .contains("+the agent's change");
         assertThat(asked).singleElement().asString().contains("porelo/writer");
         assertThat(gate.pending()).as("brought back, so no longer waiting").isEmpty();
@@ -126,17 +143,25 @@ class CheckoutApprovalTest {
     }
 
     @Test
-    void aNameTypedWrongAtWhichOneIsRefusedAsNothingOfThatNameAndBringsNothingBack() throws Exception {
+    void aNameTypedWrongAtWhichOneIsRefusedAsNothingOfThatNameAndBringsNothingBack()
+            throws Exception {
 
-        // A script reads the exit: the sentence said no work of that name waits, and the exit said the question was
-        // ambiguous (64), which a caller takes as "name one" and asks again with the same wrong name.
+        // A script reads the exit: the sentence said no work of that name waits, and the exit said
+        // the question was
+        // ambiguous (64), which a caller takes as "name one" and asks again with the same wrong
+        // name.
         agentPushes("writer", "one");
         agentPushes("review", "two");
 
         answers.add("revue");
         assertThat(approve(null, false)).as(err.toString()).isEqualTo(CheckoutApproval.NOTHING);
-        assertThat(err.toString()).contains("no work of 'revue' waits").contains("writer").contains("review");
-        assertThat(git(checkout, "branch", "--list", "porelo/*")).as("nothing was brought back").isEmpty();
+        assertThat(err.toString())
+                .contains("no work of 'revue' waits")
+                .contains("writer")
+                .contains("review");
+        assertThat(git(checkout, "branch", "--list", "porelo/*"))
+                .as("nothing was brought back")
+                .isEmpty();
     }
 
     @Test
@@ -169,19 +194,24 @@ class CheckoutApprovalTest {
 
         assertThat(gate.refresh()).isEmpty();
 
-        assertThat(git(gate.mirror(), "rev-parse", "main")).as("the mirror follows the checkout").isEqualTo(local);
+        assertThat(git(gate.mirror(), "rev-parse", "main"))
+                .as("the mirror follows the checkout")
+                .isEqualTo(local);
         assertThat(git(origin, "rev-parse", "main")).as("origin never saw it").isNotEqualTo(local);
     }
 
     @Test
     void workOfARepositoryWhoseSourceIsTheRemoteIsNotBroughtIntoTheCheckout() throws Exception {
 
-        // Added by its address, as every entry from before the checkout was a source: its work goes to the remote.
+        // Added by its address, as every entry from before the checkout was a source: its work goes
+        // to the remote.
         final Path other = dir.resolve("other");
         git(dir, "clone", "-q", origin.toString(), other.toString());
-        final DefaultProject.Entry entry = new DefaultProject(context).add(origin.toString(), "by-address", "");
+        final DefaultProject.Entry entry =
+                new DefaultProject(context).add(origin.toString(), "by-address", "");
         final Project project = GateSupport.byName(context, DefaultProject.NAME);
-        final GitGate remote = GateSupport.gate(context, project, project.repository(entry.name()), null, null);
+        final GitGate remote =
+                GateSupport.gate(context, project, project.repository(entry.name()), null, null);
         remote.initialize();
         final Path work = dir.resolve("work-remote");
         git(dir, "clone", "-q", remote.mirror().toString(), work.toString());
@@ -189,12 +219,19 @@ class CheckoutApprovalTest {
         Files.writeString(work.resolve("r.txt"), "for the remote\n");
         git(work, "add", ".");
         git(work, "commit", "-q", "-m", "for the remote");
-        git(work, "push", "-q", remote.mirror().toString(), "HEAD:" + GitGate.INCOMING + "remote-task");
+        git(
+                work,
+                "push",
+                "-q",
+                remote.mirror().toString(),
+                "HEAD:" + GitGate.INCOMING + "remote-task");
 
         out.getBuffer().setLength(0);
         err.getBuffer().setLength(0);
-        final int code = new CheckoutApproval(context, new PrintWriter(out, true), new PrintWriter(err, true))
-                .run(other, null, true, question -> "y");
+        final int code =
+                new CheckoutApproval(
+                                context, new PrintWriter(out, true), new PrintWriter(err, true))
+                        .run(other, null, true, question -> "y");
 
         assertThat(code).isNotZero();
         assertThat(err.toString()).contains("goes to").contains("porelo gate approve");
@@ -206,42 +243,66 @@ class CheckoutApprovalTest {
     void nothingAtTheGateButWorkInTheTaskIsSaidWithHowToBringItThere() throws Exception {
 
         // The agent committed and never pushed; 'approve' said only that nothing waited.
-        final String repository = new DefaultProject(context).withUpstream(checkout.toRealPath().toString()).name();
+        final String repository =
+                new DefaultProject(context).withUpstream(checkout.toRealPath().toString()).name();
         final String task = "porelo-default-" + repository + "-writer";
-        final CommandRunner podman = command -> {
-            final List<String> arguments = command.arguments();
-            if (arguments.size() > 1 && arguments.get(0).endsWith("podman") && arguments.get(1).equals("ps")) {
-                return new CommandResult(command, 0, task + "\tUp 3 minutes\t\t\tdefault\tguarded\t" + repository
-                        + "\t\tid\n", "");
-            }
-            if (arguments.size() > 1 && arguments.get(0).endsWith("podman") && arguments.get(1).equals("exec")) {
-                return new CommandResult(command, 0, "1 2", "");
-            }
-            return runner.run(command);
-        };
+        final CommandRunner podman =
+                command -> {
+                    final List<String> arguments = command.arguments();
+                    if (arguments.size() > 1
+                            && arguments.get(0).endsWith("podman")
+                            && arguments.get(1).equals("ps")) {
+                        return new CommandResult(
+                                command,
+                                0,
+                                task
+                                        + "\tUp 3 minutes\t\t\tdefault\tguarded\t"
+                                        + repository
+                                        + "\t\tid\n",
+                                "");
+                    }
+                    if (arguments.size() > 1
+                            && arguments.get(0).endsWith("podman")
+                            && arguments.get(1).equals("exec")) {
+                        return new CommandResult(command, 0, "1 2", "");
+                    }
+                    return runner.run(command);
+                };
         final PoreloContext withTask = new PoreloContext(podman, context.paths(), arguments -> 0);
         out.getBuffer().setLength(0);
         err.getBuffer().setLength(0);
 
-        final int code = new CheckoutApproval(withTask, new PrintWriter(out, true), new PrintWriter(err, true))
-                .run(checkout, null, true, question -> null);
+        final int code =
+                new CheckoutApproval(
+                                withTask, new PrintWriter(out, true), new PrintWriter(err, true))
+                        .run(checkout, null, true, question -> null);
 
         assertThat(code).isNotZero();
-        assertThat(err.toString()).contains("nothing waits at the gate").contains(task)
-                .contains("2 commits and 1 changed file").contains("git push");
+        assertThat(err.toString())
+                .contains("nothing waits at the gate")
+                .contains(task)
+                .contains("2 commits and 1 changed file")
+                .contains("git push");
     }
 
     private int approve(final String task, final boolean yes) {
         out.getBuffer().setLength(0);
         err.getBuffer().setLength(0);
         return new CheckoutApproval(context, new PrintWriter(out, true), new PrintWriter(err, true))
-                .run(checkout, task, yes, question -> {
-                    asked.add(question);
-                    return answers.poll();
-                });
+                .run(
+                        checkout,
+                        task,
+                        yes,
+                        question -> {
+                            asked.add(question);
+                            return answers.poll();
+                        });
     }
 
-    /** What an agent does: commits on what the task started from and pushes it to its own ref at the gate. */
+    /**
+     * What an agent does: commits on what the task started from and pushes it to its own ref at the
+     * gate.
+     */
     private String agentPushes(final String task, final String line) throws Exception {
         final Path work = dir.resolve("work-" + task);
         git(dir, "clone", "-q", checkout.toString(), work.toString());
@@ -262,7 +323,9 @@ class CheckoutApprovalTest {
         final List<String> command = new java.util.ArrayList<>(List.of("git", "-C", in.toString()));
         command.addAll(List.of(arguments));
         final CommandResult result = runner.run(Command.of(command));
-        assertThat(result.successful()).as(String.join(" ", command) + ": " + result.standardError()).isTrue();
+        assertThat(result.successful())
+                .as(String.join(" ", command) + ": " + result.standardError())
+                .isTrue();
         return result.standardOutput().strip();
     }
 }

@@ -8,9 +8,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link GitHubReport}.
- */
+/** Tests for {@link GitHubReport}. */
 class GitHubReportTest {
 
     @Test
@@ -18,11 +16,14 @@ class GitHubReportTest {
         // A workflow command ends at the first newline; what follows prints as ordinary output
         // and the annotation arrives as half a message. Found by making a scenario fail on
         // purpose, which the happy path never shows.
-        final String line = GitHubReport.annotation("src/test/resources/a.feature", 4,
-                "a scenario", "first line\nsecond line");
+        final String line =
+                GitHubReport.annotation(
+                        "src/test/resources/a.feature", 4, "a scenario", "first line\nsecond line");
         assertThat(line).doesNotContain("\n");
-        assertThat(line).isEqualTo("::error file=src/test/resources/a.feature,line=4,"
-                + "title=a scenario::first line%0Asecond line");
+        assertThat(line)
+                .isEqualTo(
+                        "::error file=src/test/resources/a.feature,line=4,"
+                                + "title=a scenario::first line%0Asecond line");
     }
 
     @Test
@@ -63,8 +64,9 @@ class GitHubReportTest {
     void reportsAGreenRunToo() {
         // The whole point of the change: a run with nothing wrong still has to appear, or the
         // page cannot tell 'passed' from 'never ran'.
-        final String summary = GitHubReport.summary(oneFeature(
-                new GitHubReport.Case("two and two", Status.PASSED, 14)));
+        final String summary =
+                GitHubReport.summary(
+                        oneFeature(new GitHubReport.Case("two and two", Status.PASSED, 14)));
         assertThat(summary).contains(":white_check_mark:");
         assertThat(summary).contains("| `a/b.feature` | two and two |");
         assertThat(summary).contains("**1 of 1 passed.**");
@@ -73,9 +75,11 @@ class GitHubReportTest {
 
     @Test
     void marksTheFailingOneAndCountsIt() {
-        final String summary = GitHubReport.summary(oneFeature(
-                new GitHubReport.Case("green", Status.PASSED, 1),
-                new GitHubReport.Case("red", Status.FAILED, 2)));
+        final String summary =
+                GitHubReport.summary(
+                        oneFeature(
+                                new GitHubReport.Case("green", Status.PASSED, 1),
+                                new GitHubReport.Case("red", Status.FAILED, 2)));
         assertThat(summary).contains(":x: | `a/b.feature` | red");
         assertThat(summary).contains("**1 of 2 passed.**");
     }
@@ -86,10 +90,12 @@ class GitHubReportTest {
         // reads to the end, so the row carries the ratio instead. This is the case where the
         // outline's name has no <placeholders> and Cucumber reports one name for every example;
         // the test below is what happens when it does not.
-        final String summary = GitHubReport.summary(oneFeature(
-                new GitHubReport.Case("an outline", Status.PASSED, 1),
-                new GitHubReport.Case("an outline", Status.FAILED, 2),
-                new GitHubReport.Case("an outline", Status.PASSED, 3)));
+        final String summary =
+                GitHubReport.summary(
+                        oneFeature(
+                                new GitHubReport.Case("an outline", Status.PASSED, 1),
+                                new GitHubReport.Case("an outline", Status.FAILED, 2),
+                                new GitHubReport.Case("an outline", Status.PASSED, 3)));
         assertThat(summary).containsOnlyOnce("an outline");
         assertThat(summary).contains("| 2/3 | 6ms |");
         assertThat(summary).contains("**2 of 3 passed.**");
@@ -100,9 +106,11 @@ class GitHubReportTest {
         // Measured, not assumed: an outline titled 'adding <a> and <b>' reports three distinct
         // names, so nothing folds and each example is its own row. Documented as unconditional
         // folding until a probe run showed otherwise.
-        final String summary = GitHubReport.summary(oneFeature(
-                new GitHubReport.Case("adding 1 and 1", Status.PASSED, 1),
-                new GitHubReport.Case("adding 9 and 9", Status.FAILED, 2)));
+        final String summary =
+                GitHubReport.summary(
+                        oneFeature(
+                                new GitHubReport.Case("adding 1 and 1", Status.PASSED, 1),
+                                new GitHubReport.Case("adding 9 and 9", Status.FAILED, 2)));
         assertThat(summary).contains("| adding 1 and 1 |");
         assertThat(summary).contains("| adding 9 and 9 |");
         assertThat(summary).doesNotContain("/2 |");
@@ -114,10 +122,12 @@ class GitHubReportTest {
         // It said "5 of 5 passed" for a run where four never ran. The absence that causes this -
         // no credential secret, so the credential half skips - is a supported state that a fork
         // hits every time, which makes it the version of the summary most likely to be read.
-        final String summary = GitHubReport.summary(oneFeature(
-                new GitHubReport.Case("ran", Status.PASSED, 1),
-                new GitHubReport.Case("did not run", Status.SKIPPED, 1),
-                new GitHubReport.Case("did not run either", Status.SKIPPED, 1)));
+        final String summary =
+                GitHubReport.summary(
+                        oneFeature(
+                                new GitHubReport.Case("ran", Status.PASSED, 1),
+                                new GitHubReport.Case("did not run", Status.SKIPPED, 1),
+                                new GitHubReport.Case("did not run either", Status.SKIPPED, 1)));
         assertThat(summary).contains("**1 of 3 passed.**");
         assertThat(summary).contains("2 skipped");
         assertThat(summary).contains(":fast_forward:");
@@ -126,18 +136,20 @@ class GitHubReportTest {
     @Test
     void saysNothingAboutSkippingWhenNothingWasSkipped() {
         // The common case stays one sentence; a caveat that is always there is not read.
-        final String summary = GitHubReport.summary(oneFeature(
-                new GitHubReport.Case("ran", Status.PASSED, 1)));
+        final String summary =
+                GitHubReport.summary(oneFeature(new GitHubReport.Case("ran", Status.PASSED, 1)));
         assertThat(summary).contains("**1 of 1 passed.**");
         assertThat(summary).doesNotContain("skipped");
     }
 
     @Test
     void countsFailedAndSkippedApartFromEachOther() {
-        final String summary = GitHubReport.summary(oneFeature(
-                new GitHubReport.Case("ran", Status.PASSED, 1),
-                new GitHubReport.Case("broke", Status.FAILED, 1),
-                new GitHubReport.Case("did not run", Status.SKIPPED, 1)));
+        final String summary =
+                GitHubReport.summary(
+                        oneFeature(
+                                new GitHubReport.Case("ran", Status.PASSED, 1),
+                                new GitHubReport.Case("broke", Status.FAILED, 1),
+                                new GitHubReport.Case("did not run", Status.SKIPPED, 1)));
         assertThat(summary).contains("**1 of 3 passed.**");
         assertThat(summary).contains("1 skipped");
         assertThat(summary).contains("1 failed.");
@@ -152,10 +164,13 @@ class GitHubReportTest {
 
     @Test
     void aScenarioWhoseStepsNoLongerExistIsNotCountedAsPassed() {
-        // A renamed kit step left an agent repository's scenarios undefined; the summary said all of them passed.
-        final String summary = GitHubReport.summary(oneFeature(
-                new GitHubReport.Case("green", Status.PASSED, 1),
-                new GitHubReport.Case("renamed", Status.UNDEFINED, 0)));
+        // A renamed kit step left an agent repository's scenarios undefined; the summary said all
+        // of them passed.
+        final String summary =
+                GitHubReport.summary(
+                        oneFeature(
+                                new GitHubReport.Case("green", Status.PASSED, 1),
+                                new GitHubReport.Case("renamed", Status.UNDEFINED, 0)));
         assertThat(summary).contains("**1 of 2 passed.**").contains("1 did not run");
         assertThat(GitHubReport.annotated(Status.UNDEFINED)).isTrue();
         assertThat(GitHubReport.annotated(Status.SKIPPED)).isFalse();

@@ -6,9 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link ProcessCommandRunner}.
- */
+/** Tests for {@link ProcessCommandRunner}. */
 class ProcessCommandRunnerTest {
 
     private final CommandRunner runner = new ProcessCommandRunner(Duration.ofSeconds(20));
@@ -45,7 +43,8 @@ class ProcessCommandRunnerTest {
 
         // A pipe buffer is 64 KiB. Without a reader draining it, this hangs instead of failing,
         // which is why the drain exists at all.
-        final CommandResult result = runner.run(Command.of("sh", "-c", "yes abcdefgh | head -c 500000"));
+        final CommandResult result =
+                runner.run(Command.of("sh", "-c", "yes abcdefgh | head -c 500000"));
 
         assertThat(result.standardOutput()).hasSize(500000);
     }
@@ -53,7 +52,11 @@ class ProcessCommandRunnerTest {
     @Test
     void reportsTheProgramsOwnErrorOutputWhenFailing() {
 
-        assertThatThrownBy(() -> runner.runOrFail(Command.of("sh", "-c", "echo 'no such image' >&2; exit 125")))
+        assertThatThrownBy(
+                        () ->
+                                runner.runOrFail(
+                                        Command.of(
+                                                "sh", "-c", "echo 'no such image' >&2; exit 125")))
                 .isInstanceOf(CommandException.class)
                 .hasMessageContaining("exit code 125")
                 .hasMessageContaining("no such image");
@@ -80,34 +83,54 @@ class ProcessCommandRunnerTest {
     @org.junit.jupiter.api.Test
     void aChildThatLeavesAGrandchildHoldingItsOutputDoesNotHoldTheCallerToo() {
 
-        // Only the child was ended, and the output was then waited for without a limit: a grandchild that kept it
-        // open - a git helper under 'git fetch' against an upstream that feeds slowly - held the caller for ever.
+        // Only the child was ended, and the output was then waited for without a limit: a
+        // grandchild that kept it
+        // open - a git helper under 'git fetch' against an upstream that feeds slowly - held the
+        // caller for ever.
         final java.time.Instant started = java.time.Instant.now();
-        new ProcessCommandRunner(java.time.Duration.ofSeconds(1)).run(Command.of("sh", "-c", "sleep 8 & exit 0"));
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> new ProcessCommandRunner(java.time.Duration.ofSeconds(1))
-                .run(Command.of("sh", "-c", "sleep 8 & sleep 8"))).isInstanceOf(CommandException.class);
+        new ProcessCommandRunner(java.time.Duration.ofSeconds(1))
+                .run(Command.of("sh", "-c", "sleep 8 & exit 0"));
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                new ProcessCommandRunner(java.time.Duration.ofSeconds(1))
+                                        .run(Command.of("sh", "-c", "sleep 8 & sleep 8")))
+                .isInstanceOf(CommandException.class);
 
-        org.assertj.core.api.Assertions.assertThat(java.time.Duration.between(started, java.time.Instant.now()))
+        org.assertj.core.api.Assertions.assertThat(
+                        java.time.Duration.between(started, java.time.Instant.now()))
                 .isLessThan(java.time.Duration.ofSeconds(6));
     }
 
     @org.junit.jupiter.api.Test
     void aChildThatDoesNotReadItsInputStillSucceeds() {
 
-        // The input was written before the limit ran, and a child that exited without reading it made a successful
+        // The input was written before the limit ran, and a child that exited without reading it
+        // made a successful
         // command fail with "Stream closed".
-        org.assertj.core.api.Assertions.assertThat(new ProcessCommandRunner(java.time.Duration.ofSeconds(5))
-                .run(Command.of("true").withInput("x".repeat(1024 * 1024))).exitCode()).isZero();
+        org.assertj.core.api.Assertions.assertThat(
+                        new ProcessCommandRunner(java.time.Duration.ofSeconds(5))
+                                .run(Command.of("true").withInput("x".repeat(1024 * 1024)))
+                                .exitCode())
+                .isZero();
     }
 
     @org.junit.jupiter.api.Test
     void outputBeyondItsLimitIsKeptAsItsEndNotHeldWhole() {
 
-        // Collected without a limit, what a hostile server made git print could run the daemon out of memory.
-        final CommandResult result = new ProcessCommandRunner(java.time.Duration.ofSeconds(30))
-                .run(Command.of("sh", "-c", "head -c 40000000 /dev/zero | tr '\\0' 'x'; echo END"));
+        // Collected without a limit, what a hostile server made git print could run the daemon out
+        // of memory.
+        final CommandResult result =
+                new ProcessCommandRunner(java.time.Duration.ofSeconds(30))
+                        .run(
+                                Command.of(
+                                        "sh",
+                                        "-c",
+                                        "head -c 40000000 /dev/zero | tr '\\0' 'x'; echo END"));
 
-        org.assertj.core.api.Assertions.assertThat(result.standardOutput().length()).isLessThan(20_000_000);
-        org.assertj.core.api.Assertions.assertThat(result.standardOutput()).contains("cut").endsWith("END\n");
+        org.assertj.core.api.Assertions.assertThat(result.standardOutput().length())
+                .isLessThan(20_000_000);
+        org.assertj.core.api.Assertions.assertThat(result.standardOutput())
+                .contains("cut")
+                .endsWith("END\n");
     }
 }

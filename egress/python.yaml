@@ -2,5 +2,5 @@
 name: python
 label: Python packages
 domains:
-  - pypi.org
-  - files.pythonhosted.org
+    - pypi.org
+    - files.pythonhosted.org

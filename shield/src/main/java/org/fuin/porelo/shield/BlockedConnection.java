@@ -12,12 +12,13 @@ import org.fuin.porelo.wire.Json;
  * @param protocol IP protocol number, 6 for TCP and 17 for UDP.
  * @param destination Destination address, as text.
  * @param port Destination port, or zero when the protocol has none.
- * @param at When the packet was stopped: the kernel's time where the log carried one, else when it was read.
- * @param sourcePort Source port, or zero when the protocol has none. What tells a retry of one attempt, which keeps
- *        it, from a second attempt, which gets a port of its own.
+ * @param at When the packet was stopped: the kernel's time where the log carried one, else when it
+ *     was read.
+ * @param sourcePort Source port, or zero when the protocol has none. What tells a retry of one
+ *     attempt, which keeps it, from a second attempt, which gets a port of its own.
  */
-public record BlockedConnection(String prefix, int protocol, String destination, int port, Instant at,
-        int sourcePort) {
+public record BlockedConnection(
+        String prefix, int protocol, String destination, int port, Instant at, int sourcePort) {
 
     /**
      * Constructor for an event whose source port is not known.
@@ -28,7 +29,8 @@ public record BlockedConnection(String prefix, int protocol, String destination,
      * @param port Destination port.
      * @param at When it was stopped.
      */
-    public BlockedConnection(String prefix, int protocol, String destination, int port, Instant at) {
+    public BlockedConnection(
+            String prefix, int protocol, String destination, int port, Instant at) {
         this(prefix, protocol, destination, port, at, 0);
     }
 
@@ -62,9 +64,9 @@ public record BlockedConnection(String prefix, int protocol, String destination,
 
     /**
      * Returns a key identifying the destination, for suppressing repeats.
-     * <p>
-     * An agent retrying a connection produces one event per attempt, and a build tool can produce
-     * hundreds a second. Prompting for each would make the machine unusable.
+     *
+     * <p>An agent retrying a connection produces one event per attempt, and a build tool can
+     * produce hundreds a second. Prompting for each would make the machine unusable.
      *
      * @return Deduplication key.
      */
@@ -74,13 +76,13 @@ public record BlockedConnection(String prefix, int protocol, String destination,
 
     /**
      * Tells whether this event is worth putting in front of an operator.
-     * <p>
-     * A container's network namespace is noisy in ways that have nothing to do with the agent:
+     *
+     * <p>A container's network namespace is noisy in ways that have nothing to do with the agent:
      * IPv6 router solicitations, multicast listener reports and mDNS all get dropped by the
      * default-deny chain and all produce events. Asking about those would bury the one prompt that
      * matters, and an operator who has learned to dismiss prompts is worse than no prompts.
-     * <p>
-     * Only unicast TCP and UDP survive: those are the connections an agent actually makes.
+     *
+     * <p>Only unicast TCP and UDP survive: those are the connections an agent actually makes.
      *
      * @return {@code true} if an operator should be asked about it.
      */
@@ -105,8 +107,10 @@ public record BlockedConnection(String prefix, int protocol, String destination,
         if (destination.contains(":")) {
             // fe80::/10
             final String lower = destination.toLowerCase();
-            return lower.startsWith("fe8") || lower.startsWith("fe9")
-                    || lower.startsWith("fea") || lower.startsWith("feb");
+            return lower.startsWith("fe8")
+                    || lower.startsWith("fe9")
+                    || lower.startsWith("fea")
+                    || lower.startsWith("feb");
         }
         return destination.startsWith("169.254.");
     }

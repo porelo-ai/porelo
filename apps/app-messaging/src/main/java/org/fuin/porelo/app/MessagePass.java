@@ -17,14 +17,14 @@ import org.jspecify.annotations.Nullable;
 /**
  * One pass over a task's mailbox: everything that has to happen between an agent writing a message
  * and another agent reading it.
- * <p>
- * The order is the design and not a convenience. Nothing is queued before the filter has seen it;
- * nothing is sent before it is queued; what arrived is delivered only after its signature is
+ *
+ * <p>The order is the design and not a convenience. Nothing is queued before the filter has seen
+ * it; nothing is sent before it is queued; what arrived is delivered only after its signature is
  * checked; and the filter's own answers go into the agent's inbox last, around the filter rather
  * than through it.
- * <p>
- * <strong>A step that fails stops the ones after it that depend on it, and no further.</strong> A
- * filter that cannot run means nothing is dispatched or sent - but what already arrived for this
+ *
+ * <p><strong>A step that fails stops the ones after it that depend on it, and no further.</strong>
+ * A filter that cannot run means nothing is dispatched or sent - but what already arrived for this
  * task is still delivered, because refusing to hand over somebody else's message is not a sensible
  * answer to our own filter being broken.
  */
@@ -41,11 +41,14 @@ public final class MessagePass {
      * @param bounced The filter's answers handed to the agent.
      * @param polled What each transport fetched, and what could not be asked.
      */
-    public record Report(List<String> taken, MessageFiltering.Outcome filtered,
-            MessageDispatch.Outcome dispatched, Map<String, TransportSend.Result> sent,
-            MessageDelivery.Outcome delivered, List<String> bounced,
-            TransportPoll.Outcome polled) {
-    }
+    public record Report(
+            List<String> taken,
+            MessageFiltering.Outcome filtered,
+            MessageDispatch.Outcome dispatched,
+            Map<String, TransportSend.Result> sent,
+            MessageDelivery.Outcome delivered,
+            List<String> bounced,
+            TransportPoll.Outcome polled) {}
 
     private final CommandRunner runner;
 
@@ -65,7 +68,10 @@ public final class MessagePass {
      * @param filter The message filter, or {@code null} when none is installed.
      * @param transports Where the adapters are.
      */
-    public MessagePass(final CommandRunner runner, final SigningKey key, final @Nullable Path filter,
+    public MessagePass(
+            final CommandRunner runner,
+            final SigningKey key,
+            final @Nullable Path filter,
             final TransportDirectory transports) {
         this.runner = runner;
         this.key = key;
@@ -83,47 +89,79 @@ public final class MessagePass {
      * @return What happened.
      * @throws IOException A file could not be read or moved.
      */
-    public Report run(final Mailbox mailbox, final Mail mail,
-            final List<MessageDelivery.Peer> peers, final Moderation moderation) throws IOException {
-        // One pass at a time per mailbox, whoever runs it: the daemon's and a 'talk pass' ran over one queue at once,
+    public Report run(
+            final Mailbox mailbox,
+            final Mail mail,
+            final List<MessageDelivery.Peer> peers,
+            final Moderation moderation)
+            throws IOException {
+        // One pass at a time per mailbox, whoever runs it: the daemon's and a 'talk pass' ran over
+        // one queue at once,
         // sent a message twice, and the slower one's move failed halfway through its pass.
-        return FileLocks.holding(mailbox.root().resolve(PASS_LOCK), () -> runHeld(mailbox, mail, peers, moderation));
+        return FileLocks.holding(
+                mailbox.root().resolve(PASS_LOCK), () -> runHeld(mailbox, mail, peers, moderation));
     }
 
-    /** The lock file a mailbox's passes and releases take, beside the box the task sees and never in it. */
+    /**
+     * The lock file a mailbox's passes and releases take, beside the box the task sees and never in
+     * it.
+     */
     static final String PASS_LOCK = ".pass.lock";
 
-    private Report runHeld(final Mailbox mailbox, final Mail mail,
-            final List<MessageDelivery.Peer> peers, final Moderation moderation) throws IOException {
+    private Report runHeld(
+            final Mailbox mailbox,
+            final Mail mail,
+            final List<MessageDelivery.Peer> peers,
+            final Moderation moderation)
+            throws IOException {
         final MessageRecord record = new MessageRecord(mailbox);
         final List<String> taken = new MessageIntake(key).take(mailbox);
         for (final String message : taken) {
             // The role goes into the record: a person writing into a conversation has to be
             // distinguishable from the agent afterwards, and the message itself may be gone by
             // the time anybody asks.
-            record.append(MessageRecord.TAKEN, message, "", "",
+            record.append(
+                    MessageRecord.TAKEN,
+                    message,
+                    "",
+                    "",
                     MessageFile.role(mailbox.incoming().resolve(message)));
         }
-        final MessageFiltering.Outcome filtered = new MessageFiltering(runner, filter).run(mailbox, mail.outgoingReported());
+        final MessageFiltering.Outcome filtered =
+                new MessageFiltering(runner, filter).run(mailbox, mail.outgoingReported());
 
         final MessageBudget budget = new MessageBudget(record, mail);
         MessageDispatch.Outcome dispatched =
                 new MessageDispatch.Outcome(Map.of(), List.of(), Map.of());
         final Map<String, TransportSend.Result> sent = new LinkedHashMap<>();
         if (filtered.ran()) {
-            // Even after exit 2: accepted/ holds only what the filter checked and passed; one not judged stays in incoming/.
-            dispatched = new MessageDispatch().dispatch(mailbox, mail, moderation,
-                    budget);
+            // Even after exit 2: accepted/ holds only what the filter checked and passed; one not
+            // judged stays in incoming/.
+            dispatched = new MessageDispatch().dispatch(mailbox, mail, moderation, budget);
             for (final Map.Entry<String, String> queued : dispatched.queued().entrySet()) {
-                record.append(MessageRecord.QUEUED, queued.getKey(), "",
-                        dispatched.peers().getOrDefault(queued.getKey(), ""), queued.getValue());
+                record.append(
+                        MessageRecord.QUEUED,
+                        queued.getKey(),
+                        "",
+                        dispatched.peers().getOrDefault(queued.getKey(), ""),
+                        queued.getValue());
             }
             for (final MessageDelivery.Held stuck : dispatched.held()) {
-                record.append(MessageRecord.HELD, stuck.message(), "", "", stuck.reason(), MessageRecord.OUT);
+                record.append(
+                        MessageRecord.HELD,
+                        stuck.message(),
+                        "",
+                        "",
+                        stuck.reason(),
+                        MessageRecord.OUT);
                 // The sender is told the moment it is held, not when somebody gets round to the
                 // hold list: an agent with no answer waits forever or sends the same thing again.
-                new HostBounce().write(mailbox, mailbox.hold().resolve(stuck.message()),
-                        "it was not sent: " + stuck.reason(), false);
+                new HostBounce()
+                        .write(
+                                mailbox,
+                                mailbox.hold().resolve(stuck.message()),
+                                "it was not sent: " + stuck.reason(),
+                                false);
             }
             final TransportSend send = new TransportSend(runner, transports, acting);
             for (final String transport : queues(mailbox)) {
@@ -136,11 +174,21 @@ public final class MessagePass {
                     record.append(MessageRecord.DEFERRED, message, "", transport);
                 }
                 for (final MessageDelivery.Held stuck : result.refused()) {
-                    record.append(MessageRecord.HELD, stuck.message(), "", "", stuck.reason(), MessageRecord.OUT);
+                    record.append(
+                            MessageRecord.HELD,
+                            stuck.message(),
+                            "",
+                            "",
+                            stuck.reason(),
+                            MessageRecord.OUT);
                     // A permanent transport failure is final, so the answer says so rather than
                     // leaving the agent to believe its message is still on its way.
-                    new HostBounce().write(mailbox, mailbox.hold().resolve(stuck.message()),
-                            "it could not be delivered: " + stuck.reason(), true);
+                    new HostBounce()
+                            .write(
+                                    mailbox,
+                                    mailbox.hold().resolve(stuck.message()),
+                                    "it could not be delivered: " + stuck.reason(),
+                                    true);
                 }
             }
         }
@@ -150,29 +198,51 @@ public final class MessagePass {
         final TransportPoll.Outcome polled =
                 new TransportPoll(runner, transports).poll(mailbox, named(mail));
         for (final Map.Entry<String, String> failure : polled.failures().entrySet()) {
-            record.append(MessageRecord.HELD, "", "", failure.getKey(),
-                    "it could not be asked what arrived: " + failure.getValue(), MessageRecord.IN);
+            record.append(
+                    MessageRecord.HELD,
+                    "",
+                    "",
+                    failure.getKey(),
+                    "it could not be asked what arrived: " + failure.getValue(),
+                    MessageRecord.IN);
         }
 
         // Independent of our own filter: what a peer sent is delivered whether or not this machine
         // can send anything today.
-        // What was held counts as seen as much as what was delivered: a second copy of a held message is the same message.
+        // What was held counts as seen as much as what was delivered: a second copy of a held
+        // message is the same message.
         final java.util.Set<String> handed = record.delivered();
         final java.util.Set<String> seen = new java.util.LinkedHashSet<>(handed);
         seen.addAll(record.held());
         final MessageDelivery.Outcome delivered =
-                new MessageDelivery().deliver(mailbox, withOwn(peers), seen,
-                        new InboundCheck(runner, filter, mail), budget,
-                        attestedBy(polled, mail));
+                new MessageDelivery()
+                        .deliver(
+                                mailbox,
+                                withOwn(peers),
+                                seen,
+                                new InboundCheck(runner, filter, mail),
+                                budget,
+                                attestedBy(polled, mail));
         for (final MessageDelivery.Delivered one : delivered.delivered()) {
             record.append(MessageRecord.DELIVERED, one.message(), one.id(), one.peer(), "");
         }
         for (final MessageDelivery.Held stuck : delivered.held()) {
-            record.append(MessageRecord.HELD, stuck.message(), stuck.id(), "", stuck.reason(), MessageRecord.IN);
+            record.append(
+                    MessageRecord.HELD,
+                    stuck.message(),
+                    stuck.id(),
+                    "",
+                    stuck.reason(),
+                    MessageRecord.IN);
         }
         for (final MessageDelivery.Repeat repeat : delivered.duplicates()) {
-            record.append(MessageRecord.DUPLICATE, repeat.message(), repeat.id(),
-                    handed.contains(repeat.id()) ? "it had been delivered before" : "a copy of it is held already");
+            record.append(
+                    MessageRecord.DUPLICATE,
+                    repeat.message(),
+                    repeat.id(),
+                    handed.contains(repeat.id())
+                            ? "it had been delivered before"
+                            : "a copy of it is held already");
         }
         final List<String> bounced = new BounceDelivery().deliver(mailbox);
         return new Report(taken, filtered, dispatched, sent, delivered, bounced, polled);
@@ -180,17 +250,17 @@ public final class MessagePass {
 
     /**
      * Builds the ownership check for messages this pass fetched.
-     * <p>
-     * Which transport brought a message decides whether it has to prove who owned it, and that is
-     * known only here - the message itself does not say, and a transport's own word about it is the
-     * claim that must not be trusted.
+     *
+     * <p>Which transport brought a message decides whether it has to prove who owned it, and that
+     * is known only here - the message itself does not say, and a transport's own word about it is
+     * the claim that must not be trusted.
      *
      * @param polled What each transport fetched.
      * @param mail The project's peers, where an address names a Unix user.
      * @return The check, which lets through anything nobody promised anything about.
      */
-    private MessageDelivery.Attested attestedBy(final TransportPoll.Outcome polled,
-            final Mail mail) {
+    private MessageDelivery.Attested attestedBy(
+            final TransportPoll.Outcome polled, final Mail mail) {
         return (mailbox, message, peer) -> {
             final String carrier = polled.arrivals().get(message.getFileName().toString());
             // Nothing fetched it in this pass means nothing was promised about it - not that
@@ -199,30 +269,39 @@ public final class MessagePass {
             // this short-circuited, a message fetched in an earlier pass reached the agent with a
             // contradicting owner file unread beside it.
             final Path adapter = carrier == null ? null : transports.find(carrier);
-            final boolean attesting = adapter != null
-                    && TransportDescription.of(runner, adapter).attestsOwner();
+            final boolean attesting =
+                    adapter != null && TransportDescription.of(runner, adapter).attestsOwner();
             return OwnerAttestation.refuse(mailbox, message, peer, mail, attesting);
         };
     }
 
     /**
      * Returns the peers with this machine's own key among them.
-     * <p>
-     * <strong>What this machine signed, this machine believes.</strong> A project's own tasks here are each
-     * other's peers, and every message they send is signed by this installation's one key after its filter
-     * read it. Delivered back to a task of the same project - through the project's conversation, say - it
-     * was held as "signed by a key no peer is allowed to use" (found on 2026-09-30): no list
-     * held this machine's own key. Which task it may reach is still decided by routing - a conversation is
-     * one project's, and the local transport addresses a sibling's inbox by path - and what arrives is still
-     * read by the filter on the way in, as for any peer this project's file does not vouch for by name.
+     *
+     * <p><strong>What this machine signed, this machine believes.</strong> A project's own tasks
+     * here are each other's peers, and every message they send is signed by this installation's one
+     * key after its filter read it. Delivered back to a task of the same project - through the
+     * project's conversation, say - it was held as "signed by a key no peer is allowed to use"
+     * (found on 2026-09-30): no list held this machine's own key. Which task it may reach is still
+     * decided by routing - a conversation is one project's, and the local transport addresses a
+     * sibling's inbox by path - and what arrives is still read by the filter on the way in, as for
+     * any peer this project's file does not vouch for by name.
      *
      * @param peers The peers the operator and this machine's other accounts named.
-     * @return Them, and this machine's key under its own principal unless one of them already holds it.
+     * @return Them, and this machine's key under its own principal unless one of them already holds
+     *     it.
      */
     List<MessageDelivery.Peer> withOwn(final List<MessageDelivery.Peer> peers) {
         final byte[] own = key.keyBlob();
-        final boolean named = peers.stream().anyMatch(peer -> peer.keys().stream()
-                .anyMatch(each -> java.util.Arrays.equals(each, own)));
+        final boolean named =
+                peers.stream()
+                        .anyMatch(
+                                peer ->
+                                        peer.keys().stream()
+                                                .anyMatch(
+                                                        each ->
+                                                                java.util.Arrays.equals(
+                                                                        each, own)));
         if (named) {
             return peers;
         }
@@ -250,15 +329,17 @@ public final class MessagePass {
     }
 
     /**
-     * Returns the transports a mailbox's own poll asks: those a peer of its project names, less those that
-     * keep a conversation, which are polled once per project beside the passes.
+     * Returns the transports a mailbox's own poll asks: those a peer of its project names, less
+     * those that keep a conversation, which are polled once per project beside the passes.
      *
      * @param mail The project's peers.
      * @return Their schemes.
      */
     static java.util.Set<String> named(final Mail mail) {
         final java.util.Set<String> schemes = new java.util.LinkedHashSet<>();
-        mail.peers().stream().filter(peer -> !peer.conversation()).forEach(peer -> schemes.add(peer.transport()));
+        mail.peers().stream()
+                .filter(peer -> !peer.conversation())
+                .forEach(peer -> schemes.add(peer.transport()));
         return schemes;
     }
 
@@ -268,9 +349,11 @@ public final class MessagePass {
             return List.of();
         }
         try (Stream<Path> entries = Files.list(root)) {
-            final List<String> names = new ArrayList<>(
-                    entries.filter(Files::isDirectory)
-                            .map(path -> path.getFileName().toString()).toList());
+            final List<String> names =
+                    new ArrayList<>(
+                            entries.filter(Files::isDirectory)
+                                    .map(path -> path.getFileName().toString())
+                                    .toList());
             names.sort(Comparator.naturalOrder());
             return names;
         }

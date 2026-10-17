@@ -8,10 +8,10 @@ import java.util.Map;
 
 /**
  * Installs the packages in a clean container and asks the installed binary about itself.
- * <p>
- * Metadata can be right while the package does not install, so both are installed, including that
- * the agent package's dependency on porelo resolves. The commands run inside the container, where a
- * shell is the interface.
+ *
+ * <p>Metadata can be right while the package does not install, so both are installed, including
+ * that the agent package's dependency on porelo resolves. The commands run inside the container,
+ * where a shell is the interface.
  *
  * @param deb the porelo deb
  * @param rpm the porelo rpm
@@ -24,20 +24,26 @@ record Install(Path deb, Path rpm, Path agentDeb) {
 
     private static final String REPORTED = "REPORTED:";
 
-    /** What a step that failed prints before its own last lines, so a report says why rather than only what. */
+    /**
+     * What a step that failed prints before its own last lines, so a report says why rather than
+     * only what.
+     */
     static final String WHY = "FAILED:";
 
     /**
-     * Says which step failed and the last lines it wrote. A step's output used to go to {@code /dev/null}, so an
-     * install that failed on a mirror answered only that every later check had nothing to report (2026-09-30). And
-     * {@code apt-get update} succeeds when it reaches no mirror at all, so it is told {@code --error-on=any}: otherwise
-     * the install after it fails with "held broken packages", which names the wrong cause - measured.
+     * Says which step failed and the last lines it wrote. A step's output used to go to {@code
+     * /dev/null}, so an install that failed on a mirror answered only that every later check had
+     * nothing to report (2026-09-30). And {@code apt-get update} succeeds when it reaches no mirror
+     * at all, so it is told {@code --error-on=any}: otherwise the install after it fails with "held
+     * broken packages", which names the wrong cause - measured.
      */
-    private static final String FAILED = """
+    private static final String FAILED =
+            """
             failed() { echo "FAILED: $1"; tail -n 6 /tmp/step.log | sed 's/^/FAILED:   /'; }
             """;
 
-    private static final String COMMON = """
+    private static final String COMMON =
+            """
             porelo --version >/dev/null 2>&1 && echo PORELO-OK
             echo "REPORTED:$(porelo --version 2>/dev/null)"
             porelo setup >/dev/null 2>&1 && echo SETUP-OK
@@ -55,22 +61,27 @@ record Install(Path deb, Path rpm, Path agentDeb) {
         markers.put("SETUP-OK", "porelo setup writes the podman hook descriptors");
         markers.put("HOOKS-PACKAGED", "the descriptors point at the packaged hook binaries");
         markers.put("DISCOVERY-OK", "porelo discovers the agent it was never linked against");
-        markers.put("DESCRIBED", "the agent is found by its description under /usr/share/porelo/agents.d");
-        markers.put("NO-PORELO-NAME", "no file of Porelo's name is installed for it under /usr/libexec/porelo/agents");
+        markers.put(
+                "DESCRIBED",
+                "the agent is found by its description under /usr/share/porelo/agents.d");
+        markers.put(
+                "NO-PORELO-NAME",
+                "no file of Porelo's name is installed for it under /usr/libexec/porelo/agents");
         return Collections.unmodifiableMap(markers);
     }
 
     /**
      * The install on Ubuntu.
-     * <p>
-     * The mirror is the one Porelo writes into the images it builds: on 2026-09-11 this step took 582
-     * of the Publish job's 610 seconds, because a plain {@code ubuntu:24.04} fetches from a disrupted
-     * {@code archive.ubuntu.com}.
+     *
+     * <p>The mirror is the one Porelo writes into the images it builds: on 2026-09-11 this step
+     * took 582 of the Publish job's 610 seconds, because a plain {@code ubuntu:24.04} fetches from
+     * a disrupted {@code archive.ubuntu.com}.
      *
      * @return the script
      */
     String ubuntu() {
-        return apt("""
+        return apt(
+                """
                 sed -i 's|^URIs:.*|URIs: http://azure.archive.ubuntu.com/ubuntu/|' \\
                     /etc/apt/sources.list.d/*.sources 2>/dev/null || true
                 """);
@@ -86,16 +97,20 @@ record Install(Path deb, Path rpm, Path agentDeb) {
     }
 
     private static String apt(final String sources) {
-        return FAILED + """
+        return FAILED
+                + """
                 export DEBIAN_FRONTEND=noninteractive
                 printf '%s\\n' 'Acquire::http::Timeout "20";' 'Acquire::Retries "2";' \\
                     > /etc/apt/apt.conf.d/99-porelo-timeouts
-                """ + sources + """
+                """
+                + sources
+                + """
                 apt-get update -qq --error-on=any >/tmp/step.log 2>&1 || failed "apt-get update"
                 apt-get install -y -qq /deb/porelo_*.deb >/tmp/step.log 2>&1 || failed "installing porelo"
                 apt-get install -y -qq /agent/porelo-agent-stub_*.deb >/tmp/step.log 2>&1 && echo AGENT-OK \
                     || failed "installing the agent"
-                """ + COMMON;
+                """
+                + COMMON;
     }
 
     /**
@@ -104,11 +119,13 @@ record Install(Path deb, Path rpm, Path agentDeb) {
      * @return the script
      */
     String fedora() {
-        return FAILED + """
+        return FAILED
+                + """
                 dnf install -y -q /rpm/porelo-0*.rpm >/tmp/step.log 2>&1 || failed "installing porelo"
                 dnf install -y -q /agent/porelo-agent-stub-*.rpm >/tmp/step.log 2>&1 && echo AGENT-OK \
                     || failed "installing the agent"
-                """ + COMMON;
+                """
+                + COMMON;
     }
 
     /**
@@ -122,21 +139,32 @@ record Install(Path deb, Path rpm, Path agentDeb) {
      */
     void check(String label, String image, String script, String version, Report report) {
         report.section("installs on " + label);
-        final Commands.Result result = Commands.runMerged(List.of("podman", "run", "--rm",
-                "-v", deb.getParent() + ":/deb:ro,Z",
-                "-v", rpm.getParent() + ":/rpm:ro,Z",
-                "-v", agentDeb.getParent() + ":/agent:ro,Z",
-                image, "sh", "-c", script));
+        final Commands.Result result =
+                Commands.runMerged(
+                        List.of(
+                                "podman",
+                                "run",
+                                "--rm",
+                                "-v",
+                                deb.getParent() + ":/deb:ro,Z",
+                                "-v",
+                                rpm.getParent() + ":/rpm:ro,Z",
+                                "-v",
+                                agentDeb.getParent() + ":/agent:ro,Z",
+                                image,
+                                "sh",
+                                "-c",
+                                script));
         verdicts(label, result.output(), version, report);
     }
 
     /**
      * Reads what an install printed.
-     * <p>
-     * What the binary says about itself has to be what the package says about it. It was not: every
-     * build answered {@code 0.1.0-SNAPSHOT} while its package carried a build number, because this
-     * check ran {@code porelo --version} and threw the answer away - it proved the binary starts,
-     * which is not the same question.
+     *
+     * <p>What the binary says about itself has to be what the package says about it. It was not:
+     * every build answered {@code 0.1.0-SNAPSHOT} while its package carried a build number, because
+     * this check ran {@code porelo --version} and threw the answer away - it proved the binary
+     * starts, which is not the same question.
      *
      * @param label the distribution, for the report
      * @param output what the container printed
@@ -155,14 +183,23 @@ record Install(Path deb, Path rpm, Path agentDeb) {
                 lines.subList(Math.max(0, lines.size() - 5), lines.size()).forEach(report::info);
             }
         }
-        final String reported = lines.stream().filter(line -> line.startsWith(REPORTED))
-                .map(line -> line.substring(REPORTED.length())).reduce((first, second) -> second).orElse("");
+        final String reported =
+                lines.stream()
+                        .filter(line -> line.startsWith(REPORTED))
+                        .map(line -> line.substring(REPORTED.length()))
+                        .reduce((first, second) -> second)
+                        .orElse("");
         if (reported.equals("porelo " + version)) {
             report.pass("the binary names the build it came from (" + version + ")");
         } else {
-            report.fail("the package is " + version + " but the binary says '" + (reported.isEmpty() ? "nothing" : reported) + "'");
-            report.info("an interface cannot tell two daemons apart when every build answers the same");
+            report.fail(
+                    "the package is "
+                            + version
+                            + " but the binary says '"
+                            + (reported.isEmpty() ? "nothing" : reported)
+                            + "'");
+            report.info(
+                    "an interface cannot tell two daemons apart when every build answers the same");
         }
     }
-
 }

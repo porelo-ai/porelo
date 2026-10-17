@@ -6,9 +6,10 @@ import java.util.Map;
 
 /**
  * The keys a scenario can press, by name, as the bytes an {@code xterm-256color} sends for them.
- * <p>
- * What reaches a program behind the task's tmux is what the step asserts, so the table holds what the outside terminal
- * sends, never what tmux turns it into. Measured on 2026-10-09 with a program that logged every byte it received.
+ *
+ * <p>What reaches a program behind the task's tmux is what the step asserts, so the table holds
+ * what the outside terminal sends, never what tmux turns it into. Measured on 2026-10-09 with a
+ * program that logged every byte it received.
  */
 final class Keys {
 
@@ -48,8 +49,11 @@ final class Keys {
     static byte[] bytes(final String name) {
         final String sent = TABLE.get(name);
         if (sent == null) {
-            throw new IllegalArgumentException("No key '" + name + "'; the keys are " + String.join(", ",
-                    new java.util.TreeSet<>(TABLE.keySet())));
+            throw new IllegalArgumentException(
+                    "No key '"
+                            + name
+                            + "'; the keys are "
+                            + String.join(", ", new java.util.TreeSet<>(TABLE.keySet())));
         }
         return sent.getBytes(StandardCharsets.UTF_8);
     }

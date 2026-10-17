@@ -13,21 +13,27 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Test for {@link MailboxGuide}.
- */
+/** Test for {@link MailboxGuide}. */
 class MailboxGuideTest {
 
     @Test
     void tellsTheAgentWhatTheHostAndTheFilterEnforce() {
         final String text = MailboxGuide.text();
 
-        assertThat(text).contains(Mailbox.MOUNT + "/inbox/new").contains(Mailbox.MOUNT + "/outbox/tmp")
-                .contains(Mailbox.MOUNT + "/outbox/new").contains(Mailbox.CARD)
-                .contains("\"role\": \"" + MessageIntake.AGENT + "\"").contains("metadata.to")
-                .contains("\"via\": \"room\"").contains(Mail.PEOPLE).contains("messageId")
-                // The operator in walk 10: "Seid Ihr alle da?" to the room, and an agent filed it unanswered.
-                .contains("names nobody is meant for every agent in the room:").contains("answer it in the room.")
+        assertThat(text)
+                .contains(Mailbox.MOUNT + "/inbox/new")
+                .contains(Mailbox.MOUNT + "/outbox/tmp")
+                .contains(Mailbox.MOUNT + "/outbox/new")
+                .contains(Mailbox.CARD)
+                .contains("\"role\": \"" + MessageIntake.AGENT + "\"")
+                .contains("metadata.to")
+                .contains("\"via\": \"room\"")
+                .contains(Mail.PEOPLE)
+                .contains("messageId")
+                // The operator in walk 10: "Seid Ihr alle da?" to the room, and an agent filed it
+                // unanswered.
+                .contains("names nobody is meant for every agent in the room:")
+                .contains("answer it in the room.")
                 .contains("A message that names another is not yours to answer");
     }
 
@@ -39,19 +45,32 @@ class MailboxGuideTest {
     }
 
     @Test
-    void writesBothFilesIntoTheBoxForTheAgentToReadAndNamesNoAddress(@TempDir final Path dir) throws IOException {
+    void writesBothFilesIntoTheBoxForTheAgentToReadAndNamesNoAddress(@TempDir final Path dir)
+            throws IOException {
         final Mailbox mailbox = new Mailbox(dir.resolve("porelo-p-t"));
         mailbox.create();
 
-        MailboxGuide.write(mailbox, new Mail(List.of(new Mail.Peer("people", "matrix:", Mail.Peer.EXTERNAL),
-                new Mail.Peer("ops", "mail:ops@example.org", Mail.Peer.EXTERNAL),
-                new Mail.Peer("api", "matrix:", Mail.Peer.VOUCHED)), Map.of()));
+        MailboxGuide.write(
+                mailbox,
+                new Mail(
+                        List.of(
+                                new Mail.Peer("people", "matrix:", Mail.Peer.EXTERNAL),
+                                new Mail.Peer("ops", "mail:ops@example.org", Mail.Peer.EXTERNAL),
+                                new Mail.Peer("api", "matrix:", Mail.Peer.VOUCHED)),
+                        Map.of()));
 
         assertThat(mailbox.guide()).hasContent(MailboxGuide.text());
-        assertThat(mailbox.card()).content().contains("\"people\"").contains("\"ops\"").contains("\"api\"")
-                .contains("another task of your project").doesNotContain("ops@example.org").doesNotContain("matrix:");
+        assertThat(mailbox.card())
+                .content()
+                .contains("\"people\"")
+                .contains("\"ops\"")
+                .contains("\"api\"")
+                .contains("another task of your project")
+                .doesNotContain("ops@example.org")
+                .doesNotContain("matrix:");
         for (final Path file : List.of(mailbox.guide(), mailbox.card())) {
-            assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(file))).isEqualTo("rw-r--r--");
+            assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(file)))
+                    .isEqualTo("rw-r--r--");
         }
         assertThat(mailbox.guide().getParent()).isEqualTo(mailbox.box());
     }
@@ -62,7 +81,8 @@ class MailboxGuideTest {
         mailbox.create();
         MailboxGuide.write(mailbox, Mail.none());
         final var before = Files.getLastModifiedTime(mailbox.card());
-        Files.setLastModifiedTime(mailbox.card(), java.nio.file.attribute.FileTime.fromMillis(1000));
+        Files.setLastModifiedTime(
+                mailbox.card(), java.nio.file.attribute.FileTime.fromMillis(1000));
 
         MailboxGuide.write(mailbox, Mail.none());
 
@@ -78,7 +98,9 @@ class MailboxGuideTest {
         final String documented = Files.readString(Path.of("..", "..", "doc", "messages.md"));
 
         for (final String line : MailboxGuide.text().split("\n")) {
-            assertThat(documented).as("doc/messages.md").contains(line.startsWith("#") ? "#" + line : line);
+            assertThat(documented)
+                    .as("doc/messages.md")
+                    .contains(line.startsWith("#") ? "#" + line : line);
         }
     }
 }

@@ -18,14 +18,14 @@ import org.fuin.porelo.vault.SshSignature;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Test for {@link InboundCheck}.
- */
+/** Test for {@link InboundCheck}. */
 class InboundCheckTest {
 
-    private final Mail mail = new Mail(List.of(
-            new Mail.Peer("reviewer", "local:/peer/inbound", "vouched"),
-            new Mail.Peer("ops", "local:/ops/inbound", "external")));
+    private final Mail mail =
+            new Mail(
+                    List.of(
+                            new Mail.Peer("reviewer", "local:/peer/inbound", "vouched"),
+                            new Mail.Peer("ops", "local:/ops/inbound", "external")));
 
     private final Path filter = Path.of("/usr/libexec/porelo/porelo-message-sluice-filter");
 
@@ -35,14 +35,19 @@ class InboundCheckTest {
             try (Stream<Path> waiting = Files.list(mailbox.checkIncoming())) {
                 for (final Path message : waiting.toList()) {
                     final Path target = accepts ? mailbox.checkAccepted() : mailbox.checkRejected();
-                    Files.move(message, target.resolve(message.getFileName().toString()),
+                    Files.move(
+                            message,
+                            target.resolve(message.getFileName().toString()),
                             StandardCopyOption.REPLACE_EXISTING);
                 }
             } catch (final IOException e) {
                 throw new IllegalStateException(e);
             }
-            return new CommandResult(command, accepts ? MessageFiltering.ALL_ACCEPTED
-                    : MessageFiltering.SOMETHING_REFUSED, "", "");
+            return new CommandResult(
+                    command,
+                    accepts ? MessageFiltering.ALL_ACCEPTED : MessageFiltering.SOMETHING_REFUSED,
+                    "",
+                    "");
         };
     }
 
@@ -58,8 +63,9 @@ class InboundCheckTest {
         final Mailbox mailbox = arrived(dir, "m-1.json");
         final FakeCommandRunner runner = new FakeCommandRunner();
 
-        final String refused = new InboundCheck(runner, filter, mail)
-                .refuse(mailbox, mailbox.inbound().resolve("m-1.json"), "reviewer");
+        final String refused =
+                new InboundCheck(runner, filter, mail)
+                        .refuse(mailbox, mailbox.inbound().resolve("m-1.json"), "reviewer");
 
         assertThat(refused).isEmpty();
         assertThat(runner.invocations()).as("that machine already did it").isEmpty();
@@ -70,8 +76,9 @@ class InboundCheckTest {
             throws IOException {
         final Mailbox mailbox = arrived(dir, "m-1.json");
 
-        final String refused = new InboundCheck(filterThat(mailbox, true), filter, mail)
-                .refuse(mailbox, mailbox.inbound().resolve("m-1.json"), "ops");
+        final String refused =
+                new InboundCheck(filterThat(mailbox, true), filter, mail)
+                        .refuse(mailbox, mailbox.inbound().resolve("m-1.json"), "ops");
 
         assertThat(refused).isEmpty();
         assertThat(mailbox.checkIncoming()).as("nothing is left behind").isEmptyDirectory();
@@ -83,16 +90,17 @@ class InboundCheckTest {
             throws IOException {
         final Mailbox mailbox = arrived(dir, "m-1.json");
 
-        final String refused = new InboundCheck(filterThat(mailbox, false), filter, mail)
-                .refuse(mailbox, mailbox.inbound().resolve("m-1.json"), "ops");
+        final String refused =
+                new InboundCheck(filterThat(mailbox, false), filter, mail)
+                        .refuse(mailbox, mailbox.inbound().resolve("m-1.json"), "ops");
 
         assertThat(refused).contains("refused it on the way in");
     }
 
     /**
      * The filter's agent measured that without this only a malformed envelope is refused, so a
-     * message whose text is full of base64 would be delivered with the finding in a receipt
-     * nobody here reads.
+     * message whose text is full of base64 would be delivered with the finding in a receipt nobody
+     * here reads.
      */
     /**
      * Found on the VM: the daemon walks every mailbox and cannot always find the project one
@@ -103,9 +111,12 @@ class InboundCheckTest {
             throws IOException {
         final Mailbox mailbox = arrived(dir, "m-1.json");
 
-        final String refused = new InboundCheck(filterThat(mailbox, false), filter,
-                org.fuin.porelo.core.project.Mail.none())
-                .refuse(mailbox, mailbox.inbound().resolve("m-1.json"), "a-stranger");
+        final String refused =
+                new InboundCheck(
+                                filterThat(mailbox, false),
+                                filter,
+                                org.fuin.porelo.core.project.Mail.none())
+                        .refuse(mailbox, mailbox.inbound().resolve("m-1.json"), "a-stranger");
 
         assertThat(refused).contains("refused it on the way in");
     }
@@ -118,32 +129,41 @@ class InboundCheckTest {
         new InboundCheck(runner, filter, mail)
                 .refuse(mailbox, mailbox.inbound().resolve("m-1.json"), "ops");
 
-        assertThat(runner.lines()).singleElement()
-                .satisfies(line -> assertThat(line).contains("--blocking").contains("--stabilityDelayMillis 0")
-                        .contains(mailbox.check().toString()));
+        assertThat(runner.lines())
+                .singleElement()
+                .satisfies(
+                        line ->
+                                assertThat(line)
+                                        .contains("--blocking")
+                                        .contains("--stabilityDelayMillis 0")
+                                        .contains(mailbox.check().toString()));
     }
 
     /**
-     * Never sent - it would tell an unvouched sender what this machine looks for - but kept, because
-     * an operator deciding on a release has nothing else that says why.
+     * Never sent - it would tell an unvouched sender what this machine looks for - but kept,
+     * because an operator deciding on a release has nothing else that says why.
      */
     @Test
     void the_filters_answer_is_kept_beside_the_held_message(@TempDir final Path dir)
             throws IOException {
         final Mailbox mailbox = arrived(dir, "m-1.json");
-        final CommandRunner refusing = command -> {
-            try (Stream<Path> waiting = Files.list(mailbox.checkIncoming())) {
-                for (final Path message : waiting.toList()) {
-                    Files.move(message, mailbox.checkRejected()
-                            .resolve(message.getFileName().toString()));
-                }
-                Files.writeString(mailbox.checkFeedback().resolve("answer.json"),
-                        "{\"messageId\":\"sluice-1\"}");
-            } catch (final IOException e) {
-                throw new IllegalStateException(e);
-            }
-            return new CommandResult(command, MessageFiltering.SOMETHING_REFUSED, "", "");
-        };
+        final CommandRunner refusing =
+                command -> {
+                    try (Stream<Path> waiting = Files.list(mailbox.checkIncoming())) {
+                        for (final Path message : waiting.toList()) {
+                            Files.move(
+                                    message,
+                                    mailbox.checkRejected()
+                                            .resolve(message.getFileName().toString()));
+                        }
+                        Files.writeString(
+                                mailbox.checkFeedback().resolve("answer.json"),
+                                "{\"messageId\":\"sluice-1\"}");
+                    } catch (final IOException e) {
+                        throw new IllegalStateException(e);
+                    }
+                    return new CommandResult(command, MessageFiltering.SOMETHING_REFUSED, "", "");
+                };
 
         new InboundCheck(refusing, filter, mail)
                 .refuse(mailbox, mailbox.inbound().resolve("m-1.json"), "ops");
@@ -161,15 +181,14 @@ class InboundCheckTest {
             throws IOException {
         final Mailbox mailbox = arrived(dir, "m-1.json");
 
-        final String refused = new InboundCheck(new FakeCommandRunner(), null, mail)
-                .refuse(mailbox, mailbox.inbound().resolve("m-1.json"), "ops");
+        final String refused =
+                new InboundCheck(new FakeCommandRunner(), null, mail)
+                        .refuse(mailbox, mailbox.inbound().resolve("m-1.json"), "ops");
 
         assertThat(refused).contains("no message filter is installed");
     }
 
-    /**
-     * And the whole way through: a refusal on the way in means the agent never sees it.
-     */
+    /** And the whole way through: a refusal on the way in means the agent never sees it. */
     @Test
     void delivery_holds_what_the_check_refused(@TempDir final Path dir) throws IOException {
         final SigningKey opsKey = SigningKey.generate("ops");
@@ -177,17 +196,23 @@ class InboundCheckTest {
         mailbox.create();
         final String json = "{\"messageId\":\"m-1\"}";
         Files.writeString(mailbox.inbound().resolve("m-1.json"), json);
-        Files.writeString(mailbox.inbound().resolve("m-1.json.sig"), SshSignature.sign(opsKey,
-                json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
+        Files.writeString(
+                mailbox.inbound().resolve("m-1.json.sig"),
+                SshSignature.sign(
+                        opsKey, json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
 
-        final MessageDelivery.Outcome outcome = new MessageDelivery().deliver(mailbox,
-                List.of(new MessageDelivery.Peer("ops", List.of(opsKey.keyBlob()))),
-                java.util.Set.of(),
-                new InboundCheck(filterThat(mailbox, false), filter, mail));
+        final MessageDelivery.Outcome outcome =
+                new MessageDelivery()
+                        .deliver(
+                                mailbox,
+                                List.of(new MessageDelivery.Peer("ops", List.of(opsKey.keyBlob()))),
+                                java.util.Set.of(),
+                                new InboundCheck(filterThat(mailbox, false), filter, mail));
 
         assertThat(outcome.delivered()).isEmpty();
-        assertThat(outcome.held()).singleElement().satisfies(held ->
-                assertThat(held.reason()).contains("refused it on the way in"));
+        assertThat(outcome.held())
+                .singleElement()
+                .satisfies(held -> assertThat(held.reason()).contains("refused it on the way in"));
         assertThat(mailbox.inboxNew()).isEmptyDirectory();
         assertThat(mailbox.hold().resolve("m-1.json")).exists();
     }

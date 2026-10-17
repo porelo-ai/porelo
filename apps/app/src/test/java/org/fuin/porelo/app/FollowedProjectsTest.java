@@ -9,9 +9,7 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Test for {@link FollowedProjects}.
- */
+/** Test for {@link FollowedProjects}. */
 class FollowedProjectsTest {
 
     @Test
@@ -25,11 +23,14 @@ class FollowedProjectsTest {
 
         projects.follow("demo", "git@example.org:demo.git");
 
-        assertThat(new FollowedProjects(dir).all()).singleElement().satisfies(one -> {
-            assertThat(one.name()).isEqualTo("demo");
-            assertThat(one.url()).isEqualTo("git@example.org:demo.git");
-            assertThat(one.commit()).as("nothing has been verified yet").isEmpty();
-        });
+        assertThat(new FollowedProjects(dir).all())
+                .singleElement()
+                .satisfies(
+                        one -> {
+                            assertThat(one.name()).isEqualTo("demo");
+                            assertThat(one.url()).isEqualTo("git@example.org:demo.git");
+                            assertThat(one.commit()).as("nothing has been verified yet").isEmpty();
+                        });
     }
 
     /** Following the same thing twice is somebody making sure, not a second entry. */
@@ -86,17 +87,21 @@ class FollowedProjectsTest {
         projects.follow("demo", "git@example.org:demo.git");
         Files.writeString(dir.resolve("rubbish.json"), "not json at all");
 
-        assertThat(projects.all()).extracting(FollowedProjects.Followed::name)
+        assertThat(projects.all())
+                .extracting(FollowedProjects.Followed::name)
                 .containsExactly("demo");
     }
 
     @Test
-    void unfollowingTakesTheProjectsPinnedKeyAndLeavesAnotherProjectsAlone(@org.junit.jupiter.api.io.TempDir
-            final java.nio.file.Path dir) throws java.io.IOException {
+    void unfollowingTakesTheProjectsPinnedKeyAndLeavesAnotherProjectsAlone(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir)
+            throws java.io.IOException {
         final FollowedProjects projects = new FollowedProjects(dir.resolve("follow"));
         projects.follow("alpha", "https://example.org/alpha.git");
-        final java.nio.file.Path signers = java.nio.file.Files.writeString(dir.resolve("configuration_signers"),
-                "alpha ssh-ed25519 AAAAone\nbeta ssh-ed25519 AAAAtwo\nalpha ssh-ed25519 AAAAthree\n");
+        final java.nio.file.Path signers =
+                java.nio.file.Files.writeString(
+                        dir.resolve("configuration_signers"),
+                        "alpha ssh-ed25519 AAAAone\nbeta ssh-ed25519 AAAAtwo\nalpha ssh-ed25519 AAAAthree\n");
 
         org.assertj.core.api.Assertions.assertThat(projects.unfollow("alpha", signers)).isTrue();
 
@@ -107,12 +112,14 @@ class FollowedProjectsTest {
     @Test
     void aPassesResultIsWrittenOnlyOntoTheRecordItReadSoAnUnfollowMeanwhileStays(
             @org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws java.io.IOException {
-        // The daemon's pass reads every record, fetches for seconds, and writes what it found. Written unconditionally,
+        // The daemon's pass reads every record, fetches for seconds, and writes what it found.
+        // Written unconditionally,
         // it brought back a project unfollowed while it fetched (found on 2026-10-01).
         final FollowedProjects projects = new FollowedProjects(dir);
         final FollowedProjects.Followed read = projects.follow("p", "git@example.org:p.git", true);
-        final FollowedProjects.Followed found = new FollowedProjects.Followed("p", read.url(), "", "now", "UNREACHABLE",
-                "cannot fetch", "", "", true);
+        final FollowedProjects.Followed found =
+                new FollowedProjects.Followed(
+                        "p", read.url(), "", "now", "UNREACHABLE", "cannot fetch", "", "", true);
 
         projects.unfollow("p");
 
@@ -121,14 +128,17 @@ class FollowedProjectsTest {
 
         final FollowedProjects.Followed again = projects.follow("p", "git@example.org:p.git", true);
         assertThat(projects.writeIfUnchanged(again, found)).as("onto the record it read").isTrue();
-        assertThat(projects.writeIfUnchanged(again, found)).as("a record changed since is left as it is").isFalse();
+        assertThat(projects.writeIfUnchanged(again, found))
+                .as("a record changed since is left as it is")
+                .isFalse();
     }
 
     @org.junit.jupiter.api.Test
     void threadsOfOneProcessWriteTheRecordsOneAfterAnotherRatherThanFailing(
             @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws Exception {
 
-        // A file lock does not wait for another thread of the same process, it throws: a follow over the socket
+        // A file lock does not wait for another thread of the same process, it throws: a follow
+        // over the socket
         // that met the follow pass answered "null", or the pass dropped its record.
         final FollowedProjects projects = new FollowedProjects(dir);
         final var pool = java.util.concurrent.Executors.newFixedThreadPool(8);
@@ -136,12 +146,15 @@ class FollowedProjectsTest {
             final java.util.List<java.util.concurrent.Future<?>> done = new java.util.ArrayList<>();
             for (int i = 0; i < 8; i++) {
                 final String name = "p" + i;
-                done.add(pool.submit(() -> {
-                    for (int round = 0; round < 25; round++) {
-                        projects.follow(name, "https://example.org/" + name + ".git");
-                    }
-                    return null;
-                }));
+                done.add(
+                        pool.submit(
+                                () -> {
+                                    for (int round = 0; round < 25; round++) {
+                                        projects.follow(
+                                                name, "https://example.org/" + name + ".git");
+                                    }
+                                    return null;
+                                }));
             }
             for (final var each : done) {
                 each.get();
@@ -156,11 +169,15 @@ class FollowedProjectsTest {
     @Test
     void anAddressGitWouldTakeForAnOptionOrACommandIsNotFollowed(@TempDir final Path dir) {
 
-        // The project file refused such a value, a follow over the socket did not: '--upload-pack=<command>' reached
+        // The project file refused such a value, a follow over the socket did not:
+        // '--upload-pack=<command>' reached
         // 'git fetch' as an option.
         final FollowedProjects projects = new FollowedProjects(dir);
-        for (final String url : java.util.List.of("--upload-pack=touch /tmp/owned", "ext::sh -c id", "fd::3")) {
-            assertThatThrownBy(() -> projects.follow("demo", url)).as(url).isInstanceOf(IllegalArgumentException.class);
+        for (final String url :
+                java.util.List.of("--upload-pack=touch /tmp/owned", "ext::sh -c id", "fd::3")) {
+            assertThatThrownBy(() -> projects.follow("demo", url))
+                    .as(url)
+                    .isInstanceOf(IllegalArgumentException.class);
         }
     }
 }

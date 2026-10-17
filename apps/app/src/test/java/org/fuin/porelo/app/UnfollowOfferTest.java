@@ -8,8 +8,8 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests that unfollowing a project offers to stop its running tasks, and to destroy unreviewed work only on an explicit
- * yes, instead of naming what to do and ending.
+ * Tests that unfollowing a project offers to stop its running tasks, and to destroy unreviewed work
+ * only on an explicit yes, instead of naming what to do and ending.
  */
 class UnfollowOfferTest {
 
@@ -21,24 +21,42 @@ class UnfollowOfferTest {
 
     @Test
     void runningTasksAreOfferedToBeStoppedWithYesAsTheDefault() {
-        assertThat(ProjectUnfollowCommand.nextTry(ProjectDeletion.Outcome.TASKS_RUNNING, List.of("porelo-uc-a"),
-                answering(""))).isEqualTo("stop");
+        assertThat(
+                        ProjectUnfollowCommand.nextTry(
+                                ProjectDeletion.Outcome.TASKS_RUNNING,
+                                List.of("porelo-uc-a"),
+                                answering("")))
+                .isEqualTo("stop");
     }
 
     @Test
     void unreviewedWorkIsDestroyedOnlyOnAnExplicitYesAndSaysWhatGoes() {
-        assertThat(ProjectUnfollowCommand.nextTry(ProjectDeletion.Outcome.HOLDS_WORK, List.of("refs/heads/porelo/uc-a"),
-                answering(""))).isNull();
-        assertThat(ProjectUnfollowCommand.nextTry(ProjectDeletion.Outcome.HOLDS_WORK, List.of("refs/heads/porelo/uc-a"),
-                answering("y"))).isEqualTo("force");
+        assertThat(
+                        ProjectUnfollowCommand.nextTry(
+                                ProjectDeletion.Outcome.HOLDS_WORK,
+                                List.of("refs/heads/porelo/uc-a"),
+                                answering("")))
+                .isNull();
+        assertThat(
+                        ProjectUnfollowCommand.nextTry(
+                                ProjectDeletion.Outcome.HOLDS_WORK,
+                                List.of("refs/heads/porelo/uc-a"),
+                                answering("y")))
+                .isEqualTo("force");
         assertThat(said.toString()).contains("refs/heads/porelo/uc-a");
     }
 
     @Test
     void nobodyToAskIsTheRefusalAsBefore() {
-        assertThat(ProjectUnfollowCommand.nextTry(ProjectDeletion.Outcome.TASKS_RUNNING, List.of("porelo-uc-a"),
-                Offer.NOBODY)).isNull();
-        assertThat(ProjectUnfollowCommand.nextTry(ProjectDeletion.Outcome.HOLDS_WORK, List.of("x"), Offer.NOBODY))
+        assertThat(
+                        ProjectUnfollowCommand.nextTry(
+                                ProjectDeletion.Outcome.TASKS_RUNNING,
+                                List.of("porelo-uc-a"),
+                                Offer.NOBODY))
+                .isNull();
+        assertThat(
+                        ProjectUnfollowCommand.nextTry(
+                                ProjectDeletion.Outcome.HOLDS_WORK, List.of("x"), Offer.NOBODY))
                 .isNull();
     }
 }

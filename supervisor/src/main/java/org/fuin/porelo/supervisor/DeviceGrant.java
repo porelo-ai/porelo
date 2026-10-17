@@ -12,11 +12,12 @@ import org.jspecify.annotations.Nullable;
 /**
  * An authorization a person grants once, in any browser, while the machine waits: the OAuth device
  * authorization grant (RFC 8628).
- * <p>
- * <strong>Chosen first because it needs nobody near the machine.</strong> Porelo shows a URL and a short code;
- * the person opens it wherever they are, and this polls the token endpoint until they have decided. Nothing
- * comes back to the machine through a redirect, so no listener and no tunnel is needed. What comes back is a
- * refresh token, which the vault keeps and the broker spends: no task ever holds it.
+ *
+ * <p><strong>Chosen first because it needs nobody near the machine.</strong> Porelo shows a URL and
+ * a short code; the person opens it wherever they are, and this polls the token endpoint until they
+ * have decided. Nothing comes back to the machine through a redirect, so no listener and no tunnel
+ * is needed. What comes back is a refresh token, which the vault keeps and the broker spends: no
+ * task ever holds it.
  */
 public final class DeviceGrant {
 
@@ -24,16 +25,22 @@ public final class DeviceGrant {
     public static final String KIND = "oauth-device";
 
     /**
-     * What the service answered when asked to start: what the person is shown, and what this polls with.
+     * What the service answered when asked to start: what the person is shown, and what this polls
+     * with.
      *
      * @param deviceCode What the poll presents, never shown.
      * @param userCode What the person types, if the link does not carry it.
-     * @param link Where the person goes: the complete link when the service gives one, else the plain one.
+     * @param link Where the person goes: the complete link when the service gives one, else the
+     *     plain one.
      * @param expiresIn How long the person has.
      * @param interval How long to wait between polls.
      */
-    public record Started(String deviceCode, String userCode, String link, Duration expiresIn, Duration interval) {
-    }
+    public record Started(
+            String deviceCode,
+            String userCode,
+            String link,
+            Duration expiresIn,
+            Duration interval) {}
 
     /**
      * What a person decided, or that they did not in time.
@@ -41,12 +48,14 @@ public final class DeviceGrant {
      * @param state {@code granted}, {@code refused} or {@code expired}.
      * @param refreshToken The refresh token, when granted.
      * @param accessToken The first access token, when granted.
-     * @param expiresIn How long that access token lasts, when granted; {@code null} when the service said nothing, which
-     *        is how a token that never expires is granted.
+     * @param expiresIn How long that access token lasts, when granted; {@code null} when the
+     *     service said nothing, which is how a token that never expires is granted.
      */
-    public record Outcome(String state, @Nullable String refreshToken, @Nullable String accessToken,
-            @Nullable Duration expiresIn) {
-    }
+    public record Outcome(
+            String state,
+            @Nullable String refreshToken,
+            @Nullable String accessToken,
+            @Nullable Duration expiresIn) {}
 
     /**
      * What is needed to ask.
@@ -56,10 +65,16 @@ public final class DeviceGrant {
      * @param clientId The client's id.
      * @param clientSecret The client's secret, or {@code null} for a public client.
      * @param scopes The scopes, space-separated, or empty.
-     * @param revocationUrl The revocation endpoint (RFC 7009), https, or {@code null} where the service has none.
+     * @param revocationUrl The revocation endpoint (RFC 7009), https, or {@code null} where the
+     *     service has none.
      */
-    public record Client(String deviceUrl, String tokenUrl, String clientId, @Nullable String clientSecret,
-            String scopes, @Nullable String revocationUrl) {
+    public record Client(
+            String deviceUrl,
+            String tokenUrl,
+            String clientId,
+            @Nullable String clientSecret,
+            String scopes,
+            @Nullable String revocationUrl) {
 
         /**
          * Reads a client from a vault entry's secret and settings.
@@ -67,22 +82,32 @@ public final class DeviceGrant {
          * @param secret The entry's value: the client secret, or empty for a public client.
          * @param settings The entry's settings.
          * @return The client.
-         * @throws IllegalArgumentException If a setting it needs is missing or an endpoint is not https.
+         * @throws IllegalArgumentException If a setting it needs is missing or an endpoint is not
+         *     https.
          */
         public static Client of(String secret, Map<String, String> settings) {
             final String device = settings.get("device_authorization_url");
             final String token = settings.get("token_url");
             final String id = settings.get("client_id");
             if (device == null || token == null || id == null) {
-                throw new IllegalArgumentException("an " + KIND + " entry needs the settings device_authorization_url,"
-                        + " token_url and client_id");
+                throw new IllegalArgumentException(
+                        "an "
+                                + KIND
+                                + " entry needs the settings device_authorization_url,"
+                                + " token_url and client_id");
             }
             if (!Grants.secure(device) || !Grants.secure(token)) {
-                throw new IllegalArgumentException("the device authorization and token URLs must be https, or"
-                        + " http on loopback");
+                throw new IllegalArgumentException(
+                        "the device authorization and token URLs must be https, or"
+                                + " http on loopback");
             }
-            return new Client(device, token, id, secret.isBlank() || "-".equals(secret) ? null : secret,
-                    settings.getOrDefault("scopes", ""), Grants.revocationUrl(settings));
+            return new Client(
+                    device,
+                    token,
+                    id,
+                    secret.isBlank() || "-".equals(secret) ? null : secret,
+                    settings.getOrDefault("scopes", ""),
+                    Grants.revocationUrl(settings));
         }
     }
 
@@ -131,11 +156,17 @@ public final class DeviceGrant {
         final String complete = text(answer, "verification_uri_complete");
         final String plain = text(answer, "verification_uri");
         if (device == null || user == null || (complete == null && plain == null)) {
-            throw new TokenPurchase.Refused("the service at " + host(client.deviceUrl())
-                    + " answered without a device code, a user code or a link");
+            throw new TokenPurchase.Refused(
+                    "the service at "
+                            + host(client.deviceUrl())
+                            + " answered without a device code, a user code or a link");
         }
-        return new Started(device, user, complete != null ? complete : java.util.Objects.requireNonNull(plain),
-                seconds(answer, "expires_in", Duration.ofMinutes(10)), seconds(answer, "interval", Duration.ofSeconds(5)));
+        return new Started(
+                device,
+                user,
+                complete != null ? complete : java.util.Objects.requireNonNull(plain),
+                seconds(answer, "expires_in", Duration.ofMinutes(10)),
+                seconds(answer, "interval", Duration.ofSeconds(5)));
     }
 
     /**
@@ -144,13 +175,18 @@ public final class DeviceGrant {
      * @param started What {@link #start()} answered.
      * @param sleeper How to wait between polls.
      * @return What was decided.
-     * @throws TokenPurchase.Refused If the service answers something the flow does not know, or cannot be reached.
+     * @throws TokenPurchase.Refused If the service answers something the flow does not know, or
+     *     cannot be reached.
      * @throws InterruptedException If interrupted while waiting.
      */
-    public Outcome await(Started started, Sleeper sleeper) throws TokenPurchase.Refused, InterruptedException {
-        // At least a second: an interval of nothing polled without a pause, and the time waited never grew.
-        Duration interval = started.interval().compareTo(Duration.ofSeconds(1)) < 0
-                ? Duration.ofSeconds(1) : started.interval();
+    public Outcome await(Started started, Sleeper sleeper)
+            throws TokenPurchase.Refused, InterruptedException {
+        // At least a second: an interval of nothing polled without a pause, and the time waited
+        // never grew.
+        Duration interval =
+                started.interval().compareTo(Duration.ofSeconds(1)) < 0
+                        ? Duration.ofSeconds(1)
+                        : started.interval();
         Duration waited = Duration.ZERO;
         while (waited.compareTo(started.expiresIn()) < 0) {
             sleeper.sleep(interval);
@@ -167,13 +203,20 @@ public final class DeviceGrant {
             if (error == null) {
                 final String access = text(answer, "access_token");
                 if (access == null) {
-                    throw new TokenPurchase.Refused("the service at " + host(client.tokenUrl())
-                            + " granted without an access token");
+                    throw new TokenPurchase.Refused(
+                            "the service at "
+                                    + host(client.tokenUrl())
+                                    + " granted without an access token");
                 }
-                // No expiry stated is kept as none, not as a guessed one: a token that never expires and has no
+                // No expiry stated is kept as none, not as a guessed one: a token that never
+                // expires and has no
                 // refresh token is kept as it is, which a guessed expiry would refuse.
-                return new Outcome("granted", text(answer, "refresh_token"), access,
-                        answer.get("expires_in") instanceof Number number ? Duration.ofSeconds(number.longValue())
+                return new Outcome(
+                        "granted",
+                        text(answer, "refresh_token"),
+                        access,
+                        answer.get("expires_in") instanceof Number number
+                                ? Duration.ofSeconds(number.longValue())
                                 : null);
             }
             switch (error) {
@@ -187,30 +230,50 @@ public final class DeviceGrant {
                 case "expired_token" -> {
                     return new Outcome("expired", null, null, null);
                 }
-                default -> throw new TokenPurchase.Refused("the service at " + host(client.tokenUrl())
-                        + " answered '" + error + "' while the person was deciding");
+                default ->
+                        throw new TokenPurchase.Refused(
+                                "the service at "
+                                        + host(client.tokenUrl())
+                                        + " answered '"
+                                        + error
+                                        + "' while the person was deciding");
             }
         }
         return new Outcome("expired", null, null, null);
     }
 
-    private Map<?, ?> post(String url, Map<String, String> form, boolean mustSucceed) throws TokenPurchase.Refused {
+    private Map<?, ?> post(String url, Map<String, String> form, boolean mustSucceed)
+            throws TokenPurchase.Refused {
         final HttpResponse<String> answer = Grants.send(http, url, form);
         final Object parsed;
         try {
             parsed = Json.parse(answer.body());
         } catch (RuntimeException ex) {
-            throw new TokenPurchase.Refused("the service at " + host(url) + " answered " + answer.statusCode()
-                    + " with something that is not JSON", ex);
+            throw new TokenPurchase.Refused(
+                    "the service at "
+                            + host(url)
+                            + " answered "
+                            + answer.statusCode()
+                            + " with something that is not JSON",
+                    ex);
         }
         if (!(parsed instanceof Map<?, ?> document)) {
-            throw new TokenPurchase.Refused("the service at " + host(url) + " answered something that is not an object");
+            throw new TokenPurchase.Refused(
+                    "the service at " + host(url) + " answered something that is not an object");
         }
-        // A token endpoint answers a pending grant with 400 and an error; that is the flow, not a failure.
+        // A token endpoint answers a pending grant with 400 and an error; that is the flow, not a
+        // failure.
         if (mustSucceed && answer.statusCode() / 100 != 2) {
-            throw new TokenPurchase.Refused("the service at " + host(url) + " refused to start ("
-                    + answer.statusCode() + ", " + (document.get("error") == null ? "no error named"
-                            : document.get("error")) + ")");
+            throw new TokenPurchase.Refused(
+                    "the service at "
+                            + host(url)
+                            + " refused to start ("
+                            + answer.statusCode()
+                            + ", "
+                            + (document.get("error") == null
+                                    ? "no error named"
+                                    : document.get("error"))
+                            + ")");
         }
         return document;
     }
@@ -220,7 +283,9 @@ public final class DeviceGrant {
     }
 
     private static Duration seconds(Map<?, ?> document, String key, Duration otherwise) {
-        return document.get(key) instanceof Number number ? Duration.ofSeconds(number.longValue()) : otherwise;
+        return document.get(key) instanceof Number number
+                ? Duration.ofSeconds(number.longValue())
+                : otherwise;
     }
 
     private static String host(String url) {

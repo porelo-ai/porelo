@@ -13,13 +13,13 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Detached signatures in OpenSSH's {@code SSHSIG} format.
- * <p>
- * The format OpenSSH's {@code ssh-keygen -Y sign} and {@code -Y verify} speak, so a signature made
- * here can be checked by somebody who has no Porelo - with the key in an {@code allowed_signers}
- * file and nothing else. That is the whole reason for using it rather than a shape of our own: a
- * record that only this program can verify is a record nobody else can audit.
- * <p>
- * <strong>Detached, and over the exact bytes.</strong> The message is never re-serialized,
+ *
+ * <p>The format OpenSSH's {@code ssh-keygen -Y sign} and {@code -Y verify} speak, so a signature
+ * made here can be checked by somebody who has no Porelo - with the key in an {@code
+ * allowed_signers} file and nothing else. That is the whole reason for using it rather than a shape
+ * of our own: a record that only this program can verify is a record nobody else can audit.
+ *
+ * <p><strong>Detached, and over the exact bytes.</strong> The message is never re-serialized,
  * reformatted or re-indented anywhere between signing and verifying, which is why the filter that
  * reads a message is forbidden to rewrite it.
  */
@@ -46,7 +46,7 @@ public final class SshSignature {
      * @param key Key to sign with.
      * @param message The exact bytes to sign.
      * @param namespace What the signature is for. Verification must use the same one, which is how
-     *        a signature over a message cannot be replayed as a signature over something else.
+     *     a signature over a message cannot be replayed as a signature over something else.
      * @return The armored signature, as {@code ssh-keygen -Y sign} writes it.
      */
     public static String sign(final SigningKey key, final byte[] message, final String namespace) {
@@ -75,15 +75,20 @@ public final class SshSignature {
      * @param namespace The namespace the signature must carry.
      * @return {@code true} when the signature is this key's, over these bytes, in this namespace.
      */
-    public static boolean verify(final byte[] message, final String armored, final byte[] keyBlob,
+    public static boolean verify(
+            final byte[] message,
+            final String armored,
+            final byte[] keyBlob,
             final String namespace) {
         final Parsed parsed = parse(armored);
-        if (parsed == null || !Arrays.equals(parsed.keyBlob(), keyBlob)
-                || !namespace.equals(parsed.namespace()) || !HASH.equals(parsed.hash())) {
+        if (parsed == null
+                || !Arrays.equals(parsed.keyBlob(), keyBlob)
+                || !namespace.equals(parsed.namespace())
+                || !HASH.equals(parsed.hash())) {
             return false;
         }
-        return SigningKey.verify(parsed.keyBlob(), preimage(message, namespace),
-                parsed.signature());
+        return SigningKey.verify(
+                parsed.keyBlob(), preimage(message, namespace), parsed.signature());
     }
 
     /**
@@ -145,8 +150,11 @@ public final class SshSignature {
             SshWire.readString(buffer);
             final byte[] hash = SshWire.readString(buffer);
             final byte[] signature = SshWire.readString(buffer);
-            return new Parsed(key, new String(namespace, StandardCharsets.UTF_8),
-                    new String(hash, StandardCharsets.UTF_8), signature);
+            return new Parsed(
+                    key,
+                    new String(namespace, StandardCharsets.UTF_8),
+                    new String(hash, StandardCharsets.UTF_8),
+                    signature);
         } catch (final RuntimeException e) {
             // A truncated or malformed signature is not a signature. It is never an exception to
             // the caller, because "this did not verify" is the only answer that matters.
@@ -161,6 +169,5 @@ public final class SshSignature {
         out.write(value);
     }
 
-    private record Parsed(byte[] keyBlob, String namespace, String hash, byte[] signature) {
-    }
+    private record Parsed(byte[] keyBlob, String namespace, String hash, byte[] signature) {}
 }

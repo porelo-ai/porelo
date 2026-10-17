@@ -1,6 +1,4 @@
-/**
- * Orchestration and CLI (APP)
- */
+/** Orchestration and CLI (APP) */
 @NullMarked
 package org.fuin.porelo.app;
 

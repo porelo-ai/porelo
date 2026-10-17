@@ -2,7 +2,7 @@
 name: rust
 label: Rust crates
 domains:
-  - crates.io
-  - static.crates.io
-  - index.crates.io
-  - static.rust-lang.org
+    - crates.io
+    - static.crates.io
+    - index.crates.io
+    - static.rust-lang.org

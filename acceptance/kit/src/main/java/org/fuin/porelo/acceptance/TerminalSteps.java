@@ -1,6 +1,5 @@
 package org.fuin.porelo.acceptance;
 
-import org.fuin.porelo.machines.Ssh;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.cucumber.java.After;
@@ -11,18 +10,19 @@ import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import java.io.IOException;
 import java.time.Duration;
+import org.fuin.porelo.machines.Ssh;
 import org.opentest4j.TestAbortedException;
 
 /**
  * What a scenario can do to a machine, and what it can then say about it.
- * <p>
- * Two vocabularies, and the difference is the point: <em>a terminal on the machine</em> and
+ *
+ * <p>Two vocabularies, and the difference is the point: <em>a terminal on the machine</em> and
  * <em>I run</em> mean a person is watching; <em>a script runs</em> means nobody is. Half of what
  * these scenarios exist for is "does not ask when nobody is there", and a suite that only ever
  * allocates a pty tests one side of every one of them.
- * <p>
- * <strong>Complete on its own.</strong> A repository whose scenarios are made only of these steps
- * needs no glue class of its own; one that adds steps takes the same {@link World} in its
+ *
+ * <p><strong>Complete on its own.</strong> A repository whose scenarios are made only of these
+ * steps needs no glue class of its own; one that adds steps takes the same {@link World} in its
  * constructor and acts on the same terminal.
  */
 public class TerminalSteps {
@@ -50,18 +50,22 @@ public class TerminalSteps {
 
     /**
      * Names the account a failed scenario ran under, in its report.
-     * <p>
-     * When features run in parallel, each under an account of its own, a failure caused by two accounts
-     * meeting - a port, a file under {@code /etc} - reads like one caused by the scenario itself, unless the
-     * report says which account it was and a second failure beside it names the other.
+     *
+     * <p>When features run in parallel, each under an account of its own, a failure caused by two
+     * accounts meeting - a port, a file under {@code /etc} - reads like one caused by the scenario
+     * itself, unless the report says which account it was and a second failure beside it names the
+     * other.
      *
      * @param scenario The scenario that ended.
      */
     @After
     public void nameTheAccountOfAFailure(Scenario scenario) {
         if (scenario.isFailed()) {
-            scenario.log("ran as account " + Accounts.forThisThread() + " on thread "
-                    + Thread.currentThread().getName());
+            scenario.log(
+                    "ran as account "
+                            + Accounts.forThisThread()
+                            + " on thread "
+                            + Thread.currentThread().getName());
         }
     }
 
@@ -81,8 +85,8 @@ public class TerminalSteps {
 
     /**
      * Removes every project the kit made in this run, passed or failed.
-     * <p>
-     * Here although tearing down is not, because this removes only what the kit itself made: the
+     *
+     * <p>Here although tearing down is not, because this removes only what the kit itself made: the
      * repository it wrote into the operator's home and the following of it. Measured on 2026-09-27,
      * three scenarios of the agent repositories left their project followed and every one left its
      * directory, on both VMs, until an agent removed them by hand. Once, at the end of the run: a
@@ -95,7 +99,8 @@ public class TerminalSteps {
         for (final var made : World.takeProjects().entrySet()) {
             // As the account that made them, named rather than taken from the thread: this runs on
             // whichever thread ends the run, which need not be one that held an account.
-            // One account that cannot be reached does not leave every later one's projects behind: they were taken
+            // One account that cannot be reached does not leave every later one's projects behind:
+            // they were taken
             // from the list already, and nothing would remove them.
             try {
                 final Machine machine = Machine.forAccount(made.getKey());
@@ -104,16 +109,21 @@ public class TerminalSteps {
                     machine.run("rm -rf -- ~/" + Shell.quote(name));
                 }
             } catch (final IOException | RuntimeException ex) {
-                System.err.println("could not remove " + made.getValue() + " as " + made.getKey() + ": "
-                        + ex.getMessage());
+                System.err.println(
+                        "could not remove "
+                                + made.getValue()
+                                + " as "
+                                + made.getKey()
+                                + ": "
+                                + ex.getMessage());
             }
         }
     }
 
     /**
      * Skips the scenario unless the runner's environment carries a value.
-     * <p>
-     * For the half of a suite that needs a real credential: a fork or a machine without the
+     *
+     * <p>For the half of a suite that needs a real credential: a fork or a machine without the
      * secret gets fewer scenarios rather than a red run that says nothing about the product.
      * Skipped, not passed, so the summary shows what was not proved.
      *
@@ -122,8 +132,8 @@ public class TerminalSteps {
     @Given("the environment variable {string} is set")
     public void theEnvironmentVariableIsSet(String variable) {
         if (!World.isSet(variable)) {
-            throw new TestAbortedException("Skipped: " + variable
-                    + " is not set where this suite runs");
+            throw new TestAbortedException(
+                    "Skipped: " + variable + " is not set where this suite runs");
         }
     }
 
@@ -139,9 +149,11 @@ public class TerminalSteps {
     }
 
     /**
-     * Declares what a failed tool call of the scenario's agent shows, so that a wait stops once it has repeated.
-     * <p>
-     * Once per agent repository, in a feature's background: the wording is the agent's, the counting the kit's.
+     * Declares what a failed tool call of the scenario's agent shows, so that a wait stops once it
+     * has repeated.
+     *
+     * <p>Once per agent repository, in a feature's background: the wording is the agent's, the
+     * counting the kit's.
      *
      * @param marker Text the agent shows with every failed tool call, and only then.
      */
@@ -170,9 +182,9 @@ public class TerminalSteps {
 
     /**
      * Types a command and presses enter.
-     * <p>
-     * {@code ${NAME}} in the command is replaced from the runner's environment first, for a value
-     * CI chooses per run - a model, a version. Never for a credential: that goes through
+     *
+     * <p>{@code ${NAME}} in the command is replaced from the runner's environment first, for a
+     * value CI chooses per run - a model, a version. Never for a credential: that goes through
      * {@link #iTypeTheValueOf}.
      *
      * @param command What to run.
@@ -214,9 +226,10 @@ public class TerminalSteps {
 
     /**
      * Presses one key, as the bytes a person's {@code xterm-256color} sends for it.
-     * <p>
-     * Unlike {@code I type}, nothing follows the key: no line end, no Enter. The keys are those {@link Keys} names - Esc,
-     * PageUp, Shift+Enter in both forms, focus in and out - and any other name is refused, naming them.
+     *
+     * <p>Unlike {@code I type}, nothing follows the key: no line end, no Enter. The keys are those
+     * {@link Keys} names - Esc, PageUp, Shift+Enter in both forms, focus in and out - and any other
+     * name is refused, naming them.
      *
      * @param key The key.
      * @throws IOException If it cannot be sent.
@@ -240,10 +253,10 @@ public class TerminalSteps {
 
     /**
      * Types the value of a variable in the runner's environment, as a person pasting a secret.
-     * <p>
-     * The terminal has echo off, so the value is not expected back - and
-     * {@link #theTerminalDoesNotShowTheValueOf} is how a scenario proves the far end did not echo
-     * it either. The value is remembered by the variable's name and never printed.
+     *
+     * <p>The terminal has echo off, so the value is not expected back - and {@link
+     * #theTerminalDoesNotShowTheValueOf} is how a scenario proves the far end did not echo it
+     * either. The value is remembered by the variable's name and never printed.
      *
      * @param variable The variable's name.
      * @throws IOException If it cannot be sent.
@@ -295,8 +308,8 @@ public class TerminalSteps {
 
     /**
      * Waits for text, for as long as a scenario says.
-     * <p>
-     * For the one step behind which a model answers: longer than a prompt, shorter than a build,
+     *
+     * <p>For the one step behind which a model answers: longer than a prompt, shorter than a build,
      * and stated in the scenario so that a slow expectation is a visible choice.
      *
      * @param seconds How long to allow.
@@ -333,7 +346,8 @@ public class TerminalSteps {
         // A boolean, on purpose: an assertion that fails by printing the expected text would put
         // the credential into the run log and the annotation on the feature file.
         assertThat(world.contains(variable, world.terminal().seen()))
-                .as("the terminal showed the value of %s", variable).isFalse();
+                .as("the terminal showed the value of %s", variable)
+                .isFalse();
     }
 
     /**
@@ -365,9 +379,9 @@ public class TerminalSteps {
      *
      * @param name The project's name and directory.
      * @param securityClass Its class: {@code offline}, {@code guarded} or {@code online}.
-     * @param more YAML appended to the project file, right after its image block's {@code base_image}:
-     *        indented by two spaces it continues that block (a {@code snippet}), unindented it starts
-     *        its own ({@code egress}).
+     * @param more YAML appended to the project file, right after its image block's {@code
+     *     base_image}: indented by two spaces it continues that block (a {@code snippet}),
+     *     unindented it starts its own ({@code egress}).
      * @throws IOException If the machine cannot be reached.
      */
     @Given("a project called {string} of class {string} whose project file also says:")
@@ -376,15 +390,17 @@ public class TerminalSteps {
     }
 
     /**
-     * Creates a small git project on the machine of class {@code online}, whose upstream is a bare repository of its
-     * own: an online project names one, and a rented machine has no forge to push to. It lives inside the project's
-     * {@code .git}, so it is never committed and goes with the project.
+     * Creates a small git project on the machine of class {@code online}, whose upstream is a bare
+     * repository of its own: an online project names one, and a rented machine has no forge to push
+     * to. It lives inside the project's {@code .git}, so it is never committed and goes with the
+     * project.
      *
      * @param name The project's name and directory.
      * @param more YAML appended to the project file, as for the other project steps.
      * @throws IOException If the machine cannot be reached.
      */
-    @Given("an online project called {string} pushing to a repository of its own, whose project file also says:")
+    @Given(
+            "an online project called {string} pushing to a repository of its own, whose project file also says:")
     public void anOnlineProjectSaying(String name, String more) throws IOException {
         final String upstream = projectName(name) + "/.git/upstream.git";
         aProjectSaying(name, "online", "file://$HOME/" + upstream, more);
@@ -392,8 +408,12 @@ public class TerminalSteps {
         assertThat(made.status()).as("no upstream for %s:%n%s", name, made.all()).isZero();
     }
 
-    private void aProjectSaying(String name, String securityClass, @org.jspecify.annotations.Nullable String upstream,
-            String more) throws IOException {
+    private void aProjectSaying(
+            String name,
+            String securityClass,
+            @org.jspecify.annotations.Nullable String upstream,
+            String more)
+            throws IOException {
         // Built by running the commands rather than by writing files from here: a fixture the
         // suite creates is a fixture that can be right while the product is wrong.
         // Built by running the commands rather than by writing files from here: a fixture the
@@ -412,22 +432,41 @@ public class TerminalSteps {
         // Only now: a directory the check refused must not be the cleanup's to delete either.
         world.made(name);
         world.run("rm -rf ~/" + name + " && mkdir -p ~/" + name);
-        world.run("cd ~/" + name + " && git init -q -b main . && touch .git/" + FIXTURE + " "
-                + "&& git config user.email t@example.com && git config user.name T "
-                + "&& echo 'the project' > README.md");
-        world.run("cd ~/" + name + " && printf '%s\\n' "
-                + "'project:' '  name: \"" + name + "\"' "
-                + Shell.quote("  security_class: \"" + securityClass + "\"") + " "
-                // Double quotes, so the shell puts this account's home into it.
-                + (upstream == null ? "" : "\"  upstream: \\\"" + upstream + "\\\"\" ")
-                + "'image:' '  base_image: \"ubuntu:24.04\"' > project.yml");
+        world.run(
+                "cd ~/"
+                        + name
+                        + " && git init -q -b main . && touch .git/"
+                        + FIXTURE
+                        + " "
+                        + "&& git config user.email t@example.com && git config user.name T "
+                        + "&& echo 'the project' > README.md");
+        world.run(
+                "cd ~/"
+                        + name
+                        + " && printf '%s\\n' "
+                        + "'project:' '  name: \""
+                        + name
+                        + "\"' "
+                        + Shell.quote("  security_class: \"" + securityClass + "\"")
+                        + " "
+                        // Double quotes, so the shell puts this account's home into it.
+                        + (upstream == null ? "" : "\"  upstream: \\\"" + upstream + "\\\"\" ")
+                        + "'image:' '  base_image: \"ubuntu:24.04\"' > project.yml");
         if (!more.isBlank()) {
-            world.run("cd ~/" + name + " && printf '%s\\n' " + more.lines().map(Shell::quote)
-                    .collect(java.util.stream.Collectors.joining(" ")) + " >> project.yml");
+            world.run(
+                    "cd ~/"
+                            + name
+                            + " && printf '%s\\n' "
+                            + more.lines()
+                                    .map(Shell::quote)
+                                    .collect(java.util.stream.Collectors.joining(" "))
+                            + " >> project.yml");
         }
         world.run("cd ~/" + name + " && git add -A && git commit -q -m initial");
-        final Ssh.Output followed = world.run("porelo project follow " + name + " ~/" + name + " --unverified");
-        // Said here rather than at the first task start, which is minutes later and reads as a broken build.
+        final Ssh.Output followed =
+                world.run("porelo project follow " + name + " ~/" + name + " --unverified");
+        // Said here rather than at the first task start, which is minutes later and reads as a
+        // broken build.
         assertThat(followed.status()).as("following %s failed:%n%s", name, followed.all()).isZero();
     }
 
@@ -436,17 +475,24 @@ public class TerminalSteps {
 
     /**
      * Builds the check that stops the step from deleting a directory no acceptance run made.
-     * <p>
-     * The step used to begin with {@code rm -rf ~/NAME}, so a person's own project that shared a
-     * scenario's name was deleted the moment a scenario named it. Asked on 2026-09-27; a leftover of
-     * an aborted run still carries the marker and is cleared.
+     *
+     * <p>The step used to begin with {@code rm -rf ~/NAME}, so a person's own project that shared a
+     * scenario's name was deleted the moment a scenario named it. Asked on 2026-09-27; a leftover
+     * of an aborted run still carries the marker and is cleared.
      *
      * @param name The project's name, already checked.
      * @return A command that exits non-zero, saying why, when the directory is somebody else's.
      */
     static String fixtureCheck(String name) {
         final String home = "~/" + Shell.quote(name);
-        return "if [ -e " + home + " ] && [ ! -e " + home + "/.git/" + FIXTURE + " ]; then echo 'refused: " + name
+        return "if [ -e "
+                + home
+                + " ] && [ ! -e "
+                + home
+                + "/.git/"
+                + FIXTURE
+                + " ]; then echo 'refused: "
+                + name
                 + " is in the home and no acceptance run made it - a project of a person is not a fixture';"
                 + " exit 1; fi";
     }
@@ -460,7 +506,8 @@ public class TerminalSteps {
     static String projectName(String name) {
         final String checked = TaskSteps.aName(name);
         if (checked.chars().allMatch(c -> c == '.')) {
-            throw new IllegalArgumentException("Not a project name: '" + name + "' names a directory, not a project");
+            throw new IllegalArgumentException(
+                    "Not a project name: '" + name + "' names a directory, not a project");
         }
         return checked;
     }
@@ -478,9 +525,9 @@ public class TerminalSteps {
 
     /**
      * Runs a command with no terminal again until it exits zero, for as long as the scenario says.
-     * <p>
-     * For an answer that is not on the terminal, such as an agent's reply held for a person. It stops early when an
-     * agent repeats a failure, as a wait on the terminal does.
+     *
+     * <p>For an answer that is not on the terminal, such as an agent's reply held for a person. It
+     * stops early when an agent repeats a failure, as a wait on the terminal does.
      *
      * @param seconds How long to allow.
      * @param command What to run, with {@code ${NAME}} expanded from the runner's environment.
@@ -489,12 +536,19 @@ public class TerminalSteps {
     @Then("within {int} seconds a script running {string} exits zero")
     public void withinSecondsAScriptExitsZero(int seconds, String command) throws IOException {
         final String expanded = World.expand(command);
-        world.output(Repeated.untilZero(command, () -> world.run(expanded), new TaskHistories(world),
-                java.time.Duration.ofSeconds(seconds), Repeated.EVERY, world::redact));
+        world.output(
+                Repeated.untilZero(
+                        command,
+                        () -> world.run(expanded),
+                        new TaskHistories(world),
+                        java.time.Duration.ofSeconds(seconds),
+                        Repeated.EVERY,
+                        world::redact));
     }
 
     /**
-     * Runs a script of several lines again until it exits zero, as {@link #withinSecondsAScriptExitsZero} does.
+     * Runs a script of several lines again until it exits zero, as {@link
+     * #withinSecondsAScriptExitsZero} does.
      *
      * @param seconds How long to allow.
      * @param script What to run.
@@ -503,23 +557,38 @@ public class TerminalSteps {
     @Then("within {int} seconds this script exits zero:")
     public void withinSecondsThisScriptExitsZero(int seconds, String script) throws IOException {
         final String command = "bash -c " + Shell.quote(World.expand(script));
-        world.output(Repeated.untilZero(script.lines().findFirst().orElse(""), () -> world.run(command),
-                new TaskHistories(world), java.time.Duration.ofSeconds(seconds), Repeated.EVERY, world::redact));
+        world.output(
+                Repeated.untilZero(
+                        script.lines().findFirst().orElse(""),
+                        () -> world.run(command),
+                        new TaskHistories(world),
+                        java.time.Duration.ofSeconds(seconds),
+                        Repeated.EVERY,
+                        world::redact));
     }
 
     /**
-     * Runs a script about the task again until it exits zero, or fails the scenario at the limit with what it said
-     * last: for what arrives in a task by itself, on a helper's clock.
+     * Runs a script about the task again until it exits zero, or fails the scenario at the limit
+     * with what it said last: for what arrives in a task by itself, on a helper's clock.
      *
      * @param seconds How long to wait.
-     * @param script Lines naming the task as {@code {task}}, with {@code ${NAME}} expanded from the runner's environment.
+     * @param script Lines naming the task as {@code {task}}, with {@code ${NAME}} expanded from the
+     *     runner's environment.
      * @throws IOException If the machine cannot be reached.
      */
     @Then("within {int} seconds this script about the task exits zero:")
-    public void withinSecondsThisScriptAboutTheTaskExitsZero(int seconds, String script) throws IOException {
-        final String command = "bash -c " + Shell.quote(World.aboutTask(World.expand(script), world.task()));
-        world.output(Repeated.untilZero(script.lines().findFirst().orElse(""), () -> world.run(command),
-                new TaskHistories(world), java.time.Duration.ofSeconds(seconds), Repeated.EVERY, world::redact));
+    public void withinSecondsThisScriptAboutTheTaskExitsZero(int seconds, String script)
+            throws IOException {
+        final String command =
+                "bash -c " + Shell.quote(World.aboutTask(World.expand(script), world.task()));
+        world.output(
+                Repeated.untilZero(
+                        script.lines().findFirst().orElse(""),
+                        () -> world.run(command),
+                        new TaskHistories(world),
+                        java.time.Duration.ofSeconds(seconds),
+                        Repeated.EVERY,
+                        world::redact));
     }
 
     /**
@@ -546,8 +615,8 @@ public class TerminalSteps {
 
     /**
      * Runs a script of several lines with no terminal, in {@code bash}.
-     * <p>
-     * For a check that needs a file made first or two commands compared - which a scenario would
+     *
+     * <p>For a check that needs a file made first or two commands compared - which a scenario would
      * otherwise spread over steps that share nothing but the machine.
      *
      * @param script What to run, with {@code ${NAME}} expanded from the runner's environment.
@@ -562,18 +631,22 @@ public class TerminalSteps {
      * Runs a script of several lines with no terminal about the task this scenario started.
      *
      * @param script What to run, with {@code {task}} and {@code {state}} where the task's container
-     *        name and its state directory go.
+     *     name and its state directory go.
      * @throws IOException If the machine cannot be reached.
      */
     @When("a script runs about the task:")
     public void aScriptRunsLinesAboutTheTask(String script) throws IOException {
-        world.output(world.run("bash -c " + Shell.quote(World.aboutTask(World.expand(script), world.task()))));
+        world.output(
+                world.run(
+                        "bash -c "
+                                + Shell.quote(
+                                        World.aboutTask(World.expand(script), world.task()))));
     }
 
     /**
      * Runs a command with no terminal and a secret on its standard input.
-     * <p>
-     * How a credential reaches a vault from a script: never on the command line, which every
+     *
+     * <p>How a credential reaches a vault from a script: never on the command line, which every
      * process on the machine can read.
      *
      * @param command What to run.
@@ -596,8 +669,9 @@ public class TerminalSteps {
     public void aScriptRunningMentions(String command, String text) throws IOException {
         final Ssh.Output output = world.run(World.expand(command));
         world.output(output);
-        assertThat(output.all().contains(text)).as("running: %s, which said:%n%s", command,
-                world.redact(output.all())).isTrue();
+        assertThat(output.all().contains(text))
+                .as("running: %s, which said:%n%s", command, world.redact(output.all()))
+                .isTrue();
     }
 
     /** Asserts the last script failed. */
@@ -609,7 +683,9 @@ public class TerminalSteps {
     /** Asserts the last script succeeded. */
     @Then("it exits zero")
     public void itExitsZero() {
-        assertThat(world.output().status()).as("output was:%n%s", world.redact(world.output().all())).isZero();
+        assertThat(world.output().status())
+                .as("output was:%n%s", world.redact(world.output().all()))
+                .isZero();
     }
 
     /**
@@ -620,8 +696,9 @@ public class TerminalSteps {
     @Then("its output contains {string}")
     public void itsOutputContains(String text) {
         // Not AssertJ's own message: it prints the whole output, and a secret with it.
-        assertThat(world.output().all().contains(text)).as("'%s' is not in:%n%s", text,
-                world.redact(world.output().all())).isTrue();
+        assertThat(world.output().all().contains(text))
+                .as("'%s' is not in:%n%s", text, world.redact(world.output().all()))
+                .isTrue();
     }
 
     /**
@@ -642,30 +719,34 @@ public class TerminalSteps {
     @Then("its output does not contain the value of {string}")
     public void itsOutputDoesNotContainTheValueOf(String variable) {
         assertThat(world.contains(variable, world.output().all()))
-                .as("the output contained the value of %s", variable).isFalse();
+                .as("the output contained the value of %s", variable)
+                .isFalse();
     }
 
     /**
      * Asserts the last script wrote one of several honest answers.
-     * <p>
-     * For a fact with several shapes. Asserting one of them would make the scenario depend on
+     *
+     * <p>For a fact with several shapes. Asserting one of them would make the scenario depend on
      * which machine it ran on, which is how a suite teaches people to re-run it.
      *
      * @param alternatives Comma-separated texts, any one of which satisfies the step.
      */
     /**
-     * Splits the alternatives of {@code its output mentions one of}, refusing an empty one: every output contains it,
-     * so {@code "a,,b"} passed whatever was said.
+     * Splits the alternatives of {@code its output mentions one of}, refusing an empty one: every
+     * output contains it, so {@code "a,,b"} passed whatever was said.
      *
      * @param alternatives Comma-separated texts.
      * @return The texts.
      */
     static java.util.List<String> alternatives(String alternatives) {
-        final java.util.List<String> any = java.util.Arrays.stream(alternatives.split(",", -1)).map(String::strip)
-                .toList();
+        final java.util.List<String> any =
+                java.util.Arrays.stream(alternatives.split(",", -1)).map(String::strip).toList();
         if (any.stream().anyMatch(String::isEmpty)) {
-            throw new IllegalArgumentException("'" + alternatives + "' holds an empty alternative, which any output"
-                    + " contains");
+            throw new IllegalArgumentException(
+                    "'"
+                            + alternatives
+                            + "' holds an empty alternative, which any output"
+                            + " contains");
         }
         return any;
     }
@@ -688,7 +769,8 @@ public class TerminalSteps {
         final java.util.regex.Pattern line = java.util.regex.Pattern.compile(pattern);
         final String all = world.output().all();
         assertThat(all.lines().map(String::strip).anyMatch(each -> line.matcher(each).matches()))
-                .as("no line matches %s in:%n%s", pattern, world.redact(all)).isTrue();
+                .as("no line matches %s in:%n%s", pattern, world.redact(all))
+                .isTrue();
     }
 
     /** Asserts the last script painted nothing - the other half of every color scenario. */

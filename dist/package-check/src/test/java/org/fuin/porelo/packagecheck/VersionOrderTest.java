@@ -10,10 +10,12 @@ class VersionOrderTest {
 
     /** The ordering the check uses, asked of dpkg itself. */
     private static final VersionOrder.Comparator DPKG =
-            (higher, lower) -> Commands.run(List.of("dpkg", "--compare-versions", higher, "gt", lower)).ok();
+            (higher, lower) ->
+                    Commands.run(List.of("dpkg", "--compare-versions", higher, "gt", lower)).ok();
 
     /** An ordering that compares text, which is the mistake the build-number check exists for. */
-    private static final VersionOrder.Comparator LEXICAL = (higher, lower) -> higher.compareTo(lower) > 0;
+    private static final VersionOrder.Comparator LEXICAL =
+            (higher, lower) -> higher.compareTo(lower) > 0;
 
     private final Reports out = new Reports();
 
@@ -24,7 +26,9 @@ class VersionOrderTest {
         VersionOrder.check("0.1.0~snapshot.177", true, DPKG, out.report);
 
         assertThat(out.report.failures()).as(out.text()).isZero();
-        assertThat(out.text()).contains("the next build supersedes it").contains("a CI build carries no local marker");
+        assertThat(out.text())
+                .contains("the next build supersedes it")
+                .contains("a CI build carries no local marker");
     }
 
     @Test
@@ -34,7 +38,8 @@ class VersionOrderTest {
         VersionOrder.check("0.1.0~snapshot.177+local.20260928T044029", false, DPKG, out.report);
 
         assertThat(out.report.failures()).as(out.text()).isZero();
-        assertThat(out.text()).contains("it replaces the published 0.1.0~snapshot.177")
+        assertThat(out.text())
+                .contains("it replaces the published 0.1.0~snapshot.177")
                 .contains("the next CI build 0.1.0~snapshot.178 takes the machine back");
     }
 
@@ -45,21 +50,24 @@ class VersionOrderTest {
         VersionOrder.check("0.1.0~snapshot.180.1.1+local.20260928T061041", false, DPKG, out.report);
 
         assertThat(out.report.failures()).as(out.text()).isZero();
-        assertThat(out.text()).contains("the next CI build 0.1.0~snapshot.181 takes the machine back");
+        assertThat(out.text())
+                .contains("the next CI build 0.1.0~snapshot.181 takes the machine back");
     }
 
     @Test
     void failsAnOrderingThatComparesBuildNumbersAsText() {
         VersionOrder.check("0.1.0~snapshot.177", true, LEXICAL, out.report);
 
-        assertThat(out.text()).contains("FAIL  build 10 does not sort above build 9 - the comparison is lexical");
+        assertThat(out.text())
+                .contains("FAIL  build 10 does not sort above build 9 - the comparison is lexical");
     }
 
     @Test
     void failsAVersionThatSortsAboveItsRelease() {
         VersionOrder.check("0.1.0-SNAPSHOT", true, DPKG, out.report);
 
-        assertThat(out.text()).contains("FAIL  version is '0.1.0-SNAPSHOT': '-SNAPSHOT' sorts ABOVE the release");
+        assertThat(out.text())
+                .contains("FAIL  version is '0.1.0-SNAPSHOT': '-SNAPSHOT' sorts ABOVE the release");
     }
 
     @Test
@@ -71,13 +79,18 @@ class VersionOrderTest {
 
     @Test
     void failsALocalBuildThatWouldPinAMachine() {
-        // A local build that claimed run 9011 to outrank the published 99, and then outranked everything.
-        final VersionOrder.Comparator local = (higher, lower) -> !higher.equals("0.1.0~snapshot.178") && LEXICAL.greater(higher, lower);
+        // A local build that claimed run 9011 to outrank the published 99, and then outranked
+        // everything.
+        final VersionOrder.Comparator local =
+                (higher, lower) ->
+                        !higher.equals("0.1.0~snapshot.178") && LEXICAL.greater(higher, lower);
 
         VersionOrder.check("0.1.0~snapshot.177+local.20260928T044029", false, local, out.report);
 
-        assertThat(out.text()).contains("FAIL  0.1.0~snapshot.178 does not sort above 0.1.0~snapshot.177+local.20260928T044029"
-                + " - a local build would pin this machine forever");
+        assertThat(out.text())
+                .contains(
+                        "FAIL  0.1.0~snapshot.178 does not sort above 0.1.0~snapshot.177+local.20260928T044029"
+                                + " - a local build would pin this machine forever");
     }
 
     @Test
@@ -93,7 +106,10 @@ class VersionOrderTest {
     void saysSoOfAReleaseAndChecksNothingElse() {
         VersionOrder.check("0.1.0", true, LEXICAL, out.report);
 
-        assertThat(out.text()).contains("version 0.1.0 is not a snapshot").doesNotContain("PASS").doesNotContain("FAIL");
+        assertThat(out.text())
+                .contains("version 0.1.0 is not a snapshot")
+                .doesNotContain("PASS")
+                .doesNotContain("FAIL");
     }
 
     private static void assumeDpkg() {
@@ -103,7 +119,8 @@ class VersionOrderTest {
         } catch (RuntimeException ex) {
             present = false;
         }
-        assumeTrue(present, "dpkg is not installed; the ordering is dpkg's, so there is nothing to ask");
+        assumeTrue(
+                present,
+                "dpkg is not installed; the ordering is dpkg's, so there is nothing to ask");
     }
-
 }

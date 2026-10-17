@@ -17,14 +17,15 @@ import picocli.CommandLine;
 
 /**
  * Tests for {@link TaskRunCommand}.
- * <p>
- * Everything that touches the machine goes through {@link PoreloContext}. An earlier version of
+ *
+ * <p>Everything that touches the machine goes through {@link PoreloContext}. An earlier version of
  * this test had none, so running it built images, started containers and then replaced the test
  * process with a shell.
  */
 class TaskRunCommandTest {
 
-    private static final String MINIMAL = """
+    private static final String MINIMAL =
+            """
             project:
               name: "uc"
               security_class: "guarded"
@@ -42,8 +43,11 @@ class TaskRunCommandTest {
 
     private final StringWriter err = new StringWriter();
 
-    /** podman gives back the id of what it created, which Porelo records as what makes it its task. */
-    private final FakeCommandRunner runner = new FakeCommandRunner().answering(" create ", "0123456789abcdef");
+    /**
+     * podman gives back the id of what it created, which Porelo records as what makes it its task.
+     */
+    private final FakeCommandRunner runner =
+            new FakeCommandRunner().answering(" create ", "0123456789abcdef");
 
     private final List<List<String>> execCalls = new ArrayList<>();
 
@@ -53,8 +57,9 @@ class TaskRunCommandTest {
         return context(dir, hooksInstalled, name -> null);
     }
 
-    private PoreloContext context(Path dir, boolean hooksInstalled,
-            java.util.function.UnaryOperator<String> environment) throws IOException {
+    private PoreloContext context(
+            Path dir, boolean hooksInstalled, java.util.function.UnaryOperator<String> environment)
+            throws IOException {
         root = dir;
         // A machine Porelo will run on. Without this the fake answers nothing to 'podman version',
         // which is indistinguishable from a podman too old to support - and every run refuses.
@@ -64,43 +69,55 @@ class TaskRunCommandTest {
         // with success anyway - which happens to be the right answer here, and is pinned rather
         // than relied on.
         runner.answering("test -f", "");
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
         final PoreloPaths paths = new PoreloPaths(xdg, dir.resolve("bin"));
         if (hooksInstalled) {
             Files.createDirectories(dir.resolve("bin"));
-            for (final String name : List.of("porelo-hook-nft", "porelo-hook-supervisor", "porelo-hook-reader")) {
+            for (final String name :
+                    List.of("porelo-hook-nft", "porelo-hook-supervisor", "porelo-hook-reader")) {
                 final Path binary = dir.resolve("bin").resolve(name);
                 Files.writeString(binary, "#!/bin/sh\n");
                 binary.toFile().setExecutable(true);
             }
             // Binaries alone are not an installation: podman has to be told to run them, which is
             // what 'porelo setup' writes and what a task run now insists on.
-            new org.fuin.porelo.runtime.HookInstaller(paths.hooksDirectory(),
-                    paths.binaryDirectory()).install();
+            new org.fuin.porelo.runtime.HookInstaller(
+                            paths.hooksDirectory(), paths.binaryDirectory())
+                    .install();
         }
-        return new PoreloContext(runner, paths, arguments -> {
-            execCalls.add(arguments);
-            if (execDies) {
-                // Stands in for the session dying under the command. A signal cannot be sent in
-                // a unit test, but it lands on the same branch: the line recording a clean exit
-                // is never reached, so the teardown runs with the value it was armed with.
-                throw new IllegalStateException("the session died");
-            }
-            return execExit;
-        }, environment);
+        return new PoreloContext(
+                runner,
+                paths,
+                arguments -> {
+                    execCalls.add(arguments);
+                    if (execDies) {
+                        // Stands in for the session dying under the command. A signal cannot be
+                        // sent in
+                        // a unit test, but it lands on the same branch: the line recording a clean
+                        // exit
+                        // is never reached, so the teardown runs with the value it was armed with.
+                        throw new IllegalStateException("the session died");
+                    }
+                    return execExit;
+                },
+                environment);
     }
 
     /** The hook binaries without the descriptors: what 'apt install' leaves behind. */
     private void hookBinaries(Path dir) throws IOException {
         Files.createDirectories(dir.resolve("bin"));
-        for (final String name : List.of("porelo-hook-nft", "porelo-hook-supervisor",
-                "porelo-hook-reader")) {
+        for (final String name :
+                List.of("porelo-hook-nft", "porelo-hook-supervisor", "porelo-hook-reader")) {
             final Path binary = dir.resolve("bin").resolve(name);
             Files.writeString(binary, "#!/bin/sh\n");
             binary.toFile().setExecutable(true);
@@ -109,8 +126,8 @@ class TaskRunCommandTest {
 
     /**
      * Runs the CLI, naming the repository for a task start that did not name one itself.
-     * <p>
-     * Every project here is the one-repository project called {@code uc}, and starting a task
+     *
+     * <p>Every project here is the one-repository project called {@code uc}, and starting a task
      * always names a repository - there is no default, not even then. Added by the helper rather
      * than by thirty call sites, each of which is about something else; the requirement itself is
      * measured by {@link #startingATaskWithoutNamingARepositoryIsRefused}.
@@ -120,14 +137,20 @@ class TaskRunCommandTest {
         cmd.setOut(new PrintWriter(out));
         cmd.setErr(new PrintWriter(err));
         final List<String> all = new java.util.ArrayList<>(List.of(args));
-        if (all.size() > 1 && "task".equals(all.get(0)) && "start".equals(all.get(1))
-                && !all.contains("--repository") && !all.contains("-r")) {
+        if (all.size() > 1
+                && "task".equals(all.get(0))
+                && "start".equals(all.get(1))
+                && !all.contains("--repository")
+                && !all.contains("-r")) {
             all.add("--repository");
             all.add("uc");
         }
-        // Named 'shell' unless a test names it: an unnamed start takes its repository's name, which is measured on
+        // Named 'shell' unless a test names it: an unnamed start takes its repository's name, which
+        // is measured on
         // its own below, and every other test here is about something else.
-        if (all.size() > 1 && "task".equals(all.get(0)) && "start".equals(all.get(1))
+        if (all.size() > 1
+                && "task".equals(all.get(0))
+                && "start".equals(all.get(1))
                 && (all.size() == 2 || all.get(2).startsWith("-"))) {
             all.add(2, "shell");
         }
@@ -143,13 +166,21 @@ class TaskRunCommandTest {
 
         // No --repository, and the project has exactly one. Porelo still does not pick: a project
         // that grew a second repository would otherwise silently change what this command does.
-        final int code = cmd.execute("task", "start", "--attach", "shell", "--detach",
-                "-p", projectFile(dir, MINIMAL));
+        final int code =
+                cmd.execute(
+                        "task",
+                        "start",
+                        "--attach",
+                        "shell",
+                        "--detach",
+                        "-p",
+                        projectFile(dir, MINIMAL));
 
         assertThat(code).isEqualTo(64);
         // And the refusal is one somebody can act on without opening the file.
         assertThat(err.toString()).contains("--repository").contains("uc");
-        // Unnamed, the task has no name yet: a hint that put one in suggested 'shell', a name nobody chose.
+        // Unnamed, the task has no name yet: a hint that put one in suggested 'shell', a name
+        // nobody chose.
         assertThat(err.toString()).doesNotContain("task start shell");
     }
 
@@ -160,11 +191,21 @@ class TaskRunCommandTest {
         cmd.setOut(new PrintWriter(out));
         cmd.setErr(new PrintWriter(err));
 
-        cmd.execute("task", "start", "--attach", "shell", "--detach", "-p", projectFile(dir, MINIMAL),
-                "--repository", "uc");
+        cmd.execute(
+                "task",
+                "start",
+                "--attach",
+                "shell",
+                "--detach",
+                "-p",
+                projectFile(dir, MINIMAL),
+                "--repository",
+                "uc");
 
         assertThat(out.toString()).contains("task           uc - named after its repository");
-        assertThat(String.join("\n", runner.lines())).contains("porelo-uc-uc").doesNotContain("porelo-uc-shell");
+        assertThat(String.join("\n", runner.lines()))
+                .contains("porelo-uc-uc")
+                .doesNotContain("porelo-uc-shell");
     }
 
     @Test
@@ -177,8 +218,8 @@ class TaskRunCommandTest {
         cmd.setOut(new PrintWriter(out));
         cmd.setErr(new PrintWriter(err));
 
-        final int code = cmd.execute("task", "start",
-                "-p", projectFile(dir, TWO_REPOSITORIES), "--dry-run");
+        final int code =
+                cmd.execute("task", "start", "-p", projectFile(dir, TWO_REPOSITORIES), "--dry-run");
 
         assertThat(code).isZero();
         // And it says which plan this is, or a project-level answer reads as a task's.
@@ -189,9 +230,16 @@ class TaskRunCommandTest {
     void namingARepositoryTheProjectDoesNotHaveIsRefusedByName(@TempDir Path dir)
             throws IOException {
 
-        final int code = execute(context(dir, true), "task", "start",
-                "-p", projectFile(dir, MINIMAL), "--repository", "nowhere",
-                "--dry-run");
+        final int code =
+                execute(
+                        context(dir, true),
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--repository",
+                        "nowhere",
+                        "--dry-run");
 
         assertThat(code).isEqualTo(64);
         assertThat(err.toString()).contains("nowhere").contains("uc");
@@ -200,30 +248,37 @@ class TaskRunCommandTest {
     /**
      * Writes a project file and records where it is, then answers its NAME.
      *
-     * <p>Commands take a project name now, and a name resolves through what this machine knows:
-     * the verified clone of a followed project, then where a task last read one. A fixture that
-     * only wrote a file into a temporary directory would be a project this machine has never
-     * heard of - which is exactly what the refusal is for, and not what these tests are about.
+     * <p>Commands take a project name now, and a name resolves through what this machine knows: the
+     * verified clone of a followed project, then where a task last read one. A fixture that only
+     * wrote a file into a temporary directory would be a project this machine has never heard of -
+     * which is exactly what the refusal is for, and not what these tests are about.
      */
     private String projectFile(Path dir, String content) throws IOException {
         final Path file = dir.resolve("project.yml");
         Files.writeString(file, content);
         // Read out of the text rather than through the reader: one of these fixtures is a file
         // the reader refuses on purpose, and it still has to be a project this machine can name.
-        final java.util.regex.Matcher named = java.util.regex.Pattern
-                .compile("(?m)^\\s+name:\\s*\"?([a-z0-9-]+)\"?").matcher(content);
+        final java.util.regex.Matcher named =
+                java.util.regex.Pattern.compile("(?m)^\\s+name:\\s*\"?([a-z0-9-]+)\"?")
+                        .matcher(content);
         final String name = named.find() ? named.group(1) : "uc";
         Files.createDirectories(dir.resolve("data/porelo/projects"));
-        Files.writeString(dir.resolve("data/porelo/projects").resolve(name),
-                file.toAbsolutePath() + "\n");
+        Files.writeString(
+                dir.resolve("data/porelo/projects").resolve(name), file.toAbsolutePath() + "\n");
         return name;
     }
 
     @Test
     void reportsTheResolvedProject(@TempDir Path dir) throws IOException {
 
-        final int code = execute(context(dir, true), "task", "start",
-                "-p", projectFile(dir, MINIMAL), "--dry-run");
+        final int code =
+                execute(
+                        context(dir, true),
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--dry-run");
 
         assertThat(code).isZero();
         assertThat(out.toString())
@@ -239,8 +294,8 @@ class TaskRunCommandTest {
         // A container started without its firewall looks completely normal, which is why this
         // must stop rather than warn. Writing descriptors would not help: they would name
         // binaries that are not there, which is a broken installation rather than a missing step.
-        final int code = execute(context(dir, false), "task", "start",
-                "-p", projectFile(dir, MINIMAL));
+        final int code =
+                execute(context(dir, false), "task", "start", "-p", projectFile(dir, MINIMAL));
 
         assertThat(code).isEqualTo(69);
         assertThat(err.toString()).contains("binaries that are not installed");
@@ -258,8 +313,16 @@ class TaskRunCommandTest {
         // write them, because podman reads them per user and root does not know whose.
         hookBinaries(dir);
 
-        final int code = execute(context(dir, false), "task", "start", "--attach", "shell",
-                "--detach", "-p", projectFile(dir, MINIMAL));
+        final int code =
+                execute(
+                        context(dir, false),
+                        "task",
+                        "start",
+                        "--attach",
+                        "shell",
+                        "--detach",
+                        "-p",
+                        projectFile(dir, MINIMAL));
 
         assertThat(code).isZero();
         // Said out loud: this writes into the operator's own podman configuration.
@@ -274,12 +337,20 @@ class TaskRunCommandTest {
         // The other repairable state. A package replaces the binaries and never touches these
         // files, so a release that changes what a descriptor says leaves the old one in place.
         final PoreloContext context = context(dir, true);
-        final Path descriptor = dir.resolve(
-                "config/containers/oci/hooks.d/porelo-hook-nft-poststop.json");
+        final Path descriptor =
+                dir.resolve("config/containers/oci/hooks.d/porelo-hook-nft-poststop.json");
         Files.writeString(descriptor, "{\"version\":\"1.0.0\",\"hook\":{}}");
 
-        final int code = execute(context, "task", "start", "--attach", "shell", "--detach",
-                "-p", projectFile(dir, MINIMAL));
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "--attach",
+                        "shell",
+                        "--detach",
+                        "-p",
+                        projectFile(dir, MINIMAL));
 
         assertThat(code).isZero();
         assertThat(out.toString()).contains("brought up to date");
@@ -291,7 +362,14 @@ class TaskRunCommandTest {
 
         // The nft hook reads both files while the container is being created. Writing them
         // afterwards would leave a window with a container and no firewall.
-        execute(context(dir, true), "task", "start", "--attach", "shell", "-p", projectFile(dir, MINIMAL));
+        execute(
+                context(dir, true),
+                "task",
+                "start",
+                "--attach",
+                "shell",
+                "-p",
+                projectFile(dir, MINIMAL));
 
         final Path state = root.resolve("run/porelo").resolve(containerName());
         assertThat(state.resolve("ruleset.nft")).exists();
@@ -299,7 +377,10 @@ class TaskRunCommandTest {
         assertThat(Files.readString(state.resolve("ruleset.nft"))).contains("policy drop;");
     }
 
-    /** The host key a person confirmed: without it a start over ssh stops before anything is created. */
+    /**
+     * The host key a person confirmed: without it a start over ssh stops before anything is
+     * created.
+     */
     private static void trustGithub(final PoreloContext context) throws IOException {
         final Path known = FollowCredential.knownHostsFile(context);
         Files.createDirectories(known.getParent());
@@ -308,10 +389,22 @@ class TaskRunCommandTest {
 
     /** Runs git, or fails the test with what it said. */
     private static String git(final Path in, final String... arguments) throws IOException {
-        final java.util.List<String> command = new java.util.ArrayList<>(java.util.List.of("git", "-c", "user.name=T",
-                "-c", "user.email=t@example.org", "-c", "init.defaultBranch=main"));
+        final java.util.List<String> command =
+                new java.util.ArrayList<>(
+                        java.util.List.of(
+                                "git",
+                                "-c",
+                                "user.name=T",
+                                "-c",
+                                "user.email=t@example.org",
+                                "-c",
+                                "init.defaultBranch=main"));
         command.addAll(java.util.List.of(arguments));
-        final Process process = new ProcessBuilder(command).directory(in.toFile()).redirectErrorStream(true).start();
+        final Process process =
+                new ProcessBuilder(command)
+                        .directory(in.toFile())
+                        .redirectErrorStream(true)
+                        .start();
         final String said = new String(process.getInputStream().readAllBytes()).strip();
         try {
             assertThat(process.waitFor()).as(said).isZero();
@@ -321,27 +414,41 @@ class TaskRunCommandTest {
         return said;
     }
 
-    /** A project of the given class on a repository of this machine, whose gate holds what a removed 'second' left. */
-    private String leftByARemovedTask(final Path dir, final String securityClass) throws IOException {
+    /**
+     * A project of the given class on a repository of this machine, whose gate holds what a removed
+     * 'second' left.
+     */
+    private String leftByARemovedTask(final Path dir, final String securityClass)
+            throws IOException {
         final Path upstream = dir.resolve("upstream.git");
         git(dir, "init", "-q", "--bare", upstream.toString());
         final Path seed = java.nio.file.Files.createDirectories(dir.resolve("seed"));
         git(seed, "init", "-q");
         git(seed, "commit", "-q", "--allow-empty", "-m", "first");
         git(seed, "push", "-q", upstream.toString(), "HEAD:refs/heads/main");
-        final String file = projectFile(dir, """
+        final String file =
+                projectFile(
+                        dir,
+                        """
                 project:
                   name: "uc"
                   security_class: "%s"
                   upstream: "file://%s"
                 image:
                   base_image: "ubuntu:24.04"
-                """.formatted(securityClass, upstream));
-        // A first task makes the gate, and a task called 'second' worked there before it was removed.
+                """
+                                .formatted(securityClass, upstream));
+        // A first task makes the gate, and a task called 'second' worked there before it was
+        // removed.
         assertThat(execute(context(dir, true), "task", "start", "--attach", "shell", "-p", file))
-                .as("the start said:%n%s%n%s", out, err).isZero();
+                .as("the start said:%n%s%n%s", out, err)
+                .isZero();
         git(seed, "commit", "-q", "--allow-empty", "-m", "the removed task's work");
-        git(seed, "push", "-q", root.resolve("data/porelo/mirrors/uc.git").toString(),
+        git(
+                seed,
+                "push",
+                "-q",
+                root.resolve("data/porelo/mirrors/uc.git").toString(),
                 "HEAD:refs/porelo/incoming/second");
         return file;
     }
@@ -349,16 +456,28 @@ class TaskRunCommandTest {
     @Test
     void aNewGuardedTaskIsRefusedWhileWorkOfAnEarlierOneOfItsNameWaitsAtTheGate(@TempDir Path dir)
             throws IOException {
-        // A removed task's work waited at the gate; a new task of the same name was refused its plain push with
-        // "fetch first", and an agent that followed git's hint would have pulled that work into its own.
+        // A removed task's work waited at the gate; a new task of the same name was refused its
+        // plain push with
+        // "fetch first", and an agent that followed git's hint would have pulled that work into its
+        // own.
         final String file = leftByARemovedTask(dir, "guarded");
 
-        final int exit = execute(context(dir, true), "task", "start", "second", "--attach", "shell", "-p",
-                file);
+        final int exit =
+                execute(
+                        context(dir, true),
+                        "task",
+                        "start",
+                        "second",
+                        "--attach",
+                        "shell",
+                        "-p",
+                        file);
 
         assertThat(exit).as("the start said:%n%s%n%s", out, err).isEqualTo(65);
-        assertThat(err.toString()).contains("work of an earlier task called second waits at the gate")
-                .contains("the removed task's work").contains("nothing was created");
+        assertThat(err.toString())
+                .contains("work of an earlier task called second waits at the gate")
+                .contains("the removed task's work")
+                .contains("nothing was created");
         assertThat(runner.invocations().stream().map(command -> command.describe()))
                 .noneMatch(line -> line.contains("create") && line.contains("porelo-uc-second"));
     }
@@ -368,24 +487,44 @@ class TaskRunCommandTest {
             throws IOException {
         final String file = leftByARemovedTask(dir, "online");
 
-        final int exit = execute(context(dir, true), "task", "start", "second", "--attach", "shell", "-p",
-                file);
+        final int exit =
+                execute(
+                        context(dir, true),
+                        "task",
+                        "start",
+                        "second",
+                        "--attach",
+                        "shell",
+                        "-p",
+                        file);
 
         assertThat(exit).as("the start said:%n%s%n%s", out, err).isZero();
-        assertThat(git(dir, "--git-dir", root.resolve("data/porelo/mirrors/uc.git").toString(), "for-each-ref",
-                "refs/porelo/incoming/")).as("what the removed task left").doesNotContain("incoming/second");
+        assertThat(
+                        git(
+                                dir,
+                                "--git-dir",
+                                root.resolve("data/porelo/mirrors/uc.git").toString(),
+                                "for-each-ref",
+                                "refs/porelo/incoming/"))
+                .as("what the removed task left")
+                .doesNotContain("incoming/second");
     }
 
     @Test
-    void anOnlineTaskReachesItsUpstreamOnlyThroughItsGateAndHoldsNoKeyOrSocketOfOne(@TempDir Path dir)
-            throws IOException {
+    void anOnlineTaskReachesItsUpstreamOnlyThroughItsGateAndHoldsNoKeyOrSocketOfOne(
+            @TempDir Path dir) throws IOException {
 
-        // Its remote was the upstream, over ssh, with an ssh-agent socket that answered the forge with the real key:
-        // the agent could push wherever that key reached. Now its gate passes its own branch on, from the host.
-        // A repository on this machine: the host fills the gate from it, which no container could reach.
+        // Its remote was the upstream, over ssh, with an ssh-agent socket that answered the forge
+        // with the real key:
+        // the agent could push wherever that key reached. Now its gate passes its own branch on,
+        // from the host.
+        // A repository on this machine: the host fills the gate from it, which no container could
+        // reach.
         final Path upstream = dir.resolve("upstream.git");
-        for (final String[] command : new String[][] {
-                {"git", "init", "-q", "--bare", "--initial-branch=main", upstream.toString()}}) {
+        for (final String[] command :
+                new String[][] {
+                    {"git", "init", "-q", "--bare", "--initial-branch=main", upstream.toString()}
+                }) {
             final Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
             final String said = new String(process.getInputStream().readAllBytes()).strip();
             try {
@@ -395,32 +534,57 @@ class TaskRunCommandTest {
             }
         }
         final PoreloContext context = context(dir, true);
-        execute(context, "task", "start", "--attach", "shell", "-p", projectFile(dir, """
+        execute(
+                context,
+                "task",
+                "start",
+                "--attach",
+                "shell",
+                "-p",
+                projectFile(
+                        dir,
+                        """
                 project:
                   name: "uc"
                   security_class: "online"
                   upstream: "file://%s"
                 image:
                   base_image: "ubuntu:24.04"
-                """.formatted(upstream)));
+                """
+                                .formatted(upstream)));
 
         final Path state = root.resolve("run/porelo").resolve(containerName());
         assertThat(state.resolve("ruleset.nft")).as("the start said:%n%s%n%s", out, err).exists();
         assertThat(err.toString()).as("the start said:%n%s", out).doesNotContain("no git gate");
-        assertThat(Files.readString(state.resolve("ruleset.nft"))).doesNotContain("upstream_v4")
+        assertThat(Files.readString(state.resolve("ruleset.nft")))
+                .doesNotContain("upstream_v4")
                 .doesNotContain("dport 22");
-        assertThat(runner.only("create").describe()).as("the start said:%n%s%n%s", out, err)
-                .doesNotContain("ssh-agent.sock").doesNotContain("SSH_AUTH_SOCK").doesNotContain("GIT_SSH_COMMAND")
+        assertThat(runner.only("create").describe())
+                .as("the start said:%n%s%n%s", out, err)
+                .doesNotContain("ssh-agent.sock")
+                .doesNotContain("SSH_AUTH_SOCK")
+                .doesNotContain("GIT_SSH_COMMAND")
                 .contains("--env PORELO_TASK_REF");
-        // That its gate passes the push on is GateServingTest's: the record of it exists only where a 'porelo' started.
+        // That its gate passes the push on is GateServingTest's: the record of it exists only where
+        // a 'porelo' started.
     }
 
     @Test
-    void aGuardedTaskReachesNoUpstreamOverSshSinceItsWorkLeavesThroughTheGate(@TempDir Path dir) throws IOException {
+    void aGuardedTaskReachesNoUpstreamOverSshSinceItsWorkLeavesThroughTheGate(@TempDir Path dir)
+            throws IOException {
 
         final PoreloContext context = context(dir, true);
         trustGithub(context);
-        execute(context, "task", "start", "--attach", "shell", "-p", projectFile(dir, """
+        execute(
+                context,
+                "task",
+                "start",
+                "--attach",
+                "shell",
+                "-p",
+                projectFile(
+                        dir,
+                        """
                 project:
                   name: "uc"
                   security_class: "guarded"
@@ -430,14 +594,22 @@ class TaskRunCommandTest {
                 """));
 
         final Path state = root.resolve("run/porelo").resolve(containerName());
-        assertThat(Files.readString(state.resolve("ruleset.nft"))).doesNotContain("upstream_v4")
+        assertThat(Files.readString(state.resolve("ruleset.nft")))
+                .doesNotContain("upstream_v4")
                 .doesNotContain("dport 22");
     }
 
     @Test
     void annotatesTheContainerSoTheHooksFire(@TempDir Path dir) throws IOException {
 
-        execute(context(dir, true), "task", "start", "--attach", "shell", "-p", projectFile(dir, MINIMAL));
+        execute(
+                context(dir, true),
+                "task",
+                "start",
+                "--attach",
+                "shell",
+                "-p",
+                projectFile(dir, MINIMAL));
 
         assertThat(runner.only("create").describe())
                 .contains("--annotation org.fuin.porelo.sidecar=")
@@ -447,22 +619,42 @@ class TaskRunCommandTest {
     @Test
     void handsTheTerminalToTheShell(@TempDir Path dir) throws IOException {
 
-        execute(context(dir, true), "task", "start", "--attach", "shell",
-                "-p", projectFile(dir, MINIMAL), "--shell", "/bin/sh");
+        execute(
+                context(dir, true),
+                "task",
+                "start",
+                "--attach",
+                "shell",
+                "-p",
+                projectFile(dir, MINIMAL),
+                "--shell",
+                "/bin/sh");
 
         // Through the task's ONE session, not beside it. A plain exec ran the agent as a child
         // of this terminal: closing the window took it with it, and attaching from anywhere else
         // created a second, empty session and showed a bare shell in the workspace.
         assertThat(execCalls).hasSize(1);
-        assertThat(execCalls.getFirst()).startsWith("podman", "exec", "--interactive", "--tty",
-                containerName(), "tmux", "-f", "/etc/porelo/tmux.conf",
-                "new-session", "-A", "-s", "porelo");
+        assertThat(execCalls.getFirst())
+                .startsWith(
+                        "podman",
+                        "exec",
+                        "--interactive",
+                        "--tty",
+                        containerName(),
+                        "tmux",
+                        "-f",
+                        "/etc/porelo/tmux.conf",
+                        "new-session",
+                        "-A",
+                        "-s",
+                        "porelo");
         // One argument, because tmux joins several into one string with spaces and would take
         // the script apart at its quoting.
         // The shell is a child, not an exec: the marker that says the work ended is written
         // after it returns, and 'exec' would leave nothing to write it.
         assertThat(execCalls.getFirst().getLast())
-                .contains("/bin/sh -l; : > ").doesNotContain("exec /bin/sh");
+                .contains("/bin/sh -l; : > ")
+                .doesNotContain("exec /bin/sh");
     }
 
     @Test
@@ -473,12 +665,20 @@ class TaskRunCommandTest {
         // to fall back to this process's own environment. What that cost was not production - it
         // was a test that read the terminal of whoever ran it and asserted something different in
         // CI, which is the same class of defect as the one this feature fixes.
-        final PoreloContext context = context(dir, true,
-                name -> "TERM".equals(name) ? "xterm-256color" : null);
+        final PoreloContext context =
+                context(dir, true, name -> "TERM".equals(name) ? "xterm-256color" : null);
         runner.answering("podman exec " + containerName() + " infocmp xterm-256color", "");
 
-        execute(context, "task", "start", "--attach", "shell",
-                "-p", projectFile(dir, MINIMAL), "--shell", "/bin/sh");
+        execute(
+                context,
+                "task",
+                "start",
+                "--attach",
+                "shell",
+                "-p",
+                projectFile(dir, MINIMAL),
+                "--shell",
+                "/bin/sh");
 
         assertThat(execCalls.getFirst())
                 .containsSubsequence("--env", "TERM=xterm-256color", containerName());
@@ -490,8 +690,11 @@ class TaskRunCommandTest {
         // The seam that keeps the test above honest. A context built the three-argument way -
         // which is how every test builds one - must read nothing from this process, or a suite
         // passes on a developer's machine and asserts something else where there is no terminal.
-        assertThat(new PoreloContext(runner, PoreloPaths.current(), arguments -> 0)
-                .environment().apply("TERM")).isNull();
+        assertThat(
+                        new PoreloContext(runner, PoreloPaths.current(), arguments -> 0)
+                                .environment()
+                                .apply("TERM"))
+                .isNull();
     }
 
     @Test
@@ -502,8 +705,8 @@ class TaskRunCommandTest {
         // something it was not - and the person who asked for an agent got a bare prompt with
         // nothing explaining why. CanStart already answered NO_AGENT for this, so the check and
         // the launch disagreed about the same machine.
-        final int code = execute(context(dir, true), "task", "start",
-                "-p", projectFile(dir, MINIMAL));
+        final int code =
+                execute(context(dir, true), "task", "start", "-p", projectFile(dir, MINIMAL));
 
         assertThat(code).isEqualTo(69);
         assertThat(err.toString()).contains("no agent to attach");
@@ -515,8 +718,15 @@ class TaskRunCommandTest {
 
         // Working inside the container by hand is exactly what a shell task is for, so refusing
         // it for want of an agent would take away the case the refusal above points people at.
-        final int code = execute(context(dir, true), "task", "start", "--attach", "shell",
-                "-p", projectFile(dir, MINIMAL));
+        final int code =
+                execute(
+                        context(dir, true),
+                        "task",
+                        "start",
+                        "--attach",
+                        "shell",
+                        "-p",
+                        projectFile(dir, MINIMAL));
 
         assertThat(code).isZero();
         assertThat(execCalls).hasSize(1);
@@ -528,8 +738,15 @@ class TaskRunCommandTest {
         // The difference between "started" and "ran". A prompt asks for work to be performed, and
         // a run that answers success without an agent having done anything leaves somebody waiting
         // for output that was never going to come.
-        final int code = execute(context(dir, true), "task", "start",
-                "-p", projectFile(dir, MINIMAL), "-P", "fix the parser");
+        final int code =
+                execute(
+                        context(dir, true),
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "-P",
+                        "fix the parser");
 
         assertThat(code).isEqualTo(69);
         assertThat(err.toString()).contains("a prompt needs an agent");
@@ -541,13 +758,23 @@ class TaskRunCommandTest {
         // Nothing exists to hold, so the tidy-up runs as it always did.
         runner.failing("start", 125, "hook failed");
 
-        final int code = execute(context(dir, true), "task", "start", "--rm", "--attach", "shell",
-                "-p", projectFile(dir, MINIMAL));
+        final int code =
+                execute(
+                        context(dir, true),
+                        "task",
+                        "start",
+                        "--rm",
+                        "--attach",
+                        "shell",
+                        "-p",
+                        projectFile(dir, MINIMAL));
 
         assertThat(code).isEqualTo(70);
         assertThat(err.toString()).contains("hook failed");
         assertThat(runner.lines()).anyMatch(line -> line.contains("rm --force"));
-        assertThat(execCalls).as("no shell is attached to a container that never started").isEmpty();
+        assertThat(execCalls)
+                .as("no shell is attached to a container that never started")
+                .isEmpty();
     }
 
     @Test
@@ -563,17 +790,29 @@ class TaskRunCommandTest {
         runner.answering("container inspect", "c0ffee\n");
         runner.failing("start", 125, "hook failed");
 
-        final int code = execute(prepared, "task", "start", "--rm", "--attach", "shell",
-                "-p", projectFile(dir, MINIMAL));
+        final int code =
+                execute(
+                        prepared,
+                        "task",
+                        "start",
+                        "--rm",
+                        "--attach",
+                        "shell",
+                        "-p",
+                        projectFile(dir, MINIMAL));
 
         assertThat(code).isEqualTo(70);
         assertThat(runner.lines()).noneMatch(line -> line.contains("rm --force"));
         // The advice has to name commands the CLI still has. It named 'task resume' and
         // 'task stop --purge' - both removed at the lifecycle cut - so somebody following a
         // failure report was sent to two commands that refuse.
-        assertThat(out.toString()).contains("kept").contains("it failed, so nothing was removed")
-                .contains("task attach").contains("task remove")
-                .doesNotContain("task resume").doesNotContain("--purge");
+        assertThat(out.toString())
+                .contains("kept")
+                .contains("it failed, so nothing was removed")
+                .contains("task attach")
+                .contains("task remove")
+                .doesNotContain("task resume")
+                .doesNotContain("--purge");
         // Held, not abandoned: a task nobody is watching that still holds a firewall, a gate and a
         // credential proxy is not kept.
         assertThat(runner.lines()).anyMatch(line -> line.contains("podman stop"));
@@ -584,8 +823,7 @@ class TaskRunCommandTest {
 
         runner.failing("start", 125, "hook failed");
 
-        execute(context(dir, true), "task", "start",
-                "-p", projectFile(dir, MINIMAL));
+        execute(context(dir, true), "task", "start", "-p", projectFile(dir, MINIMAL));
 
         assertThat(runner.lines()).noneMatch(line -> line.contains("rm --force"));
     }
@@ -623,8 +861,15 @@ class TaskRunCommandTest {
     @Test
     void rejectsAnUnknownOption(@TempDir Path dir) throws IOException {
 
-        assertThat(execute(context(dir, true), "task", "start",
-                "-p", projectFile(dir, MINIMAL), "--nope")).isEqualTo(2);
+        assertThat(
+                        execute(
+                                context(dir, true),
+                                "task",
+                                "start",
+                                "-p",
+                                projectFile(dir, MINIMAL),
+                                "--nope"))
+                .isEqualTo(2);
     }
 
     @Test
@@ -635,8 +880,14 @@ class TaskRunCommandTest {
         // broker-check.sh takes 'sidecar' to find the state directory. Nothing guarded them, so a
         // tidy-up of this output would have gone out green here and turned six acceptance legs red
         // somewhere else. Asked for by name on the agent channel on 2026-09-11.
-        execute(context(dir, true), "task", "start", "--attach", "shell",
-                "-p", projectFile(dir, MINIMAL));
+        execute(
+                context(dir, true),
+                "task",
+                "start",
+                "--attach",
+                "shell",
+                "-p",
+                projectFile(dir, MINIMAL));
 
         assertThat(out.toString())
                 .containsPattern("(?m)^container " + containerName() + "$")
@@ -666,10 +917,19 @@ class TaskRunCommandTest {
         // anything reads a leftover file that number may belong to something else entirely.
         org.fuin.porelo.wire.HelperPid.record(state.resolve("vault.pid"), helper.toHandle());
 
-        execute(context, "task", "start", "--attach", "shell", "-p", projectFile(dir, MINIMAL), "--detach");
+        execute(
+                context,
+                "task",
+                "start",
+                "--attach",
+                "shell",
+                "-p",
+                projectFile(dir, MINIMAL),
+                "--detach");
 
         assertThat(helper.waitFor(10, java.util.concurrent.TimeUnit.SECONDS))
-                .as("the helper must be stopped, not left holding its socket").isTrue();
+                .as("the helper must be stopped, not left holding its socket")
+                .isTrue();
         assertThat(state.resolve("vault.pid")).doesNotExist();
     }
 
@@ -685,8 +945,7 @@ class TaskRunCommandTest {
         Files.createDirectories(state);
         Files.writeString(state.resolve("vault.pid"), "4711");
 
-        execute(context, "task", "start", "-p", projectFile(dir, MINIMAL),
-                "--detach");
+        execute(context, "task", "start", "-p", projectFile(dir, MINIMAL), "--detach");
 
         assertThat(state.resolve("vault.pid")).exists();
     }
@@ -698,8 +957,8 @@ class TaskRunCommandTest {
         // remove the container. Every interactive task leaked one while printing the opposite.
         execute(context(dir, true), "task", "start", "--rm", "-p", projectFile(dir, MINIMAL));
 
-        assertThat(runner.invocations()).anySatisfy(command ->
-                assertThat(command.describe()).contains("rm"));
+        assertThat(runner.invocations())
+                .anySatisfy(command -> assertThat(command.describe()).contains("rm"));
     }
 
     @Test
@@ -714,8 +973,16 @@ class TaskRunCommandTest {
         // keep branch is unreachable, and the test would pass however the verdict is computed.
         runner.answering("container inspect", "c0ffee\n");
 
-        final int code = execute(context(dir, true), "task", "start", "--rm", "--attach", "shell",
-                "-p", projectFile(dir, MINIMAL));
+        final int code =
+                execute(
+                        context(dir, true),
+                        "task",
+                        "start",
+                        "--rm",
+                        "--attach",
+                        "shell",
+                        "-p",
+                        projectFile(dir, MINIMAL));
 
         assertThat(out.toString()).doesNotContain("it failed");
         assertThat(runner.lines()).anyMatch(line -> line.contains("rm --force"));
@@ -742,12 +1009,22 @@ class TaskRunCommandTest {
         // What the container answers when asked: one changed file, two commits nobody pushed.
         runner.answering("exec", "1 2\n");
 
-        execute(prepared, "task", "start", "--rm", "--attach", "shell",
-                "-p", projectFile(dir, MINIMAL));
+        execute(
+                prepared,
+                "task",
+                "start",
+                "--rm",
+                "--attach",
+                "shell",
+                "-p",
+                projectFile(dir, MINIMAL));
 
-        assertThat(runner.lines()).as("work that exists nowhere else must not be removed")
+        assertThat(runner.lines())
+                .as("work that exists nowhere else must not be removed")
                 .noneMatch(line -> line.contains("rm --force"));
-        assertThat(out.toString()).contains("kept").contains("never reached the gate")
+        assertThat(out.toString())
+                .contains("kept")
+                .contains("never reached the gate")
                 .contains("--rescue");
     }
 
@@ -766,8 +1043,15 @@ class TaskRunCommandTest {
         runner.answering("container inspect", "c0ffee\n");
         runner.answering("exec", "0 0\n");
 
-        execute(prepared, "task", "start", "--rm", "--attach", "shell",
-                "-p", projectFile(dir, MINIMAL));
+        execute(
+                prepared,
+                "task",
+                "start",
+                "--rm",
+                "--attach",
+                "shell",
+                "-p",
+                projectFile(dir, MINIMAL));
 
         assertThat(runner.lines()).anyMatch(line -> line.contains("rm --force"));
         assertThat(out.toString()).doesNotContain("never reached the gate");
@@ -782,10 +1066,17 @@ class TaskRunCommandTest {
         execDies = true;
         runner.answering("container inspect", "c0ffee\n");
 
-        execute(context(dir, true), "task", "start", "--attach", "shell",
-                "-p", projectFile(dir, MINIMAL));
+        execute(
+                context(dir, true),
+                "task",
+                "start",
+                "--attach",
+                "shell",
+                "-p",
+                projectFile(dir, MINIMAL));
 
-        assertThat(runner.lines()).as("an interrupted run must not be swept up")
+        assertThat(runner.lines())
+                .as("an interrupted run must not be swept up")
                 .noneMatch(line -> line.contains("rm --force"));
     }
 
@@ -794,24 +1085,36 @@ class TaskRunCommandTest {
 
         // So a listing can still say what a task belongs to after a reboot. The sidecar holding
         // the same facts is in $XDG_RUNTIME_DIR and does not survive one.
-        execute(context(dir, true), "task", "start", "--attach", "shell", "--detach",
-                "-p", projectFile(dir, MINIMAL));
+        execute(
+                context(dir, true),
+                "task",
+                "start",
+                "--attach",
+                "shell",
+                "--detach",
+                "-p",
+                projectFile(dir, MINIMAL));
 
-        assertThat(runner.lines()).anyMatch(line -> line.contains("create")
-                && line.contains("--label org.fuin.porelo.project=uc")
-                && line.contains("--label org.fuin.porelo.class=guarded"));
+        assertThat(runner.lines())
+                .anyMatch(
+                        line ->
+                                line.contains("create")
+                                        && line.contains("--label org.fuin.porelo.project=uc")
+                                        && line.contains("--label org.fuin.porelo.class=guarded"));
     }
 
     /**
      * A project with a second repository, so a label can be wrong in a visible way.
-     * <p>
-     * <strong>No upstream on it, deliberately.</strong> The gate is built with a real command
+     *
+     * <p><strong>No upstream on it, deliberately.</strong> The gate is built with a real command
      * runner even here, so a repository that named one would have this test cloning from that
      * address - and an unreachable host does not fail, it waits. Measured: the run hung until it
      * was killed. A repository with no upstream is a legitimate one whose work stays on this
      * machine, and it exercises the label exactly as well.
      */
-    private static final String TWO_REPOSITORIES = MINIMAL + """
+    private static final String TWO_REPOSITORIES =
+            MINIMAL
+                    + """
             repositories:
               backend:
             """;
@@ -822,36 +1125,78 @@ class TaskRunCommandTest {
         // A task works on exactly one repository and that is fixed when it is created, so a
         // listing has to be able to say which one after a reboot - and bringing a stopped task
         // back has to carry it over. The sidecar cannot answer: it predates repositories.
-        execute(context(dir, true), "task", "start", "--attach", "shell", "--detach",
-                "-p", projectFile(dir, TWO_REPOSITORIES), "--repository", "backend");
+        execute(
+                context(dir, true),
+                "task",
+                "start",
+                "--attach",
+                "shell",
+                "--detach",
+                "-p",
+                projectFile(dir, TWO_REPOSITORIES),
+                "--repository",
+                "backend");
 
-        assertThat(runner.lines()).anyMatch(line -> line.contains("create")
-                && line.contains("--label org.fuin.porelo.repository=backend"));
+        assertThat(runner.lines())
+                .anyMatch(
+                        line ->
+                                line.contains("create")
+                                        && line.contains(
+                                                "--label org.fuin.porelo.repository=backend"));
     }
 
     @Test
     void aTaskIsToldTheIssuePrefixesItsRepositoryOwns(@TempDir Path dir) throws IOException {
 
-        // So an agent cites and names its repository's issues the way the repository does, without a list of its own.
-        execute(context(dir, true), "task", "start", "--attach", "shell", "--detach",
-                "-p", projectFile(dir, MINIMAL + """
+        // So an agent cites and names its repository's issues the way the repository does, without
+        // a list of its own.
+        execute(
+                context(dir, true),
+                "task",
+                "start",
+                "--attach",
+                "shell",
+                "--detach",
+                "-p",
+                projectFile(
+                        dir,
+                        MINIMAL
+                                + """
                         repositories:
                           backend:
                             issues: ["B", "P"]
-                        """), "--repository", "backend");
+                        """),
+                "--repository",
+                "backend");
 
-        assertThat(runner.only("create").environment()).as("the value, in the environment podman copies it from")
+        assertThat(runner.only("create").environment())
+                .as("the value, in the environment podman copies it from")
                 .containsEntry(TaskLaunch.ISSUE_PREFIXES, "B,P");
-        assertThat(runner.lines()).as("the name alone on the command line").anyMatch(line -> line.contains("create")
-                && line.contains("--env " + TaskLaunch.ISSUE_PREFIXES + " "));
+        assertThat(runner.lines())
+                .as("the name alone on the command line")
+                .anyMatch(
+                        line ->
+                                line.contains("create")
+                                        && line.contains(
+                                                "--env " + TaskLaunch.ISSUE_PREFIXES + " "));
     }
 
     @Test
     void aTaskOnARepositoryWithoutIssuesIsToldNone(@TempDir Path dir) throws IOException {
-        execute(context(dir, true), "task", "start", "--attach", "shell", "--detach",
-                "-p", projectFile(dir, TWO_REPOSITORIES), "--repository", "backend");
+        execute(
+                context(dir, true),
+                "task",
+                "start",
+                "--attach",
+                "shell",
+                "--detach",
+                "-p",
+                projectFile(dir, TWO_REPOSITORIES),
+                "--repository",
+                "backend");
 
-        assertThat(runner.only("create").environment()).containsEntry(TaskLaunch.ISSUE_PREFIXES, "");
+        assertThat(runner.only("create").environment())
+                .containsEntry(TaskLaunch.ISSUE_PREFIXES, "");
     }
 
     @Test
@@ -862,11 +1207,22 @@ class TaskRunCommandTest {
         cmd.setOut(new PrintWriter(out));
         cmd.setErr(new PrintWriter(err));
 
-        final int code = cmd.execute("task", "start", "--attach", "shell", "--detach",
-                "-p", projectFile(dir, TWO_REPOSITORIES), "--repository", "uc");
+        final int code =
+                cmd.execute(
+                        "task",
+                        "start",
+                        "--attach",
+                        "shell",
+                        "--detach",
+                        "-p",
+                        projectFile(dir, TWO_REPOSITORIES),
+                        "--repository",
+                        "uc");
 
         assertThat(code).isNotZero();
-        assertThat(err.toString()).contains("'uc' is the project's own repository").contains("works in:");
+        assertThat(err.toString())
+                .contains("'uc' is the project's own repository")
+                .contains("works in:");
         assertThat(runner.lines()).noneMatch(line -> line.contains(" create "));
     }
 
@@ -874,22 +1230,27 @@ class TaskRunCommandTest {
     void leavesTheContainerAloneWithKeep(@TempDir Path dir) throws IOException {
 
         // The negative case: --keep has to mean something, and today it did not.
-        execute(context(dir, true), "task", "start", 
-                "-p", projectFile(dir, MINIMAL));
+        execute(context(dir, true), "task", "start", "-p", projectFile(dir, MINIMAL));
 
         // 'rm --force', which is how a task container is removed - not any argument containing
         // "rm". A throwaway container elsewhere in the run legitimately passes --rm, and matching
         // that made this fail for the wrong reason.
-        assertThat(runner.invocations()).noneSatisfy(command ->
-                assertThat(command.describe()).contains("rm --force"));
+        assertThat(runner.invocations())
+                .noneSatisfy(command -> assertThat(command.describe()).contains("rm --force"));
     }
 
     @Test
     void attachesAPlainShellWhenAsked(@TempDir Path dir) throws IOException {
 
         // The negative case: --attach shell must not wrap anything around the shell.
-        execute(context(dir, true), "task", "start", "--attach", "shell",
-                "-p", projectFile(dir, MINIMAL));
+        execute(
+                context(dir, true),
+                "task",
+                "start",
+                "--attach",
+                "shell",
+                "-p",
+                projectFile(dir, MINIMAL));
 
         // No agent runs, so there is no full-screen interface to clean up after.
         assertThat(String.join(" ", execCalls.getLast())).doesNotContain("stty sane");
@@ -900,9 +1261,11 @@ class TaskRunCommandTest {
 
         // An agent that refreshes its own token leaves the imported copy behind, and the task
         // then fails as an authentication error with no hint that a refresh would fix it.
-        assertThat(CredentialChoice.staleCredential(
-                new org.fuin.porelo.vault.VaultEntry("old-token", "oauth"),
-                org.fuin.porelo.agent.api.Credential.of("oauth", "new-token"))).isTrue();
+        assertThat(
+                        CredentialChoice.staleCredential(
+                                new org.fuin.porelo.vault.VaultEntry("old-token", "oauth"),
+                                org.fuin.porelo.agent.api.Credential.of("oauth", "new-token")))
+                .isTrue();
     }
 
     @Test
@@ -910,16 +1273,24 @@ class TaskRunCommandTest {
 
         // Three negatives, and the middle one matters most: storing a different kind on purpose
         // is not staleness, and warning about it every run would teach the operator to ignore it.
-        assertThat(CredentialChoice.staleCredential(
-                new org.fuin.porelo.vault.VaultEntry("same", "oauth"),
-                org.fuin.porelo.agent.api.Credential.of("oauth", "same"))).isFalse();
-        assertThat(CredentialChoice.staleCredential(
-                new org.fuin.porelo.vault.VaultEntry("a-key", "api-key"),
-                org.fuin.porelo.agent.api.Credential.of("oauth", "a-token"))).isFalse();
-        assertThat(CredentialChoice.staleCredential(null,
-                org.fuin.porelo.agent.api.Credential.of("oauth", "a-token"))).isFalse();
-        assertThat(CredentialChoice.staleCredential(
-                new org.fuin.porelo.vault.VaultEntry("a-key", "api-key"), null)).isFalse();
+        assertThat(
+                        CredentialChoice.staleCredential(
+                                new org.fuin.porelo.vault.VaultEntry("same", "oauth"),
+                                org.fuin.porelo.agent.api.Credential.of("oauth", "same")))
+                .isFalse();
+        assertThat(
+                        CredentialChoice.staleCredential(
+                                new org.fuin.porelo.vault.VaultEntry("a-key", "api-key"),
+                                org.fuin.porelo.agent.api.Credential.of("oauth", "a-token")))
+                .isFalse();
+        assertThat(
+                        CredentialChoice.staleCredential(
+                                null, org.fuin.porelo.agent.api.Credential.of("oauth", "a-token")))
+                .isFalse();
+        assertThat(
+                        CredentialChoice.staleCredential(
+                                new org.fuin.porelo.vault.VaultEntry("a-key", "api-key"), null))
+                .isFalse();
     }
 
     @Test
@@ -934,8 +1305,15 @@ class TaskRunCommandTest {
         // No marker: the shell never returned, so nobody finished.
         runner.failing("test -f", 1, "");
 
-        execute(prepared, "task", "start", "--rm", "--attach", "shell",
-                "-p", projectFile(dir, MINIMAL));
+        execute(
+                prepared,
+                "task",
+                "start",
+                "--rm",
+                "--attach",
+                "shell",
+                "-p",
+                projectFile(dir, MINIMAL));
 
         assertThat(runner.lines())
                 .as("the container stays, --rm or not: it is still running")
@@ -943,7 +1321,9 @@ class TaskRunCommandTest {
         assertThat(runner.lines())
                 .as("and nothing stops it either")
                 .noneMatch(line -> line.contains("podman stop"));
-        assertThat(out.toString()).contains("detached").contains("still running")
+        assertThat(out.toString())
+                .contains("detached")
+                .contains("still running")
                 .contains("task attach");
     }
 
@@ -958,8 +1338,15 @@ class TaskRunCommandTest {
         runner.answering("container inspect", "c0ffee\n");
         runner.answering("exec", "0 0\n");
 
-        execute(prepared, "task", "start", "--rm", "--attach", "shell",
-                "-p", projectFile(dir, MINIMAL));
+        execute(
+                prepared,
+                "task",
+                "start",
+                "--rm",
+                "--attach",
+                "shell",
+                "-p",
+                projectFile(dir, MINIMAL));
 
         assertThat(runner.lines()).anyMatch(line -> line.contains("rm --force"));
         assertThat(out.toString()).doesNotContain("detached");
@@ -974,17 +1361,23 @@ class TaskRunCommandTest {
         // signature against a key pinned out of band, and reading anything else afterwards throws
         // that check away.
         final PoreloContext context = context(dir, true);
-        new FollowedProjects(context.paths().projects().followed()).write(
-                new FollowedProjects.Followed("uc", "git@example.com:x/uc.git",
-                        "a1b2c3d4", "2026-09-19T00:00:00Z", "APPLIED", ""));
+        new FollowedProjects(context.paths().projects().followed())
+                .write(
+                        new FollowedProjects.Followed(
+                                "uc",
+                                "git@example.com:x/uc.git",
+                                "a1b2c3d4",
+                                "2026-09-19T00:00:00Z",
+                                "APPLIED",
+                                ""));
         final Path clone = context.paths().projects().followedClone("uc");
         Files.createDirectories(clone);
-        Files.writeString(clone.resolve("project.yml"), MINIMAL.replace(
-                "base_image: \"ubuntu:24.04\"", "base_image: \"ubuntu:22.04\""));
+        Files.writeString(
+                clone.resolve("project.yml"),
+                MINIMAL.replace("base_image: \"ubuntu:24.04\"", "base_image: \"ubuntu:22.04\""));
 
         // The directory says 24.04; the verified clone says 22.04.
-        execute(context, "task", "start", "-p", projectFile(dir, MINIMAL),
-                "--dry-run");
+        execute(context, "task", "start", "-p", projectFile(dir, MINIMAL), "--dry-run");
 
         assertThat(out.toString()).contains("base image     ubuntu:22.04");
         // And it says where that came from, so nobody wonders why the file they are looking at is
@@ -998,12 +1391,18 @@ class TaskRunCommandTest {
 
         final PoreloContext context = context(dir, true);
         // Followed and refused - no clone was written.
-        new FollowedProjects(context.paths().projects().followed()).write(
-                new FollowedProjects.Followed("uc", "git@example.com:x/uc.git",
-                        "", "2026-09-19T00:00:00Z", "UNKNOWN_KEY", "a key that is not pinned"));
+        new FollowedProjects(context.paths().projects().followed())
+                .write(
+                        new FollowedProjects.Followed(
+                                "uc",
+                                "git@example.com:x/uc.git",
+                                "",
+                                "2026-09-19T00:00:00Z",
+                                "UNKNOWN_KEY",
+                                "a key that is not pinned"));
 
-        final int code = execute(context, "task", "start",
-                "-p", projectFile(dir, MINIMAL), "--dry-run");
+        final int code =
+                execute(context, "task", "start", "-p", projectFile(dir, MINIMAL), "--dry-run");
 
         // Falling back would run the very thing the machine declined to apply, and would make a
         // refusal look as though it had no effect.
@@ -1016,46 +1415,92 @@ class TaskRunCommandTest {
             throws IOException {
 
         final PoreloContext context = context(dir, true);
-        new FollowedProjects(context.paths().projects().followed()).write(
-                new FollowedProjects.Followed("uc", "git@example.com:x/uc.git",
-                        "a1b2c3d4", "2026-09-19T00:00:00Z", "APPLIED", ""));
+        new FollowedProjects(context.paths().projects().followed())
+                .write(
+                        new FollowedProjects.Followed(
+                                "uc",
+                                "git@example.com:x/uc.git",
+                                "a1b2c3d4",
+                                "2026-09-19T00:00:00Z",
+                                "APPLIED",
+                                ""));
         final Path clone = context.paths().projects().followedClone("uc");
         Files.createDirectories(clone);
         Files.writeString(clone.resolve("project.yml"), MINIMAL);
 
-        execute(context, "task", "start", "--attach", "shell", "--detach",
-                "-p", projectFile(dir, MINIMAL));
+        execute(
+                context,
+                "task",
+                "start",
+                "--attach",
+                "shell",
+                "--detach",
+                "-p",
+                projectFile(dir, MINIMAL));
 
         // The project moves on; this must not. "What was this task running under" is asked after
         // something has gone wrong, by which time the clone holds something newer.
-        assertThat(runner.lines()).anyMatch(line -> line.contains("create")
-                && line.contains("--label org.fuin.porelo.commit=a1b2c3d4"));
+        assertThat(runner.lines())
+                .anyMatch(
+                        line ->
+                                line.contains("create")
+                                        && line.contains(
+                                                "--label org.fuin.porelo.commit=a1b2c3d4"));
     }
 
     @Test
     void aTaskNamedByItsContainerKeepsTheCredentialsItsRunNamed() {
 
-        // A start given the container's name goes on as the task's own name, and the run's credentials were dropped
-        // on the way: the task started without them, and a destination nobody declared was never refused.
-        final TaskLaunch.Request asked = new TaskLaunch.Request("porelo-uc-t", Path.of("project.yml"), null, null,
-                null, 8, null, false, false, "prompt", true, org.fuin.porelo.wire.TaskMode.SHELL, null, null, null,
-                TaskLaunch.DEFAULT_MINUTES, "app", java.util.Map.of("search", "brave-search"));
+        // A start given the container's name goes on as the task's own name, and the run's
+        // credentials were dropped
+        // on the way: the task started without them, and a destination nobody declared was never
+        // refused.
+        final TaskLaunch.Request asked =
+                new TaskLaunch.Request(
+                        "porelo-uc-t",
+                        Path.of("project.yml"),
+                        null,
+                        null,
+                        null,
+                        8,
+                        null,
+                        false,
+                        false,
+                        "prompt",
+                        true,
+                        org.fuin.porelo.wire.TaskMode.SHELL,
+                        null,
+                        null,
+                        null,
+                        TaskLaunch.DEFAULT_MINUTES,
+                        "app",
+                        java.util.Map.of("search", "brave-search"));
 
-        assertThat(asked.withTask("t").credentials()).containsExactly(java.util.Map.entry("search", "brave-search"));
+        assertThat(asked.withTask("t").credentials())
+                .containsExactly(java.util.Map.entry("search", "brave-search"));
     }
 
     @Test
-    void anAgentsOutputReachesTheTerminalWithItsControlsWrittenOut(@TempDir Path dir) throws IOException {
+    void anAgentsOutputReachesTheTerminalWithItsControlsWrittenOut(@TempDir Path dir)
+            throws IOException {
 
-        // What the agent wrote is the task's, which anything it read can steer: an escape sequence printed raw
+        // What the agent wrote is the task's, which anything it read can steer: an escape sequence
+        // printed raw
         // rewrites what the person reads, sets their window's title or writes their clipboard.
-        final Path log = Files.writeString(dir.resolve("task.log"),
-                "done\u001b[1A\u001b[2K\n\u001b]52;c;ZWNobyBwd25lZA==\u0007all well\n");
+        final Path log =
+                Files.writeString(
+                        dir.resolve("task.log"),
+                        "done\u001b[1A\u001b[2K\n\u001b]52;c;ZWNobyBwd25lZA==\u0007all well\n");
         final StringWriter shown = new StringWriter();
 
-        TaskRunCommand.render(null, log, true, new PrintWriter(shown), new PrintWriter(new StringWriter()));
+        TaskRunCommand.render(
+                null, log, true, new PrintWriter(shown), new PrintWriter(new StringWriter()));
 
-        assertThat(shown.toString()).as("no terminal control reaches the terminal").doesNotContain("\u001b")
-                .doesNotContain("\u0007").contains("done").contains("all well");
+        assertThat(shown.toString())
+                .as("no terminal control reaches the terminal")
+                .doesNotContain("\u001b")
+                .doesNotContain("\u0007")
+                .contains("done")
+                .contains("all well");
     }
 }

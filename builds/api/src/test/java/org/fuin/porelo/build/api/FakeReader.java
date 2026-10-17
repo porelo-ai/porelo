@@ -7,12 +7,13 @@ import java.util.List;
 
 /**
  * A reader the tests start as an executable: fixed answers, so a test sees what crossed the socket.
- * <p>
- * A branch {@code main} points at forty {@code a}s; a commit starting with {@code f} failed with a log holding a NUL
- * byte, one starting with {@code r} is rate limited for 30 seconds, one starting with {@code m} failed in
- * {@link Build#MOST_JOBS} jobs, each with a full {@link Build#TAIL} of log ending in {@code END}, and one starting with
- * {@code x} ends the reader's process before it answers; any other succeeded, with its one job's log only when every
- * log is asked for; the token {@code wrong} is refused.
+ *
+ * <p>A branch {@code main} points at forty {@code a}s; a commit starting with {@code f} failed with
+ * a log holding a NUL byte, one starting with {@code r} is rate limited for 30 seconds, one
+ * starting with {@code m} failed in {@link Build#MOST_JOBS} jobs, each with a full {@link
+ * Build#TAIL} of log ending in {@code END}, and one starting with {@code x} ends the reader's
+ * process before it answers; any other succeeded, with its one job's log only when every log is
+ * asked for; the token {@code wrong} is refused.
  */
 public final class FakeReader implements BuildReader {
 
@@ -43,7 +44,8 @@ public final class FakeReader implements BuildReader {
     public Build look(final Target target, final String commit, final Build.Logs logs) {
         refuseWrongToken(target);
         if (commit.startsWith("r")) {
-            throw new BuildRefused(BuildRefused.Reason.RATE_LIMITED, "the forge's rate limit is reached", 30);
+            throw new BuildRefused(
+                    BuildRefused.Reason.RATE_LIMITED, "the forge's rate limit is reached", 30);
         }
         if (commit.startsWith("x")) {
             // As a reader killed for not answering in time is left: gone, with no answer.
@@ -60,11 +62,20 @@ public final class FakeReader implements BuildReader {
             return new Build(Build.FAILURE, jobs, "");
         }
         if (commit.startsWith("f")) {
-            return new Build(Build.FAILURE, List.of(new Build.Job("Build / unit tests", "failure", LOG)), "");
+            return new Build(
+                    Build.FAILURE,
+                    List.of(new Build.Job("Build / unit tests", "failure", LOG)),
+                    "");
         }
         return logs == Build.Logs.ALL
-                ? new Build(Build.SUCCESS, List.of(new Build.Job("Build / unit tests", "success",
-                        "all green\n".getBytes(StandardCharsets.UTF_8))), "")
+                ? new Build(
+                        Build.SUCCESS,
+                        List.of(
+                                new Build.Job(
+                                        "Build / unit tests",
+                                        "success",
+                                        "all green\n".getBytes(StandardCharsets.UTF_8))),
+                        "")
                 : new Build(Build.SUCCESS, "");
     }
 

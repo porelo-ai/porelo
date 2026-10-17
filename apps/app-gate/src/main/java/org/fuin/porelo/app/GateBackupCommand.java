@@ -13,28 +13,30 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
 
-/**
- * Writes a git bundle holding the whole mirror, pending pushes included.
- */
-@Command(name = "backup",
+/** Writes a git bundle holding the whole mirror, pending pushes included. */
+@Command(
+        name = "backup",
         mixinStandardHelpOptions = true,
         description = "Writes the mirror to a single verifiable bundle file.")
-public class GateBackupCommand implements Callable<Integer>,
-        PoreloFactory.ContextAware {
+public class GateBackupCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
     @Parameters(index = "0", paramLabel = "<file>", description = "Where to write the bundle.")
     private Path bundle;
 
-    @Option(names = { "-p", "--project" }, paramLabel = "<name>", required = true,
+    @Option(
+            names = {"-p", "--project"},
+            paramLabel = "<name>",
+            required = true,
             description = "Project name, as 'porelo project list' prints it.")
     private String projectName;
 
-    @Option(names = { "-r", "--repository" }, paramLabel = "<name>",
+    @Option(
+            names = {"-r", "--repository"},
+            paramLabel = "<name>",
             description = "Which of the project's repositories. Default: the project's own.")
     private @Nullable String repository;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -63,7 +65,9 @@ public class GateBackupCommand implements Callable<Integer>,
             // it would write one repository's history over another's, which is the only way this
             // command can destroy something.
             new BackupRecords(context.paths().gate().backupRecords())
-                    .add(GateSupport.recordKey(project.name(), chosen.name()), bundle,
+                    .add(
+                            GateSupport.recordKey(project.name(), chosen.name()),
+                            bundle,
                             gate.pending().size());
             out.println("backed up " + gate.mirror() + " to " + bundle);
             out.println("verified  " + gate.verifyBackup(bundle));

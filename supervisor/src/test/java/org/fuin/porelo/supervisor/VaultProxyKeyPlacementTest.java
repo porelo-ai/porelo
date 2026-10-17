@@ -20,7 +20,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Tests for where a key goes: a header nobody else uses, or the URL - and that neither reaches the log.
+ * Tests for where a key goes: a header nobody else uses, or the URL - and that neither reaches the
+ * log.
  */
 class VaultProxyKeyPlacementTest {
 
@@ -37,18 +38,23 @@ class VaultProxyKeyPlacementTest {
     @BeforeEach
     void startUpstream() throws IOException {
         upstream = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        upstream.createContext("/", exchange -> {
-            final Map<String, String> headers = new java.util.LinkedHashMap<>();
-            exchange.getRequestHeaders().forEach((name, values) -> headers.put(name.toLowerCase(), values.get(0)));
-            headers.put(":target", exchange.getRequestURI().toString());
-            received.add(headers);
-            final byte[] payload = "{\"ok\":true}".getBytes(StandardCharsets.UTF_8);
-            exchange.getResponseHeaders().set("Content-Type", "application/json");
-            exchange.sendResponseHeaders(200, payload.length);
-            try (OutputStream out = exchange.getResponseBody()) {
-                out.write(payload);
-            }
-        });
+        upstream.createContext(
+                "/",
+                exchange -> {
+                    final Map<String, String> headers = new java.util.LinkedHashMap<>();
+                    exchange.getRequestHeaders()
+                            .forEach(
+                                    (name, values) ->
+                                            headers.put(name.toLowerCase(), values.get(0)));
+                    headers.put(":target", exchange.getRequestURI().toString());
+                    received.add(headers);
+                    final byte[] payload = "{\"ok\":true}".getBytes(StandardCharsets.UTF_8);
+                    exchange.getResponseHeaders().set("Content-Type", "application/json");
+                    exchange.sendResponseHeaders(200, payload.length);
+                    try (OutputStream out = exchange.getResponseBody()) {
+                        out.write(payload);
+                    }
+                });
         upstream.start();
     }
 
@@ -58,9 +64,18 @@ class VaultProxyKeyPlacementTest {
     }
 
     private VaultProxy proxy(Path socket, String header, String query) {
-        final VaultProxy proxy = new VaultProxy(socket, "http://127.0.0.1:" + upstream.getAddress().getPort(),
-                presented -> PHANTOM.equals(presented) ? new TokenExchange.Granted(REAL) : new TokenExchange.Rejected(),
-                header, "", query, logged::add);
+        final VaultProxy proxy =
+                new VaultProxy(
+                        socket,
+                        "http://127.0.0.1:" + upstream.getAddress().getPort(),
+                        presented ->
+                                PHANTOM.equals(presented)
+                                        ? new TokenExchange.Granted(REAL)
+                                        : new TokenExchange.Rejected(),
+                        header,
+                        "",
+                        query,
+                        logged::add);
         Thread.ofPlatform().daemon().start(proxy);
         return proxy;
     }
@@ -76,9 +91,11 @@ class VaultProxyKeyPlacementTest {
     }
 
     @Test
-    void aTargetThatIsNotAUriIsRefusedWithoutTheRealKeyAppearingAnywhere(@TempDir Path dir) throws Exception {
+    void aTargetThatIsNotAUriIsRefusedWithoutTheRealKeyAppearingAnywhere(@TempDir Path dir)
+            throws Exception {
 
-        // The key went into the address before the address was parsed, so the parser's complaint repeated it - and
+        // The key went into the address before the address was parsed, so the parser's complaint
+        // repeated it - and
         // a thread's uncaught exception goes to stderr, which is the broker's log.
         final java.io.ByteArrayOutputStream stderr = new java.io.ByteArrayOutputStream();
         final java.io.PrintStream before = System.err;
@@ -87,7 +104,10 @@ class VaultProxyKeyPlacementTest {
         try {
             final Path socket = dir.resolve("vault.sock");
             proxy(socket, "x-goog-api-key", "key");
-            answer = send(socket, "GET /v1/models?f={a}&key=" + PHANTOM + " HTTP/1.1\r\nHost: x\r\n\r\n");
+            answer =
+                    send(
+                            socket,
+                            "GET /v1/models?f={a}&key=" + PHANTOM + " HTTP/1.1\r\nHost: x\r\n\r\n");
             Thread.sleep(200);
         } finally {
             System.setErr(before);
@@ -102,18 +122,29 @@ class VaultProxyKeyPlacementTest {
     @Test
     void aReasonFromElsewhereIsSaidAsValidJson(@TempDir Path dir) throws Exception {
 
-        // The reason was written into the JSON as it came, and it can carry an authorization server's own words.
+        // The reason was written into the JSON as it came, and it can carry an authorization
+        // server's own words.
         final Path socket = dir.resolve("vault.sock");
-        final VaultProxy proxy = new VaultProxy(socket, "http://127.0.0.1:" + upstream.getAddress().getPort(),
-                presented -> new TokenExchange.Unavailable("the server said \"no\" \\ twice"),
-                "x-api-key", "", null, logged::add);
+        final VaultProxy proxy =
+                new VaultProxy(
+                        socket,
+                        "http://127.0.0.1:" + upstream.getAddress().getPort(),
+                        presented ->
+                                new TokenExchange.Unavailable("the server said \"no\" \\ twice"),
+                        "x-api-key",
+                        "",
+                        null,
+                        logged::add);
         Thread.ofPlatform().daemon().start(proxy);
 
-        final String answer = send(socket, "GET /v1/models HTTP/1.1\r\nx-api-key: " + PHANTOM + "\r\n\r\n");
+        final String answer =
+                send(socket, "GET /v1/models HTTP/1.1\r\nx-api-key: " + PHANTOM + "\r\n\r\n");
         final String body = answer.substring(answer.indexOf("\r\n\r\n") + 4);
 
         assertThat(answer).startsWith("HTTP/1.1 503");
-        assertThat(org.fuin.porelo.wire.Json.parse(body)).asString().contains("the server said \"no\" \\ twice");
+        assertThat(org.fuin.porelo.wire.Json.parse(body))
+                .asString()
+                .contains("the server said \"no\" \\ twice");
     }
 
     @Test
@@ -123,13 +154,19 @@ class VaultProxyKeyPlacementTest {
         // Google says to put it was refused as "not this task's token" - which was false.
         final Path socket = dir.resolve("vault.sock");
         try (VaultProxy proxy = proxy(socket, "x-goog-api-key", null)) {
-            final String response = send(socket, "GET /v1/models HTTP/1.1\r\nx-goog-api-key: " + PHANTOM + "\r\n\r\n");
+            final String response =
+                    send(
+                            socket,
+                            "GET /v1/models HTTP/1.1\r\nx-goog-api-key: " + PHANTOM + "\r\n\r\n");
 
             assertThat(response).startsWith("HTTP/1.1 200");
-            assertThat(received).singleElement().satisfies(request -> {
-                assertThat(request.get("x-goog-api-key")).isEqualTo(REAL);
-                assertThat(request.values()).doesNotContain(PHANTOM);
-            });
+            assertThat(received)
+                    .singleElement()
+                    .satisfies(
+                            request -> {
+                                assertThat(request.get("x-goog-api-key")).isEqualTo(REAL);
+                                assertThat(request.values()).doesNotContain(PHANTOM);
+                            });
         }
     }
 
@@ -139,15 +176,21 @@ class VaultProxyKeyPlacementTest {
         // Forwarded as it came, the phantom travelled upstream beside the real key.
         final Path socket = dir.resolve("vault.sock");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "key")) {
-            final String response = send(socket,
-                    "GET /v1/models?alt=json&key=" + PHANTOM + " HTTP/1.1\r\n\r\n");
+            final String response =
+                    send(socket, "GET /v1/models?alt=json&key=" + PHANTOM + " HTTP/1.1\r\n\r\n");
 
             assertThat(response).startsWith("HTTP/1.1 200");
-            assertThat(received).singleElement().satisfies(request -> {
-                assertThat(request.get(":target")).isEqualTo("/v1/models?alt=json&key=" + REAL);
-                assertThat(request).as("in the URL and in no header").doesNotContainKey("x-api-key");
-                assertThat(request.toString()).doesNotContain(PHANTOM);
-            });
+            assertThat(received)
+                    .singleElement()
+                    .satisfies(
+                            request -> {
+                                assertThat(request.get(":target"))
+                                        .isEqualTo("/v1/models?alt=json&key=" + REAL);
+                                assertThat(request)
+                                        .as("in the URL and in no header")
+                                        .doesNotContainKey("x-api-key");
+                                assertThat(request.toString()).doesNotContain(PHANTOM);
+                            });
         }
     }
 
@@ -162,20 +205,35 @@ class VaultProxyKeyPlacementTest {
         }
 
         assertThat(logged).isNotEmpty();
-        assertThat(logged).allSatisfy(line -> assertThat(line).doesNotContain(PHANTOM)
-                .doesNotContain("somebody-elses").doesNotContain(REAL).doesNotContain("json"));
+        assertThat(logged)
+                .allSatisfy(
+                        line ->
+                                assertThat(line)
+                                        .doesNotContain(PHANTOM)
+                                        .doesNotContain("somebody-elses")
+                                        .doesNotContain(REAL)
+                                        .doesNotContain("json"));
         assertThat(logged.getFirst()).contains("/v1/models?key=…&alt=…");
     }
 
     @Test
-    void aTargetThatNamesAnotherHostIsRefusedAndTheKeyGoesNowhere(@TempDir Path dir) throws Exception {
+    void aTargetThatNamesAnotherHostIsRefusedAndTheKeyGoesNowhere(@TempDir Path dir)
+            throws Exception {
 
-        // The address was the upstream with the agent's target appended: '@localhost:<port>/x' made the upstream's
-        // host the user part and sent the real key to a host the agent chose; '.attacker.example/x' does the same.
+        // The address was the upstream with the agent's target appended: '@localhost:<port>/x' made
+        // the upstream's
+        // host the user part and sent the real key to a host the agent chose; '.attacker.example/x'
+        // does the same.
         final Path socket = dir.resolve("vault.sock");
         proxy(socket, "x-goog-api-key", "");
-        final String answer = send(socket, "GET @localhost:" + upstream.getAddress().getPort()
-                + "/v1/models HTTP/1.1\r\nHost: x\r\nx-goog-api-key: " + PHANTOM + "\r\n\r\n");
+        final String answer =
+                send(
+                        socket,
+                        "GET @localhost:"
+                                + upstream.getAddress().getPort()
+                                + "/v1/models HTTP/1.1\r\nHost: x\r\nx-goog-api-key: "
+                                + PHANTOM
+                                + "\r\n\r\n");
 
         assertThat(answer).startsWith("HTTP/1.1 400").doesNotContain(REAL);
         assertThat(received).as("nothing was forwarded").isEmpty();

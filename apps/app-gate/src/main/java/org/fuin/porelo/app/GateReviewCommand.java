@@ -1,7 +1,6 @@
 package org.fuin.porelo.app;
 
 import java.io.PrintWriter;
-import java.nio.file.Path;
 import java.util.concurrent.Callable;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.gate.GateException;
@@ -14,35 +13,44 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
 
-/**
- * Shows what a pending push would change.
- */
-@Command(name = "review",
+/** Shows what a pending push would change. */
+@Command(
+        name = "review",
         mixinStandardHelpOptions = true,
         description = "Shows what a pending push would change.")
 public class GateReviewCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
-    @Option(names = { "-p", "--project" }, paramLabel = "<name>", required = true,
+    @Option(
+            names = {"-p", "--project"},
+            paramLabel = "<name>",
+            required = true,
             description = "Project name, as 'porelo project list' prints it.")
     private String projectName;
 
-    @Option(names = { "-r", "--repository" }, paramLabel = "<name>",
-            description = "Which of the project's repositories. Default: the one the task worked on.")
+    @Option(
+            names = {"-r", "--repository"},
+            paramLabel = "<name>",
+            description =
+                    "Which of the project's repositories. Default: the one the task worked on.")
     private @Nullable String repository;
 
-    @Option(names = "--upstream", paramLabel = "<url>",
+    @Option(
+            names = "--upstream",
+            paramLabel = "<url>",
             description = "Upstream repository to forward approved pushes to.")
     private @Nullable String upstream;
 
     @Parameters(index = "0", paramLabel = "<name>", description = "Name of the pending push.")
     private String name;
 
-    @Option(names = "--against", paramLabel = "<ref>",
-            description = "Ref to compare against. Default: the mirror's HEAD, its upstream's default branch.")
+    @Option(
+            names = "--against",
+            paramLabel = "<ref>",
+            description =
+                    "Ref to compare against. Default: the mirror's HEAD, its upstream's default branch.")
     private String against = "HEAD";
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -59,14 +67,22 @@ public class GateReviewCommand implements Callable<Integer>, PoreloFactory.Conte
 
         try {
             final Project project = GateSupport.byName(context, projectName);
-            final GitGate gate = GateSupport.gate(context, project,
-                    GateSupport.repository(context, project, repository, name), upstream, null);
+            final GitGate gate =
+                    GateSupport.gate(
+                            context,
+                            project,
+                            GateSupport.repository(context, project, repository, name),
+                            upstream,
+                            null);
             gate.initialize();
-            // What matters before what is merely large: the instruction, the files dangerous by kind,
+            // What matters before what is merely large: the instruction, the files dangerous by
+            // kind,
             // and the patch in that same order, reformatting and generated files last.
             final ReviewRanking.Review review = gate.rankedReview(name, against);
-            out.print(ReviewText.render(ReviewText.instruction(context.paths(), project.name(), name),
-                    review.files()));
+            out.print(
+                    ReviewText.render(
+                            ReviewText.instruction(context.paths(), project.name(), name),
+                            review.files()));
             out.println(shown(gate.log(name, against)));
             out.println(shown(review.patch()));
             out.flush();
@@ -83,10 +99,12 @@ public class GateReviewCommand implements Callable<Integer>, PoreloFactory.Conte
     }
 
     /**
-     * Returns the agent's text with every control character written out but the line breaks and tabs a patch needs.
-     * <p>
-     * Printed raw, a subject or a patch line carrying {@code ESC[1A ESC[2K} erased the lines before it - the warning to
-     * read first among them - and the person approved what they had not seen.
+     * Returns the agent's text with every control character written out but the line breaks and
+     * tabs a patch needs.
+     *
+     * <p>Printed raw, a subject or a patch line carrying {@code ESC[1A ESC[2K} erased the lines
+     * before it - the warning to read first among them - and the person approved what they had not
+     * seen.
      *
      * @param text What git printed of the agent's work.
      * @return The same, safe to print.
@@ -94,6 +112,8 @@ public class GateReviewCommand implements Callable<Integer>, PoreloFactory.Conte
     static String shown(final String text) {
         final StringBuilder safe = new StringBuilder(text.length());
         text.lines().forEach(line -> safe.append(TalkReadCommand.shown(line)).append('\n'));
-        return text.endsWith("\n") || safe.isEmpty() ? safe.toString() : safe.substring(0, safe.length() - 1);
+        return text.endsWith("\n") || safe.isEmpty()
+                ? safe.toString()
+                : safe.substring(0, safe.length() - 1);
     }
 }

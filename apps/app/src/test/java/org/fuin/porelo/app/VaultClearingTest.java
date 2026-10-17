@@ -26,18 +26,19 @@ import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 
 /**
- * Tests for {@link VaultClearing} and {@code porelo vault clear}: the vault, its backup, its lock and what the
- * keyring caches of it go in one step, after the transports have cleared what they keep with its secrets.
- * <p>
- * Every path is in a temporary directory, and the keyring descriptions derive from the vault's path there, so
- * nothing here touches the developer's own vault or keyring; whatever a test caches is forgotten after it.
+ * Tests for {@link VaultClearing} and {@code porelo vault clear}: the vault, its backup, its lock
+ * and what the keyring caches of it go in one step, after the transports have cleared what they
+ * keep with its secrets.
+ *
+ * <p>Every path is in a temporary directory, and the keyring descriptions derive from the vault's
+ * path there, so nothing here touches the developer's own vault or keyring; whatever a test caches
+ * is forgotten after it.
  */
 class VaultClearingTest {
 
     private static final char[] PASSPHRASE = "correct horse battery staple".toCharArray();
 
-    @TempDir
-    Path dir;
+    @TempDir Path dir;
 
     private final FakeCommandRunner runner = new FakeCommandRunner();
 
@@ -48,21 +49,27 @@ class VaultClearingTest {
     private @Nullable PoreloContext used;
 
     private PoreloContext context() {
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
-        final PoreloContext context = new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
+        final PoreloContext context =
+                new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
         used = context;
         return context;
     }
 
     @AfterEach
     void forgetWhatTheKeyringHolds() {
-        // Every test's own description, from its own temporary vault: a passphrase left behind outlives the test in
+        // Every test's own description, from its own temporary vault: a passphrase left behind
+        // outlives the test in
         // the developer's account.
         if (used != null && KernelKeyring.available()) {
             new KernelKeyring(used.paths().vault().vaultKeyringKey()).forget();
@@ -70,7 +77,10 @@ class VaultClearingTest {
         }
     }
 
-    /** A vault holding a credential, a grant, a transport's account and a stopped task's token, unlocked. */
+    /**
+     * A vault holding a credential, a grant, a transport's account and a stopped task's token,
+     * unlocked.
+     */
     private PoreloContext unlockedVault() throws IOException {
         assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
         final PoreloContext context = context();
@@ -78,7 +88,8 @@ class VaultClearingTest {
         final Map<String, VaultEntry> entries = new LinkedHashMap<>();
         entries.put("github", VaultEntry.of("not-a-real-token"));
         entries.put(VaultNames.GRANT_PREFIX + "mail", VaultEntry.of("not-a-real-refresh-token"));
-        entries.put(VaultNames.TRANSPORT_PREFIX + "room/account", VaultEntry.of("{\"ADMIN\":\"a-1\"}"));
+        entries.put(
+                VaultNames.TRANSPORT_PREFIX + "room/account", VaultEntry.of("{\"ADMIN\":\"a-1\"}"));
         entries.put(VaultNames.TASK_PREFIX + "porelo-p-old/gate-token", VaultEntry.of("g-1"));
         context.vault().write(entries, PASSPHRASE);
         new KernelKeyring(context.paths().vault().vaultKeyringKey()).store(PASSPHRASE);
@@ -90,16 +101,27 @@ class VaultClearingTest {
     }
 
     private Path lock(final PoreloContext context) {
-        return context.vault().path().resolveSibling(context.vault().path().getFileName() + ".lock");
+        return context.vault()
+                .path()
+                .resolveSibling(context.vault().path().getFileName() + ".lock");
     }
 
     /** A project registered on this machine, from a file of the person's. */
     private void project(final String name, final String extra) throws IOException {
         Files.createDirectories(dir.resolve("data/porelo/projects"));
         final Path file = dir.resolve(name + "-project.yml");
-        Files.writeString(file, "project:\n  name: \"" + name + "\"\n  security_class: \"guarded\"\n"
-                + "image:\n  base_image: \"ubuntu:24.04\"\n" + extra, StandardCharsets.UTF_8);
-        Files.writeString(dir.resolve("data/porelo/projects").resolve(name), file + "\n", StandardCharsets.UTF_8);
+        Files.writeString(
+                file,
+                "project:\n  name: \""
+                        + name
+                        + "\"\n  security_class: \"guarded\"\n"
+                        + "image:\n  base_image: \"ubuntu:24.04\"\n"
+                        + extra,
+                StandardCharsets.UTF_8);
+        Files.writeString(
+                dir.resolve("data/porelo/projects").resolve(name),
+                file + "\n",
+                StandardCharsets.UTF_8);
     }
 
     /** An adapter the transport directory finds, answering what the runner is told to answer. */
@@ -108,8 +130,12 @@ class VaultClearingTest {
         final Path adapter = adapters.resolve(TransportDirectory.PREFIX + scheme);
         Files.writeString(adapter, "#!/bin/sh\n");
         adapter.toFile().setExecutable(true);
-        runner.answering("describe", "{\"scheme\":\"" + scheme + "\",\"lifecycle\":[\"setup\",\"enroll\",\"retire\","
-                + "\"clear\"]}");
+        runner.answering(
+                "describe",
+                "{\"scheme\":\""
+                        + scheme
+                        + "\",\"lifecycle\":[\"setup\",\"enroll\",\"retire\","
+                        + "\"clear\"]}");
     }
 
     private int execute(final PoreloContext context, final String... arguments) {
@@ -119,10 +145,17 @@ class VaultClearingTest {
         return command.execute(arguments);
     }
 
-    private static boolean names(final Clearing.Result result, final String kind, final String what,
+    private static boolean names(
+            final Clearing.Result result,
+            final String kind,
+            final String what,
             final Clearing.Status status) {
-        return result.items().stream().anyMatch(item -> item.kind().equals(kind) && item.what().contains(what)
-                && item.status() == status);
+        return result.items().stream()
+                .anyMatch(
+                        item ->
+                                item.kind().equals(kind)
+                                        && item.what().contains(what)
+                                        && item.status() == status);
     }
 
     @Test
@@ -134,18 +167,35 @@ class VaultClearingTest {
         final Clearing.Result listed = new VaultClearing(context).clear(true, false);
 
         assertThat(listed.refused()).isFalse();
-        assertThat(names(listed, "vault", context.vault().path().toString(), Clearing.Status.WOULD_REMOVE)).isTrue();
-        assertThat(names(listed, "backup", backup(context).toString(), Clearing.Status.WOULD_REMOVE)).isTrue();
-        assertThat(names(listed, "lock", lock(context).toString(), Clearing.Status.WOULD_REMOVE)).isTrue();
+        assertThat(
+                        names(
+                                listed,
+                                "vault",
+                                context.vault().path().toString(),
+                                Clearing.Status.WOULD_REMOVE))
+                .isTrue();
+        assertThat(
+                        names(
+                                listed,
+                                "backup",
+                                backup(context).toString(),
+                                Clearing.Status.WOULD_REMOVE))
+                .isTrue();
+        assertThat(names(listed, "lock", lock(context).toString(), Clearing.Status.WOULD_REMOVE))
+                .isTrue();
         assertThat(names(listed, "keyring", "passphrase", Clearing.Status.WOULD_REMOVE)).isTrue();
         assertThat(names(listed, "credential", "github", Clearing.Status.WOULD_REMOVE)).isTrue();
         assertThat(names(listed, "grant", "mail", Clearing.Status.WOULD_REMOVE)).isTrue();
-        assertThat(names(listed, "transport account", "room/account", Clearing.Status.WOULD_REMOVE)).isTrue();
-        assertThat(names(listed, "task token", "porelo-p-old", Clearing.Status.WOULD_REMOVE)).isTrue();
+        assertThat(names(listed, "transport account", "room/account", Clearing.Status.WOULD_REMOVE))
+                .isTrue();
+        assertThat(names(listed, "task token", "porelo-p-old", Clearing.Status.WOULD_REMOVE))
+                .isTrue();
         assertThat(context.vault().path()).exists();
         assertThat(backup(context)).exists();
         assertThat(lock(context)).exists();
-        assertThat(new KernelKeyring(context.paths().vault().vaultKeyringKey()).read()).as("still cached").isPresent();
+        assertThat(new KernelKeyring(context.paths().vault().vaultKeyringKey()).read())
+                .as("still cached")
+                .isPresent();
     }
 
     @Test
@@ -153,7 +203,7 @@ class VaultClearingTest {
         final PoreloContext context = unlockedVault();
         Files.writeString(backup(context), "an older copy");
         Files.writeString(lock(context), "");
-        VaultShare.keep(context.paths(), new byte[] { 1, 2, 3 }, Duration.ofMinutes(5));
+        VaultShare.keep(context.paths(), new byte[] {1, 2, 3}, Duration.ofMinutes(5));
 
         final Clearing.Result cleared = new VaultClearing(context).clear(false, false);
 
@@ -164,7 +214,9 @@ class VaultClearingTest {
         assertThat(lock(context)).doesNotExist();
         assertThat(new KernelKeyring(context.paths().vault().vaultKeyringKey()).read()).isEmpty();
         assertThat(VaultShare.held(context.paths())).isEmpty();
-        assertThat(new VaultClearing(context).clear(false, false).items()).as("nothing left to clear").isEmpty();
+        assertThat(new VaultClearing(context).clear(false, false).items())
+                .as("nothing left to clear")
+                .isEmpty();
     }
 
     @Test
@@ -174,10 +226,14 @@ class VaultClearingTest {
         assertThat(execute(context, "vault", "clear", "--yes")).as("said: %s%s", out, err).isZero();
         assertThat(new KernelKeyring(context.paths().vault().vaultKeyringKey()).read()).isEmpty();
 
-        final PoreloContext initializing = new PoreloContext(new org.fuin.porelo.core.process.ProcessCommandRunner(),
-                context.paths(), arguments -> 0);
+        final PoreloContext initializing =
+                new PoreloContext(
+                        new org.fuin.porelo.core.process.ProcessCommandRunner(),
+                        context.paths(),
+                        arguments -> 0);
         assertThat(execute(initializing, "vault", "init", "--passphrase-command", "printf fresh"))
-                .as("said: %s%s", out, err).isZero();
+                .as("said: %s%s", out, err)
+                .isZero();
         assertThat(context.vault().read("fresh".toCharArray())).isEmpty();
         assertThat(new KernelKeyring(context.paths().vault().vaultKeyringKey()).read())
                 .hasValueSatisfying(cached -> assertThat(new String(cached)).isEqualTo("fresh"));
@@ -189,23 +245,29 @@ class VaultClearingTest {
 
         assertThat(execute(context, "vault", "clear")).as("said: %s%s", out, err).isZero();
 
-        assertThat(out.toString()).contains("would go").contains(context.vault().path().toString())
+        assertThat(out.toString())
+                .contains("would go")
+                .contains(context.vault().path().toString())
                 .contains("--yes");
         assertThat(context.vault().path()).exists();
     }
 
     @Test
-    void aRunningTaskThatHoldsATokenFromTheVaultIsNamedAndTheClearRefusedEvenWithForce() throws IOException {
+    void aRunningTaskThatHoldsATokenFromTheVaultIsNamedAndTheClearRefusedEvenWithForce()
+            throws IOException {
         final PoreloContext context = unlockedVault();
-        final Map<String, VaultEntry> entries = new LinkedHashMap<>(context.vault().read(PASSPHRASE));
-        entries.put(VaultNames.TASK_PREFIX + "porelo-p-shell-1/provider-token", VaultEntry.of("p-1"));
+        final Map<String, VaultEntry> entries =
+                new LinkedHashMap<>(context.vault().read(PASSPHRASE));
+        entries.put(
+                VaultNames.TASK_PREFIX + "porelo-p-shell-1/provider-token", VaultEntry.of("p-1"));
         context.vault().write(entries, PASSPHRASE);
         runner.answering("ps", "porelo-p-shell-1\tUp 4 minutes\n");
 
         final Clearing.Result cleared = new VaultClearing(context).clear(false, true);
 
         assertThat(cleared.refused()).isTrue();
-        assertThat(names(cleared, "task", "porelo-p-shell-1", Clearing.Status.NOT_REMOVED)).isTrue();
+        assertThat(names(cleared, "task", "porelo-p-shell-1", Clearing.Status.NOT_REMOVED))
+                .isTrue();
         assertThat(context.vault().path()).exists();
         assertThat(new KernelKeyring(context.paths().vault().vaultKeyringKey()).read()).isPresent();
     }
@@ -222,14 +284,18 @@ class VaultClearingTest {
     }
 
     @Test
-    void aProjectsAccountOnAServerElsewhereIsClearedWithTheVaultsSecretsBeforeItGoesAndTheAccountAfter()
-            throws IOException {
+    void
+            aProjectsAccountOnAServerElsewhereIsClearedWithTheVaultsSecretsBeforeItGoesAndTheAccountAfter()
+                    throws IOException {
         final PoreloContext context = unlockedVault();
         transport("room");
         project("p", "mail:\n  transports:\n    room:\n      server: https://example.org\n");
         project("q", "");
-        final Map<String, VaultEntry> entries = new LinkedHashMap<>(context.vault().read(PASSPHRASE));
-        entries.put(VaultNames.TRANSPORT_PREFIX + "room/project/p", VaultEntry.of("{\"POLLER\":\"p-1\"}"));
+        final Map<String, VaultEntry> entries =
+                new LinkedHashMap<>(context.vault().read(PASSPHRASE));
+        entries.put(
+                VaultNames.TRANSPORT_PREFIX + "room/project/p",
+                VaultEntry.of("{\"POLLER\":\"p-1\"}"));
         context.vault().write(entries, PASSPHRASE);
         runner.answering(" clear", "{\"removed\":[\"the room\"],\"kept\":[]}");
 
@@ -245,14 +311,24 @@ class VaultClearingTest {
         final int project = indexOf(lines, line -> line.contains(" clear --project p"));
         final int account = indexOf(lines, line -> line.endsWith(" clear"));
         assertThat(project).as("the project's clear ran: %s", lines).isNotNegative();
-        assertThat(account).as("the account's clear ran after it: %s", lines).isGreaterThan(project);
-        assertThat(lines).as("a project with no server elsewhere is the account's to clear")
+        assertThat(account)
+                .as("the account's clear ran after it: %s", lines)
+                .isGreaterThan(project);
+        assertThat(lines)
+                .as("a project with no server elsewhere is the account's to clear")
                 .noneMatch(line -> line.contains(" clear --project q"));
         final Command projectClear = runner.only("clear --project p");
-        assertThat(projectClear.environment()).as("it was given the vault's secrets, so the vault was still there")
-                .containsEntry("POLLER", "p-1").containsEntry("ADMIN", "a-1");
-        assertThat(runner.invocations().stream().filter(each -> each.describe().endsWith(" clear")).findFirst()
-                .orElseThrow().environment()).as("the account's clear runs after the vault went")
+        assertThat(projectClear.environment())
+                .as("it was given the vault's secrets, so the vault was still there")
+                .containsEntry("POLLER", "p-1")
+                .containsEntry("ADMIN", "a-1");
+        assertThat(
+                        runner.invocations().stream()
+                                .filter(each -> each.describe().endsWith(" clear"))
+                                .findFirst()
+                                .orElseThrow()
+                                .environment())
+                .as("the account's clear runs after the vault went")
                 .doesNotContainKey("ADMIN");
         assertThat(context.vault().path()).doesNotExist();
     }
@@ -267,8 +343,11 @@ class VaultClearingTest {
         final Clearing.Result refused = new VaultClearing(context).clear(false, false);
 
         assertThat(refused.refused()).isTrue();
-        assertThat(refused.items()).anyMatch(item -> item.status() == Clearing.Status.NOT_REMOVED
-                && item.why().contains("the server did not answer"));
+        assertThat(refused.items())
+                .anyMatch(
+                        item ->
+                                item.status() == Clearing.Status.NOT_REMOVED
+                                        && item.why().contains("the server did not answer"));
         assertThat(context.vault().path()).exists();
         assertThat(runner.lines()).noneMatch(line -> line.endsWith(" clear"));
 
@@ -299,7 +378,9 @@ class VaultClearingTest {
     @Test
     void aProjectsDeployKeysAreNamedForAPersonToRemoveAtTheForge() throws IOException {
         final PoreloContext context = unlockedVault();
-        project("web", "repositories:\n  api:\n    upstream: \"git@forge.example.org:o/web.git\"\n");
+        project(
+                "web",
+                "repositories:\n  api:\n    upstream: \"git@forge.example.org:o/web.git\"\n");
         final Project web = GateSupport.byName(context, "web");
         final DeployKeys.Key made;
         try {
@@ -310,8 +391,11 @@ class VaultClearingTest {
 
         final Clearing.Result cleared = new VaultClearing(context).clear(false, false);
 
-        assertThat(names(cleared, "deploy key", made.fingerprint(), Clearing.Status.FOR_A_PERSON)).isTrue();
-        assertThat(cleared.keys()).extracting(DeployKeys.Key::fingerprint).containsExactly(made.fingerprint());
+        assertThat(names(cleared, "deploy key", made.fingerprint(), Clearing.Status.FOR_A_PERSON))
+                .isTrue();
+        assertThat(cleared.keys())
+                .extracting(DeployKeys.Key::fingerprint)
+                .containsExactly(made.fingerprint());
         assertThat(context.vault().path()).doesNotExist();
     }
 
@@ -320,7 +404,8 @@ class VaultClearingTest {
         assertThat(new VaultClearing(context()).clear(false, false).items()).isEmpty();
     }
 
-    private static int indexOf(final List<String> lines, final java.util.function.Predicate<String> which) {
+    private static int indexOf(
+            final List<String> lines, final java.util.function.Predicate<String> which) {
         for (int i = 0; i < lines.size(); i++) {
             if (which.test(lines.get(i))) {
                 return i;

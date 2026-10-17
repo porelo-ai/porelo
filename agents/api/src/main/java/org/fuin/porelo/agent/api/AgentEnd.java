@@ -6,9 +6,10 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * How an agent's run ended, as the agent reads its own last event.
- * <p>
- * The agent reads it, not Porelo: each agent ends its output its own way - one with a result line, another with an
- * end event whose last message carries the reason - and Porelo stays free of any agent's shape.
+ *
+ * <p>The agent reads it, not Porelo: each agent ends its output its own way - one with a result
+ * line, another with an end event whose last message carries the reason - and Porelo stays free of
+ * any agent's shape.
  *
  * @param finished Whether the prompt was answered to its end.
  * @param error Empty when finished; otherwise the text as the agent or its provider gave it.
@@ -49,7 +50,9 @@ public record AgentEnd(boolean finished, String error, String source, @Nullable 
         if (!(map.get("finished") instanceof Boolean finished)) {
             return null;
         }
-        return new AgentEnd(finished, map.get("error") instanceof String error ? error : "",
+        return new AgentEnd(
+                finished,
+                map.get("error") instanceof String error ? error : "",
                 map.get("source") instanceof String source ? source : AGENT,
                 map.get("status") instanceof Number status ? status.intValue() : null);
     }

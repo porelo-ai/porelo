@@ -9,10 +9,10 @@ import org.fuin.porelo.wire.Json;
 
 /**
  * The little that the host reads out of a message it is only carrying.
- * <p>
- * Deliberately almost nothing: the identifier, because a message that arrives twice has to be
- * recognised, and nothing else. What a message says is the filter's business and the reading agent's
- * business, not the carrier's.
+ *
+ * <p>Deliberately almost nothing: the identifier, because a message that arrives twice has to be
+ * recognised, and nothing else. What a message says is the filter's business and the reading
+ * agent's business, not the carrier's.
  */
 public final class MessageFile {
 
@@ -29,7 +29,8 @@ public final class MessageFile {
     public static String role(final byte[] message) {
         try {
             final Object parsed = Json.parse(new String(message, StandardCharsets.UTF_8));
-            if (parsed instanceof Map<?, ?> document && document.get("role") instanceof String role) {
+            if (parsed instanceof Map<?, ?> document
+                    && document.get("role") instanceof String role) {
                 return role;
             }
         } catch (final RuntimeException ex) {
@@ -43,14 +44,15 @@ public final class MessageFile {
      *
      * @param message The file.
      * @return {@code ROLE_USER} when a person wrote it, {@code ROLE_AGENT} when a task did, or an
-     *         empty string when the file cannot be read as a message.
+     *     empty string when the file cannot be read as a message.
      * @throws IOException Reading failed.
      */
     public static String role(final Path message) throws IOException {
         if (!Files.isRegularFile(message)) {
             return "";
         }
-        // As the bytes are read: a file that is no message is the filter's to refuse, and it answers the sender. Thrown
+        // As the bytes are read: a file that is no message is the filter's to refuse, and it
+        // answers the sender. Thrown
         // here, it stopped every pass of the mailbox at the file an agent wrote.
         return role(Files.readAllBytes(message));
     }
@@ -60,13 +62,14 @@ public final class MessageFile {
      *
      * @param message The file.
      * @return The {@code messageId}, or an empty string when the file cannot be read as a message.
-     *         An unreadable file is not an error here: it is held elsewhere, and this step only
-     *         says that it has no id to go by.
+     *     An unreadable file is not an error here: it is held elsewhere, and this step only says
+     *     that it has no id to go by.
      * @throws IOException Reading failed.
      */
     public static String id(final Path message) throws IOException {
         final Object parsed = Json.parse(Files.readString(message, StandardCharsets.UTF_8));
-        if (parsed instanceof Map<?, ?> document && document.get("messageId") instanceof String id) {
+        if (parsed instanceof Map<?, ?> document
+                && document.get("messageId") instanceof String id) {
             return id;
         }
         return "";

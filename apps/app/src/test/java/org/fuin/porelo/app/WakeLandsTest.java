@@ -18,15 +18,17 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Tests that a wake types only into rest that holds, and that its line leaves the agent's input box: pressed once more
- * when it stands there, and said as not delivered when it still does.
+ * Tests that a wake types only into rest that holds, and that its line leaves the agent's input
+ * box: pressed once more when it stands there, and said as not delivered when it still does.
  */
 class WakeLandsTest {
 
-    @TempDir
-    private Path dir;
+    @TempDir private Path dir;
 
-    private static final AgentDefinition CLAUDE = AgentDefinitionReader.read(new StringReader("""
+    private static final AgentDefinition CLAUDE =
+            AgentDefinitionReader.read(
+                    new StringReader(
+                            """
             name: claude
             binary: claude
             git_identity: { name: C, email: c@example.com }
@@ -38,11 +40,13 @@ class WakeLandsTest {
               waiting:
                 screen:
                   - { contains: "Esc to cancel", for: "a choice" }
-            """), "claude.yaml");
+            """),
+                    "claude.yaml");
 
     private static final String REST = ">\n  bypass permissions on (shift+tab)";
 
-    private static final String WORK = "* Thinking (esc to interrupt)\n  bypass permissions on (shift+tab)";
+    private static final String WORK =
+            "* Thinking (esc to interrupt)\n  bypass permissions on (shift+tab)";
 
     /** Screens shown in turn, the last one again once they run out; and what was sent. */
     private static final class Stand implements AgentWake.Terminal {
@@ -73,18 +77,28 @@ class WakeLandsTest {
     }
 
     private AgentWake waker(final Stand stand) {
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
-        return new AgentWake(new PoreloContext(new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")),
-                arguments -> 0), Duration.ZERO, stand);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
+        return new AgentWake(
+                new PoreloContext(
+                        new FakeCommandRunner(),
+                        new PoreloPaths(xdg, dir.resolve("bin")),
+                        arguments -> 0),
+                Duration.ZERO,
+                stand);
     }
 
     @Test
     void restForOneLookOnlyIsNotTypedInto() {
-        // An agent's work line comes and goes between its tool calls: one look fell into such a gap and the wake line
+        // An agent's work line comes and goes between its tool calls: one look fell into such a gap
+        // and the wake line
         // broke into a turn that was still running.
         final Stand stand = new Stand(REST, WORK);
 
@@ -102,7 +116,8 @@ class WakeLandsTest {
 
     @Test
     void aLineLeftInTheInputBoxIsSubmittedOnceMore() {
-        // Claude Code drew a notice and took the Enter: the line stood in the box and the agent never worked.
+        // Claude Code drew a notice and took the Enter: the line stood in the box and the agent
+        // never worked.
         final Stand stand = new Stand(REST, REST, REST, WORK);
 
         assertThat(waker(stand).wake("porelo-p-writer", CLAUDE, AgentWake.LINE)).isTrue();
@@ -114,12 +129,16 @@ class WakeLandsTest {
         final Stand stuck = new Stand(REST);
         final AgentWake waker = waker(stuck);
 
-        assertThat(waker.wake("porelo-p-writer", CLAUDE, AgentWake.LINE)).as("never said as delivered").isFalse();
+        assertThat(waker.wake("porelo-p-writer", CLAUDE, AgentWake.LINE))
+                .as("never said as delivered")
+                .isFalse();
         assertThat(stuck.sent).containsExactly("type", "enter");
 
         final Stand later = new Stand(REST, REST, WORK);
         final AgentWake again = waker(later);
         assertThat(again.wake("porelo-p-writer", CLAUDE, AgentWake.LINE)).isTrue();
-        assertThat(later.sent).as("the line is in the box already: only Enter").containsExactly("enter");
+        assertThat(later.sent)
+                .as("the line is in the box already: only Enter")
+                .containsExactly("enter");
     }
 }

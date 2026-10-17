@@ -18,24 +18,32 @@ import org.fuin.porelo.build.api.BuildRefused;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Follows every commit an {@code online} task pushes to its branch and hands each build's verdict into the task as it
- * changes, and a failing job's log beside it. The task asks nothing and holds no forge credential: this runs on the
- * host, as a helper of the task's launch.
- * <p>
- * A watch ends at a verdict that will not change, at {@link #DEADLINE}, or when the task stops.
+ * Follows every commit an {@code online} task pushes to its branch and hands each build's verdict
+ * into the task as it changes, and a failing job's log beside it. The task asks nothing and holds
+ * no forge credential: this runs on the host, as a helper of the task's launch.
+ *
+ * <p>A watch ends at a verdict that will not change, at {@link #DEADLINE}, or when the task stops.
  */
 public final class BuildWatch {
 
-    /** How often the forge is asked: often enough that a verdict arrives soon, seldom enough for a shared limit. */
+    /**
+     * How often the forge is asked: often enough that a verdict arrives soon, seldom enough for a
+     * shared limit.
+     */
     static final Duration POLL = Duration.ofSeconds(20);
 
     /** How long one commit's build is waited for. */
     static final Duration DEADLINE = Duration.ofHours(2);
 
-    /** How long a forge may take to show a build of a commit just pushed before "no build" is said. */
+    /**
+     * How long a forge may take to show a build of a commit just pushed before "no build" is said.
+     */
     static final Duration GRACE = Duration.ofMinutes(2);
 
-    /** How long to wait after a refusal a person has to fix: a replaced credential is then used without a restart. */
+    /**
+     * How long to wait after a refusal a person has to fix: a replaced credential is then used
+     * without a restart.
+     */
     static final Duration REFUSED = Duration.ofMinutes(10);
 
     private final Forge forge;
@@ -58,7 +66,10 @@ public final class BuildWatch {
 
     private final java.util.function.Consumer<String> trouble;
 
-    /** What {@link #trouble} was told last; {@code null} before the first round, so a clean start is said too. */
+    /**
+     * What {@link #trouble} was told last; {@code null} before the first round, so a clean start is
+     * said too.
+     */
     private @Nullable String troubleSaid;
 
     /** The commits being watched, by sha, oldest push first. */
@@ -67,9 +78,7 @@ public final class BuildWatch {
     /** Where the branch pointed when last asked; a change is a push. */
     private @Nullable String head;
 
-    /**
-     * The forge, as the watch asks it: the reader and the token behind it.
-     */
+    /** The forge, as the watch asks it: the reader and the token behind it. */
     public interface Forge {
 
         /**
@@ -92,8 +101,9 @@ public final class BuildWatch {
     }
 
     /**
-     * Porelo cannot ask the forge yet, for a reason on this machine rather than the forge's: the vault is shut, or
-     * does not hold the entry. The task is told why, and the watch asks again at the next round.
+     * Porelo cannot ask the forge yet, for a reason on this machine rather than the forge's: the
+     * vault is shut, or does not hold the entry. The task is told why, and the watch asks again at
+     * the next round.
      */
     public static final class NotNow extends RuntimeException {
 
@@ -109,9 +119,7 @@ public final class BuildWatch {
         }
     }
 
-    /**
-     * Hands a file into the task, as Porelo.
-     */
+    /** Hands a file into the task, as Porelo. */
     @FunctionalInterface
     public interface Delivery {
 
@@ -126,9 +134,7 @@ public final class BuildWatch {
         HandIns.HandedFile give(String name, Path file) throws IOException;
     }
 
-    /**
-     * Waits, so a test need not.
-     */
+    /** Waits, so a test need not. */
     @FunctionalInterface
     public interface Sleeper {
 
@@ -168,10 +174,19 @@ public final class BuildWatch {
      * @param scratch A directory of the task's own state, for the files before they are handed in.
      * @param clock What time it is.
      * @param sleeper How to wait.
-     * @param trouble Told what keeps the watch from asking the forge each time it changes, and "" once it asks again.
+     * @param trouble Told what keeps the watch from asking the forge each time it changes, and ""
+     *     once it asks again.
      */
-    public BuildWatch(final Forge forge, final Delivery delivery, final TaskBuilds builds, final String container,
-            final String run, final String branch, final Path scratch, final Clock clock, final Sleeper sleeper,
+    public BuildWatch(
+            final Forge forge,
+            final Delivery delivery,
+            final TaskBuilds builds,
+            final String container,
+            final String run,
+            final String branch,
+            final Path scratch,
+            final Clock clock,
+            final Sleeper sleeper,
             final java.util.function.Consumer<String> trouble) {
         this.forge = forge;
         this.delivery = delivery;
@@ -199,7 +214,8 @@ public final class BuildWatch {
     }
 
     /**
-     * Asks the forge once about the branch and every commit being watched, and hands in what changed.
+     * Asks the forge once about the branch and every commit being watched, and hands in what
+     * changed.
      *
      * @return How long to wait before the next round.
      */
@@ -218,7 +234,8 @@ public final class BuildWatch {
             tellAll(Build.unknown(String.valueOf(ex.getMessage())));
             return POLL;
         } catch (BuildReaderException ex) {
-            // The installation, not the forge: every commit waiting says so, and the watch tries again later.
+            // The installation, not the forge: every commit waiting says so, and the watch tries
+            // again later.
             troubled("Porelo cannot read builds: " + ex.getMessage());
             tellAll(Build.unknown("Porelo cannot read builds: " + ex.getMessage()));
             return REFUSED;
@@ -226,8 +243,9 @@ public final class BuildWatch {
     }
 
     /**
-     * Says what keeps the watch from asking, once each time it changes. Beside the verdicts, because before the first
-     * push no commit is followed and a verdict would reach nobody: the vault shut at a task's start was said nowhere.
+     * Says what keeps the watch from asking, once each time it changes. Beside the verdicts,
+     * because before the first push no commit is followed and a verdict would reach nobody: the
+     * vault shut at a task's start was said nowhere.
      */
     private void troubled(final String why) {
         if (!why.equals(troubleSaid)) {
@@ -236,7 +254,10 @@ public final class BuildWatch {
         }
     }
 
-    /** Takes up the commits this run already watched, so a resumed task is not told twice or told nothing. */
+    /**
+     * Takes up the commits this run already watched, so a resumed task is not told twice or told
+     * nothing.
+     */
     private void resume() {
         String last = null;
         try {
@@ -245,9 +266,15 @@ public final class BuildWatch {
                     continue;
                 }
                 last = seen.commit();
-                final Watched each = watched.computeIfAbsent(seen.commit(), any -> new Watched(clock.instant()));
-                each.told = new Build(seen.verdict(), seen.jobs().stream()
-                        .map(job -> new Build.Job(job.name(), job.result())).toList(), seen.detail());
+                final Watched each =
+                        watched.computeIfAbsent(seen.commit(), any -> new Watched(clock.instant()));
+                each.told =
+                        new Build(
+                                seen.verdict(),
+                                seen.jobs().stream()
+                                        .map(job -> new Build.Job(job.name(), job.result()))
+                                        .toList(),
+                                seen.detail());
                 if (seen.finished()) {
                     watched.remove(seen.commit());
                 }
@@ -258,7 +285,10 @@ public final class BuildWatch {
         head = last;
     }
 
-    /** A head that moved is a push: the first answer is where the branch was before the task pushed anything. */
+    /**
+     * A head that moved is a push: the first answer is where the branch was before the task pushed
+     * anything.
+     */
     private void follow(final String now) {
         if (head == null) {
             head = now;
@@ -277,8 +307,16 @@ public final class BuildWatch {
             return;
         }
         if (!build.finished() && now.isAfter(each.pushed.plus(DEADLINE))) {
-            tell(commit, each, Build.unknown("no verdict within " + DEADLINE.toHours() + " hours; Porelo stopped"
-                    + " waiting for this build (last: " + build.verdict() + ")"));
+            tell(
+                    commit,
+                    each,
+                    Build.unknown(
+                            "no verdict within "
+                                    + DEADLINE.toHours()
+                                    + " hours; Porelo stopped"
+                                    + " waiting for this build (last: "
+                                    + build.verdict()
+                                    + ")"));
             watched.remove(commit);
             return;
         }
@@ -289,16 +327,21 @@ public final class BuildWatch {
     }
 
     private Duration refused(final BuildRefused ex) {
-        final String why = switch (ex.reason()) {
-            case RATE_LIMITED -> "the forge's rate limit is reached; Porelo asks again when it resets: ";
-            case CREDENTIAL_REFUSED -> "the forge refused the credential the project names for builds: ";
-            case NO_SUCH_REPOSITORY -> "the forge shows the credential no such repository: ";
-            case UNREACHABLE -> "the forge did not answer: ";
-        };
+        final String why =
+                switch (ex.reason()) {
+                    case RATE_LIMITED ->
+                            "the forge's rate limit is reached; Porelo asks again when it resets: ";
+                    case CREDENTIAL_REFUSED ->
+                            "the forge refused the credential the project names for builds: ";
+                    case NO_SUCH_REPOSITORY ->
+                            "the forge shows the credential no such repository: ";
+                    case UNREACHABLE -> "the forge did not answer: ";
+                };
         troubled(why + ex.detail());
         tellAll(Build.unknown(why + ex.detail()));
         return switch (ex.reason()) {
-            case RATE_LIMITED -> Duration.ofSeconds(Math.max(POLL.toSeconds(), ex.retryAfterSeconds()));
+            case RATE_LIMITED ->
+                    Duration.ofSeconds(Math.max(POLL.toSeconds(), ex.retryAfterSeconds()));
             case CREDENTIAL_REFUSED, NO_SUCH_REPOSITORY -> REFUSED;
             case UNREACHABLE -> POLL;
         };
@@ -310,9 +353,14 @@ public final class BuildWatch {
         }
     }
 
-    /** Hands a verdict in when it differs from the one the task has; the logs first, so the verdict names files. */
+    /**
+     * Hands a verdict in when it differs from the one the task has; the logs first, so the verdict
+     * names files.
+     */
     private void tell(final String commit, final Watched each, final Build build) {
-        if (each.told != null && each.told.verdict().equals(build.verdict()) && same(each.told.jobs(), build.jobs())
+        if (each.told != null
+                && each.told.verdict().equals(build.verdict())
+                && same(each.told.jobs(), build.jobs())
                 && each.told.detail().equals(build.detail())) {
             return;
         }
@@ -328,13 +376,20 @@ public final class BuildWatch {
                 final byte[] tail = job.log();
                 TaskBuilds.Log log = null;
                 if (tail != null) {
-                    final HandIns.HandedFile handed = handIn(base + "-" + (jobs.size() + 1) + ".log", tail);
+                    final HandIns.HandedFile handed =
+                            handIn(base + "-" + (jobs.size() + 1) + ".log", tail);
                     log = new TaskBuilds.Log(handed.name(), handed.bytes(), handed.sha256());
                 }
                 jobs.add(new TaskBuilds.Job(job.name(), job.result(), log));
             }
-            final TaskBuilds.Seen seen = new TaskBuilds.Seen(commit, build.verdict(), jobs, each.since.toString(),
-                    build.detail(), run);
+            final TaskBuilds.Seen seen =
+                    new TaskBuilds.Seen(
+                            commit,
+                            build.verdict(),
+                            jobs,
+                            each.since.toString(),
+                            build.detail(),
+                            run);
             handIn(base + ".txt", text(seen).getBytes(StandardCharsets.UTF_8));
             builds.write(container, seen);
             each.told = build;
@@ -343,13 +398,21 @@ public final class BuildWatch {
         }
     }
 
-    /** The same jobs with the same results: a log's bytes are not compared, a job's end does not change. */
+    /**
+     * The same jobs with the same results: a log's bytes are not compared, a job's end does not
+     * change.
+     */
     private static boolean same(final List<Build.Job> told, final List<Build.Job> now) {
-        return told.stream().map(job -> job.name() + "\u0000" + job.result()).toList()
+        return told.stream()
+                .map(job -> job.name() + "\u0000" + job.result())
+                .toList()
                 .equals(now.stream().map(job -> job.name() + "\u0000" + job.result()).toList());
     }
 
-    /** Hands content in through a file of the task's own state that is gone again after: Porelo keeps no copy. */
+    /**
+     * Hands content in through a file of the task's own state that is gone again after: Porelo
+     * keeps no copy.
+     */
     private HandIns.HandedFile handIn(final String name, final byte[] content) throws IOException {
         final Path file = scratch.resolve(name);
         try {

@@ -20,10 +20,14 @@ class ClearanceWiringListeningTest {
 
     @Test
     void givesUpWhenTheWatcherNeverListens(@TempDir Path dir) {
-        // Said, not waited for forever: a start that hangs on its watcher is worse than one that warns.
+        // Said, not waited for forever: a start that hangs on its watcher is worse than one that
+        // warns.
         final long started = System.nanoTime();
 
-        assertThat(ClearanceWiring.listening(dir.resolve("clearance.sock"), Duration.ofMillis(200), () -> true)).isFalse();
+        assertThat(
+                        ClearanceWiring.listening(
+                                dir.resolve("clearance.sock"), Duration.ofMillis(200), () -> true))
+                .isFalse();
         assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(5));
     }
 
@@ -32,7 +36,10 @@ class ClearanceWiringListeningTest {
         // One that died will never listen; waiting out the patience for it only delays saying so.
         final long started = System.nanoTime();
 
-        assertThat(ClearanceWiring.listening(dir.resolve("clearance.sock"), Duration.ofSeconds(30), () -> false)).isFalse();
+        assertThat(
+                        ClearanceWiring.listening(
+                                dir.resolve("clearance.sock"), Duration.ofSeconds(30), () -> false))
+                .isFalse();
         assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(5));
     }
 }

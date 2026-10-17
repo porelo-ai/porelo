@@ -11,12 +11,12 @@ import java.lang.invoke.VarHandle;
 
 /**
  * An {@code AF_NETLINK} socket, opened through the Foreign Function &amp; Memory API.
- * <p>
- * The JDK has no netlink support and never has, which was once read as "Java cannot do this". It
+ *
+ * <p>The JDK has no netlink support and never has, which was once read as "Java cannot do this". It
  * is only true of {@code java.net}: {@code socket(2)} is four calls away through FFM, and message
  * parsing is plain byte work that {@link java.nio.ByteBuffer} already does.
- * <p>
- * Not thread-safe. One reader owns one socket.
+ *
+ * <p>Not thread-safe. One reader owns one socket.
  */
 public class NetlinkSocket implements AutoCloseable {
 
@@ -38,26 +38,52 @@ public class NetlinkSocket implements AutoCloseable {
 
     private static final Linker.Option CAPTURE = Linker.Option.captureCallState("errno");
 
-    private static final MethodHandle SOCKET = handle("socket", ValueLayout.JAVA_INT,
-            ValueLayout.JAVA_INT, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT);
+    private static final MethodHandle SOCKET =
+            handle(
+                    "socket",
+                    ValueLayout.JAVA_INT,
+                    ValueLayout.JAVA_INT,
+                    ValueLayout.JAVA_INT,
+                    ValueLayout.JAVA_INT);
 
-    private static final MethodHandle BIND = handle("bind", ValueLayout.JAVA_INT,
-            ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_INT);
+    private static final MethodHandle BIND =
+            handle(
+                    "bind",
+                    ValueLayout.JAVA_INT,
+                    ValueLayout.JAVA_INT,
+                    ValueLayout.ADDRESS,
+                    ValueLayout.JAVA_INT);
 
-    private static final MethodHandle SEND = handle("send", ValueLayout.JAVA_LONG,
-            ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_INT);
+    private static final MethodHandle SEND =
+            handle(
+                    "send",
+                    ValueLayout.JAVA_LONG,
+                    ValueLayout.JAVA_INT,
+                    ValueLayout.ADDRESS,
+                    ValueLayout.JAVA_LONG,
+                    ValueLayout.JAVA_INT);
 
-    private static final MethodHandle RECV = handle("recv", ValueLayout.JAVA_LONG,
-            ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_INT);
+    private static final MethodHandle RECV =
+            handle(
+                    "recv",
+                    ValueLayout.JAVA_LONG,
+                    ValueLayout.JAVA_INT,
+                    ValueLayout.ADDRESS,
+                    ValueLayout.JAVA_LONG,
+                    ValueLayout.JAVA_INT);
 
     private static final MethodHandle CLOSE =
             handle("close", ValueLayout.JAVA_INT, ValueLayout.JAVA_INT);
 
-    private static MethodHandle handle(String name, MemoryLayout returnType, MemoryLayout... arguments) {
+    private static MethodHandle handle(
+            String name, MemoryLayout returnType, MemoryLayout... arguments) {
         return LINKER.downcallHandle(
-                LINKER.defaultLookup().find(name)
-                        .orElseThrow(() -> new NetlinkException("Symbol '" + name + "' not found", 0)),
-                FunctionDescriptor.of(returnType, arguments), CAPTURE);
+                LINKER.defaultLookup()
+                        .find(name)
+                        .orElseThrow(
+                                () -> new NetlinkException("Symbol '" + name + "' not found", 0)),
+                FunctionDescriptor.of(returnType, arguments),
+                CAPTURE);
     }
 
     private final Arena arena = Arena.ofShared();
@@ -78,7 +104,8 @@ public class NetlinkSocket implements AutoCloseable {
     }
 
     /**
-     * Opens a netfilter netlink socket and binds it to the given port, for tests that need a bind to fail.
+     * Opens a netfilter netlink socket and binds it to the given port, for tests that need a bind
+     * to fail.
      *
      * @param port The netlink port ({@code nl_pid}), or 0 for one the kernel chooses.
      * @throws NetlinkException If the socket cannot be opened or bound.
@@ -100,7 +127,8 @@ public class NetlinkSocket implements AutoCloseable {
             }
             descriptor = opened;
         } catch (Throwable ex) {
-            // A refused bind left the socket open: one descriptor and the arena per attempt, for a reader that is
+            // A refused bind left the socket open: one descriptor and the arena per attempt, for a
+            // reader that is
             // started again and again.
             release(opened);
             if (ex instanceof NetlinkException netlink) {
@@ -132,8 +160,8 @@ public class NetlinkSocket implements AutoCloseable {
     public long send(byte[] message) {
         try (Arena call = Arena.ofConfined()) {
             final MemorySegment buffer = call.allocateFrom(ValueLayout.JAVA_BYTE, message);
-            final long sent = (long) SEND.invokeExact(errno, descriptor, buffer,
-                    (long) message.length, 0);
+            final long sent =
+                    (long) SEND.invokeExact(errno, descriptor, buffer, (long) message.length, 0);
             if (sent < 0) {
                 throw new NetlinkException("send() failed", errorNumber());
             }
@@ -155,7 +183,8 @@ public class NetlinkSocket implements AutoCloseable {
     public byte[] receive(int capacity) {
         try (Arena call = Arena.ofConfined()) {
             final MemorySegment buffer = call.allocate(capacity);
-            final long read = (long) RECV.invokeExact(errno, descriptor, buffer, (long) capacity, 0);
+            final long read =
+                    (long) RECV.invokeExact(errno, descriptor, buffer, (long) capacity, 0);
             if (read < 0) {
                 throw new NetlinkException("recv() failed", errorNumber());
             }

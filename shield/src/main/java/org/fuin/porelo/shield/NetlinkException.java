@@ -1,8 +1,6 @@
 package org.fuin.porelo.shield;
 
-/**
- * A netlink operation failed.
- */
+/** A netlink operation failed. */
 public class NetlinkException extends RuntimeException {
 
     private static final long serialVersionUID = 1L;

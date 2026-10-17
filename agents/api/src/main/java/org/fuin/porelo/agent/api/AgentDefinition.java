@@ -6,9 +6,9 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Everything about an agent that is data rather than behavior.
- * <p>
- * Read from the {@code agent.yaml} inside the agent's own module. What cannot be expressed here is
- * expressed by overriding a method on {@link Agent}, in that same module - never by a branch
+ *
+ * <p>Read from the {@code agent.yaml} inside the agent's own module. What cannot be expressed here
+ * is expressed by overriding a method on {@link Agent}, in that same module - never by a branch
  * elsewhere that tests the agent's name.
  *
  * @param name Short name, and the key an operator types.
@@ -19,17 +19,16 @@ import org.jspecify.annotations.Nullable;
  * @param supportsResume Whether a previous session can be continued.
  * @param resumeFlag Flag that continues a session, or {@code null}.
  * @param tokenEnvironment Credential type to environment variable, with {@code _default} as the
- *        fallback key.
- * @param provider Which providers the agent can drive and how it must be pointed at one, or
- *        {@code null} if the agent cannot be redirected and must be given its credential
- *        directly.
+ *     fallback key.
+ * @param provider Which providers the agent can drive and how it must be pointed at one, or {@code
+ *     null} if the agent cannot be redirected and must be given its credential directly.
  * @param allowedDomains Domains the agent needs to resolve and reach.
  * @param refusedDomains Domains the agent is known to ask for and is deliberately not given -
- *        telemetry and crash reporting. The task's resolver answers NXDOMAIN for each, even under
- *        an allowed parent, so what an operator is told is refused is what is refused. Declared
- *        rather than merely absent so that a test can tell a policy choice from an oversight.
- * @param version Version of the agent CLI this definition installs, or {@code null} if it
- *        installs nothing.
+ *     telemetry and crash reporting. The task's resolver answers NXDOMAIN for each, even under an
+ *     allowed parent, so what an operator is told is refused is what is refused. Declared rather
+ *     than merely absent so that a test can tell a policy choice from an oversight.
+ * @param version Version of the agent CLI this definition installs, or {@code null} if it installs
+ *     nothing.
  * @param artifacts Files the image build fetches, each pinned and verified.
  * @param installAsRoot Container build fragments run as root, possibly empty.
  * @param installAsAgent Container build fragments run as the agent user, possibly empty.
@@ -37,43 +36,62 @@ import org.jspecify.annotations.Nullable;
  * @param configDirectory Where the agent keeps its credentials, or {@code null}.
  * @param loginArguments What runs the agent's own login, or {@code null} if it does not say.
  * @param loginDocumentation Where that login is described, or {@code null}. Declared because an
- *        agent's login is its own: some open a browser, some print a link and a code, and only
- *        the second kind works on a machine somebody reaches over ssh. A person about to run one
- *        on a remote machine should be able to read what it will do before it does it, and the
- *        agent is the only thing that knows where that is written.
+ *     agent's login is its own: some open a browser, some print a link and a code, and only the
+ *     second kind works on a machine somebody reaches over ssh. A person about to run one on a
+ *     remote machine should be able to read what it will do before it does it, and the agent is the
+ *     only thing that knows where that is written.
  * @param sandboxedArguments Arguments that turn off the agent's own permission prompts.
- *        <p>
- *        <strong>Porelo decides whether, the manifest says only how.</strong> Inside a task the
- *        answer is always yes: the box is the whole point, and an agent stopping to ask whether
- *        it may run a command is asking about a restriction that was already lifted. So there is
- *        no flag and no setting to turn this on - it is on, and an agent that declares nothing
- *        here simply has no prompts to turn off.
+ *     <p><strong>Porelo decides whether, the manifest says only how.</strong> Inside a task the
+ *     answer is always yes: the box is the whole point, and an agent stopping to ask whether it may
+ *     run a command is asking about a restriction that was already lifted. So there is no flag and
+ *     no setting to turn this on - it is on, and an agent that declares nothing here simply has no
+ *     prompts to turn off.
  * @param ready What the agent shows once it has reached work, attached, or {@code null} when it has
- *        no stable text for that - and then a check of it says it cannot tell rather than passing.
- * @param waiting What waiting for a person looks like in its own output, or {@code null} when it does
- *        not say - and then Porelo says it cannot tell whether the agent waits, never that it does not.
- * @param sessionIds Where it names the session it runs, or {@code null} when it does not - and then a task
- *        that comes back starts a fresh session and says so, rather than claiming it continued.
- * @param instructionArguments How the agent takes standing instructions from a file, with {@value #FILE} where the
- *        file goes, or empty when it declares no way. Porelo gives it the file that says how the task's mailbox works.
- * @param atRest What its screen shows at rest at its prompt, or {@code null}: then it is never woken by typing.
- * @param grants The OAuth apps it signs in to providers with, which {@code porelo vault authorize} grants for it; empty
- *        when it signs in to none.
+ *     no stable text for that - and then a check of it says it cannot tell rather than passing.
+ * @param waiting What waiting for a person looks like in its own output, or {@code null} when it
+ *     does not say - and then Porelo says it cannot tell whether the agent waits, never that it
+ *     does not.
+ * @param sessionIds Where it names the session it runs, or {@code null} when it does not - and then
+ *     a task that comes back starts a fresh session and says so, rather than claiming it continued.
+ * @param instructionArguments How the agent takes standing instructions from a file, with {@value
+ *     #FILE} where the file goes, or empty when it declares no way. Porelo gives it the file that
+ *     says how the task's mailbox works.
+ * @param atRest What its screen shows at rest at its prompt, or {@code null}: then it is never
+ *     woken by typing.
+ * @param grants The OAuth apps it signs in to providers with, which {@code porelo vault authorize}
+ *     grants for it; empty when it signs in to none.
  */
-public record AgentDefinition(String name, String label, String binary, GitIdentity gitIdentity,
-        HeadlessFlags headless, boolean supportsResume, @Nullable String resumeFlag,
-        Map<String, String> tokenEnvironment, @Nullable AgentProvider provider,
-        List<String> allowedDomains, List<String> refusedDomains, @Nullable String version,
+public record AgentDefinition(
+        String name,
+        String label,
+        String binary,
+        GitIdentity gitIdentity,
+        HeadlessFlags headless,
+        boolean supportsResume,
+        @Nullable String resumeFlag,
+        Map<String, String> tokenEnvironment,
+        @Nullable AgentProvider provider,
+        List<String> allowedDomains,
+        List<String> refusedDomains,
+        @Nullable String version,
         List<InstallArtifact> artifacts,
-        List<String> installAsRoot, List<String> installAsAgent,
-        List<PackagedTree> packaged, @Nullable String configDirectory,
-        @Nullable List<String> loginArguments, @Nullable String loginDocumentation,
-        List<String> sandboxedArguments, @Nullable ReadyMarker ready, @Nullable Waiting waiting,
-        @Nullable SessionIds sessionIds, List<String> instructionArguments, @Nullable AtRest atRest,
+        List<String> installAsRoot,
+        List<String> installAsAgent,
+        List<PackagedTree> packaged,
+        @Nullable String configDirectory,
+        @Nullable List<String> loginArguments,
+        @Nullable String loginDocumentation,
+        List<String> sandboxedArguments,
+        @Nullable ReadyMarker ready,
+        @Nullable Waiting waiting,
+        @Nullable SessionIds sessionIds,
+        List<String> instructionArguments,
+        @Nullable AtRest atRest,
         List<AgentGrant> grants) {
 
     /**
-     * Constructor for an agent that signs in to no provider through Porelo, as every agent did before {@code grants}.
+     * Constructor for an agent that signs in to no provider through Porelo, as every agent did
+     * before {@code grants}.
      *
      * @param name Short name.
      * @param label Human-readable label.
@@ -101,19 +119,59 @@ public record AgentDefinition(String name, String label, String binary, GitIdent
      * @param instructionArguments How it takes standing instructions.
      * @param atRest What its screen shows at rest, or {@code null}.
      */
-    public AgentDefinition(String name, String label, String binary, GitIdentity gitIdentity,
-            HeadlessFlags headless, boolean supportsResume, @Nullable String resumeFlag,
-            Map<String, String> tokenEnvironment, @Nullable AgentProvider provider,
-            List<String> allowedDomains, List<String> refusedDomains, @Nullable String version,
-            List<InstallArtifact> artifacts, List<String> installAsRoot, List<String> installAsAgent,
-            List<PackagedTree> packaged, @Nullable String configDirectory,
-            @Nullable List<String> loginArguments, @Nullable String loginDocumentation,
-            List<String> sandboxedArguments, @Nullable ReadyMarker ready, @Nullable Waiting waiting,
-            @Nullable SessionIds sessionIds, List<String> instructionArguments, @Nullable AtRest atRest) {
-        this(name, label, binary, gitIdentity, headless, supportsResume, resumeFlag, tokenEnvironment, provider,
-                allowedDomains, refusedDomains, version, artifacts, installAsRoot, installAsAgent, packaged,
-                configDirectory, loginArguments, loginDocumentation, sandboxedArguments, ready, waiting, sessionIds,
-                instructionArguments, atRest, List.of());
+    public AgentDefinition(
+            String name,
+            String label,
+            String binary,
+            GitIdentity gitIdentity,
+            HeadlessFlags headless,
+            boolean supportsResume,
+            @Nullable String resumeFlag,
+            Map<String, String> tokenEnvironment,
+            @Nullable AgentProvider provider,
+            List<String> allowedDomains,
+            List<String> refusedDomains,
+            @Nullable String version,
+            List<InstallArtifact> artifacts,
+            List<String> installAsRoot,
+            List<String> installAsAgent,
+            List<PackagedTree> packaged,
+            @Nullable String configDirectory,
+            @Nullable List<String> loginArguments,
+            @Nullable String loginDocumentation,
+            List<String> sandboxedArguments,
+            @Nullable ReadyMarker ready,
+            @Nullable Waiting waiting,
+            @Nullable SessionIds sessionIds,
+            List<String> instructionArguments,
+            @Nullable AtRest atRest) {
+        this(
+                name,
+                label,
+                binary,
+                gitIdentity,
+                headless,
+                supportsResume,
+                resumeFlag,
+                tokenEnvironment,
+                provider,
+                allowedDomains,
+                refusedDomains,
+                version,
+                artifacts,
+                installAsRoot,
+                installAsAgent,
+                packaged,
+                configDirectory,
+                loginArguments,
+                loginDocumentation,
+                sandboxedArguments,
+                ready,
+                waiting,
+                sessionIds,
+                instructionArguments,
+                atRest,
+                List.of());
     }
 
     /**
@@ -123,7 +181,10 @@ public record AgentDefinition(String name, String label, String binary, GitIdent
      * @return The grant, or {@code null} when it names none for that provider.
      */
     public @Nullable AgentGrant grantFor(String providerName) {
-        return grants.stream().filter(grant -> grant.provider().equals(providerName)).findFirst().orElse(null);
+        return grants.stream()
+                .filter(grant -> grant.provider().equals(providerName))
+                .findFirst()
+                .orElse(null);
     }
 
     /** Where the file goes in {@link #instructionArguments()}. */
@@ -156,19 +217,56 @@ public record AgentDefinition(String name, String label, String binary, GitIdent
      * @param waiting What waiting for a person looks like, or {@code null}.
      * @param sessionIds Where it names its session, or {@code null}.
      */
-    public AgentDefinition(String name, String label, String binary, GitIdentity gitIdentity,
-            HeadlessFlags headless, boolean supportsResume, @Nullable String resumeFlag,
-            Map<String, String> tokenEnvironment, @Nullable AgentProvider provider,
-            List<String> allowedDomains, List<String> refusedDomains, @Nullable String version,
-            List<InstallArtifact> artifacts, List<String> installAsRoot, List<String> installAsAgent,
-            List<PackagedTree> packaged, @Nullable String configDirectory,
-            @Nullable List<String> loginArguments, @Nullable String loginDocumentation,
-            List<String> sandboxedArguments, @Nullable ReadyMarker ready, @Nullable Waiting waiting,
+    public AgentDefinition(
+            String name,
+            String label,
+            String binary,
+            GitIdentity gitIdentity,
+            HeadlessFlags headless,
+            boolean supportsResume,
+            @Nullable String resumeFlag,
+            Map<String, String> tokenEnvironment,
+            @Nullable AgentProvider provider,
+            List<String> allowedDomains,
+            List<String> refusedDomains,
+            @Nullable String version,
+            List<InstallArtifact> artifacts,
+            List<String> installAsRoot,
+            List<String> installAsAgent,
+            List<PackagedTree> packaged,
+            @Nullable String configDirectory,
+            @Nullable List<String> loginArguments,
+            @Nullable String loginDocumentation,
+            List<String> sandboxedArguments,
+            @Nullable ReadyMarker ready,
+            @Nullable Waiting waiting,
             @Nullable SessionIds sessionIds) {
-        this(name, label, binary, gitIdentity, headless, supportsResume, resumeFlag, tokenEnvironment, provider,
-                allowedDomains, refusedDomains, version, artifacts, installAsRoot, installAsAgent, packaged,
-                configDirectory, loginArguments, loginDocumentation, sandboxedArguments, ready, waiting, sessionIds,
-                List.of(), null);
+        this(
+                name,
+                label,
+                binary,
+                gitIdentity,
+                headless,
+                supportsResume,
+                resumeFlag,
+                tokenEnvironment,
+                provider,
+                allowedDomains,
+                refusedDomains,
+                version,
+                artifacts,
+                installAsRoot,
+                installAsAgent,
+                packaged,
+                configDirectory,
+                loginArguments,
+                loginDocumentation,
+                sandboxedArguments,
+                ready,
+                waiting,
+                sessionIds,
+                List.of(),
+                null);
     }
 
     /**
@@ -199,39 +297,81 @@ public record AgentDefinition(String name, String label, String binary, GitIdent
      * @param sessionIds Where it names its session, or {@code null}.
      * @param instructionArguments How it takes standing instructions from a file.
      */
-    public AgentDefinition(String name, String label, String binary, GitIdentity gitIdentity,
-            HeadlessFlags headless, boolean supportsResume, @Nullable String resumeFlag,
-            Map<String, String> tokenEnvironment, @Nullable AgentProvider provider,
-            List<String> allowedDomains, List<String> refusedDomains, @Nullable String version,
-            List<InstallArtifact> artifacts, List<String> installAsRoot, List<String> installAsAgent,
-            List<PackagedTree> packaged, @Nullable String configDirectory,
-            @Nullable List<String> loginArguments, @Nullable String loginDocumentation,
-            List<String> sandboxedArguments, @Nullable ReadyMarker ready, @Nullable Waiting waiting,
-            @Nullable SessionIds sessionIds, List<String> instructionArguments) {
-        this(name, label, binary, gitIdentity, headless, supportsResume, resumeFlag, tokenEnvironment, provider,
-                allowedDomains, refusedDomains, version, artifacts, installAsRoot, installAsAgent, packaged,
-                configDirectory, loginArguments, loginDocumentation, sandboxedArguments, ready, waiting, sessionIds,
-                instructionArguments, null);
+    public AgentDefinition(
+            String name,
+            String label,
+            String binary,
+            GitIdentity gitIdentity,
+            HeadlessFlags headless,
+            boolean supportsResume,
+            @Nullable String resumeFlag,
+            Map<String, String> tokenEnvironment,
+            @Nullable AgentProvider provider,
+            List<String> allowedDomains,
+            List<String> refusedDomains,
+            @Nullable String version,
+            List<InstallArtifact> artifacts,
+            List<String> installAsRoot,
+            List<String> installAsAgent,
+            List<PackagedTree> packaged,
+            @Nullable String configDirectory,
+            @Nullable List<String> loginArguments,
+            @Nullable String loginDocumentation,
+            List<String> sandboxedArguments,
+            @Nullable ReadyMarker ready,
+            @Nullable Waiting waiting,
+            @Nullable SessionIds sessionIds,
+            List<String> instructionArguments) {
+        this(
+                name,
+                label,
+                binary,
+                gitIdentity,
+                headless,
+                supportsResume,
+                resumeFlag,
+                tokenEnvironment,
+                provider,
+                allowedDomains,
+                refusedDomains,
+                version,
+                artifacts,
+                installAsRoot,
+                installAsAgent,
+                packaged,
+                configDirectory,
+                loginArguments,
+                loginDocumentation,
+                sandboxedArguments,
+                ready,
+                waiting,
+                sessionIds,
+                instructionArguments,
+                null);
     }
 
     /**
      * Returns a command that starts this agent with standing instructions read from a file.
-     * <p>
-     * Directly behind the binary and what turns its prompts off, where {@link #sandboxedCommand()} ends, so they
-     * cannot land after a positional prompt - on both ways of starting it, as that command is. An agent that builds its
-     * unattended command its own way gets them directly behind its binary.
+     *
+     * <p>Directly behind the binary and what turns its prompts off, where {@link
+     * #sandboxedCommand()} ends, so they cannot land after a positional prompt - on both ways of
+     * starting it, as that command is. An agent that builds its unattended command its own way gets
+     * them directly behind its binary.
      *
      * @param command How it is started, beginning with its binary.
      * @param file Where the instructions are, inside the task.
-     * @return The command with the declared arguments in it, or unchanged when the agent declares none.
+     * @return The command with the declared arguments in it, or unchanged when the agent declares
+     *     none.
      */
     public List<String> instructed(List<String> command, String file) {
         if (instructionArguments.isEmpty() || command.isEmpty()) {
             return command;
         }
         final List<String> prefix = sandboxedCommand();
-        final int at = command.size() >= prefix.size() && command.subList(0, prefix.size()).equals(prefix)
-                ? prefix.size() : 1;
+        final int at =
+                command.size() >= prefix.size() && command.subList(0, prefix.size()).equals(prefix)
+                        ? prefix.size()
+                        : 1;
         final List<String> instructed = new java.util.ArrayList<>(command.subList(0, at));
         instructionArguments.forEach(argument -> instructed.add(argument.replace(FILE, file)));
         instructed.addAll(command.subList(at, command.size()));
@@ -240,8 +380,8 @@ public record AgentDefinition(String name, String label, String binary, GitIdent
 
     /**
      * Returns the agent's binary followed by whatever turns its own permission prompts off.
-     * <p>
-     * <strong>Both ways of starting an agent go through here</strong>, so an attached run and an
+     *
+     * <p><strong>Both ways of starting an agent go through here</strong>, so an attached run and an
      * unattended one cannot drift apart on the one question a person would only notice in the
      * attached case - and only after the agent had already stopped to ask.
      *
@@ -255,12 +395,12 @@ public record AgentDefinition(String name, String label, String binary, GitIdent
     }
 
     /**
-     * Returns the command an attended task starts the agent with: {@link #sandboxedCommand()}, and the
-     * model when one was asked for.
-     * <p>
-     * The model goes by the same declared flag as in an unattended run. An attended start used to accept
-     * {@code --model} and drop it, so the agent answered on its own default - measured
-     * on 2026-09-29, with two agents' headers naming models nobody had asked for.
+     * Returns the command an attended task starts the agent with: {@link #sandboxedCommand()}, and
+     * the model when one was asked for.
+     *
+     * <p>The model goes by the same declared flag as in an unattended run. An attended start used
+     * to accept {@code --model} and drop it, so the agent answered on its own default - measured on
+     * 2026-09-29, with two agents' headers naming models nobody had asked for.
      *
      * @param model The model to ask for, or {@code null} for the agent's own.
      * @return Command and arguments, never empty.
@@ -281,9 +421,9 @@ public record AgentDefinition(String name, String label, String binary, GitIdent
 
     /**
      * Constructor for an agent that does not say how to log in.
-     * <p>
-     * Most do not, and it is not a defect: an agent whose credential is an API key has nothing to
-     * log in to.
+     *
+     * <p>Most do not, and it is not a defect: an agent whose credential is an API key has nothing
+     * to log in to.
      *
      * @param name Name the binary calls itself by.
      * @param label Human-readable name.
@@ -303,17 +443,46 @@ public record AgentDefinition(String name, String label, String binary, GitIdent
      * @param packaged Trees copied into the image.
      * @param configDirectory Where it keeps its credentials, or {@code null}.
      */
-    public AgentDefinition(String name, String label, String binary, GitIdentity gitIdentity,
-            HeadlessFlags headless, boolean supportsResume, @Nullable String resumeFlag,
-            Map<String, String> tokenEnvironment, @Nullable AgentProvider provider,
-            List<String> allowedDomains, List<String> refusedDomains, @Nullable String version,
-            List<InstallArtifact> artifacts, List<String> installAsRoot,
-            List<String> installAsAgent, List<PackagedTree> packaged,
+    public AgentDefinition(
+            String name,
+            String label,
+            String binary,
+            GitIdentity gitIdentity,
+            HeadlessFlags headless,
+            boolean supportsResume,
+            @Nullable String resumeFlag,
+            Map<String, String> tokenEnvironment,
+            @Nullable AgentProvider provider,
+            List<String> allowedDomains,
+            List<String> refusedDomains,
+            @Nullable String version,
+            List<InstallArtifact> artifacts,
+            List<String> installAsRoot,
+            List<String> installAsAgent,
+            List<PackagedTree> packaged,
             @Nullable String configDirectory) {
-        this(name, label, binary, gitIdentity, headless, supportsResume, resumeFlag,
-                tokenEnvironment, provider, allowedDomains, refusedDomains, version, artifacts,
-                installAsRoot, installAsAgent, packaged, configDirectory, null, null,
-                List.of(), null);
+        this(
+                name,
+                label,
+                binary,
+                gitIdentity,
+                headless,
+                supportsResume,
+                resumeFlag,
+                tokenEnvironment,
+                provider,
+                allowedDomains,
+                refusedDomains,
+                version,
+                artifacts,
+                installAsRoot,
+                installAsAgent,
+                packaged,
+                configDirectory,
+                null,
+                null,
+                List.of(),
+                null);
     }
 
     /**
@@ -340,17 +509,49 @@ public record AgentDefinition(String name, String label, String binary, GitIdent
      * @param loginDocumentation Where that login is described, or {@code null}.
      * @param sandboxedArguments What turns its own permission prompts off.
      */
-    public AgentDefinition(String name, String label, String binary, GitIdentity gitIdentity,
-            HeadlessFlags headless, boolean supportsResume, @Nullable String resumeFlag,
-            Map<String, String> tokenEnvironment, @Nullable AgentProvider provider,
-            List<String> allowedDomains, List<String> refusedDomains, @Nullable String version,
-            List<InstallArtifact> artifacts, List<String> installAsRoot, List<String> installAsAgent,
-            List<PackagedTree> packaged, @Nullable String configDirectory,
-            @Nullable List<String> loginArguments, @Nullable String loginDocumentation,
+    public AgentDefinition(
+            String name,
+            String label,
+            String binary,
+            GitIdentity gitIdentity,
+            HeadlessFlags headless,
+            boolean supportsResume,
+            @Nullable String resumeFlag,
+            Map<String, String> tokenEnvironment,
+            @Nullable AgentProvider provider,
+            List<String> allowedDomains,
+            List<String> refusedDomains,
+            @Nullable String version,
+            List<InstallArtifact> artifacts,
+            List<String> installAsRoot,
+            List<String> installAsAgent,
+            List<PackagedTree> packaged,
+            @Nullable String configDirectory,
+            @Nullable List<String> loginArguments,
+            @Nullable String loginDocumentation,
             List<String> sandboxedArguments) {
-        this(name, label, binary, gitIdentity, headless, supportsResume, resumeFlag, tokenEnvironment, provider,
-                allowedDomains, refusedDomains, version, artifacts, installAsRoot, installAsAgent, packaged,
-                configDirectory, loginArguments, loginDocumentation, sandboxedArguments, null);
+        this(
+                name,
+                label,
+                binary,
+                gitIdentity,
+                headless,
+                supportsResume,
+                resumeFlag,
+                tokenEnvironment,
+                provider,
+                allowedDomains,
+                refusedDomains,
+                version,
+                artifacts,
+                installAsRoot,
+                installAsAgent,
+                packaged,
+                configDirectory,
+                loginArguments,
+                loginDocumentation,
+                sandboxedArguments,
+                null);
     }
 
     /**
@@ -379,17 +580,53 @@ public record AgentDefinition(String name, String label, String binary, GitIdent
      * @param ready What it shows once at work, or {@code null}.
      * @param waiting What waiting for a person looks like, or {@code null}.
      */
-    public AgentDefinition(String name, String label, String binary, GitIdentity gitIdentity,
-            HeadlessFlags headless, boolean supportsResume, @Nullable String resumeFlag,
-            Map<String, String> tokenEnvironment, @Nullable AgentProvider provider,
-            List<String> allowedDomains, List<String> refusedDomains, @Nullable String version,
-            List<InstallArtifact> artifacts, List<String> installAsRoot, List<String> installAsAgent,
-            List<PackagedTree> packaged, @Nullable String configDirectory,
-            @Nullable List<String> loginArguments, @Nullable String loginDocumentation,
-            List<String> sandboxedArguments, @Nullable ReadyMarker ready, @Nullable Waiting waiting) {
-        this(name, label, binary, gitIdentity, headless, supportsResume, resumeFlag, tokenEnvironment, provider,
-                allowedDomains, refusedDomains, version, artifacts, installAsRoot, installAsAgent, packaged,
-                configDirectory, loginArguments, loginDocumentation, sandboxedArguments, ready, waiting, null);
+    public AgentDefinition(
+            String name,
+            String label,
+            String binary,
+            GitIdentity gitIdentity,
+            HeadlessFlags headless,
+            boolean supportsResume,
+            @Nullable String resumeFlag,
+            Map<String, String> tokenEnvironment,
+            @Nullable AgentProvider provider,
+            List<String> allowedDomains,
+            List<String> refusedDomains,
+            @Nullable String version,
+            List<InstallArtifact> artifacts,
+            List<String> installAsRoot,
+            List<String> installAsAgent,
+            List<PackagedTree> packaged,
+            @Nullable String configDirectory,
+            @Nullable List<String> loginArguments,
+            @Nullable String loginDocumentation,
+            List<String> sandboxedArguments,
+            @Nullable ReadyMarker ready,
+            @Nullable Waiting waiting) {
+        this(
+                name,
+                label,
+                binary,
+                gitIdentity,
+                headless,
+                supportsResume,
+                resumeFlag,
+                tokenEnvironment,
+                provider,
+                allowedDomains,
+                refusedDomains,
+                version,
+                artifacts,
+                installAsRoot,
+                installAsAgent,
+                packaged,
+                configDirectory,
+                loginArguments,
+                loginDocumentation,
+                sandboxedArguments,
+                ready,
+                waiting,
+                null);
     }
 
     /**
@@ -417,17 +654,52 @@ public record AgentDefinition(String name, String label, String binary, GitIdent
      * @param sandboxedArguments What turns its own permission prompts off.
      * @param ready What it shows once at work, or {@code null}.
      */
-    public AgentDefinition(String name, String label, String binary, GitIdentity gitIdentity,
-            HeadlessFlags headless, boolean supportsResume, @Nullable String resumeFlag,
-            Map<String, String> tokenEnvironment, @Nullable AgentProvider provider,
-            List<String> allowedDomains, List<String> refusedDomains, @Nullable String version,
-            List<InstallArtifact> artifacts, List<String> installAsRoot, List<String> installAsAgent,
-            List<PackagedTree> packaged, @Nullable String configDirectory,
-            @Nullable List<String> loginArguments, @Nullable String loginDocumentation,
-            List<String> sandboxedArguments, @Nullable ReadyMarker ready) {
-        this(name, label, binary, gitIdentity, headless, supportsResume, resumeFlag, tokenEnvironment, provider,
-                allowedDomains, refusedDomains, version, artifacts, installAsRoot, installAsAgent, packaged,
-                configDirectory, loginArguments, loginDocumentation, sandboxedArguments, ready, null, null);
+    public AgentDefinition(
+            String name,
+            String label,
+            String binary,
+            GitIdentity gitIdentity,
+            HeadlessFlags headless,
+            boolean supportsResume,
+            @Nullable String resumeFlag,
+            Map<String, String> tokenEnvironment,
+            @Nullable AgentProvider provider,
+            List<String> allowedDomains,
+            List<String> refusedDomains,
+            @Nullable String version,
+            List<InstallArtifact> artifacts,
+            List<String> installAsRoot,
+            List<String> installAsAgent,
+            List<PackagedTree> packaged,
+            @Nullable String configDirectory,
+            @Nullable List<String> loginArguments,
+            @Nullable String loginDocumentation,
+            List<String> sandboxedArguments,
+            @Nullable ReadyMarker ready) {
+        this(
+                name,
+                label,
+                binary,
+                gitIdentity,
+                headless,
+                supportsResume,
+                resumeFlag,
+                tokenEnvironment,
+                provider,
+                allowedDomains,
+                refusedDomains,
+                version,
+                artifacts,
+                installAsRoot,
+                installAsAgent,
+                packaged,
+                configDirectory,
+                loginArguments,
+                loginDocumentation,
+                sandboxedArguments,
+                ready,
+                null,
+                null);
     }
 
     /**
@@ -449,16 +721,40 @@ public record AgentDefinition(String name, String label, String binary, GitIdent
      * @param installAsRoot Image lines run as root.
      * @param installAsAgent Image lines run as the agent user.
      */
-    public AgentDefinition(String name, String label, String binary, GitIdentity gitIdentity,
-            HeadlessFlags headless, boolean supportsResume, @Nullable String resumeFlag,
-            Map<String, String> tokenEnvironment, @Nullable AgentProvider provider,
+    public AgentDefinition(
+            String name,
+            String label,
+            String binary,
+            GitIdentity gitIdentity,
+            HeadlessFlags headless,
+            boolean supportsResume,
+            @Nullable String resumeFlag,
+            Map<String, String> tokenEnvironment,
+            @Nullable AgentProvider provider,
             List<String> allowedDomains,
-            List<String> refusedDomains, @Nullable String version,
-            List<InstallArtifact> artifacts, List<String> installAsRoot,
+            List<String> refusedDomains,
+            @Nullable String version,
+            List<InstallArtifact> artifacts,
+            List<String> installAsRoot,
             List<String> installAsAgent) {
-        this(name, label, binary, gitIdentity, headless, supportsResume, resumeFlag,
-                tokenEnvironment, provider, allowedDomains, refusedDomains,
-                version, artifacts, installAsRoot, installAsAgent, List.of(), null);
+        this(
+                name,
+                label,
+                binary,
+                gitIdentity,
+                headless,
+                supportsResume,
+                resumeFlag,
+                tokenEnvironment,
+                provider,
+                allowedDomains,
+                refusedDomains,
+                version,
+                artifacts,
+                installAsRoot,
+                installAsAgent,
+                List.of(),
+                null);
     }
 
     /** Key in {@code tokenEnvironment} used when no credential type matches. */
@@ -487,26 +783,30 @@ public record AgentDefinition(String name, String label, String binary, GitIdent
         if (!name.matches("[a-z0-9][a-z0-9-]{0,30}")) {
             // The name reaches image labels, container names and file paths, all stricter than
             // YAML. Rejecting it here beats a confusing failure three layers down.
-            throw new AgentException("Invalid agent name '" + name
-                    + "', expected lower-case letters, digits and hyphens");
+            throw new AgentException(
+                    "Invalid agent name '"
+                            + name
+                            + "', expected lower-case letters, digits and hyphens");
         }
         if (binary.isBlank()) {
             throw new AgentException("Agent '" + name + "' needs a binary");
         }
         if (supportsResume && (resumeFlag == null || resumeFlag.isBlank())) {
-            throw new AgentException("Agent '" + name
-                    + "' says it supports resume but names no flag for it");
+            throw new AgentException(
+                    "Agent '" + name + "' says it supports resume but names no flag for it");
         }
         if (sessionIds != null && !supportsResume) {
             // An id nothing can continue would be recorded to be shown and never used.
-            throw new AgentException("Agent '" + name
-                    + "' says where its session id is but does not support resume");
+            throw new AgentException(
+                    "Agent '"
+                            + name
+                            + "' says where its session id is but does not support resume");
         }
         if (!artifacts.isEmpty() && (version == null || version.isBlank())) {
             // An artifact list without a version cannot answer "which version ran?" after the
             // fact, which is half the reason for declaring the artifacts at all.
-            throw new AgentException("Agent '" + name
-                    + "' installs artifacts but declares no version");
+            throw new AgentException(
+                    "Agent '" + name + "' installs artifacts but declares no version");
         }
         tokenEnvironment = Map.copyOf(tokenEnvironment);
         allowedDomains = List.copyOf(allowedDomains);
@@ -533,8 +833,8 @@ public record AgentDefinition(String name, String label, String binary, GitIdent
             if (allowedDomains.contains(domain)) {
                 // Both lists reaching the firewall would make the ruleset depend on which one is
                 // consulted first. Refusing the definition is the only unambiguous answer.
-                throw new AgentException("Agent '" + name + "' both allows and refuses '"
-                        + domain + "'");
+                throw new AgentException(
+                        "Agent '" + name + "' both allows and refuses '" + domain + "'");
             }
         }
         artifacts = List.copyOf(artifacts);
@@ -554,8 +854,8 @@ public record AgentDefinition(String name, String label, String binary, GitIdent
 
     /**
      * Returns the environment variable a credential of the given type belongs in.
-     * <p>
-     * The agent's own answer only. Most agents no longer give one, because the variable a
+     *
+     * <p>The agent's own answer only. Most agents no longer give one, because the variable a
      * provider's credential goes in belongs to the provider - this is the override for an agent
      * that reads something else.
      *
@@ -584,8 +884,8 @@ public record AgentDefinition(String name, String label, String binary, GitIdent
 
     /** A host name, and nothing that could be read as configuration around one. */
     private static final java.util.regex.Pattern HOST_NAME =
-            java.util.regex.Pattern.compile("[a-z0-9]([a-z0-9-]*[a-z0-9])?"
-                    + "(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+");
+            java.util.regex.Pattern.compile(
+                    "[a-z0-9]([a-z0-9-]*[a-z0-9])?" + "(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+");
 
     /**
      * Refuses anything that is not plainly a host name.
@@ -595,9 +895,13 @@ public record AgentDefinition(String name, String label, String binary, GitIdent
      */
     private static void requireHostName(String agent, String domain) {
         if (domain.length() > 253 || !HOST_NAME.matcher(domain).matches()) {
-            throw new AgentException("Agent '" + agent + "' declares '" + domain
-                    + "', which is not a host name. Only host names reach the resolver and the"
-                    + " firewall, because everything else there is configuration.");
+            throw new AgentException(
+                    "Agent '"
+                            + agent
+                            + "' declares '"
+                            + domain
+                            + "', which is not a host name. Only host names reach the resolver and the"
+                            + " firewall, because everything else there is configuration.");
         }
     }
 }

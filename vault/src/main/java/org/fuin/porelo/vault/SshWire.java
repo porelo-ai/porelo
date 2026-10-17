@@ -7,8 +7,8 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * The SSH wire encoding: big-endian lengths and length-prefixed byte strings.
- * <p>
- * Small enough to write, and writing it avoids pulling an SSH library into the vault for four
+ *
+ * <p>Small enough to write, and writing it avoids pulling an SSH library into the vault for four
  * message types.
  */
 public final class SshWire {

@@ -5,15 +5,15 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Which vault entry a git URL reaches for, and what to call it.
- * <p>
- * <strong>The scheme decides the kind.</strong> An {@code https://} URL is opened by a token and an
- * {@code ssh://} or {@code git@host:} URL by a key; git itself asks for one or the other and never
- * both, so this is not a preference to configure but a fact to read off the URL.
- * <p>
- * <strong>The host decides which one.</strong> A company GitLab and a public forge are two
- * different credentials, and a machine that offered the same token to both would hand a
- * company's token to whatever host a project file names. So an entry may be per host, with a
- * plain one as the fallback for a machine that has only one:
+ *
+ * <p><strong>The scheme decides the kind.</strong> An {@code https://} URL is opened by a token and
+ * an {@code ssh://} or {@code git@host:} URL by a key; git itself asks for one or the other and
+ * never both, so this is not a preference to configure but a fact to read off the URL.
+ *
+ * <p><strong>The host decides which one.</strong> A company GitLab and a public forge are two
+ * different credentials, and a machine that offered the same token to both would hand a company's
+ * token to whatever host a project file names. So an entry may be per host, with a plain one as the
+ * fallback for a machine that has only one:
  *
  * <pre>
  *   git.ssh.github.com     a key for that host        git.token.github.com
@@ -106,8 +106,10 @@ public final class GitCredentialNames {
     public static List<String> candidatesFor(final @Nullable String url) {
         final String host = hostOf(url);
         return switch (kindOf(url)) {
-            case KEY -> host == null ? List.of(SSH, LEGACY_SSH)
-                    : List.of(SSH + "." + host, SSH, LEGACY_SSH);
+            case KEY ->
+                    host == null
+                            ? List.of(SSH, LEGACY_SSH)
+                            : List.of(SSH + "." + host, SSH, LEGACY_SSH);
             case TOKEN -> host == null ? List.of(TOKEN) : List.of(TOKEN + "." + host, TOKEN);
             case NONE -> List.of();
         };
@@ -124,15 +126,16 @@ public final class GitCredentialNames {
         if (candidates.isEmpty()) {
             return "";
         }
-        return "porelo vault put " + candidates.get(0)
+        return "porelo vault put "
+                + candidates.get(0)
                 + (kindOf(url) == Kind.KEY ? " < <the private key file>" : "");
     }
 
     /**
      * Returns the name to store a credential under for a destination, when nobody said one.
-     * <p>
-     * The same name the fallback already looks in, so a credential declared without a name and one
-     * stored without a declaration are the same entry rather than two that shadow each other.
+     *
+     * <p>The same name the fallback already looks in, so a credential declared without a name and
+     * one stored without a declaration are the same entry rather than two that shadow each other.
      *
      * @param kind What the destination wants.
      * @param match The destination, normalised.
@@ -158,8 +161,11 @@ public final class GitCredentialNames {
      */
     public static boolean isOne(final @Nullable String name) {
         return name != null
-                && (name.equals(LEGACY_SSH) || name.equals(SSH) || name.equals(TOKEN)
-                        || name.startsWith(SSH + ".") || name.startsWith(TOKEN + "."));
+                && (name.equals(LEGACY_SSH)
+                        || name.equals(SSH)
+                        || name.equals(TOKEN)
+                        || name.startsWith(SSH + ".")
+                        || name.startsWith(TOKEN + "."));
     }
 
     private static int firstOf(final String text, final char one, final char other) {

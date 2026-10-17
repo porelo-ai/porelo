@@ -14,9 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 
-/**
- * Tests for {@link PanicCommand}: the one action that stops everything, and removes nothing.
- */
+/** Tests for {@link PanicCommand}: the one action that stops everything, and removes nothing. */
 class PanicCommandTest {
 
     private final StringWriter out = new StringWriter();
@@ -29,12 +27,16 @@ class PanicCommandTest {
 
     private PoreloContext context(Path dir) {
         root = dir;
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
         return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
     }
 
@@ -48,8 +50,14 @@ class PanicCommandTest {
     private void stateOf(String container) throws IOException {
         final Path state = root.resolve("run/porelo").resolve(container);
         Files.createDirectories(state);
-        new Sidecar(Sidecar.VERSION, "uc", "guarded", state.resolve("r.nft").toString(),
-                state.resolve("dns.conf").toString(), "/usr/bin/porelo", state.toString())
+        new Sidecar(
+                        Sidecar.VERSION,
+                        "uc",
+                        "guarded",
+                        state.resolve("r.nft").toString(),
+                        state.resolve("dns.conf").toString(),
+                        "/usr/bin/porelo",
+                        state.toString())
                 .writeTo(state.resolve("sidecar.json"));
     }
 
@@ -64,10 +72,16 @@ class PanicCommandTest {
 
         assertThat(execute(context, "panic")).isZero();
 
-        assertThat(runner.lines()).anyMatch(line ->
-                line.startsWith("podman stop") && line.endsWith("porelo-uc-shell-1"));
-        assertThat(runner.lines()).anyMatch(line ->
-                line.startsWith("podman stop") && line.endsWith("porelo-uc-build-2"));
+        assertThat(runner.lines())
+                .anyMatch(
+                        line ->
+                                line.startsWith("podman stop")
+                                        && line.endsWith("porelo-uc-shell-1"));
+        assertThat(runner.lines())
+                .anyMatch(
+                        line ->
+                                line.startsWith("podman stop")
+                                        && line.endsWith("porelo-uc-build-2"));
         assertThat(out.toString()).contains("stopped   2 of 2 tasks");
     }
 
@@ -138,9 +152,11 @@ class PanicCommandTest {
     }
 
     @Test
-    void taskStopAllStopsEveryRunningTaskAndJournalsOneLineWithWhoAndWhen(@TempDir Path dir) throws IOException {
+    void taskStopAllStopsEveryRunningTaskAndJournalsOneLineWithWhoAndWhen(@TempDir Path dir)
+            throws IOException {
 
-        // A stop of everything left no record of who stopped what, when: only each task's own logs, which say nothing
+        // A stop of everything left no record of who stopped what, when: only each task's own logs,
+        // which say nothing
         // of the others.
         final PoreloContext context = context(dir);
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\nporelo-uc-build-2\tUp 2 hours\n");
@@ -149,11 +165,23 @@ class PanicCommandTest {
 
         assertThat(execute(context, "task", "stop", "--all")).isZero();
 
-        assertThat(runner.lines()).anyMatch(line -> line.startsWith("podman stop") && line.endsWith("porelo-uc-shell-1"))
-                .anyMatch(line -> line.startsWith("podman stop") && line.endsWith("porelo-uc-build-2"));
+        assertThat(runner.lines())
+                .anyMatch(
+                        line ->
+                                line.startsWith("podman stop")
+                                        && line.endsWith("porelo-uc-shell-1"))
+                .anyMatch(
+                        line ->
+                                line.startsWith("podman stop")
+                                        && line.endsWith("porelo-uc-build-2"));
         final java.util.List<String> journal = Files.readAllLines(context.paths().stopJournal());
-        assertThat(journal).singleElement().asString().contains("via=cli").contains("porelo-uc-shell-1")
-                .contains("porelo-uc-build-2").contains("user=" + System.getProperty("user.name"))
+        assertThat(journal)
+                .singleElement()
+                .asString()
+                .contains("via=cli")
+                .contains("porelo-uc-shell-1")
+                .contains("porelo-uc-build-2")
+                .contains("user=" + System.getProperty("user.name"))
                 .containsPattern("^\\d{4}-\\d{2}-\\d{2}T");
     }
 
@@ -164,7 +192,9 @@ class PanicCommandTest {
 
         assertThat(execute(context, "panic")).isZero();
 
-        assertThat(Files.readAllLines(context.paths().stopJournal())).singleElement().asString()
+        assertThat(Files.readAllLines(context.paths().stopJournal()))
+                .singleElement()
+                .asString()
                 .contains("stopped=none");
     }
 

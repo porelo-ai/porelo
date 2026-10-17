@@ -15,9 +15,9 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Reading the key a commit was signed with, out of the commit.
- * <p>
- * Against real git and a real signature: the whole point is the exact bytes ssh puts in a signature
- * blob, and a fake would only prove that this agrees with itself.
+ *
+ * <p>Against real git and a real signature: the whole point is the exact bytes ssh puts in a
+ * signature blob, and a fake would only prove that this agrees with itself.
  */
 class SignedByTest {
 
@@ -33,8 +33,18 @@ class SignedByTest {
     void readsTheKeyAndItsFingerprintOutOfASignedCommit(@TempDir final Path dir)
             throws IOException {
 
-        runner.run(Command.of("ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", "alice",
-                "-f", dir.resolve("k").toString()));
+        runner.run(
+                Command.of(
+                        "ssh-keygen",
+                        "-q",
+                        "-t",
+                        "ed25519",
+                        "-N",
+                        "",
+                        "-C",
+                        "alice",
+                        "-f",
+                        dir.resolve("k").toString()));
         final Path repo = dir.resolve("repo");
         Files.createDirectories(repo);
         git(repo, "init", "-q", "-b", "main", ".");
@@ -54,8 +64,11 @@ class SignedByTest {
         assertThat(key).isEqualTo(onDisk.substring(0, onDisk.lastIndexOf(' ')));
 
         // And the fingerprint ssh-keygen prints for it, which is what a person compares.
-        final String expected = runner.runOrFail(Command.of("ssh-keygen", "-lf",
-                dir.resolve("k") + ".pub")).standardOutput().strip().split("\\s+")[1];
+        final String expected =
+                runner.runOrFail(Command.of("ssh-keygen", "-lf", dir.resolve("k") + ".pub"))
+                        .standardOutput()
+                        .strip()
+                        .split("\\s+")[1];
         assertThat(SignedBy.fingerprintOf(key)).isEqualTo(expected);
     }
 

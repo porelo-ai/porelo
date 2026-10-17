@@ -11,10 +11,10 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Test for {@link SharedKeys}.
- * <p>
- * The owner check itself needs two real Unix users and belongs on a machine, not here. What these
- * hold is everything around it: that a directory nobody made is not an error, that the parser is
- * the same one the single-file keyring uses, and that a file whose name does not match its owner
+ *
+ * <p>The owner check itself needs two real Unix users and belongs on a machine, not here. What
+ * these hold is everything around it: that a directory nobody made is not an error, that the parser
+ * is the same one the single-file keyring uses, and that a file whose name does not match its owner
  * counts as nothing rather than as a key.
  */
 class SharedKeysTest {
@@ -48,7 +48,8 @@ class SharedKeysTest {
     void a_directory_named_after_another_account_counts_as_nothing(@TempDir final Path dir)
             throws IOException {
         Files.createDirectory(dir.resolve("somebody-else"));
-        Files.writeString(dir.resolve("somebody-else").resolve(SharedKeys.FILE),
+        Files.writeString(
+                dir.resolve("somebody-else").resolve(SharedKeys.FILE),
                 line("somebody-else") + "\n");
 
         assertThat(SharedKeys.read(dir)).as("created by this user, named after another").isEmpty();
@@ -60,8 +61,9 @@ class SharedKeysTest {
         Files.writeString(dir.resolve(me + ".pub"), line(me) + "\n");
         Files.createDirectory(dir.resolve("empty-account"));
 
-        assertThat(SharedKeys.read(dir)).as("a loose file is not an account, and an account with"
-                + " no key is not a key").isEmpty();
+        assertThat(SharedKeys.read(dir))
+                .as("a loose file is not an account, and an account with" + " no key is not a key")
+                .isEmpty();
     }
 
     @Test

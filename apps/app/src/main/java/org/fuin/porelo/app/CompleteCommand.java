@@ -15,34 +15,36 @@ import picocli.CommandLine.Spec;
 
 /**
  * Answers what the word being typed could become. The other half of the completion scripts.
- * <p>
- * <strong>A callback rather than a generated list, because the names are alive.</strong>
- * {@code picocli-codegen} can generate a completion script, but it bakes the candidates into it as
+ *
+ * <p><strong>A callback rather than a generated list, because the names are alive.</strong> {@code
+ * picocli-codegen} can generate a completion script, but it bakes the candidates into it as
  * literals - which is right for subcommand and option names and useless for container names, since
- * those change every time a task starts. So the script asks the program, the way kubectl and
- * docker both do, and this is what it asks.
- * <p>
- * <strong>The native image is what makes that affordable.</strong> A JVM round trip on every TAB
+ * those change every time a task starts. So the script asks the program, the way kubectl and docker
+ * both do, and this is what it asks.
+ *
+ * <p><strong>The native image is what makes that affordable.</strong> A JVM round trip on every TAB
  * would be unusable; {@code porelo} starts in milliseconds, and what is left is the {@code podman
- * ps} behind it. Caching it would trade that for staleness, and offering a container that no
- * longer exists is worse than answering a tenth of a second late.
- * <p>
- * <strong>It never acts and never fails.</strong> Every answer is read from the command tree or
+ * ps} behind it. Caching it would trade that for staleness, and offering a container that no longer
+ * exists is worse than answering a tenth of a second late.
+ *
+ * <p><strong>It never acts and never fails.</strong> Every answer is read from the command tree or
  * from a listing, and anything that goes wrong produces no candidates rather than an error - a
- * stack trace printed into the middle of somebody's command line would be worse than no
- * completion at all.
+ * stack trace printed into the middle of somebody's command line would be worse than no completion
+ * at all.
  */
-@Command(name = "__complete",
+@Command(
+        name = "__complete",
         hidden = true,
         description = "Lists what the last word could be completed to.")
 public class CompleteCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
-    @Parameters(arity = "0..*", paramLabel = "WORD",
+    @Parameters(
+            arity = "0..*",
+            paramLabel = "WORD",
             description = "The words typed so far, the last one being the partial word.")
     private List<String> words = new ArrayList<>();
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -70,8 +72,8 @@ public class CompleteCommand implements Callable<Integer>, PoreloFactory.Context
      *
      * @param root The command line to walk, or {@code null} when there is none.
      * @param typed The words typed so far, the first being the program name and the last the
-     *            partial word being completed. An empty partial word is an ordinary case: it is
-     *            what TAB on a fresh space means.
+     *     partial word being completed. An empty partial word is an ordinary case: it is what TAB
+     *     on a fresh space means.
      * @return Candidates, sorted and free of duplicates, possibly empty.
      */
     List<String> candidatesFor(@Nullable CommandLine root, List<String> typed) {
@@ -112,18 +114,23 @@ public class CompleteCommand implements Callable<Integer>, PoreloFactory.Context
         } else if (!current.getSubcommands().isEmpty()) {
             // The declared name, not the map key: picocli keys aliases into the same map, so
             // taking the keys would offer 'task' and 'tasks' as if they were two commands.
-            current.getSubcommands().values().forEach(sub -> {
-                if (!sub.getCommandSpec().usageMessage().hidden()) {
-                    candidates.add(sub.getCommandName());
-                }
-            });
+            current.getSubcommands()
+                    .values()
+                    .forEach(
+                            sub -> {
+                                if (!sub.getCommandSpec().usageMessage().hidden()) {
+                                    candidates.add(sub.getCommandName());
+                                }
+                            });
         } else if (current.getCommand() instanceof Suggests suggests) {
             // The same list the refusal offers. Two sources for "which names would this command
             // take" would answer differently exactly when it matters.
             candidates.addAll(suggests.candidates());
         }
 
-        return candidates.stream().filter(candidate -> candidate.startsWith(partial)).sorted()
+        return candidates.stream()
+                .filter(candidate -> candidate.startsWith(partial))
+                .sorted()
                 .toList();
     }
 

@@ -10,9 +10,7 @@ import org.fuin.porelo.vault.SigningKey;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Test for {@link HostKey}.
- */
+/** Test for {@link HostKey}. */
 class HostKeyTest {
 
     @Test
@@ -23,7 +21,8 @@ class HostKeyTest {
         final SigningKey again = HostKey.loadOrCreate(file, "porelo@here");
 
         assertThat(file).exists();
-        assertThat(again.keyBlob()).as("the same machine keeps the same identity")
+        assertThat(again.keyBlob())
+                .as("the same machine keeps the same identity")
                 .isEqualTo(first.keyBlob());
     }
 

@@ -7,9 +7,7 @@ import java.io.StringWriter;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link Suggests}.
- */
+/** Tests for {@link Suggests}. */
 class SuggestsTest {
 
     private final StringWriter written = new StringWriter();
@@ -58,17 +56,19 @@ class SuggestsTest {
 
         // This runs while a command is already failing, and asking podman can fail too. A stack
         // trace here would replace a useful message with a worse one.
-        Suggests.offer(err, new Suggests() {
-            @Override
-            public List<String> candidates() {
-                throw new IllegalStateException("podman is not there");
-            }
+        Suggests.offer(
+                err,
+                new Suggests() {
+                    @Override
+                    public List<String> candidates() {
+                        throw new IllegalStateException("podman is not there");
+                    }
 
-            @Override
-            public String candidateLabel() {
-                return "tasks";
-            }
-        });
+                    @Override
+                    public String candidateLabel() {
+                        return "tasks";
+                    }
+                });
         err.flush();
 
         assertThat(written.toString()).isEmpty();

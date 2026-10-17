@@ -10,13 +10,10 @@ import org.fuin.porelo.agent.api.AgentDefinition;
 import org.fuin.porelo.agent.api.AgentDefinitionReader;
 import org.fuin.porelo.agent.api.AgentException;
 import org.fuin.porelo.agent.api.ProviderDefinition;
-import org.fuin.porelo.agent.api.ProviderDefinitionReader;
 import org.fuin.porelo.agent.api.ProviderDirectory;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link SelectedProvider}, and for the declarations actually shipped.
- */
+/** Tests for {@link SelectedProvider}, and for the declarations actually shipped. */
 class SelectedProviderTest {
 
     /** The declarations this repository installs, read from where they live rather than a copy. */
@@ -27,7 +24,9 @@ class SelectedProviderTest {
     }
 
     private static AgentDefinition agent(String providerBlock) {
-        return AgentDefinitionReader.read(new java.io.StringReader("""
+        return AgentDefinitionReader.read(
+                new java.io.StringReader(
+                        """
                 name: example
                 binary: example-cli
                 git_identity:
@@ -35,7 +34,9 @@ class SelectedProviderTest {
                   email: noreply@example.com
                 headless:
                   prompt_flag: "-p"
-                """ + providerBlock), "test.yaml");
+                """
+                                + providerBlock),
+                "test.yaml");
     }
 
     @Test
@@ -43,10 +44,14 @@ class SelectedProviderTest {
 
         // The point of the change: two agents reaching one provider find one entry, rather than
         // each storing its own copy of the same secret under its own name.
-        assertThat(SelectedProvider.credentialKey(java.util.Set.of("anthropic"), "one-agent",
-                "anthropic")).isEqualTo("anthropic");
-        assertThat(SelectedProvider.credentialKey(java.util.Set.of("anthropic"), "other-agent",
-                "anthropic")).isEqualTo("anthropic");
+        assertThat(
+                        SelectedProvider.credentialKey(
+                                java.util.Set.of("anthropic"), "one-agent", "anthropic"))
+                .isEqualTo("anthropic");
+        assertThat(
+                        SelectedProvider.credentialKey(
+                                java.util.Set.of("anthropic"), "other-agent", "anthropic"))
+                .isEqualTo("anthropic");
     }
 
     @Test
@@ -54,8 +59,10 @@ class SelectedProviderTest {
 
         // An entry under the agent's own name is what every existing vault holds. Upgrading must
         // not stop anyone authenticating.
-        assertThat(SelectedProvider.credentialKey(java.util.Set.of("one-agent"), "one-agent",
-                "anthropic")).isEqualTo("one-agent");
+        assertThat(
+                        SelectedProvider.credentialKey(
+                                java.util.Set.of("one-agent"), "one-agent", "anthropic"))
+                .isEqualTo("one-agent");
     }
 
     @Test
@@ -63,8 +70,12 @@ class SelectedProviderTest {
 
         // Both present: the new key is the real one, so moving a credential takes effect without
         // having to remove the old entry first.
-        assertThat(SelectedProvider.credentialKey(java.util.Set.of("one-agent", "anthropic"),
-                "one-agent", "anthropic")).isEqualTo("anthropic");
+        assertThat(
+                        SelectedProvider.credentialKey(
+                                java.util.Set.of("one-agent", "anthropic"),
+                                "one-agent",
+                                "anthropic"))
+                .isEqualTo("anthropic");
     }
 
     @Test
@@ -99,13 +110,17 @@ class SelectedProviderTest {
         // The whole point. Anthropic is declared once; an agent speaking its dialect and an
         // agent speaking whatever its provider speaks both reach it, and neither restates a
         // header, a prefix or a host.
-        final AgentDefinition fixed = agent("""
+        final AgentDefinition fixed =
+                agent(
+                        """
                 provider:
                   default: anthropic
                   dialect: anthropic-messages
                   socket_env: EXAMPLE_SOCKET
                 """);
-        final AgentDefinition agnostic = agent("""
+        final AgentDefinition agnostic =
+                agent(
+                        """
                 provider:
                   default: anthropic
                   dialect: native
@@ -126,7 +141,9 @@ class SelectedProviderTest {
 
         // What the same switch cost before this existed: five values in a definition and two
         // constants in Java, and a 15 MB binary rebuilt.
-        final AgentDefinition agnostic = agent("""
+        final AgentDefinition agnostic =
+                agent(
+                        """
                 provider:
                   default: openrouter
                   dialect: native
@@ -142,8 +159,11 @@ class SelectedProviderTest {
     @Test
     void anAgentWithNoDefaultIsOfferedTheProvidersItCanDriveByNumber() {
 
-        // It was refused with "one has to be chosen with --provider", and the person typed the start again.
-        final AgentDefinition anthropicOnly = agent("""
+        // It was refused with "one has to be chosen with --provider", and the person typed the
+        // start again.
+        final AgentDefinition anthropicOnly =
+                agent(
+                        """
                 provider:
                   dialect: anthropic-messages
                   endpoint: url
@@ -151,10 +171,23 @@ class SelectedProviderTest {
         final java.io.StringWriter said = new java.io.StringWriter();
         final java.util.List<String> drivable = SelectedProvider.drivable(shipped(), anthropicOnly);
 
-        assertThat(drivable).isNotEmpty().allSatisfy(name -> assertThat(anthropicOnly.provider()
-                .canDrive(shipped().get(name))).isTrue()).isSorted();
-        assertThat(SelectedProvider.pick(shipped(), anthropicOnly, new Offer(question -> "1", false, false,
-                new java.io.PrintWriter(said, true)))).isEqualTo(drivable.get(0));
+        assertThat(drivable)
+                .isNotEmpty()
+                .allSatisfy(
+                        name ->
+                                assertThat(anthropicOnly.provider().canDrive(shipped().get(name)))
+                                        .isTrue())
+                .isSorted();
+        assertThat(
+                        SelectedProvider.pick(
+                                shipped(),
+                                anthropicOnly,
+                                new Offer(
+                                        question -> "1",
+                                        false,
+                                        false,
+                                        new java.io.PrintWriter(said, true))))
+                .isEqualTo(drivable.get(0));
         assertThat(said.toString()).contains("1  " + drivable.get(0));
         assertThat(SelectedProvider.pick(shipped(), anthropicOnly, Offer.NOBODY)).isNull();
     }
@@ -162,24 +195,32 @@ class SelectedProviderTest {
     @Test
     void theDialectDecidesThePathTheAgentIsGiven() {
 
-        final AgentDefinition openai = agent("""
+        final AgentDefinition openai =
+                agent(
+                        """
                 provider:
                   default: openrouter
                   dialect: openai
                   endpoint: url
                 """);
-        final AgentDefinition anthropicDialect = agent("""
+        final AgentDefinition anthropicDialect =
+                agent(
+                        """
                 provider:
                   default: openrouter
                   dialect: anthropic-messages
                   endpoint: url
                 """);
 
-        assertThat(SelectedProvider.choose(shipped(), openai, null).route()
-                .endpointFor("http://127.0.0.1:9419"))
+        assertThat(
+                        SelectedProvider.choose(shipped(), openai, null)
+                                .route()
+                                .endpointFor("http://127.0.0.1:9419"))
                 .isEqualTo("http://127.0.0.1:9419/api/v1");
-        assertThat(SelectedProvider.choose(shipped(), anthropicDialect, null).route()
-                .endpointFor("http://127.0.0.1:9419/"))
+        assertThat(
+                        SelectedProvider.choose(shipped(), anthropicDialect, null)
+                                .route()
+                                .endpointFor("http://127.0.0.1:9419/"))
                 .isEqualTo("http://127.0.0.1:9419/api");
     }
 
@@ -188,7 +229,9 @@ class SelectedProviderTest {
 
         // Anthropic serves its own dialect only. An agent speaking the OpenAI one would
         // otherwise send a request that comes back as a confusing model error.
-        final AgentDefinition openai = agent("""
+        final AgentDefinition openai =
+                agent(
+                        """
                 provider:
                   default: anthropic
                   dialect: openai
@@ -203,7 +246,9 @@ class SelectedProviderTest {
     @Test
     void namesAProviderThatIsNotDeclared() {
 
-        final AgentDefinition agnostic = agent("""
+        final AgentDefinition agnostic =
+                agent(
+                        """
                 provider:
                   default: openrouter
                   dialect: native
@@ -226,7 +271,9 @@ class SelectedProviderTest {
     void anOperatorsOwnDeclarationWinsOverAPackagedOne(@org.junit.jupiter.api.io.TempDir Path own)
             throws Exception {
 
-        Files.writeString(own.resolve("anthropic.yaml"), """
+        Files.writeString(
+                own.resolve("anthropic.yaml"),
+                """
                 name: anthropic
                 upstream: https://api.anthropic.test
                 dialects:
@@ -235,8 +282,7 @@ class SelectedProviderTest {
 
         final var directory = new ProviderDirectory(java.util.List.of(own, SHIPPED));
 
-        assertThat(directory.all().get("anthropic").upstreamHost())
-                .isEqualTo("api.anthropic.test");
+        assertThat(directory.all().get("anthropic").upstreamHost()).isEqualTo("api.anthropic.test");
         assertThat(directory.all()).containsKey("openrouter");
     }
 
@@ -262,8 +308,7 @@ class SelectedProviderTest {
         final var directory = new ProviderDirectory(java.util.List.of(own, SHIPPED));
 
         assertThat(directory.all().get("anthropic")).isNotNull();
-        assertThat(directory.all().get("anthropic").upstreamHost())
-                .isEqualTo("api.anthropic.com");
+        assertThat(directory.all().get("anthropic").upstreamHost()).isEqualTo("api.anthropic.com");
     }
 
     @Test
@@ -272,7 +317,9 @@ class SelectedProviderTest {
         // The same three refusals choose() throws for, as values. Anything answering "could this
         // start" has to tell them apart, and reading them out of an exception's message would be
         // parsing prose for a decision - which is the one thing this contract refuses everywhere.
-        final AgentDefinition noDefault = agent("""
+        final AgentDefinition noDefault =
+                agent(
+                        """
                 provider:
                   dialect: anthropic-messages
                   endpoint: socket
@@ -290,7 +337,9 @@ class SelectedProviderTest {
 
         // Which provider was wanted is what a person acts on, and it is not recoverable from the
         // refusal alone once several are declared.
-        final AgentDefinition noDefault = agent("""
+        final AgentDefinition noDefault =
+                agent(
+                        """
                 provider:
                   dialect: anthropic-messages
                   endpoint: socket
@@ -306,7 +355,9 @@ class SelectedProviderTest {
 
         // Two renderings of one decision. choose() throws where consider() refuses and returns
         // where it does not - if they ever drift, a preflight would pass and the run would fail.
-        final AgentDefinition noDefault = agent("""
+        final AgentDefinition noDefault =
+                agent(
+                        """
                 provider:
                   dialect: anthropic-messages
                   endpoint: socket
@@ -317,7 +368,8 @@ class SelectedProviderTest {
                     SelectedProvider.consider(shipped(), noDefault, requested);
             if (choice.refusal() == null) {
                 assertThat(SelectedProvider.choose(shipped(), noDefault, requested))
-                        .as("requested %s", requested).isNotNull();
+                        .as("requested %s", requested)
+                        .isNotNull();
             } else {
                 assertThatThrownBy(() -> SelectedProvider.choose(shipped(), noDefault, requested))
                         .as("requested %s", requested)

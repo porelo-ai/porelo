@@ -4,9 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for which upstream headers reach the agent.
- */
+/** Tests for which upstream headers reach the agent. */
 class VaultProxyHeaderTest {
 
     @Test

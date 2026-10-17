@@ -16,15 +16,15 @@ import org.fuin.porelo.wire.Json;
 
 /**
  * Writes a person's own message into a task's outbox.
- * <p>
- * One place, used by the command line and by the daemon, so that a message a person writes at the
- * machine and one they write through an interface are the same message - same shape, same role,
+ *
+ * <p>One place, used by the command line and by the daemon, so that a message a person writes at
+ * the machine and one they write through an interface are the same message - same shape, same role,
  * same route out.
- * <p>
- * <strong>It goes through the filter like any other message</strong> - a person is not a reason to
- * skip the check that a message carries nothing it should not.
- * <p>
- * <strong>But not through the container's outbox.</strong> It is written where only the host can
+ *
+ * <p><strong>It goes through the filter like any other message</strong> - a person is not a reason
+ * to skip the check that a message carries nothing it should not.
+ *
+ * <p><strong>But not through the container's outbox.</strong> It is written where only the host can
  * write, because {@code ROLE_USER} is a claim the filter accepts on this host's word: a message a
  * person wrote must be one a task could not have written.
  */
@@ -38,21 +38,24 @@ public final class MessageSay {
 
     /**
      * Says why a person's message to a name cannot go anywhere, or nothing when it can.
-     * <p>
-     * In a conversation any name may be a task of the project elsewhere, so none is refused here. Without one, only
-     * a declared peer - or a task of the project on this machine, which the peers include - can be reached; anything
-     * else was written, answered "written", and went nowhere.
+     *
+     * <p>In a conversation any name may be a task of the project elsewhere, so none is refused
+     * here. Without one, only a declared peer - or a task of the project on this machine, which the
+     * peers include - can be reached; anything else was written, answered "written", and went
+     * nowhere.
      *
      * @param mail The project's peers, with its tasks on this machine.
      * @param peer Who it is for.
      * @return The reason, or {@code null} when it can go.
      */
-    public static @org.jspecify.annotations.Nullable String refusal(final org.fuin.porelo.core.project.Mail mail,
-            final String peer) {
+    public static @org.jspecify.annotations.Nullable String refusal(
+            final org.fuin.porelo.core.project.Mail mail, final String peer) {
         if (mail.peer(peer) != null || !mail.conversations().isEmpty()) {
             return null;
         }
-        return "this project has no peer '" + peer + "' and no conversation, so nothing would carry it: name the"
+        return "this project has no peer '"
+                + peer
+                + "' and no conversation, so nothing would carry it: name the"
                 + " peer in the project file, or give the project a transport under mail.transports";
     }
 
@@ -67,17 +70,23 @@ public final class MessageSay {
      * @return The file name written.
      * @throws IOException Writing failed.
      */
-    public String write(final Mailbox mailbox, final String peer, final String kind,
-            final @org.jspecify.annotations.Nullable String contextId, final String text)
+    public String write(
+            final Mailbox mailbox,
+            final String peer,
+            final String kind,
+            final @org.jspecify.annotations.Nullable String contextId,
+            final String text)
             throws IOException {
         final Instant now = Instant.now();
         final String id = "person-" + UUID.randomUUID();
         final Map<String, Object> message = new LinkedHashMap<>();
         message.put("messageId", id);
         message.put("role", ROLE);
-        message.put("contextId", contextId == null || contextId.isBlank()
-                ? "c-" + UUID.randomUUID() : contextId);
-        message.put("parts",
+        message.put(
+                "contextId",
+                contextId == null || contextId.isBlank() ? "c-" + UUID.randomUUID() : contextId);
+        message.put(
+                "parts",
                 List.of(new LinkedHashMap<>(Map.of("text", text, "mediaType", "text/plain"))));
         final Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("kind", kind == null || kind.isBlank() ? "question" : kind);

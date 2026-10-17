@@ -10,42 +10,45 @@ import org.fuin.porelo.core.process.CommandRunner;
 
 /**
  * What this machine could install, asked of the machine's own package source.
- * <p>
- * <strong>Nobody maintains a list.</strong> Every published agent package declares {@code Provides:
- * porelo-agent} and every transport {@code Provides: porelo-transport}, so the repository is the
- * catalogue: a new agent appears here without a release of Porelo, of the interface, or of anything
- * else. A hand-kept list would be wrong the first time somebody published a package on a Friday.
- * The stub agent built in this repository deliberately does not: it is there for the acceptance
- * suite, and providing the name would offer a test agent to a person choosing one.
- * <p>
- * <strong>Real packages, never the virtual name.</strong> A virtual package with several providers
- * cannot be installed by its own name - the package manager asks or refuses - so what is listed is
- * always something a person can actually choose.
- * <p>
- * <strong>The filter is not in here, deliberately.</strong> It is not one of a kind to choose
+ *
+ * <p><strong>Nobody maintains a list.</strong> Every published agent package declares {@code
+ * Provides: porelo-agent} and every transport {@code Provides: porelo-transport}, so the repository
+ * is the catalogue: a new agent appears here without a release of Porelo, of the interface, or of
+ * anything else. A hand-kept list would be wrong the first time somebody published a package on a
+ * Friday. The stub agent built in this repository deliberately does not: it is there for the
+ * acceptance suite, and providing the name would offer a test agent to a person choosing one.
+ *
+ * <p><strong>Real packages, never the virtual name.</strong> A virtual package with several
+ * providers cannot be installed by its own name - the package manager asks or refuses - so what is
+ * listed is always something a person can actually choose.
+ *
+ * <p><strong>The filter is not in here, deliberately.</strong> It is not one of a kind to choose
  * from: it is the thing without which nothing leaves. Offering a choice would suggest a second
  * filter could take its place, and the product does not allow that.
  */
 public final class InstallablePackages {
 
-    /** The virtual package every published agent package declares it provides; the stub does not. */
+    /**
+     * The virtual package every published agent package declares it provides; the stub does not.
+     */
     public static final String PROVIDES_AGENT = "porelo-agent";
 
     /** The virtual package every transport package declares it provides. */
     public static final String PROVIDES_TRANSPORT = "porelo-transport";
 
     /**
-     * The virtual package a homeserver package declares it provides: what a transport's conversation runs on
-     * when the project names none of its own. Offered beside the transports, so that choosing Matrix on a new
-     * machine is not a first task start that fails for want of one.
+     * The virtual package a homeserver package declares it provides: what a transport's
+     * conversation runs on when the project names none of its own. Offered beside the transports,
+     * so that choosing Matrix on a new machine is not a first task start that fails for want of
+     * one.
      */
     public static final String PROVIDES_HOMESERVER = "porelo-homeserver";
 
     /**
      * What an agent is called in an answer.
-     * <p>
-     * Not the virtual package name: that is the mechanism by which this is found out, and a person
-     * choosing between things does not need to know how the question was asked.
+     *
+     * <p>Not the virtual package name: that is the mechanism by which this is found out, and a
+     * person choosing between things does not need to know how the question was asked.
      */
     public static final String AGENT = "agent";
 
@@ -64,9 +67,8 @@ public final class InstallablePackages {
      * @param installed Whether it is on this machine now.
      * @param version What is installed, or what the repository offers. "" when neither is known.
      */
-    public record Installable(String name, String kind, String description, boolean installed,
-            String version) {
-    }
+    public record Installable(
+            String name, String kind, String description, boolean installed, String version) {}
 
     private final CommandRunner runner;
 
@@ -83,15 +85,18 @@ public final class InstallablePackages {
      * Lists what this machine could install.
      *
      * @return Agents first, then transports, each sorted by name. Empty when this machine has no
-     *         package manager either of us knows - which is a machine somebody built by hand, and
-     *         not an error worth throwing about.
+     *     package manager either of us knows - which is a machine somebody built by hand, and not
+     *     an error worth throwing about.
      */
     public List<Installable> list() {
         final Map<String, Installable> found = new LinkedHashMap<>();
         // Agents first, then transports, and in that order on purpose: it is the order a person
         // is asked to choose in, and Map.of would have decided it by hash.
-        for (final List<String> kind : List.of(List.of(PROVIDES_AGENT, AGENT),
-                List.of(PROVIDES_TRANSPORT, TRANSPORT), List.of(PROVIDES_HOMESERVER, HOMESERVER))) {
+        for (final List<String> kind :
+                List.of(
+                        List.of(PROVIDES_AGENT, AGENT),
+                        List.of(PROVIDES_TRANSPORT, TRANSPORT),
+                        List.of(PROVIDES_HOMESERVER, HOMESERVER))) {
             for (final String name : providers(kind.get(0))) {
                 // First kind wins: a package claiming both would otherwise appear twice and a
                 // person would be offered the same install under two headings.
@@ -121,9 +126,20 @@ public final class InstallablePackages {
             return names;
         }
         if (has("dnf")) {
-            final List<String> names = new ArrayList<>(lines("dnf", "repoquery", "--qf", "%{name}",
-                    "--whatprovides", virtualName).stream().map(String::strip)
-                    .filter(line -> !line.isBlank()).distinct().toList());
+            final List<String> names =
+                    new ArrayList<>(
+                            lines(
+                                            "dnf",
+                                            "repoquery",
+                                            "--qf",
+                                            "%{name}",
+                                            "--whatprovides",
+                                            virtualName)
+                                    .stream()
+                                    .map(String::strip)
+                                    .filter(line -> !line.isBlank())
+                                    .distinct()
+                                    .toList());
             java.util.Collections.sort(names);
             return names;
         }
@@ -148,13 +164,13 @@ public final class InstallablePackages {
             }
         } else if (has("rpm")) {
             installed = run("rpm", "-q", name).exitCode() == 0;
-            for (final String line : lines("dnf", "repoquery", "--qf",
-                    "%{version}-%{release}|%{summary}", name)) {
+            for (final String line :
+                    lines("dnf", "repoquery", "--qf", "%{version}-%{release}|%{summary}", name)) {
                 final int bar = line.indexOf('|');
                 if (bar > 0) {
                     version = version.isBlank() ? line.substring(0, bar).strip() : version;
-                    description = description.isEmpty() ? line.substring(bar + 1).strip()
-                            : description;
+                    description =
+                            description.isEmpty() ? line.substring(bar + 1).strip() : description;
                 }
             }
         }

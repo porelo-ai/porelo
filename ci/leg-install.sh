@@ -14,11 +14,17 @@ agents=0
 while read -r binary; do
     [ -n "$binary" ] || continue
     case "$binary" in
-        */porelo-agent-*) cp "$binary" "$share/agents/"; agents=$((agents + 1)) ;;
-        *) cp "$binary" "$bin/" ;;
+    */porelo-agent-*)
+        cp "$binary" "$share/agents/"
+        agents=$((agents + 1))
+        ;;
+    *) cp "$binary" "$bin/" ;;
     esac
-done < ci/leg-binaries
-[ "$agents" -gt 0 ] || { echo "ci/leg-binaries names no agent, so no scenario that starts a task can run" >&2; exit 1; }
+done <ci/leg-binaries
+[ "$agents" -gt 0 ] || {
+    echo "ci/leg-binaries names no agent, so no scenario that starts a task can run" >&2
+    exit 1
+}
 cp providers/*.yaml "$share/providers/"
 cp egress/*.yaml "$share/egress/"
 if [ -x builds/stub/target/porelo-build-stub ]; then

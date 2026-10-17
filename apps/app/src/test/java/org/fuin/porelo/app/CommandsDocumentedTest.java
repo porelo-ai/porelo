@@ -14,9 +14,9 @@ import picocli.CommandLine;
 
 /**
  * Every command the CLI has is on the page that lists them.
- * <p>
- * A command group with no section is a group nobody finds without guessing its name - measured: the
- * talk, credentials and providers groups had none, and a check that asked only for three task
+ *
+ * <p>A command group with no section is a group nobody finds without guessing its name - measured:
+ * the talk, credentials and providers groups had none, and a check that asked only for three task
  * subcommands had passed over them. Walked from the CLI's own model, so a command added later is
  * missing from the page the day it is added.
  */
@@ -29,7 +29,8 @@ class CommandsDocumentedTest {
     void everyGroupHasASectionAndEveryCommandIsNamedOnThePage() throws IOException {
         final String page = Files.readString(PAGE, StandardCharsets.UTF_8);
         final List<String> missing = new ArrayList<>();
-        for (final CommandLine group : PoreloCli.commandLine(PoreloContext.real()).getSubcommands().values()) {
+        for (final CommandLine group :
+                PoreloCli.commandLine(PoreloContext.real()).getSubcommands().values()) {
             final String name = group.getCommandName();
             if (group.getCommandSpec().usageMessage().hidden()) {
                 continue;
@@ -41,7 +42,8 @@ class CommandsDocumentedTest {
             }
             for (final CommandLine command : group.getSubcommands().values()) {
                 if (!command.getCommandSpec().usageMessage().hidden()
-                        && !page.contains("porelo " + documented + " " + command.getCommandName())) {
+                        && !page.contains(
+                                "porelo " + documented + " " + command.getCommandName())) {
                     missing.add("porelo " + documented + " " + command.getCommandName());
                 }
             }

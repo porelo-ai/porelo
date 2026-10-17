@@ -10,8 +10,8 @@ import org.fuin.porelo.wire.Sidecar;
 
 /**
  * What the three hooks have in common: read the OCI state, find the sidecar, run, report.
- * <p>
- * <strong>Failure behavior is the whole design here.</strong> A hook that exits non-zero at
+ *
+ * <p><strong>Failure behavior is the whole design here.</strong> A hook that exits non-zero at
  * {@code createRuntime} stops the container from starting, which is right for the firewall and
  * wrong for everything else. Each hook says which it is, and this class makes sure the choice is
  * applied consistently rather than depending on which exception happens to escape.
@@ -37,8 +37,8 @@ public abstract class Hook {
      * Does the hook's work.
      *
      * @param stage Which stage fired, {@code createRuntime} or {@code poststop}. The runtime does
-     *        not tell a hook this, so it arrives in the arguments and one descriptor is installed
-     *        per stage.
+     *     not tell a hook this, so it arrives in the arguments and one descriptor is installed per
+     *     stage.
      * @param state Container state from the runtime.
      * @param sidecar What the launcher wrote for this container.
      * @throws Exception If the work could not be done.
@@ -69,15 +69,22 @@ public abstract class Hook {
                 return 0;
             }
 
-            // The container the runtime runs is the one Porelo created for this sidecar, or nothing is done: any
-            // container can carry the annotation and name a real task's sidecar, and a foreign one's poststop would
+            // The container the runtime runs is the one Porelo created for this sidecar, or nothing
+            // is done: any
+            // container can carry the annotation and name a real task's sidecar, and a foreign
+            // one's poststop would
             // otherwise reap that task's helpers (2026-10-04).
             final Path sidecarFile = Path.of(sidecarPath);
             final Path stateDirectory = sidecarFile.getParent();
-            final String recorded = stateDirectory == null ? null : Sidecar.recordedId(stateDirectory);
+            final String recorded =
+                    stateDirectory == null ? null : Sidecar.recordedId(stateDirectory);
             if (recorded == null || !recorded.equals(state.id())) {
-                err.println("porelo-hook: container " + state.id() + " is not the task " + sidecarPath
-                        + " belongs to; nothing is done for it");
+                err.println(
+                        "porelo-hook: container "
+                                + state.id()
+                                + " is not the task "
+                                + sidecarPath
+                                + " belongs to; nothing is done for it");
                 // Refused before it runs; after it stopped, nothing of anybody's is touched.
                 return "poststop".equals(stage) ? 0 : 1;
             }
@@ -89,8 +96,10 @@ public abstract class Hook {
             return 0;
 
         } catch (Throwable ex) {
-            // Everything, at this process boundary: an Error - a class that did not initialise, a stack that
-            // overflowed - otherwise left no line in the log and refused even a hook that only reports.
+            // Everything, at this process boundary: an Error - a class that did not initialise, a
+            // stack that
+            // overflowed - otherwise left no line in the log and refused even a hook that only
+            // reports.
             final String message = ex.getMessage() == null ? ex.toString() : ex.getMessage();
             err.println("porelo " + name + " (" + stage + "): " + message);
             // Also into the log: the runtime reports only an exit code, so without this a refused
@@ -117,8 +126,11 @@ public abstract class Hook {
         try {
             final Path file = Path.of(sidecar.stateDirectory()).resolve("hooks.log");
             Files.createDirectories(file.getParent());
-            Files.writeString(file, Instant.now() + " " + name + " " + stage + " " + message + "\n",
-                    StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            Files.writeString(
+                    file,
+                    Instant.now() + " " + name + " " + stage + " " + message + "\n",
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.APPEND);
         } catch (IOException | RuntimeException ex) {
             // Deliberately ignored, see above.
         }

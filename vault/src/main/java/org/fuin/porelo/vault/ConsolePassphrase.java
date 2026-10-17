@@ -5,10 +5,10 @@ import java.util.Optional;
 
 /**
  * Asks the operator to type the passphrase.
- * <p>
- * The last tier, and the only one that always works. Returns empty when there is no terminal,
- * which is what happens under a hook, in CI, or from the daemon - all places where blocking
- * forever on a prompt nobody can see would be worse than failing.
+ *
+ * <p>The last tier, and the only one that always works. Returns empty when there is no terminal,
+ * which is what happens under a hook, in CI, or from the daemon - all places where blocking forever
+ * on a prompt nobody can see would be worse than failing.
  */
 public class ConsolePassphrase implements PassphraseSource {
 

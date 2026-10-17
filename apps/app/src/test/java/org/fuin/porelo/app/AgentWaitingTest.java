@@ -21,20 +21,22 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Tests for {@link AgentWaiting}: whether a task waits for a person, read from outside by its agent's own
- * declaration - and every way of saying "cannot tell" kept apart from "not waiting".
+ * Tests for {@link AgentWaiting}: whether a task waits for a person, read from outside by its
+ * agent's own declaration - and every way of saying "cannot tell" kept apart from "not waiting".
  */
 class AgentWaitingTest {
 
     private static final String TASK = "porelo-p-t";
 
-    private static final Waiting DECLARED = new Waiting(
-            List.of(new Waiting.Rule("Trust this folder?", 3, "whether to trust the folder")),
-            List.of(new Waiting.Rule("(END)", 1, null)),
-            new Waiting.LastMessage(Map.of("type", "result"), "result"));
+    private static final Waiting DECLARED =
+            new Waiting(
+                    List.of(
+                            new Waiting.Rule(
+                                    "Trust this folder?", 3, "whether to trust the folder")),
+                    List.of(new Waiting.Rule("(END)", 1, null)),
+                    new Waiting.LastMessage(Map.of("type", "result"), "result"));
 
-    @TempDir
-    Path dir;
+    @TempDir Path dir;
 
     private final FakeCommandRunner runner = new FakeCommandRunner();
 
@@ -43,13 +45,22 @@ class AgentWaitingTest {
     private final AtomicInteger loaded = new AtomicInteger();
 
     private AgentWaiting waiting(Map<String, Optional<Waiting>> declarations) {
-        final XdgPaths xdg = XdgPaths.of(name -> "XDG_DATA_HOME".equals(name) ? dir.resolve("data").toString() : null,
-                dir);
-        final PoreloContext context = new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
-        return new AgentWaiting(context, clock, () -> {
-            loaded.incrementAndGet();
-            return declarations;
-        });
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                "XDG_DATA_HOME".equals(name)
+                                        ? dir.resolve("data").toString()
+                                        : null,
+                        dir);
+        final PoreloContext context =
+                new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+        return new AgentWaiting(
+                context,
+                clock,
+                () -> {
+                    loaded.incrementAndGet();
+                    return declarations;
+                });
     }
 
     private AgentWaiting declared() {
@@ -61,38 +72,61 @@ class AgentWaitingTest {
     }
 
     private long captures() {
-        return runner.invocations().stream().filter(command -> command.toString().contains("capture-pane")).count();
+        return runner.invocations().stream()
+                .filter(command -> command.toString().contains("capture-pane"))
+                .count();
     }
 
     @Test
-    void manyTasksScreensAreReadAtOnceSoAListingWaitsForTheSlowestFewNotForAllInTurn() throws Exception {
+    void manyTasksScreensAreReadAtOnceSoAListingWaitsForTheSlowestFewNotForAllInTurn()
+            throws Exception {
 
         // A listing read each task's screen in turn, about 100 ms each - 3.8 s at 30 tasks.
-        final java.util.concurrent.atomic.AtomicInteger now = new java.util.concurrent.atomic.AtomicInteger();
-        final java.util.concurrent.atomic.AtomicInteger most = new java.util.concurrent.atomic.AtomicInteger();
-        final org.fuin.porelo.core.process.CommandRunner slow = command -> {
-            most.accumulateAndGet(now.incrementAndGet(), Math::max);
-            try {
-                Thread.sleep(200);
-            } catch (final InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            } finally {
-                now.decrementAndGet();
-            }
-            return new org.fuin.porelo.core.process.CommandResult(command, 0, "stub: at work, nothing asked\n", "");
-        };
-        final XdgPaths xdg = XdgPaths.of(name -> "XDG_DATA_HOME".equals(name) ? dir.resolve("data").toString() : null,
-                dir);
-        final AgentWaiting waiting = new AgentWaiting(new PoreloContext(slow, new PoreloPaths(xdg, dir.resolve("bin")),
-                arguments -> 0), clock, () -> Map.of("asker", Optional.of(DECLARED)));
-        final List<AgentWaiting.Wanted> tasks = java.util.stream.IntStream.range(0, 16)
-                .mapToObj(i -> new AgentWaiting.Wanted("porelo-p-" + i, true, "asker", "AGENT")).toList();
+        final java.util.concurrent.atomic.AtomicInteger now =
+                new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.concurrent.atomic.AtomicInteger most =
+                new java.util.concurrent.atomic.AtomicInteger();
+        final org.fuin.porelo.core.process.CommandRunner slow =
+                command -> {
+                    most.accumulateAndGet(now.incrementAndGet(), Math::max);
+                    try {
+                        Thread.sleep(200);
+                    } catch (final InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                    } finally {
+                        now.decrementAndGet();
+                    }
+                    return new org.fuin.porelo.core.process.CommandResult(
+                            command, 0, "stub: at work, nothing asked\n", "");
+                };
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                "XDG_DATA_HOME".equals(name)
+                                        ? dir.resolve("data").toString()
+                                        : null,
+                        dir);
+        final AgentWaiting waiting =
+                new AgentWaiting(
+                        new PoreloContext(
+                                slow, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0),
+                        clock,
+                        () -> Map.of("asker", Optional.of(DECLARED)));
+        final List<AgentWaiting.Wanted> tasks =
+                java.util.stream.IntStream.range(0, 16)
+                        .mapToObj(
+                                i ->
+                                        new AgentWaiting.Wanted(
+                                                "porelo-p-" + i, true, "asker", "AGENT"))
+                        .toList();
 
         final long started = System.nanoTime();
         waiting.readScreens(tasks);
         final java.time.Duration took = java.time.Duration.ofNanos(System.nanoTime() - started);
 
-        assertThat(most.get()).as("several at once, never more than the bound").isGreaterThan(1)
+        assertThat(most.get())
+                .as("several at once, never more than the bound")
+                .isGreaterThan(1)
                 .isLessThanOrEqualTo(AgentWaiting.AT_ONCE);
         assertThat(took).as("16 reads of 200 ms").isLessThan(java.time.Duration.ofMillis(1600));
         final int before = now.get();
@@ -100,7 +134,9 @@ class AgentWaitingTest {
             assertThat(waiting.about(task.container(), true, "asker", "AGENT", dir).screen())
                     .isEqualTo(AgentWaiting.Screen.NOT_WAITING);
         }
-        assertThat(most.get()).as("answered from what was read").isLessThanOrEqualTo(AgentWaiting.AT_ONCE);
+        assertThat(most.get())
+                .as("answered from what was read")
+                .isLessThanOrEqualTo(AgentWaiting.AT_ONCE);
         assertThat(now.get()).isEqualTo(before);
     }
 
@@ -121,9 +157,12 @@ class AgentWaitingTest {
 
         // One read was a process in the container, 100 ms and 400-600 ms under load.
         final Path written = ScreenFile.prepare(dir);
-        Files.writeString(written.resolve(ScreenFile.SCREEN), "stub: starting\nTrust this folder? [y/N]\n\n\n");
+        Files.writeString(
+                written.resolve(ScreenFile.SCREEN),
+                "stub: starting\nTrust this folder? [y/N]\n\n\n");
         Files.writeString(written.resolve(ScreenFile.ALIVE), "");
-        Files.setLastModifiedTime(written.resolve(ScreenFile.ALIVE),
+        Files.setLastModifiedTime(
+                written.resolve(ScreenFile.ALIVE),
                 java.nio.file.attribute.FileTime.from(clock.instant()));
 
         final AgentWaiting.Derived derived = attached(declared());
@@ -146,7 +185,9 @@ class AgentWaitingTest {
 
         final AgentWaiting.Derived derived = declared().about(TASK, true, "quiet", "AGENT", dir);
 
-        assertThat(derived.screen()).isEqualTo(AgentWaiting.Screen.UNDECLARED).isNotEqualTo(AgentWaiting.Screen.NOT_WAITING);
+        assertThat(derived.screen())
+                .isEqualTo(AgentWaiting.Screen.UNDECLARED)
+                .isNotEqualTo(AgentWaiting.Screen.NOT_WAITING);
         assertThat(captures()).isZero();
     }
 
@@ -155,9 +196,12 @@ class AgentWaitingTest {
         runner.answering("capture-pane", "Trust this folder? [y/N]\n");
         final AgentWaiting waiting = declared();
 
-        assertThat(waiting.about(TASK, true, "asker", "UNATTENDED", dir).screen()).isEqualTo(AgentWaiting.Screen.UNSEEN);
-        assertThat(waiting.about(TASK, true, "asker", "SHELL", dir).screen()).isEqualTo(AgentWaiting.Screen.UNSEEN);
-        assertThat(waiting.about(TASK, false, "asker", "AGENT", dir).screen()).isEqualTo(AgentWaiting.Screen.UNSEEN);
+        assertThat(waiting.about(TASK, true, "asker", "UNATTENDED", dir).screen())
+                .isEqualTo(AgentWaiting.Screen.UNSEEN);
+        assertThat(waiting.about(TASK, true, "asker", "SHELL", dir).screen())
+                .isEqualTo(AgentWaiting.Screen.UNSEEN);
+        assertThat(waiting.about(TASK, false, "asker", "AGENT", dir).screen())
+                .isEqualTo(AgentWaiting.Screen.UNSEEN);
         assertThat(captures()).isZero();
     }
 
@@ -177,7 +221,8 @@ class AgentWaitingTest {
         runner.answering("capture-pane", "Trust this folder? [y/N]\nsome transcript\n(END)\n");
         clock.move(AgentWaiting.SCREEN);
 
-        assertThat(attached(waiting).screen()).as("reporting on the pager would be wrong either way")
+        assertThat(attached(waiting).screen())
+                .as("reporting on the pager would be wrong either way")
                 .isEqualTo(AgentWaiting.Screen.WAITING);
     }
 
@@ -231,7 +276,9 @@ class AgentWaitingTest {
 
         final AgentWaiting.Derived derived = attached(waiting);
         assertThat(derived.unproven()).isTrue();
-        assertThat(derived.screen()).as("still a reading of the screen, not a guess").isEqualTo(AgentWaiting.Screen.NOT_WAITING);
+        assertThat(derived.screen())
+                .as("still a reading of the screen, not a guess")
+                .isEqualTo(AgentWaiting.Screen.NOT_WAITING);
     }
 
     @Test
@@ -250,14 +297,17 @@ class AgentWaitingTest {
 
     @Test
     void theLastMessageOfARunIsReadFromItsRecordsAndAskedIsCannotSay() throws IOException {
-        Files.writeString(dir.resolve("task.log"), """
+        Files.writeString(
+                dir.resolve("task.log"),
+                """
                 {"type":"system","session_id":"s-1"}
                 not a record
                 {"type":"assistant","message":"thinking"}
                 {"type":"result","result":"Which branch should I use?"}
                 """);
 
-        final AgentWaiting.Derived derived = declared().about(TASK, false, "asker", "UNATTENDED", dir);
+        final AgentWaiting.Derived derived =
+                declared().about(TASK, false, "asker", "UNATTENDED", dir);
 
         assertThat(derived.lastMessage()).isEqualTo("Which branch should I use?");
         // No agent can say yet that it stopped to ask: three values, and this is the honest one.
@@ -270,19 +320,23 @@ class AgentWaitingTest {
         final AgentWaiting waiting = declared();
         final Path log = dir.resolve("task.log");
         Files.writeString(log, "{\"type\":\"result\",\"result\":\"Which branch?\"}\n");
-        assertThat(waiting.about(TASK, false, "asker", "UNATTENDED", dir).lastMessage()).isEqualTo("Which branch?");
+        assertThat(waiting.about(TASK, false, "asker", "UNATTENDED", dir).lastMessage())
+                .isEqualTo("Which branch?");
 
         Files.writeString(log, "{\"type\":\"result\",\"result\":\"Done on main.\"}\n");
-        Files.setLastModifiedTime(log, java.nio.file.attribute.FileTime.from(Instant.now().plusSeconds(5)));
+        Files.setLastModifiedTime(
+                log, java.nio.file.attribute.FileTime.from(Instant.now().plusSeconds(5)));
 
-        assertThat(waiting.about(TASK, false, "asker", "UNATTENDED", dir).lastMessage()).isEqualTo("Done on main.");
+        assertThat(waiting.about(TASK, false, "asker", "UNATTENDED", dir).lastMessage())
+                .isEqualTo("Done on main.");
     }
 
     @Test
     void anAgentThatDoesNotSayWhereItsLastMessageIsHasNone() throws IOException {
         Files.writeString(dir.resolve("task.log"), "{\"type\":\"result\",\"result\":\"hello\"}\n");
 
-        assertThat(declared().about(TASK, false, "quiet", "UNATTENDED", dir).lastMessage()).isEmpty();
+        assertThat(declared().about(TASK, false, "quiet", "UNATTENDED", dir).lastMessage())
+                .isEmpty();
     }
 
     /** A clock a test moves. */

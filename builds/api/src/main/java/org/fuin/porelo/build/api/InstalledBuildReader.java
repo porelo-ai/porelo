@@ -20,13 +20,15 @@ import org.fuin.porelo.wire.varlink.VarlinkException;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Porelo's side of {@link BuildProtocol#INTERFACE}: one reader executable, started, handshaken, and asked.
- * <p>
- * A reader that will not start, speaks another protocol version, or reads another forge than the one asked for is
- * refused here, with its own name in the message, before anything is asked of it. A reader whose process has ended -
- * killed for not answering in time, or gone by itself - is started again at the next question.
- * <p>
- * One caller at a time: a question and its answer share one connection.
+ * Porelo's side of {@link BuildProtocol#INTERFACE}: one reader executable, started, handshaken, and
+ * asked.
+ *
+ * <p>A reader that will not start, speaks another protocol version, or reads another forge than the
+ * one asked for is refused here, with its own name in the message, before anything is asked of it.
+ * A reader whose process has ended - killed for not answering in time, or gone by itself - is
+ * started again at the next question.
+ *
+ * <p>One caller at a time: a question and its answer share one connection.
  */
 public final class InstalledBuildReader implements AutoCloseable {
 
@@ -48,8 +50,7 @@ public final class InstalledBuildReader implements AutoCloseable {
     private Running running;
 
     /** The reader's process and the connection to it. */
-    private record Running(Process process, VarlinkClient client) {
-    }
+    private record Running(Process process, VarlinkClient client) {}
 
     /**
      * Returns the reader of a forge, from the first of the directories that holds one.
@@ -69,8 +70,12 @@ public final class InstalledBuildReader implements AutoCloseable {
                 return candidate;
             }
         }
-        throw new BuildReaderException("No build reader for '" + forge + "' is installed; looked in " + directories
-                + ". Install the package that reads builds from it.");
+        throw new BuildReaderException(
+                "No build reader for '"
+                        + forge
+                        + "' is installed; looked in "
+                        + directories
+                        + ". Install the package that reads builds from it.");
     }
 
     /**
@@ -79,7 +84,8 @@ public final class InstalledBuildReader implements AutoCloseable {
      * @param executable The reader.
      * @param forge The forge it must read.
      * @param socket Where it creates its socket; owner-only, since every call carries the token.
-     * @throws BuildReaderException When it does not start, speaks another protocol, or reads another forge.
+     * @throws BuildReaderException When it does not start, speaks another protocol, or reads
+     *     another forge.
      */
     public InstalledBuildReader(final Path executable, final String forge, final Path socket) {
         this.executable = executable;
@@ -121,7 +127,8 @@ public final class InstalledBuildReader implements AutoCloseable {
      * @param logs Which jobs' logs to hand over.
      * @return The build.
      * @throws BuildRefused When the forge would not answer.
-     * @throws BuildReaderException When the reader failed, or answered something that is not a build.
+     * @throws BuildReaderException When the reader failed, or answered something that is not a
+     *     build.
      */
     public Build look(final Target target, final String commit, final Build.Logs logs) {
         final Map<String, Object> parameters = parameters(target);
@@ -130,8 +137,8 @@ public final class InstalledBuildReader implements AutoCloseable {
         try {
             return Build.of(call(BuildProtocol.LOOK, parameters));
         } catch (IllegalArgumentException ex) {
-            throw new BuildReaderException(executable + " answered something that is not a build: "
-                    + ex.getMessage(), ex);
+            throw new BuildReaderException(
+                    executable + " answered something that is not a build: " + ex.getMessage(), ex);
         }
     }
 
@@ -168,116 +175,165 @@ public final class InstalledBuildReader implements AutoCloseable {
         final Process process;
         try {
             Files.deleteIfExists(socket);
-            process = new ProcessBuilder(executable.toString(), "serve", socket.toString())
-                    .redirectErrorStream(true).start();
+            process =
+                    new ProcessBuilder(executable.toString(), "serve", socket.toString())
+                            .redirectErrorStream(true)
+                            .start();
         } catch (IOException ex) {
-            throw new BuildReaderException("Cannot start " + executable + ": " + ex.getMessage(), ex);
+            throw new BuildReaderException(
+                    "Cannot start " + executable + ": " + ex.getMessage(), ex);
         }
         VarlinkClient opened = null;
         try {
             awaitReady(process);
             opened = new VarlinkClient(socket);
             final VarlinkClient described = opened;
-            final Map<String, Object> answer = bounded(process,
-                    () -> described.call(BuildProtocol.DESCRIBE, Map.of()), READY_SECONDS);
-            final int version = answer.get("protocolVersion") instanceof Number number ? number.intValue() : -1;
+            final Map<String, Object> answer =
+                    bounded(
+                            process,
+                            () -> described.call(BuildProtocol.DESCRIBE, Map.of()),
+                            READY_SECONDS);
+            final int version =
+                    answer.get("protocolVersion") instanceof Number number ? number.intValue() : -1;
             if (version != BuildProtocol.VERSION) {
-                throw new BuildReaderException(executable + " speaks " + BuildProtocol.INTERFACE + " version "
-                        + version + "; this Porelo speaks version " + BuildProtocol.VERSION
-                        + ". Install the reader's version that goes with this Porelo.");
+                throw new BuildReaderException(
+                        executable
+                                + " speaks "
+                                + BuildProtocol.INTERFACE
+                                + " version "
+                                + version
+                                + "; this Porelo speaks version "
+                                + BuildProtocol.VERSION
+                                + ". Install the reader's version that goes with this Porelo.");
             }
             final String reads = String.valueOf(answer.get("forge"));
             if (!forge.equals(reads)) {
-                throw new BuildReaderException(executable + " reads '" + reads + "', not '" + forge + "'");
+                throw new BuildReaderException(
+                        executable + " reads '" + reads + "', not '" + forge + "'");
             }
             return new Running(process, opened);
         } catch (RuntimeException ex) {
             process.destroyForcibly();
             closeQuietly(opened);
-            throw ex instanceof BuildReaderException reader ? reader
-                    : new BuildReaderException(executable + " failed to start: " + ex.getMessage(), ex);
+            throw ex instanceof BuildReaderException reader
+                    ? reader
+                    : new BuildReaderException(
+                            executable + " failed to start: " + ex.getMessage(), ex);
         }
     }
 
     private Map<String, Object> call(final String method, final Map<String, Object> parameters) {
         if (!running.process().isAlive()) {
-            // Killed for not answering in time, or gone by itself: the watch asks again later, and one that cannot
+            // Killed for not answering in time, or gone by itself: the watch asks again later, and
+            // one that cannot
             // answer now must not leave every later question unanswered.
             closeQuietly(running.client());
             running = start();
         }
         final Running asked = running;
         try {
-            return bounded(asked.process(), () -> asked.client().call(method, parameters), CALL_SECONDS);
+            return bounded(
+                    asked.process(), () -> asked.client().call(method, parameters), CALL_SECONDS);
         } catch (VarlinkException ex) {
             if (ex.getErrorName() == null) {
-                // The connection failed, not the question: the reader is gone or going. Its process is ended and
-                // waited for here, so the next question finds it ended and starts it again - looking at it
-                // straight away found a crashed reader still alive on a busy machine, and asked it again.
+                // The connection failed, not the question: the reader is gone or going. Its process
+                // is ended and
+                // waited for here, so the next question finds it ended and starts it again -
+                // looking at it
+                // straight away found a crashed reader still alive on a busy machine, and asked it
+                // again.
                 ended(asked.process());
             }
             final BuildRefused.Reason reason = BuildRefused.Reason.of(ex.getErrorName());
-            final Map<String, Object> said = ex.getParameters() == null ? Map.of() : ex.getParameters();
+            final Map<String, Object> said =
+                    ex.getParameters() == null ? Map.of() : ex.getParameters();
             if (reason != null) {
-                throw new BuildRefused(reason, String.valueOf(said.getOrDefault("detail", "")),
+                throw new BuildRefused(
+                        reason,
+                        String.valueOf(said.getOrDefault("detail", "")),
                         said.get("retryAfter") instanceof Number number ? number.longValue() : 0);
             }
-            throw new BuildReaderException(executable + " failed: " + (ex.getErrorName() == null ? ex.getMessage()
-                    : ex.getErrorName() + " " + said), ex);
+            throw new BuildReaderException(
+                    executable
+                            + " failed: "
+                            + (ex.getErrorName() == null
+                                    ? ex.getMessage()
+                                    : ex.getErrorName() + " " + said),
+                    ex);
         }
     }
 
-    /** Waits for the ready line the reader prints once its socket listens; whatever it said instead is the reason. */
+    /**
+     * Waits for the ready line the reader prints once its socket listens; whatever it said instead
+     * is the reason.
+     */
     private void awaitReady(final Process process) {
-        final BufferedReader reader = new BufferedReader(
-                new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8));
-        final String said = bounded(process, () -> {
-            final StringBuilder lines = new StringBuilder();
-            try {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    if (line.startsWith("ready ")) {
-                        drain(reader);
-                        return null;
-                    }
-                    lines.append(lines.isEmpty() ? "" : "; ").append(line.strip());
-                }
-            } catch (IOException ex) {
-                lines.append(ex.getMessage());
-            }
-            return lines.toString();
-        }, READY_SECONDS);
+        final BufferedReader reader =
+                new BufferedReader(
+                        new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8));
+        final String said =
+                bounded(
+                        process,
+                        () -> {
+                            final StringBuilder lines = new StringBuilder();
+                            try {
+                                String line;
+                                while ((line = reader.readLine()) != null) {
+                                    if (line.startsWith("ready ")) {
+                                        drain(reader);
+                                        return null;
+                                    }
+                                    lines.append(lines.isEmpty() ? "" : "; ").append(line.strip());
+                                }
+                            } catch (IOException ex) {
+                                lines.append(ex.getMessage());
+                            }
+                            return lines.toString();
+                        },
+                        READY_SECONDS);
         if (said != null) {
-            throw new BuildReaderException(executable + " exited without becoming ready"
-                    + (said.isEmpty() ? "" : ", saying: " + said));
+            throw new BuildReaderException(
+                    executable
+                            + " exited without becoming ready"
+                            + (said.isEmpty() ? "" : ", saying: " + said));
         }
     }
 
-    /** Keeps reading what the reader writes after it is ready, so a line more never meets a full pipe. */
+    /**
+     * Keeps reading what the reader writes after it is ready, so a line more never meets a full
+     * pipe.
+     */
     private static void drain(final BufferedReader reader) {
-        Thread.ofPlatform().daemon().name("porelo-build-reader-output").start(() -> {
-            try (reader) {
-                while (reader.readLine() != null) {
-                    // Discarded: a reader's answers come over the socket.
-                }
-            } catch (IOException ex) {
-                // The reader ended.
-            }
-        });
+        Thread.ofPlatform()
+                .daemon()
+                .name("porelo-build-reader-output")
+                .start(
+                        () -> {
+                            try (reader) {
+                                while (reader.readLine() != null) {
+                                    // Discarded: a reader's answers come over the socket.
+                                }
+                            } catch (IOException ex) {
+                                // The reader ended.
+                            }
+                        });
     }
 
     /** Runs a step against the reader within a limit: the varlink client waits without one. */
     private <T> T bounded(final Process process, final Supplier<T> step, final long seconds) {
-        final ExecutorService runner = Executors.newSingleThreadExecutor(task -> {
-            final Thread thread = new Thread(task, "porelo-build-reader-call");
-            thread.setDaemon(true);
-            return thread;
-        });
+        final ExecutorService runner =
+                Executors.newSingleThreadExecutor(
+                        task -> {
+                            final Thread thread = new Thread(task, "porelo-build-reader-call");
+                            thread.setDaemon(true);
+                            return thread;
+                        });
         try {
             return runner.submit(step::get).get(seconds, TimeUnit.SECONDS);
         } catch (TimeoutException ex) {
             process.destroyForcibly();
-            throw new BuildReaderException(executable + " did not answer within " + seconds + " seconds", ex);
+            throw new BuildReaderException(
+                    executable + " did not answer within " + seconds + " seconds", ex);
         } catch (ExecutionException ex) {
             if (ex.getCause() instanceof RuntimeException runtime) {
                 throw runtime;

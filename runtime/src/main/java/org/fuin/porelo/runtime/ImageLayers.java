@@ -4,10 +4,10 @@ import java.util.List;
 
 /**
  * Container-build fragments contributed by something outside this module.
- * <p>
- * Plain lists of lines rather than an agent-shaped type, deliberately: {@code porelo-runtime} builds
- * images and must not learn what an agent is. Whoever knows about agents - {@code porelo-app} -
- * converts and passes them in.
+ *
+ * <p>Plain lists of lines rather than an agent-shaped type, deliberately: {@code porelo-runtime}
+ * builds images and must not learn what an agent is. Whoever knows about agents - {@code
+ * porelo-app} - converts and passes them in.
  *
  * @param asRoot Fragments run before the image drops to the unprivileged user.
  * @param asAgent Fragments run as the agent user.

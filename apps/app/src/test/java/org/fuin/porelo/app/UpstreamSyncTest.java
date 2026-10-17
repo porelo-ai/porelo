@@ -11,8 +11,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Tests for measuring a project's distance from its upstream on demand.
- * <p>
- * What is asserted here is the refusals, because they are the cases that must not reach the
+ *
+ * <p>What is asserted here is the refusals, because they are the cases that must not reach the
  * network: a triggered measurement is the one operation in this product allowed to, and everything
  * that cannot be answered has to be turned away before it tries.
  */
@@ -21,25 +21,32 @@ class UpstreamSyncTest {
     private final FakeCommandRunner runner = new FakeCommandRunner();
 
     private PoreloContext context(Path dir) {
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
         return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), command -> 0);
     }
 
     private Path project(Path dir) throws Exception {
         final Path file = dir.resolve("project.yml");
-        Files.writeString(file, """
+        Files.writeString(
+                file,
+                """
                 project:
                   name: "demo"
                   security_class: "guarded"
                 image:
                   base_image: "ubuntu:24.04"
                 """);
-        new ProjectRegistry(context(dir).paths().projects().projectRegistry()).remember("demo", file);
+        new ProjectRegistry(context(dir).paths().projects().projectRegistry())
+                .remember("demo", file);
         return file;
     }
 
@@ -63,8 +70,8 @@ class UpstreamSyncTest {
         assertThat(result.outcome()).isEqualTo(UpstreamSync.Outcome.NO_MIRROR);
         assertThat(result.measured()).isFalse();
         // The listing itself asks podman things; what must not happen is a fetch.
-        assertThat(runner.invocations()).noneSatisfy(command ->
-                assertThat(command.arguments()).contains("fetch"));
+        assertThat(runner.invocations())
+                .noneSatisfy(command -> assertThat(command.arguments()).contains("fetch"));
     }
 
     @Test

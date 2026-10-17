@@ -11,12 +11,13 @@ import picocli.CommandLine.Spec;
 
 /**
  * Lists the curated egress sets a project can opt into.
- * <p>
- * Sets exist so that "reaching npm" is written down once instead of re-derived per project. That
+ *
+ * <p>Sets exist so that "reaching npm" is written down once instead of re-derived per project. That
  * only works if an operator can find out what the names are without reading the packaged files,
  * which is what this is for.
  */
-@Command(name = "sets",
+@Command(
+        name = "sets",
         mixinStandardHelpOptions = true,
         description = "Lists the curated egress sets a project can name in project.yml.")
 public class ShieldSetsCommand implements Callable<Integer>, PoreloFactory.ContextAware {
@@ -28,12 +29,10 @@ public class ShieldSetsCommand implements Callable<Integer>, PoreloFactory.Conte
         this.context = context;
     }
 
-
     @Option(names = "--verbose", description = "Also show the hosts each set grants.")
     private boolean verbose;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     @Override
     public Integer call() {
@@ -60,8 +59,8 @@ public class ShieldSetsCommand implements Callable<Integer>, PoreloFactory.Conte
         out.println("Name them in project.yml:");
         out.println();
         out.println("  egress:");
-        out.println("    sets: [" + String.join(", ",
-                sets.keySet().stream().limit(2).toList()) + "]");
+        out.println(
+                "    sets: [" + String.join(", ", sets.keySet().stream().limit(2).toList()) + "]");
         out.println("    domains: [\"nexus.corp.example\"]   # a private mirror, if you have one");
         out.flush();
         return 0;

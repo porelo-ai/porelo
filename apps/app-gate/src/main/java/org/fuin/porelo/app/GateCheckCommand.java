@@ -24,23 +24,24 @@ import picocli.CommandLine.Spec;
 
 /**
  * Answers whether a push carries work an agent wrote and nobody approved.
- * <p>
- * <strong>Meant to be run by a {@code pre-push} hook, and useful on its own.</strong> Reads what
+ *
+ * <p><strong>Meant to be run by a {@code pre-push} hook, and useful on its own.</strong> Reads what
  * git gives a hook on standard input - {@code <local ref> <local sha> <remote ref> <remote sha>}
  * per line - works out which commits are about to leave, and names any whose author is an agent
  * installed here.
- * <p>
- * <strong>Author identity, and the reason is measured rather than assumed.</strong> It was once held
- * that an author is "easy to lose in a rebase" and that a trailer added at approval time would be
- * safer. Measured: {@code git rebase} <em>preserves</em> the author and changes only the
+ *
+ * <p><strong>Author identity, and the reason is measured rather than assumed.</strong> It was once
+ * held that an author is "easy to lose in a rebase" and that a trailer added at approval time would
+ * be safer. Measured: {@code git rebase} <em>preserves</em> the author and changes only the
  * committer, through an ordinary rebase, an interactive one and an {@code --amend}. So the cheap
  * signal is also the durable one, and nothing has to rewrite commits when work is approved.
- * <p>
- * It is spoofable, and that does not matter: this is protection against an accident, not against
+ *
+ * <p>It is spoofable, and that does not matter: this is protection against an accident, not against
  * the owner of the machine. Somebody who rewrites an author to get past it is exactly the person
  * the requirement says may still do it.
  */
-@picocli.CommandLine.Command(name = "check",
+@picocli.CommandLine.Command(
+        name = "check",
         mixinStandardHelpOptions = true,
         description = "Reads a pre-push hook's input and refuses agent work nobody approved.")
 public class GateCheckCommand implements Callable<Integer>, PoreloFactory.ContextAware {
@@ -55,21 +56,22 @@ public class GateCheckCommand implements Callable<Integer>, PoreloFactory.Contex
      * @param author The author's address, as recorded.
      * @param subject Its first line.
      */
-    record Offender(String commit, String author, String subject) { }
+    record Offender(String commit, String author, String subject) {}
 
-    @Option(names = "--quiet",
-            description = "Says nothing when there is nothing to say.")
+    @Option(names = "--quiet", description = "Says nothing when there is nothing to say.")
     private boolean quiet;
 
     // git passes the remote's name and URL to a pre-push hook as arguments. The name is what
     // makes "new to the far side" answerable: without it the check falls back to every remote.
-    @picocli.CommandLine.Parameters(index = "0..*", arity = "0..2", hidden = true,
+    @picocli.CommandLine.Parameters(
+            index = "0..*",
+            arity = "0..2",
+            hidden = true,
             paramLabel = "<remote> <url>",
             description = "What git hands the hook: the remote's name and its URL.")
     private List<String> remote = List.of();
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -94,8 +96,12 @@ public class GateCheckCommand implements Callable<Integer>, PoreloFactory.Contex
      * @param remote The remote's name as git named it, or {@code null} when it is not known.
      * @return Commit ids, newest first.
      */
-    static List<String> commits(CommandRunner runner, @Nullable Path directory,
-            String localSha, String remoteSha, @Nullable String remote) {
+    static List<String> commits(
+            CommandRunner runner,
+            @Nullable Path directory,
+            String localSha,
+            String remoteSha,
+            @Nullable String remote) {
         if (ABSENT.equals(localSha)) {
             // A deletion. Nothing is being sent, so there is nothing to look at.
             return List.of();
@@ -117,21 +123,35 @@ public class GateCheckCommand implements Callable<Integer>, PoreloFactory.Contex
         }
         var result = runner.run(git(directory, arguments));
         if (!result.successful() && !ABSENT.equals(remoteSha)) {
-            // The far side's commit is not here - a force push, or one made without fetching - so the range cannot
-            // be counted: what no tracking ref of that remote holds is what is new to it, as for a first push.
-            result = runner.run(git(directory, List.of("rev-list", localSha, "--not",
-                    remote == null || remote.isBlank() ? "--remotes" : "--remotes=" + remote)));
+            // The far side's commit is not here - a force push, or one made without fetching - so
+            // the range cannot
+            // be counted: what no tracking ref of that remote holds is what is new to it, as for a
+            // first push.
+            result =
+                    runner.run(
+                            git(
+                                    directory,
+                                    List.of(
+                                            "rev-list",
+                                            localSha,
+                                            "--not",
+                                            remote == null || remote.isBlank()
+                                                    ? "--remotes"
+                                                    : "--remotes=" + remote)));
         }
         return result.successful()
-                ? result.standardOutput().lines().map(String::strip)
-                        .filter(line -> !line.isEmpty()).toList()
+                ? result.standardOutput()
+                        .lines()
+                        .map(String::strip)
+                        .filter(line -> !line.isEmpty())
+                        .toList()
                 : List.of();
     }
 
     /**
      * Returns the commits in a push that an agent wrote.
-     * <p>
-     * The whole decision, separated from where the input came from and where the answer goes, so
+     *
+     * <p>The whole decision, separated from where the input came from and where the answer goes, so
      * a test can put a real repository and a real push in front of it.
      *
      * @param runner Runs git.
@@ -141,8 +161,12 @@ public class GateCheckCommand implements Callable<Integer>, PoreloFactory.Contex
      * @param remote The remote's name as git named it, or {@code null} when it is not known.
      * @return What an agent wrote, in the order the push would send it.
      */
-    static List<Offender> offenders(CommandRunner runner, @Nullable Path directory,
-            List<String> hookInput, Set<String> agentEmails, @Nullable String remote) {
+    static List<Offender> offenders(
+            CommandRunner runner,
+            @Nullable Path directory,
+            List<String> hookInput,
+            Set<String> agentEmails,
+            @Nullable String remote) {
         final List<Offender> found = new ArrayList<>();
         if (agentEmails.isEmpty()) {
             return found;
@@ -154,22 +178,27 @@ public class GateCheckCommand implements Callable<Integer>, PoreloFactory.Contex
                 // Not a hook line. Anything else on that stream is somebody running this by hand.
                 continue;
             }
-            for (final String commit : commits(runner, directory, fields[1], fields[3],
-                    remote)) {
+            for (final String commit : commits(runner, directory, fields[1], fields[3], remote)) {
                 if (!seen.add(commit)) {
                     // Two refs pushed together share history. Naming a commit twice would make
                     // "3 commits" mean something no count of the repository could confirm.
                     continue;
                 }
-                final var shown = runner.run(git(directory,
-                        List.of("show", "--no-patch", "--format=%ae|%s", commit)));
+                final var shown =
+                        runner.run(
+                                git(
+                                        directory,
+                                        List.of("show", "--no-patch", "--format=%ae|%s", commit)));
                 if (!shown.successful()) {
                     continue;
                 }
                 final String[] parts = shown.standardOutput().strip().split("\\|", 2);
                 if (agentEmails.contains(parts[0].toLowerCase(Locale.ROOT))) {
-                    found.add(new Offender(commit.substring(0, Math.min(9, commit.length())),
-                            parts[0], parts.length > 1 ? parts[1] : ""));
+                    found.add(
+                            new Offender(
+                                    commit.substring(0, Math.min(9, commit.length())),
+                                    parts[0],
+                                    parts.length > 1 ? parts[1] : ""));
                 }
             }
         }
@@ -191,8 +220,10 @@ public class GateCheckCommand implements Callable<Integer>, PoreloFactory.Contex
             // A machine whose agents cannot be asked cannot answer this question. Saying so beats
             // letting a push through silently, which would be a guard that is absent without
             // anybody noticing - the failure this whole feature is about.
-            err.println("porelo: cannot ask which agents are installed, so this push was not"
-                    + " checked: " + ex.getMessage());
+            err.println(
+                    "porelo: cannot ask which agents are installed, so this push was not"
+                            + " checked: "
+                            + ex.getMessage());
             err.flush();
             return 0;
         }
@@ -201,8 +232,8 @@ public class GateCheckCommand implements Callable<Integer>, PoreloFactory.Contex
         }
 
         final List<String> hookInput = new ArrayList<>();
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(System.in, StandardCharsets.UTF_8))) {
+        try (BufferedReader reader =
+                new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 hookInput.add(line);
@@ -213,8 +244,13 @@ public class GateCheckCommand implements Callable<Integer>, PoreloFactory.Contex
             return 0;
         }
 
-        final List<Offender> found = offenders(context.runner(), null, hookInput, agentEmails,
-                remote.isEmpty() ? null : remote.get(0));
+        final List<Offender> found =
+                offenders(
+                        context.runner(),
+                        null,
+                        hookInput,
+                        agentEmails,
+                        remote.isEmpty() ? null : remote.get(0));
         if (found.isEmpty()) {
             if (!quiet) {
                 out.println("nothing an agent wrote is in this push");
@@ -223,11 +259,22 @@ public class GateCheckCommand implements Callable<Integer>, PoreloFactory.Contex
             return 0;
         }
 
-        err.println("porelo: this push carries " + found.size()
-                + " commit(s) an agent wrote, which nobody approved at the gate:");
-        // Terminal controls written out: an agent's subject must not rewrite the lines of this refusal.
-        found.forEach(offender -> err.println("  " + offender.commit() + "  "
-                + TalkReadCommand.shown(offender.subject()) + "  (" + TalkReadCommand.shown(offender.author()) + ")"));
+        err.println(
+                "porelo: this push carries "
+                        + found.size()
+                        + " commit(s) an agent wrote, which nobody approved at the gate:");
+        // Terminal controls written out: an agent's subject must not rewrite the lines of this
+        // refusal.
+        found.forEach(
+                offender ->
+                        err.println(
+                                "  "
+                                        + offender.commit()
+                                        + "  "
+                                        + TalkReadCommand.shown(offender.subject())
+                                        + "  ("
+                                        + TalkReadCommand.shown(offender.author())
+                                        + ")"));
         err.println();
         err.println("  The gate exists so somebody reads this before it leaves:");
         err.println("    porelo gate pending                 what is waiting");

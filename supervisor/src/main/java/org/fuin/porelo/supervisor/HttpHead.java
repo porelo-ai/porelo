@@ -10,11 +10,11 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * The request line and headers of one HTTP/1.1 request.
- * <p>
- * Hand-parsed because {@code com.sun.net.httpserver.HttpServer} binds an
- * {@link java.net.InetSocketAddress} and cannot listen on a unix socket, which is the transport
- * the vault proxy uses. Only what a proxy needs is implemented: enough to read a request, decide
- * on it, and reissue it.
+ *
+ * <p>Hand-parsed because {@code com.sun.net.httpserver.HttpServer} binds an {@link
+ * java.net.InetSocketAddress} and cannot listen on a unix socket, which is the transport the vault
+ * proxy uses. Only what a proxy needs is implemented: enough to read a request, decide on it, and
+ * reissue it.
  *
  * @param method Request method.
  * @param target Request target, the path and query as sent.
@@ -147,12 +147,12 @@ public record HttpHead(String method, String target, List<String> names, List<St
 
     /**
      * Reads exactly as many bytes as were declared.
-     * <p>
-     * <strong>'As many as arrived' is not the same number.</strong> {@code readNBytes} returns
+     *
+     * <p><strong>'As many as arrived' is not the same number.</strong> {@code readNBytes} returns
      * short at end of stream, and a short body used to be forwarded to the provider as if it were
-     * whole - a truncated request, sent under this task's credential, answered with an error
-     * nobody could explain. A declared length is a promise, and a promise that is not kept is a
-     * refusal rather than a smaller request.
+     * whole - a truncated request, sent under this task's credential, answered with an error nobody
+     * could explain. A declared length is a promise, and a promise that is not kept is a refusal
+     * rather than a smaller request.
      *
      * @param in Where to read.
      * @param length How many bytes were declared.
@@ -162,8 +162,8 @@ public record HttpHead(String method, String target, List<String> names, List<St
     public static byte[] readExactly(InputStream in, int length) throws IOException {
         final byte[] body = in.readNBytes(length);
         if (body.length != length) {
-            throw new IOException("The body ended after " + body.length + " of "
-                    + length + " declared bytes");
+            throw new IOException(
+                    "The body ended after " + body.length + " of " + length + " declared bytes");
         }
         return body;
     }
@@ -230,9 +230,17 @@ public record HttpHead(String method, String target, List<String> names, List<St
      */
     public static byte[] response(int status, String reason, String body) {
         final byte[] payload = body.getBytes(StandardCharsets.UTF_8);
-        return ("HTTP/1.1 " + status + " " + reason + "\r\n"
-                + "Content-Type: application/json\r\n"
-                + "Content-Length: " + payload.length + "\r\n"
-                + "Connection: close\r\n\r\n" + body).getBytes(StandardCharsets.UTF_8);
+        return ("HTTP/1.1 "
+                        + status
+                        + " "
+                        + reason
+                        + "\r\n"
+                        + "Content-Type: application/json\r\n"
+                        + "Content-Length: "
+                        + payload.length
+                        + "\r\n"
+                        + "Connection: close\r\n\r\n"
+                        + body)
+                .getBytes(StandardCharsets.UTF_8);
     }
 }

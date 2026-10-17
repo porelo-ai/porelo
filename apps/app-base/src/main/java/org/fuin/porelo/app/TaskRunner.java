@@ -1,6 +1,5 @@
 package org.fuin.porelo.app;
 
-import org.jspecify.annotations.Nullable;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
@@ -15,18 +14,22 @@ import org.fuin.porelo.runtime.ContainerSpec;
 import org.fuin.porelo.runtime.Podman;
 import org.fuin.porelo.shield.NftRuleset;
 import org.fuin.porelo.wire.Sidecar;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Runs one task: generate the policy, build the image, create the container, start it.
- * <p>
- * The order matters and is not an implementation detail. The ruleset and the sidecar are written
+ *
+ * <p>The order matters and is not an implementation detail. The ruleset and the sidecar are written
  * <em>before</em> the container is created, because the nft hook reads them while the container is
  * being created. Writing them afterwards would leave a window in which a container exists without
  * its firewall, and the hook would fail closed rather than wait.
  */
 public class TaskRunner {
 
-    /** The file in a task's state holding the bytes one handed-in file may have, fixed when the task starts. */
+    /**
+     * The file in a task's state holding the bytes one handed-in file may have, fixed when the task
+     * starts.
+     */
     public static final String HAND_IN_LIMIT_FILE = "hand-in.limit";
 
     private final Podman podman;
@@ -50,9 +53,12 @@ public class TaskRunner {
      * @param paths Where files go.
      * @param environment Reads an environment variable.
      */
-    public TaskRunner(CommandRunner runner, PoreloPaths paths,
+    public TaskRunner(
+            CommandRunner runner,
+            PoreloPaths paths,
             java.util.function.UnaryOperator<String> environment) {
-        this.podman = new Podman(runner, "podman", paths.egress().networkConfiguration(), environment);
+        this.podman =
+                new Podman(runner, "podman", paths.egress().networkConfiguration(), environment);
         this.paths = paths;
     }
 
@@ -69,8 +75,8 @@ public class TaskRunner {
 
     /**
      * Prepares and starts a container for one task.
-     * <p>
-     * The name is passed in rather than returned, so that a caller can clean up a container that
+     *
+     * <p>The name is passed in rather than returned, so that a caller can clean up a container that
      * was created but failed to start. Returning it would leave that container behind, because the
      * failure happens before the return.
      *
@@ -84,8 +90,8 @@ public class TaskRunner {
     }
 
     /**
-     * Prepares and starts a container for one task, with layers contributed by an agent and by
-     * the project itself.
+     * Prepares and starts a container for one task, with layers contributed by an agent and by the
+     * project itself.
      *
      * @param project The project.
      * @param container Container name.
@@ -93,8 +99,12 @@ public class TaskRunner {
      * @param out Where progress is reported.
      * @throws IOException If a file cannot be written.
      */
-    public void start(Project project, String container,
-            org.fuin.porelo.runtime.ImageLayers layers, PrintWriter out) throws IOException {
+    public void start(
+            Project project,
+            String container,
+            org.fuin.porelo.runtime.ImageLayers layers,
+            PrintWriter out)
+            throws IOException {
         start(project, container, layers, java.util.Map.of(), out);
     }
 
@@ -108,9 +118,13 @@ public class TaskRunner {
      * @param out Where progress is reported.
      * @throws IOException If a file cannot be written.
      */
-    public void start(Project project, String container,
+    public void start(
+            Project project,
+            String container,
             org.fuin.porelo.runtime.ImageLayers layers,
-            java.util.Map<String, String> environment, PrintWriter out) throws IOException {
+            java.util.Map<String, String> environment,
+            PrintWriter out)
+            throws IOException {
         start(project, container, layers, environment, java.util.List.of(), out);
     }
 
@@ -125,10 +139,14 @@ public class TaskRunner {
      * @param out Where progress is reported.
      * @throws IOException If a file cannot be written.
      */
-    public void start(Project project, String container,
+    public void start(
+            Project project,
+            String container,
             org.fuin.porelo.runtime.ImageLayers layers,
             java.util.Map<String, String> environment,
-            java.util.List<String> allowedDomains, PrintWriter out) throws IOException {
+            java.util.List<String> allowedDomains,
+            PrintWriter out)
+            throws IOException {
         start(project, container, layers, environment, allowedDomains, TaskWiring.none(), out);
     }
 
@@ -144,13 +162,24 @@ public class TaskRunner {
      * @param out Where progress is reported.
      * @throws IOException If a file cannot be written.
      */
-    public void start(Project project, String container,
+    public void start(
+            Project project,
+            String container,
             org.fuin.porelo.runtime.ImageLayers layers,
             java.util.Map<String, String> environment,
             java.util.List<String> allowedDomains,
-            TaskWiring wiring, PrintWriter out) throws IOException {
-        start(project, project.ownRepository(), container, layers, environment, allowedDomains,
-                wiring, out);
+            TaskWiring wiring,
+            PrintWriter out)
+            throws IOException {
+        start(
+                project,
+                project.ownRepository(),
+                container,
+                layers,
+                environment,
+                allowedDomains,
+                wiring,
+                out);
     }
 
     /**
@@ -166,11 +195,16 @@ public class TaskRunner {
      * @param out Where progress is reported.
      * @throws IOException If a file cannot be written.
      */
-    public void start(Project project, org.fuin.porelo.core.project.Repository repository,
-            String container, org.fuin.porelo.runtime.ImageLayers layers,
+    public void start(
+            Project project,
+            org.fuin.porelo.core.project.Repository repository,
+            String container,
+            org.fuin.porelo.runtime.ImageLayers layers,
             java.util.Map<String, String> environment,
             java.util.List<String> allowedDomains,
-            TaskWiring wiring, PrintWriter out) throws IOException {
+            TaskWiring wiring,
+            PrintWriter out)
+            throws IOException {
         start(project, repository, "", container, layers, environment, allowedDomains, wiring, out);
     }
 
@@ -187,20 +221,27 @@ public class TaskRunner {
      * @param out Where progress is reported.
      * @throws IOException If a file cannot be written.
      */
-    public void start(Project project, org.fuin.porelo.core.project.Repository repository,
-            String commit, String container,
+    public void start(
+            Project project,
+            org.fuin.porelo.core.project.Repository repository,
+            String commit,
+            String container,
             org.fuin.porelo.runtime.ImageLayers layers,
             java.util.Map<String, String> environment,
             java.util.List<String> allowedDomains,
-            TaskWiring wiring, PrintWriter out) throws IOException {
+            TaskWiring wiring,
+            PrintWriter out)
+            throws IOException {
 
         final Path state = paths.tasks().containerState(container);
         Files.createDirectories(state);
 
-        // No class opens a port to the upstream: an online task's remote is its gate, like a guarded one's, and only
+        // No class opens a port to the upstream: an online task's remote is its gate, like a
+        // guarded one's, and only
         // the host reaches the upstream.
         final Path ruleset = state.resolve("ruleset.nft");
-        Files.writeString(ruleset,
+        Files.writeString(
+                ruleset,
                 rulesetFor(project, hostResolvers(), wiring.gateAddress(), wiring.gatePort()),
                 StandardCharsets.UTF_8);
         out.println("policy    " + ruleset);
@@ -210,60 +251,88 @@ public class TaskRunner {
         final Path dnsConfig = state.resolve("dns.conf");
         final org.fuin.porelo.shield.DnsPolicy dns = dnsPolicyFor(project, allowedDomains);
         dns.writeTo(dnsConfig);
-        out.println("resolver  " + dnsConfig
-                + (allowedDomains.isEmpty() ? " (no domains allowed)"
-                        : " (" + allowedDomains.size() + " domains)"));
+        out.println(
+                "resolver  "
+                        + dnsConfig
+                        + (allowedDomains.isEmpty()
+                                ? " (no domains allowed)"
+                                : " (" + allowedDomains.size() + " domains)"));
 
         final Path sidecarFile = state.resolve("sidecar.json");
-        new Sidecar(Sidecar.VERSION, project.name(),
-                project.securityClass().name().toLowerCase(),
-                ruleset.toString(), dnsConfig.toString(), poreloBinary(), state.toString())
+        new Sidecar(
+                        Sidecar.VERSION,
+                        project.name(),
+                        project.securityClass().name().toLowerCase(),
+                        ruleset.toString(),
+                        dnsConfig.toString(),
+                        poreloBinary(),
+                        state.toString())
                 .writeTo(sidecarFile);
         out.println("sidecar   " + sidecarFile);
 
-        // One build of a project at a time: the daemon and a terminal starting it at once wrote one Containerfile
+        // One build of a project at a time: the daemon and a terminal starting it at once wrote one
+        // Containerfile
         // over the other and tagged one image with either's.
         final Path context = paths.tasks().buildContext(project.name());
         final String image;
         try {
-            image = FileLocks.holding(context.resolveSibling(context.getFileName() + ".build.lock"),
-                    () -> podman.buildImage(project, context, layers));
+            image =
+                    FileLocks.holding(
+                            context.resolveSibling(context.getFileName() + ".build.lock"),
+                            () -> podman.buildImage(project, context, layers));
         } catch (final java.io.IOException ex) {
             throw new java.io.UncheckedIOException(ex);
         }
         out.println("image     " + image);
 
-        final ContainerSpec specification = new ContainerSpec(container, image)
-                .command("sleep", "infinity")
-                // The repository's, over the project's, key by key. A repository that says nothing
-                // gets the project's unchanged.
-                .limits(project.limitsFor(repository))
-                .resolver(org.fuin.porelo.shield.DnsPolicy.LISTEN_ADDRESS)
-                .annotation(Sidecar.ANNOTATION, sidecarFile.toString())
-                // The same two facts as in the sidecar, on the container itself. The sidecar is
-                // in the runtime directory and goes when the session does; these outlive a
-                // reboot, which is exactly as long as the thing they describe.
-                .label(Sidecar.PROJECT_LABEL, project.name())
-                .label(Sidecar.CLASS_LABEL, project.securityClass().name().toLowerCase())
-                // Which repository the agent has open. A task works on exactly one, fixed when the
-                // task is created, so it belongs on the container rather than being worked out
-                // again later from something that may have changed underneath it.
-                .label(Sidecar.REPOSITORY_LABEL, repository.name())
-                // What this task's configuration was verified at, so the question survives the
-                // project moving on. "" for a project nothing verified.
-                .label(Sidecar.COMMIT_LABEL, commit);
+        final ContainerSpec specification =
+                new ContainerSpec(container, image)
+                        .command("sleep", "infinity")
+                        // The repository's, over the project's, key by key. A repository that says
+                        // nothing
+                        // gets the project's unchanged.
+                        .limits(project.limitsFor(repository))
+                        .resolver(org.fuin.porelo.shield.DnsPolicy.LISTEN_ADDRESS)
+                        .annotation(Sidecar.ANNOTATION, sidecarFile.toString())
+                        // The same two facts as in the sidecar, on the container itself. The
+                        // sidecar is
+                        // in the runtime directory and goes when the session does; these outlive a
+                        // reboot, which is exactly as long as the thing they describe.
+                        .label(Sidecar.PROJECT_LABEL, project.name())
+                        .label(Sidecar.CLASS_LABEL, project.securityClass().name().toLowerCase())
+                        // Which repository the agent has open. A task works on exactly one, fixed
+                        // when the
+                        // task is created, so it belongs on the container rather than being worked
+                        // out
+                        // again later from something that may have changed underneath it.
+                        .label(Sidecar.REPOSITORY_LABEL, repository.name())
+                        // What this task's configuration was verified at, so the question survives
+                        // the
+                        // project moving on. "" for a project nothing verified.
+                        .label(Sidecar.COMMIT_LABEL, commit);
         final org.fuin.porelo.core.project.Limits limits = project.limitsFor(repository);
-        // Fixed when the task starts, like the others: what the daemon refuses above and what a client is told.
-        Files.writeString(state.resolve(HAND_IN_LIMIT_FILE), String.valueOf(limits.handIn()), StandardCharsets.UTF_8);
-        out.println("limits    " + (limits.memory() == null ? "no memory cap"
-                : limits.memory() + " memory")
-                + (limits.cpus() == null ? "" : ", " + limits.cpus() + " cpus")
-                + ", " + limits.pids() + " processes"
-                + ", files handed in up to " + limits.handIn() / (1024 * 1024) + " MiB"
-                // Said, because a task running under different limits from the ones in the
-                // project's own block is a thing somebody reading the file would not expect.
-                + (repository.limits().isEmpty() ? ""
-                        : " (from repository " + repository.name() + ")"));
+        // Fixed when the task starts, like the others: what the daemon refuses above and what a
+        // client is told.
+        Files.writeString(
+                state.resolve(HAND_IN_LIMIT_FILE),
+                String.valueOf(limits.handIn()),
+                StandardCharsets.UTF_8);
+        out.println(
+                "limits    "
+                        + (limits.memory() == null ? "no memory cap" : limits.memory() + " memory")
+                        + (limits.cpus() == null ? "" : ", " + limits.cpus() + " cpus")
+                        + ", "
+                        + limits.pids()
+                        + " processes"
+                        + ", files handed in up to "
+                        + limits.handIn() / (1024 * 1024)
+                        + " MiB"
+                        // Said, because a task running under different limits from the ones in the
+                        // project's own block is a thing somebody reading the file would not
+                        // expect.
+                        + (repository.limits().isEmpty()
+                                ? ""
+                                : " (from repository " + repository.name() + ")"));
         environment.forEach(specification::environment);
         if (wiring.vaultSocket() != null) {
             // The credential proxy. Mounted rather than reached over the network on purpose: it
@@ -277,15 +346,19 @@ public class TaskRunner {
             // which hold in clear text exactly what the filter refused to let out.
             specification.volume(wiring.mailbox(), Mailbox.MOUNT);
         }
-        // The agent's screen, written by the task's root where the agent cannot write, so reading it costs a file.
+        // The agent's screen, written by the task's root where the agent cannot write, so reading
+        // it costs a file.
         specification.volume(ScreenFile.prepare(state), ScreenFile.MOUNT);
         final TaskGuide guide = new TaskGuide(paths, container);
         if (guide.exists()) {
-            // What Porelo gives the agent here, which it takes in when it starts: written by the launch before this.
+            // What Porelo gives the agent here, which it takes in when it starts: written by the
+            // launch before this.
             specification.volume(guide.directory(), TaskGuide.MOUNT);
         }
-        // The id podman gives back is what makes it Porelo's task, never its name: recorded before it first starts, so
-        // every act on it after this, and its hooks, go to this container and no other of the same name.
+        // The id podman gives back is what makes it Porelo's task, never its name: recorded before
+        // it first starts, so
+        // every act on it after this, and its hooks, go to this container and no other of the same
+        // name.
         Sidecar.recordId(state, podman.create(specification));
         out.println("container " + container);
 
@@ -297,8 +370,9 @@ public class TaskRunner {
     }
 
     /**
-     * Copies the account's own tmux settings into a task that just started, before its session does: the session reads
-     * them after Porelo's and before what Porelo depends on. Never fatal, since a task without them is a task as before.
+     * Copies the account's own tmux settings into a task that just started, before its session
+     * does: the session reads them after Porelo's and before what Porelo depends on. Never fatal,
+     * since a task without them is a task as before.
      *
      * @param container The task's container.
      * @param out Where the start is said.
@@ -309,17 +383,24 @@ public class TaskRunner {
             return;
         }
         try {
-            runOrFail(steps.get(0), paths.tasks().accountTmux(), "the account's tmux settings could not be written");
-            runOrFail(steps.get(1), null, "the account's tmux settings could not be made read-only");
-            out.println("tmux      " + paths.tasks().accountTmux() + " (the account's own settings)");
+            runOrFail(
+                    steps.get(0),
+                    paths.tasks().accountTmux(),
+                    "the account's tmux settings could not be written");
+            runOrFail(
+                    steps.get(1), null, "the account's tmux settings could not be made read-only");
+            out.println(
+                    "tmux      " + paths.tasks().accountTmux() + " (the account's own settings)");
         } catch (final IOException ex) {
-            out.println("tmux      " + paths.tasks().accountTmux() + " not given: " + ex.getMessage());
+            out.println(
+                    "tmux      " + paths.tasks().accountTmux() + " not given: " + ex.getMessage());
         }
     }
 
     /**
-     * Returns what copies the account's tmux settings into a task: written as root and left readable, so the agent
-     * reads them and cannot change them, and none when the account has no such file.
+     * Returns what copies the account's tmux settings into a task: written as root and left
+     * readable, so the agent reads them and cannot change them, and none when the account has no
+     * such file.
      *
      * @param container The task's container.
      * @return The commands, in order; empty without the file.
@@ -329,21 +410,28 @@ public class TaskRunner {
             return List.of();
         }
         final String target = org.fuin.porelo.runtime.Containerfile.ACCOUNT_TMUX_CONF;
-        return List.of(podman.asRootWithInputArguments(container, List.of("dd", "of=" + target, "status=none")),
+        return List.of(
+                podman.asRootWithInputArguments(
+                        container, List.of("dd", "of=" + target, "status=none")),
                 podman.asRootArguments(container, List.of("chmod", "0644", target)));
     }
 
     /**
-     * Starts the task's screen writer, which lives as long as the container: after every start, since a stop ends it.
-     * A task made before the screen's directory was mounted ends it at once, and is read as before.
+     * Starts the task's screen writer, which lives as long as the container: after every start,
+     * since a stop ends it. A task made before the screen's directory was mounted ends it at once,
+     * and is read as before.
      *
      * @param container The task's container.
      */
     public void startScreenWriter(final String container) {
         try {
-            runOrFail(podman.asUserDetachedArguments(container, "agent", ScreenFile.drawer()), null,
+            runOrFail(
+                    podman.asUserDetachedArguments(container, "agent", ScreenFile.drawer()),
+                    null,
                     "the screen drawer did not start");
-            runOrFail(podman.asRootDetachedArguments(container, ScreenFile.writer()), null,
+            runOrFail(
+                    podman.asRootDetachedArguments(container, ScreenFile.writer()),
+                    null,
                     "the screen writer did not start");
         } catch (IOException ex) {
             // Its screen is then asked of the task, as it always was.
@@ -354,7 +442,7 @@ public class TaskRunner {
      * Returns the path of the running porelo binary, for the hooks to start helpers with.
      *
      * @return Absolute path, or the bare name if this process cannot see its own path - which
-     *         happens under a JVM and is why the hooks check the file before using it.
+     *     happens under a JVM and is why the hooks check the file before using it.
      */
     private String poreloBinary() {
         return PoreloBinary.path();
@@ -373,11 +461,12 @@ public class TaskRunner {
         refused = java.util.List.copyOf(names);
     }
 
-    private org.fuin.porelo.shield.DnsPolicy dnsPolicyFor(Project project,
-            java.util.List<String> allowedDomains) {
+    private org.fuin.porelo.shield.DnsPolicy dnsPolicyFor(
+            Project project, java.util.List<String> allowedDomains) {
         final org.fuin.porelo.shield.DnsPolicy policy =
                 new org.fuin.porelo.shield.DnsPolicy(project.securityClass());
-        // Refused first in the reading, though the order does not decide it: dnsmasq takes the longest
+        // Refused first in the reading, though the order does not decide it: dnsmasq takes the
+        // longest
         // match, so a refused name wins over any allowance of it or of its parent.
         refused.forEach(policy::refuse);
         // Every allowed domain, not just the upstream. Resolving a name and being allowed to
@@ -395,8 +484,8 @@ public class TaskRunner {
      * Returns the resolvers the host uses, so allowed queries go somewhere real.
      *
      * @return Resolver addresses, falling back to a public one when /etc/resolv.conf says nothing
-     *         usable. The fallback matters: the container's own resolv.conf points at loopback, so
-     *         inheriting it would make the resolver forward to itself.
+     *     usable. The fallback matters: the container's own resolv.conf points at loopback, so
+     *     inheriting it would make the resolver forward to itself.
      */
     static java.util.List<String> hostResolvers() {
         final java.util.List<String> found = new java.util.ArrayList<>();
@@ -415,8 +504,11 @@ public class TaskRunner {
         return found.isEmpty() ? java.util.List.of("8.8.8.8") : found;
     }
 
-    private String rulesetFor(Project project, java.util.List<String> upstreamResolvers,
-            @Nullable String gateAddress, int gatePort) {
+    private String rulesetFor(
+            Project project,
+            java.util.List<String> upstreamResolvers,
+            @Nullable String gateAddress,
+            int gatePort) {
         final NftRuleset ruleset = new NftRuleset(project.securityClass());
         if (gateAddress != null) {
             // Before the security-class check on purpose: the gate is on this machine, and an
@@ -436,8 +528,8 @@ public class TaskRunner {
 
     /**
      * Runs an agent inside a running container.
-     * <p>
-     * The command is built by the agent itself, over varlink, from its own declared flags -
+     *
+     * <p>The command is built by the agent itself, over varlink, from its own declared flags -
      * Porelo does not know how to invoke it and should not learn. The output is written to a file
      * so the same agent can be asked to render it afterwards.
      *
@@ -449,13 +541,22 @@ public class TaskRunner {
      * @param timeout How long the agent may run.
      * @return Exit code of the agent.
      */
-    public int runAgent(org.fuin.porelo.agent.api.InstalledAgent agent, String container,
+    public int runAgent(
+            org.fuin.porelo.agent.api.InstalledAgent agent,
+            String container,
             org.fuin.porelo.agent.api.RunRequest request,
             java.util.Map<String, String> environment,
-            Path logFile, java.time.Duration timeout) {
-        // Told what Porelo gives it as an attended start is: the agent builds its command, and Porelo adds the guide.
-        return podman.execute(container, environment, new TaskGuide(paths, container)
-                .instructing(agent.definition(), agent.buildCommand(request)), logFile, timeout);
+            Path logFile,
+            java.time.Duration timeout) {
+        // Told what Porelo gives it as an attended start is: the agent builds its command, and
+        // Porelo adds the guide.
+        return podman.execute(
+                container,
+                environment,
+                new TaskGuide(paths, container)
+                        .instructing(agent.definition(), agent.buildCommand(request)),
+                logFile,
+                timeout);
     }
 
     /**
@@ -468,20 +569,30 @@ public class TaskRunner {
     public void place(String container, org.fuin.porelo.agent.api.ContainerFile file)
             throws IOException {
 
-        final Path temporary = Files.createTempFile("porelo-place", "",
-                java.nio.file.attribute.PosixFilePermissions.asFileAttribute(
-                        java.nio.file.attribute.PosixFilePermissions.fromString("rw-------")));
+        final Path temporary =
+                Files.createTempFile(
+                        "porelo-place",
+                        "",
+                        java.nio.file.attribute.PosixFilePermissions.asFileAttribute(
+                                java.nio.file.attribute.PosixFilePermissions.fromString(
+                                        "rw-------")));
         try {
             Files.writeString(temporary, file.content(), StandardCharsets.UTF_8);
             // Three calls rather than one shell script. The script concatenated the path into
             // quoted text three times, so a path containing a quote became commands; these pass
             // it as an argument, where it can only ever be a path.
-            runOrFail(podman.makeParentArguments(container, file.path()), null,
+            runOrFail(
+                    podman.makeParentArguments(container, file.path()),
+                    null,
                     "Could not create the directory for " + file.path() + " in " + container);
-            runOrFail(podman.writeFileArguments(container, file.path()), temporary,
+            runOrFail(
+                    podman.writeFileArguments(container, file.path()),
+                    temporary,
                     "Could not write " + file.path() + " in " + container);
-            runOrFail(podman.setModeArguments(container, file.path(),
-                            file.ownerOnly() ? "600" : "644"), null,
+            runOrFail(
+                    podman.setModeArguments(
+                            container, file.path(), file.ownerOnly() ? "600" : "644"),
+                    null,
                     "Could not set the permissions of " + file.path() + " in " + container);
         } finally {
             Files.deleteIfExists(temporary);
@@ -524,8 +635,12 @@ public class TaskRunner {
      * @param timeout How long it may run.
      * @return Exit code.
      */
-    public int execute(String container, java.util.Map<String, String> environment,
-            java.util.List<String> command, Path log, java.time.Duration timeout) {
+    public int execute(
+            String container,
+            java.util.Map<String, String> environment,
+            java.util.List<String> command,
+            Path log,
+            java.time.Duration timeout) {
         return podman.execute(container, environment, command, log, timeout);
     }
 
@@ -547,8 +662,8 @@ public class TaskRunner {
      * @return Argument list.
      */
     public List<String> attachCommand(String container, String shell) {
-        return podman.attachArguments(container, java.util.List.of(shell),
-                podman.terminalFor(container));
+        return podman.attachArguments(
+                container, java.util.List.of(shell), podman.terminalFor(container));
     }
 
     /**
@@ -582,13 +697,18 @@ public class TaskRunner {
      * @param label Text for the prompt.
      * @return Command and arguments.
      */
-    public List<String> attachCommand(String container, String shell,
-            @org.jspecify.annotations.Nullable String command, @org.jspecify.annotations.Nullable String label) {
+    public List<String> attachCommand(
+            String container,
+            String shell,
+            @org.jspecify.annotations.Nullable String command,
+            @org.jspecify.annotations.Nullable String label) {
         // Inside the task's one session rather than beside it. A plain exec ran the agent as a
         // child of this terminal: closing the window took the agent with it, and attaching from
         // anywhere else created a second, empty session and showed a bare shell in the workspace.
-        return podman.sessionArguments(container,
-                podman.attachScript(shell, command, label), podman.terminalFor(container));
+        return podman.sessionArguments(
+                container,
+                podman.attachScript(shell, command, label),
+                podman.terminalFor(container));
     }
 
     /**
@@ -602,10 +722,10 @@ public class TaskRunner {
 
     /**
      * Stops the helpers of a task whose container is not running.
-     * <p>
-     * A container that ran is reaped by the poststop hook, which stops everything the state
-     * directory records a pid for. A container that never <em>started</em> - a refused ruleset,
-     * a failed image build - fires no hook at all, and the vault proxy, gate and watcher started
+     *
+     * <p>A container that ran is reaped by the poststop hook, which stops everything the state
+     * directory records a pid for. A container that never <em>started</em> - a refused ruleset, a
+     * failed image build - fires no hook at all, and the vault proxy, gate and watcher started
      * before it then outlive the run with nobody to stop them. Measured: they hold their sockets,
      * and the next run fails for a reason that has nothing to do with what changed.
      *
@@ -622,10 +742,9 @@ public class TaskRunner {
 
     /**
      * Returns the host part of a git remote, for the firewall and the resolver.
-     * <p>
-     * Handles the two shapes a git remote actually takes: an SSH one like
-     * {@code git@github.com:you/repo.git}, which is not a URL, and an ordinary
-     * {@code https://} URL.
+     *
+     * <p>Handles the two shapes a git remote actually takes: an SSH one like {@code
+     * git@github.com:you/repo.git}, which is not a URL, and an ordinary {@code https://} URL.
      *
      * @param upstream Remote as written in the project file.
      * @return Host, or {@code null} if none can be read.
@@ -638,8 +757,10 @@ public class TaskRunner {
         if (value.contains("://")) {
             final String rest = value.substring(value.indexOf("://") + 3);
             final String authority = rest.split("/", 2)[0];
-            final String hostPort = authority.contains("@")
-                    ? authority.substring(authority.indexOf('@') + 1) : authority;
+            final String hostPort =
+                    authority.contains("@")
+                            ? authority.substring(authority.indexOf('@') + 1)
+                            : authority;
             final String host = hostPort.split(":", 2)[0];
             return host.isBlank() ? null : host;
         }

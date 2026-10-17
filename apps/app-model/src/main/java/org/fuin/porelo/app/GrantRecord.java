@@ -13,20 +13,24 @@ import java.util.Map;
 import org.fuin.porelo.vault.VaultEntry;
 
 /**
- * Records whom a task acts as: for each credential it holds that a person granted, who granted it and when.
- * <p>
- * <strong>An audit fact, not a credential fact.</strong> With a grant a task acts as a named person,
- * unattended, and the record has to say so and outlive the task. Two places: the task's own record, which an
- * interface reads while the task exists, and one line per grant in the account's {@code grants.log}, which
- * is never removed with a task. Decided on 2026-09-30, until the machine log takes it over.
+ * Records whom a task acts as: for each credential it holds that a person granted, who granted it
+ * and when.
+ *
+ * <p><strong>An audit fact, not a credential fact.</strong> With a grant a task acts as a named
+ * person, unattended, and the record has to say so and outlive the task. Two places: the task's own
+ * record, which an interface reads while the task exists, and one line per grant in the account's
+ * {@code grants.log}, which is never removed with a task. Decided on 2026-09-30, until the machine
+ * log takes it over.
  */
 final class GrantRecord {
 
-    /** The account's log of tasks acting as a person, one JSON object per line, under the state directory. */
+    /**
+     * The account's log of tasks acting as a person, one JSON object per line, under the state
+     * directory.
+     */
     static final String LOG = "grants.log";
 
-    private GrantRecord() {
-    }
+    private GrantRecord() {}
 
     /**
      * Records the grants a task was started with.
@@ -37,7 +41,11 @@ final class GrantRecord {
      * @param credentials The credentials it holds beyond its agent's own.
      * @param err Where a failure to record is said; it never stops the task.
      */
-    static void record(PoreloContext context, String container, String project, Collection<String> credentials,
+    static void record(
+            PoreloContext context,
+            String container,
+            String project,
+            Collection<String> credentials,
             PrintWriter err) {
         final Map<String, VaultEntry> grants = context.readableGrants().orElseGet(Map::of);
         final Map<String, Object> given = new LinkedHashMap<>();
@@ -64,11 +72,20 @@ final class GrantRecord {
             return;
         }
         try {
-            Files.writeString(context.paths().tasks().containerState(container).resolve(TaskInventory.GRANTS_FILE),
-                    org.fuin.porelo.wire.Json.write(given), StandardCharsets.UTF_8);
+            Files.writeString(
+                    context.paths()
+                            .tasks()
+                            .containerState(container)
+                            .resolve(TaskInventory.GRANTS_FILE),
+                    org.fuin.porelo.wire.Json.write(given),
+                    StandardCharsets.UTF_8);
             final Path log = context.paths().xdg().state().resolve(LOG);
             Files.createDirectories(log.getParent());
-            Files.writeString(log, lines.toString(), StandardCharsets.UTF_8, StandardOpenOption.CREATE,
+            Files.writeString(
+                    log,
+                    lines.toString(),
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE,
                     StandardOpenOption.APPEND);
         } catch (IOException ex) {
             err.println("porelo: could not record whom this task acts as: " + ex.getMessage());

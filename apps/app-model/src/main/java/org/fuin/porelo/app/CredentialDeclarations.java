@@ -15,11 +15,11 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Writing down what this machine connects out with, and saying whether it would work.
- * <p>
- * <strong>An interface may write these.</strong> Nothing here is secret - a kind, a destination, a
- * username, and where the value lives - so the record can be made over the socket while the value
- * is still typed at the machine. That split is what makes a wizard possible without ever carrying
- * a secret over the wire.
+ *
+ * <p><strong>An interface may write these.</strong> Nothing here is secret - a kind, a destination,
+ * a username, and where the value lives - so the record can be made over the socket while the value
+ * is still typed at the machine. That split is what makes a wizard possible without ever carrying a
+ * secret over the wire.
  */
 public final class CredentialDeclarations {
 
@@ -54,9 +54,9 @@ public final class CredentialDeclarations {
 
         /**
          * There is no vault on this machine at all. Told apart from a shut one and from a value
-         * that was never stored, because it is a different thing to do first: somebody has to
-         * make the vault before anything can be put in it, and a wizard that sent them to
-         * {@code vault put} would fail at the last step with a message about a file.
+         * that was never stored, because it is a different thing to do first: somebody has to make
+         * the vault before anything can be put in it, and a wizard that sent them to {@code vault
+         * put} would fail at the last step with a message about a file.
          */
         NO_VAULT,
 
@@ -79,8 +79,8 @@ public final class CredentialDeclarations {
      * @param storeCommand What to run on this machine to fix it, or "".
      * @param detail One sentence for a person.
      */
-    public record Check(Outcome outcome, @Nullable Credential credential, String storeCommand,
-            String detail) {
+    public record Check(
+            Outcome outcome, @Nullable Credential credential, String storeCommand, String detail) {
 
         /**
          * Returns what to run on this machine, as arguments rather than a line to split.
@@ -103,11 +103,11 @@ public final class CredentialDeclarations {
 
     /**
      * Splits a store command into arguments, dropping the shell redirection a person reads.
-     * <p>
-     * A key is a file and cannot be typed at a prompt, so what a person is shown ends in
-     * {@code < <the private key file>}. A client runs the arguments and arranges the input itself,
-     * which is why the two are answered separately rather than a client splitting a line it did
-     * not write.
+     *
+     * <p>A key is a file and cannot be typed at a prompt, so what a person is shown ends in {@code
+     * < <the private key file>}. A client runs the arguments and arranges the input itself, which
+     * is why the two are answered separately rather than a client splitting a line it did not
+     * write.
      *
      * @param command What a person would read.
      * @return The arguments.
@@ -128,8 +128,8 @@ public final class CredentialDeclarations {
 
     /**
      * Says which credential a destination would use and whether it would work.
-     * <p>
-     * Answers without touching the network, which is what makes it the call a dialog can make
+     *
+     * <p>Answers without touching the network, which is what makes it the call a dialog can make
      * before offering to do the thing.
      *
      * @param url Where something would connect.
@@ -140,7 +140,10 @@ public final class CredentialDeclarations {
         final Credential declared = context.credentialRegistry().forUrl(purpose, url);
         if (declared == null) {
             if (GitCredentialNames.kindOf(url) == GitCredentialNames.Kind.NONE) {
-                return new Check(Outcome.NOT_NEEDED, null, "",
+                return new Check(
+                        Outcome.NOT_NEEDED,
+                        null,
+                        "",
                         "nothing authenticates to " + url + " - it is a path on this machine");
             }
             // Nothing declared, but the names a git URL implies may still hold something: a
@@ -148,65 +151,131 @@ public final class CredentialDeclarations {
             final Map<String, org.fuin.porelo.vault.VaultEntry> held =
                     context.readableCredentials().orElse(null);
             if (held == null) {
-                return new Check(Outcome.VAULT_LOCKED, null, "",
-                        "this account's vault is shut, so what it holds for " + url
+                return new Check(
+                        Outcome.VAULT_LOCKED,
+                        null,
+                        "",
+                        "this account's vault is shut, so what it holds for "
+                                + url
                                 + " cannot be read");
             }
             for (final String candidate : GitCredentialNames.candidatesFor(url)) {
                 if (held.containsKey(candidate)) {
-                    return new Check(Outcome.READY, new Credential(candidate,
-                            GitCredentialNames.kindOf(url) == GitCredentialNames.Kind.KEY
-                                    ? Credential.Kind.SSH_KEY : Credential.Kind.TOKEN,
-                            CredentialRegistry.normalise(url), null, purpose,
-                            Credential.Source.VAULT), "",
+                    return new Check(
+                            Outcome.READY,
+                            new Credential(
+                                    candidate,
+                                    GitCredentialNames.kindOf(url) == GitCredentialNames.Kind.KEY
+                                            ? Credential.Kind.SSH_KEY
+                                            : Credential.Kind.TOKEN,
+                                    CredentialRegistry.normalise(url),
+                                    null,
+                                    purpose,
+                                    Credential.Source.VAULT),
+                            "",
                             "'" + candidate + "' in the vault reaches " + url);
                 }
             }
-            return new Check(Outcome.NO_CREDENTIAL, null,
+            return new Check(
+                    Outcome.NO_CREDENTIAL,
+                    null,
                     GitCredentialNames.storeCommandFor(url),
-                    "nothing here reaches " + url + " - declare a credential for it, or store one"
+                    "nothing here reaches "
+                            + url
+                            + " - declare a credential for it, or store one"
                             + " under a name it implies");
         }
         if (declared.expiredAt(java.time.Instant.now())) {
-            return new Check(Outcome.EXPIRED, declared, storeCommandFor(declared),
-                    "'" + declared.id() + "' expired at " + declared.expires()
+            return new Check(
+                    Outcome.EXPIRED,
+                    declared,
+                    storeCommandFor(declared),
+                    "'"
+                            + declared.id()
+                            + "' expired at "
+                            + declared.expires()
                             + " and nothing here can renew it without you");
         }
         return switch (declared.source()) {
-            case AGENT -> new Check(Outcome.READY, declared, "",
-                    "your own ssh-agent answers for " + url);
-            case FILE -> Files.isReadable(Path.of(declared.id()))
-                    ? new Check(Outcome.READY, declared, "",
-                            declared.id() + " is what reaches " + url
-                                    + " - this machine does not protect it")
-                    : new Check(Outcome.MISSING_VALUE, declared, "",
-                            declared.id() + " is declared for " + url + " and cannot be read");
-            case ENVIRONMENT -> System.getenv(declared.id()) != null
-                    ? new Check(Outcome.READY, declared, "",
-                            "$" + declared.id() + " is what reaches " + url
-                                    + " - this machine does not protect it")
-                    : new Check(Outcome.MISSING_VALUE, declared, "",
-                            "$" + declared.id() + " is declared for " + url + " and is not set");
+            case AGENT ->
+                    new Check(Outcome.READY, declared, "", "your own ssh-agent answers for " + url);
+            case FILE ->
+                    Files.isReadable(Path.of(declared.id()))
+                            ? new Check(
+                                    Outcome.READY,
+                                    declared,
+                                    "",
+                                    declared.id()
+                                            + " is what reaches "
+                                            + url
+                                            + " - this machine does not protect it")
+                            : new Check(
+                                    Outcome.MISSING_VALUE,
+                                    declared,
+                                    "",
+                                    declared.id()
+                                            + " is declared for "
+                                            + url
+                                            + " and cannot be read");
+            case ENVIRONMENT ->
+                    System.getenv(declared.id()) != null
+                            ? new Check(
+                                    Outcome.READY,
+                                    declared,
+                                    "",
+                                    "$"
+                                            + declared.id()
+                                            + " is what reaches "
+                                            + url
+                                            + " - this machine does not protect it")
+                            : new Check(
+                                    Outcome.MISSING_VALUE,
+                                    declared,
+                                    "",
+                                    "$"
+                                            + declared.id()
+                                            + " is declared for "
+                                            + url
+                                            + " and is not set");
             case VAULT -> {
                 final Map<String, org.fuin.porelo.vault.VaultEntry> held =
                         context.readableCredentials().orElse(null);
                 if (held == null) {
-                    yield new Check(Outcome.VAULT_LOCKED, declared, "",
-                            "'" + declared.id() + "' is declared for " + url
+                    yield new Check(
+                            Outcome.VAULT_LOCKED,
+                            declared,
+                            "",
+                            "'"
+                                    + declared.id()
+                                    + "' is declared for "
+                                    + url
                                     + " and this account's vault is shut");
                 }
                 if (!context.vault().exists()) {
                     // No vault at all. A readable, empty answer covers this and "the vault is
                     // open and empty", and the two send a person to different places.
-                    yield new Check(Outcome.NO_VAULT, declared, "porelo vault init",
+                    yield new Check(
+                            Outcome.NO_VAULT,
+                            declared,
+                            "porelo vault init",
                             "this account has no vault yet, so there is nowhere to put '"
-                                    + declared.id() + "'");
+                                    + declared.id()
+                                    + "'");
                 }
                 yield held.containsKey(declared.id())
-                        ? new Check(Outcome.READY, declared, "",
+                        ? new Check(
+                                Outcome.READY,
+                                declared,
+                                "",
                                 "'" + declared.id() + "' in the vault reaches " + url)
-                        : new Check(Outcome.MISSING_VALUE, declared, storeCommandFor(declared),
-                                "'" + declared.id() + "' is declared for " + url
+                        : new Check(
+                                Outcome.MISSING_VALUE,
+                                declared,
+                                storeCommandFor(declared),
+                                "'"
+                                        + declared.id()
+                                        + "' is declared for "
+                                        + url
                                         + " and the vault has no such entry");
             }
         };
@@ -227,14 +296,14 @@ public final class CredentialDeclarations {
      *
      * @param credential The record.
      * @param fromFile A file ON THAT MACHINE the value is in, or {@code null}. When it is given,
-     *        nothing has to be piped or typed: the machine reads its own disk. That is what makes
-     *        "use the key that is already here" one command a client runs unchanged, rather than a
-     *        vault name a client had to compose - and the name only exists once somebody has said
-     *        what the key is for, which is here.
+     *     nothing has to be piped or typed: the machine reads its own disk. That is what makes "use
+     *     the key that is already here" one command a client runs unchanged, rather than a vault
+     *     name a client had to compose - and the name only exists once somebody has said what the
+     *     key is for, which is here.
      * @return The command, or "" when the value is not this machine's to store.
      */
-    public static String storeCommandFor(final Credential credential,
-            final @Nullable String fromFile) {
+    public static String storeCommandFor(
+            final Credential credential, final @Nullable String fromFile) {
         if (credential.source() != Credential.Source.VAULT) {
             // It is already somewhere. Telling somebody to store it would be telling them to make
             // the copy they declared this record to avoid.
@@ -243,17 +312,18 @@ public final class CredentialDeclarations {
         if (fromFile != null && !fromFile.isBlank()) {
             return "porelo vault put " + credential.id() + " --from-file " + fromFile;
         }
-        return "porelo vault put " + credential.id()
+        return "porelo vault put "
+                + credential.id()
                 + (credential.kind() == Credential.Kind.SSH_KEY ? " < <the private key file>" : "")
                 + (credential.kind() == Credential.Kind.TOKEN ? " --type token" : "");
     }
 
     /**
      * Says what declaring this would do, and writes nothing.
-     * <p>
-     * Every refusal a real declaration gives - a kind that cannot open that destination, a public
-     * key, a value that is not there, a shut vault - asked before the record exists. The last step
-     * of a wizard, where somebody is about to rely on it.
+     *
+     * <p>Every refusal a real declaration gives - a kind that cannot open that destination, a
+     * public key, a value that is not there, a shut vault - asked before the record exists. The
+     * last step of a wizard, where somebody is about to rely on it.
      *
      * @param given What would be declared.
      * @return What it would be, and what is in the way.
@@ -270,98 +340,124 @@ public final class CredentialDeclarations {
             // Asked here as well as in check(), because a destination nothing yet covers answers
             // NO_CREDENTIAL there - so the vault question never came up, and a machine with no
             // vault at all was told to run 'vault put'.
-            return new Check(Outcome.NO_VAULT, credential, "porelo vault init",
+            return new Check(
+                    Outcome.NO_VAULT,
+                    credential,
+                    "porelo vault init",
                     "this account has no vault yet, so there is nowhere to put '"
-                            + credential.id() + "'");
+                            + credential.id()
+                            + "'");
         }
         // The same question the check asks of a destination, asked of the record as it would be:
         // is the value actually there. One implementation, so a dry run cannot answer differently
         // from the thing it stands for.
         final Check about = check(credential.match(), credential.purpose());
         if (about.outcome() == Outcome.READY || about.credential() == null) {
-            return new Check(present(credential) ? Outcome.READY : Outcome.MISSING_VALUE,
-                    credential, storeCommandFor(credential),
-                    present(credential) ? "it would be used for " + credential.match()
+            return new Check(
+                    present(credential) ? Outcome.READY : Outcome.MISSING_VALUE,
+                    credential,
+                    storeCommandFor(credential),
+                    present(credential)
+                            ? "it would be used for " + credential.match()
                             : "nothing holds its value yet");
         }
-        return new Check(present(credential) ? Outcome.READY : about.outcome(), credential,
-                storeCommandFor(credential), about.detail());
+        return new Check(
+                present(credential) ? Outcome.READY : about.outcome(),
+                credential,
+                storeCommandFor(credential),
+                about.detail());
     }
 
     /**
      * Returns this credential with a name, when whoever declared it gave none.
-     * <p>
-     * <strong>One place, because it was two.</strong> A nameless declaration was fixed over the
+     *
+     * <p><strong>One place, because it was two.</strong> A nameless declaration was fixed over the
      * socket and not at the terminal, so {@code credentials declare --vault ""} still wrote an
      * empty name and still offered {@code porelo vault put} with nothing after it - the same
-     * defect, on the half nobody had looked at, on the very commit that fixed the other half.
-     * Found by reading a published snapshot rather than by a test, which is the lesson.
+     * defect, on the half nobody had looked at, on the very commit that fixed the other half. Found
+     * by reading a published snapshot rather than by a test, which is the lesson.
      *
      * @param credential What was declared.
      * @return The same credential, named after the destination when it had no name.
      * @throws org.fuin.porelo.core.credential.CredentialException When no name can be built and
-     *         none was given.
+     *     none was given.
      */
     /**
      * Refuses a credential that cannot possibly open the destination it names.
-     * <p>
-     * <strong>The machine judges this, not a client.</strong> git over https never asks an ssh
-     * agent anything, and an ssh destination never asks for a password - so an ssh key declared
-     * for {@code https://} is a record that can only ever fail, at the moment somebody is trying
-     * to get work done. It was accepted, and an interface had no business working out which
-     * combinations are possible. Asked for by an interface that had two of them on a
-     * machine.
+     *
+     * <p><strong>The machine judges this, not a client.</strong> git over https never asks an ssh
+     * agent anything, and an ssh destination never asks for a password - so an ssh key declared for
+     * {@code https://} is a record that can only ever fail, at the moment somebody is trying to get
+     * work done. It was accepted, and an interface had no business working out which combinations
+     * are possible. Asked for by an interface that had two of them on a machine.
      *
      * @param credential What was declared.
      * @throws org.fuin.porelo.core.credential.CredentialException When the kind cannot open that
-     *         destination, saying which kind can.
+     *     destination, saying which kind can.
      */
     public static void checkPossible(final Credential credential) {
         final GitCredentialNames.Kind wants = GitCredentialNames.kindOf(credential.match());
         if (wants == GitCredentialNames.Kind.NONE) {
             // A path on this machine. Nothing authenticates to it, so a credential for it is a
             // record that will never be read.
-            throw new org.fuin.porelo.core.credential.CredentialException("nothing authenticates to"
-                    + " '" + credential.match() + "' - it is a path on this machine, not an"
-                    + " address something connects to");
+            throw new org.fuin.porelo.core.credential.CredentialException(
+                    "nothing authenticates to"
+                            + " '"
+                            + credential.match()
+                            + "' - it is a path on this machine, not an"
+                            + " address something connects to");
         }
         if (credential.source() == Credential.Source.FILE && credential.id().endsWith(".pub")) {
             // The public half is not a credential, and a machine can tell. Declared cleanly with
             // 'present: true', it would have failed at the first fetch instead - which is the
             // mistake anybody makes once and nobody enjoys finding.
-            throw new org.fuin.porelo.core.credential.CredentialException(credential.id()
-                    + " is a public key. A machine signs with the private half - the same path"
-                    + " without '.pub'.");
+            throw new org.fuin.porelo.core.credential.CredentialException(
+                    credential.id()
+                            + " is a public key. A machine signs with the private half - the same path"
+                            + " without '.pub'.");
         }
         final boolean key = credential.kind() == Credential.Kind.SSH_KEY;
         if (wants == GitCredentialNames.Kind.KEY && !key) {
-            throw new org.fuin.porelo.core.credential.CredentialException("'" + credential.match()
-                    + "' is reached over ssh, which asks for a key and never for a token or a"
-                    + " password. Declare it as ssh-key, or name an https address.");
+            throw new org.fuin.porelo.core.credential.CredentialException(
+                    "'"
+                            + credential.match()
+                            + "' is reached over ssh, which asks for a key and never for a token or a"
+                            + " password. Declare it as ssh-key, or name an https address.");
         }
         if (wants == GitCredentialNames.Kind.TOKEN && key) {
-            throw new org.fuin.porelo.core.credential.CredentialException("'" + credential.match()
-                    + "' is reached over https, which asks for a token or a username and password"
-                    + " and never for an ssh key. Declare it as token, basic or oauth, or name an"
-                    + " ssh address.");
+            throw new org.fuin.porelo.core.credential.CredentialException(
+                    "'"
+                            + credential.match()
+                            + "' is reached over https, which asks for a token or a username and password"
+                            + " and never for an ssh key. Declare it as token, basic or oauth, or name an"
+                            + " ssh address.");
         }
     }
 
     public static Credential named(final Credential credential) {
-        if (!credential.id().isBlank()
-                || credential.source() == Credential.Source.AGENT) {
+        if (!credential.id().isBlank() || credential.source() == Credential.Source.AGENT) {
             return credential;
         }
-        final String implied = GitCredentialNames.impliedName(
-                credential.kind() == Credential.Kind.SSH_KEY
-                        ? GitCredentialNames.Kind.KEY : GitCredentialNames.Kind.TOKEN,
-                credential.match());
+        final String implied =
+                GitCredentialNames.impliedName(
+                        credential.kind() == Credential.Kind.SSH_KEY
+                                ? GitCredentialNames.Kind.KEY
+                                : GitCredentialNames.Kind.TOKEN,
+                        credential.match());
         if (implied == null) {
-            throw new org.fuin.porelo.core.credential.CredentialException("'" + credential.match()
-                    + "' names no host to build a name from, so give the credential a name");
+            throw new org.fuin.porelo.core.credential.CredentialException(
+                    "'"
+                            + credential.match()
+                            + "' names no host to build a name from, so give the credential a name");
         }
-        return new Credential(implied, credential.kind(), credential.match(), credential.user(),
-                credential.purpose(), credential.source(), credential.expires());
+        return new Credential(
+                implied,
+                credential.kind(),
+                credential.match(),
+                credential.user(),
+                credential.purpose(),
+                credential.source(),
+                credential.expires());
     }
 
     /**
@@ -392,8 +488,8 @@ public final class CredentialDeclarations {
     private @Nullable String leftInVault;
 
     /**
-     * Returns the vault entry the last {@link #forget} left behind: a secret is removed by a person, not by forgetting
-     * the declaration that used it.
+     * Returns the vault entry the last {@link #forget} left behind: a secret is removed by a
+     * person, not by forgetting the declaration that used it.
      *
      * @return Its id, or {@code null} when it left none.
      */
@@ -428,8 +524,13 @@ public final class CredentialDeclarations {
         // removed by a person at the machine. Naming what is left lets an interface offer that
         // second step instead of implying the secret is gone.
         return switch (gone.source()) {
-            case VAULT -> "'" + gone.id() + "' is still in the vault"
-                    + " - 'porelo vault remove " + gone.id() + "' removes it";
+            case VAULT ->
+                    "'"
+                            + gone.id()
+                            + "' is still in the vault"
+                            + " - 'porelo vault remove "
+                            + gone.id()
+                            + "' removes it";
             case FILE -> gone.id() + " is untouched";
             case ENVIRONMENT -> "$" + gone.id() + " is untouched";
             case AGENT -> "";
@@ -439,7 +540,9 @@ public final class CredentialDeclarations {
     private void write(final List<Credential> credentials) throws IOException {
         final Path file = context.paths().vault().credentialRegistry();
         Files.createDirectories(file.getParent());
-        final StringBuilder text = new StringBuilder("""
+        final StringBuilder text =
+                new StringBuilder(
+                        """
                 # What this machine connects out with. No secret is in here: this says what kind
                 # of credential each destination wants, and where its value lives. Written by
                 # 'porelo' and by an interface; safe to read with the vault shut, which is the
@@ -448,10 +551,12 @@ public final class CredentialDeclarations {
                 """);
         for (final Credential credential : credentials) {
             text.append("  - match: \"").append(credential.match()).append("\"\n");
-            text.append("    kind: ").append(credential.kind().name()
-                    .toLowerCase(Locale.ROOT).replace('_', '-')).append('\n');
-            text.append("    source: ").append(credential.source().name()
-                    .toLowerCase(Locale.ROOT)).append('\n');
+            text.append("    kind: ")
+                    .append(credential.kind().name().toLowerCase(Locale.ROOT).replace('_', '-'))
+                    .append('\n');
+            text.append("    source: ")
+                    .append(credential.source().name().toLowerCase(Locale.ROOT))
+                    .append('\n');
             switch (credential.source()) {
                 case VAULT -> text.append("    vault: \"").append(credential.id()).append("\"\n");
                 case FILE -> text.append("    file: \"").append(credential.id()).append("\"\n");
@@ -497,8 +602,8 @@ public final class CredentialDeclarations {
 
     /**
      * Tells whether the value of a record is actually there right now.
-     * <p>
-     * Asked of a record that may not be in the file yet, which is what a dry run is about.
+     *
+     * <p>Asked of a record that may not be in the file yet, which is what a dry run is about.
      *
      * @param credential The record.
      * @return {@code true} when something holds its value.
@@ -512,8 +617,10 @@ public final class CredentialDeclarations {
             case AGENT -> true;
             case FILE -> Files.isReadable(Path.of(credential.id()));
             case ENVIRONMENT -> System.getenv(credential.id()) != null;
-            case VAULT -> context.readableCredentials()
-                    .map(held -> held.containsKey(credential.id())).orElse(false);
+            case VAULT ->
+                    context.readableCredentials()
+                            .map(held -> held.containsKey(credential.id()))
+                            .orElse(false);
         };
     }
 }

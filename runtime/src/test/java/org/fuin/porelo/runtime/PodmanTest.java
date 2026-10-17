@@ -8,15 +8,13 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import org.fuin.porelo.core.process.CommandException;
-import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.SecurityClass;
+import org.fuin.porelo.testing.FakeCommandRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Tests for {@link Podman}.
- */
+/** Tests for {@link Podman}. */
 class PodmanTest {
 
     private static final Project PROJECT =
@@ -28,7 +26,9 @@ class PodmanTest {
 
     @Test
     void namesTheProjectImagesBuiltHereWithoutPodmansLocalPrefix() {
-        runner.answering("images", "localhost/porelo/uc\nlocalhost/porelo/porelo-login\ndocker.io/library/ubuntu\n<none>\n");
+        runner.answering(
+                "images",
+                "localhost/porelo/uc\nlocalhost/porelo/porelo-login\ndocker.io/library/ubuntu\n<none>\n");
 
         assertThat(podman.poreloImages()).containsExactly("porelo/uc", "porelo/porelo-login");
     }
@@ -38,8 +38,10 @@ class PodmanTest {
 
         // Both answers seen in the wild on the same project: pasta on podman 5, and the host's
         // own LAN address on podman 4. Assuming either one breaks the git gate on the other.
-        runner.answering("run", "127.0.0.1\tlocalhost\n"
-                + "169.254.1.2\thost.containers.internal host.docker.internal\n");
+        runner.answering(
+                "run",
+                "127.0.0.1\tlocalhost\n"
+                        + "169.254.1.2\thost.containers.internal host.docker.internal\n");
         assertThat(podman.hostAddressFromContainer("ubuntu:24.04")).contains("169.254.1.2");
 
         runner.answering("run", "10.1.0.194\thost.containers.internal host.docker.internal\n");
@@ -98,8 +100,11 @@ class PodmanTest {
         // git gate would bind every interface. Ubuntu 24.04 LTS ships 4.9.3 in universe and a
         // stable release never changes major version, so this is refused rather than degraded.
         runner.answering("version", "4.9.3");
-        assertThat(podman.unsupportedVersion()).get().asString()
-                .contains("4.9.3").contains("podman 5 or newer");
+        assertThat(podman.unsupportedVersion())
+                .get()
+                .asString()
+                .contains("4.9.3")
+                .contains("podman 5 or newer");
 
         final FakeCommandRunner five = new FakeCommandRunner();
         five.answering("version", "5.8.1");
@@ -118,7 +123,9 @@ class PodmanTest {
         // standard error. Reporting "does not answer" for every failure alike dropped exactly that.
         final FakeCommandRunner failing = new FakeCommandRunner();
         failing.failing("version", 125, "Error: cannot set up namespace\nsecond line\n");
-        assertThat(new Podman(failing).unsupportedVersion()).get().asString()
+        assertThat(new Podman(failing).unsupportedVersion())
+                .get()
+                .asString()
                 .contains("exit 125")
                 .contains("cannot set up namespace")
                 .doesNotContain("second line")
@@ -127,8 +134,11 @@ class PodmanTest {
         // Nothing on standard error is said too, rather than left as a dangling colon.
         final FakeCommandRunner mute = new FakeCommandRunner();
         mute.failing("version", 1, "");
-        assertThat(new Podman(mute).unsupportedVersion()).get().asString()
-                .contains("exit 1").contains("nothing on standard error");
+        assertThat(new Podman(mute).unsupportedVersion())
+                .get()
+                .asString()
+                .contains("exit 1")
+                .contains("nothing on standard error");
     }
 
     @Test
@@ -148,9 +158,7 @@ class PodmanTest {
 
         assertThat(image).isEqualTo("porelo/uc");
         assertThat(context.resolve("Containerfile")).exists();
-        assertThat(runner.only("build").describe())
-                .contains("--tag porelo/uc")
-                .contains("--file");
+        assertThat(runner.only("build").describe()).contains("--tag porelo/uc").contains("--file");
     }
 
     @Test
@@ -158,7 +166,8 @@ class PodmanTest {
 
         podman.buildImage(PROJECT, context);
 
-        assertThat(Files.readString(context.resolve("Containerfile"))).contains("FROM ubuntu:24.04");
+        assertThat(Files.readString(context.resolve("Containerfile")))
+                .contains("FROM ubuntu:24.04");
     }
 
     @Test
@@ -174,7 +183,8 @@ class PodmanTest {
     @Test
     void createsAContainerWithTheSecurityFlagsThatAreNotNegotiable() {
 
-        podman.create(new ContainerSpec("porelo-uc-shell-1", "porelo/uc").command("sleep", "infinity"));
+        podman.create(
+                new ContainerSpec("porelo-uc-shell-1", "porelo/uc").command("sleep", "infinity"));
 
         final String line = runner.only("create").describe();
         assertThat(line)
@@ -189,8 +199,9 @@ class PodmanTest {
     @Test
     void passesAnnotationsThroughSoTheHooksCanSeeThem() {
 
-        podman.create(new ContainerSpec("porelo-uc-shell-1", "porelo/uc")
-                .annotation("org.fuin.porelo.sidecar", "/run/user/1000/porelo/x.json"));
+        podman.create(
+                new ContainerSpec("porelo-uc-shell-1", "porelo/uc")
+                        .annotation("org.fuin.porelo.sidecar", "/run/user/1000/porelo/x.json"));
 
         assertThat(runner.only("create").describe())
                 .contains("--annotation org.fuin.porelo.sidecar=/run/user/1000/porelo/x.json");
@@ -210,8 +221,9 @@ class PodmanTest {
         // An argument list is world-readable and an environment is not, so podman is told the
         // name and left to copy the value out of its own environment. Measured with real podman:
         // the value arrives byte for byte, spaces and padding included.
-        podman.create(new ContainerSpec("porelo-uc-shell-1", "porelo/uc")
-                .environment("ANTHROPIC_API_KEY", "porelo_pt_phantom"));
+        podman.create(
+                new ContainerSpec("porelo-uc-shell-1", "porelo/uc")
+                        .environment("ANTHROPIC_API_KEY", "porelo_pt_phantom"));
 
         assertThat(runner.only("create").describe())
                 .contains("--env ANTHROPIC_API_KEY")
@@ -225,7 +237,9 @@ class PodmanTest {
 
         // The second exposure: the agent is started with 'podman exec', once per run, and the
         // phantom token was on that command line as well.
-        podman.ask("porelo-uc-shell-1", Map.of("ANTHROPIC_API_KEY", "porelo_pt_phantom"),
+        podman.ask(
+                "porelo-uc-shell-1",
+                Map.of("ANTHROPIC_API_KEY", "porelo_pt_phantom"),
                 List.of("printenv", "ANTHROPIC_API_KEY"));
 
         assertThat(runner.only("exec").describe())
@@ -241,9 +255,10 @@ class PodmanTest {
         // Naming without carrying is the dangerous half: podman passes nothing at all for a name
         // it cannot resolve, so the container would come up missing a variable rather than
         // failing, and an agent missing its endpoint quietly uses its own.
-        final ContainerSpec specification = new ContainerSpec("porelo-uc-shell-1", "porelo/uc")
-                .environment("ONE", "first")
-                .environment("TWO", "second");
+        final ContainerSpec specification =
+                new ContainerSpec("porelo-uc-shell-1", "porelo/uc")
+                        .environment("ONE", "first")
+                        .environment("TWO", "second");
 
         podman.create(specification);
 
@@ -254,8 +269,9 @@ class PodmanTest {
     @Test
     void relabelsVolumesForSelinux() {
 
-        podman.create(new ContainerSpec("porelo-uc-shell-1", "porelo/uc")
-                .volume(Path.of("/home/tester/src"), "/workspace"));
+        podman.create(
+                new ContainerSpec("porelo-uc-shell-1", "porelo/uc")
+                        .volume(Path.of("/home/tester/src"), "/workspace"));
 
         // Without ':Z' the mount is unreadable on an enforcing host.
         assertThat(runner.only("create").describe()).contains("/home/tester/src:/workspace:Z");
@@ -303,10 +319,13 @@ class PodmanTest {
         // Reported from the test machine: 'porelo vault login' left a container behind and it
         // showed up as a task, which has a workspace, a gate and a clearance that a login has
         // none of. It stays in poreloContainers(), which is what a cleanup sweeps.
-        runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\t1700000000\t0\n"
-                + "porelo-login-1788886971400\tExited (0) 2 minutes ago\t1700000000\t1700000100\n");
+        runner.answering(
+                "ps",
+                "porelo-uc-shell-1\tUp 4 minutes\t1700000000\t0\n"
+                        + "porelo-login-1788886971400\tExited (0) 2 minutes ago\t1700000000\t1700000100\n");
 
-        assertThat(podman.poreloTasks()).extracting(ContainerSummary::name)
+        assertThat(podman.poreloTasks())
+                .extracting(ContainerSummary::name)
                 .containsExactly("porelo-uc-shell-1");
     }
 
@@ -322,10 +341,13 @@ class PodmanTest {
         // other and with nothing else, and every task listed no project on a real machine.
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\t1700000000\t0\tuc\tguarded\n");
 
-        assertThat(podman.poreloTasks()).singleElement().satisfies(task -> {
-            assertThat(task.project()).isEqualTo("uc");
-            assertThat(task.securityClass()).isEqualTo("guarded");
-        });
+        assertThat(podman.poreloTasks())
+                .singleElement()
+                .satisfies(
+                        task -> {
+                            assertThat(task.project()).isEqualTo("uc");
+                            assertThat(task.securityClass()).isEqualTo("guarded");
+                        });
     }
 
     @Test
@@ -336,10 +358,13 @@ class PodmanTest {
         // podman leaves the field empty for a label the container does not carry.
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\t1700000000\t0\t\t\n");
 
-        assertThat(podman.poreloTasks()).singleElement().satisfies(task -> {
-            assertThat(task.project()).isNull();
-            assertThat(task.securityClass()).isNull();
-        });
+        assertThat(podman.poreloTasks())
+                .singleElement()
+                .satisfies(
+                        task -> {
+                            assertThat(task.project()).isNull();
+                            assertThat(task.securityClass()).isNull();
+                        });
     }
 
     @Test
@@ -376,7 +401,13 @@ class PodmanTest {
         final List<String> arguments = podman.attachArguments("porelo-uc-shell-1", "/bin/bash");
 
         assertThat(arguments)
-                .containsExactly("podman", "exec", "--interactive", "--tty", "porelo-uc-shell-1", "/bin/bash");
+                .containsExactly(
+                        "podman",
+                        "exec",
+                        "--interactive",
+                        "--tty",
+                        "porelo-uc-shell-1",
+                        "/bin/bash");
         assertThat(runner.invocations()).isEmpty();
     }
 
@@ -385,8 +416,10 @@ class PodmanTest {
 
         // A container hostname says nothing about which task it is, and an operator with several
         // shells open has no other way to tell them apart.
-        final String line = String.join(" ",
-                podman.attachArguments("box", "/bin/bash", "agent-cli", "myproject/shell"));
+        final String line =
+                String.join(
+                        " ",
+                        podman.attachArguments("box", "/bin/bash", "agent-cli", "myproject/shell"));
 
         assertThat(line).contains("myproject/shell");
         assertThat(line).contains("PS1=");
@@ -397,8 +430,8 @@ class PodmanTest {
 
         // The agent draws a full-screen interface; without this the shell that follows inherits
         // raw mode and the alternate screen, and the operator's display is scrambled.
-        final String line = String.join(" ",
-                podman.attachArguments("box", "/bin/bash", "agent-cli", "p/t"));
+        final String line =
+                String.join(" ", podman.attachArguments("box", "/bin/bash", "agent-cli", "p/t"));
 
         assertThat(line).contains("1049l");
         assertThat(line).contains("stty sane");
@@ -416,8 +449,10 @@ class PodmanTest {
                 .contains("?1000l")
                 // And the screen is cleared, because leaving the alternate screen restores a
                 // cursor position that an agent which never entered it never saved - the screen
-                // only, as at the start: 'clear' erased the scrollback, where the conversation is kept.
-                .doesNotContain("clear").doesNotContain("3J");
+                // only, as at the start: 'clear' erased the scrollback, where the conversation is
+                // kept.
+                .doesNotContain("clear")
+                .doesNotContain("3J");
         assertThat(line.substring(line.indexOf("stty sane"))).contains("\\033[H\\033[2J");
     }
 
@@ -426,8 +461,8 @@ class PodmanTest {
 
         // The negative case: with no full-screen program there is nothing to restore, and
         // emitting escape sequences into a fresh shell is noise.
-        final String line = String.join(" ",
-                podman.attachArguments("box", "/bin/bash", null, "p/t"));
+        final String line =
+                String.join(" ", podman.attachArguments("box", "/bin/bash", null, "p/t"));
 
         assertThat(line).doesNotContain("stty sane");
         assertThat(line).contains("PS1=");
@@ -440,11 +475,14 @@ class PodmanTest {
         // whatever the operator is actually sitting at. Everything inside then renders in eight
         // colours.
         runner.answering("podman exec box infocmp xterm-256color", "");
-        final Podman probing = new Podman(runner, "podman", null,
-                name -> "TERM".equals(name) ? "xterm-256color" : null);
+        final Podman probing =
+                new Podman(
+                        runner,
+                        "podman",
+                        null,
+                        name -> "TERM".equals(name) ? "xterm-256color" : null);
 
-        assertThat(probing.terminalFor("box"))
-                .containsExactly("--env", "TERM=xterm-256color");
+        assertThat(probing.terminalFor("box")).containsExactly("--env", "TERM=xterm-256color");
     }
 
     @Test
@@ -456,8 +494,9 @@ class PodmanTest {
         // cannot resolve its terminal falls back further than xterm would have.
         runner.failing("podman exec box infocmp alacritty", 1, "");
         runner.answering("podman exec box infocmp xterm-256color", "");
-        final Podman probing = new Podman(runner, "podman", null,
-                name -> "TERM".equals(name) ? "alacritty" : null);
+        final Podman probing =
+                new Podman(
+                        runner, "podman", null, name -> "TERM".equals(name) ? "alacritty" : null);
 
         assertThat(probing.terminalFor("box"))
                 .containsExactly("--env", "TERM=" + Podman.FALLBACK_TERMINAL);
@@ -470,8 +509,9 @@ class PodmanTest {
         // place is the honest answer; naming something it does not have is not.
         runner.failing("podman exec box infocmp alacritty", 1, "");
         runner.failing("podman exec box infocmp xterm-256color", 1, "");
-        final Podman probing = new Podman(runner, "podman", null,
-                name -> "TERM".equals(name) ? "alacritty" : null);
+        final Podman probing =
+                new Podman(
+                        runner, "podman", null, name -> "TERM".equals(name) ? "alacritty" : null);
 
         assertThat(probing.terminalFor("box")).isEmpty();
     }
@@ -481,8 +521,8 @@ class PodmanTest {
 
         // TERM=dumb is what a pipe and a build log say. Passing it on would tell the agent to
         // render nothing at all, which is worse than podman's guess.
-        final Podman probing = new Podman(runner, "podman", null,
-                name -> "TERM".equals(name) ? "dumb" : null);
+        final Podman probing =
+                new Podman(runner, "podman", null, name -> "TERM".equals(name) ? "dumb" : null);
 
         assertThat(probing.terminalFor("box")).isEmpty();
         assertThat(runner.invocations()).as("and it did not even ask").isEmpty();
@@ -492,12 +532,17 @@ class PodmanTest {
     void colourSupportRidesAlongBecauseItNamesNoTerminfoEntry() {
 
         runner.answering("podman exec box infocmp xterm-256color", "");
-        final Podman probing = new Podman(runner, "podman", null,
-                name -> switch (name) {
-                    case "TERM" -> "xterm-256color";
-                    case "COLORTERM" -> "truecolor";
-                    default -> null;
-                });
+        final Podman probing =
+                new Podman(
+                        runner,
+                        "podman",
+                        null,
+                        name ->
+                                switch (name) {
+                                    case "TERM" -> "xterm-256color";
+                                    case "COLORTERM" -> "truecolor";
+                                    default -> null;
+                                });
 
         assertThat(probing.terminalFor("box"))
                 .containsExactly("--env", "TERM=xterm-256color", "--env", "COLORTERM=truecolor");
@@ -509,8 +554,12 @@ class PodmanTest {
         // Attaching, leaving and attaching again is the ordinary way to use this, and the answer
         // cannot change while the container lives.
         runner.answering("podman exec box infocmp xterm-256color", "");
-        final Podman probing = new Podman(runner, "podman", null,
-                name -> "TERM".equals(name) ? "xterm-256color" : null);
+        final Podman probing =
+                new Podman(
+                        runner,
+                        "podman",
+                        null,
+                        name -> "TERM".equals(name) ? "xterm-256color" : null);
 
         probing.terminalFor("box");
         probing.terminalFor("box");
@@ -524,7 +573,8 @@ class PodmanTest {
         // The builders are handed straight to exec(), and the test above this one pins why the
         // asking is separate: a builder that ran a command would make every caller pay for a
         // round trip whether a person's terminal was on the other end or not.
-        podman.attachArguments("box", List.of("/bin/bash"), List.of("--env", "TERM=xterm-256color"));
+        podman.attachArguments(
+                "box", List.of("/bin/bash"), List.of("--env", "TERM=xterm-256color"));
         podman.attachArguments("box", "/bin/bash", "agent-cli", "p/t", List.of());
 
         assertThat(runner.invocations()).isEmpty();
@@ -535,10 +585,20 @@ class PodmanTest {
 
         // podman reads them as options of 'exec'; after the container name they would be
         // arguments of the program instead, which is a different and very confusing failure.
-        assertThat(podman.attachArguments("box", List.of("/bin/bash"),
-                List.of("--env", "TERM=xterm-256color")))
-                .containsExactly("podman", "exec", "--interactive", "--tty",
-                        "--env", "TERM=xterm-256color", "box", "/bin/bash");
+        assertThat(
+                        podman.attachArguments(
+                                "box",
+                                List.of("/bin/bash"),
+                                List.of("--env", "TERM=xterm-256color")))
+                .containsExactly(
+                        "podman",
+                        "exec",
+                        "--interactive",
+                        "--tty",
+                        "--env",
+                        "TERM=xterm-256color",
+                        "box",
+                        "/bin/bash");
     }
 
     @Test
@@ -547,12 +607,15 @@ class PodmanTest {
         // Reported on 2026-09-12: starting a task prints two dozen lines - the token, the gate,
         // every reachable host - and the agent then drew its full-screen interface into the
         // middle of them. Two programs sharing one screen, and neither of them wrong.
-        final String script = String.join(" ",
-                podman.attachArguments("box", "/bin/bash", "agent-cli", null, List.of()));
+        final String script =
+                String.join(
+                        " ",
+                        podman.attachArguments("box", "/bin/bash", "agent-cli", null, List.of()));
 
         assertThat(script).contains("\\033[H\\033[2J");
         assertThat(script.indexOf("\\033[H\\033[2J"))
-                .as("cleared before the agent runs, not after").isLessThan(script.indexOf("agent-cli"));
+                .as("cleared before the agent runs, not after")
+                .isLessThan(script.indexOf("agent-cli"));
     }
 
     @Test
@@ -561,8 +624,10 @@ class PodmanTest {
         // ESC[3J erases the scrollback and is what 'clear' sends on a modern terminfo. The launch
         // report carries the gate URL and what the container may reach, and once the agent owns
         // the screen, scrolling back is the only way to read it.
-        final String script = String.join(" ",
-                podman.attachArguments("box", "/bin/bash", "agent-cli", null, List.of()));
+        final String script =
+                String.join(
+                        " ",
+                        podman.attachArguments("box", "/bin/bash", "agent-cli", null, List.of()));
 
         assertThat(script).doesNotContain("[3J");
     }
@@ -572,8 +637,8 @@ class PodmanTest {
 
         // Nothing has drawn over the report yet, and clearing it would take away the only copy of
         // what was just printed for no gain at all.
-        final String script = String.join(" ",
-                podman.attachArguments("box", "/bin/bash", null, null, List.of()));
+        final String script =
+                String.join(" ", podman.attachArguments("box", "/bin/bash", null, null, List.of()));
 
         assertThat(script).doesNotContain("[2J");
     }
@@ -589,8 +654,11 @@ class PodmanTest {
         // This is one flag away from an unattended task that hangs forever, and it would look like
         // a task that is WORKING: the agent's own "still starting" lines keep the log growing, so
         // the one signal anything outside can see says it is fine.
-        final List<String> arguments = podman.executeArguments("box",
-                java.util.Map.of("ANTHROPIC_API_KEY", "x"), List.of("claude", "-p", "do it"));
+        final List<String> arguments =
+                podman.executeArguments(
+                        "box",
+                        java.util.Map.of("ANTHROPIC_API_KEY", "x"),
+                        List.of("claude", "-p", "do it"));
 
         assertThat(arguments).doesNotContain("--interactive").doesNotContain("-i");
         assertThat(arguments).doesNotContain("--tty").doesNotContain("-t");
@@ -643,27 +711,45 @@ class PodmanTest {
     @org.junit.jupiter.api.Test
     void aLabelWithAQuoteStaysTheLabelAndNothingMore() {
 
-        // Put between single quotes as it came: a quote in it ended the string, and what followed ran in the task's
+        // Put between single quotes as it came: a quote in it ended the string, and what followed
+        // ran in the task's
         // window. Safe only while every name is checked upstream.
-        final String script = new Podman(new org.fuin.porelo.testing.FakeCommandRunner())
-                .attachScript("/bin/bash", null, "p/t'; touch /tmp/owned; '");
+        final String script =
+                new Podman(new org.fuin.porelo.testing.FakeCommandRunner())
+                        .attachScript("/bin/bash", null, "p/t'; touch /tmp/owned; '");
 
-        assertThat(script).contains("export PORELO_PROMPT=" + ShellWords.quote(java.util.List.of("p/t'; touch /tmp/owned; '")));
+        assertThat(script)
+                .contains(
+                        "export PORELO_PROMPT="
+                                + ShellWords.quote(java.util.List.of("p/t'; touch /tmp/owned; '")));
     }
 
     @Test
     void readsTheLastLinesOfATasksTerminalWithoutAttaching() {
 
-        // A tile's console for work in a terminal: the session's own history, read by tmux, nobody attached.
+        // A tile's console for work in a terminal: the session's own history, read by tmux, nobody
+        // attached.
         runner.answering("capture-pane", "older\n$ make test\n\u001b[32mok\u001b[0m\n\n\n");
 
         final Podman.Screen screen = podman.screen("box", 2, true);
 
         assertThat(screen.live()).isTrue();
-        assertThat(screen.lines()).as("the last two, without the blank screen below them")
+        assertThat(screen.lines())
+                .as("the last two, without the blank screen below them")
                 .containsExactly("$ make test", "\u001b[32mok\u001b[0m");
-        assertThat(runner.only("capture-pane").arguments()).containsSubsequence("exec", "box", "tmux", "capture-pane",
-                "-p", "-J", "-e", "-S", "-2", "-t", Containerfile.SESSION);
+        assertThat(runner.only("capture-pane").arguments())
+                .containsSubsequence(
+                        "exec",
+                        "box",
+                        "tmux",
+                        "capture-pane",
+                        "-p",
+                        "-J",
+                        "-e",
+                        "-S",
+                        "-2",
+                        "-t",
+                        Containerfile.SESSION);
     }
 
     @Test
@@ -691,14 +777,27 @@ class PodmanTest {
         // Literal, so nothing in the line is read as a key name; Enter on its own, as the key.
         assertThat(podman.type("box", "A message waits; read it")).isTrue();
 
-        assertThat(runner.invocations()).extracting(command -> String.join(" ", command.arguments()))
-                .anySatisfy(line -> assertThat(line).contains("exec box tmux send-keys -t " + Containerfile.SESSION
-                        + " -l A message waits; read it"))
-                .anySatisfy(line -> assertThat(line).endsWith("send-keys -t " + Containerfile.SESSION + " Enter"));
+        assertThat(runner.invocations())
+                .extracting(command -> String.join(" ", command.arguments()))
+                .anySatisfy(
+                        line ->
+                                assertThat(line)
+                                        .contains(
+                                                "exec box tmux send-keys -t "
+                                                        + Containerfile.SESSION
+                                                        + " -l A message waits; read it"))
+                .anySatisfy(
+                        line ->
+                                assertThat(line)
+                                        .endsWith(
+                                                "send-keys -t "
+                                                        + Containerfile.SESSION
+                                                        + " Enter"));
     }
 
     /** What Porelo recorded when it made its tasks: name to the id podman gave back. */
-    private static final java.util.Map<String, String> RECORDED = java.util.Map.of("porelo-p-real", "a1b2c3");
+    private static final java.util.Map<String, String> RECORDED =
+            java.util.Map.of("porelo-p-real", "a1b2c3");
 
     private Podman recording() {
         return new Podman(runner).recognizing(RECORDED::get);
@@ -707,8 +806,10 @@ class PodmanTest {
     @Test
     void aTaskNameWithoutARecordHasNoIdAndNothingIsAsked() {
 
-        // A start refused before it made anything cleaned up after itself by asking for the container's id: the task
-        // had no record, so asking threw "is no task Porelo made", and that replaced the refusal - over the socket every
+        // A start refused before it made anything cleaned up after itself by asking for the
+        // container's id: the task
+        // had no record, so asking threw "is no task Porelo made", and that replaced the refusal -
+        // over the socket every
         // early refusal arrived as Failed with this sentence instead of its own.
         assertThat(recording().idOf("porelo-p-never-made")).isEmpty();
         assertThat(runner.invocations()).as("podman is not asked about it").isEmpty();
@@ -717,13 +818,19 @@ class PodmanTest {
     @Test
     void aTaskIsListedOnlyWhenItsLiveIdIsTheOnePoreloRecorded() {
 
-        // 2026-10-04: "Porelo must not pick running containers by their name. Anybody could start such a
-        // container and Porelo would think it is its own." A label says only what its creator wrote.
-        runner.answering("ps", "porelo-p-real\tUp 1 minute\t\t\tp\tguarded\t\t\ta1b2c3\n"
-                + "porelo-p-fake\tUp 1 minute\t\t\tp\tguarded\t\t\tffff00\n"
-                + "porelo-p-swapped\tUp 1 minute\t\t\tp\tguarded\t\t\tffff01\n");
+        // 2026-10-04: "Porelo must not pick running containers by their name. Anybody could start
+        // such a
+        // container and Porelo would think it is its own." A label says only what its creator
+        // wrote.
+        runner.answering(
+                "ps",
+                "porelo-p-real\tUp 1 minute\t\t\tp\tguarded\t\t\ta1b2c3\n"
+                        + "porelo-p-fake\tUp 1 minute\t\t\tp\tguarded\t\t\tffff00\n"
+                        + "porelo-p-swapped\tUp 1 minute\t\t\tp\tguarded\t\t\tffff01\n");
 
-        assertThat(recording().poreloTasks()).extracting(ContainerSummary::name).containsExactly("porelo-p-real");
+        assertThat(recording().poreloTasks())
+                .extracting(ContainerSummary::name)
+                .containsExactly("porelo-p-real");
     }
 
     @Test
@@ -734,14 +841,20 @@ class PodmanTest {
         podman.ask("porelo-p-real", java.util.Map.of(), java.util.List.of("true"));
         podman.type("porelo-p-real", "line");
 
-        assertThat(runner.invocations()).allSatisfy(command -> assertThat(command.arguments())
-                .doesNotContain("porelo-p-real").contains("a1b2c3"));
+        assertThat(runner.invocations())
+                .allSatisfy(
+                        command ->
+                                assertThat(command.arguments())
+                                        .doesNotContain("porelo-p-real")
+                                        .contains("a1b2c3"));
     }
 
     @Test
     void aTaskNamePoreloHasNoRecordOfIsActedOnByNothing() {
-        assertThatThrownBy(() -> recording().stop("porelo-p-fake")).isInstanceOf(ContainerException.class)
-                .hasMessageContaining("porelo-p-fake").hasMessageContaining("no task Porelo made");
+        assertThatThrownBy(() -> recording().stop("porelo-p-fake"))
+                .isInstanceOf(ContainerException.class)
+                .hasMessageContaining("porelo-p-fake")
+                .hasMessageContaining("no task Porelo made");
         assertThat(recording().screen("porelo-p-fake", 5, false).live()).isFalse();
         assertThat(runner.invocations()).isEmpty();
     }

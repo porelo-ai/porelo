@@ -24,9 +24,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link TokenPurchase}: a token bought on the host, once, however many are waiting.
- */
+/** Tests for {@link TokenPurchase}: a token bought on the host, once, however many are waiting. */
 class TokenPurchaseTest {
 
     private HttpServer server;
@@ -35,8 +33,9 @@ class TokenPurchaseTest {
 
     private final List<String> bodies = new CopyOnWriteArrayList<>();
 
-    private final AtomicReference<String> answer = new AtomicReference<>(
-            "{\"access_token\":\"at-1\",\"token_type\":\"Bearer\",\"expires_in\":3600}");
+    private final AtomicReference<String> answer =
+            new AtomicReference<>(
+                    "{\"access_token\":\"at-1\",\"token_type\":\"Bearer\",\"expires_in\":3600}");
 
     private final AtomicInteger status = new AtomicInteger(200);
 
@@ -44,22 +43,28 @@ class TokenPurchaseTest {
     void start() throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.setExecutor(Executors.newFixedThreadPool(8));
-        server.createContext("/token", exchange -> {
-            exchanges.incrementAndGet();
-            bodies.add(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
-            try {
-                // Slow enough that concurrent callers really do arrive while the first is buying.
-                Thread.sleep(200);
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            }
-            final byte[] payload = answer.get().getBytes(StandardCharsets.UTF_8);
-            exchange.getResponseHeaders().set("Content-Type", "application/json");
-            exchange.sendResponseHeaders(status.get(), payload.length);
-            try (OutputStream out = exchange.getResponseBody()) {
-                out.write(payload);
-            }
-        });
+        server.createContext(
+                "/token",
+                exchange -> {
+                    exchanges.incrementAndGet();
+                    bodies.add(
+                            new String(
+                                    exchange.getRequestBody().readAllBytes(),
+                                    StandardCharsets.UTF_8));
+                    try {
+                        // Slow enough that concurrent callers really do arrive while the first is
+                        // buying.
+                        Thread.sleep(200);
+                    } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                    }
+                    final byte[] payload = answer.get().getBytes(StandardCharsets.UTF_8);
+                    exchange.getResponseHeaders().set("Content-Type", "application/json");
+                    exchange.sendResponseHeaders(status.get(), payload.length);
+                    try (OutputStream out = exchange.getResponseBody()) {
+                        out.write(payload);
+                    }
+                });
         server.start();
     }
 
@@ -69,8 +74,15 @@ class TokenPurchaseTest {
     }
 
     private TokenPurchase purchase(Clock clock) {
-        return new TokenPurchase(new TokenPurchase.Client("http://127.0.0.1:" + server.getAddress().getPort() + "/token",
-                "porelo-client", "client-secret-value", "repo read:org", null), HttpClient.newHttpClient(), clock);
+        return new TokenPurchase(
+                new TokenPurchase.Client(
+                        "http://127.0.0.1:" + server.getAddress().getPort() + "/token",
+                        "porelo-client",
+                        "client-secret-value",
+                        "repo read:org",
+                        null),
+                HttpClient.newHttpClient(),
+                clock);
     }
 
     @Test
@@ -78,9 +90,15 @@ class TokenPurchaseTest {
         final String token = purchase(Clock.systemUTC()).current();
 
         assertThat(token).isEqualTo("at-1");
-        assertThat(bodies).singleElement().satisfies(body -> assertThat(body)
-                .contains("grant_type=client_credentials").contains("client_id=porelo-client")
-                .contains("client_secret=client-secret-value").contains("scope=repo+read%3Aorg"));
+        assertThat(bodies)
+                .singleElement()
+                .satisfies(
+                        body ->
+                                assertThat(body)
+                                        .contains("grant_type=client_credentials")
+                                        .contains("client_id=porelo-client")
+                                        .contains("client_secret=client-secret-value")
+                                        .contains("scope=repo+read%3Aorg"));
     }
 
     @Test
@@ -108,7 +126,8 @@ class TokenPurchaseTest {
     @Test
     void concurrentRequestsWhileTheServerRefusesAskItOnceAndAllHearTheRefusal() throws Exception {
 
-        // The single flight held only for a purchase that succeeded: each waiting caller asked again in turn, so a
+        // The single flight held only for a purchase that succeeded: each waiting caller asked
+        // again in turn, so a
         // hanging server cost every agent its own timeout, one after another.
         status.set(503);
         answer.set("{\"error\":\"temporarily_unavailable\"}");
@@ -148,7 +167,8 @@ class TokenPurchaseTest {
     @org.junit.jupiter.params.provider.ValueSource(longs = {0, -5, Long.MAX_VALUE})
     void anExpiryThatMeansNothingIsTreatedAsUnstated(final long seconds) throws Exception {
 
-        // Zero bought a token on every request, and a huge one threw out of the exchange unanswered.
+        // Zero bought a token on every request, and a huge one threw out of the exchange
+        // unanswered.
         answer.set("{\"access_token\":\"at-1\",\"expires_in\":" + seconds + "}");
         final TokenPurchase purchase = purchase(Clock.systemUTC());
 
@@ -159,23 +179,25 @@ class TokenPurchaseTest {
 
     @Test
     void buysAgainShortlyBeforeTheTokenLapses() throws Exception {
-        final AtomicReference<Instant> now = new AtomicReference<>(Instant.parse("2026-09-29T12:00:00Z"));
-        final Clock clock = new Clock() {
-            @Override
-            public ZoneOffset getZone() {
-                return ZoneOffset.UTC;
-            }
+        final AtomicReference<Instant> now =
+                new AtomicReference<>(Instant.parse("2026-09-29T12:00:00Z"));
+        final Clock clock =
+                new Clock() {
+                    @Override
+                    public ZoneOffset getZone() {
+                        return ZoneOffset.UTC;
+                    }
 
-            @Override
-            public Clock withZone(java.time.ZoneId zone) {
-                return this;
-            }
+                    @Override
+                    public Clock withZone(java.time.ZoneId zone) {
+                        return this;
+                    }
 
-            @Override
-            public Instant instant() {
-                return now.get();
-            }
-        };
+                    @Override
+                    public Instant instant() {
+                        return now.get();
+                    }
+                };
         final TokenPurchase purchase = purchase(clock);
         purchase.current();
         answer.set("{\"access_token\":\"at-2\",\"expires_in\":3600}");
@@ -190,7 +212,8 @@ class TokenPurchaseTest {
     @Test
     void aRefusalIsReportedAsTheAuthorizationServersAndNeverEchoesTheSecret() {
         status.set(401);
-        answer.set("{\"error\":\"invalid_client\",\"error_description\":\"bad secret client-secret-value\"}");
+        answer.set(
+                "{\"error\":\"invalid_client\",\"error_description\":\"bad secret client-secret-value\"}");
 
         assertThatThrownBy(() -> purchase(Clock.systemUTC()).current())
                 .isInstanceOf(TokenPurchase.Refused.class)
@@ -203,22 +226,38 @@ class TokenPurchaseTest {
         server.stop(0);
 
         assertThatThrownBy(() -> purchase(Clock.systemUTC()).current())
-                .isInstanceOf(TokenPurchase.Refused.class).hasMessageContaining("could not be reached");
+                .isInstanceOf(TokenPurchase.Refused.class)
+                .hasMessageContaining("could not be reached");
     }
 
     @Test
     void aClientNeedsItsTokenUrlAndIdAndHttps() {
         assertThatThrownBy(() -> TokenPurchase.Client.of("s", Map.of("client_id", "x")))
                 .hasMessageContaining("token_url and client_id");
-        assertThatThrownBy(() -> TokenPurchase.Client.of("s", Map.of("client_id", "x", "token_url", "http://a/token")))
+        assertThatThrownBy(
+                        () ->
+                                TokenPurchase.Client.of(
+                                        "s",
+                                        Map.of("client_id", "x", "token_url", "http://a/token")))
                 .hasMessageContaining("must be https");
-        assertThat(TokenPurchase.Client.of("s", Map.of("client_id", "x", "token_url", "https://a/token")).scopes())
+        assertThat(
+                        TokenPurchase.Client.of(
+                                        "s",
+                                        Map.of("client_id", "x", "token_url", "https://a/token"))
+                                .scopes())
                 .isEmpty();
     }
 
     private TokenPurchase refreshing(List<String> rotations) {
-        return new TokenPurchase(new TokenPurchase.Refresh("http://127.0.0.1:" + server.getAddress().getPort() + "/token",
-                "porelo-client", null, "rt-1", rotations::add), HttpClient.newHttpClient(), Clock.systemUTC());
+        return new TokenPurchase(
+                new TokenPurchase.Refresh(
+                        "http://127.0.0.1:" + server.getAddress().getPort() + "/token",
+                        "porelo-client",
+                        null,
+                        "rt-1",
+                        rotations::add),
+                HttpClient.newHttpClient(),
+                Clock.systemUTC());
     }
 
     @Test
@@ -227,8 +266,14 @@ class TokenPurchaseTest {
         final List<String> rotations = new CopyOnWriteArrayList<>();
 
         assertThat(refreshing(rotations).current()).isEqualTo("at-9");
-        assertThat(bodies).singleElement().satisfies(body -> assertThat(body).contains("grant_type=refresh_token")
-                .contains("refresh_token=rt-1").doesNotContain("client_secret"));
+        assertThat(bodies)
+                .singleElement()
+                .satisfies(
+                        body ->
+                                assertThat(body)
+                                        .contains("grant_type=refresh_token")
+                                        .contains("refresh_token=rt-1")
+                                        .doesNotContain("client_secret"));
         assertThat(rotations).as("the vault is told the one now in force").containsExactly("rt-2");
     }
 
@@ -238,7 +283,9 @@ class TokenPurchaseTest {
         answer.set("{\"error\":\"invalid_grant\"}");
 
         assertThatThrownBy(() -> refreshing(new CopyOnWriteArrayList<>()).current())
-                .as("its own kind, so whoever finds it can ask a person").isInstanceOf(TokenPurchase.Ended.class)
-                .hasMessageContaining("no longer valid").hasMessageContaining("porelo vault authorize");
+                .as("its own kind, so whoever finds it can ask a person")
+                .isInstanceOf(TokenPurchase.Ended.class)
+                .hasMessageContaining("no longer valid")
+                .hasMessageContaining("porelo vault authorize");
     }
 }

@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -18,14 +17,16 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Puts a person's own words into a task's inbox, where its agent already reads.
- * <p>
- * <strong>From a person at this machine, and nowhere else</strong> (decided on 2026-09-30): what a
- * person typed at their own machine, or through an interface to its daemon - never a peer's message, which reaches
- * the inbox only through the transport, the signature check and the filter. It carries {@link MessageSay#ROLE},
- * as everything a person writes does, and {@code from: person}, so an agent tells it from a peer's.
- * <p>
- * <strong>Written by the host into the task's half, like a bounce</strong>: through {@code tmp} and a rename, so the
- * agent never lists half a note. It never leaves the machine, so it is neither signed nor filtered.
+ *
+ * <p><strong>From a person at this machine, and nowhere else</strong> (decided on 2026-09-30): what
+ * a person typed at their own machine, or through an interface to its daemon - never a peer's
+ * message, which reaches the inbox only through the transport, the signature check and the filter.
+ * It carries {@link MessageSay#ROLE}, as everything a person writes does, and {@code from: person},
+ * so an agent tells it from a peer's.
+ *
+ * <p><strong>Written by the host into the task's half, like a bounce</strong>: through {@code tmp}
+ * and a rename, so the agent never lists half a note. It never leaves the machine, so it is neither
+ * signed nor filtered.
  */
 public final class PersonNote {
 
@@ -44,7 +45,8 @@ public final class PersonNote {
      * @return The file name written.
      * @throws IOException Writing failed.
      */
-    public String tell(final Mailbox mailbox, final String text, final @Nullable Map<String, Object> data)
+    public String tell(
+            final Mailbox mailbox, final String text, final @Nullable Map<String, Object> data)
             throws IOException {
         final Instant now = Instant.now();
         final String id = "person-" + UUID.randomUUID();
@@ -73,9 +75,9 @@ public final class PersonNote {
 
     /**
      * Tells the task a rejected push came from, when it still has a mailbox.
-     * <p>
-     * A pending push is named after its task, so the task is found from the name; one that has been removed has no
-     * inbox, and the answer says so rather than claiming it was told.
+     *
+     * <p>A pending push is named after its task, so the task is found from the name; one that has
+     * been removed has no inbox, and the answer says so rather than claiming it was told.
      *
      * @param context This machine.
      * @param project The project the push is pending in.
@@ -84,10 +86,17 @@ public final class PersonNote {
      * @return Whether a task was told.
      * @throws IOException Writing failed.
      */
-    public static boolean rejectedWork(final PoreloContext context,
-            final org.fuin.porelo.core.project.Project project, final String work, final @Nullable String reason)
+    public static boolean rejectedWork(
+            final PoreloContext context,
+            final org.fuin.porelo.core.project.Project project,
+            final String work,
+            final @Nullable String reason)
             throws IOException {
-        final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox(context.tasks().containerName(project, work)));
+        final Mailbox mailbox =
+                new Mailbox(
+                        context.paths()
+                                .messaging()
+                                .mailbox(context.tasks().containerName(project, work)));
         if (!mailbox.exists()) {
             return false;
         }
@@ -112,12 +121,19 @@ public final class PersonNote {
         if (reason != null && !reason.isBlank()) {
             data.put("reason", reason);
         }
-        return tell(mailbox, "A person rejected the work you handed over as '" + work + "'; it will not reach the"
-                + " upstream." + (reason == null || reason.isBlank() ? "" : " They said: " + reason), data);
+        return tell(
+                mailbox,
+                "A person rejected the work you handed over as '"
+                        + work
+                        + "'; it will not reach the"
+                        + " upstream."
+                        + (reason == null || reason.isBlank() ? "" : " They said: " + reason),
+                data);
     }
 
     /**
-     * Tells a task that the repository it works from moved on, and how to bring that into its workspace.
+     * Tells a task that the repository it works from moved on, and how to bring that into its
+     * workspace.
      *
      * @param mailbox The task's mailbox.
      * @param moved The branches that moved, and the commit each names now.
@@ -128,11 +144,27 @@ public final class PersonNote {
         final Map<String, Object> data = new LinkedHashMap<>();
         data.put("source", "moved");
         data.put("branches", Map.copyOf(moved));
-        final String named = moved.entrySet().stream().limit(3).map(each -> each.getKey() + " is now at "
-                + each.getValue().substring(0, Math.min(12, each.getValue().length())))
-                .collect(java.util.stream.Collectors.joining(", "));
-        return tell(mailbox, "The repository this task works from moved on: " + named
-                + (moved.size() > 3 ? ", and " + (moved.size() - 3) + " more" : "") + ". 'git fetch porelo' brings it;"
-                + " rebase or merge your work onto it before you push again.", data);
+        final String named =
+                moved.entrySet().stream()
+                        .limit(3)
+                        .map(
+                                each ->
+                                        each.getKey()
+                                                + " is now at "
+                                                + each.getValue()
+                                                        .substring(
+                                                                0,
+                                                                Math.min(
+                                                                        12,
+                                                                        each.getValue().length())))
+                        .collect(java.util.stream.Collectors.joining(", "));
+        return tell(
+                mailbox,
+                "The repository this task works from moved on: "
+                        + named
+                        + (moved.size() > 3 ? ", and " + (moved.size() - 3) + " more" : "")
+                        + ". 'git fetch porelo' brings it;"
+                        + " rebase or merge your work onto it before you push again.",
+                data);
     }
 }

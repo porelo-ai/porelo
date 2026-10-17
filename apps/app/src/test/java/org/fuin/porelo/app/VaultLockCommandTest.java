@@ -17,8 +17,8 @@ import picocli.CommandLine;
 
 /**
  * Tests for {@link VaultLockCommand} and the unlock it undoes, against the real kernel keyring.
- * <p>
- * The keyring description is derived from the vault's path, and the vault is in a temporary
+ *
+ * <p>The keyring description is derived from the vault's path, and the vault is in a temporary
  * directory, so nothing here can touch the passphrase an operator has cached for their own vault.
  */
 class VaultLockCommandTest {
@@ -32,10 +32,14 @@ class VaultLockCommandTest {
     private final FakeCommandRunner runner = new FakeCommandRunner();
 
     private PoreloContext context(Path dir) {
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            default -> null;
-        }, dir);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    default -> null;
+                                },
+                        dir);
         return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
     }
 
@@ -58,8 +62,13 @@ class VaultLockCommandTest {
         final PoreloContext context = context(dir);
         context.vault().write(Map.of("anthropic", VaultEntry.of("sk-not-a-real-key")), PASSPHRASE);
         try {
-            assertThat(execute(context, "vault", "unlock",
-                    "--passphrase-command", "printf 'correct horse battery staple\\n'"))
+            assertThat(
+                            execute(
+                                    context,
+                                    "vault",
+                                    "unlock",
+                                    "--passphrase-command",
+                                    "printf 'correct horse battery staple\\n'"))
                     .isEqualTo(0);
             assertThat(keyring(context).read()).isPresent();
 
@@ -83,8 +92,14 @@ class VaultLockCommandTest {
         final PoreloContext context = context(dir);
         context.vault().write(Map.of("anthropic", VaultEntry.of("sk-not-a-real-key")), PASSPHRASE);
         try {
-            assertThat(execute(context, "vault", "unlock",
-                    "--passphrase-command", "printf 'wrong\\n'")).isEqualTo(70);
+            assertThat(
+                            execute(
+                                    context,
+                                    "vault",
+                                    "unlock",
+                                    "--passphrase-command",
+                                    "printf 'wrong\\n'"))
+                    .isEqualTo(70);
 
             assertThat(err.toString()).contains("does not open").contains("nothing was cached");
             assertThat(keyring(context).read()).isEmpty();
@@ -107,13 +122,15 @@ class VaultLockCommandTest {
     @Test
     void lockingForgetsADevicesHeldShareTooSoNothingOpensTheVaultAfterwards(@TempDir Path dir) {
 
-        // Measured on the shared VM: an interface enrolled as a device held its share here, 'lock' said
+        // Measured on the shared VM: an interface enrolled as a device held its share here, 'lock'
+        // said
         // "locked", and every command - a restarted task's start included - still opened the vault.
         assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
 
         final PoreloContext context = context(dir);
         try {
-            VaultShare.keep(context.paths(), new byte[] { 1, 2, 3, 4 }, java.time.Duration.ofMinutes(5));
+            VaultShare.keep(
+                    context.paths(), new byte[] {1, 2, 3, 4}, java.time.Duration.ofMinutes(5));
             assertThat(VaultShare.held(context.paths())).isPresent();
 
             assertThat(execute(context, "vault", "lock")).isEqualTo(0);
@@ -132,10 +149,17 @@ class VaultLockCommandTest {
         // with it - typed once, with nothing to compare a typo against. Measured.
         final PoreloContext context = context(dir);
         try {
-            assertThat(execute(context, "vault", "unlock",
-                    "--passphrase-command", "printf 'correct horse battery staple\\n'"))
+            assertThat(
+                            execute(
+                                    context,
+                                    "vault",
+                                    "unlock",
+                                    "--passphrase-command",
+                                    "printf 'correct horse battery staple\\n'"))
                     .isEqualTo(1);
-            assertThat(err.toString()).contains("there is no vault at").contains("porelo vault init")
+            assertThat(err.toString())
+                    .contains("there is no vault at")
+                    .contains("porelo vault init")
                     .contains("nothing was cached");
             if (KernelKeyring.available()) {
                 assertThat(keyring(context).read()).isEmpty();

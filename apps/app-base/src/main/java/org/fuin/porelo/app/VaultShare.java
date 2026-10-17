@@ -8,16 +8,16 @@ import org.fuin.porelo.vault.KernelKeyring;
 
 /**
  * A device's share, held in the kernel keyring for as long as an unlock is meant to last.
- * <p>
- * <strong>The share and not the master key.</strong> Caching the unwrapped master key would create
- * a secret on this machine that outlives every revocation: a slot can be deleted, but a master key
- * somebody already holds opens the vault forever. A share is the thing the device already has, it
- * stops working the moment its keyslot is removed, and it is no more than what the passphrase cache
- * already is - a way in, held in memory, with a timeout.
- * <p>
- * <strong>The kernel keyring, not a file.</strong> The node persists neither the share nor
- * the master key, and this is how that is kept true: the keyring is memory, it is gone on reboot,
- * and the kernel enforces the timeout rather than a process remembering to.
+ *
+ * <p><strong>The share and not the master key.</strong> Caching the unwrapped master key would
+ * create a secret on this machine that outlives every revocation: a slot can be deleted, but a
+ * master key somebody already holds opens the vault forever. A share is the thing the device
+ * already has, it stops working the moment its keyslot is removed, and it is no more than what the
+ * passphrase cache already is - a way in, held in memory, with a timeout.
+ *
+ * <p><strong>The kernel keyring, not a file.</strong> The node persists neither the share nor the
+ * master key, and this is how that is kept true: the keyring is memory, it is gone on reboot, and
+ * the kernel enforces the timeout rather than a process remembering to.
  */
 public final class VaultShare {
 
@@ -54,16 +54,19 @@ public final class VaultShare {
         if (!KernelKeyring.available()) {
             return Optional.empty();
         }
-        return new KernelKeyring(paths.vault().vaultShareKeyringKey()).read().map(encoded -> {
-            try {
-                return Base64.getDecoder().decode(new String(encoded));
-            } catch (final IllegalArgumentException ex) {
-                // Something else is under that name. Not ours, so not a way in.
-                return null;
-            } finally {
-                Arrays.fill(encoded, '\0');
-            }
-        });
+        return new KernelKeyring(paths.vault().vaultShareKeyringKey())
+                .read()
+                .map(
+                        encoded -> {
+                            try {
+                                return Base64.getDecoder().decode(new String(encoded));
+                            } catch (final IllegalArgumentException ex) {
+                                // Something else is under that name. Not ours, so not a way in.
+                                return null;
+                            } finally {
+                                Arrays.fill(encoded, '\0');
+                            }
+                        });
     }
 
     /**

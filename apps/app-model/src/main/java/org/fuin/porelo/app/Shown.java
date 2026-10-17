@@ -3,9 +3,9 @@ package org.fuin.porelo.app;
 import java.util.List;
 
 /**
- * What a refusal shows at once where it would name the command that shows it: the tasks there are, the projects
- * followed, why a followed project is not in force. The answer was known; making a person type the command to read it
- * was a step with no decision in it.
+ * What a refusal shows at once where it would name the command that shows it: the tasks there are,
+ * the projects followed, why a followed project is not in force. The answer was known; making a
+ * person type the command to read it was a step with no decision in it.
  */
 public final class Shown {
 
@@ -32,8 +32,10 @@ public final class Shown {
      * @return One line.
      */
     public static String tasks(final PoreloContext context) {
-        return names("the tasks here", new TaskInventory(context).tasks().stream().map(TaskInventory.Task::name)
-                .toList(), "there is no task here");
+        return names(
+                "the tasks here",
+                new TaskInventory(context).tasks().stream().map(TaskInventory.Task::name).toList(),
+                "there is no task here");
     }
 
     /**
@@ -44,15 +46,19 @@ public final class Shown {
      */
     public static String followed(final PoreloContext context) {
         try {
-            return names("the projects followed here", new FollowedProjects(context.paths().projects().followed())
-                    .all().stream().map(FollowedProjects.Followed::name).toList(), "this account follows no project");
+            return names(
+                    "the projects followed here",
+                    new FollowedProjects(context.paths().projects().followed())
+                            .all().stream().map(FollowedProjects.Followed::name).toList(),
+                    "this account follows no project");
         } catch (final java.io.IOException ex) {
             return "the projects followed here could not be read: " + ex.getMessage();
         }
     }
 
     /**
-     * Returns why a followed project is not in force, from its record: what the last try came to and what it said.
+     * Returns why a followed project is not in force, from its record: what the last try came to
+     * and what it said.
      *
      * @param context The machine.
      * @param name The project.
@@ -60,11 +66,19 @@ public final class Shown {
      */
     public static String whyNotInForce(final PoreloContext context, final String name) {
         try {
-            return new FollowedProjects(context.paths().projects().followed()).all().stream()
-                    .filter(followed -> followed.name().equals(name)).findFirst()
-                    .map(followed -> "its last fetch came to " + followed.outcome().toLowerCase(java.util.Locale.ROOT)
-                            + (followed.detail().isBlank() ? "" : ": " + followed.detail()))
-                    .orElse("it has no record of a fetch");
+            return new FollowedProjects(context.paths().projects().followed())
+                    .all().stream()
+                            .filter(followed -> followed.name().equals(name))
+                            .findFirst()
+                            .map(
+                                    followed ->
+                                            "its last fetch came to "
+                                                    + followed.outcome()
+                                                            .toLowerCase(java.util.Locale.ROOT)
+                                                    + (followed.detail().isBlank()
+                                                            ? ""
+                                                            : ": " + followed.detail()))
+                            .orElse("it has no record of a fetch");
         } catch (final java.io.IOException ex) {
             return "its record could not be read: " + ex.getMessage();
         }

@@ -7,7 +7,8 @@ import java.io.StringWriter;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests that approving onto a branch that already holds earlier work offers the next free one, and never forces.
+ * Tests that approving onto a branch that already holds earlier work offers the next free one, and
+ * never forces.
  */
 class ApproveOfferTest {
 
@@ -19,12 +20,21 @@ class ApproveOfferTest {
 
     @Test
     void theNextFreeBranchIsOfferedAndTakenOnAYes() {
-        assertThat(GateApproveCommand.instead("porelo/app", "abc1234", "porelo/app-2", answering(""))).isEqualTo("porelo/app-2");
-        assertThat(GateApproveCommand.instead("porelo/app", "abc1234", "porelo/app-2", answering("n"))).isNull();
+        assertThat(
+                        GateApproveCommand.instead(
+                                "porelo/app", "abc1234", "porelo/app-2", answering("")))
+                .isEqualTo("porelo/app-2");
+        assertThat(
+                        GateApproveCommand.instead(
+                                "porelo/app", "abc1234", "porelo/app-2", answering("n")))
+                .isNull();
     }
 
     @Test
     void nobodyToAskIsTheRefusalAsBefore() {
-        assertThat(GateApproveCommand.instead("porelo/app", "abc1234", "porelo/app-2", Offer.NOBODY)).isNull();
+        assertThat(
+                        GateApproveCommand.instead(
+                                "porelo/app", "abc1234", "porelo/app-2", Offer.NOBODY))
+                .isNull();
     }
 }

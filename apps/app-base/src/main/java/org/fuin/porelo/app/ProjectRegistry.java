@@ -11,21 +11,21 @@ import java.util.stream.Stream;
 
 /**
  * Where each project's file is, remembered when a task is started with it.
- * <p>
- * <strong>This exists because a remote client has no filesystem to look in.</strong> Every gate
- * method and {@code Start} take the path of a {@code project.yml}, which is fine for a CLI typed
- * on the machine that holds it and impossible for an interface reached over a forwarded socket:
- * there is nothing on that side to browse, and a path it invented would name a file on the wrong
+ *
+ * <p><strong>This exists because a remote client has no filesystem to look in.</strong> Every gate
+ * method and {@code Start} take the path of a {@code project.yml}, which is fine for a CLI typed on
+ * the machine that holds it and impossible for an interface reached over a forwarded socket: there
+ * is nothing on that side to browse, and a path it invented would name a file on the wrong
  * computer. So the daemon remembers the ones it has been given.
- * <p>
- * <strong>One file per project, not one document.</strong> A single JSON file has to be read,
+ *
+ * <p><strong>One file per project, not one document.</strong> A single JSON file has to be read,
  * changed and written back, and two tasks starting at the same moment then race: one writer's
  * changes are lost, and - measured as a defect in the first version of this class - both wrote
  * through the same temporary file, so the document moved into place could be a mixture of the two.
  * A file per project removes the class of problem rather than guarding it: two starts of different
  * projects never touch the same file, and two starts of the same project write the same bytes.
- * <p>
- * Written on every task start rather than by a registration step nobody would run.
+ *
+ * <p>Written on every task start rather than by a registration step nobody would run.
  */
 final class ProjectRegistry {
 
@@ -42,9 +42,9 @@ final class ProjectRegistry {
 
     /**
      * Records where a project's file is, replacing any earlier answer for that name.
-     * <p>
-     * Never fails a task. Losing this costs an interface a path it can rediscover the next time a
-     * task runs, which is not worth failing a run that is otherwise fine.
+     *
+     * <p>Never fails a task. Losing this costs an interface a path it can rediscover the next time
+     * a task runs, which is not worth failing a run that is otherwise fine.
      *
      * @param name Project name.
      * @param projectFile Absolute path of its file.
@@ -63,9 +63,12 @@ final class ProjectRegistry {
             // A temporary name of its own, then a move: a shared one is what let two writers
             // interleave into the same bytes. The move is what a reader either sees or does not.
             final Path temporary = Files.createTempFile(directory, name, ".new");
-            Files.writeString(temporary, projectFile + System.lineSeparator(),
-                    StandardCharsets.UTF_8);
-            Files.move(temporary, entry, StandardCopyOption.REPLACE_EXISTING,
+            Files.writeString(
+                    temporary, projectFile + System.lineSeparator(), StandardCharsets.UTF_8);
+            Files.move(
+                    temporary,
+                    entry,
+                    StandardCopyOption.REPLACE_EXISTING,
                     StandardCopyOption.ATOMIC_MOVE);
         } catch (IOException | RuntimeException ex) {
             return;
@@ -108,15 +111,18 @@ final class ProjectRegistry {
 
     /**
      * Tells whether a name can be a file name here.
-     * <p>
-     * A project name is already validated where it is read, and this is the second place that
+     *
+     * <p>A project name is already validated where it is read, and this is the second place that
      * would have to be wrong for a name to escape the directory. Cheap enough to keep both.
      *
      * @param name Project name.
      * @return {@code true} when it names a file and nothing else.
      */
     private static boolean safe(String name) {
-        return !name.isEmpty() && !name.contains("/") && !name.contains("\\")
-                && !name.equals(".") && !name.equals("..");
+        return !name.isEmpty()
+                && !name.contains("/")
+                && !name.contains("\\")
+                && !name.equals(".")
+                && !name.equals("..");
     }
 }

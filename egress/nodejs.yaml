@@ -2,6 +2,6 @@
 name: nodejs
 label: Node.js packages
 domains:
-  - registry.npmjs.org
-  - registry.yarnpkg.com
-  - nodejs.org
+    - registry.npmjs.org
+    - registry.yarnpkg.com
+    - nodejs.org

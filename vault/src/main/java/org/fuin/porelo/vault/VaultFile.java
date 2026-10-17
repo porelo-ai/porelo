@@ -25,20 +25,22 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * The credential store: one AES-256-GCM encrypted file holding a JSON document.
- * <p>
- * Not a database. Everything a database was providing here - atomic writes, crash safety,
+ *
+ * <p>Not a database. Everything a database was providing here - atomic writes, crash safety,
  * concurrent access - is provided instead by writing a temporary file, {@code fsync}ing it and
  * renaming it into place, under an advisory lock. The vault holds tens of entries and is written
  * rarely, so the rest of a database is cost without benefit.
- * <p>
- * The file layout is:
+ *
+ * <p>The file layout is:
+ *
  * <pre>
  * magic "PORELOVLT" | version | header length | header JSON | content nonce | AEAD ciphertext+tag
  * </pre>
+ *
  * The header is authenticated as additional data, so nothing in it can be changed without
  * invalidating the tag - not the KDF parameters, not a wrapped key, not a device's name.
- * <p>
- * <strong>The content is encrypted under a master key that no credential is.</strong> The master
+ *
+ * <p><strong>The content is encrypted under a master key that no credential is.</strong> The master
  * key is generated once, when the vault is created, and stored only in wrapped form - once per
  * {@link Keyslot}. The passphrase is keyslot 0 and wraps it with Argon2id; a device's share wraps
  * it with HKDF. Adding a device adds a slot, removing one deletes a slot, and neither re-keys
@@ -74,8 +76,8 @@ public class VaultFile {
 
     /**
      * One lock per vault path, held for the life of the process.
-     * <p>
-     * A {@link FileLock} is owned by the JVM, not by the thread that took it, so two threads in
+     *
+     * <p>A {@link FileLock} is owned by the JVM, not by the thread that took it, so two threads in
      * one process asking for the same region get an {@code OverlappingFileLockException} rather
      * than being serialized. This lock covers threads; the file lock covers processes. Both are
      * needed, and neither replaces the other.
@@ -87,7 +89,10 @@ public class VaultFile {
 
     private final SecureRandom random = new SecureRandom();
 
-    /** Runs after the new content is durable and before it replaces the file; a seam so a test can fail there. */
+    /**
+     * Runs after the new content is durable and before it replaces the file; a seam so a test can
+     * fail there.
+     */
     private final Runnable beforeReplace;
 
     /**
@@ -96,7 +101,7 @@ public class VaultFile {
      * @param file Path of the vault file.
      */
     public VaultFile(Path file) {
-        this(file, () -> { });
+        this(file, () -> {});
     }
 
     /**
@@ -163,8 +168,8 @@ public class VaultFile {
 
     /**
      * Returns every credential that can open this vault, without opening it.
-     * <p>
-     * Readable while locked on purpose: an interface has to show which devices can open a vault
+     *
+     * <p>Readable while locked on purpose: an interface has to show which devices can open a vault
      * before anything opens it. Nothing here is secret.
      *
      * @return The slots, the passphrase first. Empty when there is no vault yet.
@@ -179,8 +184,8 @@ public class VaultFile {
 
     /**
      * Enrolls a device, so that its share opens this vault.
-     * <p>
-     * <strong>The share arrives once and is discarded.</strong> The node derives a wrapping key
+     *
+     * <p><strong>The share arrives once and is discarded.</strong> The node derives a wrapping key
      * from it, stores the master key wrapped under that, and keeps nothing it could derive the
      * wrapping key from again. What is left on this machine is worth nothing without the device,
      * and what the device holds is worth nothing without this file.
@@ -197,8 +202,11 @@ public class VaultFile {
             throw new VaultException("A share is " + KEY_LENGTH + " bytes");
         }
         if (!Keyslot.STORAGE.contains(storage)) {
-            throw new VaultException("'" + storage + "' is not a kind of storage this knows: "
-                    + String.join(", ", Keyslot.STORAGE.stream().sorted().toList()));
+            throw new VaultException(
+                    "'"
+                            + storage
+                            + "' is not a kind of storage this knows: "
+                            + String.join(", ", Keyslot.STORAGE.stream().sorted().toList()));
         }
         return locked(() -> enrolled(opener, share, name, storage));
     }
@@ -210,8 +218,8 @@ public class VaultFile {
                     && takes(existing, Opener.share(share))) {
                 // Asked again after an answer was lost, most likely. Saying so beats making a
                 // second slot for one device, which would then need revoking twice.
-                throw new VaultException("That share is already enrolled as '"
-                        + existing.slot().name() + "'");
+                throw new VaultException(
+                        "That share is already enrolled as '" + existing.slot().name() + "'");
             }
         }
         final byte[] salt = new byte[SALT_LENGTH];
@@ -222,11 +230,25 @@ public class VaultFile {
         final Keyslot made;
         final java.util.List<VaultHeader.Slot> slots;
         try {
-            made = new Keyslot(java.util.UUID.randomUUID().toString(), name, storage,
-                    java.time.Instant.now().toString(), "", false);
+            made =
+                    new Keyslot(
+                            java.util.UUID.randomUUID().toString(),
+                            name,
+                            storage,
+                            java.time.Instant.now().toString(),
+                            "",
+                            false);
             slots = new java.util.ArrayList<>(opened.header().slots());
-            slots.add(new VaultHeader.Slot(VaultHeader.SHARE_SLOT, made, salt, nonce,
-                    wrap(key, nonce, opened.master()), 0, 0, 0));
+            slots.add(
+                    new VaultHeader.Slot(
+                            VaultHeader.SHARE_SLOT,
+                            made,
+                            salt,
+                            nonce,
+                            wrap(key, nonce, opened.master()),
+                            0,
+                            0,
+                            0));
         } finally {
             Arrays.fill(key, (byte) 0);
         }
@@ -236,8 +258,8 @@ public class VaultFile {
 
     /**
      * Removes a device's way in.
-     * <p>
-     * Deleting one wrapped blob, and nothing else: no re-keying, no other device disturbed, no
+     *
+     * <p>Deleting one wrapped blob, and nothing else: no re-keying, no other device disturbed, no
      * passphrase rotated. That is what keyslots are for.
      *
      * @param opener What opens the vault now.
@@ -265,8 +287,10 @@ public class VaultFile {
         }
         if (kept.isEmpty()) {
             // A vault nothing can open is not a revoked device, it is a lost vault.
-            throw new VaultException("That is the last way into " + file
-                    + ", and removing it would leave the vault openable by nothing");
+            throw new VaultException(
+                    "That is the last way into "
+                            + file
+                            + ", and removing it would leave the vault openable by nothing");
         }
         writeContent(read(opened(opener)), kept, opened.master());
         return kept.stream().map(VaultHeader.Slot::slot).toList();
@@ -274,10 +298,10 @@ public class VaultFile {
 
     /**
      * Records that a slot has just opened the vault.
-     * <p>
-     * A write for a timestamp, which is worth it: "last used" is how an operator spots a device
-     * that has not been near this machine in months and should not still have a way in. Without
-     * it the field in the contract would be permanently empty, which is worse than not having it.
+     *
+     * <p>A write for a timestamp, which is worth it: "last used" is how an operator spots a device
+     * that has not been near this machine in months and should not still have a way in. Without it
+     * the field in the contract would be permanently empty, which is worse than not having it.
      *
      * @param opener What opened the vault.
      * @param id The slot that did.
@@ -295,10 +319,24 @@ public class VaultFile {
         Keyslot touched = null;
         for (final VaultHeader.Slot slot : opened.header().slots()) {
             if (slot.slot().id().equals(id)) {
-                touched = new Keyslot(slot.slot().id(), slot.slot().name(), slot.slot().storage(),
-                        slot.slot().enrolled(), now, slot.slot().recovery());
-                slots.add(new VaultHeader.Slot(slot.kind(), touched, slot.salt(), slot.nonce(),
-                        slot.wrapped(), slot.iterations(), slot.memoryKib(), slot.parallelism()));
+                touched =
+                        new Keyslot(
+                                slot.slot().id(),
+                                slot.slot().name(),
+                                slot.slot().storage(),
+                                slot.slot().enrolled(),
+                                now,
+                                slot.slot().recovery());
+                slots.add(
+                        new VaultHeader.Slot(
+                                slot.kind(),
+                                touched,
+                                slot.salt(),
+                                slot.nonce(),
+                                slot.wrapped(),
+                                slot.iterations(),
+                                slot.memoryKib(),
+                                slot.parallelism()));
             } else {
                 slots.add(slot);
             }
@@ -312,8 +350,8 @@ public class VaultFile {
 
     /**
      * Says whether one named slot takes a share.
-     * <p>
-     * For reporting which device just unlocked the vault, and for nothing else: it answers about
+     *
+     * <p>For reporting which device just unlocked the vault, and for nothing else: it answers about
      * one slot, so it cannot be used to walk a vault trying shares.
      *
      * @param id The slot.
@@ -346,7 +384,9 @@ public class VaultFile {
         }
         try {
             final Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            cipher.init(Cipher.DECRYPT_MODE, new SecretKeySpec(key, "AES"),
+            cipher.init(
+                    Cipher.DECRYPT_MODE,
+                    new SecretKeySpec(key, "AES"),
                     new GCMParameterSpec(TAG_BITS, slot.nonce()));
             Arrays.fill(cipher.doFinal(slot.wrapped()), (byte) 0);
             return true;
@@ -360,19 +400,23 @@ public class VaultFile {
     private Map<String, VaultEntry> read(Opened opened) {
         try {
             final Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            cipher.init(Cipher.DECRYPT_MODE, new SecretKeySpec(opened.master(), "AES"),
+            cipher.init(
+                    Cipher.DECRYPT_MODE,
+                    new SecretKeySpec(opened.master(), "AES"),
                     new GCMParameterSpec(TAG_BITS, opened.header().contentNonce()));
             cipher.updateAAD(opened.header().authenticated());
             final byte[] file = opened.file();
-            final byte[] cipherText = Arrays.copyOfRange(file, opened.header().contentAt(),
-                    file.length);
+            final byte[] cipherText =
+                    Arrays.copyOfRange(file, opened.header().contentAt(), file.length);
             return parse(new String(cipher.doFinal(cipherText), StandardCharsets.UTF_8));
         } catch (GeneralSecurityException ex) {
             // The slot's own tag already proved the key, so a failure here is the file having
             // been altered rather than a wrong credential - and the message says so.
-            throw new VaultException("Cannot decrypt " + file
-                    + " - the credential opened a keyslot but the content does not match this"
-                    + " vault's header. The file has been altered.");
+            throw new VaultException(
+                    "Cannot decrypt "
+                            + file
+                            + " - the credential opened a keyslot but the content does not match this"
+                            + " vault's header. The file has been altered.");
         } finally {
             Arrays.fill(opened.master(), (byte) 0);
         }
@@ -406,8 +450,8 @@ public class VaultFile {
 
     /**
      * Returns the salt the existing file was written with, if there is one.
-     * <p>
-     * Readable without the passphrase: the salt sits in the header in the clear, which is what a
+     *
+     * <p>Readable without the passphrase: the salt sits in the header in the clear, which is what a
      * salt is for. Empty when there is no file yet, or when its header cannot be read - either way
      * a new one is generated rather than the write being refused.
      *
@@ -415,9 +459,9 @@ public class VaultFile {
      */
     /**
      * Overwrites a buffer's characters, so the plaintext does not sit in it until collection.
-     * <p>
-     * Best effort, and honestly so: growing a StringBuilder copies its contents, and the old array
-     * is left behind untouched. It is pre-sized to make that unlikely rather than impossible.
+     *
+     * <p>Best effort, and honestly so: growing a StringBuilder copies its contents, and the old
+     * array is left behind untouched. It is pre-sized to make that unlikely rather than impossible.
      *
      * @param text Buffer to clear.
      */
@@ -435,13 +479,12 @@ public class VaultFile {
      * @param file The whole file, so the content can be decrypted without reading it twice.
      * @param slot Which keyslot opened it.
      */
-    private record Opened(byte[] master, VaultHeader header, byte[] file, VaultHeader.Slot slot) {
-    }
+    private record Opened(byte[] master, VaultHeader header, byte[] file, VaultHeader.Slot slot) {}
 
     /**
      * What may open a vault.
-     * <p>
-     * Two things do, and they are not interchangeable: a passphrase is typed by a person and
+     *
+     * <p>Two things do, and they are not interchangeable: a passphrase is typed by a person and
      * derived with Argon2id, a share is held by a device and derived with HKDF. One type rather
      * than two overloads everywhere, so a method that needs "whatever opened this session" can say
      * so.
@@ -507,7 +550,9 @@ public class VaultFile {
             }
             try {
                 final Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-                cipher.init(Cipher.DECRYPT_MODE, new SecretKeySpec(key, "AES"),
+                cipher.init(
+                        Cipher.DECRYPT_MODE,
+                        new SecretKeySpec(key, "AES"),
                         new GCMParameterSpec(TAG_BITS, slot.nonce()));
                 return new Opened(cipher.doFinal(slot.wrapped()), header, content, slot);
             } catch (GeneralSecurityException ex) {
@@ -520,13 +565,18 @@ public class VaultFile {
             }
         }
         if (opener.share != null) {
-            throw new VaultException("No keyslot in " + file + " takes that share."
-                    + " The device may have been revoked, or this is another vault.");
+            throw new VaultException(
+                    "No keyslot in "
+                            + file
+                            + " takes that share."
+                            + " The device may have been revoked, or this is another vault.");
         }
-        throw new VaultException("Cannot open " + file
-                + " - wrong passphrase, or the file has been altered."
-                + " If the passphrase should be right, a cached one may be in the way:"
-                + " run 'porelo vault unlock --forget' and try again");
+        throw new VaultException(
+                "Cannot open "
+                        + file
+                        + " - wrong passphrase, or the file has been altered."
+                        + " If the passphrase should be right, a cached one may be in the way:"
+                        + " run 'porelo vault unlock --forget' and try again");
     }
 
     /**
@@ -542,7 +592,11 @@ public class VaultFile {
                 return null;
             }
             checkCost(slot.iterations(), slot.memoryKib(), slot.parallelism());
-            return deriveKey(opener.passphrase, slot.salt(), slot.iterations(), slot.memoryKib(),
+            return deriveKey(
+                    opener.passphrase,
+                    slot.salt(),
+                    slot.iterations(),
+                    slot.memoryKib(),
                     slot.parallelism());
         }
         return opener.share == null ? null : wrappingKey(opener.share, slot.salt());
@@ -550,11 +604,11 @@ public class VaultFile {
 
     /**
      * Derives a share's wrapping key.
-     * <p>
-     * HKDF-SHA256 rather than Argon2id: a share is 32 random bytes from a keystore, not something a
-     * person chose, so there is nothing to make expensive to guess. <strong>The node cannot produce
-     * this key from anything it stores</strong> - that is the property the whole design rests on,
-     * and it is why the share is never written down here.
+     *
+     * <p>HKDF-SHA256 rather than Argon2id: a share is 32 random bytes from a keystore, not
+     * something a person chose, so there is nothing to make expensive to guess. <strong>The node
+     * cannot produce this key from anything it stores</strong> - that is the property the whole
+     * design rests on, and it is why the share is never written down here.
      *
      * @param share The device's share.
      * @param salt This slot's salt.
@@ -564,8 +618,9 @@ public class VaultFile {
         final org.bouncycastle.crypto.generators.HKDFBytesGenerator generator =
                 new org.bouncycastle.crypto.generators.HKDFBytesGenerator(
                         new org.bouncycastle.crypto.digests.SHA256Digest());
-        generator.init(new org.bouncycastle.crypto.params.HKDFParameters(share, salt,
-                "porelo-keyslot".getBytes(StandardCharsets.US_ASCII)));
+        generator.init(
+                new org.bouncycastle.crypto.params.HKDFParameters(
+                        share, salt, "porelo-keyslot".getBytes(StandardCharsets.US_ASCII)));
         final byte[] key = new byte[KEY_LENGTH];
         generator.generateBytes(key, 0, key.length);
         return key;
@@ -573,19 +628,19 @@ public class VaultFile {
 
     /**
      * Writes the vault, keeping or replacing the salt.
-     * <p>
-     * <strong>The salt belongs to the vault, not to the write.</strong> It exists so that
+     *
+     * <p><strong>The salt belongs to the vault, not to the write.</strong> It exists so that
      * precomputing against one vault's passphrase does not help against another, which needs it to
-     * be random once - per vault. Uniqueness of the encryption comes from the nonce, which is
-     * fresh every time.
-     * <p>
-     * It used to be regenerated on every write, which meant a full Argon2id derivation - 64 MiB,
+     * be random once - per vault. Uniqueness of the encryption comes from the nonce, which is fresh
+     * every time.
+     *
+     * <p>It used to be regenerated on every write, which meant a full Argon2id derivation - 64 MiB,
      * three passes - for every credential stored, bought nothing identifiable, and made it
      * impossible to cache anything derived from the passphrase, because the derivation changed
      * under it whenever anything was saved.
-     * <p>
-     * <strong>A new passphrase does get a new salt.</strong> That is the one case where keeping it
-     * would preserve an attacker's precomputation across the change, and it is why this is a
+     *
+     * <p><strong>A new passphrase does get a new salt.</strong> That is the one case where keeping
+     * it would preserve an attacker's precomputation across the change, and it is why this is a
      * parameter rather than always reusing.
      *
      * @param entries What to store.
@@ -595,8 +650,11 @@ public class VaultFile {
     private void write(Map<String, VaultEntry> entries, char[] passphrase, boolean freshSalt) {
         if (!exists()) {
             final byte[] master = freshMaster();
-            writeContent(entries, java.util.List.of(
-                    passphraseSlot(passphrase, master, describeRecovery(java.util.List.of()))),
+            writeContent(
+                    entries,
+                    java.util.List.of(
+                            passphraseSlot(
+                                    passphrase, master, describeRecovery(java.util.List.of()))),
                     master);
             return;
         }
@@ -606,10 +664,10 @@ public class VaultFile {
 
     /**
      * Writes the vault under a different passphrase, keeping every device.
-     * <p>
-     * <strong>The master key does not change</strong>, so a rekey replaces exactly one slot and no
-     * enrolled device notices. That is the point of keyslots: the passphrase is a way in, not the
-     * key.
+     *
+     * <p><strong>The master key does not change</strong>, so a rekey replaces exactly one slot and
+     * no enrolled device notices. That is the point of keyslots: the passphrase is a way in, not
+     * the key.
      *
      * @param entries What to store.
      * @param opened What opening with the old passphrase produced.
@@ -622,8 +680,9 @@ public class VaultFile {
                 slots.add(slot);
             }
         }
-        slots.add(0, passphraseSlot(fresh, opened.master(),
-                describeRecovery(opened.header().slots())));
+        slots.add(
+                0,
+                passphraseSlot(fresh, opened.master(), describeRecovery(opened.header().slots())));
         writeContent(entries, slots, opened.master());
     }
 
@@ -639,8 +698,13 @@ public class VaultFile {
                 return slot.slot();
             }
         }
-        return new Keyslot(Keyslot.PASSPHRASE, "passphrase", "USER_SCOPED",
-                java.time.Instant.now().toString(), "", true);
+        return new Keyslot(
+                Keyslot.PASSPHRASE,
+                "passphrase",
+                "USER_SCOPED",
+                java.time.Instant.now().toString(),
+                "",
+                true);
     }
 
     private byte[] freshMaster() {
@@ -657,16 +721,22 @@ public class VaultFile {
      * @param description What to record about the slot.
      * @return The slot.
      */
-    private VaultHeader.Slot passphraseSlot(char[] passphrase, byte[] master,
-            Keyslot description) {
+    private VaultHeader.Slot passphraseSlot(char[] passphrase, byte[] master, Keyslot description) {
         final byte[] salt = new byte[SALT_LENGTH];
         random.nextBytes(salt);
         final byte[] key = deriveKey(passphrase, salt, ITERATIONS, MEMORY_KIB, PARALLELISM);
         final byte[] nonce = new byte[NONCE_LENGTH];
         random.nextBytes(nonce);
         try {
-            return new VaultHeader.Slot(VaultHeader.PASSPHRASE_SLOT, description, salt, nonce,
-                    wrap(key, nonce, master), ITERATIONS, MEMORY_KIB, PARALLELISM);
+            return new VaultHeader.Slot(
+                    VaultHeader.PASSPHRASE_SLOT,
+                    description,
+                    salt,
+                    nonce,
+                    wrap(key, nonce, master),
+                    ITERATIONS,
+                    MEMORY_KIB,
+                    PARALLELISM);
         } finally {
             Arrays.fill(key, (byte) 0);
         }
@@ -683,7 +753,9 @@ public class VaultFile {
     private byte[] wrap(byte[] key, byte[] nonce, byte[] master) {
         try {
             final Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            cipher.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(key, "AES"),
+            cipher.init(
+                    Cipher.ENCRYPT_MODE,
+                    new SecretKeySpec(key, "AES"),
                     new GCMParameterSpec(TAG_BITS, nonce));
             return cipher.doFinal(master);
         } catch (GeneralSecurityException ex) {
@@ -691,8 +763,10 @@ public class VaultFile {
         }
     }
 
-    private void writeContent(Map<String, VaultEntry> entries,
-            java.util.List<VaultHeader.Slot> slots, byte[] master) {
+    private void writeContent(
+            Map<String, VaultEntry> entries,
+            java.util.List<VaultHeader.Slot> slots,
+            byte[] master) {
 
         final byte[] contentNonce = new byte[NONCE_LENGTH];
         random.nextBytes(contentNonce);
@@ -716,7 +790,9 @@ public class VaultFile {
         final byte[] cipherText;
         try {
             final Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            cipher.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(master, "AES"),
+            cipher.init(
+                    Cipher.ENCRYPT_MODE,
+                    new SecretKeySpec(master, "AES"),
                     new GCMParameterSpec(TAG_BITS, contentNonce));
             cipher.updateAAD(header.authenticated());
             cipherText = cipher.doFinal(plaintext);
@@ -736,11 +812,11 @@ public class VaultFile {
 
     /**
      * Refuses KDF parameters that no Porelo version would have written.
-     * <p>
-     * <strong>These are read from the file and used before the authentication tag can be
+     *
+     * <p><strong>These are read from the file and used before the authentication tag can be
      * checked</strong> - deriving the key is what produces the ability to check it, so there is no
-     * ordering that avoids this. Anyone who can write the file can therefore choose the cost, and
-     * a single flipped byte turns three iterations into sixteen million: the process hangs, or
+     * ordering that avoids this. Anyone who can write the file can therefore choose the cost, and a
+     * single flipped byte turns three iterations into sixteen million: the process hangs, or
      * allocates until it is killed. Bounding the values is the only defense, and it has to happen
      * here rather than after decryption.
      *
@@ -749,12 +825,23 @@ public class VaultFile {
      * @param parallelism Parallelism from the file.
      */
     private void checkCost(int iterations, int memoryKib, int parallelism) {
-        if (iterations < 1 || iterations > MAX_ITERATIONS
-                || memoryKib < 8 || memoryKib > MAX_MEMORY_KIB
-                || parallelism < 1 || parallelism > MAX_PARALLELISM) {
-            throw new VaultException(file + " asks for implausible key-derivation parameters"
-                    + " (iterations=" + iterations + ", memory=" + memoryKib + " KiB"
-                    + ", parallelism=" + parallelism + ") and has been rejected unread");
+        if (iterations < 1
+                || iterations > MAX_ITERATIONS
+                || memoryKib < 8
+                || memoryKib > MAX_MEMORY_KIB
+                || parallelism < 1
+                || parallelism > MAX_PARALLELISM) {
+            throw new VaultException(
+                    file
+                            + " asks for implausible key-derivation parameters"
+                            + " (iterations="
+                            + iterations
+                            + ", memory="
+                            + memoryKib
+                            + " KiB"
+                            + ", parallelism="
+                            + parallelism
+                            + ") and has been rejected unread");
         }
     }
 
@@ -763,11 +850,16 @@ public class VaultFile {
         final Path directory = file.toAbsolutePath().getParent();
         try {
             Files.createDirectories(directory);
-            final Path temporary = Files.createTempFile(directory, ".vault", ".tmp",
-                    PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
+            final Path temporary =
+                    Files.createTempFile(
+                            directory,
+                            ".vault",
+                            ".tmp",
+                            PosixFilePermissions.asFileAttribute(
+                                    PosixFilePermissions.fromString("rw-------")));
             try {
-                try (FileChannel channel = FileChannel.open(temporary,
-                        java.nio.file.StandardOpenOption.WRITE)) {
+                try (FileChannel channel =
+                        FileChannel.open(temporary, java.nio.file.StandardOpenOption.WRITE)) {
                     channel.write(ByteBuffer.wrap(header));
                     channel.write(ByteBuffer.wrap(cipherText));
                     // Without the force() the rename can be durable while the content is not, which
@@ -775,10 +867,14 @@ public class VaultFile {
                     channel.force(true);
                 }
                 beforeReplace.run();
-                Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING,
+                Files.move(
+                        temporary,
+                        file,
+                        StandardCopyOption.REPLACE_EXISTING,
                         StandardCopyOption.ATOMIC_MOVE);
             } catch (IOException | RuntimeException ex) {
-                // A failed write left every credential, encrypted, in a second file beside the vault, one per failure.
+                // A failed write left every credential, encrypted, in a second file beside the
+                // vault, one per failure.
                 Files.deleteIfExists(temporary);
                 throw ex;
             }
@@ -787,8 +883,8 @@ public class VaultFile {
             // and the next flush can leave the old name pointing at nothing - which for a vault
             // is the file that holds every credential. Forcing the directory is what makes
             // "atomic replacement" true rather than usually true.
-            try (FileChannel parent = FileChannel.open(directory,
-                    java.nio.file.StandardOpenOption.READ)) {
+            try (FileChannel parent =
+                    FileChannel.open(directory, java.nio.file.StandardOpenOption.READ)) {
                 parent.force(true);
             }
         } catch (IOException ex) {
@@ -798,14 +894,14 @@ public class VaultFile {
 
     /**
      * Re-encrypts the vault under a different passphrase.
-     * <p>
-     * Under the same advisory lock {@link #update} holds, and for the same reason: another
+     *
+     * <p>Under the same advisory lock {@link #update} holds, and for the same reason: another
      * {@code porelo} storing a credential halfway through would either be lost or be written under
-     * the old passphrase. Read with the old, written with the new, in one cycle - and
-     * {@link #write} replaces the file atomically, so an interruption leaves the vault readable
-     * with one passphrase or the other and never with neither.
-     * <p>
-     * <strong>What this does not touch.</strong> A running task's credential proxy read what it
+     * the old passphrase. Read with the old, written with the new, in one cycle - and {@link
+     * #write} replaces the file atomically, so an interruption leaves the vault readable with one
+     * passphrase or the other and never with neither.
+     *
+     * <p><strong>What this does not touch.</strong> A running task's credential proxy read what it
      * needed when the task started and holds it in its own memory, so nothing running is locked
      * out. Anything holding the OLD passphrase in the kernel keyring now holds the wrong one -
      * dropping it is the caller's job, and not doing so turns the next command into a confusing
@@ -821,60 +917,65 @@ public class VaultFile {
 
     /**
      * Runs a read-modify-write cycle under an advisory lock.
-     * <p>
-     * The lock is held across the whole cycle, so two {@code porelo} processes storing different
+     *
+     * <p>The lock is held across the whole cycle, so two {@code porelo} processes storing different
      * credentials at the same time cannot lose one of them.
      *
      * @param passphrase The passphrase.
      * @param change Receives the current entries and returns what should be stored.
      * @throws VaultException If the vault cannot be locked, read or written.
      */
-    public void update(char[] passphrase,
-            java.util.function.UnaryOperator<Map<String, VaultEntry>> change) {
+    public void update(
+            char[] passphrase, java.util.function.UnaryOperator<Map<String, VaultEntry>> change) {
         update(passphrase, change, passphrase, false);
     }
 
     /**
      * Changes what the vault holds, opening it with whatever opens it.
-     * <p>
-     * For everything that needs the vault open rather than needing the passphrase in particular: a
-     * machine unlocked by a device can store a credential exactly as one unlocked by a person can,
-     * and neither has to know which the other used.
+     *
+     * <p>For everything that needs the vault open rather than needing the passphrase in particular:
+     * a machine unlocked by a device can store a credential exactly as one unlocked by a person
+     * can, and neither has to know which the other used.
      *
      * @param opener The passphrase or a held share.
      * @param change What to do with the entries.
      * @throws VaultException If the vault cannot be locked, opened or written.
      */
-    public void update(Opener opener,
-            java.util.function.UnaryOperator<Map<String, VaultEntry>> change) {
-        locked(() -> {
-            if (!exists()) {
-                throw new VaultException("There is no vault at " + file + " to change. Create it first.");
-            }
-            final Opened opened = opened(opener);
-            final Map<String, VaultEntry> current = new LinkedHashMap<>(read(opened(opener)));
-            writeContent(change.apply(current), opened.header().slots(), opened.master());
-            return null;
-        });
+    public void update(
+            Opener opener, java.util.function.UnaryOperator<Map<String, VaultEntry>> change) {
+        locked(
+                () -> {
+                    if (!exists()) {
+                        throw new VaultException(
+                                "There is no vault at " + file + " to change. Create it first.");
+                    }
+                    final Opened opened = opened(opener);
+                    final Map<String, VaultEntry> current =
+                            new LinkedHashMap<>(read(opened(opener)));
+                    writeContent(change.apply(current), opened.header().slots(), opened.master());
+                    return null;
+                });
     }
 
     /**
-     * Runs one read-modify-write of the vault under its locks: one for the threads of this process, one on a file
-     * beside the vault for every other process.
-     * <p>
-     * <strong>Every change goes through here.</strong> A change made outside it reads, changes and writes back what
-     * it read, so a credential stored by somebody else in between is lost with no error - measured with a device
-     * recording its use while credentials were stored.
+     * Runs one read-modify-write of the vault under its locks: one for the threads of this process,
+     * one on a file beside the vault for every other process.
      *
-     * @param body The change. It must not call back into a method that locks: a file lock does not nest.
+     * <p><strong>Every change goes through here.</strong> A change made outside it reads, changes
+     * and writes back what it read, so a credential stored by somebody else in between is lost with
+     * no error - measured with a device recording its use while credentials were stored.
+     *
+     * @param body The change. It must not call back into a method that locks: a file lock does not
+     *     nest.
      * @return What the change answered.
      * @throws VaultException If the lock cannot be taken, or the change throws one.
      */
     private <T> T locked(final java.util.function.Supplier<T> body) {
         final Path absolute = file.toAbsolutePath();
         final Path lockFile = absolute.resolveSibling(absolute.getFileName() + ".lock");
-        final java.util.concurrent.locks.ReentrantLock threadLock = THREAD_LOCKS.computeIfAbsent(
-                absolute, key -> new java.util.concurrent.locks.ReentrantLock());
+        final java.util.concurrent.locks.ReentrantLock threadLock =
+                THREAD_LOCKS.computeIfAbsent(
+                        absolute, key -> new java.util.concurrent.locks.ReentrantLock());
         threadLock.lock();
         try {
             Files.createDirectories(lockFile.getParent());
@@ -889,15 +990,18 @@ public class VaultFile {
         }
     }
 
-    private void update(char[] passphrase,
-            java.util.function.UnaryOperator<Map<String, VaultEntry>> change, char[] writeWith,
+    private void update(
+            char[] passphrase,
+            java.util.function.UnaryOperator<Map<String, VaultEntry>> change,
+            char[] writeWith,
             boolean rekeying) {
 
         final Path absolute = file.toAbsolutePath();
         final Path lockFile = absolute.resolveSibling(absolute.getFileName() + ".lock");
 
-        final java.util.concurrent.locks.ReentrantLock threadLock = THREAD_LOCKS.computeIfAbsent(
-                absolute, key -> new java.util.concurrent.locks.ReentrantLock());
+        final java.util.concurrent.locks.ReentrantLock threadLock =
+                THREAD_LOCKS.computeIfAbsent(
+                        absolute, key -> new java.util.concurrent.locks.ReentrantLock());
 
         threadLock.lock();
         try {
@@ -928,16 +1032,17 @@ public class VaultFile {
         }
     }
 
-    private static byte[] deriveKey(char[] passphrase, byte[] salt,
-            int iterations, int memoryKib, int parallelism) {
+    private static byte[] deriveKey(
+            char[] passphrase, byte[] salt, int iterations, int memoryKib, int parallelism) {
 
-        final Argon2Parameters parameters = new Argon2Parameters.Builder(Argon2Parameters.ARGON2_id)
-                .withVersion(Argon2Parameters.ARGON2_VERSION_13)
-                .withIterations(iterations)
-                .withMemoryAsKB(memoryKib)
-                .withParallelism(parallelism)
-                .withSalt(salt)
-                .build();
+        final Argon2Parameters parameters =
+                new Argon2Parameters.Builder(Argon2Parameters.ARGON2_id)
+                        .withVersion(Argon2Parameters.ARGON2_VERSION_13)
+                        .withIterations(iterations)
+                        .withMemoryAsKB(memoryKib)
+                        .withParallelism(parallelism)
+                        .withSalt(salt)
+                        .build();
 
         final Argon2BytesGenerator generator = new Argon2BytesGenerator();
         generator.init(parameters);
@@ -948,8 +1053,8 @@ public class VaultFile {
 
     /**
      * Reads the stored document.
-     * <p>
-     * A value is either the secret itself, which is how vaults were written before credentials
+     *
+     * <p>A value is either the secret itself, which is how vaults were written before credentials
      * carried a kind, or an object holding the secret and its kind. Both are accepted so an
      * existing vault keeps working.
      *
@@ -961,12 +1066,18 @@ public class VaultFile {
             throw new VaultException("The vault does not contain a JSON object");
         }
         final Map<String, VaultEntry> entries = new LinkedHashMap<>();
-        map.forEach((key, value) -> entries.put(String.valueOf(key),
-                value instanceof Map<?, ?> object
-                        ? new VaultEntry(String.valueOf(object.get("value")),
-                                object.get("type") == null ? null : String.valueOf(object.get("type")),
-                                settings(object.get("settings")))
-                        : VaultEntry.of(String.valueOf(value))));
+        map.forEach(
+                (key, value) ->
+                        entries.put(
+                                String.valueOf(key),
+                                value instanceof Map<?, ?> object
+                                        ? new VaultEntry(
+                                                String.valueOf(object.get("value")),
+                                                object.get("type") == null
+                                                        ? null
+                                                        : String.valueOf(object.get("type")),
+                                                settings(object.get("settings")))
+                                        : VaultEntry.of(String.valueOf(value))));
         return entries;
     }
 
@@ -978,28 +1089,30 @@ public class VaultFile {
      */
     private static Map<String, Object> document(Map<String, VaultEntry> entries) {
         final Map<String, Object> document = new LinkedHashMap<>();
-        entries.forEach((name, entry) -> {
-            if (entry.type() == null && entry.settings().isEmpty()) {
-                document.put(name, entry.value());
-                return;
-            }
-            final Map<String, Object> object = new LinkedHashMap<>();
-            object.put("value", entry.value());
-            if (entry.type() != null) {
-                object.put("type", entry.type());
-            }
-            if (!entry.settings().isEmpty()) {
-                object.put("settings", new LinkedHashMap<>(entry.settings()));
-            }
-            document.put(name, object);
-        });
+        entries.forEach(
+                (name, entry) -> {
+                    if (entry.type() == null && entry.settings().isEmpty()) {
+                        document.put(name, entry.value());
+                        return;
+                    }
+                    final Map<String, Object> object = new LinkedHashMap<>();
+                    object.put("value", entry.value());
+                    if (entry.type() != null) {
+                        object.put("type", entry.type());
+                    }
+                    if (!entry.settings().isEmpty()) {
+                        object.put("settings", new LinkedHashMap<>(entry.settings()));
+                    }
+                    document.put(name, object);
+                });
         return document;
     }
 
     private static Map<String, String> settings(@Nullable Object value) {
         final Map<String, String> settings = new LinkedHashMap<>();
         if (value instanceof Map<?, ?> named) {
-            named.forEach((key, setting) -> settings.put(String.valueOf(key), String.valueOf(setting)));
+            named.forEach(
+                    (key, setting) -> settings.put(String.valueOf(key), String.valueOf(setting)));
         }
         return settings;
     }

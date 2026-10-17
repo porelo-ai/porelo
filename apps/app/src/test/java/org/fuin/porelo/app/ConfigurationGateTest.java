@@ -13,9 +13,9 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Test for {@link ConfigurationGate}, against real git and real ssh keys.
- * <p>
- * Not with a fake runner: what is being checked is whether this machine agrees with git about what
- * a signature means, and a fake would answer that question with itself. The commit object's
+ *
+ * <p>Not with a fake runner: what is being checked is whether this machine agrees with git about
+ * what a signature means, and a fake would answer that question with itself. The commit object's
  * canonicalisation is git's, and so is the verdict.
  */
 class ConfigurationGateTest {
@@ -29,14 +29,25 @@ class ConfigurationGateTest {
         all.add(where.toString());
         all.addAll(java.util.List.of(command));
         final var result = runner.run(Command.of(all));
-        assertThat(result.exitCode()).as(String.join(" ", all) + " -> " + result.standardError())
+        assertThat(result.exitCode())
+                .as(String.join(" ", all) + " -> " + result.standardError())
                 .isZero();
     }
 
     /** A key pair, and the allowed_signers line that pins it. */
     private Path key(final Path dir, final String name) {
-        runner.run(Command.of("ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", name,
-                "-f", dir.resolve(name).toString()));
+        runner.run(
+                Command.of(
+                        "ssh-keygen",
+                        "-q",
+                        "-t",
+                        "ed25519",
+                        "-N",
+                        "",
+                        "-C",
+                        name,
+                        "-f",
+                        dir.resolve(name).toString()));
         return dir.resolve(name);
     }
 
@@ -118,8 +129,8 @@ class ConfigurationGateTest {
     void a_machine_with_nothing_pinned_applies_nothing(@TempDir final Path dir) throws IOException {
         final Path repo = repository(dir, key(dir, "operator"));
 
-        final ConfigurationGate.Verdict verdict = new ConfigurationGate(runner,
-                dir.resolve("never-written")).verify(repo, "HEAD");
+        final ConfigurationGate.Verdict verdict =
+                new ConfigurationGate(runner, dir.resolve("never-written")).verify(repo, "HEAD");
 
         assertThat(verdict.outcome()).isEqualTo(ConfigurationGate.Outcome.NO_ANCHOR);
         assertThat(verdict.detail()).contains("no key is pinned");
@@ -130,8 +141,9 @@ class ConfigurationGateTest {
         final Path key = key(dir, "operator");
         final Path repo = repository(dir, key);
 
-        final ConfigurationGate.Verdict verdict = new ConfigurationGate(runner,
-                pin(dir, "operator", key)).verify(repo, "no-such-ref");
+        final ConfigurationGate.Verdict verdict =
+                new ConfigurationGate(runner, pin(dir, "operator", key))
+                        .verify(repo, "no-such-ref");
 
         assertThat(verdict.outcome()).isEqualTo(ConfigurationGate.Outcome.UNREADABLE);
     }
@@ -139,13 +151,17 @@ class ConfigurationGateTest {
     @Test
     void aKeyPinnedForOneProjectDoesNotSignForAnother(@TempDir final Path dir) throws IOException {
 
-        // Every project was checked against one file, and any principal in it was accepted: a key pinned for a public
+        // Every project was checked against one file, and any principal in it was accepted: a key
+        // pinned for a public
         // project verified a commit served for another one.
         final Path theirs = key(dir, "alpha");
         final Path ours = key(dir, "beta");
         final Path signers = pin(dir, "alpha", theirs);
         final String[] fields = Files.readString(Path.of(ours + ".pub")).strip().split("\\s+");
-        Files.writeString(signers, "beta " + fields[0] + " " + fields[1] + "\n", java.nio.file.StandardOpenOption.APPEND);
+        Files.writeString(
+                signers,
+                "beta " + fields[0] + " " + fields[1] + "\n",
+                java.nio.file.StandardOpenOption.APPEND);
         final Path repo = repository(dir, theirs);
 
         assertThat(new ConfigurationGate(runner, signers).verify(repo, "HEAD", "beta").outcome())

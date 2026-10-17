@@ -19,29 +19,32 @@ import picocli.CommandLine.Spec;
 
 /**
  * Creates an empty vault, with a passphrase typed twice.
- * <p>
- * <strong>Why this exists as its own verb.</strong> A vault used to come into being as a side
+ *
+ * <p><strong>Why this exists as its own verb.</strong> A vault used to come into being as a side
  * effect of storing the first credential, which asked for a passphrase <em>once</em>: a typo then
  * became the passphrase, and nothing existed to compare it against afterwards. Since the vault
  * format has no migration, the only cure for that is creating the vault again - so the mistake is
  * worth a whole command to prevent.
- * <p>
- * It is also the first step on a machine that has just been prepared: a device cannot be enrolled
- * into a vault that does not exist, and the daemon cannot make one because it has no terminal to
- * ask a passphrase at.
+ *
+ * <p>It is also the first step on a machine that has just been prepared: a device cannot be
+ * enrolled into a vault that does not exist, and the daemon cannot make one because it has no
+ * terminal to ask a passphrase at.
  */
-@Command(name = "init",
+@Command(
+        name = "init",
         mixinStandardHelpOptions = true,
         description = "Creates an empty vault and sets its passphrase.")
 public class VaultInitCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
-    @Option(names = "--passphrase-command", paramLabel = "<command>",
-            description = "Reads the passphrase from this command instead of asking. Asked once,"
-                    + " because a command cannot mistype.")
+    @Option(
+            names = "--passphrase-command",
+            paramLabel = "<command>",
+            description =
+                    "Reads the passphrase from this command instead of asking. Asked once,"
+                            + " because a command cannot mistype.")
     private @Nullable String passphraseCommand;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -60,8 +63,9 @@ public class VaultInitCommand implements Callable<Integer>, PoreloFactory.Contex
             // Never silently: a second init over an existing vault would replace a file holding
             // credentials nobody can get back.
             err.println("porelo: there is already a vault at " + vault.path());
-            err.println("       change its passphrase with 'porelo vault passphrase', or move the"
-                    + " file aside if you mean to start over");
+            err.println(
+                    "       change its passphrase with 'porelo vault passphrase', or move the"
+                            + " file aside if you mean to start over");
             err.flush();
             return 70;
         }
@@ -70,14 +74,20 @@ public class VaultInitCommand implements Callable<Integer>, PoreloFactory.Contex
         char[] again = null;
         try {
             if (passphraseCommand != null) {
-                chosen = new CommandPassphrase(new ProcessCommandRunner(), passphraseCommand)
-                        .passphrase().orElseThrow(() -> new VaultException(
-                                "the passphrase command produced nothing"));
+                chosen =
+                        new CommandPassphrase(new ProcessCommandRunner(), passphraseCommand)
+                                .passphrase()
+                                .orElseThrow(
+                                        () ->
+                                                new VaultException(
+                                                        "the passphrase command produced nothing"));
             } else {
-                chosen = new PassphraseTiers(
-                        new ConsolePassphrase("New vault passphrase: ")).require();
-                again = new PassphraseTiers(
-                        new ConsolePassphrase("New vault passphrase again: ")).require();
+                chosen =
+                        new PassphraseTiers(new ConsolePassphrase("New vault passphrase: "))
+                                .require();
+                again =
+                        new PassphraseTiers(new ConsolePassphrase("New vault passphrase again: "))
+                                .require();
                 if (!Arrays.equals(chosen, again)) {
                     // Typed twice because there is nothing to compare it against afterwards, and
                     // because this format is not migrated: a mistyped passphrase means creating
@@ -88,8 +98,9 @@ public class VaultInitCommand implements Callable<Integer>, PoreloFactory.Contex
                 }
             }
             if (chosen.length == 0) {
-                err.println("porelo: an empty passphrase would leave the vault unprotected"
-                        + " - no vault was created");
+                err.println(
+                        "porelo: an empty passphrase would leave the vault unprotected"
+                                + " - no vault was created");
                 err.flush();
                 return 70;
             }
@@ -103,11 +114,13 @@ public class VaultInitCommand implements Callable<Integer>, PoreloFactory.Contex
             // passphrase available, tried: kernel-keyring, prompt" - which reads as a broken
             // install rather than as "type it again", and is exactly what a wizard does next.
             final boolean cached = cache(chosen, err);
-            out.println(cached
-                    ? "unlocked  cached in this account's keyring, where the daemon finds it"
-                    : "note      not cached - the next command will ask for it");
+            out.println(
+                    cached
+                            ? "unlocked  cached in this account's keyring, where the daemon finds it"
+                            : "note      not cached - the next command will ask for it");
             out.println();
-            out.println("It holds nothing yet. What usually comes next: sign in the agent you will use,");
+            out.println(
+                    "It holds nothing yet. What usually comes next: sign in the agent you will use,");
             out.println("   porelo vault login <agent>          ('porelo agents' lists them)");
             out.flush();
             return 0;
@@ -127,8 +140,8 @@ public class VaultInitCommand implements Callable<Integer>, PoreloFactory.Contex
 
     /**
      * Caches the passphrase this command just set.
-     * <p>
-     * Not being able to cache is not a reason to fail: the vault exists and is sound, and the
+     *
+     * <p>Not being able to cache is not a reason to fail: the vault exists and is sound, and the
      * next command will ask. Said rather than swallowed, because "it asked me again" needs an
      * explanation the first time it happens.
      *
@@ -147,8 +160,9 @@ public class VaultInitCommand implements Callable<Integer>, PoreloFactory.Contex
                     .store(passphrase, null);
             return true;
         } catch (final VaultException ex) {
-            err.println("porelo: the vault was created; its passphrase could not be cached: "
-                    + ex.getMessage());
+            err.println(
+                    "porelo: the vault was created; its passphrase could not be cached: "
+                            + ex.getMessage());
             err.flush();
             return false;
         }

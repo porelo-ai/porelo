@@ -9,16 +9,16 @@ import java.util.Base64;
 
 /**
  * Reads what a vault entry holds into a key the agent can sign with.
- * <p>
- * <strong>Two shapes, because there were two eras.</strong> An entry written before this held
+ *
+ * <p><strong>Two shapes, because there were two eras.</strong> An entry written before this held
  * base64 of a 32-byte Ed25519 seed and nothing else; one written now holds the key file itself,
  * whatever kind it is. Both are read, so nothing anybody has stored has to be stored again - and
  * the RSA key that was already sitting in a vault, rejected as undecodable, starts working.
- * <p>
- * <strong>No new dependency for RSA.</strong> A PKCS#8 key is what the JDK's own KeyFactory
- * takes; a PKCS#1 key is a sequence of nine integers, which is little enough to read here. Adding
- * a PEM library for it would have put a second parser of somebody else's format into a native
- * image for the sake of thirty lines.
+ *
+ * <p><strong>No new dependency for RSA.</strong> A PKCS#8 key is what the JDK's own KeyFactory
+ * takes; a PKCS#1 key is a sequence of nine integers, which is little enough to read here. Adding a
+ * PEM library for it would have put a second parser of somebody else's format into a native image
+ * for the sake of thirty lines.
  */
 public final class StoredKey {
 
@@ -42,15 +42,18 @@ public final class StoredKey {
         try {
             return new SigningKey(Base64.getDecoder().decode(text), comment);
         } catch (final IllegalArgumentException ex) {
-            throw new VaultException("'" + comment + "' does not hold a key this machine can"
-                    + " read: it is neither a private key file nor an Ed25519 seed.");
+            throw new VaultException(
+                    "'"
+                            + comment
+                            + "' does not hold a key this machine can"
+                            + " read: it is neither a private key file nor an Ed25519 seed.");
         }
     }
 
     /**
      * Returns what to store in the vault for a key file.
-     * <p>
-     * An Ed25519 key keeps its seed, which is what every entry written until now holds; anything
+     *
+     * <p>An Ed25519 key keeps its seed, which is what every entry written until now holds; anything
      * else is kept as the file, because there is nothing smaller that is still the key.
      *
      * @param text The key file.
@@ -70,8 +73,11 @@ public final class StoredKey {
         if (OpenSshPrivateKey.looksLikeOne(text)) {
             final OpenSshPrivateKey.Described described = OpenSshPrivateKey.describe(text);
             if (described != null && described.encrypted()) {
-                throw new VaultException("'" + comment + "' is protected by a passphrase, and"
-                        + " nothing here can ask for one.");
+                throw new VaultException(
+                        "'"
+                                + comment
+                                + "' is protected by a passphrase, and"
+                                + " nothing here can ask for one.");
             }
             if (described != null && described.usable()) {
                 return new SigningKey(
@@ -79,24 +85,32 @@ public final class StoredKey {
             }
             // An OpenSSH-wrapped RSA key. 'ssh-keygen -p -m PEM' converts it in one command, and
             // saying so is better than a second parser of somebody else's container format.
-            throw new VaultException("'" + comment + "' is an OpenSSH-wrapped key that is not"
-                    + " Ed25519. Convert it with 'ssh-keygen -p -m PEM -f <file>' and store it"
-                    + " again, or use it where it lies with --file.");
+            throw new VaultException(
+                    "'"
+                            + comment
+                            + "' is an OpenSSH-wrapped key that is not"
+                            + " Ed25519. Convert it with 'ssh-keygen -p -m PEM -f <file>' and store it"
+                            + " again, or use it where it lies with --file.");
         }
         final String armour = OpenSshPrivateKey.armourOf(text);
         try {
             final byte[] der = Base64.getMimeDecoder().decode(body(text));
-            final RSAPrivateCrtKey key = "RSA".equals(armour)
-                    ? pkcs1(der)
-                    : (RSAPrivateCrtKey) KeyFactory.getInstance("RSA")
-                            .generatePrivate(new PKCS8EncodedKeySpec(der));
+            final RSAPrivateCrtKey key =
+                    "RSA".equals(armour)
+                            ? pkcs1(der)
+                            : (RSAPrivateCrtKey)
+                                    KeyFactory.getInstance("RSA")
+                                            .generatePrivate(new PKCS8EncodedKeySpec(der));
             return new RsaKey(key, key.getModulus(), key.getPublicExponent(), comment);
         } catch (final ClassCastException ex) {
-            throw new VaultException("'" + comment + "' is not an RSA key, and this machine signs"
-                    + " with Ed25519 and RSA.");
+            throw new VaultException(
+                    "'"
+                            + comment
+                            + "' is not an RSA key, and this machine signs"
+                            + " with Ed25519 and RSA.");
         } catch (final java.security.GeneralSecurityException | IllegalArgumentException ex) {
-            throw new VaultException("'" + comment + "' could not be read as a private key: "
-                    + ex.getMessage());
+            throw new VaultException(
+                    "'" + comment + "' could not be read as a private key: " + ex.getMessage());
         }
     }
 
@@ -120,9 +134,18 @@ public final class StoredKey {
         final BigInteger exponentP = reader.integer();
         final BigInteger exponentQ = reader.integer();
         final BigInteger coefficient = reader.integer();
-        return (RSAPrivateCrtKey) KeyFactory.getInstance("RSA").generatePrivate(
-                new RSAPrivateCrtKeySpec(modulus, publicExponent, privateExponent, primeP,
-                        primeQ, exponentP, exponentQ, coefficient));
+        return (RSAPrivateCrtKey)
+                KeyFactory.getInstance("RSA")
+                        .generatePrivate(
+                                new RSAPrivateCrtKeySpec(
+                                        modulus,
+                                        publicExponent,
+                                        privateExponent,
+                                        primeP,
+                                        primeQ,
+                                        exponentP,
+                                        exponentQ,
+                                        coefficient));
     }
 
     private static String body(final String text) {
@@ -154,11 +177,12 @@ public final class StoredKey {
             expect(0x02);
             final int length = length();
             if (length > bytes.length - at) {
-                // Copied anyway it is padded with zeros, and a key with a wrong number signs nothing anyone accepts.
+                // Copied anyway it is padded with zeros, and a key with a wrong number signs
+                // nothing anyone accepts.
                 throw new VaultException("this key file ends inside one of its numbers.");
             }
-            final BigInteger value = new BigInteger(1,
-                    java.util.Arrays.copyOfRange(bytes, at, at + length));
+            final BigInteger value =
+                    new BigInteger(1, java.util.Arrays.copyOfRange(bytes, at, at + length));
             at += length;
             return value;
         }
@@ -178,7 +202,8 @@ public final class StoredKey {
             if ((length & 0x80) != 0) {
                 final int count = length & 0x7F;
                 if (count == 0 || count > 3 || count > bytes.length - at) {
-                    // Three bytes say sixteen megabytes, far beyond any key; more is a file that is not one.
+                    // Three bytes say sixteen megabytes, far beyond any key; more is a file that is
+                    // not one.
                     throw new VaultException("this key file states a length it cannot have.");
                 }
                 length = 0;

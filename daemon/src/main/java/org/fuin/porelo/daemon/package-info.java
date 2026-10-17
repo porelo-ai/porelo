@@ -1,6 +1,4 @@
-/**
- * Daemon (DAEMON)
- */
+/** Daemon (DAEMON) */
 @NullMarked
 package org.fuin.porelo.daemon;
 

@@ -11,44 +11,49 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * What a task is, written down when it starts, for anything that asks about it later.
- * <p>
- * The container knows it is up and the runtime knows since when; only the launcher knows which
+ *
+ * <p>The container knows it is up and the runtime knows since when; only the launcher knows which
  * agent it started, how somebody is meant to be involved, what the agent was asked to do and which
- * ref its work goes to. None of that can be recovered afterwards - an interface asking "which
- * agent is this?" was reduced to guessing - so it is recorded at the one moment it is known.
- * <p>
- * <strong>Not the sidecar.</strong> That file is the contract between the launcher and the three
+ * ref its work goes to. None of that can be recovered afterwards - an interface asking "which agent
+ * is this?" was reduced to guessing - so it is recorded at the one moment it is known.
+ *
+ * <p><strong>Not the sidecar.</strong> That file is the contract between the launcher and the three
  * hook binaries, which are installed once and outlive any release of the CLI; adding operator-
  * facing fields to it would make every one of them a protocol change. This file has no such
  * readers.
  *
  * @param version Schema version, so a file from an older Porelo is recognized rather than
- *        half-understood.
+ *     half-understood.
  * @param agent Name of the agent running in the task, or {@code null} when it has none.
  * @param mode How a person is meant to be involved.
  * @param prompt What an unattended task was asked to do, or {@code null}. Kept after it finishes,
- *        because "what was this asked to do" is a question people have about a task that is over.
+ *     because "what was this asked to do" is a question people have about a task that is over.
  * @param branch Ref the task's work goes to, or {@code null} when it has no gate.
  * @param startedAt When the task was started, ISO-8601.
  * @param clearance What the task does with a blocked connection: {@code prompt}, {@code allow},
- *        {@code deny} or {@code off}. The most consequential state a task can be in is {@code off}
- *        - nothing asks and nothing is refused - and until this was recorded it was invisible:
- *        nothing an interface listed could mark it, because nothing told the interface it was
- *        true.
+ *     {@code deny} or {@code off}. The most consequential state a task can be in is {@code off} -
+ *     nothing asks and nothing is refused - and until this was recorded it was invisible: nothing
+ *     an interface listed could mark it, because nothing told the interface it was true.
  * @param label A changeable caption a person gave this task, or {@code null} when nobody has.
- *        <strong>Beside the identity, never instead of it.</strong> The task's name is what every
- *        other call takes and what somebody types into {@code porelo} at the machine, so a label
- *        that replaced it would make the interface and the command line disagree about what a
- *        thing is called. Absent and empty are deliberately the same state: both mean the row
- *        shows its real name, and a third would cost a value class to express a difference nobody
- *        can act on.
+ *     <strong>Beside the identity, never instead of it.</strong> The task's name is what every
+ *     other call takes and what somebody types into {@code porelo} at the machine, so a label that
+ *     replaced it would make the interface and the command line disagree about what a thing is
+ *     called. Absent and empty are deliberately the same state: both mean the row shows its real
+ *     name, and a third would cost a value class to express a difference nobody can act on.
  * @param provider The model provider the task was brokered to, by the name {@code porelo providers}
- *        lists, or {@code null} when it was brokered to none. Settled once at start and asked about
- *        afterwards - "which service did this task's prompts go to" - when nothing else records it.
+ *     lists, or {@code null} when it was brokered to none. Settled once at start and asked about
+ *     afterwards - "which service did this task's prompts go to" - when nothing else records it.
  */
-public record TaskProfile(int version, @Nullable String agent, TaskMode mode,
-        @Nullable String prompt, @Nullable String branch, String startedAt,
-        @Nullable String clearance, @Nullable String label, @Nullable String provider) {
+public record TaskProfile(
+        int version,
+        @Nullable String agent,
+        TaskMode mode,
+        @Nullable String prompt,
+        @Nullable String branch,
+        String startedAt,
+        @Nullable String clearance,
+        @Nullable String label,
+        @Nullable String provider) {
 
     /**
      * Constructor for a task that names no provider.
@@ -62,9 +67,15 @@ public record TaskProfile(int version, @Nullable String agent, TaskMode mode,
      * @param clearance What it does with a blocked connection.
      * @param label Its caption, or {@code null}.
      */
-    public TaskProfile(int version, @Nullable String agent, TaskMode mode,
-            @Nullable String prompt, @Nullable String branch, String startedAt,
-            @Nullable String clearance, @Nullable String label) {
+    public TaskProfile(
+            int version,
+            @Nullable String agent,
+            TaskMode mode,
+            @Nullable String prompt,
+            @Nullable String branch,
+            String startedAt,
+            @Nullable String clearance,
+            @Nullable String label) {
         this(version, agent, mode, prompt, branch, startedAt, clearance, label, null);
     }
 
@@ -79,8 +90,13 @@ public record TaskProfile(int version, @Nullable String agent, TaskMode mode,
      * @param startedAt When it started, ISO-8601.
      * @param clearance What it does with a blocked connection.
      */
-    public TaskProfile(int version, @Nullable String agent, TaskMode mode,
-            @Nullable String prompt, @Nullable String branch, String startedAt,
+    public TaskProfile(
+            int version,
+            @Nullable String agent,
+            TaskMode mode,
+            @Nullable String prompt,
+            @Nullable String branch,
+            String startedAt,
             @Nullable String clearance) {
         this(version, agent, mode, prompt, branch, startedAt, clearance, null, null);
     }
@@ -88,20 +104,28 @@ public record TaskProfile(int version, @Nullable String agent, TaskMode mode,
     /**
      * Returns this profile with a different label.
      *
-     * @param caption The new caption, or {@code null} to remove it. Blank counts as removing it:
-     *        a label of spaces is a row with an invisible caption and no way to tell it from one
-     *        that was never set.
+     * @param caption The new caption, or {@code null} to remove it. Blank counts as removing it: a
+     *     label of spaces is a row with an invisible caption and no way to tell it from one that
+     *     was never set.
      * @return A copy.
      */
     public TaskProfile withLabel(@Nullable String caption) {
-        return new TaskProfile(version, agent, mode, prompt, branch, startedAt, clearance,
-                caption == null || caption.isBlank() ? null : caption.strip(), provider);
+        return new TaskProfile(
+                version,
+                agent,
+                mode,
+                prompt,
+                branch,
+                startedAt,
+                clearance,
+                caption == null || caption.isBlank() ? null : caption.strip(),
+                provider);
     }
 
     /**
      * Returns a copy recording a different clearance mode.
-     * <p>
-     * Written when enforcement is changed on a task that is already running, so that what a task
+     *
+     * <p>Written when enforcement is changed on a task that is already running, so that what a task
      * reports is what it is doing rather than what it was started with. A field that kept saying
      * "prompt" for a task nobody is being asked about would be worse than not having it.
      *
@@ -109,10 +133,14 @@ public record TaskProfile(int version, @Nullable String agent, TaskMode mode,
      * @return A copy.
      */
     public TaskProfile withClearance(String mode) {
-        return new TaskProfile(version, agent, this.mode, prompt, branch, startedAt, mode, label, provider);
+        return new TaskProfile(
+                version, agent, this.mode, prompt, branch, startedAt, mode, label, provider);
     }
 
-    /** Current schema version. Bumped to 3 when a label could be given, to 4 when the provider was recorded. */
+    /**
+     * Current schema version. Bumped to 3 when a label could be given, to 4 when the provider was
+     * recorded.
+     */
     public static final int VERSION = 4;
 
     /** Name of the file in a task's state directory. */
@@ -147,7 +175,7 @@ public record TaskProfile(int version, @Nullable String agent, TaskMode mode,
      *
      * @param stateDirectory Where the task keeps its files.
      * @return The profile, or {@code null} when there is none - a task from an older Porelo, or one
-     *         whose state directory has been removed.
+     *     whose state directory has been removed.
      */
     @Nullable
     public static TaskProfile readFrom(Path stateDirectory) {
@@ -166,14 +194,16 @@ public record TaskProfile(int version, @Nullable String agent, TaskMode mode,
                     TaskMode.parse(String.valueOf(document.get("mode")), TaskMode.SHELL),
                     text(document, "prompt"),
                     text(document, "branch"),
-                    document.get("startedAt") == null ? ""
+                    document.get("startedAt") == null
+                            ? ""
                             : String.valueOf(document.get("startedAt")),
                     text(document, "clearance"),
                     // A profile from before labels existed has no key at all, and reads as
                     // unlabeled - which is the same state as a label somebody cleared, on
                     // purpose.
                     text(document, "label"),
-                    // A task started before the provider was recorded reads as brokered to none, which is
+                    // A task started before the provider was recorded reads as brokered to none,
+                    // which is
                     // what an interface shows for "not known" as well.
                     text(document, "provider"));
         } catch (IOException | RuntimeException ex) {

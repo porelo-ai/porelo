@@ -20,14 +20,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Tests for {@link PoreloContext#openerAsking}: a shut vault opened where it is needed, at a terminal only.
+ * Tests for {@link PoreloContext#openerAsking}: a shut vault opened where it is needed, at a
+ * terminal only.
  */
 class OpenerAskingTest {
 
     private static final char[] PASSPHRASE = "correct horse".toCharArray();
 
-    @TempDir
-    Path dir;
+    @TempDir Path dir;
 
     @org.junit.jupiter.api.AfterEach
     void forget() {
@@ -40,8 +40,12 @@ class OpenerAskingTest {
 
     private PoreloContext context(final VaultPrompt prompt) {
         final XdgPaths xdg = XdgPaths.of(name -> null, dir);
-        final PoreloContext context = new PoreloContext(new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")),
-                arguments -> 0).asking(prompt);
+        final PoreloContext context =
+                new PoreloContext(
+                                new FakeCommandRunner(),
+                                new PoreloPaths(xdg, dir.resolve("bin")),
+                                arguments -> 0)
+                        .asking(prompt);
         context.vault().write(Map.of("a", VaultEntry.of("one")), PASSPHRASE);
         return context;
     }
@@ -57,7 +61,8 @@ class OpenerAskingTest {
     @Test
     void asksNobodyWithoutATerminalAndStaysShut() {
         // A script, a pipe, the daemon: nothing waits for input, and the caller refuses as before.
-        assertThat(context(VaultPrompt.NOBODY).openerAsking(false, new PrintWriter(said))).isEmpty();
+        assertThat(context(VaultPrompt.NOBODY).openerAsking(false, new PrintWriter(said)))
+                .isEmpty();
     }
 
     @Test
@@ -69,8 +74,12 @@ class OpenerAskingTest {
         assertThat(opener).isPresent();
         assertThat(context.vault().read(opener.get())).containsKey("a");
         assertThat(shown).containsExactly("Vault passphrase (for this command only): ");
-        assertThat(context.readableCredentials()).as("the rest of this command reads it").isPresent();
-        assertThat(context.openerAsking(false, new PrintWriter(said))).as("asked once per command").isPresent();
+        assertThat(context.readableCredentials())
+                .as("the rest of this command reads it")
+                .isPresent();
+        assertThat(context.openerAsking(false, new PrintWriter(said)))
+                .as("asked once per command")
+                .isPresent();
         assertThat(shown).hasSize(1);
         PoreloContext.forgetAsked();
         assertThat(context.opener()).as("nothing kept beyond this process").isEmpty();
@@ -101,7 +110,9 @@ class OpenerAskingTest {
         try {
             assertThat(context.openerAsking(true, new PrintWriter(said))).isPresent();
 
-            assertThat(shown).containsExactly("Vault passphrase (unlocks it as 'porelo vault unlock' does): ");
+            assertThat(shown)
+                    .containsExactly(
+                            "Vault passphrase (unlocks it as 'porelo vault unlock' does): ");
             assertThat(context.opener()).as("the next command finds it open").isPresent();
         } finally {
             keyring.forget();
@@ -125,8 +136,12 @@ class OpenerAskingTest {
     @Test
     void asksNothingWhereThereIsNoVault() {
         final XdgPaths xdg = XdgPaths.of(name -> null, dir);
-        final PoreloContext context = new PoreloContext(new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")),
-                arguments -> 0).asking(answering("correct horse"));
+        final PoreloContext context =
+                new PoreloContext(
+                                new FakeCommandRunner(),
+                                new PoreloPaths(xdg, dir.resolve("bin")),
+                                arguments -> 0)
+                        .asking(answering("correct horse"));
 
         assertThat(context.openerAsking(false, new PrintWriter(said))).isEmpty();
         assertThat(shown).as("a vault that is not there is not one to unlock").isEmpty();

@@ -8,9 +8,7 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Tests for {@link UnhandedWork}.
- */
+/** Tests for {@link UnhandedWork}. */
 class UnhandedWorkTest {
 
     private static void wrote(Path state, String content) throws IOException {
@@ -48,12 +46,16 @@ class UnhandedWorkTest {
         // wording in one of three shapes, and answering "nobody looked" about a task that was
         // measured would destroy work this exists to protect.
         wrote(state, "2 commits and 3 changed files");
-        assertThat(UnhandedWork.read(state)).satisfies(held -> {
-            assertThat(held.readable()).isTrue();
-            assertThat(held.unpushedCommits()).isEqualTo(2);
-            assertThat(held.changedFiles()).isEqualTo(3);
-            assertThat(held.asOf()).as("taken from the file, the only thing that knows").isNotNull();
-        });
+        assertThat(UnhandedWork.read(state))
+                .satisfies(
+                        held -> {
+                            assertThat(held.readable()).isTrue();
+                            assertThat(held.unpushedCommits()).isEqualTo(2);
+                            assertThat(held.changedFiles()).isEqualTo(3);
+                            assertThat(held.asOf())
+                                    .as("taken from the file, the only thing that knows")
+                                    .isNotNull();
+                        });
 
         wrote(state, "1 commit");
         assertThat(UnhandedWork.read(state).unpushedCommits()).isEqualTo(1);

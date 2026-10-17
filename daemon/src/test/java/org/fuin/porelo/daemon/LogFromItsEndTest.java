@@ -10,18 +10,21 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Tests for reading a task's log from its end: a client asks for the last lines, not the whole file.
+ * Tests for reading a task's log from its end: a client asks for the last lines, not the whole
+ * file.
  */
 class LogFromItsEndTest {
 
     @Test
-    void theLastLinesStartWhereTheyStartAndNotAtTheFilesBeginning(@TempDir Path dir) throws IOException {
+    void theLastLinesStartWhereTheyStartAndNotAtTheFilesBeginning(@TempDir Path dir)
+            throws IOException {
 
         // The interface closed while following a log of 53 MB: Tail sent it from its first line.
         final Path log = Files.writeString(dir.resolve("task.log"), "one\ntwo\nthree\nfour\n");
 
         assertThat(PoreloDaemon.startOfLast(log, 2)).isEqualTo("one\ntwo\n".length());
-        assertThat(PoreloDaemon.read(log, PoreloDaemon.startOfLast(log, 2)).lines()).containsExactly("three", "four");
+        assertThat(PoreloDaemon.read(log, PoreloDaemon.startOfLast(log, 2)).lines())
+                .containsExactly("three", "four");
         assertThat(PoreloDaemon.startOfLast(log, 10)).isZero();
         assertThat(PoreloDaemon.startOfLast(log, 0)).isEqualTo(Files.size(log));
     }
@@ -29,12 +32,18 @@ class LogFromItsEndTest {
     @Test
     void aLastLineWithoutItsEndCountsAndLongLinesAreCrossed(@TempDir Path dir) throws IOException {
 
-        // A line of 85 698 characters was measured in a real log; finding where it starts reads back past several
+        // A line of 85 698 characters was measured in a real log; finding where it starts reads
+        // back past several
         // blocks.
         final String longLine = "x".repeat(200_000);
-        final Path log = Files.writeString(dir.resolve("task.log"), "first\n" + longLine + "\nlast", StandardCharsets.UTF_8);
+        final Path log =
+                Files.writeString(
+                        dir.resolve("task.log"),
+                        "first\n" + longLine + "\nlast",
+                        StandardCharsets.UTF_8);
 
-        assertThat(PoreloDaemon.startOfLast(log, 1)).isEqualTo(("first\n" + longLine + "\n").length());
+        assertThat(PoreloDaemon.startOfLast(log, 1))
+                .isEqualTo(("first\n" + longLine + "\n").length());
         assertThat(PoreloDaemon.startOfLast(log, 2)).isEqualTo("first\n".length());
     }
 }

@@ -1,11 +1,11 @@
 package org.fuin.porelo.app;
 
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -20,15 +20,15 @@ import picocli.CommandLine.UnmatchedArgumentException;
 
 /**
  * What somebody sees when they type a command wrongly.
- * <p>
- * <strong>The default is written for whoever wrote the parser.</strong> Typing
- * {@code porelo unlock} answered "Unmatched argument at index 0: 'unlock'" - which describes the
- * parser's position in an array - and then suggested {@code porelo doctor}, because the built-in
- * suggestion compares spellings against the commands at that one level and {@code doctor} was
- * the nearest. Both halves are unhelpful at once: the wording is about parsing, and the advice
- * points somewhere unrelated.
- * <p>
- * <strong>What was actually wrong is usually knowable.</strong> {@code unlock} is not a
+ *
+ * <p><strong>The default is written for whoever wrote the parser.</strong> Typing {@code porelo
+ * unlock} answered "Unmatched argument at index 0: 'unlock'" - which describes the parser's
+ * position in an array - and then suggested {@code porelo doctor}, because the built-in suggestion
+ * compares spellings against the commands at that one level and {@code doctor} was the nearest.
+ * Both halves are unhelpful at once: the wording is about parsing, and the advice points somewhere
+ * unrelated.
+ *
+ * <p><strong>What was actually wrong is usually knowable.</strong> {@code unlock} is not a
  * misspelling of anything; it is a real command one level down. Searching the whole tree for it
  * turns the answer into the thing somebody can act on: {@code porelo vault unlock}.
  */
@@ -40,8 +40,8 @@ final class CliErrors {
 
     /**
      * Returns the full command path of a subcommand with this name, wherever it is.
-     * <p>
-     * Breadth-first, so the shallowest match wins: a name that exists at two depths is more
+     *
+     * <p>Breadth-first, so the shallowest match wins: a name that exists at two depths is more
      * likely meant as the shorter one.
      *
      * @param root The top-level command.
@@ -65,8 +65,8 @@ final class CliErrors {
 
     /**
      * Returns the top-level command, whichever one the parse failed in.
-     * <p>
-     * The search has to start there rather than where somebody was standing: the whole point is
+     *
+     * <p>The search has to start there rather than where somebody was standing: the whole point is
      * to find a name that lives somewhere else.
      *
      * @param command Where the parse failed.
@@ -82,14 +82,14 @@ final class CliErrors {
 
     /**
      * Returns the closest command name to what was typed, when something is close enough.
-     * <p>
-     * Searched across the whole tree rather than one level, which is what the built-in
+     *
+     * <p>Searched across the whole tree rather than one level, which is what the built-in
      * suggestion does: typing {@code porelo improt} should offer {@code porelo vault import}, and
      * comparing only against the top-level names cannot see it.
-     * <p>
-     * Two edits at most, and never for a very short word - at one or two characters almost
-     * everything is within two edits of almost everything else, and a confident wrong suggestion
-     * is worse than none.
+     *
+     * <p>Two edits at most, and never for a very short word - at one or two characters almost
+     * everything is within two edits of almost everything else, and a confident wrong suggestion is
+     * worse than none.
      *
      * @param root The top-level command.
      * @param typed What somebody typed.
@@ -133,8 +133,8 @@ final class CliErrors {
         for (int i = 1; i <= one.length(); i++) {
             current[0] = i;
             for (int j = 1; j <= other.length(); j++) {
-                final int substitute = previous[j - 1]
-                        + (one.charAt(i - 1) == other.charAt(j - 1) ? 0 : 1);
+                final int substitute =
+                        previous[j - 1] + (one.charAt(i - 1) == other.charAt(j - 1) ? 0 : 1);
                 current[j] = Math.min(substitute, Math.min(previous[j] + 1, current[j - 1] + 1));
             }
             System.arraycopy(current, 0, previous, 0, current.length);
@@ -159,7 +159,6 @@ final class CliErrors {
      */
     static IParameterExceptionHandler handler() {
         return (ParameterException ex, String[] args) -> {
-
             final CommandLine command = ex.getCommandLine();
             final PrintWriter err = command.getErr();
 
@@ -182,8 +181,7 @@ final class CliErrors {
                     } else if (nearest.isPresent()) {
                         err.println("porelo: did you mean '" + nearest.get() + "'?");
                     } else if (!available(command).isEmpty()) {
-                        err.println("porelo: try one of: "
-                                + String.join(", ", available(command)));
+                        err.println("porelo: try one of: " + String.join(", ", available(command)));
                     }
                 }
             } else {
@@ -199,8 +197,10 @@ final class CliErrors {
             }
 
             err.println();
-            err.println("Run '" + command.getCommandSpec().qualifiedName(" ")
-                    + " --help' to see what it takes.");
+            err.println(
+                    "Run '"
+                            + command.getCommandSpec().qualifiedName(" ")
+                            + " --help' to see what it takes.");
             err.flush();
             return command.getCommandSpec().exitCodeOnInvalidInput();
         };
@@ -208,15 +208,15 @@ final class CliErrors {
 
     /**
      * Returns the handler for a command that threw.
-     * <p>
-     * <strong>A stack trace is not a message.</strong> Every refusal this product writes is one
+     *
+     * <p><strong>A stack trace is not a message.</strong> Every refusal this product writes is one
      * line beginning "porelo:", and then an unhandled exception put sixteen frames of picocli on
      * somebody's terminal - reported when {@code task resume} met a container podman would not
-     * start. The frames say where in this code it happened, which is of no use to the person
-     * being told, and they bury the one line that was.
-     * <p>
-     * The trace is still reachable: {@code PORELO_DEBUG} prints it. Losing it entirely would trade
-     * one bad outcome for another, because the message alone is sometimes not enough to fix a
+     * start. The frames say where in this code it happened, which is of no use to the person being
+     * told, and they bury the one line that was.
+     *
+     * <p>The trace is still reachable: {@code PORELO_DEBUG} prints it. Losing it entirely would
+     * trade one bad outcome for another, because the message alone is sometimes not enough to fix a
      * fault in this program.
      *
      * @return A handler that says what went wrong and nothing about how.
@@ -225,10 +225,14 @@ final class CliErrors {
         return (Exception ex, CommandLine command, picocli.CommandLine.ParseResult parsed) -> {
             final PrintWriter err = command.getErr();
             final String message = ex.getMessage();
-            err.println("porelo: " + (message == null || message.isBlank()
-                    // Some exceptions carry only a type. Naming it is better than an empty line
-                    // that says something went wrong without saying anything.
-                    ? ex.getClass().getSimpleName() : lower(message)));
+            err.println(
+                    "porelo: "
+                            + (message == null || message.isBlank()
+                                    // Some exceptions carry only a type. Naming it is better than
+                                    // an empty line
+                                    // that says something went wrong without saying anything.
+                                    ? ex.getClass().getSimpleName()
+                                    : lower(message)));
             final Path written = record(paths, parsed, ex);
             if (written != null) {
                 err.println("       written to " + written);
@@ -243,24 +247,25 @@ final class CliErrors {
 
     /**
      * Appends a failure to the log, and returns where it went.
-     * <p>
-     * <strong>Kept rather than offered behind a flag.</strong> A trace that only appears when
+     *
+     * <p><strong>Kept rather than offered behind a flag.</strong> A trace that only appears when
      * somebody re-runs with {@code PORELO_DEBUG} is a trace nobody has for the failure that
-     * actually happened - the one they cannot reproduce is exactly the one worth having. This
-     * goes under {@code $XDG_STATE_HOME/porelo}, which is documented as where logs and audit
-     * trails live and which {@code porelo doctor} already prints.
-     * <p>
-     * <strong>The command's name, never its arguments.</strong> An argument can carry a
+     * actually happened - the one they cannot reproduce is exactly the one worth having. This goes
+     * under {@code $XDG_STATE_HOME/porelo}, which is documented as where logs and audit trails live
+     * and which {@code porelo doctor} already prints.
+     *
+     * <p><strong>The command's name, never its arguments.</strong> An argument can carry a
      * credential - {@code --upstream https://user:token@host} is the obvious one - and a log is
-     * exactly where that must not end up. The name says which command failed, which is what a
-     * trace beside it needs. Owner-only, for the same reason a message can quote anything.
+     * exactly where that must not end up. The name says which command failed, which is what a trace
+     * beside it needs. Owner-only, for the same reason a message can quote anything.
      *
      * @param paths Where this machine keeps things.
      * @param parsed What was being run, or {@code null}.
      * @param ex What went wrong.
      * @return The file, or {@code null} when it could not be written.
      */
-    private static @org.jspecify.annotations.Nullable Path record(PoreloPaths paths,
+    private static @org.jspecify.annotations.Nullable Path record(
+            PoreloPaths paths,
             picocli.CommandLine.@org.jspecify.annotations.Nullable ParseResult parsed,
             Exception ex) {
         try {
@@ -268,9 +273,17 @@ final class CliErrors {
             Files.createDirectories(file.getParent());
             final StringWriter trace = new StringWriter();
             ex.printStackTrace(new PrintWriter(trace));
-            final String entry = java.time.Instant.now() + "  " + nameOf(parsed)
-                    + System.lineSeparator() + trace + System.lineSeparator();
-            Files.writeString(file, entry, StandardCharsets.UTF_8,
+            final String entry =
+                    java.time.Instant.now()
+                            + "  "
+                            + nameOf(parsed)
+                            + System.lineSeparator()
+                            + trace
+                            + System.lineSeparator();
+            Files.writeString(
+                    file,
+                    entry,
+                    StandardCharsets.UTF_8,
                     java.nio.file.StandardOpenOption.CREATE,
                     java.nio.file.StandardOpenOption.APPEND);
             ownerOnly(file);
@@ -284,8 +297,8 @@ final class CliErrors {
 
     /**
      * Returns which command was running, as somebody would have typed it.
-     * <p>
-     * The parse result is the root; the command that failed is at the end of the subcommand
+     *
+     * <p>The parse result is the root; the command that failed is at the end of the subcommand
      * chain. Taking the root instead records "porelo" for every failure, which names nothing - a
      * test caught exactly that.
      *
@@ -306,8 +319,8 @@ final class CliErrors {
 
     private static void ownerOnly(Path file) {
         try {
-            Files.setPosixFilePermissions(file,
-                    java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));
+            Files.setPosixFilePermissions(
+                    file, java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));
         } catch (IOException | UnsupportedOperationException ex) {
             // Not every filesystem has them. The file is under the user's own state directory.
         }
@@ -321,8 +334,8 @@ final class CliErrors {
      */
     /**
      * Says why something failed, in the exception's own words when it has any.
-     * <p>
-     * An exception with no message would otherwise report {@code null} as its reason, which is a
+     *
+     * <p>An exception with no message would otherwise report {@code null} as its reason, which is a
      * sentence nobody can act on; its class name at least says what kind of thing went wrong.
      *
      * @param ex What was thrown.

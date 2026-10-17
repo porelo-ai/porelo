@@ -3,18 +3,14 @@ package org.fuin.porelo.wire.varlink;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
-/**
- * A varlink call failed, or a peer sent something that is not varlink.
- */
+/** A varlink call failed, or a peer sent something that is not varlink. */
 public class VarlinkException extends RuntimeException {
 
     private static final long serialVersionUID = 1L;
 
-    @Nullable
-    private final transient String errorName;
+    @Nullable private final transient String errorName;
 
-    @Nullable
-    private final transient Map<String, Object> parameters;
+    @Nullable private final transient Map<String, Object> parameters;
 
     /**
      * Constructor for a local failure.

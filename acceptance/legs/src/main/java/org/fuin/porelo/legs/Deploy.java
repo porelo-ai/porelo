@@ -1,7 +1,5 @@
 package org.fuin.porelo.legs;
 
-import org.fuin.porelo.machines.AgentLeg;
-import org.fuin.porelo.machines.Ssh;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.DirectoryStream;
@@ -13,26 +11,31 @@ import java.util.List;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.fuin.porelo.machines.AgentLeg;
+import org.fuin.porelo.machines.Ssh;
 import org.jspecify.annotations.Nullable;
 
 /**
  * Builds Porelo here and installs it on a machine somebody keeps, for testing by hand.
- * <p>
- * A leg rents a machine, runs once and deletes it, which is the wrong shape for sitting in front of
- * an interface. This puts the packages CI would publish onto a machine that stays, and leaves a
+ *
+ * <p>A leg rents a machine, runs once and deletes it, which is the wrong shape for sitting in front
+ * of an interface. This puts the packages CI would publish onto a machine that stays, and leaves a
  * daemon running for a person to connect to. The interface is not installed: it runs where the
  * person is and forwards the socket over ssh, and the last thing printed is what it needs.
- * <p>
- * <strong>Two scopes.</strong> {@link Scope#MACHINE} installs the package with {@code dpkg}, which
- * changes the {@code porelo} every account on the machine runs. {@link Scope#ACCOUNT} unpacks the same
- * package into the connecting account's own directories and writes that account's user unit, so a
- * test install on a shared machine changes nothing any other account runs - a user's own copy of the
- * binaries, hooks, providers and sets already wins over the package's, and a user unit of the same
- * name replaces the package's for that account.
+ *
+ * <p><strong>Two scopes.</strong> {@link Scope#MACHINE} installs the package with {@code dpkg},
+ * which changes the {@code porelo} every account on the machine runs. {@link Scope#ACCOUNT} unpacks
+ * the same package into the connecting account's own directories and writes that account's user
+ * unit, so a test install on a shared machine changes nothing any other account runs - a user's own
+ * copy of the binaries, hooks, providers and sets already wins over the package's, and a user unit
+ * of the same name replaces the package's for that account.
  */
 final class Deploy {
 
-    /** A run number in a package version: {@code 0.1.0~snapshot.162} or {@code ~snapshot.162.1+local...}. */
+    /**
+     * A run number in a package version: {@code 0.1.0~snapshot.162} or {@code
+     * ~snapshot.162.1+local...}.
+     */
     private static final Pattern RUN = Pattern.compile("~snapshot\\.([0-9]+(?:\\.[0-9]+)*)");
 
     private static final String PACKAGED = "/usr/bin/porelo";
@@ -42,7 +45,9 @@ final class Deploy {
     /** How often to look for the daemon's socket after a restart, one second apart. */
     private static final int SOCKET_PATIENCE = 15;
 
-    /** The user unit an account install writes, which replaces the package's for that account only. */
+    /**
+     * The user unit an account install writes, which replaces the package's for that account only.
+     */
     private static final String ACCOUNT_UNIT = "$HOME/.config/systemd/user/porelod.service";
 
     /** Where an account install puts the binaries and the hooks - found before the package's. */
@@ -114,8 +119,15 @@ final class Deploy {
      * @return The exit code.
      * @throws IOException If the machine or the build could not be reached.
      */
-    static int deploy(String vm, Path repository, @Nullable String run, boolean skipBuild, Remote remote, Build build,
-            PrintStream out) throws IOException {
+    static int deploy(
+            String vm,
+            Path repository,
+            @Nullable String run,
+            boolean skipBuild,
+            Remote remote,
+            Build build,
+            PrintStream out)
+            throws IOException {
         return deploy(vm, repository, run, skipBuild, Scope.MACHINE, remote, build, out);
     }
 
@@ -133,11 +145,23 @@ final class Deploy {
      * @return The exit code.
      * @throws IOException If the machine or the build could not be reached.
      */
-    static int deploy(String vm, Path repository, @Nullable String run, boolean skipBuild, Scope scope, Remote remote,
-            Build build, PrintStream out) throws IOException {
+    static int deploy(
+            String vm,
+            Path repository,
+            @Nullable String run,
+            boolean skipBuild,
+            Scope scope,
+            Remote remote,
+            Build build,
+            PrintStream out)
+            throws IOException {
         final String user = vm.substring(0, vm.indexOf('@'));
         final String number = run != null ? run : outranking(remote);
-        say(out, "building as ~snapshot." + number + " (above anything that machine has or is offered)");
+        say(
+                out,
+                "building as ~snapshot."
+                        + number
+                        + " (above anything that machine has or is offered)");
         if (!skipBuild) {
             say(out, "building here");
             final int built = build.build(number);
@@ -156,15 +180,26 @@ final class Deploy {
         // replace it within the hour. Not so for an account's copy, which apt does not know about.
         final Optional<String> built = highestRun(List.of(deb.get().getFileName().toString()));
         if (scope == Scope.MACHINE && (built.isEmpty() || compareDotted(built.get(), number) < 0)) {
-            out.println(deb.get().getFileName() + " is run " + built.orElse("unknown") + ", below " + number
-                    + ", so apt would replace it with a published build; build again rather than skip it");
+            out.println(
+                    deb.get().getFileName()
+                            + " is run "
+                            + built.orElse("unknown")
+                            + ", below "
+                            + number
+                            + ", so apt would replace it with a published build; build again rather than skip it");
             return 1;
         }
         final Path stub = repository.resolve("agents/stub/target/porelo-agent-stub");
         final Path buildStub = repository.resolve("builds/stub/target/porelo-build-stub");
         final String machineWide = packaged(remote);
         if (scope == Scope.ACCOUNT) {
-            say(out, "installing " + deb.get().getFileName() + " into " + user + "'s own directories, without dpkg");
+            say(
+                    out,
+                    "installing "
+                            + deb.get().getFileName()
+                            + " into "
+                            + user
+                            + "'s own directories, without dpkg");
             if (!installInAccount(deb.get(), Files.isExecutable(stub) ? stub : null, remote, out)) {
                 return 1;
             }
@@ -180,7 +215,8 @@ final class Deploy {
             }
         }
 
-        // The stub build reader, for the user only, as the suite's builds scenarios expect it: a tree from before
+        // The stub build reader, for the user only, as the suite's builds scenarios expect it: a
+        // tree from before
         // build readers has none, and nothing is installed then.
         if (Files.isExecutable(buildStub)) {
             say(out, "installing the stub build reader for " + user);
@@ -196,14 +232,17 @@ final class Deploy {
             }
         }
 
-        // The build readers a handover carries beside the packages - builds/github, builds/stub-forge - for the account
-        // alone, under the names Porelo finds them by; left out, each walk needed them put in by hand.
+        // The build readers a handover carries beside the packages - builds/github,
+        // builds/stub-forge - for the account
+        // alone, under the names Porelo finds them by; left out, each walk needed them put in by
+        // hand.
         if (scope == Scope.ACCOUNT && !installReaders(repository.resolve("builds"), remote, out)) {
             return 1;
         }
 
         // Without it systemd stops everything the user owns at their last logout, conmon included,
-        // and every task dies with exit 143. A rented machine gets this at creation; a kept one here.
+        // and every task dies with exit 143. A rented machine gets this at creation; a kept one
+        // here.
         if (!must(remote, lingerCommand(user), out)) {
             return 1;
         }
@@ -215,7 +254,8 @@ final class Deploy {
         }
 
         if (scope == Scope.ACCOUNT) {
-            // Measured, not assumed: each of the three is found by a different rule, and one of them
+            // Measured, not assumed: each of the three is found by a different rule, and one of
+            // them
             // naming the package is a test of something nobody meant to test.
             say(out, "what " + user + " now runs");
             if (!runsItsOwn(remote, out)) {
@@ -225,7 +265,10 @@ final class Deploy {
             final String after = packaged(remote);
             out.println("the package: " + (after.isEmpty() ? "not installed" : after));
             if (!after.equals(machineWide)) {
-                out.println("the machine-wide package changed from " + machineWide + " - an account install must not");
+                out.println(
+                        "the machine-wide package changed from "
+                                + machineWide
+                                + " - an account install must not");
                 return 1;
             }
         }
@@ -234,18 +277,19 @@ final class Deploy {
         out.println("  address  " + vm);
         out.println("  socket   " + socket);
         out.println();
-        out.println("The interface runs where you are, natively, and forwards that socket over ssh.");
+        out.println(
+                "The interface runs where you are, natively, and forwards that socket over ssh.");
         return 0;
     }
 
     /**
      * Asks the machine which run number to build with, so the package outranks what it has.
-     * <p>
-     * The {@code +local.<stamp>} marker alone does not: {@code 0.1.0~snapshot.0+local...} sorts
-     * below {@code 0.1.0~snapshot.162}, and {@code unattended-upgrades} replaced such a build within
-     * the hour. So the number beaten is the highest the machine has <em>or is offered</em>, with the
-     * index refreshed first - a machine can be offered an older run than is published - and raised by
-     * a fraction, which stays below the next CI build.
+     *
+     * <p>The {@code +local.<stamp>} marker alone does not: {@code 0.1.0~snapshot.0+local...} sorts
+     * below {@code 0.1.0~snapshot.162}, and {@code unattended-upgrades} replaced such a build
+     * within the hour. So the number beaten is the highest the machine has <em>or is offered</em>,
+     * with the index refreshed first - a machine can be offered an older run than is published -
+     * and raised by a fraction, which stays below the next CI build.
      *
      * @param remote The machine.
      * @return The run number.
@@ -254,7 +298,8 @@ final class Deploy {
     static String outranking(Remote remote) throws IOException {
         remote.run("sudo apt-get update -qq >/dev/null 2>&1");
         final List<String> versions = new ArrayList<>();
-        versions.addAll(remote.run("dpkg-query -W -f='${Version}\\n' porelo").out().lines().toList());
+        versions.addAll(
+                remote.run("dpkg-query -W -f='${Version}\\n' porelo").out().lines().toList());
         // LC_ALL=C: in German apt says 'Installationskandidat:', which once matched nothing at all.
         versions.addAll(candidates(remote.run("LC_ALL=C apt-cache policy porelo").out()));
         versions.addAll(offered(remote.run("LC_ALL=C apt-cache madison porelo").out()));
@@ -268,8 +313,11 @@ final class Deploy {
      * @return The candidate, if there is one.
      */
     static List<String> candidates(String policy) {
-        return policy.lines().map(String::strip).filter(line -> line.startsWith("Candidate:"))
-                .map(line -> line.substring("Candidate:".length()).strip()).toList();
+        return policy.lines()
+                .map(String::strip)
+                .filter(line -> line.startsWith("Candidate:"))
+                .map(line -> line.substring("Candidate:".length()).strip())
+                .toList();
     }
 
     /**
@@ -279,8 +327,11 @@ final class Deploy {
      * @return The versions.
      */
     static List<String> offered(String madison) {
-        return madison.lines().map(line -> line.split("\\|")).filter(fields -> fields.length > 1)
-                .map(fields -> fields[1].strip()).toList();
+        return madison.lines()
+                .map(line -> line.split("\\|"))
+                .filter(fields -> fields.length > 1)
+                .map(fields -> fields[1].strip())
+                .toList();
     }
 
     /**
@@ -290,7 +341,10 @@ final class Deploy {
      * @return The highest run number, if any version carries one.
      */
     static Optional<String> highestRun(List<String> versions) {
-        return versions.stream().map(RUN::matcher).filter(Matcher::find).map(m -> m.group(1))
+        return versions.stream()
+                .map(RUN::matcher)
+                .filter(Matcher::find)
+                .map(m -> m.group(1))
                 .max(Deploy::compareDotted);
     }
 
@@ -320,12 +374,14 @@ final class Deploy {
 
     /**
      * Unpacks the package into the account's own directories and writes the account's user unit.
-     * <p>
-     * No {@code dpkg}: the package runs nothing when it installs - hooks are registered per user by
-     * {@code porelo setup} - so its files are all there is to it. Each binary is written beside itself
-     * and moved over, because a copy over a binary that is running fails with "Text file busy".
+     *
+     * <p>No {@code dpkg}: the package runs nothing when it installs - hooks are registered per user
+     * by {@code porelo setup} - so its files are all there is to it. Each binary is written beside
+     * itself and moved over, because a copy over a binary that is running fails with "Text file
+     * busy".
      */
-    static boolean installInAccount(Path deb, @Nullable Path stub, Remote remote, PrintStream out) throws IOException {
+    static boolean installInAccount(Path deb, @Nullable Path stub, Remote remote, PrintStream out)
+            throws IOException {
         final String staging = staging(remote);
         try {
             final String remoteDeb = staging + "/" + deb.getFileName();
@@ -336,7 +392,11 @@ final class Deploy {
             if (stub != null && !installStub(stub, staging, remote, out)) {
                 return false;
             }
-            out.println("installed: " + remote.run("\"$HOME/" + ACCOUNT_BIN + "/porelo\" --version").out().strip());
+            out.println(
+                    "installed: "
+                            + remote.run("\"$HOME/" + ACCOUNT_BIN + "/porelo\" --version")
+                                    .out()
+                                    .strip());
             return true;
         } finally {
             remote.run("rm -rf " + AgentLeg.quote(staging));
@@ -345,9 +405,10 @@ final class Deploy {
 
     /**
      * Makes a directory of the deploying account's own to stage the files in.
-     * <p>
-     * A fixed name in {@code /tmp} was the first account's: the second account that deployed the same handover could not
-     * overwrite it, and stopped. It is removed after the install, whatever the install did.
+     *
+     * <p>A fixed name in {@code /tmp} was the first account's: the second account that deployed the
+     * same handover could not overwrite it, and stopped. It is removed after the install, whatever
+     * the install did.
      *
      * @param remote The machine.
      * @return The directory.
@@ -357,18 +418,24 @@ final class Deploy {
         final Ssh.Output made = remote.run("mktemp -d /tmp/porelo-deploy.XXXXXXXX");
         final String directory = made.out().strip();
         if (made.status() != 0 || !directory.startsWith("/tmp/porelo-deploy.")) {
-            throw new IOException("cannot make a directory to stage the package in: " + made.all().strip());
+            throw new IOException(
+                    "cannot make a directory to stage the package in: " + made.all().strip());
         }
         return directory;
     }
 
-    private static boolean installReaders(Path builds, Remote remote, PrintStream out) throws IOException {
+    private static boolean installReaders(Path builds, Remote remote, PrintStream out)
+            throws IOException {
         if (!Files.isDirectory(builds)) {
             return true;
         }
         final List<Path> readers;
         try (java.util.stream.Stream<Path> files = Files.list(builds)) {
-            readers = files.filter(Files::isRegularFile).filter(Files::isExecutable).sorted().toList();
+            readers =
+                    files.filter(Files::isRegularFile)
+                            .filter(Files::isExecutable)
+                            .sorted()
+                            .toList();
         }
         if (readers.isEmpty()) {
             return true;
@@ -380,8 +447,14 @@ final class Deploy {
                 say(out, "installing the build reader '" + name + "'");
                 final String remoteReader = staging + "/" + name;
                 remote.upload(reader, remoteReader);
-                if (!must(remote, "install -D -m 0755 " + AgentLeg.quote(remoteReader)
-                        + " \"$HOME/.local/share/porelo/builds/" + name + "\"", out)) {
+                if (!must(
+                        remote,
+                        "install -D -m 0755 "
+                                + AgentLeg.quote(remoteReader)
+                                + " \"$HOME/.local/share/porelo/builds/"
+                                + name
+                                + "\"",
+                        out)) {
                     return false;
                 }
             }
@@ -391,11 +464,16 @@ final class Deploy {
         }
     }
 
-    private static boolean installStub(Path stub, String staging, Remote remote, PrintStream out) throws IOException {
+    private static boolean installStub(Path stub, String staging, Remote remote, PrintStream out)
+            throws IOException {
         final String remoteStub = staging + "/porelo-agent-stub";
         remote.upload(stub, remoteStub);
-        return must(remote, "install -D -m 0755 " + AgentLeg.quote(remoteStub)
-                + " \"$HOME/.local/share/porelo/agents/porelo-agent-stub\"", out);
+        return must(
+                remote,
+                "install -D -m 0755 "
+                        + AgentLeg.quote(remoteStub)
+                        + " \"$HOME/.local/share/porelo/agents/porelo-agent-stub\"",
+                out);
     }
 
     /**
@@ -406,19 +484,38 @@ final class Deploy {
      */
     static String accountInstall(String remoteDeb) {
         final String bin = "\"$HOME/" + ACCOUNT_BIN + "\"";
-        return "set -e; d=$(mktemp -d); dpkg-deb -x " + AgentLeg.quote(remoteDeb) + " \"$d\"; "
-                + "mkdir -p " + bin + " \"$HOME/.local/share/porelo/providers\" \"$HOME/.local/share/porelo/egress\" "
+        return "set -e; d=$(mktemp -d); dpkg-deb -x "
+                + AgentLeg.quote(remoteDeb)
+                + " \"$d\"; "
+                + "mkdir -p "
+                + bin
+                + " \"$HOME/.local/share/porelo/providers\" \"$HOME/.local/share/porelo/egress\" "
                 + "\"$HOME/.config/systemd/user\"; "
                 + "for f in \"$d\"/usr/bin/porelo \"$d\"/usr/bin/porelod \"$d\"/usr/libexec/porelo/hooks/*; do "
-                + "install -m 0755 \"$f\" " + bin + "/.porelo-new && mv -f " + bin + "/.porelo-new " + bin
+                + "install -m 0755 \"$f\" "
+                + bin
+                + "/.porelo-new && mv -f "
+                + bin
+                + "/.porelo-new "
+                + bin
                 + "/\"$(basename \"$f\")\"; done; "
                 + "install -m 0644 \"$d\"/usr/share/porelo/providers/*.yaml \"$HOME/.local/share/porelo/providers/\"; "
                 + "install -m 0644 \"$d\"/usr/share/porelo/egress/*.yaml \"$HOME/.local/share/porelo/egress/\"; "
-                + "sed 's|^ExecStart=/usr/bin/porelod|ExecStart=%h/" + ACCOUNT_BIN + "/porelod|' "
-                + "\"$d\"/usr/lib/systemd/user/porelod.service > " + ACCOUNT_UNIT + "; "
-                + "grep -q '^ExecStart=%h/" + ACCOUNT_BIN + "/porelod$' " + ACCOUNT_UNIT + "; "
-                + bin + "/porelo setup; "
-                + "rm -rf \"$d\" " + AgentLeg.quote(remoteDeb);
+                + "sed 's|^ExecStart=/usr/bin/porelod|ExecStart=%h/"
+                + ACCOUNT_BIN
+                + "/porelod|' "
+                + "\"$d\"/usr/lib/systemd/user/porelod.service > "
+                + ACCOUNT_UNIT
+                + "; "
+                + "grep -q '^ExecStart=%h/"
+                + ACCOUNT_BIN
+                + "/porelod$' "
+                + ACCOUNT_UNIT
+                + "; "
+                + bin
+                + "/porelo setup; "
+                + "rm -rf \"$d\" "
+                + AgentLeg.quote(remoteDeb);
     }
 
     /**
@@ -428,17 +525,29 @@ final class Deploy {
         final String home = remote.run("echo \"$HOME\"").out().strip();
         final String own = home + "/" + ACCOUNT_BIN + "/";
         final String path = remote.run("bash -lc 'command -v porelo'").out().strip();
-        final String daemon = remote.run("readlink \"/proc/$(systemctl --user show -p MainPID --value porelod)/exe\"")
-                .out().strip();
-        final List<String> hooks = hookPaths(remote.run("cat \"$HOME\"/.config/containers/oci/hooks.d/porelo-hook-*.json")
-                .out());
+        final String daemon =
+                remote.run(
+                                "readlink \"/proc/$(systemctl --user show -p MainPID --value porelod)/exe\"")
+                        .out()
+                        .strip();
+        final List<String> hooks =
+                hookPaths(
+                        remote.run(
+                                        "cat \"$HOME\"/.config/containers/oci/hooks.d/porelo-hook-*.json")
+                                .out());
         out.println("PATH finds  " + path);
         out.println("daemon runs " + daemon);
         hooks.forEach(hook -> out.println("hook        " + hook));
-        final boolean all = path.startsWith(own) && daemon.startsWith(own) && !hooks.isEmpty()
-                && hooks.stream().allMatch(hook -> hook.startsWith(own));
+        final boolean all =
+                path.startsWith(own)
+                        && daemon.startsWith(own)
+                        && !hooks.isEmpty()
+                        && hooks.stream().allMatch(hook -> hook.startsWith(own));
         if (!all) {
-            out.println("not everything names " + own + " - the account's install does not decide what runs");
+            out.println(
+                    "not everything names "
+                            + own
+                            + " - the account's install does not decide what runs");
         }
         return all;
     }
@@ -450,7 +559,8 @@ final class Deploy {
      * @return Every {@code "path"} they give.
      */
     static List<String> hookPaths(String descriptors) {
-        final Matcher matcher = Pattern.compile("\"path\"\\s*:\\s*\"([^\"]+)\"").matcher(descriptors);
+        final Matcher matcher =
+                Pattern.compile("\"path\"\\s*:\\s*\"([^\"]+)\"").matcher(descriptors);
         final List<String> paths = new ArrayList<>();
         while (matcher.find()) {
             paths.add(matcher.group(1));
@@ -458,7 +568,8 @@ final class Deploy {
         return paths;
     }
 
-    private static boolean install(Path deb, @Nullable Path stub, Remote remote, PrintStream out) throws IOException {
+    private static boolean install(Path deb, @Nullable Path stub, Remote remote, PrintStream out)
+            throws IOException {
         final String staging = staging(remote);
         try {
             return installStaged(deb, stub, staging, remote, out);
@@ -467,7 +578,8 @@ final class Deploy {
         }
     }
 
-    private static boolean installStaged(Path deb, @Nullable Path stub, String staging, Remote remote, PrintStream out)
+    private static boolean installStaged(
+            Path deb, @Nullable Path stub, String staging, Remote remote, PrintStream out)
             throws IOException {
         final String remoteDeb = staging + "/" + deb.getFileName();
         remote.upload(deb, remoteDeb);
@@ -478,60 +590,83 @@ final class Deploy {
         }
         // The suite runs '--agent stub', so it goes in for this user only: as a package it was an
         // agent every account could pick, and turned a person's own Start into a choice.
-        if (remote.run("dpkg -s porelo-agent-stub").status() == 0 && !must(remote, "sudo dpkg -r porelo-agent-stub", out)) {
+        if (remote.run("dpkg -s porelo-agent-stub").status() == 0
+                && !must(remote, "sudo dpkg -r porelo-agent-stub", out)) {
             return false;
         }
         if (stub != null && !installStub(stub, staging, remote, out)) {
             return false;
         }
-        out.println("installed: " + remote.run("dpkg-query -W -f='${Version}' porelo").out().strip());
+        out.println(
+                "installed: " + remote.run("dpkg-query -W -f='${Version}' porelo").out().strip());
         out.println("binary says: " + remote.run(PACKAGED + " --version").out().strip());
         return true;
     }
 
     /**
      * Checks that {@code porelo} on the login PATH is the package.
-     * <p>
-     * A stale copy in {@code ~/.local/bin} comes first and silently wins: a whole suite ran a CLI from
-     * before a rename and failed on the new verbs, while the package sat unused.
+     *
+     * <p>A stale copy in {@code ~/.local/bin} comes first and silently wins: a whole suite ran a
+     * CLI from before a rename and failed on the new verbs, while the package sat unused.
      */
     private static boolean unshadowed(Remote remote, PrintStream out) throws IOException {
         final String found = remote.run("bash -lc 'command -v porelo'").out().strip();
         if (PACKAGED.equals(found)) {
-            out.println("porelo on PATH is the package: " + remote.run("porelo --version").out().strip());
+            out.println(
+                    "porelo on PATH is the package: "
+                            + remote.run("porelo --version").out().strip());
             return true;
         }
-        out.println("PATH finds " + (found.isEmpty() ? "nothing" : found) + ", not the package at " + PACKAGED);
+        out.println(
+                "PATH finds "
+                        + (found.isEmpty() ? "nothing" : found)
+                        + ", not the package at "
+                        + PACKAGED);
         if (!found.isEmpty()) {
-            out.println("  " + found + " says: " + remote.run(AgentLeg.quote(found) + " --version").all().strip());
+            out.println(
+                    "  "
+                            + found
+                            + " says: "
+                            + remote.run(AgentLeg.quote(found) + " --version").all().strip());
         }
         out.println("  the package says: " + remote.run(PACKAGED + " --version").all().strip());
-        out.println("Remove the shadowing copy, or everything after this measures the wrong binary. An account's"
-                + " own install (--account) is undone by removing the binaries and hooks it put in ~/.local/bin and"
-                + " ~/.config/systemd/user/porelod.service.");
+        out.println(
+                "Remove the shadowing copy, or everything after this measures the wrong binary. An account's"
+                        + " own install (--account) is undone by removing the binaries and hooks it put in ~/.local/bin and"
+                        + " ~/.config/systemd/user/porelod.service.");
         return false;
     }
 
     /**
      * Restarts the daemon through the user unit the package installs, and finds its socket.
-     * <p>
-     * The socket is not removed by hand: the daemon unlinks it on a signal and refuses to bind over
-     * one that still answers, and deleting the file here would walk straight past that second guard.
+     *
+     * <p>The socket is not removed by hand: the daemon unlinks it on a signal and refuses to bind
+     * over one that still answers, and deleting the file here would walk straight past that second
+     * guard.
      */
-    private static @Nullable String restart(Remote remote, String unit, PrintStream out) throws IOException {
+    private static @Nullable String restart(Remote remote, String unit, PrintStream out)
+            throws IOException {
         if (remote.run("test -f " + unit).status() != 0) {
             out.println("there is no " + unit + "; nothing here starts a daemon without one");
             return null;
         }
-        if (!must(remote, "systemctl --user daemon-reload && systemctl --user enable porelod"
-                + " && systemctl --user restart porelod", out)) {
+        if (!must(
+                remote,
+                "systemctl --user daemon-reload && systemctl --user enable porelod"
+                        + " && systemctl --user restart porelod",
+                out)) {
             return null;
         }
-        final String socket = remote.run("echo \"/run/user/$(id -u)/porelo/porelod.sock\"").out().strip();
+        final String socket =
+                remote.run("echo \"/run/user/$(id -u)/porelo/porelod.sock\"").out().strip();
         for (int attempt = 0; attempt < SOCKET_PATIENCE; attempt++) {
             if (remote.run("test -S " + AgentLeg.quote(socket)).status() == 0) {
-                out.println("daemon: systemd user unit, " + remote.run("systemctl --user is-active porelod").out().strip());
-                out.println("agents it can run: " + String.join(" ", agents(remote.run("porelo agents").out())));
+                out.println(
+                        "daemon: systemd user unit, "
+                                + remote.run("systemctl --user is-active porelod").out().strip());
+                out.println(
+                        "agents it can run: "
+                                + String.join(" ", agents(remote.run("porelo agents").out())));
                 return socket;
             }
             pause();
@@ -548,8 +683,12 @@ final class Deploy {
      * @return The names.
      */
     static List<String> agents(String listing) {
-        return listing.lines().skip(1).map(String::strip).filter(line -> !line.isEmpty())
-                .map(line -> line.split("\\s+")[0]).toList();
+        return listing.lines()
+                .skip(1)
+                .map(String::strip)
+                .filter(line -> !line.isEmpty())
+                .map(line -> line.split("\\s+")[0])
+                .toList();
     }
 
     /**
@@ -603,17 +742,20 @@ final class Deploy {
         out.println("-- " + what + " --");
     }
 
-
     /**
      * Turns lingering on for an account only where it is off.
-     * <p>
-     * Asked every time, it needed sudo every time: an account without it, lingering already, stopped the deploy here.
+     *
+     * <p>Asked every time, it needed sudo every time: an account without it, lingering already,
+     * stopped the deploy here.
      *
      * @param user The account.
      * @return The command.
      */
     static String lingerCommand(String user) {
-        return "[ \"$(loginctl show-user " + AgentLeg.quote(user) + " -p Linger --value 2>/dev/null)\" = yes ] || "
-                + "sudo loginctl enable-linger " + AgentLeg.quote(user);
+        return "[ \"$(loginctl show-user "
+                + AgentLeg.quote(user)
+                + " -p Linger --value 2>/dev/null)\" = yes ] || "
+                + "sudo loginctl enable-linger "
+                + AgentLeg.quote(user);
     }
 }

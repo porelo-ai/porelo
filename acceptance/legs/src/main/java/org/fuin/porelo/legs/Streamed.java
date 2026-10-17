@@ -12,20 +12,20 @@ import java.util.function.LongSupplier;
 import org.fuin.porelo.machines.Ssh;
 
 /**
- * Runs a long phase of a leg on the machine with its output reaching the job's log as it is written.
- * <p>
- * {@link Ssh#run(String)} returns what a command wrote once it has ended: a build of half an hour reached the log as
- * one block at its end, and until then nobody could tell a slow build from a hung one. Here every line is printed as it
- * comes, output and errors side by side, and a phase that prints nothing for a while says what it is and how long it
- * has taken, once a minute.
+ * Runs a long phase of a leg on the machine with its output reaching the job's log as it is
+ * written.
+ *
+ * <p>{@link Ssh#run(String)} returns what a command wrote once it has ended: a build of half an
+ * hour reached the log as one block at its end, and until then nobody could tell a slow build from
+ * a hung one. Here every line is printed as it comes, output and errors side by side, and a phase
+ * that prints nothing for a while says what it is and how long it has taken, once a minute.
  */
 final class Streamed {
 
     /** How long a phase may be quiet before the leg says it is still in it. */
     static final Duration QUIET = Duration.ofMinutes(1);
 
-    private Streamed() {
-    }
+    private Streamed() {}
 
     /**
      * Runs a command on the machine, printing its output as it comes.
@@ -38,16 +38,21 @@ final class Streamed {
      */
     static int run(final Ssh ssh, final String command, final String phase) throws IOException {
         final Progress progress = new Progress(phase, System.out, System::currentTimeMillis, QUIET);
-        final Thread ticking = Thread.ofPlatform().daemon().name("leg-progress").start(() -> {
-            try {
-                while (!Thread.currentThread().isInterrupted()) {
-                    Thread.sleep(1_000);
-                    progress.tick();
-                }
-            } catch (final InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            }
-        });
+        final Thread ticking =
+                Thread.ofPlatform()
+                        .daemon()
+                        .name("leg-progress")
+                        .start(
+                                () -> {
+                                    try {
+                                        while (!Thread.currentThread().isInterrupted()) {
+                                            Thread.sleep(1_000);
+                                            progress.tick();
+                                        }
+                                    } catch (final InterruptedException ex) {
+                                        Thread.currentThread().interrupt();
+                                    }
+                                });
         try (var session = ssh.client().startSession()) {
             final var exec = session.exec(command);
             pump(exec.getInputStream(), exec.getErrorStream(), progress);
@@ -67,7 +72,8 @@ final class Streamed {
      * @param progress Where each line goes.
      */
     static void pump(final InputStream out, final InputStream err, final Progress progress) {
-        final Thread errors = Thread.ofPlatform().daemon().name("leg-stderr").start(() -> lines(err, progress));
+        final Thread errors =
+                Thread.ofPlatform().daemon().name("leg-stderr").start(() -> lines(err, progress));
         lines(out, progress);
         try {
             errors.join();
@@ -77,7 +83,8 @@ final class Streamed {
     }
 
     private static void lines(final InputStream in, final Progress progress) {
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+        try (BufferedReader reader =
+                new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
             for (String line = reader.readLine(); line != null; line = reader.readLine()) {
                 progress.line(line);
             }
@@ -86,9 +93,7 @@ final class Streamed {
         }
     }
 
-    /**
-     * What a phase has printed, and when it last did.
-     */
+    /** What a phase has printed, and when it last did. */
     static final class Progress {
 
         private final String phase;
@@ -111,7 +116,11 @@ final class Streamed {
          * @param millis The clock.
          * @param quiet How long it may be quiet before it says so.
          */
-        Progress(final String phase, final PrintStream log, final LongSupplier millis, final Duration quiet) {
+        Progress(
+                final String phase,
+                final PrintStream log,
+                final LongSupplier millis,
+                final Duration quiet) {
             this.phase = phase;
             this.log = log;
             this.millis = millis;

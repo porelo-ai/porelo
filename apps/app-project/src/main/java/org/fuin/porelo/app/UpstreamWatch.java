@@ -10,17 +10,17 @@ import org.fuin.porelo.gate.UpstreamDistance;
 
 /**
  * Measures, on a schedule, how far each project has fallen behind its upstream.
- * <p>
- * <strong>Why a timer and not a reply field.</strong> An interface re-reads the project list after
- * anything that could have changed it - a task started, a push approved - so a field that quietly
- * fetched would turn ordinary use into network traffic nothing on screen accounts for, and would
- * make a list occasionally take thirty seconds for reasons nobody can see. An age can be rendered.
- * A hang cannot.
- * <p>
- * <strong>Only in the real daemon.</strong> Started from {@code main}, never from the object that
- * builds the server, so nothing in a test reaches the network by existing.
- * <p>
- * Offline projects are never contacted: that is enforced in {@link UpstreamDistance}, where the
+ *
+ * <p><strong>Why a timer and not a reply field.</strong> An interface re-reads the project list
+ * after anything that could have changed it - a task started, a push approved - so a field that
+ * quietly fetched would turn ordinary use into network traffic nothing on screen accounts for, and
+ * would make a list occasionally take thirty seconds for reasons nobody can see. An age can be
+ * rendered. A hang cannot.
+ *
+ * <p><strong>Only in the real daemon.</strong> Started from {@code main}, never from the object
+ * that builds the server, so nothing in a test reaches the network by existing.
+ *
+ * <p>Offline projects are never contacted: that is enforced in {@link UpstreamDistance}, where the
  * security class is, rather than here.
  */
 public final class UpstreamWatch implements AutoCloseable {
@@ -50,8 +50,8 @@ public final class UpstreamWatch implements AutoCloseable {
 
     /**
      * Returns how often to look on this machine.
-     * <p>
-     * Overridable and switchable off, because a daemon that reaches the network on its own is
+     *
+     * <p>Overridable and switchable off, because a daemon that reaches the network on its own is
      * something an operator is entitled to refuse - on a metered connection, or on a machine that
      * is meant to be quiet.
      *
@@ -75,15 +75,16 @@ public final class UpstreamWatch implements AutoCloseable {
 
     /**
      * Measures every project once and records what it found.
-     * <p>
-     * Never throws: one upstream that is down, renamed or behind a credential nobody has must not
-     * stop the others being measured.
+     *
+     * <p>Never throws: one upstream that is down, renamed or behind a credential nobody has must
+     * not stop the others being measured.
      *
      * @return How many projects were looked at.
      */
     public int measureOnce() {
 
-        final UpstreamRecords records = new UpstreamRecords(context.paths().projects().upstreamRecords());
+        final UpstreamRecords records =
+                new UpstreamRecords(context.paths().projects().upstreamRecords());
         final List<ProjectInventory.Summary> projects = new ProjectInventory(context).projects();
         int looked = 0;
 
@@ -104,11 +105,14 @@ public final class UpstreamWatch implements AutoCloseable {
                     // and reporting the first one's as the project's would be reporting a number
                     // that is right about one repository and shown against all of them.
                     final Project project = GateSupport.project(Path.of(summary.file()));
-                    records.put(UpstreamRecords.key(summary.name(), repository.name()),
-                            UpstreamDistance.measure(new ProcessCommandRunner(),
+                    records.put(
+                            UpstreamRecords.key(summary.name(), repository.name()),
+                            UpstreamDistance.measure(
+                                    new ProcessCommandRunner(),
                                     Path.of(repository.mirror()),
                                     GateMode.of(project.securityClass()),
-                                    GateSupport.credentials(context, summary.name(), repository.name())));
+                                    GateSupport.credentials(
+                                            context, summary.name(), repository.name())));
                     looked++;
                 } catch (RuntimeException ex) {
                     // An unreadable project file, or a record that cannot be written. The next
@@ -122,28 +126,30 @@ public final class UpstreamWatch implements AutoCloseable {
 
     /**
      * Starts looking, on a thread of its own.
-     * <p>
-     * The first pass waits one interval rather than running at start-up: a daemon that reached the
-     * network the moment it came up would do so on every login, and nothing is waiting for the
+     *
+     * <p>The first pass waits one interval rather than running at start-up: a daemon that reached
+     * the network the moment it came up would do so on every login, and nothing is waiting for the
      * answer that early.
      */
     public void start() {
         if (interval.isZero() || interval.isNegative()) {
             return;
         }
-        BackgroundPass.start("porelo-upstream", () -> {
-            while (running) {
-                try {
-                    Thread.sleep(interval);
-                } catch (InterruptedException ex) {
-                    Thread.currentThread().interrupt();
-                    return;
-                }
-                if (running) {
-                    measureOnce();
-                }
-            }
-        });
+        BackgroundPass.start(
+                "porelo-upstream",
+                () -> {
+                    while (running) {
+                        try {
+                            Thread.sleep(interval);
+                        } catch (InterruptedException ex) {
+                            Thread.currentThread().interrupt();
+                            return;
+                        }
+                        if (running) {
+                            measureOnce();
+                        }
+                    }
+                });
     }
 
     @Override

@@ -21,46 +21,53 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Holds the interface description against what the daemon actually answers.
- * <p>
- * The description exists so that an interface can be written against it without reading this
+ *
+ * <p>The description exists so that an interface can be written against it without reading this
  * daemon's Java, which is only worth anything if it cannot drift. A method registered and not
  * described is one no interface author will know exists; a method described and not registered is
- * one they will call and be refused by. Both are caught here rather than by whoever is building
- * the frontend.
- * <p>
- * Deliberately not a parser: varlink's grammar is not what is at risk. What is at risk is the
+ * one they will call and be refused by. Both are caught here rather than by whoever is building the
+ * frontend.
+ *
+ * <p>Deliberately not a parser: varlink's grammar is not what is at risk. What is at risk is the
  * list of names, and that is what this compares.
  */
 class InterfaceDescriptionTest {
 
     private static PoreloContext context(Path dir) {
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
-        return new PoreloContext(new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")),
-                arguments -> 0);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
+        return new PoreloContext(
+                new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
     }
 
     /** {@code method Name(...)} at the start of a line, which is the only place one may appear. */
-    private static final Pattern METHOD = Pattern.compile("(?m)^method\\s+([A-Za-z][A-Za-z0-9]*)\\s*\\(");
+    private static final Pattern METHOD =
+            Pattern.compile("(?m)^method\\s+([A-Za-z][A-Za-z0-9]*)\\s*\\(");
 
     /** {@code error Name(...)}, same shape. */
-    private static final Pattern ERROR = Pattern.compile("(?m)^error\\s+([A-Za-z][A-Za-z0-9]*)\\s*\\(");
+    private static final Pattern ERROR =
+            Pattern.compile("(?m)^error\\s+([A-Za-z][A-Za-z0-9]*)\\s*\\(");
 
     /** {@code type Name (} at the start of a line. */
-    private static final Pattern TYPE = Pattern.compile("(?m)^type\\s+([A-Za-z][A-Za-z0-9]*)\\s*\\(");
+    private static final Pattern TYPE =
+            Pattern.compile("(?m)^type\\s+([A-Za-z][A-Za-z0-9]*)\\s*\\(");
 
     /** A field's type: {@code name: Thing}, {@code name: []Thing}, {@code name: ?Thing}. */
     private static final Pattern REFERENCE =
-            Pattern.compile("(?m)^\\s*[a-z][A-Za-z0-9]*\\s*:\\s*\\??(?:\\[\\])?\\??([A-Za-z][A-Za-z0-9]*)");
+            Pattern.compile(
+                    "(?m)^\\s*[a-z][A-Za-z0-9]*\\s*:\\s*\\??(?:\\[\\])?\\??([A-Za-z][A-Za-z0-9]*)");
 
     /** What varlink defines itself, so a reference to one is not a reference to anything here. */
-    private static final Set<String> BUILT_IN =
-            Set.of("string", "int", "float", "bool", "object");
+    private static final Set<String> BUILT_IN = Set.of("string", "int", "float", "bool", "object");
 
     @Test
     void namesNoTypeItDoesNotDeclare() throws IOException {
@@ -96,10 +103,15 @@ class InterfaceDescriptionTest {
         try (VarlinkServer server =
                 PoreloDaemon.serving(context(dir), dir.resolve("porelod.sock"))) {
 
-            final Set<String> registered = new TreeSet<>(server.methodNames().stream()
-                    .filter(name -> name.startsWith(PoreloDaemon.INTERFACE + "."))
-                    .map(name -> name.substring(PoreloDaemon.INTERFACE.length() + 1))
-                    .toList());
+            final Set<String> registered =
+                    new TreeSet<>(
+                            server.methodNames().stream()
+                                    .filter(name -> name.startsWith(PoreloDaemon.INTERFACE + "."))
+                                    .map(
+                                            name ->
+                                                    name.substring(
+                                                            PoreloDaemon.INTERFACE.length() + 1))
+                                    .toList());
 
             assertThat(names(METHOD, PoreloDaemon.description()))
                     .as("methods in " + PoreloDaemon.INTERFACE + ".varlink versus those registered")
@@ -124,9 +136,10 @@ class InterfaceDescriptionTest {
                 PoreloDaemon.serving(context(dir), dir.resolve("porelod.sock"))) {
             Thread.ofVirtual().start(server);
             try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
-                final Map<String, Object> reply = client.call(
-                        "org.varlink.service.GetInterfaceDescription",
-                        Map.of("interface", PoreloDaemon.INTERFACE));
+                final Map<String, Object> reply =
+                        client.call(
+                                "org.varlink.service.GetInterfaceDescription",
+                                Map.of("interface", PoreloDaemon.INTERFACE));
                 assertThat(String.valueOf(reply.get("description")))
                         .isEqualTo(PoreloDaemon.description());
             }
@@ -142,7 +155,8 @@ class InterfaceDescriptionTest {
                 .as("varlink interfaces carry their compatibility number, as Clearance1 does")
                 .matches(".*[0-9]$");
 
-        try (VarlinkServer server = PoreloDaemon.serving(context(dir), dir.resolve("porelod.sock"))) {
+        try (VarlinkServer server =
+                PoreloDaemon.serving(context(dir), dir.resolve("porelod.sock"))) {
             Thread.ofVirtual().start(server);
             try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
                 final Map<String, Object> info =
@@ -161,17 +175,25 @@ class InterfaceDescriptionTest {
     void everyMethodRepliesWithAStruct() {
 
         // Found on Authorizations, and Prompts and Talk had it too: varlink's grammar wants
-        // '-> (field: type, ...)', and a strict parser refuses '-> SomeType' - and with it the whole description.
-        assertThat(java.util.regex.Pattern.compile("(?m)^method\\s+\\w+\\([^)]*\\)\\s*->\\s*[A-Za-z]")
-                .matcher(PoreloDaemon.description()).results().map(java.util.regex.MatchResult::group).toList())
-                .as("methods whose reply is not a struct").isEmpty();
+        // '-> (field: type, ...)', and a strict parser refuses '-> SomeType' - and with it the
+        // whole description.
+        assertThat(
+                        java.util.regex.Pattern.compile(
+                                        "(?m)^method\\s+\\w+\\([^)]*\\)\\s*->\\s*[A-Za-z]")
+                                .matcher(PoreloDaemon.description())
+                                .results()
+                                .map(java.util.regex.MatchResult::group)
+                                .toList())
+                .as("methods whose reply is not a struct")
+                .isEmpty();
     }
 
     @Test
     void noTypeMethodOrErrorIsDeclaredTwice() {
 
         // Found on build 215: a second 'type Grant' beside the egress one. varlink allows
-        // one definition per name; a strict parser refuses the whole description, and a lenient one reads
+        // one definition per name; a strict parser refuses the whole description, and a lenient one
+        // reads
         // one of the two fields' sets with the other's.
         final String description = PoreloDaemon.description();
         for (final Pattern pattern : List.of(TYPE, METHOD, ERROR)) {
@@ -195,8 +217,8 @@ class InterfaceDescriptionTest {
 
     /**
      * Returns the error names {@code PoreloDaemon} raises, read out of its source.
-     * <p>
-     * Reading the source is not elegant and is the reason this works: any other way of listing
+     *
+     * <p>Reading the source is not elegant and is the reason this works: any other way of listing
      * them is a list that a new error can be added without touching.
      */
     private static Set<String> thrownErrorNames() {
@@ -210,9 +232,10 @@ class InterfaceDescriptionTest {
         // Anchored on the throw, not on the concatenation: INTERFACE is also glued to the
         // resource name, and the clearance interface is concatenated the same way - both of
         // which this matched before it was narrowed.
-        final Matcher matcher = Pattern.compile(
-                "new VarlinkException\\(\\s*INTERFACE\\s*\\+\\s*\"\\.([A-Za-z][A-Za-z0-9]*)\"")
-                .matcher(text);
+        final Matcher matcher =
+                Pattern.compile(
+                                "new VarlinkException\\(\\s*INTERFACE\\s*\\+\\s*\"\\.([A-Za-z][A-Za-z0-9]*)\"")
+                        .matcher(text);
         while (matcher.find()) {
             found.add(matcher.group(1));
         }
@@ -230,13 +253,20 @@ class InterfaceDescriptionTest {
         // with a hyphen in it, because it could never have been written there.
         final String idl = PoreloDaemon.description();
         final String source = daemonSources();
-        final Matcher matcher = Pattern.compile(
-                "(?:text|flag|empty)\\(parameters, \"([^\"]+)\"\\)"
-                + "|parameters\\.get\\(\"([^\"]+)\"\\)").matcher(source);
+        final Matcher matcher =
+                Pattern.compile(
+                                "(?:text|flag|empty)\\(parameters, \"([^\"]+)\"\\)"
+                                        + "|parameters\\.get\\(\"([^\"]+)\"\\)")
+                        .matcher(source);
         final List<String> missing = new java.util.ArrayList<>();
         while (matcher.find()) {
             final String name = matcher.group(1) == null ? matcher.group(2) : matcher.group(1);
-            if (!Pattern.compile("(?m)^\\s*" + Pattern.quote(name) + ":").matcher(idl).find()) {
+            // On a line of its own, or inline in a signature such as 'method LogArchive(task:
+            // string,
+            // withAgentOutput: ?bool)'.
+            if (!Pattern.compile("(?m)(?:^\\s*|[(,]\\s*)" + Pattern.quote(name) + ":")
+                    .matcher(idl)
+                    .find()) {
                 missing.add(name);
             }
         }
@@ -244,14 +274,17 @@ class InterfaceDescriptionTest {
     }
 
     /**
-     * Returns the daemon's sources as one text: {@link PoreloDaemon} and every area's methods, each in a file of its own.
+     * Returns the daemon's sources as one text: {@link PoreloDaemon} and every area's methods, each
+     * in a file of its own.
      *
      * @return Their text, in a fixed order.
      * @throws IOException If one cannot be read.
      */
     private static String daemonSources() throws IOException {
-        try (var files = java.nio.file.Files.list(Path.of("src/main/java/org/fuin/porelo/daemon"))) {
-            final List<Path> sources = files.filter(file -> file.toString().endsWith(".java")).sorted().toList();
+        try (var files =
+                java.nio.file.Files.list(Path.of("src/main/java/org/fuin/porelo/daemon"))) {
+            final List<Path> sources =
+                    files.filter(file -> file.toString().endsWith(".java")).sorted().toList();
             final StringBuilder text = new StringBuilder();
             for (final Path file : sources) {
                 text.append(java.nio.file.Files.readString(file)).append('\n');
@@ -261,39 +294,77 @@ class InterfaceDescriptionTest {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.CsvSource({"15-task, Task", "20-project, Project", "25-egress, Egress",
-            "30-vault, Vault", "35-gate, Gate", "40-agent, Agent", "45-messaging, Messaging", "50-machine, Machine"})
-    void eachAreaRegistersExactlyTheMethodsOfItsOwnPart(String part, String area, @TempDir Path dir) throws Exception {
+    @org.junit.jupiter.params.provider.CsvSource({
+        "15-task, Task",
+        "20-project, Project",
+        "25-egress, Egress",
+        "30-vault, Vault",
+        "35-gate, Gate",
+        "40-agent, Agent",
+        "45-messaging, Messaging",
+        "50-machine, Machine"
+    })
+    void eachAreaRegistersExactlyTheMethodsOfItsOwnPart(String part, String area, @TempDir Path dir)
+            throws Exception {
 
-        // The point of one file per area is that an area's change stays in its files: a method registered by one
-        // area and described in another's part would be the two files that have to change together again.
+        // The point of one file per area is that an area's change stays in its files: a method
+        // registered by one
+        // area and described in another's part would be the two files that have to change together
+        // again.
         final PoreloContext context = context(dir);
-        final VarlinkServer server = new VarlinkServer(dir.resolve("porelod.sock"), PoreloDaemon.INTERFACE);
+        final VarlinkServer server =
+                new VarlinkServer(dir.resolve("porelod.sock"), PoreloDaemon.INTERFACE);
         final Class<?> registrar = Class.forName("org.fuin.porelo.daemon." + area + "Methods");
-        final java.lang.reflect.Method register = registrar.getDeclaredMethod("register", VarlinkServer.class,
-                PoreloContext.class, org.fuin.porelo.app.TaskInventory.class, org.fuin.porelo.app.TaskControl.class);
-        register.invoke(null, server, context, org.fuin.porelo.app.TaskInventory.deriving(context),
+        final java.lang.reflect.Method register =
+                registrar.getDeclaredMethod(
+                        "register",
+                        VarlinkServer.class,
+                        PoreloContext.class,
+                        org.fuin.porelo.app.TaskInventory.class,
+                        org.fuin.porelo.app.TaskControl.class);
+        register.invoke(
+                null,
+                server,
+                context,
+                org.fuin.porelo.app.TaskInventory.deriving(context),
                 new org.fuin.porelo.app.TaskControl(context));
-        final Set<String> registered = new TreeSet<>(server.methodNames().stream()
-                .filter(name -> name.startsWith(PoreloDaemon.INTERFACE + "."))
-                .map(name -> name.substring(PoreloDaemon.INTERFACE.length() + 1)).toList());
+        final Set<String> registered =
+                new TreeSet<>(
+                        server.methodNames().stream()
+                                .filter(name -> name.startsWith(PoreloDaemon.INTERFACE + "."))
+                                .map(name -> name.substring(PoreloDaemon.INTERFACE.length() + 1))
+                                .toList());
 
         final String text;
-        try (java.io.InputStream in = PoreloDaemon.class.getResourceAsStream(
-                "/varlink/" + PoreloDaemon.INTERFACE + "/" + part + ".varlink")) {
-            text = new String(java.util.Objects.requireNonNull(in, part).readAllBytes(),
-                    java.nio.charset.StandardCharsets.UTF_8);
+        try (java.io.InputStream in =
+                PoreloDaemon.class.getResourceAsStream(
+                        "/varlink/" + PoreloDaemon.INTERFACE + "/" + part + ".varlink")) {
+            text =
+                    new String(
+                            java.util.Objects.requireNonNull(in, part).readAllBytes(),
+                            java.nio.charset.StandardCharsets.UTF_8);
         }
-        assertThat(registered).as(area + "Methods versus " + part).isNotEmpty().isEqualTo(names(METHOD, text));
+        assertThat(registered)
+                .as(area + "Methods versus " + part)
+                .isNotEmpty()
+                .isEqualTo(names(METHOD, text));
     }
 
     @Test
     void theHeaderAndTheCommonPartDescribeNoMethod() throws IOException {
         for (final String part : List.of("00-header", "10-common")) {
-            try (java.io.InputStream in = PoreloDaemon.class.getResourceAsStream(
-                    "/varlink/" + PoreloDaemon.INTERFACE + "/" + part + ".varlink")) {
-                assertThat(names(METHOD, new String(java.util.Objects.requireNonNull(in, part).readAllBytes(),
-                        java.nio.charset.StandardCharsets.UTF_8))).as(part).isEmpty();
+            try (java.io.InputStream in =
+                    PoreloDaemon.class.getResourceAsStream(
+                            "/varlink/" + PoreloDaemon.INTERFACE + "/" + part + ".varlink")) {
+                assertThat(
+                                names(
+                                        METHOD,
+                                        new String(
+                                                java.util.Objects.requireNonNull(in, part)
+                                                        .readAllBytes(),
+                                                java.nio.charset.StandardCharsets.UTF_8)))
+                        .as(part)
+                        .isEmpty();
             }
         }
     }

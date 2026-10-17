@@ -12,12 +12,12 @@ import java.lang.invoke.VarHandle;
 
 /**
  * The {@code prctl(2)} based process hardening measures.
- * <p>
- * Every measure is verified by reading the value back from the kernel. A zero return code is
+ *
+ * <p>Every measure is verified by reading the value back from the kernel. A zero return code is
  * <em>not</em> treated as proof: the point of hardening is that it is actually in effect, and a
  * call that silently applies to the wrong thread returns zero just the same.
- * <p>
- * <strong>{@code prctl} is per-thread.</strong> On a JVM the {@code main} method does not run on
+ *
+ * <p><strong>{@code prctl} is per-thread.</strong> On a JVM the {@code main} method does not run on
  * the thread-group leader, so measures applied from {@code main} leave the process as a whole
  * unprotected while every return code says success. In a native-image binary {@code main} does run
  * on the leader. This is why the shipped binaries are native images rather than JVM programs, and
@@ -52,8 +52,8 @@ public final class ProcessHardening {
 
     /**
      * The single {@code prctl} descriptor used by this class. Adding a second distinct descriptor
-     * anywhere means a new entry in {@code reachability-metadata.json} - see
-     * the {@code ffm-check} profile.
+     * anywhere means a new entry in {@code reachability-metadata.json} - see the {@code ffm-check}
+     * profile.
      */
     private static final MethodHandle PRCTL = prctl();
 
@@ -63,12 +63,19 @@ public final class ProcessHardening {
 
     private static MethodHandle prctl() {
         final SymbolLookup libc = LINKER.defaultLookup();
-        final MemorySegment symbol = libc.find("prctl")
-                .orElseThrow(() -> new HardeningException("Symbol 'prctl' not found in libc"));
-        return LINKER.downcallHandle(symbol,
-                FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.JAVA_INT,
-                        ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG,
-                        ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG),
+        final MemorySegment symbol =
+                libc.find("prctl")
+                        .orElseThrow(
+                                () -> new HardeningException("Symbol 'prctl' not found in libc"));
+        return LINKER.downcallHandle(
+                symbol,
+                FunctionDescriptor.of(
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.JAVA_INT,
+                        ValueLayout.JAVA_LONG,
+                        ValueLayout.JAVA_LONG,
+                        ValueLayout.JAVA_LONG,
+                        ValueLayout.JAVA_LONG),
                 Linker.Option.captureCallState("errno"));
     }
 
@@ -77,7 +84,8 @@ public final class ProcessHardening {
             final MemorySegment errno = arena.allocate(ERRNO_LAYOUT);
             final int result = (int) PRCTL.invokeExact(errno, option, arg2, 0L, 0L, 0L);
             if (result < 0) {
-                throw new HardeningException(what + " failed, errno=" + (int) ERRNO_HANDLE.get(errno, 0L));
+                throw new HardeningException(
+                        what + " failed, errno=" + (int) ERRNO_HANDLE.get(errno, 0L));
             }
             return result;
         } catch (HardeningException ex) {
@@ -89,9 +97,9 @@ public final class ProcessHardening {
 
     /**
      * Tells whether {@code prctl} calls made from the current thread cover the whole process.
-     * <p>
-     * True in a native image, where {@code main} runs on the thread-group leader. False on a JVM,
-     * where it does not.
+     *
+     * <p>True in a native image, where {@code main} runs on the thread-group leader. False on a
+     * JVM, where it does not.
      *
      * @return {@code true} if the calling thread is the thread-group leader.
      */
@@ -102,8 +110,9 @@ public final class ProcessHardening {
     private static long nativeThreadId() {
         // /proc/thread-self resolves to /proc/<pid>/task/<tid> for the calling thread.
         try {
-            final String link = java.nio.file.Files
-                    .readSymbolicLink(java.nio.file.Path.of("/proc/thread-self")).toString();
+            final String link =
+                    java.nio.file.Files.readSymbolicLink(java.nio.file.Path.of("/proc/thread-self"))
+                            .toString();
             return Long.parseLong(link.substring(link.lastIndexOf('/') + 1));
         } catch (Exception ex) {
             throw new HardeningException("Cannot determine the current native thread id", ex);
@@ -118,7 +127,8 @@ public final class ProcessHardening {
     public static void disableDumping() {
         call("PR_SET_DUMPABLE", PR_SET_DUMPABLE, 0L);
         if (dumpable() != 0) {
-            throw new HardeningException("PR_SET_DUMPABLE returned success but the flag is still set");
+            throw new HardeningException(
+                    "PR_SET_DUMPABLE returned success but the flag is still set");
         }
     }
 
@@ -143,15 +153,16 @@ public final class ProcessHardening {
     /**
      * Drops the ability to gain privileges through {@code setuid} binaries, then verifies it by
      * reading the flag back.
-     * <p>
-     * The flag cannot be cleared again for the lifetime of the process.
+     *
+     * <p>The flag cannot be cleared again for the lifetime of the process.
      *
      * @throws HardeningException If the flag is not set afterwards.
      */
     public static void dropPrivilegeEscalation() {
         call("PR_SET_NO_NEW_PRIVS", PR_SET_NO_NEW_PRIVS, 1L);
         if (!noNewPrivileges()) {
-            throw new HardeningException("PR_SET_NO_NEW_PRIVS returned success but the flag is not set");
+            throw new HardeningException(
+                    "PR_SET_NO_NEW_PRIVS returned success but the flag is not set");
         }
     }
 
@@ -176,7 +187,10 @@ public final class ProcessHardening {
         final int actual = parentDeathSignal();
         if (actual != signal) {
             throw new HardeningException(
-                    "PR_SET_PDEATHSIG returned success but the signal is " + actual + ", not " + signal);
+                    "PR_SET_PDEATHSIG returned success but the signal is "
+                            + actual
+                            + ", not "
+                            + signal);
         }
     }
 

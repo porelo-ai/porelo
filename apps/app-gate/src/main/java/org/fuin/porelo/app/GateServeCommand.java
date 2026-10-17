@@ -19,54 +19,75 @@ import picocli.CommandLine.Spec;
 
 /**
  * Serves the project's mirror over git smart-HTTP for one task.
- * <p>
- * The agent is given the printed URL and token, and nothing else. It can push, and it cannot reach
- * the upstream: the token authenticates only to this endpoint, only for this task, and the mirror
- * forwards nothing without an explicit approval.
+ *
+ * <p>The agent is given the printed URL and token, and nothing else. It can push, and it cannot
+ * reach the upstream: the token authenticates only to this endpoint, only for this task, and the
+ * mirror forwards nothing without an explicit approval.
  */
-@Command(name = "serve",
+@Command(
+        name = "serve",
         mixinStandardHelpOptions = true,
         description = "Serves the project mirror for an agent to push to.")
 public class GateServeCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
-    @Option(names = { "-p", "--project" }, paramLabel = "<name>", required = true,
+    @Option(
+            names = {"-p", "--project"},
+            paramLabel = "<name>",
+            required = true,
             description = "Project name, as 'porelo project list' prints it.")
     private String projectName;
 
-    @Option(names = { "-r", "--repository" }, paramLabel = "<name>",
+    @Option(
+            names = {"-r", "--repository"},
+            paramLabel = "<name>",
             description = "Which of the project's repositories. Default: the project's own.")
     private @Nullable String repository;
 
-    @Option(names = "--upstream", paramLabel = "<url>",
+    @Option(
+            names = "--upstream",
+            paramLabel = "<url>",
             description = "Upstream repository, used only when approving.")
     private @Nullable String upstream;
 
-    @Option(names = "--address", paramLabel = "<ip>",
+    @Option(
+            names = "--address",
+            paramLabel = "<ip>",
             description = "Address to bind. Default: ${DEFAULT-VALUE}")
     private String address = "127.0.0.1";
 
-    @Option(names = "--port", paramLabel = "<n>",
+    @Option(
+            names = "--port",
+            paramLabel = "<n>",
             description = "Port to bind, or 0 to pick one. Default: ${DEFAULT-VALUE}")
     private int port;
 
-    @Option(names = "--pid-file", paramLabel = "<file>",
+    @Option(
+            names = "--pid-file",
+            paramLabel = "<file>",
             description = "Writes this process's id here, so the poststop hook can reap it.")
     private @Nullable Path pidFile;
 
-    @Option(names = "--ref", paramLabel = "<ref>",
-            description = "The one ref a push may update, the task's own. Default: any ref under refs/porelo/incoming/.")
+    @Option(
+            names = "--ref",
+            paramLabel = "<ref>",
+            description =
+                    "The one ref a push may update, the task's own. Default: any ref under refs/porelo/incoming/.")
     private @Nullable String ref;
 
-    @Option(names = "--pass-on",
-            description = "Passes a push to the task's own ref on to the upstream at once, as porelo/<task>, and fetches"
-                    + " from the upstream before the agent fetches: an online task's gate. Needs --ref.")
+    @Option(
+            names = "--pass-on",
+            description =
+                    "Passes a push to the task's own ref on to the upstream at once, as porelo/<task>, and fetches"
+                            + " from the upstream before the agent fetches: an online task's gate. Needs --ref.")
     private boolean passOn;
-    @Option(names = "--seconds", paramLabel = "<n>",
+
+    @Option(
+            names = "--seconds",
+            paramLabel = "<n>",
             description = "Stop after this long. Zero means run until killed.")
     private int seconds;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private void writePidFile(PrintWriter err) {
         if (pidFile == null) {
@@ -96,50 +117,81 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
         try {
 
             final Project project = GateSupport.byName(context, projectName);
-            final String effectiveUpstream = upstream != null ? upstream
-                    : System.getenv("PORELO_GATE_UPSTREAM");
-            final GitGate gate = GateSupport.gate(context, project, GateSupport.repository(project, repository),
-                    effectiveUpstream, null);
+            final String effectiveUpstream =
+                    upstream != null ? upstream : System.getenv("PORELO_GATE_UPSTREAM");
+            final GitGate gate =
+                    GateSupport.gate(
+                            context,
+                            project,
+                            GateSupport.repository(project, repository),
+                            effectiveUpstream,
+                            null);
             gate.initialize();
 
             // From the environment when a task started this gate, so the container and the gate
             // agree on it. Never from an argument: a command line is visible in the host's
             // process list, and this token authenticates pushes.
             final String supplied = System.getenv("PORELO_GATE_TOKEN");
-            final TaskToken token = supplied == null || supplied.isBlank()
-                    ? TaskToken.mint() : new TaskToken(supplied);
+            final TaskToken token =
+                    supplied == null || supplied.isBlank()
+                            ? TaskToken.mint()
+                            : new TaskToken(supplied);
             if (passOn && (ref == null || !ref.startsWith(GitGate.INCOMING))) {
-                err.println("porelo: --pass-on needs --ref " + GitGate.INCOMING + "<task>, the one ref passed on");
+                err.println(
+                        "porelo: --pass-on needs --ref "
+                                + GitGate.INCOMING
+                                + "<task>, the one ref passed on");
                 err.flush();
                 return 2;
             }
-            final String branch = passOn ? "porelo/" + java.util.Objects.requireNonNull(ref)
-                    .substring(GitGate.INCOMING.length()) : null;
-            final GitHttpServer.Upstream through = branch == null ? null : new GitHttpServer.Upstream() {
-                @Override
-                public void refresh() {
-                    final String behind = gate.refresh();
-                    if (!behind.isEmpty()) {
-                        System.err.println(behind);
-                    }
-                }
+            final String branch =
+                    passOn
+                            ? "porelo/"
+                                    + java.util.Objects.requireNonNull(ref)
+                                            .substring(GitGate.INCOMING.length())
+                            : null;
+            final GitHttpServer.Upstream through =
+                    branch == null
+                            ? null
+                            : new GitHttpServer.Upstream() {
+                                @Override
+                                public void refresh() {
+                                    final String behind = gate.refresh();
+                                    if (!behind.isEmpty()) {
+                                        System.err.println(behind);
+                                    }
+                                }
 
-                @Override
-                public @Nullable String passOn(String taken, String commit) {
-                    return gate.passOn(branch, commit);
-                }
-            };
-            try (GitHttpServer server = new GitHttpServer(
-                    new InetSocketAddress(InetAddress.getByName(address), port),
-                    gate.mirror(), token, new GitSubprocess(), ref, through, GitHttpServer.PACE)) {
+                                @Override
+                                public @Nullable String passOn(String taken, String commit) {
+                                    return gate.passOn(branch, commit);
+                                }
+                            };
+            try (GitHttpServer server =
+                    new GitHttpServer(
+                            new InetSocketAddress(InetAddress.getByName(address), port),
+                            gate.mirror(),
+                            token,
+                            new GitSubprocess(),
+                            ref,
+                            through,
+                            GitHttpServer.PACE)) {
 
                 server.start();
                 writePidFile(err);
                 out.println("mirror    " + gate.mirror());
-                out.println("mode      " + gate.mode().name().toLowerCase()
-                        + (branch == null ? "" : ", passing " + ref + " on as " + branch));
-                out.println("url       http://" + address + ":" + server.port() + "/"
-                        + project.name() + ".git");
+                out.println(
+                        "mode      "
+                                + gate.mode().name().toLowerCase()
+                                + (branch == null ? "" : ", passing " + ref + " on as " + branch));
+                out.println(
+                        "url       http://"
+                                + address
+                                + ":"
+                                + server.port()
+                                + "/"
+                                + project.name()
+                                + ".git");
                 // Abbreviated: this line goes to gate.log, which the daemon streams to whatever
                 // is tailing it. The container is given the token through its environment.
                 out.println("token     " + token.abbreviate());

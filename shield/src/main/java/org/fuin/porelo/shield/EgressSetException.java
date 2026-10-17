@@ -1,8 +1,6 @@
 package org.fuin.porelo.shield;
 
-/**
- * Thrown when a curated egress set cannot be read, or a project names one that does not exist.
- */
+/** Thrown when a curated egress set cannot be read, or a project names one that does not exist. */
 public class EgressSetException extends RuntimeException {
 
     private static final long serialVersionUID = 1L;

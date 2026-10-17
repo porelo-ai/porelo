@@ -1,8 +1,6 @@
 package org.fuin.porelo.vault;
 
-/**
- * The vault could not be read, written or unlocked.
- */
+/** The vault could not be read, written or unlocked. */
 public class VaultException extends RuntimeException {
 
     private static final long serialVersionUID = 1L;

@@ -12,8 +12,13 @@ import org.jspecify.annotations.Nullable;
  * @param verbose Whether to ask for verbose output.
  * @param machineReadable Whether to ask for the agent's structured output format.
  */
-public record RunRequest(String prompt, @Nullable String model, @Nullable Integer maxTurns,
-        @Nullable String resumeSession, boolean verbose, boolean machineReadable) {
+public record RunRequest(
+        String prompt,
+        @Nullable String model,
+        @Nullable Integer maxTurns,
+        @Nullable String resumeSession,
+        boolean verbose,
+        boolean machineReadable) {
 
     /**
      * Creates a plain request.

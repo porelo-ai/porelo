@@ -12,13 +12,14 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Tests the agent protocol by running both halves against each other over a real socket.
- * <p>
- * Not by calling the server's methods directly: the wire is where the two sides can disagree, and
- * a test that skips it would pass while a released Porelo and a released agent failed to talk.
+ *
+ * <p>Not by calling the server's methods directly: the wire is where the two sides can disagree,
+ * and a test that skips it would pass while a released Porelo and a released agent failed to talk.
  */
 class AgentProtocolTest {
 
-    private static final String DEFINITION = """
+    private static final String DEFINITION =
+            """
             name: example
             label: Example
             binary: example-cli
@@ -67,8 +68,8 @@ class AgentProtocolTest {
             Thread.ofVirtual().start(server::serve);
 
             final AgentDefinition sent = agent().definition();
-            final AgentDefinition received = AgentDefinitionJson.read(
-                    AgentDefinitionJson.write(sent));
+            final AgentDefinition received =
+                    AgentDefinitionJson.read(AgentDefinitionJson.write(sent));
 
             // Every field, not just the ones a caller happens to read first: a field lost in
             // translation is behavior nobody declared.
@@ -78,7 +79,10 @@ class AgentProtocolTest {
 
     @Test
     void anArtifactsDigestAndLicenseSurviveTheWire() {
-        final AgentDefinition pinned = AgentDefinitionReader.read(new StringReader("""
+        final AgentDefinition pinned =
+                AgentDefinitionReader.read(
+                        new StringReader(
+                                """
                 name: example
                 binary: example-cli
                 git_identity:
@@ -93,20 +97,28 @@ class AgentProtocolTest {
                       sha256: "%s"
                       license: "SEE LICENSE IN README.md"
                       target: /usr/local/bin/example-cli
-                """.formatted("a".repeat(64))), "t.yaml");
+                """
+                                        .formatted("a".repeat(64))),
+                        "t.yaml");
 
         final AgentDefinition round = AgentDefinitionJson.read(AgentDefinitionJson.write(pinned));
 
-        assertThat(round.artifacts()).singleElement().satisfies(artifact -> {
-            assertThat(artifact.license()).isEqualTo("SEE LICENSE IN README.md");
-            assertThat(artifact.sha256()).isEqualTo("a".repeat(64));
-        });
+        assertThat(round.artifacts())
+                .singleElement()
+                .satisfies(
+                        artifact -> {
+                            assertThat(artifact.license()).isEqualTo("SEE LICENSE IN README.md");
+                            assertThat(artifact.sha256()).isEqualTo("a".repeat(64));
+                        });
         assertThat(round).isEqualTo(pinned);
     }
 
     @Test
     void anArtifactWithoutALicenseSurvivesWithoutOne() {
-        final AgentDefinition pinned = AgentDefinitionReader.read(new StringReader("""
+        final AgentDefinition pinned =
+                AgentDefinitionReader.read(
+                        new StringReader(
+                                """
                 name: example
                 binary: example-cli
                 git_identity:
@@ -120,16 +132,23 @@ class AgentProtocolTest {
                     - url: https://downloads.example/cli
                       sha256: "%s"
                       target: /usr/local/bin/example-cli
-                """.formatted("b".repeat(64))), "t.yaml");
+                """
+                                        .formatted("b".repeat(64))),
+                        "t.yaml");
 
         assertThat(AgentDefinitionJson.read(AgentDefinitionJson.write(pinned)).artifacts())
-                .singleElement().extracting(InstallArtifact::license).isNull();
+                .singleElement()
+                .extracting(InstallArtifact::license)
+                .isNull();
     }
 
     @Test
     void nullFieldsSurviveAsNull() {
 
-        final AgentDefinition minimal = AgentDefinitionReader.read(new StringReader("""
+        final AgentDefinition minimal =
+                AgentDefinitionReader.read(
+                        new StringReader(
+                                """
                 name: example
                 binary: example-cli
                 git_identity:
@@ -137,7 +156,8 @@ class AgentProtocolTest {
                   email: noreply@example.com
                 headless:
                   prompt_flag: "-p"
-                """), "t.yaml");
+                """),
+                        "t.yaml");
 
         final AgentDefinition round = AgentDefinitionJson.read(AgentDefinitionJson.write(minimal));
 
@@ -169,10 +189,14 @@ class AgentProtocolTest {
             Thread.ofVirtual().start(server::serve);
 
             try (var client = new org.fuin.porelo.wire.varlink.VarlinkClient(server.socketPath())) {
-                final Object command = client.call(AgentProtocol.BUILD_COMMAND,
-                        Map.of("prompt", "go", "model", "big")).get("command");
+                final Object command =
+                        client.call(
+                                        AgentProtocol.BUILD_COMMAND,
+                                        Map.of("prompt", "go", "model", "big"))
+                                .get("command");
 
-                assertThat((List<?>) command).map(String::valueOf)
+                assertThat((List<?>) command)
+                        .map(String::valueOf)
                         .containsExactly("example-cli", "--model", "big", "-p", "go");
             }
         }
@@ -184,13 +208,19 @@ class AgentProtocolTest {
         // The failure this guards against is silent on both sides: a field added to the record,
         // read by the agent, never sent by the client. Comparing against the record's own
         // components means a new field breaks this test rather than a task.
-        final SetupContext context = new SetupContext("porelo_pt_x", "api-key", "/workspace",
-                "http://127.0.0.1:9419/api/v1", "openrouter");
+        final SetupContext context =
+                new SetupContext(
+                        "porelo_pt_x",
+                        "api-key",
+                        "/workspace",
+                        "http://127.0.0.1:9419/api/v1",
+                        "openrouter");
 
         assertThat(context.parameters().keySet())
                 .containsExactlyInAnyOrderElementsOf(
                         java.util.Arrays.stream(SetupContext.class.getRecordComponents())
-                                .map(java.lang.reflect.RecordComponent::getName).toList());
+                                .map(java.lang.reflect.RecordComponent::getName)
+                                .toList());
         assertThat(context.parameters().values()).doesNotContainNull();
     }
 
@@ -200,35 +230,57 @@ class AgentProtocolTest {
         // A regression test with a cause: the provider name was added to the context, the agent
         // read it, and the client never sent it - so a task got registerProvider("") and failed
         // to authenticate. Nothing below the wire could see that, because both sides compiled.
-        final Agent echoing = new Agent() {
-            @Override
-            public AgentDefinition definition() {
-                return AgentDefinitionReader.read(new StringReader(DEFINITION), "test.yaml");
-            }
+        final Agent echoing =
+                new Agent() {
+                    @Override
+                    public AgentDefinition definition() {
+                        return AgentDefinitionReader.read(
+                                new StringReader(DEFINITION), "test.yaml");
+                    }
 
-            @Override
-            public ContainerSetup containerSetup() {
-                return context -> List.of(new ContainerFile("/echo",
-                        String.join("|", context.token(), context.credentialType(),
-                                context.workspace(), context.endpoint(), context.provider()),
-                        false));
-            }
-        };
+                    @Override
+                    public ContainerSetup containerSetup() {
+                        return context ->
+                                List.of(
+                                        new ContainerFile(
+                                                "/echo",
+                                                String.join(
+                                                        "|",
+                                                        context.token(),
+                                                        context.credentialType(),
+                                                        context.workspace(),
+                                                        context.endpoint(),
+                                                        context.provider()),
+                                                false));
+                    }
+                };
 
         try (AgentServer server = new AgentServer(echoing, dir.resolve("a.sock"))) {
             Thread.ofVirtual().start(server::serve);
 
-            try (var client = new org.fuin.porelo.wire.varlink.VarlinkClient(
-                    server.socketPath())) {
-                final Object files = client.call(AgentProtocol.CONTAINER_SETUP,
-                        Map.of("token", "porelo_pt_x", "credentialType", "api-key",
-                                "workspace", "/workspace", "endpoint", "http://127.0.0.1:9419/api/v1",
-                                "provider", "openrouter")).get("files");
+            try (var client = new org.fuin.porelo.wire.varlink.VarlinkClient(server.socketPath())) {
+                final Object files =
+                        client.call(
+                                        AgentProtocol.CONTAINER_SETUP,
+                                        Map.of(
+                                                "token",
+                                                "porelo_pt_x",
+                                                "credentialType",
+                                                "api-key",
+                                                "workspace",
+                                                "/workspace",
+                                                "endpoint",
+                                                "http://127.0.0.1:9419/api/v1",
+                                                "provider",
+                                                "openrouter"))
+                                .get("files");
 
-                assertThat((List<?>) files).singleElement()
+                assertThat((List<?>) files)
+                        .singleElement()
                         .extracting(f -> ((Map<?, ?>) f).get("content"))
-                        .isEqualTo("porelo_pt_x|api-key|/workspace|"
-                                + "http://127.0.0.1:9419/api/v1|openrouter");
+                        .isEqualTo(
+                                "porelo_pt_x|api-key|/workspace|"
+                                        + "http://127.0.0.1:9419/api/v1|openrouter");
             }
         }
     }
@@ -242,8 +294,10 @@ class AgentProtocolTest {
             Thread.ofVirtual().start(server::serve);
 
             try (var client = new org.fuin.porelo.wire.varlink.VarlinkClient(server.socketPath())) {
-                final Map<String, Object> answer = client.call(AgentProtocol.EXTRACT_CREDENTIAL,
-                        Map.of("configDirectory", dir.toString()));
+                final Map<String, Object> answer =
+                        client.call(
+                                AgentProtocol.EXTRACT_CREDENTIAL,
+                                Map.of("configDirectory", dir.toString()));
 
                 assertThat(answer.get("found")).isEqualTo(Boolean.TRUE);
                 assertThat(answer.get("secret")).isEqualTo("sk-example");
@@ -259,8 +313,10 @@ class AgentProtocolTest {
             Thread.ofVirtual().start(server::serve);
 
             try (var client = new org.fuin.porelo.wire.varlink.VarlinkClient(server.socketPath())) {
-                final Map<String, Object> answer = client.call(AgentProtocol.EXTRACT_CREDENTIAL,
-                        Map.of("configDirectory", dir.resolve("nowhere").toString()));
+                final Map<String, Object> answer =
+                        client.call(
+                                AgentProtocol.EXTRACT_CREDENTIAL,
+                                Map.of("configDirectory", dir.resolve("nowhere").toString()));
 
                 assertThat(answer.get("found")).isEqualTo(Boolean.FALSE);
                 assertThat(answer).doesNotContainKey("secret");
@@ -279,8 +335,10 @@ class AgentProtocolTest {
 
             final List<String> lines = new java.util.ArrayList<>();
             try (var client = new org.fuin.porelo.wire.varlink.VarlinkClient(server.socketPath())) {
-                client.callMore(AgentProtocol.FORMAT_LOG,
-                        Map.of("source", dir.resolve("raw.log").toString()), reply -> {
+                client.callMore(
+                        AgentProtocol.FORMAT_LOG,
+                        Map.of("source", dir.resolve("raw.log").toString()),
+                        reply -> {
                             lines.add(String.valueOf(reply.get("line")));
                             return true;
                         });

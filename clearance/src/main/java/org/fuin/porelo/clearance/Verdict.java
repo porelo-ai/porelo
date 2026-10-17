@@ -1,8 +1,6 @@
 package org.fuin.porelo.clearance;
 
-/**
- * What the operator decided about a blocked connection.
- */
+/** What the operator decided about a blocked connection. */
 public enum Verdict {
 
     /** Allow this destination from now on. */
@@ -16,8 +14,8 @@ public enum Verdict {
 
     /**
      * Tells whether the destination should be added to the allow set.
-     * <p>
-     * Only an explicit allow does. Silence is not consent: an operator who is away from the
+     *
+     * <p>Only an explicit allow does. Silence is not consent: an operator who is away from the
      * machine must not open a container's egress by doing nothing.
      *
      * @return {@code true} only for {@link #ALLOW}.

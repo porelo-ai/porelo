@@ -14,13 +14,13 @@ import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 
 /**
- * Tests that {@code vault unlock} with no vault offers {@code vault init}, and {@code vault import} with nothing to
- * import offers {@code vault login}, each run as the command itself on this terminal.
+ * Tests that {@code vault unlock} with no vault offers {@code vault init}, and {@code vault import}
+ * with nothing to import offers {@code vault login}, each run as the command itself on this
+ * terminal.
  */
 class VaultOfferTest {
 
-    @TempDir
-    private Path dir;
+    @TempDir private Path dir;
 
     private final List<List<String>> ran = new ArrayList<>();
 
@@ -29,17 +29,24 @@ class VaultOfferTest {
     private final StringWriter err = new StringWriter();
 
     private PoreloContext context() {
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-            default -> null;
-        }, dir);
-        return new PoreloContext(new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")), command -> {
-            ran.add(command);
-            return 0;
-        });
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    default -> null;
+                                },
+                        dir);
+        return new PoreloContext(
+                new FakeCommandRunner(),
+                new PoreloPaths(xdg, dir.resolve("bin")),
+                command -> {
+                    ran.add(command);
+                    return 0;
+                });
     }
 
     private int run(final Object command, final String... arguments) {
@@ -57,8 +64,12 @@ class VaultOfferTest {
 
         run(unlock);
 
-        assertThat(ran).singleElement().satisfies(command -> assertThat(command.subList(1, command.size()))
-                .containsExactly("vault", "init"));
+        assertThat(ran)
+                .singleElement()
+                .satisfies(
+                        command ->
+                                assertThat(command.subList(1, command.size()))
+                                        .containsExactly("vault", "init"));
     }
 
     @Test
@@ -73,11 +84,27 @@ class VaultOfferTest {
 
     @Test
     void importWithNothingToImportOffersTheAgentsLogin() {
-        assertThat(VaultImportCommand.loginInstead("claude", new Offer(question -> "", false, false,
-                new PrintWriter(err, true)), context())).isTrue();
-        assertThat(ran).singleElement().satisfies(command -> assertThat(command.subList(1, command.size()))
-                .containsExactly("vault", "login", "claude"));
-        assertThat(VaultImportCommand.loginInstead("claude", new Offer(Offer.Asker.NOBODY, false, false,
-                new PrintWriter(err, true)), context())).isFalse();
+        assertThat(
+                        VaultImportCommand.loginInstead(
+                                "claude",
+                                new Offer(question -> "", false, false, new PrintWriter(err, true)),
+                                context()))
+                .isTrue();
+        assertThat(ran)
+                .singleElement()
+                .satisfies(
+                        command ->
+                                assertThat(command.subList(1, command.size()))
+                                        .containsExactly("vault", "login", "claude"));
+        assertThat(
+                        VaultImportCommand.loginInstead(
+                                "claude",
+                                new Offer(
+                                        Offer.Asker.NOBODY,
+                                        false,
+                                        false,
+                                        new PrintWriter(err, true)),
+                                context()))
+                .isFalse();
     }
 }

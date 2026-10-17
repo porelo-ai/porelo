@@ -4,9 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 
-/**
- * A report whose lines a test can read back.
- */
+/** A report whose lines a test can read back. */
 final class Reports {
 
     private final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
@@ -16,5 +14,4 @@ final class Reports {
     String text() {
         return bytes.toString(StandardCharsets.UTF_8);
     }
-
 }

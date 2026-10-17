@@ -9,16 +9,16 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Takes a task into its project's conversations when it starts, and out of them when it is removed.
- * <p>
- * For every transport a peer of the project reaches through the project's own conversation - a
- * {@code <scheme>:} address - the transport's {@code setup} is run (it keeps what exists) and then its
- * {@code enroll} for the task, <strong>before anything of the task exists</strong>: a task whose messages
- * could not reach anybody is refused as a credential nobody can reach is, not discovered when its first
- * message stalls.
- * <p>
- * <strong>An offline project's messages never leave the machine</strong> (decided 2026-09-29): what
- * {@code setup} says the conversation reaches must be this machine's loopback, or the start is refused. The
- * rule is Porelo's; what a transport reaches is the transport's to say.
+ *
+ * <p>For every transport a peer of the project reaches through the project's own conversation - a
+ * {@code <scheme>:} address - the transport's {@code setup} is run (it keeps what exists) and then
+ * its {@code enroll} for the task, <strong>before anything of the task exists</strong>: a task
+ * whose messages could not reach anybody is refused as a credential nobody can reach is, not
+ * discovered when its first message stalls.
+ *
+ * <p><strong>An offline project's messages never leave the machine</strong> (decided 2026-09-29):
+ * what {@code setup} says the conversation reaches must be this machine's loopback, or the start is
+ * refused. The rule is Porelo's; what a transport reaches is the transport's to say.
  */
 final class TaskConversations {
 
@@ -30,7 +30,8 @@ final class TaskConversations {
      * @param context Where the vault, the state and the adapters are.
      */
     TaskConversations(PoreloContext context) {
-        this.lifecycle = new TransportLifecycle(context, context.paths().messaging().transportDirectory());
+        this.lifecycle =
+                new TransportLifecycle(context, context.paths().messaging().transportDirectory());
     }
 
     /**
@@ -51,23 +52,32 @@ final class TaskConversations {
                     return notAdmitted(scheme, conversation);
                 }
                 if (project.securityClass() == SecurityClass.OFFLINE) {
-                    final List<String> away = conversation.reaches().stream().filter(host -> !loopback(host)).toList();
+                    final List<String> away =
+                            conversation.reaches().stream()
+                                    .filter(host -> !loopback(host))
+                                    .toList();
                     if (!away.isEmpty()) {
-                        return "an offline project's messages never leave this machine, and its " + scheme
-                                + " conversation reaches " + String.join(", ", away)
+                        return "an offline project's messages never leave this machine, and its "
+                                + scheme
+                                + " conversation reaches "
+                                + String.join(", ", away)
                                 + "; give it a conversation on this machine's loopback";
                     }
                 }
                 lifecycle.enroll(scheme, project.name(), container, settings, offline);
             } catch (TransportLifecycle.Refused ex) {
-                return "the task cannot take part in the project's " + scheme + " conversation: " + ex.getMessage();
+                return "the task cannot take part in the project's "
+                        + scheme
+                        + " conversation: "
+                        + ex.getMessage();
             }
         }
         return null;
     }
 
     /**
-     * Takes a task out of its project's conversations. Never stops the removal: what cannot be done is said.
+     * Takes a task out of its project's conversations. Never stops the removal: what cannot be done
+     * is said.
      *
      * @param project The task's project.
      * @param container The task.
@@ -78,17 +88,24 @@ final class TaskConversations {
             try {
                 lifecycle.retire(scheme, project.name(), container, settings(project, scheme));
             } catch (TransportLifecycle.Refused ex) {
-                // Its secrets stay in the vault, so the account can still be retired: nothing is lost that a
+                // Its secrets stay in the vault, so the account can still be retired: nothing is
+                // lost that a
                 // transport which answers again could not finish.
-                err.println("porelo: " + container + " is removed, and its account in the " + scheme
-                        + " conversation is not: " + ex.getMessage());
+                err.println(
+                        "porelo: "
+                                + container
+                                + " is removed, and its account in the "
+                                + scheme
+                                + " conversation is not: "
+                                + ex.getMessage());
                 err.flush();
             }
         }
     }
 
     /**
-     * Takes a removed task out of its project's conversations, finding the project by the task's name.
+     * Takes a removed task out of its project's conversations, finding the project by the task's
+     * name.
      *
      * @param context Where the projects are.
      * @param container The task.
@@ -99,63 +116,91 @@ final class TaskConversations {
 
     /**
      * Takes a removed task out of its project's conversations.
-     * <p>
-     * <strong>By the project the task's own records name</strong>, when they still do. Found by the name alone, the
-     * first project whose name the container began with was taken, so project {@code a} caught the tasks of
-     * {@code a-b}; without a record, the longest such name is the likeliest.
+     *
+     * <p><strong>By the project the task's own records name</strong>, when they still do. Found by
+     * the name alone, the first project whose name the container began with was taken, so project
+     * {@code a} caught the tasks of {@code a-b}; without a record, the longest such name is the
+     * likeliest.
      *
      * @param context Where the projects are.
      * @param container The task.
      * @param project The task's project as its records name it, or {@code null} when they are gone.
      */
     void retire(PoreloContext context, String container, @Nullable String project) {
-        new ProjectInventory(context).projects().stream()
-                .filter(summary -> summary.file() != null)
-                .filter(summary -> project != null ? summary.name().equals(project)
-                        : container.startsWith("porelo-" + summary.name() + "-"))
-                .max(java.util.Comparator.comparingInt(summary -> summary.name().length()))
-                .ifPresent(summary -> {
-                    try {
-                        retire(GateSupport.project(java.nio.file.Path.of(summary.file())), container,
-                                new PrintWriter(System.err, true));
-                    } catch (RuntimeException ex) {
-                        // A project file that cannot be read any more: its conversations cannot be named either.
-                    }
-                });
+        new ProjectInventory(context)
+                .projects().stream()
+                        .filter(summary -> summary.file() != null)
+                        .filter(
+                                summary ->
+                                        project != null
+                                                ? summary.name().equals(project)
+                                                : container.startsWith(
+                                                        "porelo-" + summary.name() + "-"))
+                        .max(java.util.Comparator.comparingInt(summary -> summary.name().length()))
+                        .ifPresent(
+                                summary -> {
+                                    try {
+                                        retire(
+                                                GateSupport.project(
+                                                        java.nio.file.Path.of(summary.file())),
+                                                container,
+                                                new PrintWriter(System.err, true));
+                                    } catch (RuntimeException ex) {
+                                        // A project file that cannot be read any more: its
+                                        // conversations cannot be named either.
+                                    }
+                                });
     }
 
     /**
-     * Lets a person into a project's conversation, and returns what they are shown - once: nothing of it but
-     * who joined as whom is kept.
+     * Lets a person into a project's conversation, and returns what they are shown - once: nothing
+     * of it but who joined as whom is kept.
      *
      * @param context Where the state is.
      * @param project The project.
      * @param person Whom the account is for.
      * @param reset Whether to give an existing one a new password.
-     * @return What the transport printed: {@code login} for an interface and {@code shown} for a terminal.
-     * @throws TransportLifecycle.Refused If the project has no conversation, or the transport refused.
+     * @return What the transport printed: {@code login} for an interface and {@code shown} for a
+     *     terminal.
+     * @throws TransportLifecycle.Refused If the project has no conversation, or the transport
+     *     refused.
      */
     Map<?, ?> join(PoreloContext context, Project project, String person, boolean reset)
             throws TransportLifecycle.Refused {
         final String scheme = scheme(project);
         if (!reset && members(context, project).containsKey(person)) {
-            throw new TransportLifecycle.Refused("'" + person + "' has joined " + project.name()
-                    + " already, as " + members(context, project).get(person) + "; --reset gives them a new password", 17);
+            throw new TransportLifecycle.Refused(
+                    "'"
+                            + person
+                            + "' has joined "
+                            + project.name()
+                            + " already, as "
+                            + members(context, project).get(person)
+                            + "; --reset gives them a new password",
+                    17);
         }
         final boolean offline = project.securityClass() == SecurityClass.OFFLINE;
         lifecycle.setup(scheme, project.name(), settings(project, scheme), offline);
-        final Map<?, ?> said = lifecycle.join(scheme, project.name(), person, reset, settings(project, scheme), offline);
-        final String user = said.get("login") instanceof Map<?, ?> login && login.get("user") != null
-                ? String.valueOf(login.get("user")) : person;
-        final Map<String, String> members = new java.util.LinkedHashMap<>(members(context, project));
+        final Map<?, ?> said =
+                lifecycle.join(
+                        scheme, project.name(), person, reset, settings(project, scheme), offline);
+        final String user =
+                said.get("login") instanceof Map<?, ?> login && login.get("user") != null
+                        ? String.valueOf(login.get("user"))
+                        : person;
+        final Map<String, String> members =
+                new java.util.LinkedHashMap<>(members(context, project));
         members.put(person, user);
         try {
             final java.nio.file.Path file = membersFile(context, project, scheme);
             java.nio.file.Files.createDirectories(file.getParent());
-            java.nio.file.Files.writeString(file, org.fuin.porelo.wire.Json.write(members),
+            java.nio.file.Files.writeString(
+                    file,
+                    org.fuin.porelo.wire.Json.write(members),
                     java.nio.charset.StandardCharsets.UTF_8);
         } catch (java.io.IOException ex) {
-            // The account exists and the person has their login; only the list of who joined misses them.
+            // The account exists and the person has their login; only the list of who joined misses
+            // them.
         }
         return said;
     }
@@ -176,8 +221,10 @@ final class TaskConversations {
             return Map.of();
         }
         try {
-            if (org.fuin.porelo.wire.Json.parse(java.nio.file.Files.readString(file,
-                    java.nio.charset.StandardCharsets.UTF_8)) instanceof Map<?, ?> read) {
+            if (org.fuin.porelo.wire.Json.parse(
+                            java.nio.file.Files.readString(
+                                    file, java.nio.charset.StandardCharsets.UTF_8))
+                    instanceof Map<?, ?> read) {
                 final Map<String, String> members = new java.util.LinkedHashMap<>();
                 read.forEach((who, user) -> members.put(String.valueOf(who), String.valueOf(user)));
                 return members;
@@ -192,31 +239,42 @@ final class TaskConversations {
      * Returns the project's conversation as {@code setup} described it last.
      *
      * @param project The project.
-     * @return The transport, the conversation and what it reaches, or {@code null} when it has none or it was
-     *         never set up.
+     * @return The transport, the conversation and what it reaches, or {@code null} when it has none
+     *     or it was never set up.
      */
     @Nullable Described describe(Project project) {
         if (project.mail().conversations().isEmpty()) {
             return null;
         }
         final String scheme = scheme(project);
-        final TransportLifecycle.Conversation conversation = lifecycle.conversation(scheme, project.name());
-        return new Described(scheme, conversation == null ? new TransportLifecycle.Conversation("", List.of(), "",
-                false, "", "") : conversation, conversation != null);
+        final TransportLifecycle.Conversation conversation =
+                lifecycle.conversation(scheme, project.name());
+        return new Described(
+                scheme,
+                conversation == null
+                        ? new TransportLifecycle.Conversation("", List.of(), "", false, "", "")
+                        : conversation,
+                conversation != null);
     }
 
     /**
-     * Sets a project's conversation up on this machine, or confirms it, without a task: so a machine being bound
-     * to a project learns the name it goes by there, and whether it is let in yet.
+     * Sets a project's conversation up on this machine, or confirms it, without a task: so a
+     * machine being bound to a project learns the name it goes by there, and whether it is let in
+     * yet.
      *
      * @param project The project.
      * @return What it is now.
-     * @throws TransportLifecycle.Refused If the project has no conversation, or the transport refused.
+     * @throws TransportLifecycle.Refused If the project has no conversation, or the transport
+     *     refused.
      */
     Described setUp(Project project) throws TransportLifecycle.Refused {
         final String scheme = scheme(project);
-        final TransportLifecycle.Conversation conversation = lifecycle.setup(scheme, project.name(),
-                settings(project, scheme), project.securityClass() == SecurityClass.OFFLINE);
+        final TransportLifecycle.Conversation conversation =
+                lifecycle.setup(
+                        scheme,
+                        project.name(),
+                        settings(project, scheme),
+                        project.securityClass() == SecurityClass.OFFLINE);
         return new Described(scheme, conversation, true);
     }
 
@@ -228,8 +286,11 @@ final class TaskConversations {
      * @return In a person's words.
      */
     static String notAdmitted(String scheme, TransportLifecycle.Conversation conversation) {
-        return "this machine is not in the project's " + scheme + " conversation yet: a person there lets its account"
-                + (conversation.address().isEmpty() ? "" : " " + conversation.address()) + " in"
+        return "this machine is not in the project's "
+                + scheme
+                + " conversation yet: a person there lets its account"
+                + (conversation.address().isEmpty() ? "" : " " + conversation.address())
+                + " in"
                 + (conversation.room().isEmpty() ? "" : " to " + conversation.room())
                 + ", and the next task start takes it up";
     }
@@ -254,20 +315,30 @@ final class TaskConversations {
 
     private static String scheme(Project project) throws IllegalStateException {
         if (project.mail().conversations().isEmpty()) {
-            throw new IllegalStateException("'" + project.name() + "' has no conversation: no peer is reached"
-                    + " through a transport's '<scheme>:' address");
+            throw new IllegalStateException(
+                    "'"
+                            + project.name()
+                            + "' has no conversation: no peer is reached"
+                            + " through a transport's '<scheme>:' address");
         }
         return project.mail().conversations().iterator().next();
     }
 
-    private static java.nio.file.Path membersFile(PoreloContext context, Project project, String scheme) {
-        return context.paths().xdg().state().resolve("transport").resolve(scheme).resolve("members")
+    private static java.nio.file.Path membersFile(
+            PoreloContext context, Project project, String scheme) {
+        return context.paths()
+                .xdg()
+                .state()
+                .resolve("transport")
+                .resolve(scheme)
+                .resolve("members")
                 .resolve(project.name() + ".json");
     }
 
     @SuppressWarnings("unchecked")
     private static Map<String, Object> settings(Project project, String scheme) {
-        return project.mail().transports().get(scheme) instanceof Map<?, ?> said ? (Map<String, Object>) said
+        return project.mail().transports().get(scheme) instanceof Map<?, ?> said
+                ? (Map<String, Object>) said
                 : Map.of();
     }
 
@@ -275,12 +346,16 @@ final class TaskConversations {
      * Returns whether a host is this machine's loopback.
      *
      * @param host As the transport said it.
-     * @return true for {@code 127.0.0.1}, {@code ::1}, {@code [::1]} and {@code localhost}, with or without a port.
+     * @return true for {@code 127.0.0.1}, {@code ::1}, {@code [::1]} and {@code localhost}, with or
+     *     without a port.
      */
     static boolean loopback(String host) {
-        final String bare = host.startsWith("[") ? host.substring(1, Math.max(1, host.indexOf(']')))
-                : host.contains(":") && host.indexOf(':') == host.lastIndexOf(':') ? host.substring(0, host.indexOf(':'))
-                : host;
+        final String bare =
+                host.startsWith("[")
+                        ? host.substring(1, Math.max(1, host.indexOf(']')))
+                        : host.contains(":") && host.indexOf(':') == host.lastIndexOf(':')
+                                ? host.substring(0, host.indexOf(':'))
+                                : host;
         return "127.0.0.1".equals(bare) || "::1".equals(bare) || "localhost".equals(bare);
     }
 }

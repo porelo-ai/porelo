@@ -6,23 +6,27 @@ import org.fuin.porelo.agent.api.Credential;
 import org.fuin.porelo.vault.VaultEntry;
 
 /**
- * Keeps what an agent's own sign-in left, as {@code vault login} and {@code vault import} both store it.
- * <p>
- * <strong>Everything the agent handed over, not only the token.</strong> Both used to keep the value and its
- * type and drop the rest, so a subscription's refresh token never reached the vault and the credential died
- * with its access token, hours after the sign-in. Now:
+ * Keeps what an agent's own sign-in left, as {@code vault login} and {@code vault import} both
+ * store it.
+ *
+ * <p><strong>Everything the agent handed over, not only the token.</strong> Both used to keep the
+ * value and its type and drop the rest, so a subscription's refresh token never reached the vault
+ * and the credential died with its access token, hours after the sign-in. Now:
+ *
  * <ul>
- * <li>the access token is the entry, as before;</li>
- * <li>when it ends, where it is renewed and the client it was granted to are the entry's settings
- *     ({@value #EXPIRES_AT}, {@value #TOKEN_URL}, {@value #CLIENT_ID}) - none of them a secret, so
- *     {@code vault list} may show them;</li>
- * <li>the refresh token is kept hidden beside it, as {@code vault authorize} keeps a grant, and the broker
- *     renews with it on the host ({@link LoginRenewal}).</li>
+ *   <li>the access token is the entry, as before;
+ *   <li>when it ends, where it is renewed and the client it was granted to are the entry's settings
+ *       ({@value #EXPIRES_AT}, {@value #TOKEN_URL}, {@value #CLIENT_ID}) - none of them a secret,
+ *       so {@code vault list} may show them;
+ *   <li>the refresh token is kept hidden beside it, as {@code vault authorize} keeps a grant, and
+ *       the broker renews with it on the host ({@link LoginRenewal}).
  * </ul>
- * <strong>Only for a sign-in that is Porelo's alone.</strong> {@code vault login} signs in in a throwaway container,
- * so nobody else holds that refresh token. {@code vault import} copies what the agent on this machine keeps using:
- * renewing that copy would spend the refresh token the developer's own session renews with - the service rotates
- * it - and end that session. An import keeps the expiry and is never renewed.
+ *
+ * <strong>Only for a sign-in that is Porelo's alone.</strong> {@code vault login} signs in in a
+ * throwaway container, so nobody else holds that refresh token. {@code vault import} copies what
+ * the agent on this machine keeps using: renewing that copy would spend the refresh token the
+ * developer's own session renews with - the service rotates it - and end that session. An import
+ * keeps the expiry and is never renewed.
  */
 final class LoginCredentials {
 
@@ -50,27 +54,39 @@ final class LoginCredentials {
      * @param value What the agent's sign-in left.
      * @param own Whether the sign-in is Porelo's alone, so that the broker may renew it.
      */
-    static void put(final Map<String, VaultEntry> entries, final String key, final Credential value,
+    static void put(
+            final Map<String, VaultEntry> entries,
+            final String key,
+            final Credential value,
             final boolean own) {
         final Map<String, String> settings = new LinkedHashMap<>();
         final String expires = value.attributes().get(Credential.EXPIRES_AT);
         if (expires != null && expires.matches("\\d{1,15}")) {
-            settings.put(EXPIRES_AT, java.time.Instant.ofEpochMilli(Long.parseLong(expires)).toString());
+            settings.put(
+                    EXPIRES_AT, java.time.Instant.ofEpochMilli(Long.parseLong(expires)).toString());
         }
         final String refresh = value.attributes().get(Credential.REFRESH_TOKEN);
         final String url = value.attributes().get(Credential.TOKEN_URL);
         final String client = value.attributes().get(Credential.CLIENT_ID);
-        final boolean renewable = own && refresh != null && !refresh.isBlank() && url != null && client != null
-                && org.fuin.porelo.supervisor.Grants.secure(url);
+        final boolean renewable =
+                own
+                        && refresh != null
+                        && !refresh.isBlank()
+                        && url != null
+                        && client != null
+                        && org.fuin.porelo.supervisor.Grants.secure(url);
         if (renewable) {
             settings.put(TOKEN_URL, url);
             settings.put(CLIENT_ID, client);
         }
         entries.put(key, new VaultEntry(value.secret(), value.type(), settings));
         if (renewable) {
-            entries.put(TaskSecrets.GRANT_PREFIX + key, new VaultEntry(java.util.Objects.requireNonNull(refresh), REFRESH));
+            entries.put(
+                    TaskSecrets.GRANT_PREFIX + key,
+                    new VaultEntry(java.util.Objects.requireNonNull(refresh), REFRESH));
         } else {
-            // A sign-in with nothing to renew it replaces one that had: the old refresh token is not this one's.
+            // A sign-in with nothing to renew it replaces one that had: the old refresh token is
+            // not this one's.
             entries.remove(TaskSecrets.GRANT_PREFIX + key);
         }
     }

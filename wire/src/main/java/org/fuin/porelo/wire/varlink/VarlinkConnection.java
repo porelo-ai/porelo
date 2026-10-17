@@ -11,11 +11,12 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * One varlink connection: JSON objects separated by a NUL byte.
- * <p>
- * That is the entire framing. No length prefixes, no handshake, no headers - which is why writing
- * this was preferable to depending on a Java varlink library, of which there is no maintained one.
- * <p>
- * Not thread-safe. A connection belongs to one caller.
+ *
+ * <p>That is the entire framing. No length prefixes, no handshake, no headers - which is why
+ * writing this was preferable to depending on a Java varlink library, of which there is no
+ * maintained one.
+ *
+ * <p>Not thread-safe. A connection belongs to one caller.
  */
 public class VarlinkConnection implements AutoCloseable {
 
@@ -86,10 +87,11 @@ public class VarlinkConnection implements AutoCloseable {
     }
 
     /**
-     * Tells whether the peer has closed its side, without waiting: what it sent meanwhile is kept for the next
-     * {@link #receive()}.
-     * <p>
-     * Only between calls on this connection's one thread: it switches the channel to non-blocking for one read.
+     * Tells whether the peer has closed its side, without waiting: what it sent meanwhile is kept
+     * for the next {@link #receive()}.
+     *
+     * <p>Only between calls on this connection's one thread: it switches the channel to
+     * non-blocking for one read.
      *
      * @return {@code true} once the peer has closed, or the connection cannot be read any more.
      */
@@ -104,7 +106,8 @@ public class VarlinkConnection implements AutoCloseable {
                 }
                 reading.flip();
                 pending.write(reading.array(), 0, reading.limit());
-                // The limit a message has: a client sending without end during a stream is broken or trying to make
+                // The limit a message has: a client sending without end during a stream is broken
+                // or trying to make
                 // this process allocate, and is answered as gone.
                 return pending.size() > MAX_MESSAGE;
             } finally {

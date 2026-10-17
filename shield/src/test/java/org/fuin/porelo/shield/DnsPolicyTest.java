@@ -5,9 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.fuin.porelo.core.project.SecurityClass;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link DnsPolicy}.
- */
+/** Tests for {@link DnsPolicy}. */
 class DnsPolicyTest {
 
     /** Where the per-domain lines go, as the launcher writes it beside the configuration. */
@@ -27,10 +25,11 @@ class DnsPolicyTest {
     @Test
     void resolvesOnlyTheDomainsAProjectAllows() {
 
-        final DnsPolicy policy = new DnsPolicy(SecurityClass.GUARDED)
-                .upstream("8.8.8.8")
-                .allow("github.com")
-                .allow("pypi.org");
+        final DnsPolicy policy =
+                new DnsPolicy(SecurityClass.GUARDED)
+                        .upstream("8.8.8.8")
+                        .allow("github.com")
+                        .allow("pypi.org");
 
         // The names live in the servers file, which is the only part dnsmasq re-reads.
         assertThat(policy.renderServers())
@@ -46,9 +45,8 @@ class DnsPolicyTest {
     void anOfflineProjectResolvesNothingEvenWithDomainsListed() {
 
         // The class decides, not the list. Adding a domain to an offline project must not open it.
-        final DnsPolicy policy = new DnsPolicy(SecurityClass.OFFLINE)
-                .upstream("8.8.8.8")
-                .allow("github.com");
+        final DnsPolicy policy =
+                new DnsPolicy(SecurityClass.OFFLINE).upstream("8.8.8.8").allow("github.com");
 
         assertThat(policy.renderServers()).doesNotContain("server=/github.com/");
         assertThat(policy.render(SERVERS)).contains("address=/#/");
@@ -102,15 +100,17 @@ class DnsPolicyTest {
     }
 
     @Test
-    void keepsTheNamesWhereDnsmasqWillReadThemAgain(@org.junit.jupiter.api.io.TempDir
-            java.nio.file.Path dir) throws java.io.IOException {
+    void keepsTheNamesWhereDnsmasqWillReadThemAgain(
+            @org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws java.io.IOException {
 
         // The whole point of the split: a servers-file is re-read on SIGHUP and the configuration
         // is not, which is what lets a running task be widened by name. Measured against real
         // dnsmasq: NXDOMAIN before a line was appended here and signaled, real addresses after,
         // same process.
         final java.nio.file.Path config = dir.resolve("dnsmasq.conf");
-        new DnsPolicy(SecurityClass.GUARDED).upstream("8.8.8.8").allow("github.com")
+        new DnsPolicy(SecurityClass.GUARDED)
+                .upstream("8.8.8.8")
+                .allow("github.com")
                 .writeTo(config);
 
         final java.nio.file.Path servers = dir.resolve(DnsPolicy.SERVERS_FILE);
@@ -121,8 +121,8 @@ class DnsPolicyTest {
     }
 
     @Test
-    void writesBothFilesOrDnsmasqWillNotStart(@org.junit.jupiter.api.io.TempDir
-            java.nio.file.Path dir) throws java.io.IOException {
+    void writesBothFilesOrDnsmasqWillNotStart(
+            @org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws java.io.IOException {
 
         // A configuration pointing at a servers file that is not there makes dnsmasq refuse to
         // start, which reaches an operator as a container with no resolver at all.
@@ -135,8 +135,9 @@ class DnsPolicyTest {
     void runsInsideTheContainersNamespace() {
 
         assertThat(String.join(" ", DnsPolicy.command(4711L, "/tmp/dns.conf")))
-                .isEqualTo("podman unshare nsenter --target 4711 --net"
-                        + " dnsmasq --keep-in-foreground --conf-file=/tmp/dns.conf");
+                .isEqualTo(
+                        "podman unshare nsenter --target 4711 --net"
+                                + " dnsmasq --keep-in-foreground --conf-file=/tmp/dns.conf");
     }
 
     @Test
@@ -145,8 +146,11 @@ class DnsPolicyTest {
         // Found in the wild: a declared name answered AAAA, only the v4 set was populated, and
         // the operator got a clearance prompt for a bare IPv6 address they had no way to place.
         // The ruleset has always had an allowed_v6 set; nothing filled it.
-        final String rendered = new DnsPolicy(SecurityClass.GUARDED)
-                .upstream("1.1.1.1").autoAllow("example.test").render(SERVERS);
+        final String rendered =
+                new DnsPolicy(SecurityClass.GUARDED)
+                        .upstream("1.1.1.1")
+                        .autoAllow("example.test")
+                        .render(SERVERS);
 
         assertThat(rendered).contains("inet#porelo#allowed_v4");
         assertThat(rendered).contains("inet#porelo#allowed_v6");
@@ -154,12 +158,17 @@ class DnsPolicyTest {
 
     @Test
     void refusesANameUnderAnAllowedParentInTheConfigurationNotTheServersFile() {
-        final DnsPolicy policy = new DnsPolicy(SecurityClass.GUARDED)
-                .upstream("8.8.8.8").autoAllow("claude.ai").refuse("downloads.claude.ai");
+        final DnsPolicy policy =
+                new DnsPolicy(SecurityClass.GUARDED)
+                        .upstream("8.8.8.8")
+                        .autoAllow("claude.ai")
+                        .refuse("downloads.claude.ai");
 
-        // In the configuration, which a widening never rewrites: a refusal a running task cannot lose.
+        // In the configuration, which a widening never rewrites: a refusal a running task cannot
+        // lose.
         assertThat(policy.render(SERVERS)).contains("address=/downloads.claude.ai/");
-        assertThat(policy.renderServers()).contains("server=/claude.ai/8.8.8.8")
+        assertThat(policy.renderServers())
+                .contains("server=/claude.ai/8.8.8.8")
                 .doesNotContain("downloads.claude.ai");
     }
 

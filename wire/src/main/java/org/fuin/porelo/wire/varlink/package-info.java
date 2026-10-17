@@ -1,6 +1,4 @@
-/**
- * A hand-rolled varlink client and server.
- */
+/** A hand-rolled varlink client and server. */
 @NullMarked
 package org.fuin.porelo.wire.varlink;
 

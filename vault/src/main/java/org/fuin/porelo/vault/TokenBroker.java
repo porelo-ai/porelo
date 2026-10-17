@@ -10,13 +10,13 @@ import java.util.function.Supplier;
 
 /**
  * Exchanges phantom tokens for real credentials, without ever handing the real one out.
- * <p>
- * The agent holds a phantom token. When it makes a request, Porelo - not the agent - replaces the
- * phantom with the real credential on the way out. The container never sees the real value, which
- * is what makes a leak from inside it survivable: the phantom stops working when the task ends,
- * and the real credential was never there to leak.
- * <p>
- * <strong>The real credential is fetched per exchange and not cached.</strong> Holding it would
+ *
+ * <p>The agent holds a phantom token. When it makes a request, Porelo - not the agent - replaces
+ * the phantom with the real credential on the way out. The container never sees the real value,
+ * which is what makes a leak from inside it survivable: the phantom stops working when the task
+ * ends, and the real credential was never there to leak.
+ *
+ * <p><strong>The real credential is fetched per exchange and not cached.</strong> Holding it would
  * put it in this process's memory for the life of the task rather than for the length of one
  * request, for no benefit: the vault read is already cheap once unlocked.
  */
@@ -58,12 +58,12 @@ public class TokenBroker {
 
     /**
      * Takes over a token that was issued to a task before, so a resumed task keeps working.
-     * <p>
-     * A container's environment is fixed when it is created, so the token it holds cannot be
+     *
+     * <p>A container's environment is fixed when it is created, so the token it holds cannot be
      * changed afterwards. Minting a new one for a resumed task would leave the agent presenting a
-     * value this broker has never seen, which reads as a rejected credential rather than as what
-     * it is. The lifetime starts again: the task is continuing, not being extended past a
-     * decision anyone made about it.
+     * value this broker has never seen, which reads as a rejected credential rather than as what it
+     * is. The lifetime starts again: the task is continuing, not being extended past a decision
+     * anyone made about it.
      *
      * @param value The token the task already holds.
      * @param scope Agent the token is for.
@@ -107,8 +107,8 @@ public class TokenBroker {
 
     /**
      * Returns a token this broker issued, whether or not it is still valid.
-     * <p>
-     * So that a caller can tell a token that ran out from one that was never issued here. Both
+     *
+     * <p>So that a caller can tell a token that ran out from one that was never issued here. Both
      * are refused; only one of them means the operator did anything wrong.
      *
      * @param presented What the client sent.
@@ -136,10 +136,11 @@ public class TokenBroker {
      * @return How many were revoked.
      */
     public int revokeAllFor(String subject) {
-        final List<String> toRemove = issued.values().stream()
-                .filter(token -> token.subject().equals(subject))
-                .map(PhantomToken::value)
-                .toList();
+        final List<String> toRemove =
+                issued.values().stream()
+                        .filter(token -> token.subject().equals(subject))
+                        .map(PhantomToken::value)
+                        .toList();
         toRemove.forEach(issued::remove);
         return toRemove.size();
     }
@@ -151,10 +152,11 @@ public class TokenBroker {
      * @return How many were removed.
      */
     public int expire(Instant now) {
-        final List<String> stale = issued.values().stream()
-                .filter(token -> !token.validAt(now))
-                .map(PhantomToken::value)
-                .toList();
+        final List<String> stale =
+                issued.values().stream()
+                        .filter(token -> !token.validAt(now))
+                        .map(PhantomToken::value)
+                        .toList();
         stale.forEach(issued::remove);
         return stale.size();
     }

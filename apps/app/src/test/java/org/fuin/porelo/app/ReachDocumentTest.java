@@ -14,11 +14,11 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Holds {@code doc/reach.md} to the bounds in the code.
- * <p>
- * The page tells an operator how far a task can get. A bound that widens in the code while the page still
- * states the old one is the worst shape this can take: an operator holding a belief the system does not
- * support. So each number the page states is read off the code here, and a change to either fails the
- * build until both say the same.
+ *
+ * <p>The page tells an operator how far a task can get. A bound that widens in the code while the
+ * page still states the old one is the worst shape this can take: an operator holding a belief the
+ * system does not support. So each number the page states is read off the code here, and a change
+ * to either fails the build until both say the same.
  */
 @Tag("documents")
 class ReachDocumentTest {
@@ -34,8 +34,13 @@ class ReachDocumentTest {
 
     @Test
     void statesThePortsADeclaredHostIsOpenedOn() throws IOException {
-        assertThat(page()).contains("on ports " + NftRuleset.DEFAULT_PORTS.stream().map(String::valueOf)
-                .collect(Collectors.joining(" and ")) + " only");
+        assertThat(page())
+                .contains(
+                        "on ports "
+                                + NftRuleset.DEFAULT_PORTS.stream()
+                                        .map(String::valueOf)
+                                        .collect(Collectors.joining(" and "))
+                                + " only");
     }
 
     @Test
@@ -63,8 +68,14 @@ class ReachDocumentTest {
     void saysOfEveryGuardWhetherItIsAControlOrAnAccidentCatcher() throws IOException {
         // A summary of this that counted the accident-catchers as containment would be wrong.
         final String page = page();
-        for (final String line : page.lines().filter(each -> each.startsWith("| ") && !each.startsWith("| |")
-                && !each.startsWith("|---")).toList()) {
+        for (final String line :
+                page.lines()
+                        .filter(
+                                each ->
+                                        each.startsWith("| ")
+                                                && !each.startsWith("| |")
+                                                && !each.startsWith("|---"))
+                        .toList()) {
             assertThat(line).as(line).containsAnyOf("| control |", "| **accident-catcher** |");
         }
         assertThat(page).contains("Porelo does not detect that.");

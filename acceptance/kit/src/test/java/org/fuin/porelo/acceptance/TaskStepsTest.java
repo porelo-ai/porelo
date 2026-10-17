@@ -7,8 +7,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Tests for the commands {@link TaskSteps} builds.
- * <p>
- * These run nowhere near a machine, which is the point: the mistakes worth catching here are
+ *
+ * <p>These run nowhere near a machine, which is the point: the mistakes worth catching here are
  * quoting mistakes, and those otherwise surface minutes into a run on a rented server.
  */
 class TaskStepsTest {
@@ -27,15 +27,17 @@ class TaskStepsTest {
         // A prompt is what makes a run unattended, and only an unattended run is refused for a
         // missing credential rather than warned about.
         assertThat(TaskSteps.startCommand("nocred", "omp"))
-                .isEqualTo("porelo task start --project 'nocred' --agent 'omp'"
-                        + " --repository 'nocred' --prompt 'hello'");
+                .isEqualTo(
+                        "porelo task start --project 'nocred' --agent 'omp'"
+                                + " --repository 'nocred' --prompt 'hello'");
     }
 
     @Test
     void asksWhatWouldHappenWithoutDoingIt() {
         assertThat(TaskSteps.planCommand("noask", "claude"))
-                .isEqualTo("porelo task start --project 'noask' --agent 'claude'"
-                        + " --repository 'noask' --dry-run --detach");
+                .isEqualTo(
+                        "porelo task start --project 'noask' --agent 'claude'"
+                                + " --repository 'noask' --dry-run --detach");
     }
 
     @Test

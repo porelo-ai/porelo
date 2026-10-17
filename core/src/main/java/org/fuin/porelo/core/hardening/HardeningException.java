@@ -1,8 +1,6 @@
 package org.fuin.porelo.core.hardening;
 
-/**
- * A hardening measure could not be applied, or was applied but did not survive a read-back.
- */
+/** A hardening measure could not be applied, or was applied but did not survive a read-back. */
 public class HardeningException extends RuntimeException {
 
     private static final long serialVersionUID = 1L;

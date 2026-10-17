@@ -8,9 +8,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link Json}.
- */
+/** Tests for {@link Json}. */
 class JsonTest {
 
     @Test
@@ -51,7 +49,8 @@ class JsonTest {
     @Test
     void ignoresWhitespace() {
 
-        assertThat(((Map<?, ?>) Json.parse("  {\n  \"a\" : [ 1 , 2 ]\n}  ")).containsKey("a")).isTrue();
+        assertThat(((Map<?, ?>) Json.parse("  {\n  \"a\" : [ 1 , 2 ]\n}  ")).containsKey("a"))
+                .isTrue();
     }
 
     @Test
@@ -66,8 +65,10 @@ class JsonTest {
 
         final String json = Json.write(map);
 
-        assertThat(json).isEqualTo("{\"name\":\"a\\\"b\",\"count\":3,\"on\":true,"
-                + "\"items\":[\"x\",\"y\"],\"nothing\":null}");
+        assertThat(json)
+                .isEqualTo(
+                        "{\"name\":\"a\\\"b\",\"count\":3,\"on\":true,"
+                                + "\"items\":[\"x\",\"y\"],\"nothing\":null}");
         assertThat(Json.parse(json)).isInstanceOf(Map.class);
     }
 
@@ -107,7 +108,8 @@ class JsonTest {
     @org.junit.jupiter.api.Test
     void deepNestingIsRefusedAsBadInputNotAStackOverflow() {
 
-        // A varlink message of brackets, well inside its size limit, ended in StackOverflowError - which no caller that
+        // A varlink message of brackets, well inside its size limit, ended in StackOverflowError -
+        // which no caller that
         // catches bad input as a RuntimeException ever saw.
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> Json.parse("[".repeat(200_000)))
                 .isInstanceOf(JsonException.class);
@@ -116,14 +118,16 @@ class JsonTest {
     @org.junit.jupiter.api.Test
     void aNumberNoDoubleCanHoldIsRefusedRatherThanWrittenOutAsNoJson() {
 
-        // 1e999 was read as Infinity, written back as the bare word, and every subscriber that parsed it lost its stream.
+        // 1e999 was read as Infinity, written back as the bare word, and every subscriber that
+        // parsed it lost its stream.
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> Json.parse("{\"port\":1e999}"))
                 .isInstanceOf(JsonException.class);
     }
 
     @org.junit.jupiter.api.Test
     void aKeyGivenTwiceIsRefusedWhateverItsFirstValueWasAndAnEscapeHasNoSign() {
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> Json.parse("{\"a\":null,\"a\":\"x\"}"))
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> Json.parse("{\"a\":null,\"a\":\"x\"}"))
                 .isInstanceOf(JsonException.class);
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> Json.parse("\"\\u-001\""))
                 .isInstanceOf(JsonException.class);

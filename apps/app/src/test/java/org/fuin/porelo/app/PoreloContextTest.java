@@ -18,11 +18,11 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * Tests for {@link PoreloContext#readableCredentials()}, against a real vault and the real kernel
  * keyring.
- * <p>
- * The four states an empty credential list can mean. {@link PoreloContext#credentials()} answers
- * all four with the same empty map on purpose - a task that needs no credential must not be
- * blocked by one that is merely absent - so the only thing that can tell them apart is this, and
- * anything reporting the store's state to a person depends on it.
+ *
+ * <p>The four states an empty credential list can mean. {@link PoreloContext#credentials()} answers
+ * all four with the same empty map on purpose - a task that needs no credential must not be blocked
+ * by one that is merely absent - so the only thing that can tell them apart is this, and anything
+ * reporting the store's state to a person depends on it.
  */
 class PoreloContextTest {
 
@@ -38,15 +38,21 @@ class PoreloContextTest {
     }
 
     private PoreloContext context(Path dir) {
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
         final PoreloContext context =
-                new PoreloContext(new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")),
+                new PoreloContext(
+                        new FakeCommandRunner(),
+                        new PoreloPaths(xdg, dir.resolve("bin")),
                         arguments -> 0);
         // Keyed by the vault it unlocks, so every temporary directory gets its own description and
         // one test cannot read back what another left in the kernel.
@@ -54,8 +60,9 @@ class PoreloContextTest {
         return context;
     }
 
-    private static void writeVault(PoreloContext context, Map<String, VaultEntry> entries,
-            char[] passphrase) throws IOException {
+    private static void writeVault(
+            PoreloContext context, Map<String, VaultEntry> entries, char[] passphrase)
+            throws IOException {
         Files.createDirectories(context.vault().path().getParent());
         context.vault().write(entries, passphrase);
     }
@@ -73,8 +80,11 @@ class PoreloContextTest {
         writeVault(context, Map.of(), PASSPHRASE);
         keyring.store(PASSPHRASE);
 
-        assertThat(context.readableCredentials()).isPresent().get()
-                .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.MAP).isEmpty();
+        assertThat(context.readableCredentials())
+                .isPresent()
+                .get()
+                .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.MAP)
+                .isEmpty();
     }
 
     @Test
@@ -93,8 +103,11 @@ class PoreloContextTest {
 
         // There is nothing to unlock. Reporting this as unreadable would send somebody looking
         // for a passphrase for a file that was never created.
-        assertThat(context(dir).readableCredentials()).isPresent().get()
-                .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.MAP).isEmpty();
+        assertThat(context(dir).readableCredentials())
+                .isPresent()
+                .get()
+                .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.MAP)
+                .isEmpty();
     }
 
     @Test
@@ -120,7 +133,9 @@ class PoreloContextTest {
         writeVault(context, Map.of("anthropic", VaultEntry.of("sk-test-value")), PASSPHRASE);
         keyring.store(PASSPHRASE);
 
-        assertThat(context.readableCredentials()).isPresent().get()
+        assertThat(context.readableCredentials())
+                .isPresent()
+                .get()
                 .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.MAP)
                 .containsOnlyKeys("anthropic");
     }

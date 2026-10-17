@@ -9,12 +9,12 @@ import org.fuin.porelo.wire.Sidecar;
 
 /**
  * Starts the per-container services, and reaps them once the container is gone.
- * <p>
- * Today that means the resolver. A task container's {@code resolv.conf} points at its own
- * loopback, so without something listening there the agent cannot resolve anything at all - and
- * the failure looks like a network problem rather than a missing process.
- * <p>
- * <strong>Soft-fail.</strong> A container without a resolver is degraded, and visibly so at the
+ *
+ * <p>Today that means the resolver. A task container's {@code resolv.conf} points at its own
+ * loopback, so without something listening there the agent cannot resolve anything at all - and the
+ * failure looks like a network problem rather than a missing process.
+ *
+ * <p><strong>Soft-fail.</strong> A container without a resolver is degraded, and visibly so at the
  * point of use. Refusing to start it would turn a degraded run into no run, which is the wrong
  * trade for something that is not a containment property.
  */
@@ -26,9 +26,7 @@ public class SupervisorHook extends Hook {
     /** File the resolver's query log is written to. */
     static final String LOG_FILE = "dnsmasq.log";
 
-    /**
-     * Constructor.
-     */
+    /** Constructor. */
     public SupervisorHook() {
         super("supervisor", false);
     }
@@ -57,17 +55,26 @@ public class SupervisorHook extends Hook {
 
         // nsenter for the same reason the nft hook uses it: setns is per-thread and this process
         // must not join the container's network namespace itself.
-        final List<String> command = List.of("nsenter", "--target", String.valueOf(state.pid()),
-                "--net", "dnsmasq", "--keep-in-foreground", "--conf-file=" + config);
+        final List<String> command =
+                List.of(
+                        "nsenter",
+                        "--target",
+                        String.valueOf(state.pid()),
+                        "--net",
+                        "dnsmasq",
+                        "--keep-in-foreground",
+                        "--conf-file=" + config);
 
-        final Process resolver = new ProcessBuilder(command)
-                .redirectErrorStream(true)
-                .redirectOutput(state_.resolve(LOG_FILE).toFile())
-                .start();
+        final Process resolver =
+                new ProcessBuilder(command)
+                        .redirectErrorStream(true)
+                        .redirectOutput(state_.resolve(LOG_FILE).toFile())
+                        .start();
 
         // Deliberately not waited for: it has to outlive this hook. A child survives its parent,
         // and poststop reaps it from the recorded pid.
-        // With its start time, as every helper's record is: poststop verifies both before it signals,
+        // With its start time, as every helper's record is: poststop verifies both before it
+        // signals,
         // and a bare pid is refused - which left this process, and conmon above it, running after
         // every task was removed.
         org.fuin.porelo.wire.HelperPid.record(state_.resolve(PID_FILE), resolver.toHandle());
@@ -76,8 +83,11 @@ public class SupervisorHook extends Hook {
         // reporting that here beats a container that resolves nothing for reasons nobody logged.
         try {
             if (resolver.waitFor(500, TimeUnit.MILLISECONDS)) {
-                throw new IOException("The resolver exited immediately with "
-                        + resolver.exitValue() + "; see " + state_.resolve(LOG_FILE));
+                throw new IOException(
+                        "The resolver exited immediately with "
+                                + resolver.exitValue()
+                                + "; see "
+                                + state_.resolve(LOG_FILE));
             }
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
@@ -87,12 +97,12 @@ public class SupervisorHook extends Hook {
 
     /**
      * Stops every helper that left a pid file behind.
-     * <p>
-     * Not just this hook's own: the reader hook starts one, and {@code task run} starts the
-     * clearance watcher. Each writes a {@code *.pid} file into the container's state directory,
-     * and this is the one place that runs when the container is definitely gone. Reaping by
-     * convention rather than by a list means a helper added later is cleaned up without anyone
-     * remembering to come back here.
+     *
+     * <p>Not just this hook's own: the reader hook starts one, and {@code task run} starts the
+     * clearance watcher. Each writes a {@code *.pid} file into the container's state directory, and
+     * this is the one place that runs when the container is definitely gone. Reaping by convention
+     * rather than by a list means a helper added later is cleaned up without anyone remembering to
+     * come back here.
      */
     private void reap(Sidecar sidecar) {
         final Path stateDirectory = Path.of(sidecar.stateDirectory());
@@ -111,11 +121,18 @@ public class SupervisorHook extends Hook {
         try {
             // Verified against the recorded start time, not just parsed. An id is reused, and a
             // file that outlived its helper otherwise names whatever holds that id now.
-            org.fuin.porelo.wire.HelperPid.verified(pidFile).ifPresentOrElse(handle -> {
-                org.fuin.porelo.wire.HelperPid.stop(handle);
-                log(sidecar, "poststop", name + " " + handle.pid() + " stopped");
-            }, () -> log(sidecar, "poststop",
-                    name + " was gone, or its record no longer names it; nothing was signalled"));
+            org.fuin.porelo.wire.HelperPid.verified(pidFile)
+                    .ifPresentOrElse(
+                            handle -> {
+                                org.fuin.porelo.wire.HelperPid.stop(handle);
+                                log(sidecar, "poststop", name + " " + handle.pid() + " stopped");
+                            },
+                            () ->
+                                    log(
+                                            sidecar,
+                                            "poststop",
+                                            name
+                                                    + " was gone, or its record no longer names it; nothing was signalled"));
             Files.deleteIfExists(pidFile);
         } catch (IOException | RuntimeException ex) {
             log(sidecar, "poststop", "could not reap " + name + ": " + ex);

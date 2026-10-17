@@ -8,25 +8,31 @@ import picocli.CommandLine.Spec;
 
 /**
  * What this machine connects out with, at the terminal.
- * <p>
- * The same records an interface writes over the socket, because a person with only a terminal must
- * be able to do whatever an interface can - the rule that brought {@code project unfollow} back
- * from being socket-only.
- * <p>
- * The <em>values</em> are still {@code vault put}'s business, or nobody's: a key in {@code ~/.ssh}
- * and a token in the environment are declared here and stay where they are.
+ *
+ * <p>The same records an interface writes over the socket, because a person with only a terminal
+ * must be able to do whatever an interface can - the rule that brought {@code project unfollow}
+ * back from being socket-only.
+ *
+ * <p>The <em>values</em> are still {@code vault put}'s business, or nobody's: a key in {@code
+ * ~/.ssh} and a token in the environment are declared here and stay where they are.
  */
-@Command(name = "credentials",
-        aliases = { "credential" },
+@Command(
+        name = "credentials",
+        aliases = {"credential"},
         mixinStandardHelpOptions = true,
-        subcommands = { CredentialsListCommand.class, CredentialsDeclareCommand.class,
-                CredentialsForgetCommand.class, CredentialsCheckCommand.class,
-                CredentialsKeysCommand.class, CredentialsTrustHostCommand.class, CredentialsDeployKeyCommand.class },
+        subcommands = {
+            CredentialsListCommand.class,
+            CredentialsDeclareCommand.class,
+            CredentialsForgetCommand.class,
+            CredentialsCheckCommand.class,
+            CredentialsKeysCommand.class,
+            CredentialsTrustHostCommand.class,
+            CredentialsDeployKeyCommand.class
+        },
         description = "Says what this machine connects out with, and records more.")
 public class CredentialsCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 

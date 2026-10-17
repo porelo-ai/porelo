@@ -9,9 +9,9 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Tests for remembering what was backed up and where.
- * <p>
- * The thing this must never do is claim a bundle is there when it is not. A record is written when
- * a backup is taken and the file it names can be moved or deleted afterwards without anything
+ *
+ * <p>The thing this must never do is claim a bundle is there when it is not. A record is written
+ * when a backup is taken and the file it names can be moved or deleted afterwards without anything
  * here noticing, so every answer is checked against the disk rather than believed.
  */
 class BackupRecordsTest {
@@ -38,12 +38,15 @@ class BackupRecordsTest {
 
         records.add("demo", file, 3);
 
-        assertThat(records.of("demo")).singleElement().satisfies(backup -> {
-            assertThat(backup.bundle()).isEqualTo(file.toAbsolutePath());
-            assertThat(backup.refs()).isEqualTo(3);
-            assertThat(backup.present()).isTrue();
-            assertThat(backup.bytes()).isEqualTo(Files.size(file));
-        });
+        assertThat(records.of("demo"))
+                .singleElement()
+                .satisfies(
+                        backup -> {
+                            assertThat(backup.bundle()).isEqualTo(file.toAbsolutePath());
+                            assertThat(backup.refs()).isEqualTo(3);
+                            assertThat(backup.present()).isTrue();
+                            assertThat(backup.bytes()).isEqualTo(Files.size(file));
+                        });
     }
 
     @Test
@@ -56,11 +59,14 @@ class BackupRecordsTest {
         records.add("demo", file, 1);
         Files.delete(file);
 
-        assertThat(records.of("demo")).singleElement().satisfies(backup -> {
-            assertThat(backup.present()).isFalse();
-            assertThat(backup.bytes()).isZero();
-            assertThat(backup.bundle()).isEqualTo(file.toAbsolutePath());
-        });
+        assertThat(records.of("demo"))
+                .singleElement()
+                .satisfies(
+                        backup -> {
+                            assertThat(backup.present()).isFalse();
+                            assertThat(backup.bytes()).isZero();
+                            assertThat(backup.bundle()).isEqualTo(file.toAbsolutePath());
+                        });
     }
 
     @Test
@@ -73,8 +79,9 @@ class BackupRecordsTest {
         Thread.sleep(5);
         records.add("demo", bundle(dir, "newer.bundle"), 2);
 
-        assertThat(records.of("demo")).extracting(backup -> backup.bundle().getFileName()
-                .toString()).containsExactly("newer.bundle", "older.bundle");
+        assertThat(records.of("demo"))
+                .extracting(backup -> backup.bundle().getFileName().toString())
+                .containsExactly("newer.bundle", "older.bundle");
     }
 
     @Test
@@ -84,9 +91,12 @@ class BackupRecordsTest {
         records.add("demo", bundle(dir, "demo.bundle"), 1);
         records.add("other", bundle(dir, "other.bundle"), 1);
 
-        assertThat(records.of("demo")).singleElement()
-                .satisfies(backup -> assertThat(backup.bundle().getFileName())
-                        .hasToString("demo.bundle"));
+        assertThat(records.of("demo"))
+                .singleElement()
+                .satisfies(
+                        backup ->
+                                assertThat(backup.bundle().getFileName())
+                                        .hasToString("demo.bundle"));
     }
 
     @Test
@@ -96,7 +106,9 @@ class BackupRecordsTest {
         // backup this project has, which is the opposite of what somebody needs at that moment.
         final BackupRecords records = new BackupRecords(dir.resolve("records"));
         records.add("demo", bundle(dir, "good.bundle"), 1);
-        Files.writeString(dir.resolve("records").resolve("demo"), "truncated-line\n",
+        Files.writeString(
+                dir.resolve("records").resolve("demo"),
+                "truncated-line\n",
                 java.nio.file.StandardOpenOption.APPEND);
 
         assertThat(records.of("demo")).hasSize(1);
@@ -112,8 +124,9 @@ class BackupRecordsTest {
 
         records.add("demo", Path.of("relative.bundle"), 1);
 
-        assertThat(records.of("demo")).singleElement().satisfies(backup ->
-                assertThat(backup.bundle()).isAbsolute());
+        assertThat(records.of("demo"))
+                .singleElement()
+                .satisfies(backup -> assertThat(backup.bundle()).isAbsolute());
     }
 
     @Test
@@ -151,8 +164,11 @@ class BackupRecordsTest {
 
         records.forget("demo", first);
 
-        assertThat(records.of("demo")).singleElement()
-                .satisfies(backup -> assertThat(backup.bundle().getFileName())
-                        .hasToString("second.bundle"));
+        assertThat(records.of("demo"))
+                .singleElement()
+                .satisfies(
+                        backup ->
+                                assertThat(backup.bundle().getFileName())
+                                        .hasToString("second.bundle"));
     }
 }

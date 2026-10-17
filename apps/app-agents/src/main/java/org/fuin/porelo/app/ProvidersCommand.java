@@ -12,19 +12,19 @@ import picocli.CommandLine.Spec;
 
 /**
  * Lists the model providers declared on this machine, and what the vault holds for each.
- * <p>
- * A credential is stored under the name of the provider that issued it. Until this existed the only
- * list of those names was inside {@code porelo agents --verbose}, one agent at a time, so people
- * stored a key under the agent's name instead. The rows come from {@link ProviderInventory}, which
- * the daemon serializes too.
+ *
+ * <p>A credential is stored under the name of the provider that issued it. Until this existed the
+ * only list of those names was inside {@code porelo agents --verbose}, one agent at a time, so
+ * people stored a key under the agent's name instead. The rows come from {@link ProviderInventory},
+ * which the daemon serializes too.
  */
-@Command(name = "providers",
+@Command(
+        name = "providers",
         mixinStandardHelpOptions = true,
         description = "Lists the model providers declared here, and what the vault holds for each.")
 public class ProvidersCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -36,14 +36,16 @@ public class ProvidersCommand implements Callable<Integer>, PoreloFactory.Contex
     @Override
     public Integer call() {
 
-        // Which credential each provider has is read from the vault: at a terminal a shut one is opened for this alone.
+        // Which credential each provider has is read from the vault: at a terminal a shut one is
+        // opened for this alone.
         context.openIfShut(true, false, spec.commandLine().getErr());
         final PrintWriter out = spec.commandLine().getOut();
         final ProviderInventory.Listing listing = ProviderInventory.list(context);
 
         if (listing.providers().isEmpty()) {
-            out.println("no providers declared - an agent package installs one, or a file under"
-                    + " ~/.local/share/porelo/providers declares one");
+            out.println(
+                    "no providers declared - an agent package installs one, or a file under"
+                            + " ~/.local/share/porelo/providers declares one");
             out.flush();
             return 0;
         }
@@ -52,24 +54,40 @@ public class ProvidersCommand implements Callable<Integer>, PoreloFactory.Contex
         out.printf("%-12s %-24s %-34s %s%n", "NAME", "LABEL", "CREDENTIAL", "AGENTS");
         for (final Map<String, Object> row : listing.providers()) {
             final String name = row.get("name") instanceof String text ? text : "";
-            out.printf("%-12s %-24s %-34s %s%n", name, row.get("label"),
+            out.printf(
+                    "%-12s %-24s %-34s %s%n",
+                    name,
+                    row.get("label"),
                     credential(row, listing.readable()),
                     String.join(", ", drivers.getOrDefault(name, List.of("-"))));
-            if (listing.readable() && (!Boolean.TRUE.equals(row.get("authenticated"))
-                    || !name.equals(row.get("credentialName")))) {
+            if (listing.readable()
+                    && (!Boolean.TRUE.equals(row.get("authenticated"))
+                            || !name.equals(row.get("credentialName")))) {
                 // Also when one is found under an agent's name: this is where it belongs.
                 out.println("             store:   " + row.get("storeCommand"));
             }
         }
         if (!listing.readable()) {
             out.println();
-            out.println("The vault is locked, so what it holds is not shown. 'porelo vault unlock'"
-                    + " first.");
+            out.println(
+                    "The vault is locked, so what it holds is not shown. 'porelo vault unlock'"
+                            + " first.");
         }
-        // Said, because the provider's name is where its key is kept: a file of a person's own that names a packaged
+        // Said, because the provider's name is where its key is kept: a file of a person's own that
+        // names a packaged
         // provider takes it over, and with it where the stored key goes.
-        context.paths().agents().providerDirectory().shadowed().forEach((aside, won) -> out.println("set aside: " + aside
-                + " - " + won + " declares the same provider, and it is the one used"));
+        context.paths()
+                .agents()
+                .providerDirectory()
+                .shadowed()
+                .forEach(
+                        (aside, won) ->
+                                out.println(
+                                        "set aside: "
+                                                + aside
+                                                + " - "
+                                                + won
+                                                + " declares the same provider, and it is the one used"));
         out.flush();
         return 0;
     }
@@ -89,7 +107,9 @@ public class ProvidersCommand implements Callable<Integer>, PoreloFactory.Contex
             return "none";
         }
         final String type = row.get("credentialType") instanceof String text ? text : "";
-        return "stored as '" + row.get("credentialName") + "'"
+        return "stored as '"
+                + row.get("credentialName")
+                + "'"
                 + (type.isEmpty() ? "" : " (" + type + ")");
     }
 
@@ -105,8 +125,11 @@ public class ProvidersCommand implements Callable<Integer>, PoreloFactory.Contex
                 for (final var entry : declared.entrySet()) {
                     if (speaks.canDrive(entry.getValue())) {
                         drivers.computeIfAbsent(entry.getKey(), key -> new ArrayList<>())
-                                .add(agent.name() + (entry.getKey().equals(
-                                        speaks.defaultProvider()) ? " (default)" : ""));
+                                .add(
+                                        agent.name()
+                                                + (entry.getKey().equals(speaks.defaultProvider())
+                                                        ? " (default)"
+                                                        : ""));
                     }
                 }
             }

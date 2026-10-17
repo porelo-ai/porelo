@@ -13,8 +13,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The key somebody actually uses every day.
- * <p>
- * Measured against keys written by {@code ssh-keygen} and verified with the JDK's own verifier,
+ *
+ * <p>Measured against keys written by {@code ssh-keygen} and verified with the JDK's own verifier,
  * because what is being read is somebody else's format and what is produced has to be accepted by
  * somebody else's server. A fixture would only prove this agrees with itself.
  */
@@ -23,8 +23,17 @@ class RsaKeyTest {
     private Path keygen(final Path dir, final String name, final String... extra)
             throws IOException, InterruptedException {
         final Path file = dir.resolve(name);
-        final java.util.List<String> command = new java.util.ArrayList<>(java.util.List.of(
-                "ssh-keygen", "-q", "-f", file.toString(), "-C", "daily@work", "-N", ""));
+        final java.util.List<String> command =
+                new java.util.ArrayList<>(
+                        java.util.List.of(
+                                "ssh-keygen",
+                                "-q",
+                                "-f",
+                                file.toString(),
+                                "-C",
+                                "daily@work",
+                                "-N",
+                                ""));
         command.addAll(java.util.List.of(extra));
         final Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
         assertThat(process.waitFor()).as("ssh-keygen").isZero();
@@ -41,7 +50,8 @@ class RsaKeyTest {
 
         // The proof is not that it parsed: it is that the public half this offers is the one the
         // forge was told about, byte for byte.
-        final String expected = Files.readString(dir.resolve("id_rsa.pub")).strip().split("\\s+")[1];
+        final String expected =
+                Files.readString(dir.resolve("id_rsa.pub")).strip().split("\\s+")[1];
         assertThat(Base64.getEncoder().encodeToString(key.keyBlob())).isEqualTo(expected);
         assertThat(key.authorizedKeysLine()).startsWith("ssh-rsa ");
     }
@@ -55,10 +65,8 @@ class RsaKeyTest {
         final AgentKey key = StoredKey.of(Files.readString(file), "daily@work");
         final byte[] data = "what ssh would have signed".getBytes(StandardCharsets.UTF_8);
 
-        assertThat(algorithmIn(key.sign(data, AgentKey.RSA_SHA2_512)))
-                .isEqualTo("rsa-sha2-512");
-        assertThat(algorithmIn(key.sign(data, AgentKey.RSA_SHA2_256)))
-                .isEqualTo("rsa-sha2-256");
+        assertThat(algorithmIn(key.sign(data, AgentKey.RSA_SHA2_512))).isEqualTo("rsa-sha2-512");
+        assertThat(algorithmIn(key.sign(data, AgentKey.RSA_SHA2_256))).isEqualTo("rsa-sha2-256");
         // No flags is an old client, and answering it honestly is right.
         assertThat(algorithmIn(key.sign(data, 0))).isEqualTo("ssh-rsa");
     }
@@ -91,8 +99,7 @@ class RsaKeyTest {
         final String seed = OpenSshPrivateKey.seedBase64(Files.readString(file));
 
         assertThat(StoredKey.of(seed, "old@entry")).isInstanceOf(SigningKey.class);
-        assertThat(StoredKey.of(seed, "old@entry").authorizedKeysLine())
-                .startsWith("ssh-ed25519 ");
+        assertThat(StoredKey.of(seed, "old@entry").authorizedKeysLine()).startsWith("ssh-ed25519 ");
     }
 
     @Test
@@ -100,8 +107,8 @@ class RsaKeyTest {
             throws Exception {
 
         final String ed = Files.readString(keygen(dir, "id_ed25519", "-t", "ed25519"));
-        final String rsa = Files.readString(keygen(dir, "id_rsa", "-t", "rsa", "-b", "2048",
-                "-m", "PEM"));
+        final String rsa =
+                Files.readString(keygen(dir, "id_rsa", "-t", "rsa", "-b", "2048", "-m", "PEM"));
 
         assertThat(StoredKey.toStore(ed)).hasSize(44).doesNotContain("BEGIN");
         assertThat(StoredKey.toStore(rsa)).contains("BEGIN RSA PRIVATE KEY");
@@ -120,19 +127,20 @@ class RsaKeyTest {
     }
 
     private static String algorithmIn(final byte[] blob) {
-        return new String(SshWire.readString(java.nio.ByteBuffer.wrap(blob)),
-                StandardCharsets.US_ASCII);
+        return new String(
+                SshWire.readString(java.nio.ByteBuffer.wrap(blob)), StandardCharsets.US_ASCII);
     }
 
     private static java.security.PublicKey publicHalfOf(final Path pub) throws Exception {
-        final java.nio.ByteBuffer buffer = java.nio.ByteBuffer.wrap(
-                Base64.getDecoder().decode(Files.readString(pub).strip().split("\\s+")[1]));
+        final java.nio.ByteBuffer buffer =
+                java.nio.ByteBuffer.wrap(
+                        Base64.getDecoder().decode(Files.readString(pub).strip().split("\\s+")[1]));
         SshWire.readString(buffer);
         final java.math.BigInteger exponent =
                 new java.math.BigInteger(1, SshWire.readString(buffer));
         final java.math.BigInteger modulus =
                 new java.math.BigInteger(1, SshWire.readString(buffer));
-        return java.security.KeyFactory.getInstance("RSA").generatePublic(
-                new java.security.spec.RSAPublicKeySpec(modulus, exponent));
+        return java.security.KeyFactory.getInstance("RSA")
+                .generatePublic(new java.security.spec.RSAPublicKeySpec(modulus, exponent));
     }
 }

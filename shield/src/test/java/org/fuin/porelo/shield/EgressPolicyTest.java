@@ -9,10 +9,10 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Tests for {@link EgressPolicy}.
- * <p>
- * That an added element really unblocks the next attempt was verified against a running container:
- * blocked, added, open, with every other address still blocked. What is asserted here is the
- * command that does it.
+ *
+ * <p>That an added element really unblocks the next attempt was verified against a running
+ * container: blocked, added, open, with every other address still blocked. What is asserted here is
+ * the command that does it.
  */
 class EgressPolicyTest {
 
@@ -28,8 +28,9 @@ class EgressPolicyTest {
         // Adding to the live set rather than reloading the ruleset: a reload drops conntrack
         // state and kills every connection the agent already had open.
         assertThat(runner.only("nft").describe())
-                .isEqualTo("podman unshare nsenter --target 4711 --net"
-                        + " nft add element inet porelo allowed_v4 { 1.1.1.1 }");
+                .isEqualTo(
+                        "podman unshare nsenter --target 4711 --net"
+                                + " nft add element inet porelo allowed_v4 { 1.1.1.1 }");
     }
 
     @Test
@@ -74,11 +75,18 @@ class EgressPolicyTest {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"0.0.0.0/0", "::/0",
-        "1.2.3.4 }; flush chain inet porelo output; add element inet porelo allowed_v4 { 5.6.7.8", "example.org", ""})
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {
+                "0.0.0.0/0",
+                "::/0",
+                "1.2.3.4 }; flush chain inet porelo output; add element inet porelo allowed_v4 { 5.6.7.8",
+                "example.org",
+                ""
+            })
     void anythingButOneAddressIsRefusedBeforeTheFirewallSeesIt(final String address) {
 
-        // The set takes intervals, so a range opened everything, and nft reads ';' in its arguments as a next command.
+        // The set takes intervals, so a range opened everything, and nft reads ';' in its arguments
+        // as a next command.
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> policy.allow(address))
                 .isInstanceOf(IllegalArgumentException.class);
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> policy.withdraw(address))

@@ -15,21 +15,23 @@ import org.fuin.porelo.vault.SshSignature;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Test for {@link MessageWatch}.
- */
+/** Test for {@link MessageWatch}. */
 class MessageWatchTest {
 
     private PoreloContext context(final Path dir) {
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
-        return new PoreloContext(new FakeCommandRunner(),
-                new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
+        return new PoreloContext(
+                new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
     }
 
     @Test
@@ -59,8 +61,8 @@ class MessageWatchTest {
     /**
      * The reason the mailbox is not in the runtime directory: a stopped task still receives, and
      * finds its post when it comes back.
-     * <p>
-     * Where in the mailbox it finds it depends on what the host can say about the sender. Here
+     *
+     * <p>Where in the mailbox it finds it depends on what the host can say about the sender. Here
      * there is no project, so the host cannot say the peer is one it vouches for - and an unvouched
      * peer's message is checked before an agent reads it. With no filter installed either, it waits
      * in {@code hold/}. What this test is about is that it arrived and was not lost.
@@ -68,15 +70,19 @@ class MessageWatchTest {
     @Test
     void a_stopped_task_still_has_its_post_delivered(@TempDir final Path dir) throws IOException {
         final PoreloContext context = context(dir);
-        final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox("porelo-demo-stopped"));
+        final Mailbox mailbox =
+                new Mailbox(context.paths().messaging().mailbox("porelo-demo-stopped"));
         mailbox.create();
         final SigningKey peer = SigningKey.generate("peer");
         final String json = "{\"messageId\":\"in-1\"}";
         Files.writeString(mailbox.inbound().resolve("in-1.json"), json);
-        Files.writeString(mailbox.inbound().resolve("in-1.json.sig"), SshSignature.sign(peer,
-                json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
+        Files.writeString(
+                mailbox.inbound().resolve("in-1.json.sig"),
+                SshSignature.sign(
+                        peer, json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
         Files.createDirectories(context.paths().messaging().allowedSigners().getParent());
-        Files.writeString(context.paths().messaging().allowedSigners(),
+        Files.writeString(
+                context.paths().messaging().allowedSigners(),
                 "reviewer " + peer.authorizedKeysLine() + "\n");
 
         final int moved = new MessageWatch(context, Duration.ofSeconds(60)).passOnce();
@@ -93,11 +99,14 @@ class MessageWatchTest {
      * design, but a project file that is gone stops only sending from that one.
      */
     @Test
-    void a_mailbox_whose_project_is_gone_still_receives(@TempDir final Path dir) throws IOException {
+    void a_mailbox_whose_project_is_gone_still_receives(@TempDir final Path dir)
+            throws IOException {
         final PoreloContext context = context(dir);
-        final Mailbox orphan = new Mailbox(context.paths().messaging().mailbox("porelo-nosuch-task"));
+        final Mailbox orphan =
+                new Mailbox(context.paths().messaging().mailbox("porelo-nosuch-task"));
         orphan.create();
-        Files.writeString(orphan.outboxNew().resolve("m-1.json"),
+        Files.writeString(
+                orphan.outboxNew().resolve("m-1.json"),
                 "{\"messageId\":\"m-1\",\"metadata\":{\"to\":\"reviewer\"}}");
 
         assertThat(new MessageWatch(context, Duration.ofSeconds(60)).passOnce()).isEqualTo(1);

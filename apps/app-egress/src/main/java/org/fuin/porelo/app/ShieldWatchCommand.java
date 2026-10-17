@@ -28,41 +28,52 @@ import picocli.CommandLine.Spec;
 
 /**
  * Watches a container's blocked connections and asks the operator about each new destination.
- * <p>
- * <strong>This runs on the host, not inside the container's namespaces, and that split is
+ *
+ * <p><strong>This runs on the host, not inside the container's namespaces, and that split is
  * forced.</strong> Reading NFLOG needs {@code CAP_NET_ADMIN} in the container's network namespace,
  * which means entering the operator's user namespace through {@code podman unshare}. Inside that
  * namespace the process believes it is uid 0, and dbus-java's EXTERNAL authentication sends that
- * uid to the session bus - which sees the real uid and refuses. So the reader runs in the
- * namespace and reports events as line JSON, and the part that talks to the operator stays out
- * here where it can authenticate.
- * <p>
- * An allow is added to the live nftables set, so the agent's next attempt succeeds. Reloading the
- * ruleset instead would drop conntrack state and kill every connection it already had open.
- * <p>
- * The two halves talk varlink over a unix socket rather than a pipe. A pipe has exactly one
+ * uid to the session bus - which sees the real uid and refuses. So the reader runs in the namespace
+ * and reports events as line JSON, and the part that talks to the operator stays out here where it
+ * can authenticate.
+ *
+ * <p>An allow is added to the live nftables set, so the agent's next attempt succeeds. Reloading
+ * the ruleset instead would drop conntrack state and kill every connection it already had open.
+ *
+ * <p>The two halves talk varlink over a unix socket rather than a pipe. A pipe has exactly one
  * reader, and these events are interesting to more than one thing: the prompt, a terminal watching
- * along, later a GUI. {@code Subscribe} exists for those, and it is why the transport is a
- * protocol rather than a stream of lines.
+ * along, later a GUI. {@code Subscribe} exists for those, and it is why the transport is a protocol
+ * rather than a stream of lines.
  */
-@Command(name = "watch",
+@Command(
+        name = "watch",
         mixinStandardHelpOptions = true,
         description = "Prompts for each blocked connection and allows the ones you approve.")
 public class ShieldWatchCommand implements Callable<Integer> {
 
-    @Option(names = "--project", paramLabel = "<name>", required = true,
+    @Option(
+            names = "--project",
+            paramLabel = "<name>",
+            required = true,
             description = "Project name, shown in the prompt.")
     private String project;
 
-    @Option(names = "--task", paramLabel = "<name>",
+    @Option(
+            names = "--task",
+            paramLabel = "<name>",
             description = "Task name, shown in the prompt beside the project.")
     private String task = "";
 
-    @Option(names = "--pid", paramLabel = "<n>", required = true,
+    @Option(
+            names = "--pid",
+            paramLabel = "<n>",
+            required = true,
             description = "Host process id of the container's init process.")
     private long containerPid;
 
-    @Option(names = "--group", paramLabel = "<n>",
+    @Option(
+            names = "--group",
+            paramLabel = "<n>",
             description = "NFLOG group to bind. Default: ${DEFAULT-VALUE}")
     private int group = NftRuleset.NFLOG_GROUP;
 
@@ -70,42 +81,54 @@ public class ShieldWatchCommand implements Callable<Integer> {
     private final java.util.Map<String, String> deadlines =
             new java.util.concurrent.ConcurrentHashMap<>();
 
-    @Option(names = "--timeout", paramLabel = "<seconds>",
+    @Option(
+            names = "--timeout",
+            paramLabel = "<seconds>",
             description = "How long to wait for an answer. Default: ${DEFAULT-VALUE}")
     private int timeoutSeconds = 60;
 
-    @Option(names = "--deny-all",
-            description = "Answers every prompt with Deny, without asking.")
+    @Option(names = "--deny-all", description = "Answers every prompt with Deny, without asking.")
     private boolean denyAll;
 
-    @Option(names = "--allow-all",
-            description = "Answers every prompt with Allow, without asking.")
+    @Option(names = "--allow-all", description = "Answers every prompt with Allow, without asking.")
     private boolean allowAll;
 
-    @Option(names = "--count", paramLabel = "<n>",
+    @Option(
+            names = "--count",
+            paramLabel = "<n>",
             description = "Stop after this many decisions. Zero means run until killed.")
     private int count;
 
-    @Option(names = "--socket", paramLabel = "<path>",
-            description = "Where to create the clearance socket. Default: beside the container state.")
+    @Option(
+            names = "--socket",
+            paramLabel = "<path>",
+            description =
+                    "Where to create the clearance socket. Default: beside the container state.")
     private @Nullable Path socket;
 
-    @Option(names = "--events", paramLabel = "<file>",
-            description = "Follows an events file the reader hook is writing, instead of starting"
-                    + " a reader. Use this when the container already has one.")
+    @Option(
+            names = "--events",
+            paramLabel = "<file>",
+            description =
+                    "Follows an events file the reader hook is writing, instead of starting"
+                            + " a reader. Use this when the container already has one.")
     private @Nullable Path events;
 
-    @Option(names = "--pid-file", paramLabel = "<file>",
+    @Option(
+            names = "--pid-file",
+            paramLabel = "<file>",
             description = "Writes this process's id here, so the poststop hook can reap it.")
     private @Nullable Path pidFile;
 
-    @Option(names = "--journal", paramLabel = "<file>",
-            description = "Where decisions are recorded and read back from. Default: beside the"
-                    + " clearance socket.")
+    @Option(
+            names = "--journal",
+            paramLabel = "<file>",
+            description =
+                    "Where decisions are recorded and read back from. Default: beside the"
+                            + " clearance socket.")
     private @Nullable Path journal;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     @Override
     public Integer call() {
@@ -120,86 +143,124 @@ public class ShieldWatchCommand implements Callable<Integer> {
 
             final java.util.concurrent.atomic.AtomicInteger decisions =
                     new java.util.concurrent.atomic.AtomicInteger();
-            final java.util.concurrent.CountDownLatch enough = new java.util.concurrent.CountDownLatch(1);
+            final java.util.concurrent.CountDownLatch enough =
+                    new java.util.concurrent.CountDownLatch(1);
 
             final ClearanceJournal record = new ClearanceJournal(journalPath());
 
-            final ClearanceHub hub = new ClearanceHub(project, task,
-                    // Wrapped so the task can say it is waiting for a person. Written when the
-                    // question is put and removed when it is answered, which is the work's own
-                    // signal - a quiet task is not a waiting one, and anything inferred from a
-                    // clock would be wrong in the direction that costs the most.
-                    request -> {
-                        final org.fuin.porelo.wire.Waiting waiting =
-                                new org.fuin.porelo.wire.Waiting(socketDirectory());
-                        waiting.asking(request.destination());
-                        try {
-                            return ((ClearancePrompt) prompt).ask(request);
-                        } finally {
-                            waiting.answered();
-                        }
-                    },
-                    (address, name) -> {
-                        try {
-                            policy.allow(address);
-                            // Written down at the one moment both are known. Resolving the name
-                            // again later to find out what to withdraw was rejected: a
-                            // CDN, GeoDNS or plain round-robin answers Porelo and the container
-                            // differently, and the addresses that differ are exactly the ones
-                            // that would be left open.
-                            if (name != null) {
+            final ClearanceHub hub =
+                    new ClearanceHub(
+                            project,
+                            task,
+                            // Wrapped so the task can say it is waiting for a person. Written when
+                            // the
+                            // question is put and removed when it is answered, which is the work's
+                            // own
+                            // signal - a quiet task is not a waiting one, and anything inferred
+                            // from a
+                            // clock would be wrong in the direction that costs the most.
+                            request -> {
+                                final org.fuin.porelo.wire.Waiting waiting =
+                                        new org.fuin.porelo.wire.Waiting(socketDirectory());
+                                waiting.asking(request.destination());
                                 try {
-                                    org.fuin.porelo.wire.GrantedAddresses.add(
-                                            socketDirectory(), name, address);
-                                } catch (java.io.IOException ex) {
-                                    // NOT the same failure as the allow not taking effect, and it
-                                    // must not borrow that sentence: the host IS open. What is
-                                    // lost is the pair a later withdrawal would need, so the
-                                    // withdrawal will say it could not find the address rather
-                                    // than silently leaving it open.
-                                    err.println("porelo: allowed " + address + " but could not"
-                                            + " record that it is " + name + ": " + ex.getMessage()
-                                            + " - withdrawing " + name + " will not remove it");
+                                    return ((ClearancePrompt) prompt).ask(request);
+                                } finally {
+                                    waiting.answered();
+                                }
+                            },
+                            (address, name) -> {
+                                try {
+                                    policy.allow(address);
+                                    // Written down at the one moment both are known. Resolving the
+                                    // name
+                                    // again later to find out what to withdraw was rejected: a
+                                    // CDN, GeoDNS or plain round-robin answers Porelo and the
+                                    // container
+                                    // differently, and the addresses that differ are exactly the
+                                    // ones
+                                    // that would be left open.
+                                    if (name != null) {
+                                        try {
+                                            org.fuin.porelo.wire.GrantedAddresses.add(
+                                                    socketDirectory(), name, address);
+                                        } catch (java.io.IOException ex) {
+                                            // NOT the same failure as the allow not taking effect,
+                                            // and it
+                                            // must not borrow that sentence: the host IS open. What
+                                            // is
+                                            // lost is the pair a later withdrawal would need, so
+                                            // the
+                                            // withdrawal will say it could not find the address
+                                            // rather
+                                            // than silently leaving it open.
+                                            err.println(
+                                                    "porelo: allowed "
+                                                            + address
+                                                            + " but could not"
+                                                            + " record that it is "
+                                                            + name
+                                                            + ": "
+                                                            + ex.getMessage()
+                                                            + " - withdrawing "
+                                                            + name
+                                                            + " will not remove it");
+                                            err.flush();
+                                        }
+                                    }
+                                    out.println("allowed   " + address);
+                                } catch (RuntimeException ex) {
+                                    // Never silent. A verdict of allow that did not take effect
+                                    // leaves the
+                                    // operator believing they unblocked something they did not, and
+                                    // the
+                                    // agent failing for a reason the log says was resolved.
+                                    err.println(
+                                            "porelo: DECIDED ALLOW BUT COULD NOT APPLY IT for "
+                                                    + address
+                                                    + ": "
+                                                    + ex.getMessage());
                                     err.flush();
                                 }
-                            }
-                            out.println("allowed   " + address);
-                        } catch (RuntimeException ex) {
-                            // Never silent. A verdict of allow that did not take effect leaves the
-                            // operator believing they unblocked something they did not, and the
-                            // agent failing for a reason the log says was resolved.
-                            err.println("porelo: DECIDED ALLOW BUT COULD NOT APPLY IT for " + address
-                                    + ": " + ex.getMessage());
+                                out.flush();
+                            });
+
+            hub.onDecision(
+                    decision -> {
+                        out.println(
+                                "decided   "
+                                        + decision.verdict().name().toLowerCase(Locale.ROOT)
+                                        + "  "
+                                        + decision.shown()
+                                        + "  by "
+                                        + decision.source());
+                        out.flush();
+                        try {
+                            record.record(decision);
+                        } catch (ClearanceException ex) {
+                            // Never silent, for the same reason an allow that did not take effect
+                            // is not:
+                            // the audit record is what says a destination was refused rather than
+                            // never
+                            // asked about, and a gap in it is invisible from the file itself.
+                            err.println(
+                                    "porelo: DECIDED "
+                                            + decision.verdict().name().toLowerCase(Locale.ROOT)
+                                            + " FOR "
+                                            + decision.shown()
+                                            + " BUT COULD NOT RECORD IT: "
+                                            + ex.getMessage());
                             err.flush();
                         }
-                        out.flush();
+                        if (count > 0 && decisions.incrementAndGet() >= count) {
+                            enough.countDown();
+                        }
                     });
-
-            hub.onDecision(decision -> {
-                out.println("decided   " + decision.verdict().name().toLowerCase(Locale.ROOT)
-                        + "  " + decision.shown() + "  by " + decision.source());
-                out.flush();
-                try {
-                    record.record(decision);
-                } catch (ClearanceException ex) {
-                    // Never silent, for the same reason an allow that did not take effect is not:
-                    // the audit record is what says a destination was refused rather than never
-                    // asked about, and a gap in it is invisible from the file itself.
-                    err.println("porelo: DECIDED " + decision.verdict().name().toLowerCase(Locale.ROOT)
-                            + " FOR " + decision.shown() + " BUT COULD NOT RECORD IT: "
-                            + ex.getMessage());
-                    err.flush();
-                }
-                if (count > 0 && decisions.incrementAndGet() >= count) {
-                    enough.countDown();
-                }
-            });
 
             // Asked afresh on every event: a grant is made while the task runs, usually seconds
             // after an agent was refused something, so a list read at start would never hold the
             // one that matters.
-            hub.granted(name -> org.fuin.porelo.wire.GrantedNames.covers(
-                    socketDirectory(), name));
+            hub.granted(name -> org.fuin.porelo.wire.GrantedNames.covers(socketDirectory(), name));
 
             // Before anything is followed. A resumed task re-reads the events file from the start,
             // so a destination decided in the previous run reaches the hub again within seconds -
@@ -207,8 +268,12 @@ public class ShieldWatchCommand implements Callable<Integer> {
             // has already answered, or a second chance for an agent whose first attempt was
             // refused.
             final List<Decision> earlier = record.read();
-            out.println("journal   " + record.file()
-                    + (earlier.isEmpty() ? "" : ", taking back " + earlier.size() + " decisions"));
+            out.println(
+                    "journal   "
+                            + record.file()
+                            + (earlier.isEmpty()
+                                    ? ""
+                                    : ", taking back " + earlier.size() + " decisions"));
             out.flush();
             hub.restore(earlier);
 
@@ -259,8 +324,8 @@ public class ShieldWatchCommand implements Callable<Integer> {
      *
      * @return The verdict, or {@code null} if the line was not an event.
      */
-    private @Nullable Verdict handle(ClearanceHub hub, ClearanceService service, String line,
-            PrintWriter err) {
+    private @Nullable Verdict handle(
+            ClearanceHub hub, ClearanceService service, String line, PrintWriter err) {
         try {
             if (!(org.fuin.porelo.wire.Json.parse(line) instanceof java.util.Map<?, ?> event)) {
                 return null;
@@ -271,13 +336,17 @@ public class ShieldWatchCommand implements Callable<Integer> {
             // A bare address is not something an operator can judge. The resolver logged what
             // it answered, which is the only place to turn the number back into the name the
             // agent asked for; the address stays visible because the decision is about it.
-            final String name = events == null ? null
-                    : org.fuin.porelo.shield.ResolvedNames
-                            .lookup(events.resolveSibling("dnsmasq.log"), destination)
-                            .orElse(null);
+            final String name =
+                    events == null
+                            ? null
+                            : org.fuin.porelo.shield.ResolvedNames.lookup(
+                                            events.resolveSibling("dnsmasq.log"), destination)
+                                    .orElse(null);
             final String shownAddress = port == 0 ? destination : destination + ":" + port;
-            final String shown = name == null ? shownAddress
-                    : name + (port == 0 ? "" : ":" + port) + " (" + destination + ")";
+            final String shown =
+                    name == null
+                            ? shownAddress
+                            : name + (port == 0 ? "" : ":" + port) + " (" + destination + ")";
             final Blocked blocked = new Blocked(destination, port, protocol, shown, name);
 
             // Published before it is decided: a subscriber - a terminal watching, or the daemon
@@ -330,10 +399,16 @@ public class ShieldWatchCommand implements Callable<Integer> {
             // Keyed by the same key the hub deduplicates on, so the two cannot disagree about what
             // one question is. It grows with distinct destinations, exactly as the hub's own map
             // does, and a watcher lives as long as its task.
-            prompt.put("deadline", timeoutSeconds <= 0 ? ""
-                    : deadlines.computeIfAbsent(blocked.key(),
-                            ignored -> java.time.Instant.now().plusSeconds(timeoutSeconds)
-                                    .toString()));
+            prompt.put(
+                    "deadline",
+                    timeoutSeconds <= 0
+                            ? ""
+                            : deadlines.computeIfAbsent(
+                                    blocked.key(),
+                                    ignored ->
+                                            java.time.Instant.now()
+                                                    .plusSeconds(timeoutSeconds)
+                                                    .toString()));
             service.publish(prompt);
 
             return hub.handle(blocked);
@@ -346,12 +421,12 @@ public class ShieldWatchCommand implements Callable<Integer> {
 
     /**
      * Returns where decisions are recorded.
-     * <p>
-     * Beside the socket only when nothing said otherwise, which is the case for a watcher started
-     * by hand. A task's own watcher is pointed at the state directory instead: everything beside
-     * the socket is under the runtime directory, which {@code task stop --remove} deletes and the
-     * kernel clears at logout, and a record of what an agent tried to reach that goes when the
-     * task goes is not an audit record.
+     *
+     * <p>Beside the socket only when nothing said otherwise, which is the case for a watcher
+     * started by hand. A task's own watcher is pointed at the state directory instead: everything
+     * beside the socket is under the runtime directory, which {@code task stop --remove} deletes
+     * and the kernel clears at logout, and a record of what an agent tried to reach that goes when
+     * the task goes is not an audit record.
      *
      * @return The journal file.
      */
@@ -361,14 +436,16 @@ public class ShieldWatchCommand implements Callable<Integer> {
 
     private Path socketDirectory() {
         // Absolute, so it has a parent even when --socket was given as a bare file name.
-        return java.util.Objects.requireNonNull(socketPath().toAbsolutePath().getParent(),
+        return java.util.Objects.requireNonNull(
+                socketPath().toAbsolutePath().getParent(),
                 "an absolute socket path has a directory");
     }
 
     private Path socketPath() {
-        return socket != null ? socket
-                : Path.of(System.getProperty("java.io.tmpdir")).resolve("porelo-clearance-"
-                        + containerPid + ".sock");
+        return socket != null
+                ? socket
+                : Path.of(System.getProperty("java.io.tmpdir"))
+                        .resolve("porelo-clearance-" + containerPid + ".sock");
     }
 
     private void writePidFile(PrintWriter err) {
@@ -387,27 +464,32 @@ public class ShieldWatchCommand implements Callable<Integer> {
 
     /**
      * Follows an events file the reader hook is appending to.
-     * <p>
-     * A file rather than a socket, because the two ends have different lifetimes: the reader
+     *
+     * <p>A file rather than a socket, because the two ends have different lifetimes: the reader
      * starts with the container and the watcher may be started, stopped and restarted while the
      * task runs. Re-reading from the beginning on start is deliberate - a destination decided
      * before the watcher existed should still be applied.
      */
-    private void follow(ClearanceHub hub, ClearanceService service, PrintWriter out,
+    private void follow(
+            ClearanceHub hub,
+            ClearanceService service,
+            PrintWriter out,
             PrintWriter err,
-            java.util.concurrent.CountDownLatch enough) throws IOException, InterruptedException {
+            java.util.concurrent.CountDownLatch enough)
+            throws IOException, InterruptedException {
 
         long position = 0;
         while (enough.getCount() > 0) {
             if (java.nio.file.Files.exists(events)) {
                 try (var lines = java.nio.file.Files.lines(events)) {
-                    final long[] seen = { 0 };
+                    final long[] seen = {0};
                     final long start = position;
-                    lines.forEach(line -> {
-                        if (seen[0]++ >= start) {
-                            handle(hub, service, line, err);
-                        }
-                    });
+                    lines.forEach(
+                            line -> {
+                                if (seen[0]++ >= start) {
+                                    handle(hub, service, line, err);
+                                }
+                            });
                     position = seen[0];
                 }
             }
@@ -420,11 +502,23 @@ public class ShieldWatchCommand implements Callable<Integer> {
     private Process startReader(Path clearanceSocket) throws IOException {
         // The reader is this same binary, re-invoked inside the namespace. One artifact, and the
         // reader is therefore always the same version as the watcher.
-        final String self = ProcessHandle.current().info().command()
-                .orElseThrow(() -> new IOException("Cannot determine the path of this binary"));
-        final List<String> command = EgressPolicy.inNamespace(containerPid,
-                List.of(self, "shield", "read", "--group", String.valueOf(group),
-                        "--report-to", clearanceSocket.toString()));
+        final String self =
+                ProcessHandle.current()
+                        .info()
+                        .command()
+                        .orElseThrow(
+                                () -> new IOException("Cannot determine the path of this binary"));
+        final List<String> command =
+                EgressPolicy.inNamespace(
+                        containerPid,
+                        List.of(
+                                self,
+                                "shield",
+                                "read",
+                                "--group",
+                                String.valueOf(group),
+                                "--report-to",
+                                clearanceSocket.toString()));
         return new ProcessBuilder(command).inheritIO().start();
     }
 
@@ -435,9 +529,7 @@ public class ShieldWatchCommand implements Callable<Integer> {
         return new DesktopPrompt(Duration.ofSeconds(timeoutSeconds));
     }
 
-    /**
-     * Answers every question the same way, without asking anyone.
-     */
+    /** Answers every question the same way, without asking anyone. */
     private static final class FixedPrompt implements ClearancePrompt, AutoCloseable {
 
         private final Verdict verdict;

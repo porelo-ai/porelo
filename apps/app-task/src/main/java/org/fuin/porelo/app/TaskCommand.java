@@ -2,25 +2,33 @@ package org.fuin.porelo.app;
 
 import picocli.CommandLine.Command;
 
-/**
- * The {@code porelo task} command group.
- */
-@Command(name = "task",
-        aliases = { "tasks" },
-
+/** The {@code porelo task} command group. */
+@Command(
+        name = "task",
+        aliases = {"tasks"},
         mixinStandardHelpOptions = true,
         description = "Runs and inspects agent tasks.",
-        subcommands = { TaskRunCommand.class, TaskListCommand.class, TaskStopCommand.class, TaskRefreshCommand.class,
-                TaskRemoveCommand.class, TaskLabelCommand.class, TaskAttachCommand.class,
-                TaskStatusCommand.class, TaskLogsCommand.class,
-                TaskPrepareCommand.class,
-                TaskClearanceCommand.class, TaskGiveCommand.class, TaskTakeBackCommand.class,
-                TaskFilesCommand.class, TaskWatchBuildsCommand.class })
-public class TaskCommand implements java.util.concurrent.Callable<Integer>,
-        PoreloFactory.ContextAware {
+        subcommands = {
+            TaskRunCommand.class,
+            TaskListCommand.class,
+            TaskStopCommand.class,
+            TaskRefreshCommand.class,
+            TaskRemoveCommand.class,
+            TaskLabelCommand.class,
+            TaskAttachCommand.class,
+            TaskStatusCommand.class,
+            TaskLogsCommand.class,
+            TaskPrepareCommand.class,
+            TaskClearanceCommand.class,
+            TaskGiveCommand.class,
+            TaskTakeBackCommand.class,
+            TaskFilesCommand.class,
+            TaskWatchBuildsCommand.class
+        })
+public class TaskCommand
+        implements java.util.concurrent.Callable<Integer>, PoreloFactory.ContextAware {
 
-    @picocli.CommandLine.Spec
-    private picocli.CommandLine.Model.CommandSpec spec;
+    @picocli.CommandLine.Spec private picocli.CommandLine.Model.CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -31,8 +39,8 @@ public class TaskCommand implements java.util.concurrent.Callable<Integer>,
 
     /**
      * Lists, when no verb was given.
-     * <p>
-     * Because {@code porelo tasks} should answer the question it looks like it is asking, and
+     *
+     * <p>Because {@code porelo tasks} should answer the question it looks like it is asking, and
      * because the same is true of {@code porelo projects}. Help for a command whose name is a noun
      * is an answer nobody wanted.
      *

@@ -8,16 +8,17 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Test for {@link MessageFile}.
- */
+/** Test for {@link MessageFile}. */
 class MessageFileTest {
 
     @Test
-    void aFileThatIsNoMessageClaimsNoRoleAndStopsNothing(@TempDir final Path dir) throws IOException {
+    void aFileThatIsNoMessageClaimsNoRoleAndStopsNothing(@TempDir final Path dir)
+            throws IOException {
 
-        // Found by the suite on 2026-10-04: an agent wrote a line of text into its outbox, and every pass of its mailbox
-        // stopped there with "expected 'false' at offset 0". It is the filter's to refuse, and it answers the sender.
+        // Found by the suite on 2026-10-04: an agent wrote a line of text into its outbox, and
+        // every pass of its mailbox
+        // stopped there with "expected 'false' at offset 0". It is the filter's to refuse, and it
+        // answers the sender.
         final Path file = dir.resolve("m-agent.json");
         Files.writeString(file, "from-the-agent\n");
 

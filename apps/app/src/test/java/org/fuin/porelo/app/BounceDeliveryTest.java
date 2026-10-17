@@ -8,9 +8,7 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Test for {@link BounceDelivery}.
- */
+/** Test for {@link BounceDelivery}. */
 class BounceDeliveryTest {
 
     private Mailbox mailbox(final Path dir) throws IOException {
@@ -23,7 +21,8 @@ class BounceDeliveryTest {
     void an_answer_arrives_where_the_agent_already_reads(@TempDir final Path dir)
             throws IOException {
         final Mailbox mailbox = mailbox(dir);
-        Files.writeString(mailbox.feedback().resolve("20260918T0713Z--msg-a.json"),
+        Files.writeString(
+                mailbox.feedback().resolve("20260918T0713Z--msg-a.json"),
                 "{\"role\":\"ROLE_AGENT\",\"parts\":[{\"text\":\"refused\"},{\"data\":{}}]}");
 
         final var delivered = new BounceDelivery().deliver(mailbox);
@@ -43,7 +42,8 @@ class BounceDeliveryTest {
     void a_data_part_is_not_a_reason_to_refuse_the_filters_own_answer(@TempDir final Path dir)
             throws IOException {
         final Mailbox mailbox = mailbox(dir);
-        Files.writeString(mailbox.feedback().resolve("answer.json"),
+        Files.writeString(
+                mailbox.feedback().resolve("answer.json"),
                 "{\"parts\":[{\"data\":{\"decision\":\"rejected\"}}]}");
 
         assertThat(new BounceDelivery().deliver(mailbox)).containsExactly("answer.json");

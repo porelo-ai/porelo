@@ -8,13 +8,15 @@ import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
 
 /**
- * Brings a task's repository at the gate up to its source now - the checkout it was started in, or its remote - and
- * tells its agent what moved.
+ * Brings a task's repository at the gate up to its source now - the checkout it was started in, or
+ * its remote - and tells its agent what moved.
  */
-@Command(name = "refresh",
+@Command(
+        name = "refresh",
         mixinStandardHelpOptions = true,
-        description = "Brings a task's repository at the gate up to its source - the checkout it was started in, or its"
-                + " remote - and tells its agent what moved; 'git fetch porelo' in the task brings it.")
+        description =
+                "Brings a task's repository at the gate up to its source - the checkout it was started in, or its"
+                        + " remote - and tells its agent what moved; 'git fetch porelo' in the task brings it.")
 public class TaskRefreshCommand implements Callable<Integer>, PoreloFactory.ContextAware, Suggests {
 
     @Override
@@ -27,12 +29,15 @@ public class TaskRefreshCommand implements Callable<Integer>, PoreloFactory.Cont
         return "tasks";
     }
 
-    @Parameters(index = "0", arity = "0..1", paramLabel = "TASK",
-            description = "Container name, as shown by 'porelo task list'. Default: the task started from the checkout you stand in.")
+    @Parameters(
+            index = "0",
+            arity = "0..1",
+            paramLabel = "TASK",
+            description =
+                    "Container name, as shown by 'porelo task list'. Default: the task started from the checkout you stand in.")
     private @org.jspecify.annotations.Nullable String container;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -43,8 +48,12 @@ public class TaskRefreshCommand implements Callable<Integer>, PoreloFactory.Cont
 
     @Override
     public Integer call() {
-        final TaskTarget.Found found = TaskTarget.resolve(context, container, java.nio.file.Path.of("."),
-                TaskTarget.console(spec.commandLine().getOut()));
+        final TaskTarget.Found found =
+                TaskTarget.resolve(
+                        context,
+                        container,
+                        java.nio.file.Path.of("."),
+                        TaskTarget.console(spec.commandLine().getOut()));
         if (found.container() == null) {
             spec.commandLine().getErr().println("porelo: " + found.refusal());
             if ((Object) this instanceof Suggests suggests) {
@@ -59,10 +68,21 @@ public class TaskRefreshCommand implements Callable<Integer>, PoreloFactory.Cont
         final TaskRefresh.Result result = new TaskRefresh(context).refresh(container);
         switch (result.outcome()) {
             case MOVED -> {
-                result.moved().forEach((branch, commit) -> out.printf("moved     %s -> %s%n", branch,
-                        commit.substring(0, Math.min(12, commit.length()))));
-                out.println(result.told() ? "told      its agent: 'git fetch porelo' brings it"
-                        : "not told  " + (result.detail().isEmpty() ? "it has no mailbox" : result.detail()));
+                result.moved()
+                        .forEach(
+                                (branch, commit) ->
+                                        out.printf(
+                                                "moved     %s -> %s%n",
+                                                branch,
+                                                commit.substring(
+                                                        0, Math.min(12, commit.length()))));
+                out.println(
+                        result.told()
+                                ? "told      its agent: 'git fetch porelo' brings it"
+                                : "not told  "
+                                        + (result.detail().isEmpty()
+                                                ? "it has no mailbox"
+                                                : result.detail()));
                 out.flush();
                 return 0;
             }

@@ -1,8 +1,6 @@
 package org.fuin.porelo.gate;
 
-/**
- * A gate operation failed.
- */
+/** A gate operation failed. */
 public class GateException extends RuntimeException {
 
     private static final long serialVersionUID = 1L;
@@ -27,7 +25,8 @@ public class GateException extends RuntimeException {
     }
 
     /**
-     * A push moved after a person reviewed it, so nothing was forwarded: what goes is what was read.
+     * A push moved after a person reviewed it, so nothing was forwarded: what goes is what was
+     * read.
      */
     public static final class MovedSinceReview extends GateException {
 
@@ -47,26 +46,37 @@ public class GateException extends RuntimeException {
          * @param now The commit it holds now.
          */
         public MovedSinceReview(String name, String reviewed, String now) {
-            super("'" + name + "' moved since it was reviewed: " + reviewed + " was read, it holds " + now
-                    + " now. Review it again; nothing was forwarded");
+            super(
+                    "'"
+                            + name
+                            + "' moved since it was reviewed: "
+                            + reviewed
+                            + " was read, it holds "
+                            + now
+                            + " now. Review it again; nothing was forwarded");
             this.reviewed = reviewed;
             this.now = now;
         }
 
-        /** @return The commit the person reviewed. */
+        /**
+         * @return The commit the person reviewed.
+         */
         public String reviewed() {
             return reviewed;
         }
 
-        /** @return The commit the push holds now. */
+        /**
+         * @return The commit the push holds now.
+         */
         public String now() {
             return now;
         }
     }
 
     /**
-     * The branch an approve would push to holds work the reviewed commit did not grow from - earlier work of a task
-     * whose name came back. Nothing was pushed; another branch takes it, never a force over the old one.
+     * The branch an approve would push to holds work the reviewed commit did not grow from -
+     * earlier work of a task whose name came back. Nothing was pushed; another branch takes it,
+     * never a force over the old one.
      */
     public static final class BranchExists extends GateException {
 
@@ -85,18 +95,26 @@ public class GateException extends RuntimeException {
          * @param at The commit it holds.
          */
         public BranchExists(String branch, String at) {
-            super(branch + " already holds " + at + ", from earlier work; nothing was pushed - approve onto another"
-                    + " branch");
+            super(
+                    branch
+                            + " already holds "
+                            + at
+                            + ", from earlier work; nothing was pushed - approve onto another"
+                            + " branch");
             this.branch = branch;
             this.at = at;
         }
 
-        /** @return The branch. */
+        /**
+         * @return The branch.
+         */
         public String branch() {
             return branch;
         }
 
-        /** @return The commit it holds. */
+        /**
+         * @return The commit it holds.
+         */
         public String at() {
             return at;
         }

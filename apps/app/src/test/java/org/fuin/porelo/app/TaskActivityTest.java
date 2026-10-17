@@ -18,8 +18,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Tests for what a task says about itself beyond its container's state.
- * <p>
- * The distinction being checked is the one that costs an afternoon: a task blocked on a question
+ *
+ * <p>The distinction being checked is the one that costs an afternoon: a task blocked on a question
  * nobody saw and a task grinding through a build are both {@code running: true}.
  */
 class TaskActivityTest {
@@ -30,11 +30,15 @@ class TaskActivityTest {
 
     private PoreloContext context(Path dir) {
         root = dir;
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
         return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
     }
 
@@ -44,8 +48,14 @@ class TaskActivityTest {
         runner.answering("ps", container + "\t" + status + "\t" + started + "\t" + exited + "\n");
         final Path state = root.resolve("run/porelo").resolve(container);
         Files.createDirectories(state);
-        new Sidecar(Sidecar.VERSION, "uc", "guarded", state.resolve("r.nft").toString(),
-                state.resolve("dns.conf").toString(), "/usr/bin/porelo", state.toString())
+        new Sidecar(
+                        Sidecar.VERSION,
+                        "uc",
+                        "guarded",
+                        state.resolve("r.nft").toString(),
+                        state.resolve("dns.conf").toString(),
+                        "/usr/bin/porelo",
+                        state.toString())
                 .writeTo(state.resolve("sidecar.json"));
         return state;
     }
@@ -61,17 +71,27 @@ class TaskActivityTest {
         // under the same class were indistinguishable.
         final PoreloContext context = context(dir);
         final Path state = task("porelo-uc-shell-1", "Up 4 minutes", "1788500000", "0");
-        new TaskProfile(TaskProfile.VERSION, "example", TaskMode.UNATTENDED, "fix the parser",
-                "refs/porelo/incoming/shell", "2026-09-07T10:00:00Z", "prompt").writeTo(state);
+        new TaskProfile(
+                        TaskProfile.VERSION,
+                        "example",
+                        TaskMode.UNATTENDED,
+                        "fix the parser",
+                        "refs/porelo/incoming/shell",
+                        "2026-09-07T10:00:00Z",
+                        "prompt")
+                .writeTo(state);
 
-        assertThat(only(context)).satisfies(task -> {
-            assertThat(task.agent()).isEqualTo("example");
-            // The wire spelling, which is the enum's own name - not the on-disk lower case.
-            assertThat(task.mode()).isEqualTo("UNATTENDED");
-            assertThat(task.prompt()).isEqualTo("fix the parser");
-            assertThat(task.branch()).isEqualTo("refs/porelo/incoming/shell");
-            assertThat(task.clearance()).isEqualTo("prompt");
-        });
+        assertThat(only(context))
+                .satisfies(
+                        task -> {
+                            assertThat(task.agent()).isEqualTo("example");
+                            // The wire spelling, which is the enum's own name - not the on-disk
+                            // lower case.
+                            assertThat(task.mode()).isEqualTo("UNATTENDED");
+                            assertThat(task.prompt()).isEqualTo("fix the parser");
+                            assertThat(task.branch()).isEqualTo("refs/porelo/incoming/shell");
+                            assertThat(task.clearance()).isEqualTo("prompt");
+                        });
     }
 
     @Test
@@ -81,8 +101,15 @@ class TaskActivityTest {
         // and until it was recorded nothing an interface listed could mark it.
         final PoreloContext context = context(dir);
         final Path state = task("porelo-uc-shell-1", "Up 4 minutes", "1788500000", "0");
-        new TaskProfile(TaskProfile.VERSION, "example", TaskMode.UNATTENDED, "go",
-                null, "2026-09-07T10:00:00Z", "off").writeTo(state);
+        new TaskProfile(
+                        TaskProfile.VERSION,
+                        "example",
+                        TaskMode.UNATTENDED,
+                        "go",
+                        null,
+                        "2026-09-07T10:00:00Z",
+                        "off")
+                .writeTo(state);
 
         assertThat(only(context).clearance()).isEqualTo("off");
     }
@@ -129,10 +156,12 @@ class TaskActivityTest {
         final Path state = task("porelo-uc-shell-1", "Up 4 minutes", "1788500000", "0");
         new Waiting(state).asking("api.example.test:443");
 
-        assertThat(only(context)).satisfies(task -> {
-            assertThat(task.activity()).isEqualTo(TaskInventory.Activity.WAITING);
-            assertThat(task.waitingFor()).isEqualTo("api.example.test:443");
-        });
+        assertThat(only(context))
+                .satisfies(
+                        task -> {
+                            assertThat(task.activity()).isEqualTo(TaskInventory.Activity.WAITING);
+                            assertThat(task.waitingFor()).isEqualTo("api.example.test:443");
+                        });
     }
 
     @Test
@@ -188,8 +217,8 @@ class TaskActivityTest {
     void aTaskWhoseContainerIsGoneIsDeadRatherThanIdle(@TempDir Path dir) throws IOException {
 
         final PoreloContext context = context(dir);
-        final Path state = task("porelo-uc-shell-1", "Exited (137) 1 hour ago", "1788500000",
-                "1788509999");
+        final Path state =
+                task("porelo-uc-shell-1", "Exited (137) 1 hour ago", "1788500000", "1788509999");
         // Even with a marker left behind by whatever was asking when it died.
         new Waiting(state).asking("api.example.test:443");
 
@@ -205,11 +234,13 @@ class TaskActivityTest {
         final PoreloContext context = context(dir);
         task("porelo-uc-shell-1", "Up 4 minutes", "1788500000", "0");
 
-        assertThat(only(context)).satisfies(task -> {
-            assertThat(task.agent()).isNull();
-            assertThat(task.mode()).isNull();
-            assertThat(task.name()).isEqualTo("porelo-uc-shell-1");
-            assertThat(task.running()).isTrue();
-        });
+        assertThat(only(context))
+                .satisfies(
+                        task -> {
+                            assertThat(task.agent()).isNull();
+                            assertThat(task.mode()).isNull();
+                            assertThat(task.name()).isEqualTo("porelo-uc-shell-1");
+                            assertThat(task.running()).isTrue();
+                        });
     }
 }

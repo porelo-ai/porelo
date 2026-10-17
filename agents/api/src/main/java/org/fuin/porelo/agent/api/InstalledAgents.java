@@ -9,12 +9,12 @@ import java.util.Optional;
 
 /**
  * The agents installed on this machine, started and handshaken.
- * <p>
- * Replaces the in-binary registry. The difference matters: that one reported what Porelo was
+ *
+ * <p>Replaces the in-binary registry. The difference matters: that one reported what Porelo was
  * compiled with, this one reports what is installed, so an agent added after Porelo shipped is
  * visible without Porelo changing.
- * <p>
- * <strong>One agent failing does not hide the others.</strong> A binary that will not start, or
+ *
+ * <p><strong>One agent failing does not hide the others.</strong> A binary that will not start, or
  * speaks a protocol this Porelo does not know, is recorded as a problem against its own name and
  * the rest are still usable - otherwise a single bad package makes the machine look like it has no
  * agents at all.
@@ -77,9 +77,16 @@ public class InstalledAgents implements AutoCloseable {
      * @throws AgentException If there is no such agent.
      */
     public InstalledAgent require(String name) {
-        return find(name).orElseThrow(() -> new AgentException(
-                "No agent named '" + name + "' is installed. Found: "
-                        + (names().isEmpty() ? "none" : String.join(", ", names()))));
+        return find(name)
+                .orElseThrow(
+                        () ->
+                                new AgentException(
+                                        "No agent named '"
+                                                + name
+                                                + "' is installed. Found: "
+                                                + (names().isEmpty()
+                                                        ? "none"
+                                                        : String.join(", ", names()))));
     }
 
     /**
@@ -104,24 +111,24 @@ public class InstalledAgents implements AutoCloseable {
 
     /**
      * Returns the binaries that did not start, and why.
-     * <p>
-     * Reported rather than thrown: an operator needs to be told that the agent they installed is
+     *
+     * <p>Reported rather than thrown: an operator needs to be told that the agent they installed is
      * not working, and needs the others to keep working while they fix it.
      *
      * @return File name to reason.
      */
     /**
      * Returns binaries that never run because another one claimed their name first.
-     * <p>
-     * Distinct from {@link #failures()} on purpose: these are not broken, and the agent they
+     *
+     * <p>Distinct from {@link #failures()} on purpose: these are not broken, and the agent they
      * declare is running. What is wrong is only that somebody installed a second copy and cannot
      * see which one they are getting - the failure that is invisible when it happens, because both
      * copies look plausible and the difference shows up as a run behaving unlike the version on
      * screen.
-     * <p>
-     * The first one found wins, and locations are searched most specific first, so the operator's
-     * own copy beats a packaged one. That is a rule rather than scan order, which is why it can be
-     * reported at all.
+     *
+     * <p>The first one found wins, and locations are searched most specific first, so the
+     * operator's own copy beats a packaged one. That is a rule rather than scan order, which is why
+     * it can be reported at all.
      *
      * @return Binary that is ignored, to the one that runs instead.
      */

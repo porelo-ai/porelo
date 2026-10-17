@@ -16,16 +16,14 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Serves varlink methods over a unix socket.
- * <p>
- * Implements {@code org.varlink.service.GetInfo} itself, because that is what makes a service
+ *
+ * <p>Implements {@code org.varlink.service.GetInfo} itself, because that is what makes a service
  * introspectable by {@code varlinkctl} and by anything else that speaks the protocol - which in
  * turn is what makes an independent conformance check possible without writing one.
  */
 public class VarlinkServer implements AutoCloseable, Runnable {
 
-    /**
-     * Handles one method call.
-     */
+    /** Handles one method call. */
     @FunctionalInterface
     public interface Method {
 
@@ -39,9 +37,7 @@ public class VarlinkServer implements AutoCloseable, Runnable {
         void call(Map<String, Object> parameters, Replies replies) throws IOException;
     }
 
-    /**
-     * Sends replies for one call.
-     */
+    /** Sends replies for one call. */
     public interface Replies {
 
         /**
@@ -69,10 +65,11 @@ public class VarlinkServer implements AutoCloseable, Runnable {
 
         /**
          * Tells whether the client is still there, without waiting.
-         * <p>
-         * A stream that sends only when something changes would otherwise notice a client had gone only when it
-         * next sent - and a client that reconnected left its old streams asking podman every half second for the
-         * daemon's life. Such a stream asks this between its waits, and ends when it says no.
+         *
+         * <p>A stream that sends only when something changes would otherwise notice a client had
+         * gone only when it next sent - and a client that reconnected left its old streams asking
+         * podman every half second for the daemon's life. Such a stream asks this between its
+         * waits, and ends when it says no.
          *
          * @return Whether it is.
          */
@@ -116,30 +113,35 @@ public class VarlinkServer implements AutoCloseable, Runnable {
         } catch (IOException ex) {
             throw new VarlinkException("Cannot create the varlink socket at " + socket, ex);
         }
-        methods.put("org.varlink.service.GetInfo", (parameters, replies) -> {
-            final Map<String, Object> info = new LinkedHashMap<>();
-            info.put("vendor", "fuin.org");
-            info.put("product", "Porelo");
-            info.put("version", version);
-            info.put("url", "https://github.com/porelo-ai/porelo");
-            info.put("interfaces", List.of("org.varlink.service", interfaceName));
-            replies.last(info);
-        });
-        methods.put("org.varlink.service.GetInterfaceDescription", (parameters, replies) -> {
-            final Object wanted = parameters.get("interface");
-            final String idl = description;
-            if (idl == null || !interfaceName.equals(wanted)) {
-                throw new VarlinkException("org.varlink.service.InterfaceNotFound",
-                        Map.of("interface", String.valueOf(wanted)));
-            }
-            replies.last(Map.of("description", idl));
-        });
+        methods.put(
+                "org.varlink.service.GetInfo",
+                (parameters, replies) -> {
+                    final Map<String, Object> info = new LinkedHashMap<>();
+                    info.put("vendor", "fuin.org");
+                    info.put("product", "Porelo");
+                    info.put("version", version);
+                    info.put("url", "https://github.com/porelo-ai/porelo");
+                    info.put("interfaces", List.of("org.varlink.service", interfaceName));
+                    replies.last(info);
+                });
+        methods.put(
+                "org.varlink.service.GetInterfaceDescription",
+                (parameters, replies) -> {
+                    final Object wanted = parameters.get("interface");
+                    final String idl = description;
+                    if (idl == null || !interfaceName.equals(wanted)) {
+                        throw new VarlinkException(
+                                "org.varlink.service.InterfaceNotFound",
+                                Map.of("interface", String.valueOf(wanted)));
+                    }
+                    replies.last(Map.of("description", idl));
+                });
     }
 
     /**
      * Gives this service the version to report.
-     * <p>
-     * Not read from anywhere here: {@code wire} is a library and does not know which product it
+     *
+     * <p>Not read from anywhere here: {@code wire} is a library and does not know which product it
      * has been built into. It was a literal until a client had a reason to ask - a frontend
      * connecting to whichever daemon happens to be installed needs to know which one that is.
      *
@@ -153,8 +155,8 @@ public class VarlinkServer implements AutoCloseable, Runnable {
 
     /**
      * Gives this service its interface description.
-     * <p>
-     * Served verbatim, because the point of it is that a client can read the contract off a
+     *
+     * <p>Served verbatim, because the point of it is that a client can read the contract off a
      * running daemon rather than off a copy that may be older than what is answering. A service
      * without one answers {@code InterfaceNotFound}, which is what a caller has to handle anyway.
      *
@@ -180,8 +182,8 @@ public class VarlinkServer implements AutoCloseable, Runnable {
 
     /**
      * Returns every method this service answers, fully qualified.
-     * <p>
-     * For a test that holds the registrations against the interface description: a method that
+     *
+     * <p>For a test that holds the registrations against the interface description: a method that
      * exists and is not described is one an interface cannot know about, and a described method
      * that does not exist is one a client will call and be refused.
      *
@@ -205,10 +207,14 @@ public class VarlinkServer implements AutoCloseable, Runnable {
         while (running) {
             try {
                 final SocketChannel client = channel.accept();
-                // A platform thread per connection unless told otherwise: in the native binary a virtual thread blocked
-                // reading a call now and then never woke, and the caller waited until its own limit - an agent that
-                // answered in a tenth of a second, and once a daemon for four minutes. Connections are few: a
-                // lookup's one, an interface's streams. Switchable, so one binary is measured both ways.
+                // A platform thread per connection unless told otherwise: in the native binary a
+                // virtual thread blocked
+                // reading a call now and then never woke, and the caller waited until its own limit
+                // - an agent that
+                // answered in a tenth of a second, and once a daemon for four minutes. Connections
+                // are few: a
+                // lookup's one, an interface's streams. Switchable, so one binary is measured both
+                // ways.
                 ServingThreads.start("varlink-connection", () -> serve(client));
             } catch (IOException ex) {
                 if (running) {
@@ -238,7 +244,10 @@ public class VarlinkServer implements AutoCloseable, Runnable {
 
         final Object name = call.get("method");
         if (!(name instanceof String methodName)) {
-            error(connection, "org.varlink.service.InvalidParameter", Map.of("parameter", "method"));
+            error(
+                    connection,
+                    "org.varlink.service.InvalidParameter",
+                    Map.of("parameter", "method"));
             return;
         }
         final Method method = methods.get(methodName);
@@ -253,52 +262,60 @@ public class VarlinkServer implements AutoCloseable, Runnable {
         final boolean more = Boolean.TRUE.equals(call.get("more"));
 
         try {
-            method.call(parameters, new Replies() {
+            method.call(
+                    parameters,
+                    new Replies() {
 
-                @Override
-                public void more(Map<String, Object> values) throws IOException {
-                    final Map<String, Object> reply = new LinkedHashMap<>();
-                    reply.put("parameters", values);
-                    reply.put("continues", Boolean.TRUE);
-                    connection.send(reply);
-                }
+                        @Override
+                        public void more(Map<String, Object> values) throws IOException {
+                            final Map<String, Object> reply = new LinkedHashMap<>();
+                            reply.put("parameters", values);
+                            reply.put("continues", Boolean.TRUE);
+                            connection.send(reply);
+                        }
 
-                @Override
-                public void last(Map<String, Object> values) throws IOException {
-                    connection.send(Map.of("parameters", values));
-                }
+                        @Override
+                        public void last(Map<String, Object> values) throws IOException {
+                            connection.send(Map.of("parameters", values));
+                        }
 
-                @Override
-                public boolean streaming() {
-                    return more;
-                }
+                        @Override
+                        public boolean streaming() {
+                            return more;
+                        }
 
-                private boolean asked;
+                        private boolean asked;
 
-                @Override
-                public boolean open() {
-                    // The first time always: a client that has said all it will say - 'porelo daemon connect' ends its
-                    // half when its input ends - reads exactly like one that has gone, and still hears what is open
-                    // now. After that, the end of its half ends the stream.
-                    if (!asked) {
-                        asked = true;
-                        return true;
-                    }
-                    return !connection.peerGone();
-                }
-            });
+                        @Override
+                        public boolean open() {
+                            // The first time always: a client that has said all it will say -
+                            // 'porelo daemon connect' ends its
+                            // half when its input ends - reads exactly like one that has gone, and
+                            // still hears what is open
+                            // now. After that, the end of its half ends the stream.
+                            if (!asked) {
+                                asked = true;
+                                return true;
+                            }
+                            return !connection.peerGone();
+                        }
+                    });
         } catch (VarlinkException ex) {
-            error(connection, ex.getErrorName() == null
-                    ? interfaceName + ".Failed" : ex.getErrorName(),
+            error(
+                    connection,
+                    ex.getErrorName() == null ? interfaceName + ".Failed" : ex.getErrorName(),
                     ex.getParameters() == null ? Map.of() : ex.getParameters());
         } catch (RuntimeException ex) {
-            error(connection, interfaceName + ".Failed",
+            error(
+                    connection,
+                    interfaceName + ".Failed",
                     Map.of("message", String.valueOf(ex.getMessage())));
         }
     }
 
-    private static void error(VarlinkConnection connection, String name,
-            Map<String, Object> parameters) throws IOException {
+    private static void error(
+            VarlinkConnection connection, String name, Map<String, Object> parameters)
+            throws IOException {
         final Map<String, Object> message = new LinkedHashMap<>();
         message.put("error", name);
         message.put("parameters", parameters);
@@ -307,13 +324,13 @@ public class VarlinkServer implements AutoCloseable, Runnable {
 
     /**
      * Refuses to bind over a socket something else is still answering on.
-     * <p>
-     * <strong>Unlinking it unconditionally is worse than it looks.</strong> The file is only a
+     *
+     * <p><strong>Unlinking it unconditionally is worse than it looks.</strong> The file is only a
      * name: unlinking it does not stop the process holding the bound socket, it makes that process
      * unreachable. A second start therefore used to leave the first one running, serving nobody,
      * with nothing anywhere saying so - and the operator's own daemon was the one that disappeared.
-     * <p>
-     * The test is a connection, because nothing else distinguishes the two cases. A socket file
+     *
+     * <p>The test is a connection, because nothing else distinguishes the two cases. A socket file
      * whose process is gone refuses the connection, and that one is stale and ours to remove; one
      * that accepts belongs to somebody who is still using it.
      *
@@ -324,7 +341,8 @@ public class VarlinkServer implements AutoCloseable, Runnable {
         try {
             org.fuin.porelo.wire.LiveSocket.refuseToStealFrom(socket, "server");
         } catch (IOException ex) {
-            throw new VarlinkException(ex.getMessage() != null ? ex.getMessage() : ex.toString(), ex);
+            throw new VarlinkException(
+                    ex.getMessage() != null ? ex.getMessage() : ex.toString(), ex);
         }
     }
 

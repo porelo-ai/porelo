@@ -6,14 +6,14 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Rewrites the {@code egress} block of a project file and leaves everything else byte for byte.
- * <p>
- * <strong>Text, not a document.</strong> Reading the file into a model and dumping it back would
+ *
+ * <p><strong>Text, not a document.</strong> Reading the file into a model and dumping it back would
  * be shorter and would throw away every comment, the key order and the quoting an operator chose -
  * in the one file in this product that is meant to be read by a person and reviewed in a diff. So
  * the two keys this edits are found and replaced where they stand, and a line this does not
  * understand is a line it does not touch.
- * <p>
- * The result is always parsed before it is written, by the reader that would have to read it
+ *
+ * <p>The result is always parsed before it is written, by the reader that would have to read it
  * later, so a surgical edit that produced something the project reader refuses fails here rather
  * than at the next task.
  */
@@ -37,7 +37,8 @@ final class EgressEdit {
         final int start = indexOfEgress(lines);
 
         if (start < 0) {
-            return sets.isEmpty() && domains.isEmpty() ? original
+            return sets.isEmpty() && domains.isEmpty()
+                    ? original
                     : appended(original, sets, domains);
         }
 
@@ -60,19 +61,19 @@ final class EgressEdit {
 
     /**
      * Returns the file with one repository's egress declaration replaced.
-     * <p>
-     * <strong>Why a repository's block and not the project's.</strong> A connection a task made is
-     * a fact about the repository that task works on. Remembering it at project level would widen
-     * every other repository of that project for a reason none of them can see - which is exactly
-     * what a per-repository declaration exists to end.
-     * <p>
-     * <strong>The project's own repository is not in here.</strong> It has no entry under
-     * {@code repositories:}; its egress is the project's, so a caller asking about it passes
-     * {@code null} and gets {@link #withEgress(String, List, List)}.
-     * <p>
-     * <strong>A repository this file does not name is refused rather than written anywhere.</strong>
-     * Falling back to the top level would put the grant in the one place this method exists to keep
-     * it out of, and it would look as though it had worked.
+     *
+     * <p><strong>Why a repository's block and not the project's.</strong> A connection a task made
+     * is a fact about the repository that task works on. Remembering it at project level would
+     * widen every other repository of that project for a reason none of them can see - which is
+     * exactly what a per-repository declaration exists to end.
+     *
+     * <p><strong>The project's own repository is not in here.</strong> It has no entry under {@code
+     * repositories:}; its egress is the project's, so a caller asking about it passes {@code null}
+     * and gets {@link #withEgress(String, List, List)}.
+     *
+     * <p><strong>A repository this file does not name is refused rather than written
+     * anywhere.</strong> Falling back to the top level would put the grant in the one place this
+     * method exists to keep it out of, and it would look as though it had worked.
      *
      * @param original The file as it is now.
      * @param repository Which repository's block to edit, or {@code null} for the project's own.
@@ -81,8 +82,11 @@ final class EgressEdit {
      * @return The new content.
      * @throws IllegalArgumentException If the file names no such repository.
      */
-    static String withEgress(String original, @org.jspecify.annotations.Nullable String repository,
-            List<String> sets, List<String> domains) {
+    static String withEgress(
+            String original,
+            @org.jspecify.annotations.Nullable String repository,
+            List<String> sets,
+            List<String> domains) {
 
         if (repository == null || repository.isBlank()) {
             return withEgress(original, sets, domains);
@@ -91,14 +95,17 @@ final class EgressEdit {
         final List<String> lines = new ArrayList<>(List.of(original.split("\n", -1)));
         final int repositoriesAt = indexOfKey(lines, 0, lines.size(), 0, "repositories");
         if (repositoriesAt < 0) {
-            throw new IllegalArgumentException("this project file names no repositories, so there"
-                    + " is no '" + repository + "' block to write into");
+            throw new IllegalArgumentException(
+                    "this project file names no repositories, so there"
+                            + " is no '"
+                            + repository
+                            + "' block to write into");
         }
         final int repositoriesEnd = endOfBlock(lines, repositoriesAt, 0);
         final int keyAt = indexOfRepository(lines, repositoriesAt + 1, repositoriesEnd, repository);
         if (keyAt < 0) {
-            throw new IllegalArgumentException("this project file does not name a repository '"
-                    + repository + "'");
+            throw new IllegalArgumentException(
+                    "this project file does not name a repository '" + repository + "'");
         }
 
         final int keyIndent = indentOf(lines.get(keyAt));
@@ -124,8 +131,7 @@ final class EgressEdit {
                 added.add(keyPad + "domains: " + flow(domains, true));
             }
             final List<String> rewritten = new ArrayList<>(lines.subList(0, keyAt + 1));
-            final List<String> body = new ArrayList<>(
-                    lines.subList(keyAt + 1, repositoryEnd));
+            final List<String> body = new ArrayList<>(lines.subList(keyAt + 1, repositoryEnd));
             // Beside the repository's other keys rather than after the blank lines that follow it,
             // by the same rule a new key inside a block follows.
             body.addAll(lastKeyIndex(body) + 1, added);
@@ -150,10 +156,10 @@ final class EgressEdit {
 
     /**
      * Returns the line a repository's key is on, or {@code -1}.
-     * <p>
-     * The key alone on its line, which is what both a repository with a mapping under it and a
-     * bare one look like. Anything else - an inline mapping, say - is left for the caller to
-     * refuse rather than guessed at: this rewrites somebody's file.
+     *
+     * <p>The key alone on its line, which is what both a repository with a mapping under it and a
+     * bare one look like. Anything else - an inline mapping, say - is left for the caller to refuse
+     * rather than guessed at: this rewrites somebody's file.
      */
     private static int indexOfRepository(List<String> lines, int from, int to, String name) {
         int childIndent = -1;
@@ -173,7 +179,9 @@ final class EgressEdit {
         return -1;
     }
 
-    /** Returns the indent of the first key inside a block, or the given default when it has none. */
+    /**
+     * Returns the indent of the first key inside a block, or the given default when it has none.
+     */
     private static int firstChildIndent(List<String> lines, int from, int to, int fallback) {
         for (int i = from; i < to && i < lines.size(); i++) {
             final String line = lines.get(i);
@@ -208,15 +216,15 @@ final class EgressEdit {
 
     /**
      * Returns the first line after a block, which is the first line at or above its own indent.
-     * <p>
-     * <strong>A comment ends a block exactly as a key does.</strong> Only blank lines are skipped.
-     * A comment sitting at the outer indent introduces whatever comes next - it is the sentence
-     * somebody wrote about the repository below, not about the block above - so swallowing it
-     * would move it, and would make an emptied block look as though it still held something.
+     *
+     * <p><strong>A comment ends a block exactly as a key does.</strong> Only blank lines are
+     * skipped. A comment sitting at the outer indent introduces whatever comes next - it is the
+     * sentence somebody wrote about the repository below, not about the block above - so swallowing
+     * it would move it, and would make an emptied block look as though it still held something.
      * Found by a test that emptied a repository's declaration and got a bare {@code egress:} left
      * behind, with the next repository's comment inside it.
-     * <p>
-     * This is what the top-level form has always done, where a comment at column zero ends the
+     *
+     * <p>This is what the top-level form has always done, where a comment at column zero ends the
      * block; the two must not differ.
      */
     private static int endOfBlock(List<String> lines, int start, int indent) {
@@ -239,9 +247,10 @@ final class EgressEdit {
      * @param key {@code sets} or {@code domains}.
      * @param value Rendered flow list, or {@code null} when the key should go.
      * @param pad What to indent a key with when the block does not have one yet. Taken from the
-     *        block rather than assumed, so a nested declaration lines up with its neighbours.
+     *     block rather than assumed, so a nested declaration lines up with its neighbours.
      */
-    private static void replace(List<String> block, String key, @Nullable String value, String pad) {
+    private static void replace(
+            List<String> block, String key, @Nullable String value, String pad) {
 
         for (int i = 0; i < block.size(); i++) {
             final String line = block.get(i);
@@ -320,8 +329,7 @@ final class EgressEdit {
     }
 
     /**
-     * Renders a flow list, which is the form the project wizard writes and the documentation
-     * shows.
+     * Renders a flow list, which is the form the project wizard writes and the documentation shows.
      *
      * @param values The values.
      * @param quoted Whether each value is quoted, as a host name is in the shipped examples.
@@ -331,8 +339,12 @@ final class EgressEdit {
         if (values.isEmpty()) {
             return null;
         }
-        final String inner = String.join(", ", values.stream()
-                .map(value -> quoted ? "\"" + value + "\"" : value).toList());
+        final String inner =
+                String.join(
+                        ", ",
+                        values.stream()
+                                .map(value -> quoted ? "\"" + value + "\"" : value)
+                                .toList());
         return "[" + inner + "]";
     }
 }

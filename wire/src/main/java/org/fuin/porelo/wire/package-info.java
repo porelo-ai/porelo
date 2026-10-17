@@ -1,6 +1,4 @@
-/**
- * Cross-boundary records (WIRE)
- */
+/** Cross-boundary records (WIRE) */
 @NullMarked
 package org.fuin.porelo.wire;
 

@@ -11,29 +11,34 @@ import picocli.CommandLine.Spec;
 
 /**
  * Gives a task a caption a person can read, beside the name that identifies it.
- * <p>
- * <strong>Not a rename.</strong> A task's name is its identity in four places at once - the
- * container, the gate ref it pushes to, its workspace and its log files - and one of those may
- * have unreviewed pushes behind it. What somebody wants when they ask to rename a task in a list
- * of forty is a caption, and that is what this is.
- * <p>
- * Written into the task's own profile, so it survives a resume and outlives the container.
+ *
+ * <p><strong>Not a rename.</strong> A task's name is its identity in four places at once - the
+ * container, the gate ref it pushes to, its workspace and its log files - and one of those may have
+ * unreviewed pushes behind it. What somebody wants when they ask to rename a task in a list of
+ * forty is a caption, and that is what this is.
+ *
+ * <p>Written into the task's own profile, so it survives a resume and outlives the container.
  */
-@Command(name = "label",
+@Command(
+        name = "label",
         mixinStandardHelpOptions = true,
         description = "Gives a task a caption to read it by. Not a rename.")
 public class TaskLabelCommand implements Callable<Integer>, PoreloFactory.ContextAware, Suggests {
 
-    @Parameters(index = "0", paramLabel = "TASK",
+    @Parameters(
+            index = "0",
+            paramLabel = "TASK",
             description = "Container name, as shown by 'porelo task list'.")
     private String container;
 
-    @Parameters(index = "1", arity = "0..1", paramLabel = "CAPTION",
+    @Parameters(
+            index = "1",
+            arity = "0..1",
+            paramLabel = "CAPTION",
             description = "What to call it. Leave it out to remove the caption.")
     private @Nullable String caption;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -67,7 +72,13 @@ public class TaskLabelCommand implements Callable<Integer>, PoreloFactory.Contex
         final TaskControl.Labelled outcome = new TaskControl(context).label(container, caption);
 
         switch (outcome) {
-            case LABELLED -> out.println("labelled  " + container + " \"" + String.valueOf(caption).strip() + "\"");
+            case LABELLED ->
+                    out.println(
+                            "labelled  "
+                                    + container
+                                    + " \""
+                                    + String.valueOf(caption).strip()
+                                    + "\"");
             case CLEARED -> out.println("cleared   " + container + " shows its own name again");
             case NOT_A_TASK -> {
                 err.println("porelo: no task named '" + container + "' - " + Shown.tasks(context));
@@ -77,8 +88,11 @@ public class TaskLabelCommand implements Callable<Integer>, PoreloFactory.Contex
             case NOT_RECORDED -> {
                 // Started by a Porelo that wrote no profile. Not something an operator can fix by
                 // typing it differently, so it says what it is rather than looking like a typo.
-                err.println("porelo: " + container + " recorded nothing about itself, so there is"
-                        + " nothing to write a caption into; it was started by an older Porelo");
+                err.println(
+                        "porelo: "
+                                + container
+                                + " recorded nothing about itself, so there is"
+                                + " nothing to write a caption into; it was started by an older Porelo");
                 err.flush();
                 return 69;
             }

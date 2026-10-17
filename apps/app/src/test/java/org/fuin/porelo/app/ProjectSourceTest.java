@@ -12,8 +12,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Where one project's file comes from, when a machine follows its repository.
- * <p>
- * <strong>This is the question that had three answers.</strong> The directory somebody stood in,
+ *
+ * <p><strong>This is the question that had three answers.</strong> The directory somebody stood in,
  * the one a create call chose, and the clone the machine verified - and until this existed, the
  * verified one was the only one nothing read. Everything following promises rests on the answer
  * being the checked file.
@@ -21,23 +21,37 @@ import org.junit.jupiter.api.io.TempDir;
 class ProjectSourceTest {
 
     private PoreloContext context(final Path dir) {
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
-        return new PoreloContext(new FakeCommandRunner(),
-                new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
+        return new PoreloContext(
+                new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
     }
 
     /** A project this machine follows, with a file in its clone. */
-    private void followed(final PoreloContext context, final String name, final String commit,
-            final String content) throws IOException {
-        new FollowedProjects(context.paths().projects().followed()).write(
-                new FollowedProjects.Followed(name, "git@example.com:x/" + name + ".git",
-                        commit, "2026-09-19T00:00:00Z", "APPLIED", ""));
+    private void followed(
+            final PoreloContext context,
+            final String name,
+            final String commit,
+            final String content)
+            throws IOException {
+        new FollowedProjects(context.paths().projects().followed())
+                .write(
+                        new FollowedProjects.Followed(
+                                name,
+                                "git@example.com:x/" + name + ".git",
+                                commit,
+                                "2026-09-19T00:00:00Z",
+                                "APPLIED",
+                                ""));
         final Path clone = context.paths().projects().followedClone(name);
         Files.createDirectories(clone);
         Files.writeString(clone.resolve("project.yml"), content);
@@ -63,24 +77,37 @@ class ProjectSourceTest {
         // Not close: one was checked against a key pinned out of band, the other was wherever a
         // task last ran.
         assertThat(found.outcome()).isEqualTo(ProjectSource.Outcome.FOLLOWED);
-        assertThat(found.file()).isEqualTo(context.paths().projects().followedClone("acme")
-                .resolve("project.yml"));
+        assertThat(found.file())
+                .isEqualTo(context.paths().projects().followedClone("acme").resolve("project.yml"));
         assertThat(found.commit()).isEqualTo("a1b2c3");
         assertThat(found.verified()).isTrue();
     }
 
     @Test
-    void aCloneFollowedWithoutAnAnchorIsNotCalledVerified(@TempDir final Path dir) throws IOException {
+    void aCloneFollowedWithoutAnAnchorIsNotCalledVerified(@TempDir final Path dir)
+            throws IOException {
         final PoreloContext context = context(dir);
-        new FollowedProjects(context.paths().projects().followed()).write(
-                new FollowedProjects.Followed("acme", "/srv/acme", "a1b2c3", "2026-09-19T00:00:00Z", "APPLIED",
-                        "", "", "", true));
+        new FollowedProjects(context.paths().projects().followed())
+                .write(
+                        new FollowedProjects.Followed(
+                                "acme",
+                                "/srv/acme",
+                                "a1b2c3",
+                                "2026-09-19T00:00:00Z",
+                                "APPLIED",
+                                "",
+                                "",
+                                "",
+                                true));
         Files.createDirectories(context.paths().projects().followedClone("acme"));
-        Files.writeString(context.paths().projects().followedClone("acme").resolve("project.yml"), "project:\n  name: \"acme\"\n");
+        Files.writeString(
+                context.paths().projects().followedClone("acme").resolve("project.yml"),
+                "project:\n  name: \"acme\"\n");
 
         final ProjectSource.Found found = ProjectSource.resolve(context, "acme");
 
-        // Applied, and nobody checked a signature on it: a task start said "verified" about exactly this.
+        // Applied, and nobody checked a signature on it: a task start said "verified" about exactly
+        // this.
         assertThat(found.commit()).isEqualTo("a1b2c3");
         assertThat(found.unverified()).isTrue();
         assertThat(found.verified()).isFalse();
@@ -106,9 +133,15 @@ class ProjectSourceTest {
         final PoreloContext context = context(dir);
         final Path local = recorded(context, dir, "acme");
         // Followed, and refused: no clone was ever written.
-        new FollowedProjects(context.paths().projects().followed()).write(
-                new FollowedProjects.Followed("acme", "git@example.com:x/acme.git",
-                        "", "2026-09-19T00:00:00Z", "UNKNOWN_KEY", "a key that is not pinned"));
+        new FollowedProjects(context.paths().projects().followed())
+                .write(
+                        new FollowedProjects.Followed(
+                                "acme",
+                                "git@example.com:x/acme.git",
+                                "",
+                                "2026-09-19T00:00:00Z",
+                                "UNKNOWN_KEY",
+                                "a key that is not pinned"));
 
         final ProjectSource.Found found = ProjectSource.resolve(context, "acme");
 
@@ -133,9 +166,11 @@ class ProjectSourceTest {
         recorded(context, dir, "solo");
         followed(context, "acme", "a1b2c3", "project:\n  name: \"acme\"\n");
 
-        // What a refusal prints. 'default' first, which every machine has; then followed, because that is the list
+        // What a refusal prints. 'default' first, which every machine has; then followed, because
+        // that is the list
         // somebody should be choosing from.
-        assertThat(ProjectSource.names(context)).containsExactly(DefaultProject.NAME, "acme", "solo");
+        assertThat(ProjectSource.names(context))
+                .containsExactly(DefaultProject.NAME, "acme", "solo");
     }
 
     @Test
@@ -154,18 +189,24 @@ class ProjectSourceTest {
     void whetherAProjectIsStuckIsDerivedFromItsOutcome(@TempDir final Path dir) {
         // Derived, never stored: two fields that must agree are two fields that can disagree, and
         // a stored one would rot the first time an outcome was added.
-        assertThat(new FollowedProjects.Followed("a", "u", "", "", "UNKNOWN_KEY", "")
-                .needsAPerson()).isTrue();
-        assertThat(new FollowedProjects.Followed("a", "u", "", "", "VAULT_LOCKED", "")
-                .needsAPerson()).isTrue();
+        assertThat(
+                        new FollowedProjects.Followed("a", "u", "", "", "UNKNOWN_KEY", "")
+                                .needsAPerson())
+                .isTrue();
+        assertThat(
+                        new FollowedProjects.Followed("a", "u", "", "", "VAULT_LOCKED", "")
+                                .needsAPerson())
+                .isTrue();
         // An unreachable repository may answer on the next pass by itself, so it is NOT stuck -
         // which is the distinction an interface cannot make for itself.
-        assertThat(new FollowedProjects.Followed("a", "u", "", "", "UNREACHABLE", "")
-                .needsAPerson()).isFalse();
-        assertThat(new FollowedProjects.Followed("a", "u", "", "", "APPLIED", "")
-                .needsAPerson()).isFalse();
+        assertThat(
+                        new FollowedProjects.Followed("a", "u", "", "", "UNREACHABLE", "")
+                                .needsAPerson())
+                .isFalse();
+        assertThat(new FollowedProjects.Followed("a", "u", "", "", "APPLIED", "").needsAPerson())
+                .isFalse();
         // Never tried is not stuck either.
-        assertThat(new FollowedProjects.Followed("a", "u", "", "", "", "")
-                .needsAPerson()).isFalse();
+        assertThat(new FollowedProjects.Followed("a", "u", "", "", "", "").needsAPerson())
+                .isFalse();
     }
 }

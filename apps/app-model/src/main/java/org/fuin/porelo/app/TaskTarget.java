@@ -9,11 +9,11 @@ import org.fuin.porelo.runtime.ContainerSummary;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Which task a command means: the one it names - by its container's name or by its own - or, named by none, the one
- * started from the checkout the person stands in.
- * <p>
- * {@code porelo approve} found its task from the checkout, and the task commands wanted the container's name typed
- * out; one way now serves both.
+ * Which task a command means: the one it names - by its container's name or by its own - or, named
+ * by none, the one started from the checkout the person stands in.
+ *
+ * <p>{@code porelo approve} found its task from the checkout, and the task commands wanted the
+ * container's name typed out; one way now serves both.
  */
 public final class TaskTarget {
 
@@ -23,9 +23,7 @@ public final class TaskTarget {
     /** Exit: several could be, and nobody can be asked. */
     public static final int SEVERAL = 64;
 
-    /**
-     * Asks the person which task they mean.
-     */
+    /** Asks the person which task they mean. */
     @FunctionalInterface
     public interface Asker {
 
@@ -45,15 +43,15 @@ public final class TaskTarget {
      * @param refusal Why none is, or "".
      * @param code The exit to end with when none is.
      */
-    public record Found(@Nullable String container, String refusal, int code) {
-    }
+    public record Found(@Nullable String container, String refusal, int code) {}
 
     private TaskTarget() {
         throw new UnsupportedOperationException("Utility class");
     }
 
     /**
-     * Returns a task's container from either of its names: the container's, or the task's own when one task has it.
+     * Returns a task's container from either of its names: the container's, or the task's own when
+     * one task has it.
      *
      * @param context The machine.
      * @param given What the person typed.
@@ -64,8 +62,19 @@ public final class TaskTarget {
         if (tasks.stream().anyMatch(task -> task.name().equals(given))) {
             return given;
         }
-        final List<String> own = tasks.stream().filter(task -> task.project() != null
-                && task.name().equals("porelo-" + task.project() + "-" + given)).map(ContainerSummary::name).toList();
+        final List<String> own =
+                tasks.stream()
+                        .filter(
+                                task ->
+                                        task.project() != null
+                                                && task.name()
+                                                        .equals(
+                                                                "porelo-"
+                                                                        + task.project()
+                                                                        + "-"
+                                                                        + given))
+                        .map(ContainerSummary::name)
+                        .toList();
         return own.size() == 1 ? own.getFirst() : given;
     }
 
@@ -74,10 +83,11 @@ public final class TaskTarget {
      *
      * @param context The machine.
      * @param directory Where the person stands.
-     * @return Their containers, possibly none; {@code null} when the directory is in no checkout a repository is
-     *         known by.
+     * @return Their containers, possibly none; {@code null} when the directory is in no checkout a
+     *     repository is known by.
      */
-    public static @Nullable List<String> fromCheckout(final PoreloContext context, final Path directory) {
+    public static @Nullable List<String> fromCheckout(
+            final PoreloContext context, final Path directory) {
         final Path top = LocalRepository.topLevel(context.runner(), directory);
         if (top == null) {
             return null;
@@ -89,16 +99,31 @@ public final class TaskTarget {
             project = DefaultProject.NAME;
             repository = own.name();
         } else {
-            final CommandResult remote = context.runner().run(Command.of("git", "-C", top.toString(), "remote",
-                    "get-url", "origin"));
-            final String origin = RepositoryAddress.withoutCredential(remote.successful()
-                    ? remote.standardOutput().strip() : "");
+            final CommandResult remote =
+                    context.runner()
+                            .run(
+                                    Command.of(
+                                            "git",
+                                            "-C",
+                                            top.toString(),
+                                            "remote",
+                                            "get-url",
+                                            "origin"));
+            final String origin =
+                    RepositoryAddress.withoutCredential(
+                            remote.successful() ? remote.standardOutput().strip() : "");
             if (!origin.isEmpty()) {
                 final WorkOrigin.Choice followed = WorkOrigin.followedNaming(context, origin);
-                final DefaultProject.Entry earlier = followed == null
-                        ? new DefaultProject(context).withUpstream(origin) : null;
-                project = followed != null ? followed.project() : earlier != null ? DefaultProject.NAME : null;
-                repository = followed != null ? followed.repository() : earlier != null ? earlier.name() : null;
+                final DefaultProject.Entry earlier =
+                        followed == null ? new DefaultProject(context).withUpstream(origin) : null;
+                project =
+                        followed != null
+                                ? followed.project()
+                                : earlier != null ? DefaultProject.NAME : null;
+                repository =
+                        followed != null
+                                ? followed.repository()
+                                : earlier != null ? earlier.name() : null;
             }
         }
         if (project == null) {
@@ -106,8 +131,13 @@ public final class TaskTarget {
         }
         final String inProject = project;
         final String ofRepository = repository;
-        return context.podman().poreloTasks().stream().filter(task -> inProject.equals(task.project())
-                && ofRepository != null && ofRepository.equals(task.repository())).map(ContainerSummary::name)
+        return context.podman().poreloTasks().stream()
+                .filter(
+                        task ->
+                                inProject.equals(task.project())
+                                        && ofRepository != null
+                                        && ofRepository.equals(task.repository()))
+                .map(ContainerSummary::name)
                 .toList();
     }
 
@@ -117,34 +147,57 @@ public final class TaskTarget {
      * @param context The machine.
      * @param given What the person typed, or {@code null}.
      * @param directory Where the person stands.
-     * @param asker How the person is asked when several could be meant, or {@code null} where nobody can be.
+     * @param asker How the person is asked when several could be meant, or {@code null} where
+     *     nobody can be.
      * @return What was found.
      */
-    public static Found resolve(final PoreloContext context, final @Nullable String given, final Path directory,
+    public static Found resolve(
+            final PoreloContext context,
+            final @Nullable String given,
+            final Path directory,
             final @Nullable Asker asker) {
         if (given != null && !given.isBlank()) {
             return new Found(spelled(context, given.strip()), "", 0);
         }
         final List<String> started = fromCheckout(context, directory);
         if (started == null) {
-            return new Found(null, "name a task; 'porelo task list' lists them, and in a checkout a task was started"
-                    + " from no name is needed", SEVERAL);
+            return new Found(
+                    null,
+                    "name a task; 'porelo task list' lists them, and in a checkout a task was started"
+                            + " from no name is needed",
+                    SEVERAL);
         }
-        final Path top = java.util.Objects.requireNonNull(LocalRepository.topLevel(context.runner(), directory));
+        final Path top =
+                java.util.Objects.requireNonNull(
+                        LocalRepository.topLevel(context.runner(), directory));
         if (started.isEmpty()) {
-            return new Found(null, "no task was started from " + top + "; 'porelo task start' starts one", NONE);
+            return new Found(
+                    null,
+                    "no task was started from " + top + "; 'porelo task start' starts one",
+                    NONE);
         }
         if (started.size() == 1) {
             return new Found(started.getFirst(), "", 0);
         }
         final String named = String.join(", ", started);
-        final String answer = asker == null ? null
-                : asker.ask("Several tasks were started from " + top + ": " + named + ". Which one?");
+        final String answer =
+                asker == null
+                        ? null
+                        : asker.ask(
+                                "Several tasks were started from "
+                                        + top
+                                        + ": "
+                                        + named
+                                        + ". Which one?");
         if (answer == null || answer.isBlank()) {
-            return new Found(null, "several tasks were started from " + top + ": " + named + "; name one", SEVERAL);
+            return new Found(
+                    null,
+                    "several tasks were started from " + top + ": " + named + "; name one",
+                    SEVERAL);
         }
         final String chosen = spelled(context, answer.strip());
-        return started.contains(chosen) ? new Found(chosen, "", 0)
+        return started.contains(chosen)
+                ? new Found(chosen, "", 0)
                 : new Found(null, "'" + answer.strip() + "' is none of " + named, SEVERAL);
     }
 

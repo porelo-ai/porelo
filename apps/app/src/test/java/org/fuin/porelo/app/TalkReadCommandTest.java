@@ -4,9 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
-/**
- * Test for what {@link TalkReadCommand} lets reach a terminal.
- */
+/** Test for what {@link TalkReadCommand} lets reach a terminal. */
 class TalkReadCommandTest {
 
     @Test
@@ -23,6 +21,7 @@ class TalkReadCommandTest {
 
     @Test
     void leavesTextTabsAndOtherScriptsAsTheyAre() {
-        assertThat(TalkReadCommand.shown("Can you\treview it? – Grüße, 日本")).isEqualTo("Can you\treview it? – Grüße, 日本");
+        assertThat(TalkReadCommand.shown("Can you\treview it? – Grüße, 日本"))
+                .isEqualTo("Can you\treview it? – Grüße, 日本");
     }
 }

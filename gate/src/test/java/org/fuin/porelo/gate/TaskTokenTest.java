@@ -4,9 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link TaskToken}, which authenticates every push an agent makes.
- */
+/** Tests for {@link TaskToken}, which authenticates every push an agent makes. */
 class TaskTokenTest {
 
     @Test

@@ -19,31 +19,42 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * What a project's second repository buys, and what it must not cost - measured with real git.
- * <p>
- * <strong>Argued from the single-repository case, this would be worth nothing.</strong> A project
- * with three repositories has three mirrors, three gates and three review branches, and the claim
- * that unreviewed work cannot reach an upstream has to hold for each of them separately. The
+ *
+ * <p><strong>Argued from the single-repository case, this would be worth nothing.</strong> A
+ * project with three repositories has three mirrors, three gates and three review branches, and the
+ * claim that unreviewed work cannot reach an upstream has to hold for each of them separately. The
  * failure this guards against is not a gate that forwards - it is a task pushing into one
  * repository and the push landing, or being visible, somewhere else.
- * <p>
- * Named {@code Test} rather than {@code IT} for the reason {@link GitGateTest} gives: surefire
+ *
+ * <p>Named {@code Test} rather than {@code IT} for the reason {@link GitGateTest} gives: surefire
  * would not run an {@code IT} class, and these would pass by never executing.
  */
 class SeveralRepositoriesTest {
 
     private final CommandRunner runner = new ProcessCommandRunner(Duration.ofSeconds(60));
 
-    @TempDir
-    private Path root;
+    @TempDir private Path root;
 
     private String git(Path directory, String... arguments) {
         final List<String> all = new ArrayList<>(List.of("git"));
         all.addAll(List.of(arguments));
-        return runner.runOrFail(new Command(all, directory,
-                Map.of("GIT_AUTHOR_NAME", "Test", "GIT_AUTHOR_EMAIL", "test@example.com",
-                        "GIT_COMMITTER_NAME", "Test", "GIT_COMMITTER_EMAIL", "test@example.com",
-                        "GIT_TERMINAL_PROMPT", "0"),
-                null)).standardOutput();
+        return runner.runOrFail(
+                        new Command(
+                                all,
+                                directory,
+                                Map.of(
+                                        "GIT_AUTHOR_NAME",
+                                        "Test",
+                                        "GIT_AUTHOR_EMAIL",
+                                        "test@example.com",
+                                        "GIT_COMMITTER_NAME",
+                                        "Test",
+                                        "GIT_COMMITTER_EMAIL",
+                                        "test@example.com",
+                                        "GIT_TERMINAL_PROMPT",
+                                        "0"),
+                                null))
+                .standardOutput();
     }
 
     /**
@@ -75,8 +86,13 @@ class SeveralRepositoriesTest {
     }
 
     private GitGate gate(String project, String repository, Path upstream) {
-        final GitGate gate = new GitGate(runner, mirrorOf(project, repository),
-                GateMode.GATEKEEPING, upstream.toString(), upstream.toString());
+        final GitGate gate =
+                new GitGate(
+                        runner,
+                        mirrorOf(project, repository),
+                        GateMode.GATEKEEPING,
+                        upstream.toString(),
+                        upstream.toString());
         gate.initialize();
         return gate;
     }
@@ -91,33 +107,45 @@ class SeveralRepositoriesTest {
         final TaskToken token = TaskToken.mint();
         final Path work = root.resolve("work-" + task);
 
-        try (GitHttpServer server = new GitHttpServer(
-                new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), mirror, token,
-                new GitSubprocess())) {
+        try (GitHttpServer server =
+                new GitHttpServer(
+                        new InetSocketAddress(InetAddress.getLoopbackAddress(), 0),
+                        mirror,
+                        token,
+                        new GitSubprocess())) {
             server.start();
             git(root, "clone", mirror.toString(), work.toString());
             Files.writeString(work.resolve(file), "written by the agent\n");
             git(work, "add", file);
             git(work, "commit", "-m", "add " + file);
-            git(work, "config", "http.extraHeader",
-                    "Authorization: " + token.basicAuthorization());
-            git(work, "push", "http://" + InetAddress.getLoopbackAddress().getHostAddress()
-                    + ":" + server.port() + "/" + mirror.getFileName(),
+            git(work, "config", "http.extraHeader", "Authorization: " + token.basicAuthorization());
+            git(
+                    work,
+                    "push",
+                    "http://"
+                            + InetAddress.getLoopbackAddress().getHostAddress()
+                            + ":"
+                            + server.port()
+                            + "/"
+                            + mirror.getFileName(),
                     "HEAD:" + GitGate.INCOMING + task);
         }
     }
 
     /**
      * Returns the branches an upstream has, so a forwarded push would be visible.
-     * <p>
-     * Asked of git rather than read from {@code refs/heads/}: a freshly cloned bare repository
+     *
+     * <p>Asked of git rather than read from {@code refs/heads/}: a freshly cloned bare repository
      * keeps its refs in {@code packed-refs}, so listing the directory answers "no branches" for a
      * repository that has one - which would have made every assertion below pass for the wrong
      * reason.
      */
     private List<String> branchesOf(Path bare) {
         return git(bare, "for-each-ref", "--format=%(refname:short)", "refs/heads")
-                .lines().filter(line -> !line.isBlank()).sorted().toList();
+                .lines()
+                .filter(line -> !line.isBlank())
+                .sorted()
+                .toList();
     }
 
     @Test
@@ -172,8 +200,8 @@ class SeveralRepositoriesTest {
         // push at all. If the two shared a mirror this would succeed, and one repository's
         // unreviewed work would land on ANOTHER repository's upstream - approved by somebody who
         // was looking at a different project entirely.
-        org.assertj.core.api.Assertions
-                .assertThatThrownBy(() -> backend.approve("task-2", "task-2"))
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> backend.approve("task-2", "task-2"))
                 .isInstanceOf(GateException.class);
 
         backend.approve("task-1", "task-1");

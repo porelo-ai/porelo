@@ -10,25 +10,30 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Spec;
 
 /**
- * Makes this account ready to run tasks: the OCI hooks, the daemon, and - at a terminal - the vault.
- * <p>
- * <strong>One command for what belongs to the account</strong>, because a package installed as root cannot
- * do it: podman reads hook descriptors per user, the daemon is a user service that starts in that user's
- * session, and a vault is made with a passphrase that only a person at a terminal may type. A wizard opens
- * a terminal over ssh ({@code ssh -t}) and runs this; nobody has to know the steps.
- * <p>
- * <strong>Each step only when it is not done</strong>, so a run abandoned halfway and started again does not
- * fail on what already happened. Without a terminal the vault is left for later and said so, never asked
- * for in a way that fails: a script that runs this to register the hooks keeps working.
- * <p>
- * Kept out of the package's install scripts on purpose. Writing into an operator's podman
+ * Makes this account ready to run tasks: the OCI hooks, the daemon, and - at a terminal - the
+ * vault.
+ *
+ * <p><strong>One command for what belongs to the account</strong>, because a package installed as
+ * root cannot do it: podman reads hook descriptors per user, the daemon is a user service that
+ * starts in that user's session, and a vault is made with a passphrase that only a person at a
+ * terminal may type. A wizard opens a terminal over ssh ({@code ssh -t}) and runs this; nobody has
+ * to know the steps.
+ *
+ * <p><strong>Each step only when it is not done</strong>, so a run abandoned halfway and started
+ * again does not fail on what already happened. Without a terminal the vault is left for later and
+ * said so, never asked for in a way that fails: a script that runs this to register the hooks keeps
+ * working.
+ *
+ * <p>Kept out of the package's install scripts on purpose. Writing into an operator's podman
  * configuration is host integration, not file installation, and it should happen when the operator
  * asks for it rather than as a side effect of {@code apt install}.
  */
-@Command(name = "setup",
+@Command(
+        name = "setup",
         mixinStandardHelpOptions = true,
-        description = "Makes this account ready to run tasks: registers the hooks, starts the daemon and,"
-                + " at a terminal, creates the vault. Each only when it is not done yet.")
+        description =
+                "Makes this account ready to run tasks: registers the hooks, starts the daemon and,"
+                        + " at a terminal, creates the vault. Each only when it is not done yet.")
 public class SetupCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
     /** The user service the package installs. */
@@ -37,15 +42,17 @@ public class SetupCommand implements Callable<Integer>, PoreloFactory.ContextAwa
     @Option(names = "--uninstall", description = "Removes the hook descriptors again.")
     private boolean uninstall;
 
-    @Option(names = "--hooks-only", description = "Registers the hooks and nothing else, as setup did before it"
-            + " started the daemon and made the vault.")
+    @Option(
+            names = "--hooks-only",
+            description =
+                    "Registers the hooks and nothing else, as setup did before it"
+                            + " started the daemon and made the vault.")
     private boolean hooksOnly;
 
     /** Whether a person is at a terminal to type a passphrase; replaced in tests. */
     private java.util.function.BooleanSupplier terminal = () -> System.console() != null;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -76,7 +83,8 @@ public class SetupCommand implements Callable<Integer>, PoreloFactory.ContextAwa
         }
 
         if (!installer.binariesPresent()) {
-            err.println("porelo: the hook binaries are not in " + context.paths().binaryDirectory());
+            err.println(
+                    "porelo: the hook binaries are not in " + context.paths().binaryDirectory());
             err.flush();
             return 69;
         }
@@ -90,18 +98,24 @@ public class SetupCommand implements Callable<Integer>, PoreloFactory.ContextAwa
             out.flush();
             return 0;
         }
-        out.println("hooks     registered; they only fire for containers carrying Porelo's own annotation");
+        out.println(
+                "hooks     registered; they only fire for containers carrying Porelo's own annotation");
         daemon(out);
         final boolean vault = vault(out, err);
         out.println();
-        final java.util.List<String> missing = DoctorCommand.probesFor(context).stream()
-                .filter(probe -> probe.state() == Probe.State.MISSING).map(Probe::name).toList();
+        final java.util.List<String> missing =
+                DoctorCommand.probesFor(context).stream()
+                        .filter(probe -> probe.state() == Probe.State.MISSING)
+                        .map(Probe::name)
+                        .toList();
         if (missing.isEmpty() && vault) {
             out.println("Ready: this account can run tasks. 'porelo doctor' says more.");
         } else {
-            out.println("Not ready yet" + (missing.isEmpty() ? "" : ": " + String.join(", ", missing))
-                    + (vault ? "" : (missing.isEmpty() ? ": " : "; ") + "no vault")
-                    + ". 'porelo doctor' says what to do about each.");
+            out.println(
+                    "Not ready yet"
+                            + (missing.isEmpty() ? "" : ": " + String.join(", ", missing))
+                            + (vault ? "" : (missing.isEmpty() ? ": " : "; ") + "no vault")
+                            + ". 'porelo doctor' says what to do about each.");
         }
         out.flush();
         return 0;
@@ -109,26 +123,42 @@ public class SetupCommand implements Callable<Integer>, PoreloFactory.ContextAwa
 
     /**
      * Starts the daemon for good, unless it runs already.
-     * <p>
-     * Not a failure when it cannot: an account whose user manager is not reachable from here - no lingering, no
-     * session - can still run a task from the command line, and is told what to run instead.
+     *
+     * <p>Not a failure when it cannot: an account whose user manager is not reachable from here -
+     * no lingering, no session - can still run a task from the command line, and is told what to
+     * run instead.
      */
     private void daemon(final PrintWriter out) {
         final org.fuin.porelo.core.process.CommandRunner runner = context.runner();
-        if (runner.run(org.fuin.porelo.core.process.Command.of("systemctl", "--user", "is-active", "--quiet",
-                DAEMON)).exitCode() == 0) {
+        if (runner.run(
+                                org.fuin.porelo.core.process.Command.of(
+                                        "systemctl", "--user", "is-active", "--quiet", DAEMON))
+                        .exitCode()
+                == 0) {
             out.println("daemon    already running");
             return;
         }
-        final org.fuin.porelo.core.process.CommandResult started = runner.run(
-                org.fuin.porelo.core.process.Command.of("systemctl", "--user", "enable", "--now", DAEMON));
+        final org.fuin.porelo.core.process.CommandResult started =
+                runner.run(
+                        org.fuin.porelo.core.process.Command.of(
+                                "systemctl", "--user", "enable", "--now", DAEMON));
         if (started.exitCode() == 0) {
             out.println("daemon    started, and starts with this account from now on");
             return;
         }
-        final String why = started.standardError().strip().lines().findFirst().orElse("exit " + started.exitCode());
-        out.println("daemon    not started: " + why + " - start it in this account's own session with"
-                + " 'systemctl --user enable --now " + DAEMON + "'");
+        final String why =
+                started.standardError()
+                        .strip()
+                        .lines()
+                        .findFirst()
+                        .orElse("exit " + started.exitCode());
+        out.println(
+                "daemon    not started: "
+                        + why
+                        + " - start it in this account's own session with"
+                        + " 'systemctl --user enable --now "
+                        + DAEMON
+                        + "'");
     }
 
     /**
@@ -142,10 +172,13 @@ public class SetupCommand implements Callable<Integer>, PoreloFactory.ContextAwa
             return true;
         }
         if (!terminal.getAsBoolean()) {
-            // The one step nothing may do for a person. Said rather than attempted: without a terminal the
-            // prompt fails as "no passphrase available", which reads as a fault of Porelo's and is a missing -t.
-            out.println("vault     none yet; it needs a passphrase typed at a terminal - run 'porelo setup' or"
-                    + " 'porelo vault init' in one (over ssh: 'ssh -t')");
+            // The one step nothing may do for a person. Said rather than attempted: without a
+            // terminal the
+            // prompt fails as "no passphrase available", which reads as a fault of Porelo's and is
+            // a missing -t.
+            out.println(
+                    "vault     none yet; it needs a passphrase typed at a terminal - run 'porelo setup' or"
+                            + " 'porelo vault init' in one (over ssh: 'ssh -t')");
             return false;
         }
         out.println("vault     none yet; choose the passphrase that opens it");

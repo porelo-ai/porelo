@@ -10,10 +10,10 @@ import java.util.ServiceLoader;
 
 /**
  * The agents this binary was built with.
- * <p>
- * Populated by {@link ServiceLoader}, which native-image resolves at build time from
- * {@code META-INF/services} - verified in spike S9 to need no metadata of any kind. Porelo
- * therefore never names an agent: it asks here and gets whatever was on the classpath.
+ *
+ * <p>Populated by {@link ServiceLoader}, which native-image resolves at build time from {@code
+ * META-INF/services} - verified in spike S9 to need no metadata of any kind. Porelo therefore never
+ * names an agent: it asks here and gets whatever was on the classpath.
  */
 public class AgentRegistry {
 
@@ -33,8 +33,13 @@ public class AgentRegistry {
             if (clash != null) {
                 // Two modules claiming one name would make which of them runs depend on classpath
                 // order, which is the least debuggable kind of difference.
-                throw new AgentException("Two agents both call themselves '" + agent.name() + "': "
-                        + clash.getClass().getName() + " and " + agent.getClass().getName());
+                throw new AgentException(
+                        "Two agents both call themselves '"
+                                + agent.name()
+                                + "': "
+                                + clash.getClass().getName()
+                                + " and "
+                                + agent.getClass().getName());
             }
         }
         this.agents = Map.copyOf(byName);
@@ -69,9 +74,16 @@ public class AgentRegistry {
      * @throws AgentException If there is no such agent.
      */
     public Agent require(String name) {
-        return find(name).orElseThrow(() -> new AgentException(
-                "No agent named '" + name + "'. This build has: "
-                        + (names().isEmpty() ? "none" : String.join(", ", names()))));
+        return find(name)
+                .orElseThrow(
+                        () ->
+                                new AgentException(
+                                        "No agent named '"
+                                                + name
+                                                + "'. This build has: "
+                                                + (names().isEmpty()
+                                                        ? "none"
+                                                        : String.join(", ", names()))));
     }
 
     /**

@@ -9,7 +9,10 @@ package org.fuin.porelo.runtime;
  * @param project Project from the container's label, or {@code null} if it carries none.
  * @param securityClass Security class from the container's label, or {@code null}.
  */
-public record ContainerSummary(String name, String state, String since,
+public record ContainerSummary(
+        String name,
+        String state,
+        String since,
         @org.jspecify.annotations.Nullable String project,
         @org.jspecify.annotations.Nullable String securityClass,
         @org.jspecify.annotations.Nullable String repository,
@@ -25,7 +28,10 @@ public record ContainerSummary(String name, String state, String since,
      * @param securityClass Security class, or {@code null}.
      * @param repository Repository name, or {@code null}.
      */
-    public ContainerSummary(String name, String state, String since,
+    public ContainerSummary(
+            String name,
+            String state,
+            String since,
             @org.jspecify.annotations.Nullable String project,
             @org.jspecify.annotations.Nullable String securityClass,
             @org.jspecify.annotations.Nullable String repository) {
@@ -41,7 +47,10 @@ public record ContainerSummary(String name, String state, String since,
      * @param project Project name, or {@code null}.
      * @param securityClass Security class, or {@code null}.
      */
-    public ContainerSummary(String name, String state, String since,
+    public ContainerSummary(
+            String name,
+            String state,
+            String since,
             @org.jspecify.annotations.Nullable String project,
             @org.jspecify.annotations.Nullable String securityClass) {
         this(name, state, since, project, securityClass, null, null);
@@ -70,9 +79,9 @@ public record ContainerSummary(String name, String state, String since,
 
     /**
      * Tells whether the container is running.
-     * <p>
-     * A container that was created and never started reports {@code Created}, which matters here:
-     * that is the state a refused ruleset leaves behind, and it is not a running task.
+     *
+     * <p>A container that was created and never started reports {@code Created}, which matters
+     * here: that is the state a refused ruleset leaves behind, and it is not a running task.
      *
      * @return {@code true} if the runtime says it is up.
      */
@@ -82,8 +91,8 @@ public record ContainerSummary(String name, String state, String since,
 
     /**
      * Returns when the current state began.
-     * <p>
-     * A timestamp rather than the runtime's own words. {@code state} is a phrase for a person -
+     *
+     * <p>A timestamp rather than the runtime's own words. {@code state} is a phrase for a person -
      * "Up 4 minutes", "Exited (143) 2 seconds ago" - and nothing may parse it, which leaves "how
      * long has it been like this" answerable only by arithmetic on this.
      *

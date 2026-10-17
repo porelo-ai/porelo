@@ -8,22 +8,24 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * The accounts a run's scenarios act as on the machine - one, or one per worker thread when features run in
- * parallel.
- * <p>
- * <strong>An account is the unit of isolation.</strong> Everything Porelo keeps is per account: its image
- * store, its runtime and state directories, its daemon and socket, its keyring and vault. So features that run
- * at the same time do so under different accounts and cannot see each other - and a run that does this proves
- * on the way that several people can use one machine.
- * <p>
- * <strong>Per thread, and a thread's for the whole run.</strong> The engine runs a feature's scenarios in order
- * on one thread ({@code execution-mode.feature=same_thread}), so a feature keeps its account from its first
- * scenario to its last, which is what the features that share state across their scenarios need. A thread
- * that asks when every account is held by another fails loudly: two features under one account at once would
- * meet in its daemon and its projects, and fail as something else.
- * <p>
- * Without {@value #USERS}, the one account {@code porelo.acceptance.user} names serves every scenario, as it
- * always did - which is what an agent repository's leg keeps unless it asks for more.
+ * The accounts a run's scenarios act as on the machine - one, or one per worker thread when
+ * features run in parallel.
+ *
+ * <p><strong>An account is the unit of isolation.</strong> Everything Porelo keeps is per account:
+ * its image store, its runtime and state directories, its daemon and socket, its keyring and vault.
+ * So features that run at the same time do so under different accounts and cannot see each other -
+ * and a run that does this proves on the way that several people can use one machine.
+ *
+ * <p><strong>Per thread, and a thread's for the whole run.</strong> The engine runs a feature's
+ * scenarios in order on one thread ({@code execution-mode.feature=same_thread}), so a feature keeps
+ * its account from its first scenario to its last, which is what the features that share state
+ * across their scenarios need. A thread that asks when every account is held by another fails
+ * loudly: two features under one account at once would meet in its daemon and its projects, and
+ * fail as something else.
+ *
+ * <p>Without {@value #USERS}, the one account {@code porelo.acceptance.user} names serves every
+ * scenario, as it always did - which is what an agent repository's leg keeps unless it asks for
+ * more.
  */
 public final class Accounts {
 
@@ -41,10 +43,12 @@ public final class Accounts {
     }
 
     /**
-     * Returns the account the calling thread acts as, handing it the next free one the first time it asks.
+     * Returns the account the calling thread acts as, handing it the next free one the first time
+     * it asks.
      *
      * @return The account's name.
-     * @throws AssertionError When every account is held by another thread - more threads than accounts.
+     * @throws AssertionError When every account is held by another thread - more threads than
+     *     accounts.
      */
     public static synchronized String forThisThread() {
         final Thread thread = Thread.currentThread();
@@ -58,8 +62,12 @@ public final class Accounts {
         }
         final String next = FREE.pollFirst();
         if (next == null) {
-            throw new AssertionError("More threads than accounts: every one of " + all + " is held, and "
-                    + thread.getName() + " asked for one. Give the run as many accounts as its parallelism.");
+            throw new AssertionError(
+                    "More threads than accounts: every one of "
+                            + all
+                            + " is held, and "
+                            + thread.getName()
+                            + " asked for one. Give the run as many accounts as its parallelism.");
         }
         HELD.put(thread, next);
         return next;
@@ -93,17 +101,19 @@ public final class Accounts {
         }
         if (accounts.size() > 1 && !System.getProperty("porelo.acceptance.as", "").isBlank()) {
             // Every account would drive the one operator's Porelo, and meet there.
-            throw new IllegalStateException("porelo.acceptance.as drives one operator's Porelo; it cannot be"
-                    + " combined with several accounts in " + USERS);
+            throw new IllegalStateException(
+                    "porelo.acceptance.as drives one operator's Porelo; it cannot be"
+                            + " combined with several accounts in "
+                            + USERS);
         }
         if (!accounts.isEmpty()) {
             return List.copyOf(accounts);
         }
         final String one = System.getProperty("porelo.acceptance.user");
         if (one == null || one.isBlank()) {
-            throw new IllegalStateException("Set porelo.acceptance.user, or porelo.acceptance.users for several accounts");
+            throw new IllegalStateException(
+                    "Set porelo.acceptance.user, or porelo.acceptance.users for several accounts");
         }
         return List.of(one);
     }
-
 }

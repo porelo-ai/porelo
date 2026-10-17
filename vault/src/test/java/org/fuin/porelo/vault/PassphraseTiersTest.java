@@ -7,9 +7,7 @@ import java.util.Optional;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for the passphrase tiers.
- */
+/** Tests for the passphrase tiers. */
 class PassphraseTiersTest {
 
     private static PassphraseSource none() {
@@ -25,16 +23,18 @@ class PassphraseTiersTest {
 
         final PassphraseTiers tiers = new PassphraseTiers(none(), fixed("second"), fixed("third"));
 
-        assertThat(tiers.passphrase()).hasValueSatisfying(
-                value -> assertThat(value).containsExactly("second".toCharArray()));
+        assertThat(tiers.passphrase())
+                .hasValueSatisfying(
+                        value -> assertThat(value).containsExactly("second".toCharArray()));
     }
 
     @Test
     void failsSayingWhatItTried() {
 
-        final PassphraseTiers tiers = new PassphraseTiers(
-                new CommandPassphrase(new FakeCommandRunner(), null),
-                new ConsolePassphrase("Passphrase: "));
+        final PassphraseTiers tiers =
+                new PassphraseTiers(
+                        new CommandPassphrase(new FakeCommandRunner(), null),
+                        new ConsolePassphrase("Passphrase: "));
 
         assertThatThrownBy(tiers::require)
                 .isInstanceOf(VaultException.class)
@@ -45,11 +45,12 @@ class PassphraseTiersTest {
     @Test
     void readsTheFirstLineOfACommand() {
 
-        final FakeCommandRunner runner = new FakeCommandRunner()
-                .answering("sh -c", "hunter2\nsome trailing noise\n");
+        final FakeCommandRunner runner =
+                new FakeCommandRunner().answering("sh -c", "hunter2\nsome trailing noise\n");
 
         assertThat(new CommandPassphrase(runner, "pass show vault").passphrase())
-                .hasValueSatisfying(value -> assertThat(value).containsExactly("hunter2".toCharArray()));
+                .hasValueSatisfying(
+                        value -> assertThat(value).containsExactly("hunter2".toCharArray()));
     }
 
     @Test
@@ -64,8 +65,9 @@ class PassphraseTiersTest {
 
         // Falling through would prompt for a passphrase the operator stored precisely so they
         // would not have to type it, and would look like the store was never configured.
-        final FakeCommandRunner runner = new FakeCommandRunner()
-                .failing("sh -c", 2, "gpg: decryption failed: No secret key");
+        final FakeCommandRunner runner =
+                new FakeCommandRunner()
+                        .failing("sh -c", 2, "gpg: decryption failed: No secret key");
 
         assertThatThrownBy(() -> new CommandPassphrase(runner, "pass show vault").passphrase())
                 .isInstanceOf(VaultException.class)

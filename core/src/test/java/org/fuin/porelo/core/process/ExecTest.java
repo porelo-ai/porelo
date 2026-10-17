@@ -8,8 +8,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Tests for {@link Exec}.
- * <p>
- * A successful {@code execvp} does not return, so the successful case cannot be asserted in this
+ *
+ * <p>A successful {@code execvp} does not return, so the successful case cannot be asserted in this
  * process. It is asserted in a child process instead, which is the only honest way to check that
  * the image really was replaced rather than a child having been spawned.
  */
@@ -30,10 +30,15 @@ class ExecTest {
         // The child prints its own pid, then execs 'sh -c' which prints the pid again. Same pid
         // means the image was replaced; a different pid would mean a child was spawned instead.
         final String java = System.getProperty("java.home") + "/bin/java";
-        final Process process = new ProcessBuilder(java,
-                "-cp", System.getProperty("java.class.path"),
-                "--enable-native-access=ALL-UNNAMED",
-                ExecChild.class.getName()).redirectErrorStream(true).start();
+        final Process process =
+                new ProcessBuilder(
+                                java,
+                                "-cp",
+                                System.getProperty("java.class.path"),
+                                "--enable-native-access=ALL-UNNAMED",
+                                ExecChild.class.getName())
+                        .redirectErrorStream(true)
+                        .start();
 
         final String output = new String(process.getInputStream().readAllBytes()).strip();
         process.waitFor();
@@ -43,9 +48,7 @@ class ExecTest {
         assertThat(lines.get(1)).isEqualTo(lines.get(0));
     }
 
-    /**
-     * Prints its pid, then replaces itself with a shell that prints the pid again.
-     */
+    /** Prints its pid, then replaces itself with a shell that prints the pid again. */
     public static final class ExecChild {
 
         private ExecChild() {

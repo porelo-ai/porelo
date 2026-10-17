@@ -6,13 +6,13 @@ label: OpenRouter
 upstream: https://openrouter.ai
 
 dialects:
-  openai: "/api/v1"
-  anthropic-messages: "/api"
+    openai: "/api/v1"
+    anthropic-messages: "/api"
 
 auth_header:
-  _default: Authorization
+    _default: Authorization
 auth_prefix:
-  _default: "Bearer "
+    _default: "Bearer "
 
 token_env:
-  _default: OPENROUTER_API_KEY
+    _default: OPENROUTER_API_KEY

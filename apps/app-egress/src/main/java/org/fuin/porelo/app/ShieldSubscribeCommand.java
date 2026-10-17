@@ -6,8 +6,8 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import org.fuin.porelo.clearance.ClearanceService;
-import org.fuin.porelo.wire.varlink.VarlinkClient;
 import org.fuin.porelo.wire.Json;
+import org.fuin.porelo.wire.varlink.VarlinkClient;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
@@ -15,38 +15,46 @@ import picocli.CommandLine.Spec;
 
 /**
  * Watches the blocked connections a running watcher is seeing.
- * <p>
- * This is what the varlink transport is for. A pipe has exactly one reader; a subscription can
+ *
+ * <p>This is what the varlink transport is for. A pipe has exactly one reader; a subscription can
  * have several, so a terminal can follow along while the desktop prompt does the asking.
  */
-@Command(name = "subscribe",
+@Command(
+        name = "subscribe",
         mixinStandardHelpOptions = true,
         description = "Follows the blocked connections a running watcher reports.")
 public class ShieldSubscribeCommand implements Callable<Integer> {
 
-    @Option(names = "--socket", paramLabel = "<path>", required = true,
+    @Option(
+            names = "--socket",
+            paramLabel = "<path>",
+            required = true,
             description = "Clearance socket of a running 'porelo shield watch'.")
     private Path socket;
 
-    @Option(names = "--count", paramLabel = "<n>",
+    @Option(
+            names = "--count",
+            paramLabel = "<n>",
             description = "Stop after this many events. Zero means follow until killed.")
     private int count;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     @Override
     public Integer call() throws IOException {
 
         final PrintWriter out = spec.commandLine().getOut();
-        final int[] seen = { 0 };
+        final int[] seen = {0};
 
         try (VarlinkClient client = new VarlinkClient(socket)) {
-            client.callMore(ClearanceService.INTERFACE + ".Subscribe", Map.of(), event -> {
-                out.println(Json.write(event));
-                out.flush();
-                return count == 0 || ++seen[0] < count;
-            });
+            client.callMore(
+                    ClearanceService.INTERFACE + ".Subscribe",
+                    Map.of(),
+                    event -> {
+                        out.println(Json.write(event));
+                        out.flush();
+                        return count == 0 || ++seen[0] < count;
+                    });
         }
         return 0;
     }

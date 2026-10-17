@@ -2,8 +2,8 @@ package org.fuin.porelo.agent.api;
 
 /**
  * The contract between Porelo and an agent binary.
- * <p>
- * Porelo and the agents are packaged, versioned and installed separately, so at some point an
+ *
+ * <p>Porelo and the agents are packaged, versioned and installed separately, so at some point an
  * operator will have a combination nobody tested. The version here is what makes that a clear
  * message instead of a strange failure: an agent states which protocol it speaks, and Porelo
  * refuses one it does not understand rather than guessing at a partially-matching shape.
@@ -15,9 +15,9 @@ public final class AgentProtocol {
 
     /**
      * Version of this contract.
-     * <p>
-     * Raised when a change would make an older Porelo misread a newer agent, or the reverse. Adding
-     * an optional field does not qualify; renaming or removing one does.
+     *
+     * <p>Raised when a change would make an older Porelo misread a newer agent, or the reverse.
+     * Adding an optional field does not qualify; renaming or removing one does.
      */
     public static final int VERSION = 3;
 
@@ -39,7 +39,10 @@ public final class AgentProtocol {
     /** Formats lines of the agent's output in place; a line it hides answers null. */
     public static final String FORMAT = INTERFACE + ".Format";
 
-    /** Reads one line of the agent's output for the end of its run. Answered by an agent that knows its end. */
+    /**
+     * Reads one line of the agent's output for the end of its run. Answered by an agent that knows
+     * its end.
+     */
     public static final String ENDED = INTERFACE + ".Ended";
 
     private AgentProtocol() {

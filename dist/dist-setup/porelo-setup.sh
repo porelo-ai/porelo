@@ -47,16 +47,46 @@ BASE=https://fuinorg.jfrog.io/artifactory
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --user) USER_NAME="${2:?--user needs a name}"; shift 2 ;;
-        --distribution) DISTRIBUTION="${2:?--distribution needs a name}"; shift 2 ;;
-        --with) WITH="$WITH ${2:?--with needs a package name}"; shift 2 ;;
-        --between-users) BETWEEN="${2:?--between-users needs 'on' or 'off'}"; shift 2 ;;
-        --list) LIST=yes; shift ;;
-        --json) JSON=yes; shift ;;
-        --show) SHOW=yes; shift ;;
-        --os-release) OS_RELEASE="${2:?--os-release needs a file}"; shift 2 ;;
-        --help) sed -n '2,41p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-        *) echo "porelo-setup: unexpected argument '$1'" >&2; exit 2 ;;
+    --user)
+        USER_NAME="${2:?--user needs a name}"
+        shift 2
+        ;;
+    --distribution)
+        DISTRIBUTION="${2:?--distribution needs a name}"
+        shift 2
+        ;;
+    --with)
+        WITH="$WITH ${2:?--with needs a package name}"
+        shift 2
+        ;;
+    --between-users)
+        BETWEEN="${2:?--between-users needs 'on' or 'off'}"
+        shift 2
+        ;;
+    --list)
+        LIST=yes
+        shift
+        ;;
+    --json)
+        JSON=yes
+        shift
+        ;;
+    --show)
+        SHOW=yes
+        shift
+        ;;
+    --os-release)
+        OS_RELEASE="${2:?--os-release needs a file}"
+        shift 2
+        ;;
+    --help)
+        sed -n '2,41p' "$0" | sed 's/^# \{0,1\}//'
+        exit 0
+        ;;
+    *)
+        echo "porelo-setup: unexpected argument '$1'" >&2
+        exit 2
+        ;;
     esac
 done
 
@@ -72,7 +102,7 @@ fi
 # The repository key's fingerprint, as doc/getting-started.md gives it.
 KEY_FINGERPRINT=BF27A2FA637F505CAFBE431768D19D175D904415
 
-say()  { printf '\n== %s ==\n' "$1"; }
+say() { printf '\n== %s ==\n' "$1"; }
 note() { printf '   %s\n' "$1"; }
 
 # Every command goes through this, so --show prints exactly what would run and nothing is done
@@ -85,16 +115,19 @@ run() {
 
 # ---------------------------------------------------------------- what this machine is
 
-[ -r "$OS_RELEASE" ] || { echo "porelo-setup: cannot read $OS_RELEASE" >&2; exit 3; }
+[ -r "$OS_RELEASE" ] || {
+    echo "porelo-setup: cannot read $OS_RELEASE" >&2
+    exit 3
+}
 # shellcheck disable=SC1090
 . "$OS_RELEASE"
 ID="${ID:-unknown}"
 ID_LIKE="${ID_LIKE:-}"
 
 case " $ID $ID_LIKE " in
-    *" debian "*|*" ubuntu "*) FAMILY=apt ;;
-    *" fedora "*|*" rhel "*)   FAMILY=dnf ;;
-    *) FAMILY=none ;;
+*" debian "* | *" ubuntu "*) FAMILY=apt ;;
+*" fedora "* | *" rhel "*) FAMILY=dnf ;;
+*) FAMILY=none ;;
 esac
 
 if [ "$FAMILY" = none ]; then
@@ -176,26 +209,26 @@ if [ "$FAMILY" = apt ]; then
         KEY_FILE=$(mktemp)
         KEY_HOME=$(mktemp -d)
         curl -fsSL "$BASE/api/security/keypair/porelo-packages/public" -o "$KEY_FILE"
-        if ! gpg --homedir "$KEY_HOME" --show-keys --with-colons "$KEY_FILE" 2>/dev/null \
-                | grep -q "^fpr:::::::::$KEY_FINGERPRINT:"; then
+        if ! gpg --homedir "$KEY_HOME" --show-keys --with-colons "$KEY_FILE" 2>/dev/null |
+            grep -q "^fpr:::::::::$KEY_FINGERPRINT:"; then
             rm -rf "$KEY_FILE" "$KEY_HOME"
             echo "porelo-setup: the repository key is not $KEY_FINGERPRINT; neither the key nor the repository was added" >&2
             exit 3
         fi
         # Dearmored, not the .asc: apt wants the binary form at that path, and the armored file
         # fails with a verification error that never mentions the format.
-        gpg --homedir "$KEY_HOME" --dearmor -o /usr/share/keyrings/porelo.gpg < "$KEY_FILE"
+        gpg --homedir "$KEY_HOME" --dearmor -o /usr/share/keyrings/porelo.gpg <"$KEY_FILE"
         rm -rf "$KEY_FILE" "$KEY_HOME"
         note "wrote /usr/share/keyrings/porelo.gpg, key $KEY_FINGERPRINT"
     fi
     SOURCE_LINE="deb [signed-by=/usr/share/keyrings/porelo.gpg] $BASE/porelo-dist-deb $DISTRIBUTION main"
-    if [ -f /etc/apt/sources.list.d/porelo.list ] \
-            && [ "$(cat /etc/apt/sources.list.d/porelo.list)" = "$SOURCE_LINE" ]; then
+    if [ -f /etc/apt/sources.list.d/porelo.list ] &&
+        [ "$(cat /etc/apt/sources.list.d/porelo.list)" = "$SOURCE_LINE" ]; then
         note "/etc/apt/sources.list.d/porelo.list already says this"
     elif [ "$SHOW" = yes ]; then
         printf '   $ %s\n' "echo '$SOURCE_LINE' > /etc/apt/sources.list.d/porelo.list"
     else
-        echo "$SOURCE_LINE" > /etc/apt/sources.list.d/porelo.list
+        echo "$SOURCE_LINE" >/etc/apt/sources.list.d/porelo.list
         note "wrote /etc/apt/sources.list.d/porelo.list"
     fi
     run apt-get update -qq
@@ -214,7 +247,7 @@ gpgcheck=0"
     elif [ "$SHOW" = yes ]; then
         printf '   $ %s\n' "write $REPO for $BASE/porelo-dist-rpm/$DISTRIBUTION"
     else
-        printf '%s\n' "$REPO_BODY" > "$REPO"
+        printf '%s\n' "$REPO_BODY" >"$REPO"
         note "wrote $REPO"
     fi
     run dnf makecache -q
@@ -255,29 +288,29 @@ catalogue() {
     if [ "$FAMILY" = apt ]; then
         for virtual in porelo-agent porelo-transport porelo-homeserver; do
             kind=${virtual#porelo-}
-            apt-cache showpkg "$virtual" 2>/dev/null \
-                | sed -n '/^Reverse Provides:/,$p' | tail -n +2 | awk 'NF {print $1}' | sort -u \
-                | while read -r name; do
+            apt-cache showpkg "$virtual" 2>/dev/null |
+                sed -n '/^Reverse Provides:/,$p' | tail -n +2 | awk 'NF {print $1}' | sort -u |
+                while read -r name; do
                     [ -n "$name" ] || continue
                     version=$(dpkg-query -W -f='${Version}' "$name" 2>/dev/null || true)
                     if [ -n "$version" ]; then
                         state=installed
                     else
                         state=available
-                        version=$(apt-cache show "$name" 2>/dev/null \
-                            | sed -n 's/^Version: //p' | head -1)
+                        version=$(apt-cache show "$name" 2>/dev/null |
+                            sed -n 's/^Version: //p' | head -1)
                     fi
                     printf '%s|%s|%s|%s|%s\n' "$name" "$kind" "$state" "$version" \
-                        "$(apt-cache show "$name" 2>/dev/null \
-                            | sed -n 's/^Description: //p' | head -1)"
+                        "$(apt-cache show "$name" 2>/dev/null |
+                            sed -n 's/^Description: //p' | head -1)"
                 done
         done
     else
         for virtual in porelo-agent porelo-transport porelo-homeserver; do
             kind=${virtual#porelo-}
             dnf repoquery --qf '%{name}|%{version}-%{release}|%{summary}' \
-                --whatprovides "$virtual" 2>/dev/null | sort -u \
-                | while IFS='|' read -r name version summary; do
+                --whatprovides "$virtual" 2>/dev/null | sort -u |
+                while IFS='|' read -r name version summary; do
                     [ -n "$name" ] || continue
                     state=available
                     rpm -q "$name" >/dev/null 2>&1 && state=installed
@@ -309,7 +342,7 @@ if [ "$LIST" = yes ]; then
         # The object alone on the real stdout; everything else went to stderr from the start, so
         # a caller parses what it reads without stripping anything.
         catalogue_json >&3
-        [ -n "$(catalogue)" ] || echo "nothing yet - no package in this repository declares that"\
+        [ -n "$(catalogue)" ] || echo "nothing yet - no package in this repository declares that" \
             " it provides an agent or a transport." >&2
         exit 0
     fi
@@ -333,7 +366,6 @@ if [ "$LIST" = yes ]; then
 LISTED
     exit 0
 fi
-
 
 # ---------------------------------------------------------------- Porelo itself
 
@@ -383,8 +415,7 @@ fi
 
 # Rootless podman cannot map a container's users without these. useradd usually allocates them,
 # and 'usually' is not something to find out later as a container that will not start.
-if grep -q "^$USER_NAME:" /etc/subuid 2>/dev/null && grep -q "^$USER_NAME:" /etc/subgid 2>/dev/null
-then
+if grep -q "^$USER_NAME:" /etc/subuid 2>/dev/null && grep -q "^$USER_NAME:" /etc/subgid 2>/dev/null; then
     note "subuid and subgid ranges are already allocated"
 elif [ "$SHOW" = yes ]; then
     printf '   $ %s\n' "usermod --add-subuids 100000-165535 --add-subgids 100000-165535 $USER_NAME"

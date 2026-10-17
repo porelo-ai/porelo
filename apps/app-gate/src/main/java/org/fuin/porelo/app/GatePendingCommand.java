@@ -1,7 +1,6 @@
 package org.fuin.porelo.app;
 
 import java.io.PrintWriter;
-import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -18,38 +17,50 @@ import picocli.CommandLine.Spec;
 
 /**
  * Lists what the agent pushed and nobody has reviewed, with how long it has been waiting.
- * <p>
- * The age is the point. A gate whose queue is never read stops being a control and becomes a
+ *
+ * <p>The age is the point. A gate whose queue is never read stops being a control and becomes a
  * queue: work piles up, the operator eventually approves in bulk without reading, and the review
  * was theatre. Showing the lag makes that visible before it becomes a habit.
  */
-@Command(name = "pending",
+@Command(
+        name = "pending",
         mixinStandardHelpOptions = true,
         description = "Lists what the agent pushed and how long it has been waiting.")
 public class GatePendingCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
-    /** Beside a push the upstream already has: it was pushed there by hand, so rejecting it needs --force. */
-    static final String ALREADY_UPSTREAM = "   <- already upstream, pushed past the gate; 'gate reject --force' clears it";
+    /**
+     * Beside a push the upstream already has: it was pushed there by hand, so rejecting it needs
+     * --force.
+     */
+    static final String ALREADY_UPSTREAM =
+            "   <- already upstream, pushed past the gate; 'gate reject --force' clears it";
 
-
-    @Option(names = { "-p", "--project" }, paramLabel = "<name>",
-            description = "Project name, as 'porelo project list' prints it. Without it: what waits in every project.")
+    @Option(
+            names = {"-p", "--project"},
+            paramLabel = "<name>",
+            description =
+                    "Project name, as 'porelo project list' prints it. Without it: what waits in every project.")
     private @org.jspecify.annotations.Nullable String projectName;
 
-    @Option(names = { "-r", "--repository" }, paramLabel = "<name>",
+    @Option(
+            names = {"-r", "--repository"},
+            paramLabel = "<name>",
             description = "Which of the project's repositories. Default: the project's own.")
     private @Nullable String repository;
 
-    @Option(names = "--upstream", paramLabel = "<url>",
+    @Option(
+            names = "--upstream",
+            paramLabel = "<url>",
             description = "Upstream repository to forward approved pushes to.")
     private @Nullable String upstream;
 
-    @Option(names = "--stale-after", paramLabel = "<hours>",
+    @Option(
+            names = "--stale-after",
+            paramLabel = "<hours>",
             description = "Mark pushes older than this. Default: ${DEFAULT-VALUE}")
     private int staleAfterHours = 24;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     /** The fetch for each waiting push listed, said once under the table. */
     private final java.util.List<String> fetches = new java.util.ArrayList<>();
@@ -69,7 +80,8 @@ public class GatePendingCommand implements Callable<Integer>, PoreloFactory.Cont
 
         try {
             if (projectName == null || projectName.isBlank()) {
-                // Nothing named: what waits anywhere on this machine. A person new to Porelo asks exactly this, and
+                // Nothing named: what waits anywhere on this machine. A person new to Porelo asks
+                // exactly this, and
                 // was answered "missing required option '--project'".
                 final java.util.List<String> rows = new java.util.ArrayList<>();
                 for (final String name : ProjectSource.names(context)) {
@@ -78,25 +90,40 @@ public class GatePendingCommand implements Callable<Integer>, PoreloFactory.Cont
                 return table(rows, true, "nothing pending in any project", out);
             }
             final Project project = GateSupport.byName(context, projectName);
-            if ((repository == null || repository.isBlank()) && DefaultProject.NAME.equals(project.name())) {
-                // 'default' has no repository of its own - only the ones worked on without a project - so the
-                // question is about all of them. Its placeholder answered "nothing pending" while work waited.
-                return table(waiting(project, false), false, "nothing pending in any repository of '"
-                        + project.name() + "'", out);
+            if ((repository == null || repository.isBlank())
+                    && DefaultProject.NAME.equals(project.name())) {
+                // 'default' has no repository of its own - only the ones worked on without a
+                // project - so the
+                // question is about all of them. Its placeholder answered "nothing pending" while
+                // work waited.
+                return table(
+                        waiting(project, false),
+                        false,
+                        "nothing pending in any repository of '" + project.name() + "'",
+                        out);
             }
-            final GitGate gate = GateSupport.gate(context, project,
-                    GateSupport.repository(project, repository), upstream, null);
+            final GitGate gate =
+                    GateSupport.gate(
+                            context,
+                            project,
+                            GateSupport.repository(project, repository),
+                            upstream,
+                            null);
             gate.initialize();
 
             final String seededFrom = gate.seededFrom();
 
-            final java.util.Set<String> upstreamHas = GateSupport.alreadyUpstream(context, project,
-                    GateSupport.repository(project, repository));
+            final java.util.Set<String> upstreamHas =
+                    GateSupport.alreadyUpstream(
+                            context, project, GateSupport.repository(project, repository));
             final List<PendingPush> pending = gate.pendingDetail();
             if (pending.isEmpty()) {
                 out.println("nothing pending in " + gate.mirror());
-                out.println("seeded from " + (seededFrom == null ? "nothing - the mirror was created empty"
-                        : seededFrom));
+                out.println(
+                        "seeded from "
+                                + (seededFrom == null
+                                        ? "nothing - the mirror was created empty"
+                                        : seededFrom));
                 out.flush();
                 return 0;
             }
@@ -108,9 +135,15 @@ public class GatePendingCommand implements Callable<Integer>, PoreloFactory.Cont
             out.println("seeded    " + (seededFrom == null ? "nothing" : seededFrom));
             out.printf("%-20s %-10s %-10s %s%n", "NAME", "WAITING", "COMMIT", "SUBJECT");
             for (final PendingPush push : pending) {
-                out.printf("%-20s %-10s %-10s %s%s%s%n", push.name(), push.lagText(now),
-                        push.commit(), TalkReadCommand.shown(push.subject()),
-                        push.isStale(now, stale) ? "   <- waiting over " + staleAfterHours + "h" : "",
+                out.printf(
+                        "%-20s %-10s %-10s %s%s%s%n",
+                        push.name(),
+                        push.lagText(now),
+                        push.commit(),
+                        TalkReadCommand.shown(push.subject()),
+                        push.isStale(now, stale)
+                                ? "   <- waiting over " + staleAfterHours + "h"
+                                : "",
                         upstreamHas.contains(push.name()) ? ALREADY_UPSTREAM : "");
                 fetches.add(WaitingFetch.of(gate.mirror(), push.name()));
             }
@@ -130,7 +163,8 @@ public class GatePendingCommand implements Callable<Integer>, PoreloFactory.Cont
     }
 
     /**
-     * Returns what waits in every repository of a project that has a mirror, one row each, creating nothing.
+     * Returns what waits in every repository of a project that has a mirror, one row each, creating
+     * nothing.
      *
      * @param project The project.
      * @param named Whether each row starts with the project's name.
@@ -150,26 +184,41 @@ public class GatePendingCommand implements Callable<Integer>, PoreloFactory.Cont
                 // Never made: nothing can wait in it, and asking must not make it.
                 continue;
             }
-            final java.util.Set<String> upstreamHas = GateSupport.alreadyUpstream(context, project, each);
+            final java.util.Set<String> upstreamHas =
+                    GateSupport.alreadyUpstream(context, project, each);
             for (final PendingPush push : gate.pendingDetail()) {
                 fetches.add(WaitingFetch.of(gate.mirror(), push.name()));
-                rows.add((named ? String.format("%-20s ", project.name()) : "")
-                        + String.format("%-20s %-20s %-10s %-10s %s%s", name, push.name(), push.lagText(now),
-                                push.commit(), TalkReadCommand.shown(push.subject()), push.isStale(now, stale)
-                                        ? "   <- waiting over " + staleAfterHours + "h" : "")
-                        + (upstreamHas.contains(push.name()) ? ALREADY_UPSTREAM : ""));
+                rows.add(
+                        (named ? String.format("%-20s ", project.name()) : "")
+                                + String.format(
+                                        "%-20s %-20s %-10s %-10s %s%s",
+                                        name,
+                                        push.name(),
+                                        push.lagText(now),
+                                        push.commit(),
+                                        TalkReadCommand.shown(push.subject()),
+                                        push.isStale(now, stale)
+                                                ? "   <- waiting over " + staleAfterHours + "h"
+                                                : "")
+                                + (upstreamHas.contains(push.name()) ? ALREADY_UPSTREAM : ""));
             }
         }
         return rows;
     }
 
-    private int table(final java.util.List<String> rows, final boolean named, final String none,
+    private int table(
+            final java.util.List<String> rows,
+            final boolean named,
+            final String none,
             final PrintWriter out) {
         if (rows.isEmpty()) {
             out.println(none);
         } else {
-            out.println((named ? String.format("%-20s ", "PROJECT") : "")
-                    + String.format("%-20s %-20s %-10s %-10s %s", "REPOSITORY", "NAME", "WAITING", "COMMIT", "SUBJECT"));
+            out.println(
+                    (named ? String.format("%-20s ", "PROJECT") : "")
+                            + String.format(
+                                    "%-20s %-20s %-10s %-10s %s",
+                                    "REPOSITORY", "NAME", "WAITING", "COMMIT", "SUBJECT"));
             rows.forEach(out::println);
             fetchesTo(out);
         }

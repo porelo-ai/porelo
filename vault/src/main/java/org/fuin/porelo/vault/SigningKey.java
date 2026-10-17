@@ -7,9 +7,9 @@ import org.bouncycastle.crypto.signers.Ed25519Signer;
 
 /**
  * An Ed25519 key that signs on the host, and never leaves it.
- * <p>
- * The private half is held here, in the {@code porelo} process. What crosses into the container is
- * a socket, so the container can ask for a signature but cannot obtain the key that produces it.
+ *
+ * <p>The private half is held here, in the {@code porelo} process. What crosses into the container
+ * is a socket, so the container can ask for a signature but cannot obtain the key that produces it.
  * That distinction is the whole point of the vault: an agent that is compromised can use the key
  * while Porelo is running, and has nothing afterwards.
  */
@@ -29,8 +29,11 @@ public class SigningKey implements AgentKey {
      */
     public SigningKey(byte[] seed, String comment) {
         if (seed.length != Ed25519PrivateKeyParameters.KEY_SIZE) {
-            throw new VaultException("An Ed25519 seed is "
-                    + Ed25519PrivateKeyParameters.KEY_SIZE + " bytes, got " + seed.length);
+            throw new VaultException(
+                    "An Ed25519 seed is "
+                            + Ed25519PrivateKeyParameters.KEY_SIZE
+                            + " bytes, got "
+                            + seed.length);
         }
         this.privateKey = new Ed25519PrivateKeyParameters(seed, 0);
         this.publicKey = privateKey.generatePublicKey();
@@ -122,8 +125,8 @@ public class SigningKey implements AgentKey {
      */
     /**
      * Verifies a signature against a public key nobody here holds the private half of.
-     * <p>
-     * Static, because verifying is what a reader does with somebody else's key: a signature that
+     *
+     * <p>Static, because verifying is what a reader does with somebody else's key: a signature that
      * arrived carries the key it claims to be from, and the caller decides separately whether that
      * key is allowed to speak for that peer. Answering {@code false} rather than throwing is
      * deliberate - a malformed key or signature is not a different outcome from a wrong one.
@@ -136,8 +139,11 @@ public class SigningKey implements AgentKey {
     public static boolean verify(byte[] keyBlob, byte[] data, byte[] signatureBlob) {
         try {
             final java.nio.ByteBuffer key = java.nio.ByteBuffer.wrap(keyBlob);
-            if (!"ssh-ed25519".equals(new String(SshWire.readString(key),
-                    java.nio.charset.StandardCharsets.UTF_8))) {
+            if (!"ssh-ed25519"
+                    .equals(
+                            new String(
+                                    SshWire.readString(key),
+                                    java.nio.charset.StandardCharsets.UTF_8))) {
                 return false;
             }
             final byte[] material = SshWire.readString(key);
@@ -145,8 +151,11 @@ public class SigningKey implements AgentKey {
                 return false;
             }
             final java.nio.ByteBuffer signed = java.nio.ByteBuffer.wrap(signatureBlob);
-            if (!"ssh-ed25519".equals(new String(SshWire.readString(signed),
-                    java.nio.charset.StandardCharsets.UTF_8))) {
+            if (!"ssh-ed25519"
+                    .equals(
+                            new String(
+                                    SshWire.readString(signed),
+                                    java.nio.charset.StandardCharsets.UTF_8))) {
                 return false;
             }
             final byte[] signature = SshWire.readString(signed);

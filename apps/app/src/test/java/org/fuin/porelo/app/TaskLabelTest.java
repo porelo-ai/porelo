@@ -14,8 +14,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Tests for giving a task a caption.
- * <p>
- * What has to stay true is that the identity does not move: a caption is read in a list, and the
+ *
+ * <p>What has to stay true is that the identity does not move: a caption is read in a list, and the
  * name is what every method takes and what somebody types at the machine.
  */
 class TaskLabelTest {
@@ -23,19 +23,30 @@ class TaskLabelTest {
     private final FakeCommandRunner runner = new FakeCommandRunner();
 
     private PoreloContext context(Path dir) {
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
         return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
     }
 
     private Path task(Path dir, String container) throws IOException {
         final Path state = dir.resolve("run/porelo").resolve(container);
         Files.createDirectories(state);
-        new TaskProfile(TaskProfile.VERSION, "example", TaskMode.UNATTENDED, "fix the parser",
-                "porelo/work", "2026-09-08T06:00:00Z", "prompt").writeTo(state);
+        new TaskProfile(
+                        TaskProfile.VERSION,
+                        "example",
+                        TaskMode.UNATTENDED,
+                        "fix the parser",
+                        "porelo/work",
+                        "2026-09-08T06:00:00Z",
+                        "prompt")
+                .writeTo(state);
         return state;
     }
 
@@ -54,25 +65,64 @@ class TaskLabelTest {
     }
 
     @Test
-    void recordsWhichProviderATaskWasBrokeredToAndKeepsItThroughALabel(@TempDir Path dir) throws IOException {
+    void recordsWhichProviderATaskWasBrokeredToAndKeepsItThroughALabel(@TempDir Path dir)
+            throws IOException {
 
-        // Asked after the task: which service its prompts went to. Settled once at start and nowhere else.
+        // Asked after the task: which service its prompts went to. Settled once at start and
+        // nowhere else.
         final Path state = dir.resolve("run/porelo/porelo-uc-shell-2");
         Files.createDirectories(state);
-        new TaskProfile(TaskProfile.VERSION, "example", TaskMode.UNATTENDED, "fix the parser", "porelo/work",
-                "2026-10-01T06:00:00Z", "prompt", null, "github-copilot").writeTo(state);
+        new TaskProfile(
+                        TaskProfile.VERSION,
+                        "example",
+                        TaskMode.UNATTENDED,
+                        "fix the parser",
+                        "porelo/work",
+                        "2026-10-01T06:00:00Z",
+                        "prompt",
+                        null,
+                        "github-copilot")
+                .writeTo(state);
 
         new TaskControl(context(dir)).label("porelo-uc-shell-2", "copilot");
 
         assertThat(TaskProfile.readFrom(state).provider()).isEqualTo("github-copilot");
-        assertThat(new TaskInventory.Task("porelo-uc-shell-2", "uc", null, "Up", true, 0, "example", "AGENT", null,
-                null, "now", TaskInventory.Activity.WORKING, null, null, null, 0, "RUNNING", "", null, null,
-                AgentWaiting.Derived.NOTHING, java.util.Map.of(), java.util.Map.of(), "github-copilot", null,
-                HandIns.Summary.none(), TaskBuilds.View.none()).asMap())
+        assertThat(
+                        new TaskInventory.Task(
+                                        "porelo-uc-shell-2",
+                                        "uc",
+                                        null,
+                                        "Up",
+                                        true,
+                                        0,
+                                        "example",
+                                        "AGENT",
+                                        null,
+                                        null,
+                                        "now",
+                                        TaskInventory.Activity.WORKING,
+                                        null,
+                                        null,
+                                        null,
+                                        0,
+                                        "RUNNING",
+                                        "",
+                                        null,
+                                        null,
+                                        AgentWaiting.Derived.NOTHING,
+                                        java.util.Map.of(),
+                                        java.util.Map.of(),
+                                        "github-copilot",
+                                        null,
+                                        HandIns.Summary.none(),
+                                        TaskBuilds.View.none())
+                                .asMap())
                 .containsEntry("provider", "github-copilot");
         // A profile from before the provider was recorded reads as brokered to none.
-        Files.writeString(state.resolve(TaskProfile.FILE), "{\"version\":3,\"agent\":\"example\",\"mode\":\"shell\","
-                + "\"startedAt\":\"2026-09-01T06:00:00Z\"}");
+        Files.writeString(
+                state.resolve(TaskProfile.FILE),
+                "{\"version\":3,\"agent\":\"example\",\"mode\":\"shell\","
+                        + "\"startedAt\":\"2026-09-01T06:00:00Z\"}");
         assertThat(TaskProfile.readFrom(state).provider()).isNull();
     }
 
@@ -141,12 +191,16 @@ class TaskLabelTest {
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
         new TaskControl(context).label("porelo-uc-shell-1", "schema migration");
 
-        assertThat(new TaskInventory(context).tasks()).singleElement()
-                .satisfies(t -> {
-                    assertThat(t.label()).isEqualTo("schema migration");
-                    assertThat(t.name()).as("the name is untouched").isEqualTo("porelo-uc-shell-1");
-                    assertThat(t.asMap()).containsEntry("label", "schema migration");
-                });
+        assertThat(new TaskInventory(context).tasks())
+                .singleElement()
+                .satisfies(
+                        t -> {
+                            assertThat(t.label()).isEqualTo("schema migration");
+                            assertThat(t.name())
+                                    .as("the name is untouched")
+                                    .isEqualTo("porelo-uc-shell-1");
+                            assertThat(t.asMap()).containsEntry("label", "schema migration");
+                        });
     }
 
     @Test
@@ -158,7 +212,8 @@ class TaskLabelTest {
         task(dir, "porelo-uc-shell-1");
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
 
-        assertThat(new TaskInventory(context).tasks()).singleElement()
+        assertThat(new TaskInventory(context).tasks())
+                .singleElement()
                 .satisfies(t -> assertThat(t.asMap()).containsEntry("label", ""));
     }
 
@@ -171,16 +226,30 @@ class TaskLabelTest {
         final PoreloContext context = context(dir);
         final Path state = dir.resolve("run/porelo/porelo-uc-shell-1");
         Files.createDirectories(state);
-        new org.fuin.porelo.wire.Sidecar(org.fuin.porelo.wire.Sidecar.VERSION, "uc", "guarded",
-                state.resolve("r.nft").toString(), state.resolve("dns.conf").toString(),
-                "/usr/bin/porelo", state.toString()).writeTo(state.resolve("sidecar.json"));
-        new TaskProfile(TaskProfile.VERSION, "example", TaskMode.SHELL, null,
-                "refs/porelo/incoming/shell", "2026-09-08T06:00:00Z", "prompt").writeTo(state);
+        new org.fuin.porelo.wire.Sidecar(
+                        org.fuin.porelo.wire.Sidecar.VERSION,
+                        "uc",
+                        "guarded",
+                        state.resolve("r.nft").toString(),
+                        state.resolve("dns.conf").toString(),
+                        "/usr/bin/porelo",
+                        state.toString())
+                .writeTo(state.resolve("sidecar.json"));
+        new TaskProfile(
+                        TaskProfile.VERSION,
+                        "example",
+                        TaskMode.SHELL,
+                        null,
+                        "refs/porelo/incoming/shell",
+                        "2026-09-08T06:00:00Z",
+                        "prompt")
+                .writeTo(state);
         Files.createDirectories(dir.resolve("data/porelo/mirrors/uc.git"));
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
         runner.answering("for-each-ref", "refs/porelo/incoming/shell\n");
 
-        assertThat(new TaskInventory(context).tasks()).singleElement()
+        assertThat(new TaskInventory(context).tasks())
+                .singleElement()
                 .satisfies(t -> assertThat(t.asMap()).containsEntry("waiting", 1));
     }
 
@@ -190,16 +259,30 @@ class TaskLabelTest {
         final PoreloContext context = context(dir);
         final Path state = dir.resolve("run/porelo/porelo-uc-shell-1");
         Files.createDirectories(state);
-        new org.fuin.porelo.wire.Sidecar(org.fuin.porelo.wire.Sidecar.VERSION, "uc", "guarded",
-                state.resolve("r.nft").toString(), state.resolve("dns.conf").toString(),
-                "/usr/bin/porelo", state.toString()).writeTo(state.resolve("sidecar.json"));
-        new TaskProfile(TaskProfile.VERSION, "example", TaskMode.SHELL, null,
-                "refs/porelo/incoming/shell", "2026-09-08T06:00:00Z", "prompt").writeTo(state);
+        new org.fuin.porelo.wire.Sidecar(
+                        org.fuin.porelo.wire.Sidecar.VERSION,
+                        "uc",
+                        "guarded",
+                        state.resolve("r.nft").toString(),
+                        state.resolve("dns.conf").toString(),
+                        "/usr/bin/porelo",
+                        state.toString())
+                .writeTo(state.resolve("sidecar.json"));
+        new TaskProfile(
+                        TaskProfile.VERSION,
+                        "example",
+                        TaskMode.SHELL,
+                        null,
+                        "refs/porelo/incoming/shell",
+                        "2026-09-08T06:00:00Z",
+                        "prompt")
+                .writeTo(state);
         Files.createDirectories(dir.resolve("data/porelo/mirrors/uc.git"));
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
         runner.answering("for-each-ref", "refs/porelo/incoming/somebody-else\n");
 
-        assertThat(new TaskInventory(context).tasks()).singleElement()
+        assertThat(new TaskInventory(context).tasks())
+                .singleElement()
                 .satisfies(t -> assertThat(t.asMap()).containsEntry("waiting", 0));
     }
 
@@ -212,16 +295,30 @@ class TaskLabelTest {
         final PoreloContext context = context(dir);
         final Path state = dir.resolve("run/porelo/porelo-uc-shell-1");
         Files.createDirectories(state);
-        new org.fuin.porelo.wire.Sidecar(org.fuin.porelo.wire.Sidecar.VERSION, "uc", "online",
-                state.resolve("r.nft").toString(), state.resolve("dns.conf").toString(),
-                "/usr/bin/porelo", state.toString()).writeTo(state.resolve("sidecar.json"));
-        new TaskProfile(TaskProfile.VERSION, "example", TaskMode.SHELL, null,
-                "refs/heads/shell", "2026-09-08T06:00:00Z", "prompt").writeTo(state);
+        new org.fuin.porelo.wire.Sidecar(
+                        org.fuin.porelo.wire.Sidecar.VERSION,
+                        "uc",
+                        "online",
+                        state.resolve("r.nft").toString(),
+                        state.resolve("dns.conf").toString(),
+                        "/usr/bin/porelo",
+                        state.toString())
+                .writeTo(state.resolve("sidecar.json"));
+        new TaskProfile(
+                        TaskProfile.VERSION,
+                        "example",
+                        TaskMode.SHELL,
+                        null,
+                        "refs/heads/shell",
+                        "2026-09-08T06:00:00Z",
+                        "prompt")
+                .writeTo(state);
         Files.createDirectories(dir.resolve("data/porelo/mirrors/uc.git"));
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
         runner.answering("for-each-ref", "refs/porelo/incoming/shell\n");
 
-        assertThat(new TaskInventory(context).tasks()).singleElement()
+        assertThat(new TaskInventory(context).tasks())
+                .singleElement()
                 .satisfies(t -> assertThat(t.asMap()).containsEntry("waiting", 0));
     }
 
@@ -231,20 +328,34 @@ class TaskLabelTest {
         // A listing is read on every change. A git call per task would make it cost what a
         // listing must not - the same reason 'prepared' asks podman once for the whole list.
         final PoreloContext context = context(dir);
-        for (final String container : java.util.List.of("porelo-uc-a-1", "porelo-uc-b-2",
-                "porelo-uc-c-3")) {
+        for (final String container :
+                java.util.List.of("porelo-uc-a-1", "porelo-uc-b-2", "porelo-uc-c-3")) {
             final Path state = dir.resolve("run/porelo").resolve(container);
             Files.createDirectories(state);
-            new org.fuin.porelo.wire.Sidecar(org.fuin.porelo.wire.Sidecar.VERSION, "uc", "guarded",
-                    state.resolve("r.nft").toString(), state.resolve("dns.conf").toString(),
-                    "/usr/bin/porelo", state.toString()).writeTo(state.resolve("sidecar.json"));
-            new TaskProfile(TaskProfile.VERSION, "example", TaskMode.SHELL, null,
-                    "refs/porelo/incoming/" + container, "2026-09-08T06:00:00Z", "prompt")
+            new org.fuin.porelo.wire.Sidecar(
+                            org.fuin.porelo.wire.Sidecar.VERSION,
+                            "uc",
+                            "guarded",
+                            state.resolve("r.nft").toString(),
+                            state.resolve("dns.conf").toString(),
+                            "/usr/bin/porelo",
+                            state.toString())
+                    .writeTo(state.resolve("sidecar.json"));
+            new TaskProfile(
+                            TaskProfile.VERSION,
+                            "example",
+                            TaskMode.SHELL,
+                            null,
+                            "refs/porelo/incoming/" + container,
+                            "2026-09-08T06:00:00Z",
+                            "prompt")
                     .writeTo(state);
         }
         Files.createDirectories(dir.resolve("data/porelo/mirrors/uc.git"));
-        runner.answering("ps", "porelo-uc-a-1\tUp 4 minutes\n"
-                + "porelo-uc-b-2\tUp 4 minutes\nporelo-uc-c-3\tUp 4 minutes\n");
+        runner.answering(
+                "ps",
+                "porelo-uc-a-1\tUp 4 minutes\n"
+                        + "porelo-uc-b-2\tUp 4 minutes\nporelo-uc-c-3\tUp 4 minutes\n");
         runner.answering("for-each-ref", "refs/porelo/incoming/porelo-uc-a-1\n");
 
         assertThat(new TaskInventory(context).tasks()).hasSize(3);

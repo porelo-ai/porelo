@@ -14,13 +14,13 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * What a task started on the host, recorded so the task can be resumed.
- * <p>
- * The credential proxy, the git gate and the clearance watcher are host processes, not part of the
- * container. Restarting the container alone gives back the workspace and nothing that makes it
+ *
+ * <p>The credential proxy, the git gate and the clearance watcher are host processes, not part of
+ * the container. Restarting the container alone gives back the workspace and nothing that makes it
  * usable, so what each was started with is written down while it is known - a resumed task cannot
  * reconstruct a gate port or an upstream from the container.
- * <p>
- * <strong>Owner-only.</strong> The gate's per-task token is in here, which is why this file is
+ *
+ * <p><strong>Owner-only.</strong> The gate's per-task token is in here, which is why this file is
  * written with the same permissions as the token file beside it.
  */
 record TaskHelpers(List<Helper> helpers) {
@@ -45,9 +45,8 @@ record TaskHelpers(List<Helper> helpers) {
      * @param environment Extra variables it needs, which may include a secret.
      * @param phase {@link #BEFORE} or {@link #AFTER}, relative to starting the container.
      */
-    record Helper(String name, List<String> command, Map<String, String> environment,
-            String phase) {
-    }
+    record Helper(
+            String name, List<String> command, Map<String, String> environment, String phase) {}
 
     /**
      * Writes the record into a task's state directory.
@@ -96,9 +95,12 @@ record TaskHelpers(List<Helper> helpers) {
             if (document.get("helpers") instanceof List<?> entries) {
                 for (final Object entry : entries) {
                     if (entry instanceof Map<?, ?> map) {
-                        found.add(new Helper(String.valueOf(map.get("name")),
-                                strings(map.get("command")), variables(map.get("environment")),
-                                AFTER.equals(map.get("phase")) ? AFTER : BEFORE));
+                        found.add(
+                                new Helper(
+                                        String.valueOf(map.get("name")),
+                                        strings(map.get("command")),
+                                        variables(map.get("environment")),
+                                        AFTER.equals(map.get("phase")) ? AFTER : BEFORE));
                     }
                 }
             }

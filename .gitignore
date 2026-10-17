@@ -14,3 +14,5 @@ target
 
 # Python bytecode from the CI provisioning scripts
 __pycache__/
+!.editorconfig
+!.git-blame-ignore-revs

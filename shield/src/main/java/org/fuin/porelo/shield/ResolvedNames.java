@@ -9,8 +9,8 @@ import java.util.Optional;
 
 /**
  * What name the container was given for an address.
- * <p>
- * A blocked connection carries an address and nothing else, so an operator is asked to judge a
+ *
+ * <p>A blocked connection carries an address and nothing else, so an operator is asked to judge a
  * bare number. The resolver logged what it answered, which is the only place that number can be
  * turned back into the name the agent actually asked for.
  */

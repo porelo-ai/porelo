@@ -9,30 +9,29 @@ import org.fuin.porelo.agent.api.Credential;
 import org.fuin.porelo.agent.api.InstalledAgent;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.SecurityClass;
-import org.fuin.porelo.vault.VaultEntry;
 import org.jspecify.annotations.Nullable;
 
 /**
  * Runs an agent's own login, in a throwaway container, and puts what it produces in the vault.
- * <p>
- * <strong>Why this has to exist.</strong> An agent's tooling is installed into the task image, not
- * onto the node - {@code porelo-agent-claude} puts an agent definition in {@code /usr/libexec} and
- * nothing else. So on a machine that has never had that agent installed by hand there is no binary
- * to log in with, and {@code porelo vault put <provider> --type oauth} asks for a value with no
- * source. That was reported by somebody following the getting-started guide on a clean machine.
- * <p>
- * <strong>Why a container rather than the node.</strong> The image already contains the agent,
+ *
+ * <p><strong>Why this has to exist.</strong> An agent's tooling is installed into the task image,
+ * not onto the node - {@code porelo-agent-claude} puts an agent definition in {@code /usr/libexec}
+ * and nothing else. So on a machine that has never had that agent installed by hand there is no
+ * binary to log in with, and {@code porelo vault put <provider> --type oauth} asks for a value with
+ * no source. That was reported by somebody following the getting-started guide on a clean machine.
+ *
+ * <p><strong>Why a container rather than the node.</strong> The image already contains the agent,
  * because Porelo built it. Installing the agent on the node as well would mean two copies that can
  * differ, and the one somebody logs in with would not be the one that runs.
- * <p>
- * <strong>This is not a task container, and the difference matters.</strong> It carries no Porelo
- * annotation, so none of the hooks fire: no egress ruleset, no resolver, no clearance watcher, no
- * broker socket and no vault. It has ordinary network access for the seconds a login takes, and is
- * removed afterwards. A task container is the opposite in every one of those respects - the
- * provider's own host is denied there precisely so an agent must go through the broker.
- * <p>
- * <strong>Porelo does not know how any agent logs in.</strong> The verb comes from the agent's own
- * manifest, and an agent that declares none is answered as unsupported rather than guessed at.
+ *
+ * <p><strong>This is not a task container, and the difference matters.</strong> It carries no
+ * Porelo annotation, so none of the hooks fire: no egress ruleset, no resolver, no clearance
+ * watcher, no broker socket and no vault. It has ordinary network access for the seconds a login
+ * takes, and is removed afterwards. A task container is the opposite in every one of those respects
+ * - the provider's own host is denied there precisely so an agent must go through the broker.
+ *
+ * <p><strong>Porelo does not know how any agent logs in.</strong> The verb comes from the agent's
+ * own manifest, and an agent that declares none is answered as unsupported rather than guessed at.
  * Hardcoding one agent's verb would be wrong for every other, which is the same mistake as
  * hardcoding the name of an instructions file.
  */
@@ -43,8 +42,8 @@ public final class AgentLogin {
 
     /**
      * Home of the user an agent runs as inside the image.
-     * <p>
-     * The Containerfile creates {@code agent} with a home, and every agent's tooling installs
+     *
+     * <p>The Containerfile creates {@code agent} with a home, and every agent's tooling installs
      * under it. A path a manifest writes with {@code ~} means this one, not the node's.
      */
     static final String AGENT_HOME = "/home/agent";
@@ -90,10 +89,10 @@ public final class AgentLogin {
      * @param name The vault key it was stored under, or "".
      * @param type The kind of credential, or "".
      * @param length How many characters arrived, so a caller can show that it worked without
-     *        showing what worked. Zero when nothing was stored.
+     *     showing what worked. Zero when nothing was stored.
      * @param detail Why it failed, or "".
      */
-    public record Result(Outcome outcome, String name, String type, int length, String detail) { }
+    public record Result(Outcome outcome, String name, String type, int length, String detail) {}
 
     private AgentLogin() {
         throw new UnsupportedOperationException("Utility class");
@@ -105,16 +104,20 @@ public final class AgentLogin {
 
     /**
      * The project a login image is built from.
-     * <p>
-     * Not a real project and never registered as one: it exists so the image builder has something
-     * to build from. Offline, because nothing about this image is a task and no egress set applies
-     * to it - the container it produces is run without any of Porelo's networking.
+     *
+     * <p>Not a real project and never registered as one: it exists so the image builder has
+     * something to build from. Offline, because nothing about this image is a task and no egress
+     * set applies to it - the container it produces is run without any of Porelo's networking.
      *
      * @return A project describing the login image.
      */
     static Project loginProject() {
-        return new Project("porelo-login", "Throwaway image for an agent login",
-                SecurityClass.OFFLINE, LOGIN_BASE_IMAGE, null);
+        return new Project(
+                "porelo-login",
+                "Throwaway image for an agent login",
+                SecurityClass.OFFLINE,
+                LOGIN_BASE_IMAGE,
+                null);
     }
 
     /**
@@ -126,8 +129,12 @@ public final class AgentLogin {
      * @param out Where progress goes.
      * @return What happened.
      */
-    public static Result login(PoreloContext context, @Nullable String agentName, boolean dryRun,
-            boolean force, PrintWriter out) {
+    public static Result login(
+            PoreloContext context,
+            @Nullable String agentName,
+            boolean dryRun,
+            boolean force,
+            PrintWriter out) {
 
         // First, and before anything expensive. A login container is never reused - the name
         // carries the millisecond it was made - so one still on the machine is litter, and the
@@ -137,12 +144,15 @@ public final class AgentLogin {
 
         try (var agents = context.agents()) {
 
-            final java.util.Optional<InstalledAgent> found = agentName != null
-                    ? agents.find(agentName)
-                    : agents.names().size() == 1 ? agents.find(agents.names().getFirst())
-                            : java.util.Optional.empty();
+            final java.util.Optional<InstalledAgent> found =
+                    agentName != null
+                            ? agents.find(agentName)
+                            : agents.names().size() == 1
+                                    ? agents.find(agents.names().getFirst())
+                                    : java.util.Optional.empty();
             if (found.isEmpty()) {
-                return failed(Outcome.NO_SUCH_AGENT,
+                return failed(
+                        Outcome.NO_SUCH_AGENT,
                         "no such agent; installed: " + String.join(", ", agents.names()));
             }
             final InstalledAgent agent = found.get();
@@ -151,15 +161,23 @@ public final class AgentLogin {
             // Null, not empty: an agent whose login is "just run me" declares the section with no
             // arguments, and treating that as "cannot log in" would refuse the commonest shape.
             if (loginArguments == null) {
-                return failed(Outcome.UNSUPPORTED, "'" + agent.name() + "' does not say how to log"
-                        + " in, so there is nothing to run. Store its credential with"
-                        + " 'porelo vault put', or import one it already holds");
+                return failed(
+                        Outcome.UNSUPPORTED,
+                        "'"
+                                + agent.name()
+                                + "' does not say how to log"
+                                + " in, so there is nothing to run. Store its credential with"
+                                + " 'porelo vault put', or import one it already holds");
             }
             final String configDirectory = agent.definition().configDirectory();
             if (configDirectory == null) {
-                return failed(Outcome.NO_CONFIG_DIRECTORY, "'" + agent.name() + "' does not say"
-                        + " where it keeps its credentials, so nothing could be collected"
-                        + " afterwards");
+                return failed(
+                        Outcome.NO_CONFIG_DIRECTORY,
+                        "'"
+                                + agent.name()
+                                + "' does not say"
+                                + " where it keeps its credentials, so nothing could be collected"
+                                + " afterwards");
             }
 
             // Checked before anything is built: a second authorization is not free. Porelo does
@@ -171,11 +189,17 @@ public final class AgentLogin {
                 final Path onThisNode = VaultImportCommand.expand(configDirectory);
                 if (Files.isDirectory(onThisNode)
                         && agent.extractCredential(onThisNode).isPresent()) {
-                    return failed(Outcome.ALREADY_SIGNED_IN, "'" + agent.name() + "' is already"
-                            + " signed in on this machine. Copy what it has with 'porelo vault"
-                            + " import " + agent.name() + "', which logs in nowhere - or pass"
-                            + " --force to authorize again, which may or may not invalidate the"
-                            + " credential already here");
+                    return failed(
+                            Outcome.ALREADY_SIGNED_IN,
+                            "'"
+                                    + agent.name()
+                                    + "' is already"
+                                    + " signed in on this machine. Copy what it has with 'porelo vault"
+                                    + " import "
+                                    + agent.name()
+                                    + "', which logs in nowhere - or pass"
+                                    + " --force to authorize again, which may or may not invalidate the"
+                                    + " credential already here");
                 }
             }
 
@@ -183,8 +207,9 @@ public final class AgentLogin {
             command.addAll(loginArguments);
             out.println("agent     " + agent.name());
             out.println("runs      " + String.join(" ", command));
-            out.println("where     a throwaway container with ordinary network access - no egress"
-                    + " ruleset, no broker, no vault");
+            out.println(
+                    "where     a throwaway container with ordinary network access - no egress"
+                            + " ruleset, no broker, no vault");
             if (dryRun) {
                 out.println("previewed nothing was built or run");
                 out.flush();
@@ -192,12 +217,16 @@ public final class AgentLogin {
             }
             out.flush();
 
-            // Asked before the login, never after it: a person who signed in and was then told the vault is locked had to
-            // sign in again. Without a terminal nothing is asked, and the end of the login refuses as before.
+            // Asked before the login, never after it: a person who signed in and was then told the
+            // vault is locked had to
+            // sign in again. Without a terminal nothing is asked, and the end of the login refuses
+            // as before.
             context.openIfShut(true, false, out);
             if (context.vault().exists() && context.opener().isEmpty()) {
-                return failed(Outcome.VAULT_LOCKED, "the vault is locked, so nothing was run: what the login produced"
-                        + " could not be stored - 'porelo vault unlock' and run this again");
+                return failed(
+                        Outcome.VAULT_LOCKED,
+                        "the vault is locked, so nothing was run: what the login produced"
+                                + " could not be stored - 'porelo vault unlock' and run this again");
             }
 
             return run(context, agent, command, configDirectory, out);
@@ -207,16 +236,23 @@ public final class AgentLogin {
         }
     }
 
-    private static Result run(PoreloContext context, InstalledAgent agent, List<String> command,
-            String configDirectory, PrintWriter out) {
+    private static Result run(
+            PoreloContext context,
+            InstalledAgent agent,
+            List<String> command,
+            String configDirectory,
+            PrintWriter out) {
 
         final org.fuin.porelo.runtime.Podman podman = context.podman();
         final Project project = loginProject();
 
         org.fuin.porelo.runtime.ImageLayers layers = org.fuin.porelo.runtime.ImageLayers.none();
         layers = layers.and(browserShim(), java.util.List.of());
-        layers = layers.and(agent.definition().installAsRoot(),
-                org.fuin.porelo.agent.api.InstallScript.render(agent.definition().artifacts()));
+        layers =
+                layers.and(
+                        agent.definition().installAsRoot(),
+                        org.fuin.porelo.agent.api.InstallScript.render(
+                                agent.definition().artifacts()));
         layers = layers.and(java.util.List.of(), agent.definition().installAsAgent());
 
         out.println("building  the login image - minutes the first time, seconds afterwards");
@@ -227,11 +263,17 @@ public final class AgentLogin {
             // On this terminal rather than through the runner, which collects the output and
             // hands it over at the end. A build says a great deal while it works and none of it
             // reached anybody: one line, then silence long enough to look like a hang.
-            final int built = context.exec().applyAsInt(podman.buildArguments(project,
-                    context.paths().tasks().buildContext("porelo-login"), layers,
-                    org.fuin.porelo.runtime.Podman.Rebuild.CACHED));
+            final int built =
+                    context.exec()
+                            .applyAsInt(
+                                    podman.buildArguments(
+                                            project,
+                                            context.paths().tasks().buildContext("porelo-login"),
+                                            layers,
+                                            org.fuin.porelo.runtime.Podman.Rebuild.CACHED));
             if (built != 0) {
-                return failed(Outcome.FAILED,
+                return failed(
+                        Outcome.FAILED,
                         "the login image could not be built - podman exited with " + built);
             }
         } catch (RuntimeException ex) {
@@ -243,7 +285,8 @@ public final class AgentLogin {
         Path collected = null;
         Path watched = null;
         Thread watcher = null;
-        final java.util.concurrent.atomic.AtomicBoolean ended = new java.util.concurrent.atomic.AtomicBoolean();
+        final java.util.concurrent.atomic.AtomicBoolean ended =
+                new java.util.concurrent.atomic.AtomicBoolean();
         // The finally below covers every ending except the usual one: a login somebody gives up
         // on is a Ctrl-C, and the signal reaches this process before the finally does. Reported
         // as containers left behind after an abandoned login.
@@ -251,27 +294,43 @@ public final class AgentLogin {
             // The node's own network, so a login that redirects to a port on localhost reaches
             // something. That is more access than a task ever gets, and it is why this container
             // is removed rather than kept: it exists for the seconds a login takes.
-            final List<String> arguments = new ArrayList<>(List.of("run", "--interactive", "--tty",
-                    "--network", "host", "--name", container, image));
+            final List<String> arguments =
+                    new ArrayList<>(
+                            List.of(
+                                    "run",
+                                    "--interactive",
+                                    "--tty",
+                                    "--network",
+                                    "host",
+                                    "--name",
+                                    container,
+                                    image));
             arguments.addAll(command);
             out.println();
-            out.println("What follows is " + agent.name() + "'s own login, not Porelo's - it will"
-                    + " ask you things, and Porelo takes over again when it exits.");
+            out.println(
+                    "What follows is "
+                            + agent.name()
+                            + "'s own login, not Porelo's - it will"
+                            + " ask you things, and Porelo takes over again when it exits.");
             out.println();
             out.println("Two things about doing it in here:");
             out.println();
-            out.println("  * There is no browser in this container. Anything the agent tries to"
-                    + " open prints the URL instead, marked with '=== Open this ... ==='. Open it"
-                    + " on whatever machine you are sitting at.");
-            out.println("  * Nothing is stored unless the login finishes. Ctrl-C or leaving the"
-                    + " agent aborts it, and the container is removed either way.");
-            out.println("  * If that machine is not this one, a redirect back to 'localhost' will"
-                    + " not reach you. Open a second terminal and forward the port the URL names:");
+            out.println(
+                    "  * There is no browser in this container. Anything the agent tries to"
+                            + " open prints the URL instead, marked with '=== Open this ... ==='. Open it"
+                            + " on whatever machine you are sitting at.");
+            out.println(
+                    "  * Nothing is stored unless the login finishes. Ctrl-C or leaving the"
+                            + " agent aborts it, and the container is removed either way.");
+            out.println(
+                    "  * If that machine is not this one, a redirect back to 'localhost' will"
+                            + " not reach you. Open a second terminal and forward the port the URL names:");
             out.println();
             out.println("        ssh -L <port>:localhost:<port> " + hostname());
             out.println();
-            out.println("    The container shares this machine's network, so the callback lands"
-                    + " here and the forward carries it to your browser.");
+            out.println(
+                    "    The container shares this machine's network, so the callback lands"
+                            + " here and the forward carries it to your browser.");
             out.println();
             out.flush();
             // WATCHED WHILE IT RUNS, not collected after it stops. The token is written the
@@ -284,13 +343,28 @@ public final class AgentLogin {
                     new java.util.concurrent.atomic.AtomicReference<>();
             watched = Files.createTempDirectory("porelo-login-watch");
             final Path into = watched;
-            watcher = Thread.ofVirtual().start(() -> watchFor(
-                    context, podman, agent, container, configDirectory, into, early, ended, out));
+            watcher =
+                    Thread.ofVirtual()
+                            .start(
+                                    () ->
+                                            watchFor(
+                                                    context,
+                                                    podman,
+                                                    agent,
+                                                    container,
+                                                    configDirectory,
+                                                    into,
+                                                    early,
+                                                    ended,
+                                                    out));
 
             final int code = context.exec().applyAsInt(podman.arguments(arguments));
-            // Let the watch finish before looking ourselves: a watch still asking the agent for the credential while
-            // this asks it too made the second call fail now and then ("Call to ... ExtractCredential failed", the
-            // suite, 2026-10-04), and a watch that found it a moment late is a login stored all the same.
+            // Let the watch finish before looking ourselves: a watch still asking the agent for the
+            // credential while
+            // this asks it too made the second call fail now and then ("Call to ...
+            // ExtractCredential failed", the
+            // suite, 2026-10-04), and a watch that found it a moment late is a login stored all the
+            // same.
             ended.set(true);
             settle(watcher);
 
@@ -307,11 +381,14 @@ public final class AgentLogin {
             // import' uses rather than by something written twice.
             final java.util.Optional<Credential> credential;
             if (early.get() != null) {
-                // Ended by the watcher the moment the login wrote it: the container is gone, and what it held is
-                // what was found. Whatever the agent's full-screen view left on the terminal goes with it.
+                // Ended by the watcher the moment the login wrote it: the container is gone, and
+                // what it held is
+                // what was found. Whatever the agent's full-screen view left on the terminal goes
+                // with it.
                 credential = java.util.Optional.of(early.get());
-                out.print("\033[?1049l\033[?25h\033[0m\033[r\033[?7h\033[?1000l\033[?1002l\033[?1003l\033[?1006l"
-                        + "\033[H\033[2J");
+                out.print(
+                        "\033[?1049l\033[?25h\033[0m\033[r\033[?7h\033[?1000l\033[?1002l\033[?1003l\033[?1006l"
+                                + "\033[H\033[2J");
                 out.flush();
             } else {
                 podman.copyOut(container, contentsOf(configDirectory), collected);
@@ -321,18 +398,30 @@ public final class AgentLogin {
                 // BOTH paths: what the agent declares and where that actually was looked for.
                 // "no credential in ~/.claude" reads as though this machine's home was searched,
                 // and an hour went into asking which of the two it meant.
-                final String where = configDirectory + " (" + inContainer(configDirectory)
-                        + " in the container)";
-                return failed(Outcome.NOTHING_TO_COLLECT, code == 0
-                        ? "the login left no credential in " + where
-                                + " - it may have been cancelled"
-                        : "the login exited with " + code + " and left no credential in " + where
-                                + " - it was cancelled or did not finish");
+                final String where =
+                        configDirectory
+                                + " ("
+                                + inContainer(configDirectory)
+                                + " in the container)";
+                return failed(
+                        Outcome.NOTHING_TO_COLLECT,
+                        code == 0
+                                ? "the login left no credential in "
+                                        + where
+                                        + " - it may have been cancelled"
+                                : "the login exited with "
+                                        + code
+                                        + " and left no credential in "
+                                        + where
+                                        + " - it was cancelled or did not finish");
             }
             if (code != 0 && early.get() == null) {
                 // Worth saying, and not worth refusing over: the credential is there.
-                out.println("note      the agent exited with " + code + " - its own session,"
-                        + " not the login, and the credential was written before that");
+                out.println(
+                        "note      the agent exited with "
+                                + code
+                                + " - its own session,"
+                                + " not the login, and the credential was written before that");
             }
             final Credential value = credential.get();
 
@@ -344,13 +433,18 @@ public final class AgentLogin {
             // only then a prompt. Storing a credential needs the vault open, not the passphrase.
             java.util.Optional<org.fuin.porelo.vault.VaultFile.Opener> way = context.opener();
             if (way.isEmpty()) {
-                way = new org.fuin.porelo.vault.PassphraseTiers(
-                        new org.fuin.porelo.vault.ConsolePassphrase("Vault passphrase: "))
-                        .passphrase().map(org.fuin.porelo.vault.VaultFile.Opener::passphrase);
+                way =
+                        new org.fuin.porelo.vault.PassphraseTiers(
+                                        new org.fuin.porelo.vault.ConsolePassphrase(
+                                                "Vault passphrase: "))
+                                .passphrase()
+                                .map(org.fuin.porelo.vault.VaultFile.Opener::passphrase);
             }
             if (way.isEmpty()) {
-                return failed(Outcome.VAULT_LOCKED, "logged in, but the vault is locked and"
-                        + " nothing could ask for a passphrase - unlock it and run this again");
+                return failed(
+                        Outcome.VAULT_LOCKED,
+                        "logged in, but the vault is locked and"
+                                + " nothing could ask for a passphrase - unlock it and run this again");
             }
             store(context, agent, value, way.get());
             return new Result(Outcome.STORED, key, value.type(), value.secret().length(), "");
@@ -363,9 +457,12 @@ public final class AgentLogin {
                 deleteTree(collected);
             }
             if (watched != null) {
-                // So was every copy the watch made: the agent's whole config directory, its credential
-                // among them. Left in /tmp, one directory per login stayed behind with it (found on the
-                // test machine, 2026-10-04). The watch is let finish first, so it copies nothing in after.
+                // So was every copy the watch made: the agent's whole config directory, its
+                // credential
+                // among them. Left in /tmp, one directory per login stayed behind with it (found on
+                // the
+                // test machine, 2026-10-04). The watch is let finish first, so it copies nothing in
+                // after.
                 ended.set(true);
                 if (watcher != null) {
                     settle(watcher);
@@ -377,19 +474,22 @@ public final class AgentLogin {
 
     /**
      * Removes login containers an earlier run left behind.
-     * <p>
-     * Reported from a machine carrying one thirteen hours old: it had outlived an interrupted
+     *
+     * <p>Reported from a machine carrying one thirteen hours old: it had outlived an interrupted
      * login from before the teardown existed. Sweeping here rather than only tearing down at the
-     * end covers what a teardown structurally cannot - a {@code SIGKILL}, a power cut, or a
-     * version that had no teardown at all.
+     * end covers what a teardown structurally cannot - a {@code SIGKILL}, a power cut, or a version
+     * that had no teardown at all.
      *
      * @param podman The runtime.
      * @param out Where a removal is reported.
      */
-    private static void sweepLeftoverLogins(org.fuin.porelo.runtime.Podman podman, PrintWriter out) {
+    private static void sweepLeftoverLogins(
+            org.fuin.porelo.runtime.Podman podman, PrintWriter out) {
         try {
-            final java.util.List<String> leftover = podman.poreloContainers().stream()
-                    .filter(org.fuin.porelo.runtime.ContainerName::isLogin).toList();
+            final java.util.List<String> leftover =
+                    podman.poreloContainers().stream()
+                            .filter(org.fuin.porelo.runtime.ContainerName::isLogin)
+                            .toList();
             for (final String stale : leftover) {
                 podman.remove(stale);
                 out.println("removed   " + stale + ", left behind by an earlier login");
@@ -397,58 +497,64 @@ public final class AgentLogin {
         } catch (RuntimeException ex) {
             // A sweep that cannot run is not a reason to refuse a login. The worst case is the
             // container somebody already has staying where it is.
-            out.println("note      could not check for leftover login containers: "
-                    + ex.getMessage());
+            out.println(
+                    "note      could not check for leftover login containers: " + ex.getMessage());
         }
     }
 
     /**
      * Returns a declared config directory as it is inside the container.
-     * <p>
-     * <strong>Not {@code VaultImportCommand.expand}.</strong> That resolves {@code ~} against this
-     * machine's home, which is right when reading a directory on the node and wrong here by one
-     * user: the agent runs as {@code agent} inside the image, so {@code ~/.claude} is
-     * {@code /home/agent/.claude} there and {@code /home/somebody/.claude} on the node. Copying
-     * from the second would find nothing and report a login that produced no credential.
+     *
+     * <p><strong>Not {@code VaultImportCommand.expand}.</strong> That resolves {@code ~} against
+     * this machine's home, which is right when reading a directory on the node and wrong here by
+     * one user: the agent runs as {@code agent} inside the image, so {@code ~/.claude} is {@code
+     * /home/agent/.claude} there and {@code /home/somebody/.claude} on the node. Copying from the
+     * second would find nothing and report a login that produced no credential.
      *
      * @param declared The directory as the agent's manifest writes it.
      * @return The absolute path inside the container.
      */
     /**
      * Puts a credential in the vault under the name a task will look for.
-     * <p>
-     * One method, because it is done from two moments now - the instant the login writes the
-     * token, and the ordinary path after the run - and two of these would be two chances to
-     * store it under different names.
+     *
+     * <p>One method, because it is done from two moments now - the instant the login writes the
+     * token, and the ordinary path after the run - and two of these would be two chances to store
+     * it under different names.
      *
      * @param context The machine.
      * @param agent Whose credential it is.
      * @param value What was found.
      * @param way How the vault opens.
      */
-    private static void store(PoreloContext context, InstalledAgent agent, Credential value,
+    private static void store(
+            PoreloContext context,
+            InstalledAgent agent,
+            Credential value,
             org.fuin.porelo.vault.VaultFile.Opener way) {
         final SelectedProvider selection =
                 SelectedProvider.choose(context.providers(), agent.definition(), null);
         final String key = selection == null ? agent.name() : selection.name();
-        context.vault().update(way, entries -> {
-            LoginCredentials.put(entries, key, value, true);
-            return entries;
-        });
+        context.vault()
+                .update(
+                        way,
+                        entries -> {
+                            LoginCredentials.put(entries, key, value, true);
+                            return entries;
+                        });
     }
 
     /**
      * Watches the login container for the credential and stores it the moment it appears.
-     * <p>
-     * <strong>Why not wait for the process.</strong> An agent whose login is "just run me" writes
-     * its token and then carries on into its own session. Waiting for that session to end makes
-     * the token's survival depend on how somebody leaves it - and on this process outliving them,
-     * which an ssh session closing does not guarantee. Watching makes the token safe the second it
-     * exists.
-     * <p>
-     * <strong>It only stores when the vault is already open.</strong> Asking for a passphrase here
-     * is impossible: the terminal belongs to the agent. When the vault is shut, the credential is
-     * still captured and the ordinary path stores it after the run, where a prompt is possible.
+     *
+     * <p><strong>Why not wait for the process.</strong> An agent whose login is "just run me"
+     * writes its token and then carries on into its own session. Waiting for that session to end
+     * makes the token's survival depend on how somebody leaves it - and on this process outliving
+     * them, which an ssh session closing does not guarantee. Watching makes the token safe the
+     * second it exists.
+     *
+     * <p><strong>It only stores when the vault is already open.</strong> Asking for a passphrase
+     * here is impossible: the terminal belongs to the agent. When the vault is shut, the credential
+     * is still captured and the ordinary path stores it after the run, where a prompt is possible.
      *
      * @param context The machine.
      * @param podman Runs the copy.
@@ -459,10 +565,16 @@ public final class AgentLogin {
      * @param found Where to put what was found.
      * @param out Where to say it.
      */
-    private static void watchFor(PoreloContext context, org.fuin.porelo.runtime.Podman podman,
-            InstalledAgent agent, String container, String configDirectory,
-            java.nio.file.Path into, java.util.concurrent.atomic.AtomicReference<Credential> found,
-            java.util.concurrent.atomic.AtomicBoolean ended, PrintWriter out) {
+    private static void watchFor(
+            PoreloContext context,
+            org.fuin.porelo.runtime.Podman podman,
+            InstalledAgent agent,
+            String container,
+            String configDirectory,
+            java.nio.file.Path into,
+            java.util.concurrent.atomic.AtomicReference<Credential> found,
+            java.util.concurrent.atomic.AtomicBoolean ended,
+            PrintWriter out) {
         while (!ended.get() && !Thread.currentThread().isInterrupted()) {
             try {
                 Thread.sleep(java.time.Duration.ofSeconds(2));
@@ -483,8 +595,10 @@ public final class AgentLogin {
                 if (way.isPresent()) {
                     store(context, agent, credential.get(), way.get());
                 }
-                // And then the login is over, said once, by Porelo. Left running, the agent carried on into its
-                // own "Press Enter to continue" while Porelo said the person could leave it however they liked:
+                // And then the login is over, said once, by Porelo. Left running, the agent carried
+                // on into its
+                // own "Press Enter to continue" while Porelo said the person could leave it however
+                // they liked:
                 // two voices for one moment (2026-10-01). Nothing in the container is needed
                 // any more; a shut vault is asked for after it, where a prompt is possible.
                 podman.stop(container);
@@ -498,11 +612,13 @@ public final class AgentLogin {
     }
 
     /**
-     * Lets the watch end on its own: it looks at the flag between two looks, never in the middle of asking the agent.
-     * <p>
-     * Interrupted in the middle, a watch's call to the agent broke off while this asked the agent too, and that call
-     * failed now and then ("Call to ... ExtractCredential failed", the suite, 2026-10-04). Interrupted only when it
-     * has not ended after a while, so a hung agent cannot keep the login open.
+     * Lets the watch end on its own: it looks at the flag between two looks, never in the middle of
+     * asking the agent.
+     *
+     * <p>Interrupted in the middle, a watch's call to the agent broke off while this asked the
+     * agent too, and that call failed now and then ("Call to ... ExtractCredential failed", the
+     * suite, 2026-10-04). Interrupted only when it has not ended after a while, so a hung agent
+     * cannot keep the login open.
      *
      * @param watcher The watch.
      */
@@ -523,16 +639,16 @@ public final class AgentLogin {
 
     /**
      * Returns what to hand {@code podman cp} so the config directory's CONTENTS are copied.
-     * <p>
-     * <strong>This is why a login has never stored anything.</strong> {@code podman cp
-     * container:/home/agent/.claude target} copies the directory itself, leaving
-     * {@code target/.claude/.credentials.json} - while the extractor is handed {@code target} and
-     * looks for {@code target/.credentials.json}, one level up from where the file is. So every
-     * login found nothing, said "it may have been cancelled", and was believed.
-     * <p>
-     * The trailing {@code /.} is the difference, measured against podman rather than read: with
-     * it, the contents land directly in the target. Nobody had measured a login end to end -
-     * It was said of the agent's side, and it was true of Porelo's.
+     *
+     * <p><strong>This is why a login has never stored anything.</strong> {@code podman cp
+     * container:/home/agent/.claude target} copies the directory itself, leaving {@code
+     * target/.claude/.credentials.json} - while the extractor is handed {@code target} and looks
+     * for {@code target/.credentials.json}, one level up from where the file is. So every login
+     * found nothing, said "it may have been cancelled", and was believed.
+     *
+     * <p>The trailing {@code /.} is the difference, measured against podman rather than read: with
+     * it, the contents land directly in the target. Nobody had measured a login end to end - It was
+     * said of the agent's side, and it was true of Porelo's.
      *
      * @param declared What the agent declares as its config directory.
      * @return The source for a copy, whose contents land in the target.
@@ -543,68 +659,72 @@ public final class AgentLogin {
 
     /**
      * Returns this machine's name, for the forward somebody may have to set up.
-     * <p>
-     * Printed rather than left as {@code <this machine>}: whoever needs the command is already
+     *
+     * <p>Printed rather than left as {@code <this machine>}: whoever needs the command is already
      * doing something fiddly, and a line they can edit beats one they have to compose.
      *
      * @return The host name, or a placeholder when it cannot be read.
      */
     /**
      * Returns image lines installing something for the agent to "open a browser" with.
-     * <p>
-     * <strong>Without this the login stops dead.</strong> An agent asked to authenticate tries to
-     * open a browser - through {@code xdg-open}, {@code sensible-browser} or {@code $BROWSER} -
+     *
+     * <p><strong>Without this the login stops dead.</strong> An agent asked to authenticate tries
+     * to open a browser - through {@code xdg-open}, {@code sensible-browser} or {@code $BROWSER} -
      * and a container has none of them and no display. Measured: the attempt neither succeeds nor
-     * reports anything, so the person is left at a prompt that never continues, in a container
-     * they did not know how to leave.
-     * <p>
-     * The shim is not a browser and does not pretend to be one. It prints the URL, loudly, which
-     * is exactly what somebody sitting at a different machine needs - and the same trick works
-     * for any agent, because all three names are the standard ones.
-     * <p>
-     * <strong>{@code BROWSER} is deliberately NOT set, and that is a reversal.</strong> It was,
-     * and it was measured what it costs: with {@code BROWSER} set, Claude Code stops
-     * printing a link and a code and switches to redirecting to {@code localhost} on a port it
-     * picks per run - which on a machine somebody reaches over ssh lands on the wrong computer
-     * and needs that port forwarded, with the port knowable only by reading it out of the URL.
-     * Unset, the login stays link-and-code: the page opens where the person is, they paste the
-     * code back into the terminal, and nothing has to be forwarded at all.
-     * <p>
-     * The shim stays, because an agent that calls {@code xdg-open} itself still needs the address
-     * printed rather than swallowed. <strong>What is NOT measured</strong> is whether the shim's
-     * mere presence makes an agent choose the redirect anyway; the measurement varied
-     * {@code BROWSER} and not the shim.
+     * reports anything, so the person is left at a prompt that never continues, in a container they
+     * did not know how to leave.
+     *
+     * <p>The shim is not a browser and does not pretend to be one. It prints the URL, loudly, which
+     * is exactly what somebody sitting at a different machine needs - and the same trick works for
+     * any agent, because all three names are the standard ones.
+     *
+     * <p><strong>{@code BROWSER} is deliberately NOT set, and that is a reversal.</strong> It was,
+     * and it was measured what it costs: with {@code BROWSER} set, Claude Code stops printing a
+     * link and a code and switches to redirecting to {@code localhost} on a port it picks per run -
+     * which on a machine somebody reaches over ssh lands on the wrong computer and needs that port
+     * forwarded, with the port knowable only by reading it out of the URL. Unset, the login stays
+     * link-and-code: the page opens where the person is, they paste the code back into the
+     * terminal, and nothing has to be forwarded at all.
+     *
+     * <p>The shim stays, because an agent that calls {@code xdg-open} itself still needs the
+     * address printed rather than swallowed. <strong>What is NOT measured</strong> is whether the
+     * shim's mere presence makes an agent choose the redirect anyway; the measurement varied {@code
+     * BROWSER} and not the shim.
      *
      * @return Lines to run as root while the login image is built.
      */
     static java.util.List<String> browserShim() {
-        final java.util.List<String> script = java.util.List.of(
-                "#!/bin/sh",
-                "# Opens nothing. Writes the address where the person can see it, and says which",
-                "# port the login will answer on, so their own machine can forward it.",
-                "url=$1",
-                "rest=${url#*localhost%3A}",
-                "if [ \"$rest\" = \"$url\" ]; then rest=${url#*localhost:}; fi",
-                "if [ \"$rest\" = \"$url\" ]; then port=; else port=${rest%%[!0-9]*}; fi",
-                "printf \"\\n=== Open this in a browser on your own machine: ===\\n\"",
-                "# OSC 8, so a terminal that renders hyperlinks offers it with a press. The plain",
-                "# text is printed too, for a terminal that does not.",
-                "# BEL rather than ESC-backslash to close them: both are valid, the first needs",
-                "# no backslash at all, and a backslash through a shell inside a RUN line inside",
-                "# a Java string is where this went wrong the first time - it printed a literal",
-                "# n where a newline belonged.",
-                "# id=porelo-login marks it as OURS. A program may print links of its own - an",
-                "# agent that also offers a code flow prints one - and a client that cannot tell",
-                "# them apart can only guess which to put first. The mark says this is the page",
-                "# the login is waiting on, the same way the forward marker says the port.",
-                "printf \"\\033]8;id=porelo-login;%s\\007%s\\033]8;;\\007\\n\" \"$url\" \"$url\"",
-                "# And the port, said rather than left to be read out of the query string.",
-                "if [ -n \"$port\" ]; then printf \"\\033]5379;forward;%s\\007\" \"$port\"; fi",
-                "if [ -n \"$port\" ]; then",
-                "  printf \"    it will answer on localhost:%s of the machine\\n\\n\" \"$port\"",
-                "fi");
-        final String encoded = java.util.Base64.getEncoder().encodeToString(
-                String.join("\n", script).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        final java.util.List<String> script =
+                java.util.List.of(
+                        "#!/bin/sh",
+                        "# Opens nothing. Writes the address where the person can see it, and says which",
+                        "# port the login will answer on, so their own machine can forward it.",
+                        "url=$1",
+                        "rest=${url#*localhost%3A}",
+                        "if [ \"$rest\" = \"$url\" ]; then rest=${url#*localhost:}; fi",
+                        "if [ \"$rest\" = \"$url\" ]; then port=; else port=${rest%%[!0-9]*}; fi",
+                        "printf \"\\n=== Open this in a browser on your own machine: ===\\n\"",
+                        "# OSC 8, so a terminal that renders hyperlinks offers it with a press. The plain",
+                        "# text is printed too, for a terminal that does not.",
+                        "# BEL rather than ESC-backslash to close them: both are valid, the first needs",
+                        "# no backslash at all, and a backslash through a shell inside a RUN line inside",
+                        "# a Java string is where this went wrong the first time - it printed a literal",
+                        "# n where a newline belonged.",
+                        "# id=porelo-login marks it as OURS. A program may print links of its own - an",
+                        "# agent that also offers a code flow prints one - and a client that cannot tell",
+                        "# them apart can only guess which to put first. The mark says this is the page",
+                        "# the login is waiting on, the same way the forward marker says the port.",
+                        "printf \"\\033]8;id=porelo-login;%s\\007%s\\033]8;;\\007\\n\" \"$url\" \"$url\"",
+                        "# And the port, said rather than left to be read out of the query string.",
+                        "if [ -n \"$port\" ]; then printf \"\\033]5379;forward;%s\\007\" \"$port\"; fi",
+                        "if [ -n \"$port\" ]; then",
+                        "  printf \"    it will answer on localhost:%s of the machine\\n\\n\" \"$port\"",
+                        "fi");
+        final String encoded =
+                java.util.Base64.getEncoder()
+                        .encodeToString(
+                                String.join("\n", script)
+                                        .getBytes(java.nio.charset.StandardCharsets.UTF_8));
         final java.util.List<String> lines = new java.util.ArrayList<>();
         lines.add("# There is no browser in here and no display. Anything trying to open one gets");
         lines.add("# this instead. It is written base64 because the quoting of the escape");
@@ -635,14 +755,18 @@ public final class AgentLogin {
 
     private static void deleteTree(Path directory) {
         try (var walk = Files.walk(directory)) {
-            walk.sorted(java.util.Comparator.reverseOrder()).forEach(path -> {
-                try {
-                    Files.deleteIfExists(path);
-                } catch (java.io.IOException ignored) {
-                    // Best effort: what matters is that the vault has it, and a temporary
-                    // directory that outlives this is a smaller problem than failing here.
-                }
-            });
+            walk.sorted(java.util.Comparator.reverseOrder())
+                    .forEach(
+                            path -> {
+                                try {
+                                    Files.deleteIfExists(path);
+                                } catch (java.io.IOException ignored) {
+                                    // Best effort: what matters is that the vault has it, and a
+                                    // temporary
+                                    // directory that outlives this is a smaller problem than
+                                    // failing here.
+                                }
+                            });
         } catch (java.io.IOException ignored) {
             // Same.
         }

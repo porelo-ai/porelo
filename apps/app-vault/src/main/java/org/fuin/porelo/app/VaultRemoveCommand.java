@@ -15,11 +15,13 @@ import picocli.CommandLine.Spec;
 
 /**
  * Removes one credential from the vault.
- * <p>
- * An entry a person granted an authorization for takes the grant with it, and the service is told first
- * (RFC 7009): a refresh token deleted here and still honoured there is a grant nobody can see any more.
+ *
+ * <p>An entry a person granted an authorization for takes the grant with it, and the service is
+ * told first (RFC 7009): a refresh token deleted here and still honoured there is a grant nobody
+ * can see any more.
  */
-@Command(name = "remove",
+@Command(
+        name = "remove",
         mixinStandardHelpOptions = true,
         description = "Removes a credential from the vault.")
 public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.ContextAware {
@@ -27,13 +29,14 @@ public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.Cont
     @Parameters(index = "0", paramLabel = "<name>", description = "Name of the entry to remove.")
     private String name;
 
-    @Option(names = "--without-revoking",
-            description = "Remove a granted authorization here although the service could not be told - or, for a"
-                    + " token that does not expire, cannot be: it then works there until revoked there.")
+    @Option(
+            names = "--without-revoking",
+            description =
+                    "Remove a granted authorization here although the service could not be told - or, for a"
+                            + " token that does not expire, cannot be: it then works there until revoked there.")
     private boolean withoutRevoking;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -54,8 +57,12 @@ public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.Cont
             return 69;
         }
         if (TaskSecrets.reserved(name) && !name.startsWith(TaskSecrets.TRANSPORT_PREFIX)) {
-            // A task's own token: removing it by hand would break that task's return after a reboot.
-            err.println("porelo: '" + name + "' belongs to a task, not to you - removing the task removes it");
+            // A task's own token: removing it by hand would break that task's return after a
+            // reboot.
+            err.println(
+                    "porelo: '"
+                            + name
+                            + "' belongs to a task, not to you - removing the task removes it");
             err.flush();
             return 64;
         }
@@ -63,7 +70,8 @@ public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.Cont
         final String grantName = TaskSecrets.GRANT_PREFIX + name;
         final VaultEntry grant;
         try {
-            // Through the one view of grants: the credentials hide them, so a grant looked up there was never found,
+            // Through the one view of grants: the credentials hide them, so a grant looked up there
+            // was never found,
             // and every removal deleted it here without telling the service.
             grant = context.readableGrants().map(grants -> grants.get(name)).orElse(null);
         } catch (VaultException ex) {
@@ -72,27 +80,44 @@ public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.Cont
             return 70;
         }
         if (grant != null && VaultAuthorizeCommand.HELD.equals(grant.type())) {
-            // A token that never expires, granted to a public client: the service revokes it only for the
-            // application's owner, which this machine is not. Forgetting it here leaves it working there, so that is
+            // A token that never expires, granted to a public client: the service revokes it only
+            // for the
+            // application's owner, which this machine is not. Forgetting it here leaves it working
+            // there, so that is
             // done only when the person says they know.
             final String where = revokedWhere(context.credentials().get(name));
-            if (!withoutRevoking && withoutRevokingAfterAll(name, where, Offer.atTerminal()
-                    ? new Offer(Offer.Asker.terminal(), false, false, err) : Offer.NOBODY)) {
+            if (!withoutRevoking
+                    && withoutRevokingAfterAll(
+                            name,
+                            where,
+                            Offer.atTerminal()
+                                    ? new Offer(Offer.Asker.terminal(), false, false, err)
+                                    : Offer.NOBODY)) {
                 withoutRevoking = true;
             }
             if (!withoutRevoking) {
-                err.println("porelo: '" + name + "' holds a token that does not expire, and nothing here can revoke it:"
-                        + " only the application's owner can. Revoke it " + where + ", then run 'porelo vault remove "
-                        + name + " --without-revoking'");
+                err.println(
+                        "porelo: '"
+                                + name
+                                + "' holds a token that does not expire, and nothing here can revoke it:"
+                                + " only the application's owner can. Revoke it "
+                                + where
+                                + ", then run 'porelo vault remove "
+                                + name
+                                + " --without-revoking'");
                 err.flush();
                 return 1;
             }
-            out.println("not revoked at the service: the token works there until it is revoked " + where);
+            out.println(
+                    "not revoked at the service: the token works there until it is revoked "
+                            + where);
             out.flush();
         } else if (grant != null && LoginCredentials.REFRESH.equals(grant.type())) {
-            // What renews an agent's own sign-in. The service has no revocation Porelo knows of; the person ends the
+            // What renews an agent's own sign-in. The service has no revocation Porelo knows of;
+            // the person ends the
             // session there by signing out. Forgotten here with the token it renews.
-            out.println("forgotten what renewed this sign-in; signing out at the service ends the session there too");
+            out.println(
+                    "forgotten what renewed this sign-in; signing out at the service ends the session there too");
             out.flush();
         } else if (grant != null) {
             final String refused = revoke(context.credentials().get(name), grant.value());
@@ -101,23 +126,32 @@ public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.Cont
             } else if (withoutRevoking) {
                 out.println("not revoked at the service: " + refused);
             } else {
-                // Kept rather than deleted: deleting it would leave a grant alive there that nobody here can revoke.
+                // Kept rather than deleted: deleting it would leave a grant alive there that nobody
+                // here can revoke.
                 err.println("porelo: " + refused);
-                err.println("porelo: '" + name + "' is kept; revoke the grant at the service and run"
-                        + " 'porelo vault remove " + name + " --without-revoking'");
+                err.println(
+                        "porelo: '"
+                                + name
+                                + "' is kept; revoke the grant at the service and run"
+                                + " 'porelo vault remove "
+                                + name
+                                + " --without-revoking'");
                 err.flush();
                 return 1;
             }
             out.flush();
         }
 
-        final boolean[] removed = { false };
+        final boolean[] removed = {false};
         try {
-            context.vault().update(context.requirePassphrase(), entries -> {
-                removed[0] = entries.remove(name) != null;
-                removed[0] |= entries.remove(grantName) != null;
-                return entries;
-            });
+            context.vault()
+                    .update(
+                            context.requirePassphrase(),
+                            entries -> {
+                                removed[0] = entries.remove(name) != null;
+                                removed[0] |= entries.remove(grantName) != null;
+                                return entries;
+                            });
         } catch (VaultException ex) {
             err.println("porelo: " + ex.getMessage());
             err.flush();
@@ -147,7 +181,8 @@ public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.Cont
         if (host != null && (host.equals("github.com") || host.endsWith(".github.com"))) {
             return "on GitHub under Settings → Applications → Authorized OAuth Apps";
         }
-        return "in the service's own settings for authorized applications" + (host == null ? "" : ", at " + host);
+        return "in the service's own settings for authorized applications"
+                + (host == null ? "" : ", at " + host);
     }
 
     /**
@@ -162,9 +197,12 @@ public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.Cont
             return "the entry that names the service is gone, so it cannot be told";
         }
         try {
-            Grants.revoke(Grants.service(entry.type(), entry.value(), entry.settings()),
-                    org.fuin.porelo.core.net.TrustedCertificates.builder().connectTimeout(java.time.Duration.ofSeconds(30))
-                            .followRedirects(java.net.http.HttpClient.Redirect.NEVER).build(),
+            Grants.revoke(
+                    Grants.service(entry.type(), entry.value(), entry.settings()),
+                    org.fuin.porelo.core.net.TrustedCertificates.builder()
+                            .connectTimeout(java.time.Duration.ofSeconds(30))
+                            .followRedirects(java.net.http.HttpClient.Redirect.NEVER)
+                            .build(),
                     refreshToken);
             return null;
         } catch (TokenPurchase.Refused | IllegalArgumentException ex) {
@@ -173,15 +211,21 @@ public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.Cont
     }
 
     /**
-     * Asks whether to forget a token here that only the service can revoke, no by default: it goes on working there.
+     * Asks whether to forget a token here that only the service can revoke, no by default: it goes
+     * on working there.
      *
      * @param name The vault entry.
      * @param where Where it is revoked.
      * @param offer Who is asked.
      * @return Whether to forget it without revoking it.
      */
-    static boolean withoutRevokingAfterAll(final String name, final String where, final Offer offer) {
-        return offer != Offer.NOBODY && offer.confirm("'" + name + "' holds a token that nothing here can revoke",
-                "Forget it here all the same?", "the token, which works there until it is revoked " + where, true);
+    static boolean withoutRevokingAfterAll(
+            final String name, final String where, final Offer offer) {
+        return offer != Offer.NOBODY
+                && offer.confirm(
+                        "'" + name + "' holds a token that nothing here can revoke",
+                        "Forget it here all the same?",
+                        "the token, which works there until it is revoked " + where,
+                        true);
     }
 }

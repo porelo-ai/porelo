@@ -7,29 +7,31 @@ import java.nio.file.Path;
 
 /**
  * What makes the host's loopback reachable from a task container, and only from one.
- * <p>
- * pasta gives a rootless container an address for the host - {@link ContainerSpec#HOST_LOOPBACK} -
- * but forwards it to the host's routable address, so a listener on {@code 127.0.0.1} is refused.
+ *
+ * <p>pasta gives a rootless container an address for the host - {@link ContainerSpec#HOST_LOOPBACK}
+ * - but forwards it to the host's routable address, so a listener on {@code 127.0.0.1} is refused.
  * That is why the git gate used to bind every interface, which put it on the operator's LAN with
  * nothing but a per-task token in front of it.
- * <p>
- * {@code --map-host-loopback} sends that address to the host's loopback instead, and there are
+ *
+ * <p>{@code --map-host-loopback} sends that address to the host's loopback instead, and there are
  * three ways to ask for it. Two are wrong:
+ *
  * <ul>
- * <li>{@code --network pasta:--map-host-loopback,...} <strong>replaces</strong> podman's own pasta
- * defaults rather than adding to them. Measured: egress was wide open with the nft ruleset still
- * loaded and every check reporting success.</li>
- * <li>A {@code pasta_options} line in the {@code containers.conf} drop-in {@code porelo setup}
- * writes keeps those defaults - measured, podman inserts the option and keeps the rest - but it
- * applies to every container the operator runs, so an unrelated container would reach services on
- * their loopback too.</li>
+ *   <li>{@code --network pasta:--map-host-loopback,...} <strong>replaces</strong> podman's own
+ *       pasta defaults rather than adding to them. Measured: egress was wide open with the nft
+ *       ruleset still loaded and every check reporting success.
+ *   <li>A {@code pasta_options} line in the {@code containers.conf} drop-in {@code porelo setup}
+ *       writes keeps those defaults - measured, podman inserts the option and keeps the rest - but
+ *       it applies to every container the operator runs, so an unrelated container would reach
+ *       services on their loopback too.
  * </ul>
+ *
  * The third is this one: the same setting in a file named by {@code CONTAINERS_CONF_OVERRIDE},
  * which podman merges last, for the {@code podman start} that Porelo itself runs. Measured on
- * podman 5.8.1: the defaults survive, the mapping takes effect, and a container the operator
- * starts is still refused.
- * <p>
- * Only {@code podman start} reads it. {@code create} stores the container's configuration and
+ * podman 5.8.1: the defaults survive, the mapping takes effect, and a container the operator starts
+ * is still refused.
+ *
+ * <p>Only {@code podman start} reads it. {@code create} stores the container's configuration and
  * never builds the pasta command line, so setting it there does nothing at all - measured, and
  * invisible: the container runs and only the push hangs.
  */
@@ -57,7 +59,8 @@ public final class LoopbackMapping {
                 # have to bind every interface and sit on the operator's LAN.
                 [network]
                 pasta_options = ["--map-host-loopback", "%s"]
-                """.formatted(ContainerSpec.HOST_LOOPBACK);
+                """
+                .formatted(ContainerSpec.HOST_LOOPBACK);
     }
 
     /**

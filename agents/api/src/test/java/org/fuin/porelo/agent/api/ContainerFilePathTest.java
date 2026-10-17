@@ -7,8 +7,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * What an agent may name as a place to put its own configuration.
- * <p>
- * This is where an agent's answer becomes Porelo's instruction, so it is where the answer has to
+ *
+ * <p>This is where an agent's answer becomes Porelo's instruction, so it is where the answer has to
  * stop being taken on trust.
  */
 class ContainerFilePathTest {
@@ -28,17 +28,21 @@ class ContainerFilePathTest {
         // path anybody meant, so it stays refused at the boundary rather than only made harmless
         // at the far end.
         assertThatThrownBy(() -> new ContainerFile("/home/agent/'; id; '", "x", false))
-                .isInstanceOf(AgentException.class).hasMessageContaining("quotes");
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("quotes");
         assertThatThrownBy(() -> new ContainerFile("/home/agent/\"x\"", "x", false))
-                .isInstanceOf(AgentException.class).hasMessageContaining("quotes");
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("quotes");
         assertThatThrownBy(() -> new ContainerFile("/home/agent/x\\y", "x", false))
-                .isInstanceOf(AgentException.class).hasMessageContaining("quotes");
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("quotes");
     }
 
     @Test
     void aNewlineIsRefused() {
         assertThatThrownBy(() -> new ContainerFile("/home/agent/x\nid", "x", false))
-                .isInstanceOf(AgentException.class).hasMessageContaining("control characters");
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("control characters");
     }
 
     @Test
@@ -47,9 +51,11 @@ class ContainerFilePathTest {
         // A file placed relative to a directory it is not under is a file placed somewhere nobody
         // asked for, whatever the first character says.
         assertThatThrownBy(() -> new ContainerFile("/home/agent/../../etc/passwd", "x", false))
-                .isInstanceOf(AgentException.class).hasMessageContaining("'..'");
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("'..'");
         assertThatThrownBy(() -> new ContainerFile("/home/agent/..", "x", false))
-                .isInstanceOf(AgentException.class).hasMessageContaining("'..'");
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("'..'");
     }
 
     @Test
@@ -63,6 +69,7 @@ class ContainerFilePathTest {
     @Test
     void aRelativePathIsStillRefused() {
         assertThatThrownBy(() -> new ContainerFile("home/agent/x", "x", false))
-                .isInstanceOf(AgentException.class).hasMessageContaining("absolute");
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("absolute");
     }
 }

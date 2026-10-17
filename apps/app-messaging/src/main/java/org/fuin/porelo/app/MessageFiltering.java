@@ -8,15 +8,15 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Runs the filter that decides what a message may contain.
- * <p>
- * Porelo decides <em>who</em> may say something to <em>whom</em>; the filter decides <em>what</em> a
- * message may carry. It is a separate program on purpose, so that the answer to "was this checked?"
- * does not depend on which transport a message took.
- * <p>
- * <strong>Fail closed.</strong> A machine with no filter installed, or one whose filter cannot run,
- * moves nothing into a transport's queue. That is the difference between a door that is shut and a
- * door that is merely unattended, and it is why this reports what happened rather than swallowing
- * it.
+ *
+ * <p>Porelo decides <em>who</em> may say something to <em>whom</em>; the filter decides
+ * <em>what</em> a message may carry. It is a separate program on purpose, so that the answer to
+ * "was this checked?" does not depend on which transport a message took.
+ *
+ * <p><strong>Fail closed.</strong> A machine with no filter installed, or one whose filter cannot
+ * run, moves nothing into a transport's queue. That is the difference between a door that is shut
+ * and a door that is merely unattended, and it is why this reports what happened rather than
+ * swallowing it.
  */
 public final class MessageFiltering {
 
@@ -33,8 +33,7 @@ public final class MessageFiltering {
      * @param exitCode Its exit code, or -1 when it did not run.
      * @param detail What to tell an operator, or "" when there is nothing to say.
      */
-    public record Outcome(boolean ran, int exitCode, String detail) {
-    }
+    public record Outcome(boolean ran, int exitCode, String detail) {}
 
     private final CommandRunner runner;
 
@@ -63,18 +62,30 @@ public final class MessageFiltering {
         }
         final CommandResult result;
         try {
-            // The filter derives the mailbox layout from its root, so the two cannot disagree about where anything
-            // is. It refuses unless the project says it only reports: reporting, a payload in plain text left
-            // unless a person happened to hold it, and the person was not told. Its thresholds were measured on
+            // The filter derives the mailbox layout from its root, so the two cannot disagree about
+            // where anything
+            // is. It refuses unless the project says it only reports: reporting, a payload in plain
+            // text left
+            // unless a person happened to hold it, and the person was not told. Its thresholds were
+            // measured on
             // agents' own traffic, and a person can still read a refused message and deliver it.
-            // No settle: every message is put in place by rename - by the agent as its guide says, by a transport, by
-            // 'porelo talk say' - so none is ever seen half written, and the filter's 200 ms wait only delayed each.
-            final java.util.List<String> command = new java.util.ArrayList<>(java.util.List.of(filter.toString(), "--mail",
-                    mailbox.root().toString(), "--stabilityDelayMillis", "0"));
+            // No settle: every message is put in place by rename - by the agent as its guide says,
+            // by a transport, by
+            // 'porelo talk say' - so none is ever seen half written, and the filter's 200 ms wait
+            // only delayed each.
+            final java.util.List<String> command =
+                    new java.util.ArrayList<>(
+                            java.util.List.of(
+                                    filter.toString(),
+                                    "--mail",
+                                    mailbox.root().toString(),
+                                    "--stabilityDelayMillis",
+                                    "0"));
             if (!reportOnly) {
                 command.add("--blocking");
             }
-            // Every message answered, the clean ones too, whatever a configuration says: a message whose answer is
+            // Every message answered, the clean ones too, whatever a configuration says: a message
+            // whose answer is
             // missing is held, so a receipt switched off must never be what holds them all.
             command.addAll(java.util.List.of("--receiptOnApproval", "true"));
             result = runner.run(HelperEnvironment.chosen(Command.of(command)));
@@ -84,8 +95,12 @@ public final class MessageFiltering {
         if (result.exitCode() == ALL_ACCEPTED || result.exitCode() == SOMETHING_REFUSED) {
             return new Outcome(true, result.exitCode(), "");
         }
-        return new Outcome(true, result.exitCode(),
-                "the message filter stopped with " + result.exitCode() + ": "
+        return new Outcome(
+                true,
+                result.exitCode(),
+                "the message filter stopped with "
+                        + result.exitCode()
+                        + ": "
                         + result.standardError().strip());
     }
 }

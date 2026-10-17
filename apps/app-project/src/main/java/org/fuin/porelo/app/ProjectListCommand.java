@@ -7,17 +7,17 @@ import picocli.CommandLine.Spec;
 
 /**
  * Lists the projects this machine follows, and what each holds.
- * <p>
- * The same rendering {@code porelo project} does with no verb. It exists so the verb can be written
- * where a reader expects one, beside {@code delete}.
+ *
+ * <p>The same rendering {@code porelo project} does with no verb. It exists so the verb can be
+ * written where a reader expects one, beside {@code delete}.
  */
-@Command(name = "list",
+@Command(
+        name = "list",
         mixinStandardHelpOptions = true,
         description = "Lists the projects this machine follows, and what each holds.")
 public class ProjectListCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 

@@ -4,16 +4,16 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * One file an agent's image build fetches from the network.
- * <p>
- * Declared rather than left inside a shell fragment, so that two questions have answers without
+ *
+ * <p>Declared rather than left inside a shell fragment, so that two questions have answers without
  * reading a build log: <em>what exactly did this image install</em>, and <em>was it the thing the
  * publisher intended</em>. The reference implementation answers neither - it installs agent CLIs
  * with {@code curl -fsSL https://…/install.sh | bash}, re-resolved on every build.
- * <p>
- * <strong>A digest is required unless the artifact says otherwise out loud.</strong> Some vendors
- * publish none, and pretending otherwise would be worse than admitting it: {@code unverified} with
- * a stated reason keeps the gap visible instead of making a uniform-looking file that is only
- * sometimes telling the truth.
+ *
+ * <p><strong>A digest is required unless the artifact says otherwise out loud.</strong> Some
+ * vendors publish none, and pretending otherwise would be worse than admitting it: {@code
+ * unverified} with a stated reason keeps the gap visible instead of making a uniform-looking file
+ * that is only sometimes telling the truth.
  *
  * @param url Where to fetch it.
  * @param sha256 Expected digest, or {@code null} when {@code unverified}.
@@ -21,11 +21,17 @@ import org.jspecify.annotations.Nullable;
  * @param mode Octal file mode, for example {@code 0755}.
  * @param unverified Whether this artifact is knowingly unverifiable.
  * @param reason Why it is unverifiable; required when {@code unverified}.
- * @param license The license the publisher declares for this release - an SPDX id or, where it gives
- *     none, the name it uses - or {@code null} when nobody has recorded one.
+ * @param license The license the publisher declares for this release - an SPDX id or, where it
+ *     gives none, the name it uses - or {@code null} when nobody has recorded one.
  */
-public record InstallArtifact(String url, @Nullable String sha256, String target, String mode,
-        boolean unverified, @Nullable String reason, @Nullable String license) {
+public record InstallArtifact(
+        String url,
+        @Nullable String sha256,
+        String target,
+        String mode,
+        boolean unverified,
+        @Nullable String reason,
+        @Nullable String license) {
 
     /**
      * Constructor with all data.
@@ -57,13 +63,17 @@ public record InstallArtifact(String url, @Nullable String sha256, String target
         // this is not a new capability for a trusted agent; it is refusing malformed data at the
         // boundary instead of discovering it as a build that does something else.
         requirePlain("Install target", target);
-        // A path and nothing else: it goes into the build script unquoted, where ';' ran a second command.
+        // A path and nothing else: it goes into the build script unquoted, where ';' ran a second
+        // command.
         if (!target.matches(PackagedTree.PATH)) {
-            throw new AgentException("Install target must be a plain path - letters, digits, '.', '_', '-', '+' and"
-                    + " '/': " + target.replaceAll("\\p{Cntrl}", "?"));
+            throw new AgentException(
+                    "Install target must be a plain path - letters, digits, '.', '_', '-', '+' and"
+                            + " '/': "
+                            + target.replaceAll("\\p{Cntrl}", "?"));
         }
         if (reason != null && reason.chars().anyMatch(Character::isISOControl)) {
-            // It becomes a comment line, and a line break would end the comment and start an instruction.
+            // It becomes a comment line, and a line break would end the comment and start an
+            // instruction.
             throw new AgentException("An install artifact's reason must be one line");
         }
         requirePlain("Install artifact URL", url);
@@ -72,19 +82,25 @@ public record InstallArtifact(String url, @Nullable String sha256, String target
         }
         if (unverified) {
             if (reason == null || reason.isBlank()) {
-                throw new AgentException("Artifact " + url
-                        + " is marked unverified but gives no reason. State why the publisher"
-                        + " offers no digest, so the gap is visible rather than habitual.");
+                throw new AgentException(
+                        "Artifact "
+                                + url
+                                + " is marked unverified but gives no reason. State why the publisher"
+                                + " offers no digest, so the gap is visible rather than habitual.");
             }
             if (sha256 != null) {
-                throw new AgentException("Artifact " + url
-                        + " has a digest and is also marked unverified. Pick one.");
+                throw new AgentException(
+                        "Artifact "
+                                + url
+                                + " has a digest and is also marked unverified. Pick one.");
             }
         } else {
             if (sha256 == null || !sha256.matches("[a-f0-9]{64}")) {
-                throw new AgentException("Artifact " + url
-                        + " needs a lower-case 64-character sha256, or unverified: true with a"
-                        + " reason");
+                throw new AgentException(
+                        "Artifact "
+                                + url
+                                + " needs a lower-case 64-character sha256, or unverified: true with a"
+                                + " reason");
             }
         }
     }
@@ -99,7 +115,12 @@ public record InstallArtifact(String url, @Nullable String sha256, String target
      * @param unverified Whether it is knowingly unverifiable.
      * @param reason Why; required when unverified.
      */
-    public InstallArtifact(String url, @Nullable String sha256, String target, String mode, boolean unverified,
+    public InstallArtifact(
+            String url,
+            @Nullable String sha256,
+            String target,
+            String mode,
+            boolean unverified,
             @Nullable String reason) {
         this(url, sha256, target, mode, unverified, reason, null);
     }
@@ -121,10 +142,17 @@ public record InstallArtifact(String url, @Nullable String sha256, String target
      */
     private static void requirePlain(String what, String value) {
         for (final char character : value.toCharArray()) {
-            if (character < ' ' || character == '\'' || character == '"' || character == '\\'
-                    || character == '$' || character == '`') {
-                throw new AgentException(what + " may not contain quotes, backslashes, shell"
-                        + " expansion characters or control characters: " + value);
+            if (character < ' '
+                    || character == '\''
+                    || character == '"'
+                    || character == '\\'
+                    || character == '$'
+                    || character == '`') {
+                throw new AgentException(
+                        what
+                                + " may not contain quotes, backslashes, shell"
+                                + " expansion characters or control characters: "
+                                + value);
             }
         }
     }

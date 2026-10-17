@@ -11,21 +11,21 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * A task's own two tokens, kept in the vault so the task survives a reboot.
- * <p>
- * <strong>Why they have to survive.</strong> A container's environment is fixed when it is created, and it
- * holds both: the gate token its pushes authenticate with, and the phantom provider token its credential proxy
- * swaps for the real key. A task brought back after a reboot has to be given the same two, or every push and
- * every model call fails as a bad credential. They used to live only in the runtime directory, which a reboot
- * wipes.
- * <p>
- * <strong>In the vault, not beside it</strong> - decided: no push or provider credential lies on
- * disk outside the vault, at the cost that the first start after a reboot needs the vault unlocked, which the
- * credential proxy needs anyway.
- * <p>
- * <strong>Hidden, in a namespace of their own.</strong> They are not credentials a person put there, so every
- * listing and every choice of credential leaves out names starting with {@link #PREFIX}, and a person cannot
- * put or remove one by hand. They go when the task is removed; entries of a task that no longer exists are
- * pruned whenever they are next written.
+ *
+ * <p><strong>Why they have to survive.</strong> A container's environment is fixed when it is
+ * created, and it holds both: the gate token its pushes authenticate with, and the phantom provider
+ * token its credential proxy swaps for the real key. A task brought back after a reboot has to be
+ * given the same two, or every push and every model call fails as a bad credential. They used to
+ * live only in the runtime directory, which a reboot wipes.
+ *
+ * <p><strong>In the vault, not beside it</strong> - decided: no push or provider credential lies on
+ * disk outside the vault, at the cost that the first start after a reboot needs the vault unlocked,
+ * which the credential proxy needs anyway.
+ *
+ * <p><strong>Hidden, in a namespace of their own.</strong> They are not credentials a person put
+ * there, so every listing and every choice of credential leaves out names starting with {@link
+ * #PREFIX}, and a person cannot put or remove one by hand. They go when the task is removed;
+ * entries of a task that no longer exists are pruned whenever they are next written.
  */
 public final class TaskSecrets {
 
@@ -33,14 +33,16 @@ public final class TaskSecrets {
     public static final String PREFIX = VaultNames.TASK_PREFIX;
 
     /**
-     * Where an account's grants are - the refresh token a person granted once for a service - hidden like a
-     * task's entries: they are not something a person put there, and no task may be pointed at one.
+     * Where an account's grants are - the refresh token a person granted once for a service -
+     * hidden like a task's entries: they are not something a person put there, and no task may be
+     * pointed at one.
      */
     public static final String GRANT_PREFIX = VaultNames.GRANT_PREFIX;
 
     /**
      * Where what a transport handed back is - the account's, a project's, a task's secrets for its
-     * conversation - hidden like a task's entries: no person put them there, and no task may be pointed at one.
+     * conversation - hidden like a task's entries: no person put them there, and no task may be
+     * pointed at one.
      */
     public static final String TRANSPORT_PREFIX = VaultNames.TRANSPORT_PREFIX;
 
@@ -56,10 +58,12 @@ public final class TaskSecrets {
      * @param gate The gate token, or {@code null}.
      * @param provider The phantom provider token, or {@code null}.
      */
-    public record Tokens(@Nullable String gate, @Nullable String provider, Map<String, String> routes) {
+    public record Tokens(
+            @Nullable String gate, @Nullable String provider, Map<String, String> routes) {
 
         /**
-         * Tokens of a task that holds only its agent's credential, the shape before a task held more.
+         * Tokens of a task that holds only its agent's credential, the shape before a task held
+         * more.
          *
          * @param gate The gate's token, or {@code null}.
          * @param provider The proxy's token, or {@code null}.
@@ -72,7 +76,10 @@ public final class TaskSecrets {
     /** Where the tokens of a task's other credentials are kept, below its own name. */
     static final String ROUTE = "/route/";
 
-    /** The directory in a task's runtime directory the proxy writes its other credentials' tokens to. */
+    /**
+     * The directory in a task's runtime directory the proxy writes its other credentials' tokens
+     * to.
+     */
     static final String ROUTES_DIRECTORY = "routes";
 
     private final PoreloContext context;
@@ -97,7 +104,8 @@ public final class TaskSecrets {
     }
 
     /**
-     * Leaves a task's own entries out of what the vault holds, for anything that lists or chooses credentials.
+     * Leaves a task's own entries out of what the vault holds, for anything that lists or chooses
+     * credentials.
      *
      * @param entries Everything the vault holds.
      * @return Only the credentials.
@@ -112,49 +120,72 @@ public final class TaskSecrets {
      * @param container The task's container.
      * @param tokens What to keep.
      * @param existing The containers that exist, including this one.
-     * @return "" when they are kept, otherwise why they could not be - the task runs, and cannot come back
-     *         after a reboot.
+     * @return "" when they are kept, otherwise why they could not be - the task runs, and cannot
+     *     come back after a reboot.
      */
     public String keep(String container, Tokens tokens, Set<String> existing) {
         return keep(container, tokens, () -> existing);
     }
 
     /**
-     * Keeps a task's tokens, and prunes the entries of tasks that no longer exist, asking which exist while the vault
-     * is held.
+     * Keeps a task's tokens, and prunes the entries of tasks that no longer exist, asking which
+     * exist while the vault is held.
      *
      * @param container The task's container.
      * @param tokens What to keep.
-     * @param existing Asks for the containers that exist, including this one; asked once, under the vault's lock.
+     * @param existing Asks for the containers that exist, including this one; asked once, under the
+     *     vault's lock.
      * @return "" when they are kept, otherwise why they could not be.
      */
-    public String keep(String container, Tokens tokens, java.util.function.Supplier<Set<String>> existing) {
+    public String keep(
+            String container, Tokens tokens, java.util.function.Supplier<Set<String>> existing) {
         if (tokens.gate() == null && tokens.provider() == null && tokens.routes().isEmpty()) {
             return "";
         }
         final Optional<VaultFile.Opener> opener = context.opener();
         if (!context.vault().exists() || opener.isEmpty()) {
-            return "the vault is " + (context.vault().exists() ? "locked" : "not there")
+            return "the vault is "
+                    + (context.vault().exists() ? "locked" : "not there")
                     + ", so this task's tokens could not be kept and it cannot come back after a reboot";
         }
         try {
-            context.vault().update(opener.get(), entries -> {
-                final Map<String, VaultEntry> updated = new LinkedHashMap<>(entries);
-                // Asked here, under the vault's lock, not before it: a start beside this one that kept its tokens in
-                // between has its container by then, and its tokens are not pruned as a gone task's.
-                final Set<String> exist = existing.get();
-                // Only a task's own entries, whose owner is a container: a grant or a transport's secrets are the
-                // account's, owned by no task. Pruning every reserved name took them too, at every task start
-                // (found on 2026-09-30: the transport's provisioning token gone).
-                updated.keySet().removeIf(name -> name.startsWith(PREFIX) && !exist.contains(owner(name)));
-                put(updated, container + GATE, tokens.gate());
-                put(updated, container + PROVIDER, tokens.provider());
-                tokens.routes().forEach((name, token) -> put(updated, container + ROUTE + name, token));
-                return updated;
-            });
+            context.vault()
+                    .update(
+                            opener.get(),
+                            entries -> {
+                                final Map<String, VaultEntry> updated =
+                                        new LinkedHashMap<>(entries);
+                                // Asked here, under the vault's lock, not before it: a start beside
+                                // this one that kept its tokens in
+                                // between has its container by then, and its tokens are not pruned
+                                // as a gone task's.
+                                final Set<String> exist = existing.get();
+                                // Only a task's own entries, whose owner is a container: a grant or
+                                // a transport's secrets are the
+                                // account's, owned by no task. Pruning every reserved name took
+                                // them too, at every task start
+                                // (found on 2026-09-30: the transport's provisioning token gone).
+                                updated.keySet()
+                                        .removeIf(
+                                                name ->
+                                                        name.startsWith(PREFIX)
+                                                                && !exist.contains(owner(name)));
+                                put(updated, container + GATE, tokens.gate());
+                                put(updated, container + PROVIDER, tokens.provider());
+                                tokens.routes()
+                                        .forEach(
+                                                (name, token) ->
+                                                        put(
+                                                                updated,
+                                                                container + ROUTE + name,
+                                                                token));
+                                return updated;
+                            });
             return "";
         } catch (VaultException ex) {
-            return "the vault could not be written (" + ex.getMessage() + "), so this task cannot come back after a reboot";
+            return "the vault could not be written ("
+                    + ex.getMessage()
+                    + "), so this task cannot come back after a reboot";
         }
     }
 
@@ -162,8 +193,8 @@ public final class TaskSecrets {
      * Reads a task's tokens back.
      *
      * @param container The task's container.
-     * @return The tokens - both {@code null} when there is no vault - or empty when the vault is locked or
-     *         unreadable.
+     * @return The tokens - both {@code null} when there is no vault - or empty when the vault is
+     *     locked or unreadable.
      */
     public Optional<Tokens> read(String container) {
         if (!context.vault().exists()) {
@@ -178,13 +209,17 @@ public final class TaskSecrets {
             final Map<String, VaultEntry> entries = context.vault().read(opener.get());
             final Map<String, String> routes = new LinkedHashMap<>();
             final String routePrefix = PREFIX + container + ROUTE;
-            entries.forEach((name, entry) -> {
-                if (name.startsWith(routePrefix)) {
-                    routes.put(name.substring(routePrefix.length()), entry.value());
-                }
-            });
-            return Optional.of(new Tokens(value(entries.get(PREFIX + container + GATE)),
-                    value(entries.get(PREFIX + container + PROVIDER)), routes));
+            entries.forEach(
+                    (name, entry) -> {
+                        if (name.startsWith(routePrefix)) {
+                            routes.put(name.substring(routePrefix.length()), entry.value());
+                        }
+                    });
+            return Optional.of(
+                    new Tokens(
+                            value(entries.get(PREFIX + container + GATE)),
+                            value(entries.get(PREFIX + container + PROVIDER)),
+                            routes));
         } catch (VaultException ex) {
             return Optional.empty();
         }
@@ -194,7 +229,8 @@ public final class TaskSecrets {
      * Forgets a task's tokens, as removing the task does.
      *
      * @param container The task's container.
-     * @return "" when they are gone or there were none; otherwise why not - the next task's keep prunes them.
+     * @return "" when they are gone or there were none; otherwise why not - the next task's keep
+     *     prunes them.
      */
     public String forget(String container) {
         final Optional<VaultFile.Opener> opener = context.opener();
@@ -205,13 +241,21 @@ public final class TaskSecrets {
             return "the vault is locked, so its tokens stay there until a task is next started";
         }
         try {
-            context.vault().update(opener.get(), entries -> {
-                final Map<String, VaultEntry> updated = new LinkedHashMap<>(entries);
-                updated.remove(PREFIX + container + GATE);
-                updated.remove(PREFIX + container + PROVIDER);
-                updated.keySet().removeIf(name -> name.startsWith(PREFIX + container + ROUTE));
-                return updated;
-            });
+            context.vault()
+                    .update(
+                            opener.get(),
+                            entries -> {
+                                final Map<String, VaultEntry> updated =
+                                        new LinkedHashMap<>(entries);
+                                updated.remove(PREFIX + container + GATE);
+                                updated.remove(PREFIX + container + PROVIDER);
+                                updated.keySet()
+                                        .removeIf(
+                                                name ->
+                                                        name.startsWith(
+                                                                PREFIX + container + ROUTE));
+                                return updated;
+                            });
             return "";
         } catch (VaultException ex) {
             return "its tokens could not be removed from the vault: " + ex.getMessage();
@@ -219,8 +263,8 @@ public final class TaskSecrets {
     }
 
     /**
-     * Reads a running task's two tokens from its runtime directory, where the launch left them: the gate's in
-     * its resume record, the proxy's in its token file.
+     * Reads a running task's two tokens from its runtime directory, where the launch left them: the
+     * gate's in its resume record, the proxy's in its token file.
      *
      * @param runtime The task's runtime directory.
      * @return What is there.
@@ -237,7 +281,10 @@ public final class TaskSecrets {
         try {
             final java.nio.file.Path file = runtime.resolve(PROVIDER_FILE);
             if (java.nio.file.Files.isRegularFile(file)) {
-                provider = java.nio.file.Files.readString(file, java.nio.charset.StandardCharsets.UTF_8).strip();
+                provider =
+                        java.nio.file.Files.readString(
+                                        file, java.nio.charset.StandardCharsets.UTF_8)
+                                .strip();
             }
         } catch (java.io.IOException ex) {
             // A proxy that wrote no token has none to keep.
@@ -245,11 +292,16 @@ public final class TaskSecrets {
         final Map<String, String> routes = new LinkedHashMap<>();
         final java.nio.file.Path directory = runtime.resolve(ROUTES_DIRECTORY);
         if (java.nio.file.Files.isDirectory(directory)) {
-            try (java.util.stream.Stream<java.nio.file.Path> files = java.nio.file.Files.list(directory)) {
-                for (final java.nio.file.Path file : files.filter(each -> each.getFileName().toString().endsWith(".token"))
-                        .toList()) {
+            try (java.util.stream.Stream<java.nio.file.Path> files =
+                    java.nio.file.Files.list(directory)) {
+                for (final java.nio.file.Path file :
+                        files.filter(each -> each.getFileName().toString().endsWith(".token"))
+                                .toList()) {
                     final String name = file.getFileName().toString();
-                    final String token = java.nio.file.Files.readString(file, java.nio.charset.StandardCharsets.UTF_8).strip();
+                    final String token =
+                            java.nio.file.Files.readString(
+                                            file, java.nio.charset.StandardCharsets.UTF_8)
+                                    .strip();
                     if (!token.isEmpty()) {
                         routes.put(name.substring(0, name.length() - ".token".length()), token);
                     }
@@ -261,7 +313,10 @@ public final class TaskSecrets {
         return new Tokens(gate, provider == null || provider.isEmpty() ? null : provider, routes);
     }
 
-    /** The proxy's token file in a task's runtime directory, as {@code vault serve --token-file} writes it. */
+    /**
+     * The proxy's token file in a task's runtime directory, as {@code vault serve --token-file}
+     * writes it.
+     */
     static final String PROVIDER_FILE = "vault.token";
 
     private static void put(Map<String, VaultEntry> entries, String name, @Nullable String value) {
@@ -276,10 +331,11 @@ public final class TaskSecrets {
 
     /**
      * Returns the task a reserved entry belongs to.
-     * <p>
-     * {@code task/<container>/<what>}: the container is what is between the prefix and the <em>first</em> slash, since a
-     * container name has none. It took the last, which made a route token's owner {@code <container>/route}: no task
-     * is called that, so every task start dropped every other task's route tokens.
+     *
+     * <p>{@code task/<container>/<what>}: the container is what is between the prefix and the
+     * <em>first</em> slash, since a container name has none. It took the last, which made a route
+     * token's owner {@code <container>/route}: no task is called that, so every task start dropped
+     * every other task's route tokens.
      *
      * @param name The entry's name, beginning with {@link #PREFIX}.
      * @return The container.
@@ -289,5 +345,4 @@ public final class TaskSecrets {
         final int slash = rest.indexOf('/');
         return slash < 0 ? rest : rest.substring(0, slash);
     }
-
 }

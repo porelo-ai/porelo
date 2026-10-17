@@ -11,8 +11,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Test for the promise {@link MessageIntake} makes about who wrote a message.
- * <p>
- * The filter accepts {@code ROLE_USER} on this host's word. This is where that word is kept.
+ *
+ * <p>The filter accepts {@code ROLE_USER} on this host's word. This is where that word is kept.
  */
 class MessageIntakeRoleTest {
 
@@ -27,7 +27,8 @@ class MessageIntakeRoleTest {
     @Test
     void a_task_may_send_as_an_agent(@TempDir final Path dir) throws IOException {
         final Mailbox mailbox = mailbox(dir);
-        Files.writeString(mailbox.outboxNew().resolve("m-1.json"),
+        Files.writeString(
+                mailbox.outboxNew().resolve("m-1.json"),
                 "{\"messageId\":\"m-1\",\"role\":\"ROLE_AGENT\"}");
 
         assertThat(intake.take(mailbox)).containsExactly("m-1.json");
@@ -41,7 +42,8 @@ class MessageIntakeRoleTest {
     @Test
     void a_task_may_not_send_as_the_person_who_runs_it(@TempDir final Path dir) throws IOException {
         final Mailbox mailbox = mailbox(dir);
-        Files.writeString(mailbox.outboxNew().resolve("m-2.json"),
+        Files.writeString(
+                mailbox.outboxNew().resolve("m-2.json"),
                 "{\"messageId\":\"m-2\",\"role\":\"ROLE_USER\"}");
 
         assertThat(intake.take(mailbox)).isEmpty();
@@ -56,7 +58,8 @@ class MessageIntakeRoleTest {
         final String name = new MessageSay().write(mailbox, "reviewer", "question", null, "hello");
 
         assertThat(mailbox.person().resolve(name)).exists();
-        assertThat(mailbox.person().startsWith(mailbox.box())).as("outside what is mounted")
+        assertThat(mailbox.person().startsWith(mailbox.box()))
+                .as("outside what is mounted")
                 .isFalse();
         assertThat(intake.take(mailbox)).containsExactly(name);
         assertThat(mailbox.incoming().resolve(name + ".sig")).exists();
@@ -66,7 +69,8 @@ class MessageIntakeRoleTest {
     void a_message_in_the_persons_directory_may_not_claim_to_be_an_agent(@TempDir final Path dir)
             throws IOException {
         final Mailbox mailbox = mailbox(dir);
-        Files.writeString(mailbox.person().resolve("m-3.json"),
+        Files.writeString(
+                mailbox.person().resolve("m-3.json"),
                 "{\"messageId\":\"m-3\",\"role\":\"ROLE_AGENT\"}");
 
         assertThat(intake.take(mailbox)).isEmpty();

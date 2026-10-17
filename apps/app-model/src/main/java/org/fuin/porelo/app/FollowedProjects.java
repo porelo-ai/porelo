@@ -15,11 +15,11 @@ import org.fuin.porelo.wire.Json;
 
 /**
  * The project repositories this account follows, and what happened last time it tried.
- * <p>
- * <strong>A person puts one here and nothing else does.</strong> Nothing discovers projects, and no
- * commit adds one: a configuration source that can enrol further configuration sources is a source
- * that grows where nobody is looking. So this list is short, deliberate, and only ever changed by
- * somebody saying so.
+ *
+ * <p><strong>A person puts one here and nothing else does.</strong> Nothing discovers projects, and
+ * no commit adds one: a configuration source that can enrol further configuration sources is a
+ * source that grows where nobody is looking. So this list is short, deliberate, and only ever
+ * changed by somebody saying so.
  */
 public final class FollowedProjects {
 
@@ -37,19 +37,26 @@ public final class FollowedProjects {
      * @param outcome What that attempt was, or "" when it never has.
      * @param detail What to tell an operator about that attempt, or "".
      * @param refused The commit that attempt turned away, or "" when it turned nothing away. Not
-     *        the same as {@code commit}, which is what is in force.
+     *     the same as {@code commit}, which is what is in force.
      * @param signer The fingerprint of the key that signed the refused commit, or "".
      * @param unverified Whether this project is followed <strong>without an anchor</strong>: what
-     *        it says is applied without any signature being checked.
-     *        <p>
-     *        A state rather than an error. Access to a git repository is already authenticated and
-     *        people do apply what an authenticated clone gives them - but without a signature the
-     *        rule is <em>whoever may push here decides what tasks on this machine may reach</em>,
-     *        rather than <em>whoever holds the signing key</em>, and that belongs on screen
-     *        wherever this project is.
+     *     it says is applied without any signature being checked.
+     *     <p>A state rather than an error. Access to a git repository is already authenticated and
+     *     people do apply what an authenticated clone gives them - but without a signature the rule
+     *     is <em>whoever may push here decides what tasks on this machine may reach</em>, rather
+     *     than <em>whoever holds the signing key</em>, and that belongs on screen wherever this
+     *     project is.
      */
-    public record Followed(String name, String url, String commit, String at, String outcome,
-            String detail, String refused, String signer, boolean unverified) {
+    public record Followed(
+            String name,
+            String url,
+            String commit,
+            String at,
+            String outcome,
+            String detail,
+            String refused,
+            String signer,
+            boolean unverified) {
 
         /**
          * Constructor for a record that turned nothing away.
@@ -61,26 +68,31 @@ public final class FollowedProjects {
          * @param outcome What happened, or "".
          * @param detail What to tell an operator, or "".
          */
-        public Followed(String name, String url, String commit, String at, String outcome,
-                String detail) {
+        public Followed(
+                String name, String url, String commit, String at, String outcome, String detail) {
             this(name, url, commit, at, outcome, detail, "", "", false);
         }
 
         /**
          * Tells whether nothing will change about this project until somebody acts.
-         * <p>
-         * <strong>Derived from the outcome, never stored.</strong> Two fields that must agree are
-         * two fields that can disagree, and this one would rot the first time an outcome was
+         *
+         * <p><strong>Derived from the outcome, never stored.</strong> Two fields that must agree
+         * are two fields that can disagree, and this one would rot the first time an outcome was
          * added. Which outcomes need a person is knowledge this side has - an unreachable
-         * repository may answer on the next pass by itself, a refused signature never will - and
-         * an interface asking it should not have to keep a list of them in step with ours.
+         * repository may answer on the next pass by itself, a refused signature never will - and an
+         * interface asking it should not have to keep a list of them in step with ours.
          *
          * @return {@code true} when it is stuck until a person does something.
          */
         public boolean needsAPerson() {
             return switch (outcome) {
-                case "NOT_SIGNED", "UNKNOWN_KEY", "NO_ANCHOR", "REWRITTEN", "UNUSABLE",
-                        "VAULT_LOCKED" -> true;
+                case "NOT_SIGNED",
+                        "UNKNOWN_KEY",
+                        "NO_ANCHOR",
+                        "REWRITTEN",
+                        "UNUSABLE",
+                        "VAULT_LOCKED" ->
+                        true;
                 default -> false;
             };
         }
@@ -97,21 +109,28 @@ public final class FollowedProjects {
          * @param refused The commit turned away, or "".
          * @param signer The fingerprint that signed it, or "".
          */
-        public Followed(String name, String url, String commit, String at, String outcome,
-                String detail, String refused, String signer) {
+        public Followed(
+                String name,
+                String url,
+                String commit,
+                String at,
+                String outcome,
+                String detail,
+                String refused,
+                String signer) {
             this(name, url, commit, at, outcome, detail, refused, signer, false);
         }
 
         /**
          * Returns this record with nothing in force any more.
-         * <p>
-         * What accepting a rewrite is: the next reconcile has nothing to descend from and applies
-         * what it verifies. Everything else about the follow is kept - <strong>including whether
-         * it was taken without an anchor</strong>, which is the field this used to lose. Both
-         * callers rebuilt the record by hand through a constructor that defaults the flag, so
-         * accepting a rewrite quietly turned an unverified follow into one that claims a
-         * signature was checked. A method, so the next field that is added cannot be forgotten
-         * in two places at once.
+         *
+         * <p>What accepting a rewrite is: the next reconcile has nothing to descend from and
+         * applies what it verifies. Everything else about the follow is kept - <strong>including
+         * whether it was taken without an anchor</strong>, which is the field this used to lose.
+         * Both callers rebuilt the record by hand through a constructor that defaults the flag, so
+         * accepting a rewrite quietly turned an unverified follow into one that claims a signature
+         * was checked. A method, so the next field that is added cannot be forgotten in two places
+         * at once.
          *
          * @return A copy with no commit in force.
          */
@@ -145,8 +164,11 @@ public final class FollowedProjects {
     }
 
     /** What a follow of the reserved name is told. */
-    static final String RESERVED = "'" + DefaultProject.NAME + "' is the project every machine has for work on a"
-            + " repository no followed project names; no followed project may be called that. Name it differently.";
+    static final String RESERVED =
+            "'"
+                    + DefaultProject.NAME
+                    + "' is the project every machine has for work on a"
+                    + " repository no followed project names; no followed project may be called that. Name it differently.";
 
     /**
      * Starts following a project, with or without an anchor.
@@ -161,14 +183,17 @@ public final class FollowedProjects {
     public Followed follow(final String name, final String url, final boolean unverified)
             throws IOException {
         if (!NAME.matcher(name).matches()) {
-            throw new IllegalArgumentException("A project name is lower-case letters, digits and"
-                    + " hyphens, starting with a letter or digit: " + name);
+            throw new IllegalArgumentException(
+                    "A project name is lower-case letters, digits and"
+                            + " hyphens, starting with a letter or digit: "
+                            + name);
         }
         if (DefaultProject.is(name)) {
             throw new IllegalArgumentException(RESERVED);
         }
         if (url != null && !url.isBlank()) {
-            // The project file's rule, here too: a follow over the socket took '--upload-pack=<command>', and it
+            // The project file's rule, here too: a follow over the socket took
+            // '--upload-pack=<command>', and it
             // reached 'git fetch' as an option.
             try {
                 org.fuin.porelo.core.project.Repository.refuseAsOption(url, "url");
@@ -184,25 +209,37 @@ public final class FollowedProjects {
         // making sure. Following it at a different address is a different project wearing a name,
         // and that is refused rather than silently repointed.
         if (existing != null && !existing.url().equals(url)) {
-            throw new IllegalArgumentException("'" + name + "' already follows " + existing.url()
-                    + ". Stop following it first if you mean to point it somewhere else.");
+            throw new IllegalArgumentException(
+                    "'"
+                            + name
+                            + "' already follows "
+                            + existing.url()
+                            + ". Stop following it first if you mean to point it somewhere else.");
         }
-        final Followed followed = existing != null
-                ? new Followed(existing.name(), existing.url(), existing.commit(), existing.at(),
-                        existing.outcome(), existing.detail(), existing.refused(),
-                        existing.signer(), unverified)
-                : new Followed(name, url, "", "", "", "", "", "", unverified);
+        final Followed followed =
+                existing != null
+                        ? new Followed(
+                                existing.name(),
+                                existing.url(),
+                                existing.commit(),
+                                existing.at(),
+                                existing.outcome(),
+                                existing.detail(),
+                                existing.refused(),
+                                existing.signer(),
+                                unverified)
+                        : new Followed(name, url, "", "", "", "", "", "", unverified);
         write(followed);
         return followed;
     }
 
     /**
      * Removes a clone left by a follow that is being taken back.
-     * <p>
-     * A first follow that cannot apply leaves nothing behind, and the clone is the other half of
-     * "nothing": the record says whether the project is followed, and the directory is what a
-     * later reader would find. Failing to remove it is not worth failing over - the record is
-     * what decides - so this reports nothing.
+     *
+     * <p>A first follow that cannot apply leaves nothing behind, and the clone is the other half of
+     * "nothing": the record says whether the project is followed, and the directory is what a later
+     * reader would find. Failing to remove it is not worth failing over - the record is what
+     * decides - so this reports nothing.
      *
      * @param root The followed clone.
      */
@@ -211,13 +248,15 @@ public final class FollowedProjects {
             return;
         }
         try (java.util.stream.Stream<Path> entries = Files.walk(root)) {
-            entries.sorted(java.util.Comparator.reverseOrder()).forEach(path -> {
-                try {
-                    Files.deleteIfExists(path);
-                } catch (final IOException ex) {
-                    return;
-                }
-            });
+            entries.sorted(java.util.Comparator.reverseOrder())
+                    .forEach(
+                            path -> {
+                                try {
+                                    Files.deleteIfExists(path);
+                                } catch (final IOException ex) {
+                                    return;
+                                }
+                            });
         } catch (final IOException ex) {
             return;
         }
@@ -230,19 +269,22 @@ public final class FollowedProjects {
      * @throws IOException Writing failed.
      */
     public void write(final Followed followed) throws IOException {
-        locked(() -> {
-            store(followed);
-            return Boolean.TRUE;
-        });
+        locked(
+                () -> {
+                    store(followed);
+                    return Boolean.TRUE;
+                });
     }
 
     /**
-     * Records what an attempt did, but only when the record is still the one the attempt started from.
-     * <p>
-     * <strong>For the daemon's pass over every project</strong>, which reads the records, fetches each project - seconds,
-     * over a network - and writes what it found. Written unconditionally, it brought back a project unfollowed while it
-     * fetched, and a first follow refused in the meantime, which is meant to leave nothing (found on
-     * 2026-10-01: a follow refused as unreachable listed afterwards). A record that changed or went is left as it is
+     * Records what an attempt did, but only when the record is still the one the attempt started
+     * from.
+     *
+     * <p><strong>For the daemon's pass over every project</strong>, which reads the records,
+     * fetches each project - seconds, over a network - and writes what it found. Written
+     * unconditionally, it brought back a project unfollowed while it fetched, and a first follow
+     * refused in the meantime, which is meant to leave nothing (found on 2026-10-01: a follow
+     * refused as unreachable listed afterwards). A record that changed or went is left as it is
      * now; the next pass reads it again.
      *
      * @param before The record the attempt read.
@@ -250,14 +292,16 @@ public final class FollowedProjects {
      * @return Whether it was written.
      * @throws IOException Reading or writing failed.
      */
-    public boolean writeIfUnchanged(final Followed before, final Followed after) throws IOException {
-        return locked(() -> {
-            if (!before.equals(find(before.name()))) {
-                return false;
-            }
-            store(after);
-            return true;
-        });
+    public boolean writeIfUnchanged(final Followed before, final Followed after)
+            throws IOException {
+        return locked(
+                () -> {
+                    if (!before.equals(find(before.name()))) {
+                        return false;
+                    }
+                    store(after);
+                    return true;
+                });
     }
 
     /** Something done to the records, under the lock every process that changes them takes. */
@@ -265,17 +309,26 @@ public final class FollowedProjects {
         T run() throws IOException;
     }
 
-    /** One lock per directory for the threads of this process: a file lock does not wait for them, it throws. */
-    private static final java.util.concurrent.ConcurrentMap<Path, java.util.concurrent.locks.ReentrantLock> THREADS =
-            new java.util.concurrent.ConcurrentHashMap<>();
+    /**
+     * One lock per directory for the threads of this process: a file lock does not wait for them,
+     * it throws.
+     */
+    private static final java.util.concurrent.ConcurrentMap<
+                    Path, java.util.concurrent.locks.ReentrantLock>
+            THREADS = new java.util.concurrent.ConcurrentHashMap<>();
 
     private <T> T locked(final Change<T> change) throws IOException {
         Files.createDirectories(directory);
-        final java.util.concurrent.locks.ReentrantLock threads = THREADS.computeIfAbsent(
-                directory.toAbsolutePath().normalize(), key -> new java.util.concurrent.locks.ReentrantLock());
+        final java.util.concurrent.locks.ReentrantLock threads =
+                THREADS.computeIfAbsent(
+                        directory.toAbsolutePath().normalize(),
+                        key -> new java.util.concurrent.locks.ReentrantLock());
         threads.lock();
-        try (java.nio.channels.FileChannel channel = java.nio.channels.FileChannel.open(directory.resolve(".lock"),
-                java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.WRITE);
+        try (java.nio.channels.FileChannel channel =
+                        java.nio.channels.FileChannel.open(
+                                directory.resolve(".lock"),
+                                java.nio.file.StandardOpenOption.CREATE,
+                                java.nio.file.StandardOpenOption.WRITE);
                 java.nio.channels.FileLock lock = channel.lock()) {
             return change.run();
         } finally {
@@ -300,15 +353,15 @@ public final class FollowedProjects {
         final Path file = directory.resolve(followed.name() + ".json");
         final Path staged = directory.resolve("." + followed.name() + ".json.tmp");
         Files.writeString(staged, Json.write(document), StandardCharsets.UTF_8);
-        Files.move(staged, file, StandardCopyOption.REPLACE_EXISTING,
-                StandardCopyOption.ATOMIC_MOVE);
+        Files.move(
+                staged, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
     }
 
     /**
      * Stops following a project, forgetting only this record.
-     * <p>
-     * What else belongs to that project - its clone, its mirror, its tasks - is not this class's to
-     * delete, and deleting it is guarded elsewhere: a mirror may hold work nobody has reviewed.
+     *
+     * <p>What else belongs to that project - its clone, its mirror, its tasks - is not this class's
+     * to delete, and deleting it is guarded elsewhere: a mirror may hold work nobody has reviewed.
      *
      * @param name The project.
      * @return {@code true} when there was one.
@@ -320,12 +373,13 @@ public final class FollowedProjects {
 
     /**
      * Forgets a project, and the configuration key pinned for it.
-     * <p>
-     * <strong>The pin goes with the project.</strong> {@code follow --signed-by} writes it as a line named
-     * after the project into the signers the configuration is verified with; left behind, a key trusted for
-     * a project no longer followed kept verifying configurations, and following the same name again piled
-     * a second key beside the first (found on the VM, 2026-09-30). Only lines named after this project go;
-     * a key another project pinned under its own name stays.
+     *
+     * <p><strong>The pin goes with the project.</strong> {@code follow --signed-by} writes it as a
+     * line named after the project into the signers the configuration is verified with; left
+     * behind, a key trusted for a project no longer followed kept verifying configurations, and
+     * following the same name again piled a second key beside the first (found on the VM,
+     * 2026-09-30). Only lines named after this project go; a key another project pinned under its
+     * own name stays.
      *
      * @param name The project.
      * @param signers The pinned configuration keys.
@@ -387,10 +441,12 @@ public final class FollowedProjects {
         }
         final List<Followed> found = new ArrayList<>();
         try (Stream<Path> entries = Files.list(directory)) {
-            for (final Path file : entries.filter(Files::isRegularFile)
-                    .filter(path -> path.getFileName().toString().endsWith(".json"))
-                    .filter(path -> !path.getFileName().toString().startsWith("."))
-                    .sorted(Comparator.comparing(path -> path.getFileName().toString())).toList()) {
+            for (final Path file :
+                    entries.filter(Files::isRegularFile)
+                            .filter(path -> path.getFileName().toString().endsWith(".json"))
+                            .filter(path -> !path.getFileName().toString().startsWith("."))
+                            .sorted(Comparator.comparing(path -> path.getFileName().toString()))
+                            .toList()) {
                 final Followed followed = read(file);
                 if (followed != null) {
                     found.add(followed);
@@ -418,9 +474,15 @@ public final class FollowedProjects {
         if (name.isBlank() || url.isBlank()) {
             return null;
         }
-        return new Followed(name, url, text(document, "commit"), text(document, "at"),
-                text(document, "outcome"), text(document, "detail"),
-                text(document, "refused"), text(document, "signer"),
+        return new Followed(
+                name,
+                url,
+                text(document, "commit"),
+                text(document, "at"),
+                text(document, "outcome"),
+                text(document, "detail"),
+                text(document, "refused"),
+                text(document, "signer"),
                 Boolean.TRUE.equals(document.get("unverified")));
     }
 
@@ -429,10 +491,11 @@ public final class FollowedProjects {
     }
 
     /**
-     * Whether a project is followed from a file - a bundle or a directory on this machine - rather than fetched from
-     * an address. Told by the form alone: an address names a scheme ({@code https://}, {@code file://}) or a host
-     * before a colon ({@code git@host:path}); anything else is a path. Such a project is never fetched in the
-     * background, which is what lets an offline project be followed at all.
+     * Whether a project is followed from a file - a bundle or a directory on this machine - rather
+     * than fetched from an address. Told by the form alone: an address names a scheme ({@code
+     * https://}, {@code file://}) or a host before a colon ({@code git@host:path}); anything else
+     * is a path. Such a project is never fetched in the background, which is what lets an offline
+     * project be followed at all.
      *
      * @param source Where the project is followed from.
      * @return {@code true} for a path.

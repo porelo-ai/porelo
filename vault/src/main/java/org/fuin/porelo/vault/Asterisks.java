@@ -6,15 +6,15 @@ import java.util.Optional;
 
 /**
  * Reads a secret at a terminal, showing one {@code *} per character.
- * <p>
- * <strong>Why not {@code Console.readPassword}.</strong> It shows nothing at all, and nothing at
+ *
+ * <p><strong>Why not {@code Console.readPassword}.</strong> It shows nothing at all, and nothing at
  * all is indistinguishable from a terminal that has hung - which is exactly what it looks like
- * through an interface that opened the session for somebody. The feedback was asked for
- * every other passphrase prompt in the world gives.
- * <p>
- * <strong>Why the echo is off rather than simply printing.</strong> The terminal is put into raw
- * mode with {@code stty}, so the characters themselves never appear; this writes the asterisks.
- * A terminal that cannot be put into raw mode is left to {@code readPassword}, which is silent but
+ * through an interface that opened the session for somebody. The feedback was asked for every other
+ * passphrase prompt in the world gives.
+ *
+ * <p><strong>Why the echo is off rather than simply printing.</strong> The terminal is put into raw
+ * mode with {@code stty}, so the characters themselves never appear; this writes the asterisks. A
+ * terminal that cannot be put into raw mode is left to {@code readPassword}, which is silent but
  * safe - a prompt that fell back to echoing what was typed would write the secret to the
  * scrollback, and many terminals persist that to disk.
  */
@@ -39,8 +39,8 @@ final class Asterisks {
      * Reads a secret, showing a star per character.
      *
      * @param prompt What to write before reading.
-     * @return What was typed, or empty when the terminal cannot be put into raw mode or nothing
-     *         was typed.
+     * @return What was typed, or empty when the terminal cannot be put into raw mode or nothing was
+     *     typed.
      */
     static Optional<char[]> read(final String prompt) {
         final String saved = stty("-g");
@@ -61,14 +61,16 @@ final class Asterisks {
     }
 
     /**
-     * Reads what is typed up to a return, showing a star per character, from a terminal already in raw mode.
+     * Reads what is typed up to a return, showing a star per character, from a terminal already in
+     * raw mode.
      *
      * @param in What the terminal sends.
      * @param out Where the stars go.
      * @return What was typed, or empty when nothing was or it was abandoned with Ctrl-C.
      * @throws IOException If reading fails.
      */
-    static Optional<char[]> typed(final java.io.InputStream in, final java.io.PrintStream out) throws IOException {
+    static Optional<char[]> typed(final java.io.InputStream in, final java.io.PrintStream out)
+            throws IOException {
         final StringBuilder typed = new StringBuilder();
         while (true) {
             final int character = in.read();
@@ -90,8 +92,10 @@ final class Asterisks {
                 }
                 continue;
             }
-            // A character beyond ASCII arrives as two to four bytes; it is one character, and one star.
-            final int more = character >= 0xF0 ? 3 : character >= 0xE0 ? 2 : character >= 0xC0 ? 1 : 0;
+            // A character beyond ASCII arrives as two to four bytes; it is one character, and one
+            // star.
+            final int more =
+                    character >= 0xF0 ? 3 : character >= 0xE0 ? 2 : character >= 0xC0 ? 1 : 0;
             final byte[] sequence = new byte[1 + more];
             sequence[0] = (byte) character;
             for (int index = 1; index <= more; index++) {
@@ -101,7 +105,8 @@ final class Asterisks {
                 }
                 sequence[index] = (byte) next;
             }
-            typed.appendCodePoint(new String(sequence, java.nio.charset.StandardCharsets.UTF_8).codePointAt(0));
+            typed.appendCodePoint(
+                    new String(sequence, java.nio.charset.StandardCharsets.UTF_8).codePointAt(0));
             out.print('*');
             out.flush();
         }
@@ -126,14 +131,18 @@ final class Asterisks {
         command.add("stty");
         command.addAll(Arrays.asList(arguments));
         try {
-            final Process process = new ProcessBuilder(command)
-                    // The terminal it must act on is this process's own, which is what
-                    // INHERIT gives it - a pipe here would make stty answer about nothing.
-                    .redirectInput(ProcessBuilder.Redirect.INHERIT)
-                    .redirectError(ProcessBuilder.Redirect.DISCARD)
-                    .start();
-            final String answer = new String(process.getInputStream().readAllBytes(),
-                    java.nio.charset.StandardCharsets.US_ASCII).strip();
+            final Process process =
+                    new ProcessBuilder(command)
+                            // The terminal it must act on is this process's own, which is what
+                            // INHERIT gives it - a pipe here would make stty answer about nothing.
+                            .redirectInput(ProcessBuilder.Redirect.INHERIT)
+                            .redirectError(ProcessBuilder.Redirect.DISCARD)
+                            .start();
+            final String answer =
+                    new String(
+                                    process.getInputStream().readAllBytes(),
+                                    java.nio.charset.StandardCharsets.US_ASCII)
+                            .strip();
             return process.waitFor() == 0 ? answer : null;
         } catch (final IOException ex) {
             return null;

@@ -6,12 +6,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.io.StringReader;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link AgentDefinitionReader}.
- */
+/** Tests for {@link AgentDefinitionReader}. */
 class AgentDefinitionReaderTest {
 
-    private static final String MINIMAL = """
+    private static final String MINIMAL =
+            """
             name: example
             binary: example-cli
 
@@ -50,7 +49,10 @@ class AgentDefinitionReaderTest {
 
         // Install fragments are shell. Writing them as a readable block beats a list of quoted
         // one-liners, so a block scalar is split into lines here.
-        final AgentDefinition definition = read(MINIMAL + """
+        final AgentDefinition definition =
+                read(
+                        MINIMAL
+                                + """
                 install:
                   as_root: |
                     RUN mkdir -p /opt/example
@@ -68,7 +70,10 @@ class AgentDefinitionReaderTest {
     @Test
     void readsTheDomainsAnAgentNeeds() {
 
-        final AgentDefinition definition = read(MINIMAL + """
+        final AgentDefinition definition =
+                read(
+                        MINIMAL
+                                + """
                 allowed_domains:
                   - api.example.com
                   - registry.npmjs.org
@@ -81,7 +86,10 @@ class AgentDefinitionReaderTest {
     @Test
     void readsWhatTheAgentSaysAboutProviders() {
 
-        final AgentDefinition definition = read(MINIMAL + """
+        final AgentDefinition definition =
+                read(
+                        MINIMAL
+                                + """
 
                 provider:
                   default: example
@@ -116,7 +124,10 @@ class AgentDefinitionReaderTest {
 
         // Telemetry hosts are declared, not merely left out: the firewall cannot tell an
         // oversight from a policy, and the domain-coverage test needs to.
-        final AgentDefinition definition = read(MINIMAL + """
+        final AgentDefinition definition =
+                read(
+                        MINIMAL
+                                + """
                 allowed_domains:
                   - api.example.com
                 refused_domains:
@@ -131,7 +142,11 @@ class AgentDefinitionReaderTest {
     void refusesADomainThatIsBothAllowedAndRefused() {
 
         // Which list wins would otherwise depend on which one the ruleset consults first.
-        assertThatThrownBy(() -> read(MINIMAL + """
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        MINIMAL
+                                                + """
                 allowed_domains:
                   - api.example.com
                 refused_domains:
@@ -151,7 +166,10 @@ class AgentDefinitionReaderTest {
     @Test
     void mapsCredentialTypesToEnvironmentVariables() {
 
-        final AgentDefinition definition = read(MINIMAL + """
+        final AgentDefinition definition =
+                read(
+                        MINIMAL
+                                + """
                 provider:
                   dialect: openai
                   base_url_env: EXAMPLE_BASE_URL
@@ -214,7 +232,8 @@ class AgentDefinitionReaderTest {
     @Test
     void reportsTheOriginOfTheProblem() {
 
-        assertThatThrownBy(() -> AgentDefinitionReader.read(new StringReader("[]"), "/x/claude.yaml"))
+        assertThatThrownBy(
+                        () -> AgentDefinitionReader.read(new StringReader("[]"), "/x/claude.yaml"))
                 .isInstanceOf(AgentException.class)
                 .hasMessageContaining("/x/claude.yaml");
     }
@@ -224,7 +243,10 @@ class AgentDefinitionReaderTest {
 
         // The alternative to a pinned URL, for a tool that is a tree of files rather than one
         // binary: the package carries it and the image build fetches nothing.
-        final AgentDefinition definition = read(MINIMAL + """
+        final AgentDefinition definition =
+                read(
+                        MINIMAL
+                                + """
                 install:
                   packaged:
                     - source: /usr/share/porelo/agents/uc
@@ -242,17 +264,25 @@ class AgentDefinitionReaderTest {
 
         // Resolved beside the agent's binary where it is staged, so a copy of the agent in one
         // account ships its own tree. It was refused while it meant "wherever the build ran".
-        assertThat(read(MINIMAL + """
+        assertThat(
+                        read(MINIMAL
+                                        + """
                 install:
                   packaged:
                     - source: uc/tree.tar.gz
                       target: /opt/uc
-                """).packaged()).containsExactly(new PackagedTree("uc/tree.tar.gz", "/opt/uc"));
+                """)
+                                .packaged())
+                .containsExactly(new PackagedTree("uc/tree.tar.gz", "/opt/uc"));
     }
 
     @Test
     void refusesARelativePackagedSourceThatLeavesTheAgentsDirectory() {
-        assertThatThrownBy(() -> read(MINIMAL + """
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        MINIMAL
+                                                + """
                 install:
                   packaged:
                     - source: ../elsewhere/uc
@@ -264,7 +294,11 @@ class AgentDefinitionReaderTest {
 
     @Test
     void refusesAPackagedTargetThatIsNotAbsolute() {
-        assertThatThrownBy(() -> read(MINIMAL + """
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        MINIMAL
+                                                + """
                 install:
                   packaged:
                     - source: /usr/share/uc
@@ -278,7 +312,10 @@ class AgentDefinitionReaderTest {
     void defaultsToASocketEndpoint() {
 
         // The safer one, and what every agent gets unless it says it cannot use a socket.
-        final AgentDefinition definition = read(MINIMAL + """
+        final AgentDefinition definition =
+                read(
+                        MINIMAL
+                                + """
                 provider:
                   dialect: openai
                   socket_env: UC_SOCKET
@@ -290,7 +327,10 @@ class AgentDefinitionReaderTest {
     @Test
     void readsAnAgentThatCanOnlyBeGivenAUrl() {
 
-        final AgentDefinition definition = read(MINIMAL + """
+        final AgentDefinition definition =
+                read(
+                        MINIMAL
+                                + """
                 provider:
                   dialect: native
                   endpoint: url
@@ -304,7 +344,11 @@ class AgentDefinitionReaderTest {
 
         // Named rather than ignored: an unknown endpoint would otherwise fall back to a socket
         // and the agent would be pointed at something it cannot address.
-        assertThatThrownBy(() -> read(MINIMAL + """
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        MINIMAL
+                                                + """
                 provider:
                   dialect: openai
                   endpoint: carrier-pigeon
@@ -328,7 +372,10 @@ class AgentDefinitionReaderTest {
 
     @Test
     void readsWhatTheAgentShowsOnceAtWorkAndHowLongThatMayTake() {
-        final AgentDefinition definition = read(MINIMAL + """
+        final AgentDefinition definition =
+                read(
+                        MINIMAL
+                                + """
                 session:
                   ready_marker: "at work"
                   ready_within_seconds: 45
@@ -348,21 +395,29 @@ class AgentDefinitionReaderTest {
     @Test
     void refusesABoundWithNothingToBound() {
         assertThatThrownBy(() -> read(MINIMAL + "session:\n  ready_within_seconds: 30\n"))
-                .isInstanceOf(AgentException.class).hasMessageContaining("none is declared");
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("none is declared");
     }
 
     @Test
     void refusesAMarkerOfMoreThanOneLineAndABoundPastTheLimit() {
-        assertThatThrownBy(() -> new ReadyMarker("one\ntwo", null)).isInstanceOf(AgentException.class);
-        assertThatThrownBy(() -> new ReadyMarker("ok", ReadyMarker.MOST_SECONDS + 1)).isInstanceOf(AgentException.class);
+        assertThatThrownBy(() -> new ReadyMarker("one\ntwo", null))
+                .isInstanceOf(AgentException.class);
+        assertThatThrownBy(() -> new ReadyMarker("ok", ReadyMarker.MOST_SECONDS + 1))
+                .isInstanceOf(AgentException.class);
     }
 
     @Test
     void aModeWrittenAsANumberIsRefusedBecauseYamlReadsItInOctal() {
 
-        // 'mode: 0644' is the number 420 to YAML, and the file was installed as 0420 - nobody may read it but its
+        // 'mode: 0644' is the number 420 to YAML, and the file was installed as 0420 - nobody may
+        // read it but its
         // owner's group; '0755' became 493 and was refused with words that did not say why.
-        assertThatThrownBy(() -> read(MINIMAL + """
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        MINIMAL
+                                                + """
                 install:
                   version: "1.0.0"
                   artifacts:
@@ -370,8 +425,13 @@ class AgentDefinitionReaderTest {
                       sha256: "%s"
                       target: /usr/local/bin/uc
                       mode: 0644
-                """.formatted("a".repeat(64)))).isInstanceOf(AgentException.class).hasMessageContaining("'0644'");
-        assertThat(read(MINIMAL + """
+                """
+                                                        .formatted("a".repeat(64))))
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("'0644'");
+        assertThat(
+                        read(MINIMAL
+                                        + """
                 install:
                   version: "1.0.0"
                   artifacts:
@@ -379,28 +439,59 @@ class AgentDefinitionReaderTest {
                       sha256: "%s"
                       target: /usr/local/bin/uc
                       mode: "0644"
-                """.formatted("a".repeat(64))).artifacts().getFirst().mode()).isEqualTo("0644");
+                """
+                                                .formatted("a".repeat(64)))
+                                .artifacts()
+                                .getFirst()
+                                .mode())
+                .isEqualTo("0644");
     }
 
     @Test
     void whatGoesIntoTheImageBuildIsAPathOrPlainWordsNothingThatStartsAnotherCommand() {
 
-        // The target went into the build script unquoted, so ';' ran a second command; a line break in a reason or a
+        // The target went into the build script unquoted, so ';' ran a second command; a line break
+        // in a reason or a
         // packaged target started an instruction of its own.
-        assertThatThrownBy(() -> new InstallArtifact("https://example.com/uc", "a".repeat(64),
-                "/usr/local/bin/uc;curl x|sh", "0755", false, null, null)).isInstanceOf(AgentException.class);
-        assertThatThrownBy(() -> new InstallArtifact("https://example.com/uc", null, "/usr/local/bin/uc", "0755", true,
-                "no digest\nRUN curl x|sh", null)).isInstanceOf(AgentException.class);
-        assertThatThrownBy(() -> new PackagedTree("uc/tree", "/opt/uc\nRUN id")).isInstanceOf(AgentException.class);
-        assertThatThrownBy(() -> new PackagedTree("uc/tree", "/opt/my tree")).isInstanceOf(AgentException.class);
-        assertThat(new PackagedTree("uc/tree", "/opt/uc-1.2_x").target()).isEqualTo("/opt/uc-1.2_x");
+        assertThatThrownBy(
+                        () ->
+                                new InstallArtifact(
+                                        "https://example.com/uc",
+                                        "a".repeat(64),
+                                        "/usr/local/bin/uc;curl x|sh",
+                                        "0755",
+                                        false,
+                                        null,
+                                        null))
+                .isInstanceOf(AgentException.class);
+        assertThatThrownBy(
+                        () ->
+                                new InstallArtifact(
+                                        "https://example.com/uc",
+                                        null,
+                                        "/usr/local/bin/uc",
+                                        "0755",
+                                        true,
+                                        "no digest\nRUN curl x|sh",
+                                        null))
+                .isInstanceOf(AgentException.class);
+        assertThatThrownBy(() -> new PackagedTree("uc/tree", "/opt/uc\nRUN id"))
+                .isInstanceOf(AgentException.class);
+        assertThatThrownBy(() -> new PackagedTree("uc/tree", "/opt/my tree"))
+                .isInstanceOf(AgentException.class);
+        assertThat(new PackagedTree("uc/tree", "/opt/uc-1.2_x").target())
+                .isEqualTo("/opt/uc-1.2_x");
     }
 
     @Test
     void readsTheAppItSignsInToAProviderWithOneIdPerHost() {
-        // An agent may use one OAuth app on github.com and another on an Enterprise host; Porelo grants whichever the
+        // An agent may use one OAuth app on github.com and another on an Enterprise host; Porelo
+        // grants whichever the
         // agent itself would use, and says whose it is.
-        final AgentDefinition agent = read(MINIMAL + """
+        final AgentDefinition agent =
+                read(
+                        MINIMAL
+                                + """
                 login:
                   arguments: []
                   grants:
@@ -418,7 +509,8 @@ class AgentDefinitionReaderTest {
         assertThat(grant.owner()).isEqualTo("another tool's app, as its source says");
         assertThat(agent.grantFor("openrouter")).isNull();
         assertThat(AgentDefinitionJson.read(AgentDefinitionJson.write(agent)).grants())
-                .as("the same after the interface's JSON").isEqualTo(agent.grants());
+                .as("the same after the interface's JSON")
+                .isEqualTo(agent.grants());
     }
 
     @Test
@@ -428,11 +520,17 @@ class AgentDefinitionReaderTest {
 
     @Test
     void refusesAGrantWithoutAClientId() {
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> read(MINIMAL + """
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                read(
+                                        MINIMAL
+                                                + """
                 login:
                   grants:
                     github-copilot:
                       owner: nobody
-                """)).isInstanceOf(AgentException.class).hasMessageContaining("hosts");
+                """))
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("hosts");
     }
 }

@@ -6,27 +6,27 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link SystemdCredential}.
- */
+/** Tests for {@link SystemdCredential}. */
 class SystemdCredentialTest {
 
     @Test
     void decryptsAConfiguredCredential() {
 
-        final FakeCommandRunner runner = new FakeCommandRunner()
-                .answering("systemd-creds decrypt", "sealed-passphrase\n");
+        final FakeCommandRunner runner =
+                new FakeCommandRunner().answering("systemd-creds decrypt", "sealed-passphrase\n");
 
         assertThat(new SystemdCredential(runner, "/etc/porelo/vault.cred").passphrase())
-                .hasValueSatisfying(value ->
-                        assertThat(value).containsExactly("sealed-passphrase".toCharArray()));
+                .hasValueSatisfying(
+                        value ->
+                                assertThat(value)
+                                        .containsExactly("sealed-passphrase".toCharArray()));
     }
 
     @Test
     void writesToStandardOutputRatherThanAFile() {
 
-        final FakeCommandRunner runner = new FakeCommandRunner()
-                .answering("systemd-creds decrypt", "x\n");
+        final FakeCommandRunner runner =
+                new FakeCommandRunner().answering("systemd-creds decrypt", "x\n");
 
         new SystemdCredential(runner, "/etc/porelo/vault.cred").passphrase();
 
@@ -47,10 +47,15 @@ class SystemdCredentialTest {
 
         // Almost always a TPM state change. Prompting instead would hide a real problem behind a
         // password box.
-        final FakeCommandRunner runner = new FakeCommandRunner()
-                .failing("systemd-creds decrypt", 1, "Failed to decrypt credential: TPM2 policy mismatch");
+        final FakeCommandRunner runner =
+                new FakeCommandRunner()
+                        .failing(
+                                "systemd-creds decrypt",
+                                1,
+                                "Failed to decrypt credential: TPM2 policy mismatch");
 
-        assertThatThrownBy(() -> new SystemdCredential(runner, "/etc/porelo/vault.cred").passphrase())
+        assertThatThrownBy(
+                        () -> new SystemdCredential(runner, "/etc/porelo/vault.cred").passphrase())
                 .isInstanceOf(VaultException.class)
                 .hasMessageContaining("TPM2 policy mismatch");
     }
@@ -61,10 +66,12 @@ class SystemdCredentialTest {
         // systemd-creds not existing is not a misconfiguration, and must not stop the tiers below
         // it from being tried. Simulated rather than run for real: this host has systemd-creds,
         // so the real runner would exercise the decrypt-failure path instead.
-        final org.fuin.porelo.core.process.CommandRunner absent = command -> {
-            throw new org.fuin.porelo.core.process.CommandException(command,
-                    new java.io.IOException("Cannot run program \"systemd-creds\""));
-        };
+        final org.fuin.porelo.core.process.CommandRunner absent =
+                command -> {
+                    throw new org.fuin.porelo.core.process.CommandException(
+                            command,
+                            new java.io.IOException("Cannot run program \"systemd-creds\""));
+                };
 
         assertThat(new SystemdCredential(absent, "/etc/porelo/vault.cred").passphrase()).isEmpty();
     }
@@ -74,7 +81,8 @@ class SystemdCredentialTest {
 
         final FakeCommandRunner runner = new FakeCommandRunner();
 
-        new SystemdCredential(runner, null).seal("secret".toCharArray(), "/tmp/v.cred", "porelo.vault");
+        new SystemdCredential(runner, null)
+                .seal("secret".toCharArray(), "/tmp/v.cred", "porelo.vault");
 
         final var command = runner.only("systemd-creds");
         assertThat(command.describe())

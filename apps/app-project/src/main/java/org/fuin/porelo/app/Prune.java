@@ -21,19 +21,21 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Finds what nothing on this machine owns any more, and removes it when asked.
- * <p>
- * <strong>Orphaned means, and only means:</strong> a project that is not followed, has no running task, and whose
- * project file is missing or unreadable - with everything kept for it, its stopped tasks included; what is kept for a
- * task whose container is gone; and an image, a build context or a record named after a project that exists nowhere
- * any more. A running task and a followed project are never orphaned, whatever else is wrong with them.
- * <p>
- * <strong>Nothing that holds work is removed without being asked twice.</strong> A mirror with a push nobody
- * reviewed, a stopped task whose workspace may hold work, a mailbox with a message held, refused or not yet sent: each
- * is listed with what it holds and kept, unless {@code includingWork} says otherwise. A project goes through the same
- * {@link ProjectDeletion} {@code unfollow} uses, so the two refuse and remove alike.
- * <p>
- * <strong>The clearance journal stays:</strong> it is the record of what a task was allowed to reach, kept on
- * purpose when a task is removed.
+ *
+ * <p><strong>Orphaned means, and only means:</strong> a project that is not followed, has no
+ * running task, and whose project file is missing or unreadable - with everything kept for it, its
+ * stopped tasks included; what is kept for a task whose container is gone; and an image, a build
+ * context or a record named after a project that exists nowhere any more. A running task and a
+ * followed project are never orphaned, whatever else is wrong with them.
+ *
+ * <p><strong>Nothing that holds work is removed without being asked twice.</strong> A mirror with a
+ * push nobody reviewed, a stopped task whose workspace may hold work, a mailbox with a message
+ * held, refused or not yet sent: each is listed with what it holds and kept, unless {@code
+ * includingWork} says otherwise. A project goes through the same {@link ProjectDeletion} {@code
+ * unfollow} uses, so the two refuse and remove alike.
+ *
+ * <p><strong>The clearance journal stays:</strong> it is the record of what a task was allowed to
+ * reach, kept on purpose when a task is removed.
  */
 public final class Prune {
 
@@ -44,18 +46,21 @@ public final class Prune {
     static final String LOGIN = "porelo-login";
 
     /**
-     * How long what is kept for a task must have been left alone before it counts as left over. A task's mailbox and
-     * state are made before its container is, so a prune while a task starts would otherwise take them.
+     * How long what is kept for a task must have been left alone before it counts as left over. A
+     * task's mailbox and state are made before its container is, so a prune while a task starts
+     * would otherwise take them.
      */
     static final java.time.Duration SETTLED = java.time.Duration.ofMinutes(15);
 
     /**
      * One thing found.
      *
-     * @param kind {@code PROJECT}, {@code TASK}, {@code IMAGE}, {@code BUILD}, {@code RECORD} or {@code VAULT}.
+     * @param kind {@code PROJECT}, {@code TASK}, {@code IMAGE}, {@code BUILD}, {@code RECORD} or
+     *     {@code VAULT}.
      * @param name What it is called: a project, a container, an image, a path or a vault entry.
      * @param what What of it goes, or would go, as a person recognises it.
-     * @param holds What it holds that nobody has looked at, or "" when nothing; non-empty means it is kept.
+     * @param holds What it holds that nobody has looked at, or "" when nothing; non-empty means it
+     *     is kept.
      */
     public record Item(String kind, String name, List<String> what, String holds) {
 
@@ -94,7 +99,8 @@ public final class Prune {
      * @param keeps What was found and kept because it holds work, or could not be removed.
      * @param unchecked What could not be looked at, and why.
      */
-    public record Result(boolean applied, List<Item> removes, List<Item> keeps, List<String> unchecked) {
+    public record Result(
+            boolean applied, List<Item> removes, List<Item> keeps, List<String> unchecked) {
 
         /**
          * Constructor with defensive copies.
@@ -186,7 +192,9 @@ public final class Prune {
         }
         // What a project's removal already named is not named again on its own.
         final Set<String> named = new java.util.HashSet<>();
-        removes.stream().filter(item -> "PROJECT".equals(item.kind())).forEach(item -> named.addAll(item.what()));
+        removes.stream()
+                .filter(item -> "PROJECT".equals(item.kind()))
+                .forEach(item -> named.addAll(item.what()));
         images(remaining, named, apply, removes, keeps);
         records(remaining, named, apply, removes, keeps);
         vault(containers, remaining, apply, removes, unchecked);
@@ -194,22 +202,27 @@ public final class Prune {
     }
 
     /**
-     * Returns whether a project is orphaned: not followed, no task of it running, and no file anybody can read.
+     * Returns whether a project is orphaned: not followed, no task of it running, and no file
+     * anybody can read.
      *
      * @param project The project as the inventory lists it.
      * @param running The projects that have a running task.
      * @return {@code true} when nothing owns it any more.
      */
     static boolean orphaned(final ProjectInventory.Summary project, final Set<String> running) {
-        return !DefaultProject.is(project.name()) && project.following() == null && !running.contains(project.name())
+        return !DefaultProject.is(project.name())
+                && project.following() == null
+                && !running.contains(project.name())
                 && (project.file() == null || project.repositories().isEmpty());
     }
 
     private Item project(final String name, final boolean apply, final boolean includingWork) {
         final List<String> what = new ArrayList<>();
-        // What 'remove' would refuse for a stopped task, asked before rather than learnt from a refusal halfway:
+        // What 'remove' would refuse for a stopped task, asked before rather than learnt from a
+        // refusal halfway:
         // a preview has to say what the real run will do.
-        // Grouped by what is held, so nine tasks nobody recorded are one sentence and nine names, not nine sentences.
+        // Grouped by what is held, so nine tasks nobody recorded are one sentence and nine names,
+        // not nine sentences.
         final Map<String, List<String>> work = new LinkedHashMap<>();
         for (final TaskInventory.Task task : new TaskInventory(context).tasks()) {
             if (name.equals(task.project())) {
@@ -222,20 +235,38 @@ public final class Prune {
         if (!work.isEmpty() && !includingWork) {
             final List<String> said = new ArrayList<>();
             final List<String> tasks = new ArrayList<>();
-            work.forEach((reason, names) -> {
-                said.add(names.size() == 1 ? "a stopped task: " + reason
-                        : names.size() + " stopped tasks: " + reason);
-                tasks.addAll(names);
-            });
+            work.forEach(
+                    (reason, names) -> {
+                        said.add(
+                                names.size() == 1
+                                        ? "a stopped task: " + reason
+                                        : names.size() + " stopped tasks: " + reason);
+                        tasks.addAll(names);
+                    });
             return new Item("PROJECT", name, tasks, String.join("; ", said));
         }
-        final ProjectDeletion.Result result = new ProjectDeletion(context).delete(name, !apply, includingWork);
-        result.removes().forEach(removal -> what.add(removal.kind().toLowerCase(java.util.Locale.ROOT)
-                .replace('_', ' ') + " " + removal.what()));
+        final ProjectDeletion.Result result =
+                new ProjectDeletion(context).delete(name, !apply, includingWork);
+        result.removes()
+                .forEach(
+                        removal ->
+                                what.add(
+                                        removal.kind()
+                                                        .toLowerCase(java.util.Locale.ROOT)
+                                                        .replace('_', ' ')
+                                                + " "
+                                                + removal.what()));
         return switch (result.outcome()) {
             case DELETED, PREVIEWED -> new Item("PROJECT", name, what, "");
-            case HOLDS_WORK -> new Item("PROJECT", name, what, result.unreviewed().isEmpty()
-                    ? String.valueOf(result.detail()) : "pushes nobody reviewed: " + String.join(", ", result.unreviewed()));
+            case HOLDS_WORK ->
+                    new Item(
+                            "PROJECT",
+                            name,
+                            what,
+                            result.unreviewed().isEmpty()
+                                    ? String.valueOf(result.detail())
+                                    : "pushes nobody reviewed: "
+                                            + String.join(", ", result.unreviewed()));
             default -> new Item("PROJECT", name, what, "not removed: " + result.detail());
         };
     }
@@ -248,8 +279,11 @@ public final class Prune {
      */
     private String workspaceOf(final String container) {
         final Path state = context.paths().tasks().containerState(container);
-        final UnhandedWork.Held held = UnhandedWork.read(Files.isDirectory(state) ? state
-                : context.paths().tasks().taskRecord(container));
+        final UnhandedWork.Held held =
+                UnhandedWork.read(
+                        Files.isDirectory(state)
+                                ? state
+                                : context.paths().tasks().taskRecord(container));
         if (!held.readable()) {
             return "no record of what their workspace holds";
         }
@@ -265,9 +299,12 @@ public final class Prune {
      */
     private Set<String> goneTasks(final Set<String> containers) {
         final Set<String> gone = new TreeSet<>();
-        for (final Path directory : List.of(directoryOf(context.paths().tasks().taskRecord("x")),
-                directoryOf(context.paths().messaging().mailbox("x")), directoryOf(context.paths().tasks().sessionRecord("x")),
-                directoryOf(context.paths().tasks().containerState("x")))) {
+        for (final Path directory :
+                List.of(
+                        directoryOf(context.paths().tasks().taskRecord("x")),
+                        directoryOf(context.paths().messaging().mailbox("x")),
+                        directoryOf(context.paths().tasks().sessionRecord("x")),
+                        directoryOf(context.paths().tasks().containerState("x")))) {
             for (final String name : names(directory)) {
                 if (ContainerName.isTask(name) && !containers.contains(name)) {
                     gone.add(name);
@@ -286,8 +323,12 @@ public final class Prune {
      */
     private boolean settled(final String container) {
         final java.time.Instant before = java.time.Instant.now().minus(SETTLED);
-        for (final Path path : List.of(context.paths().tasks().taskRecord(container), context.paths().messaging().mailbox(container),
-                context.paths().tasks().sessionRecord(container), context.paths().tasks().containerState(container))) {
+        for (final Path path :
+                List.of(
+                        context.paths().tasks().taskRecord(container),
+                        context.paths().messaging().mailbox(container),
+                        context.paths().tasks().sessionRecord(container),
+                        context.paths().tasks().containerState(container))) {
             if (!Files.exists(path)) {
                 continue;
             }
@@ -360,10 +401,14 @@ public final class Prune {
         } catch (IOException ex) {
             said.add("messages that could not be read: " + ex.getMessage());
         }
-        long unsent = count(mailbox.outboxNew()) + count(mailbox.incoming()) + count(mailbox.inbound())
-                + count(mailbox.person());
+        long unsent =
+                count(mailbox.outboxNew())
+                        + count(mailbox.incoming())
+                        + count(mailbox.inbound())
+                        + count(mailbox.person());
         for (final String transport : names(mailbox.queue("x").getParent())) {
-            unsent += count(mailbox.queueActive(transport)) + count(mailbox.queueDeferred(transport));
+            unsent +=
+                    count(mailbox.queueActive(transport)) + count(mailbox.queueDeferred(transport));
         }
         if (unsent > 0) {
             said.add(unsent + " message(s) not delivered yet");
@@ -371,11 +416,17 @@ public final class Prune {
         return String.join(" and ", said);
     }
 
-    private void images(final Set<String> remaining, final Set<String> named, final boolean apply,
-            final List<Item> removes, final List<Item> keeps) {
+    private void images(
+            final Set<String> remaining,
+            final Set<String> named,
+            final boolean apply,
+            final List<Item> removes,
+            final List<Item> keeps) {
         for (final String image : context.podman().poreloImages()) {
             final String project = image.substring("porelo/".length());
-            if (!LOGIN.equals(project) && !remaining.contains(project) && !named.contains("image " + image)) {
+            if (!LOGIN.equals(project)
+                    && !remaining.contains(project)
+                    && !named.contains("image " + image)) {
                 if (apply) {
                     context.podman().removeImage(image);
                 }
@@ -384,40 +435,75 @@ public final class Prune {
         }
         final Path builds = directoryOf(context.paths().tasks().buildContext("x"));
         for (final String entry : names(builds)) {
-            // Beside each context lies the lock an image build holds, '<project>.build.lock': a file of the project,
-            // never a project of its own name. Read as one, it was offered while a task of the project ran.
-            final String project = entry.endsWith(BUILD_LOCK) ? entry.substring(0, entry.length() - BUILD_LOCK.length())
-                    : entry;
+            // Beside each context lies the lock an image build holds, '<project>.build.lock': a
+            // file of the project,
+            // never a project of its own name. Read as one, it was offered while a task of the
+            // project ran.
+            final String project =
+                    entry.endsWith(BUILD_LOCK)
+                            ? entry.substring(0, entry.length() - BUILD_LOCK.length())
+                            : entry;
             final Path lock = builds == null ? null : builds.resolve(project + BUILD_LOCK);
-            if (LOGIN.equals(project) || remaining.contains(project) || named.contains("build " + builds.resolve(entry))
+            if (LOGIN.equals(project)
+                    || remaining.contains(project)
+                    || named.contains("build " + builds.resolve(entry))
                     // An image build of it is under way: nothing of it goes while it is.
                     || lock != null && java.nio.file.Files.exists(lock) && !FileLocks.free(lock)) {
                 continue;
             }
-            remove(builds.resolve(entry), "BUILD", entry.endsWith(BUILD_LOCK) ? "its build lock" : "its build context",
-                    apply, removes, keeps);
+            remove(
+                    builds.resolve(entry),
+                    "BUILD",
+                    entry.endsWith(BUILD_LOCK) ? "its build lock" : "its build context",
+                    apply,
+                    removes,
+                    keeps);
         }
     }
 
     /**
-     * Removes what is recorded for a project that exists nowhere any more: upstream distances, moderation, and a
-     * transport's state for it.
+     * Removes what is recorded for a project that exists nowhere any more: upstream distances,
+     * moderation, and a transport's state for it.
      */
-    private void records(final Set<String> remaining, final Set<String> named, final boolean apply,
-            final List<Item> removes, final List<Item> keeps) {
+    private void records(
+            final Set<String> remaining,
+            final Set<String> named,
+            final boolean apply,
+            final List<Item> removes,
+            final List<Item> keeps) {
         final Path upstream = context.paths().projects().upstreamRecords();
         for (final String file : names(upstream)) {
             // '<project>' or '<project>.<repository>'; a project's name has no dot.
             final String project = file.contains(".") ? file.substring(0, file.indexOf('.')) : file;
-            if (!remaining.contains(project) && !named.contains("upstream record " + upstream.resolve(file))) {
-                remove(upstream.resolve(file), "RECORD", "how far it was from its upstream", apply, removes, keeps);
+            if (!remaining.contains(project)
+                    && !named.contains("upstream record " + upstream.resolve(file))) {
+                remove(
+                        upstream.resolve(file),
+                        "RECORD",
+                        "how far it was from its upstream",
+                        apply,
+                        removes,
+                        keeps);
             }
         }
-        sweep(context.paths().messaging().moderation("x").getParent(), ".json", "how its peers were moderated", remaining,
-                apply, removes, keeps);
-        // A clone left beside no follow record: a refused first follow raced by the daemon's pass made one.
-        sweep(context.paths().projects().followedClone("x").getParent(), ".git", "the clone it was followed into", remaining,
-                apply, removes, keeps);
+        sweep(
+                context.paths().messaging().moderation("x").getParent(),
+                ".json",
+                "how its peers were moderated",
+                remaining,
+                apply,
+                removes,
+                keeps);
+        // A clone left beside no follow record: a refused first follow raced by the daemon's pass
+        // made one.
+        sweep(
+                context.paths().projects().followedClone("x").getParent(),
+                ".git",
+                "the clone it was followed into",
+                remaining,
+                apply,
+                removes,
+                keeps);
         final Path transports = context.paths().xdg().state().resolve("transport");
         for (final String scheme : names(transports)) {
             final Path root = transports.resolve(scheme);
@@ -434,37 +520,52 @@ public final class Prune {
      * Removes each entry of a directory named after a project that does not remain.
      *
      * @param directory Where the entries are.
-     * @param suffix What follows the project's name in an entry's name; "" for an entry named by it alone. An entry
-     *        without it is not one of these and is left alone.
+     * @param suffix What follows the project's name in an entry's name; "" for an entry named by it
+     *     alone. An entry without it is not one of these and is left alone.
      */
-    private static void sweep(final @Nullable Path directory, final String suffix, final String what,
-            final Set<String> remaining, final boolean apply, final List<Item> removes, final List<Item> keeps) {
+    private static void sweep(
+            final @Nullable Path directory,
+            final String suffix,
+            final String what,
+            final Set<String> remaining,
+            final boolean apply,
+            final List<Item> removes,
+            final List<Item> keeps) {
         if (directory == null) {
             return;
         }
         for (final String entry : names(directory)) {
             final Path path = directory.resolve(entry);
-            final boolean shaped = suffix.isEmpty() ? Files.isDirectory(path)
-                    : entry.endsWith(suffix) && (Files.isRegularFile(path) || ".git".equals(suffix));
-            if (shaped && !remaining.contains(entry.substring(0, entry.length() - suffix.length()))) {
+            final boolean shaped =
+                    suffix.isEmpty()
+                            ? Files.isDirectory(path)
+                            : entry.endsWith(suffix)
+                                    && (Files.isRegularFile(path) || ".git".equals(suffix));
+            if (shaped
+                    && !remaining.contains(entry.substring(0, entry.length() - suffix.length()))) {
                 remove(path, "RECORD", what, apply, removes, keeps);
             }
         }
     }
 
     /**
-     * Removes the vault entries kept for a task that is gone or a project that is: a task's tokens and a transport's
-     * secrets for either. A locked vault is said, not guessed at.
+     * Removes the vault entries kept for a task that is gone or a project that is: a task's tokens
+     * and a transport's secrets for either. A locked vault is said, not guessed at.
      */
-    private void vault(final Set<String> containers, final Set<String> remaining, final boolean apply,
-            final List<Item> removes, final List<String> unchecked) {
+    private void vault(
+            final Set<String> containers,
+            final Set<String> remaining,
+            final boolean apply,
+            final List<Item> removes,
+            final List<String> unchecked) {
         if (!context.vault().exists()) {
             return;
         }
         final Optional<VaultFile.Opener> opener = context.opener();
         if (opener.isEmpty()) {
-            unchecked.add("the vault is locked, so what it keeps for tasks and projects that are gone was not looked"
-                    + " at; 'porelo vault unlock' and ask again");
+            unchecked.add(
+                    "the vault is locked, so what it keeps for tasks and projects that are gone was not looked"
+                            + " at; 'porelo vault unlock' and ask again");
             return;
         }
         final Set<String> gone = new TreeSet<>();
@@ -475,11 +576,15 @@ public final class Prune {
                 }
             }
             if (apply && !gone.isEmpty()) {
-                context.vault().update(opener.get(), entries -> {
-                    final Map<String, VaultEntry> updated = new LinkedHashMap<>(entries);
-                    updated.keySet().removeAll(gone);
-                    return updated;
-                });
+                context.vault()
+                        .update(
+                                opener.get(),
+                                entries -> {
+                                    final Map<String, VaultEntry> updated =
+                                            new LinkedHashMap<>(entries);
+                                    updated.keySet().removeAll(gone);
+                                    return updated;
+                                });
             }
         } catch (VaultException ex) {
             unchecked.add("the vault could not be read or written: " + ex.getMessage());
@@ -495,9 +600,10 @@ public final class Prune {
      * @param containers The containers that exist.
      * @param remaining The projects that stay.
      * @return {@code true} for {@code task/<gone>/…}, {@code transport/<scheme>/task/<gone>} and
-     *         {@code transport/<scheme>/project/<gone>}.
+     *     {@code transport/<scheme>/project/<gone>}.
      */
-    static boolean orphanedEntry(final String name, final Set<String> containers, final Set<String> remaining) {
+    static boolean orphanedEntry(
+            final String name, final Set<String> containers, final Set<String> remaining) {
         if (name.startsWith(TaskSecrets.PREFIX)) {
             return !containers.contains(TaskSecrets.owner(name));
         }
@@ -513,14 +619,24 @@ public final class Prune {
         return false;
     }
 
-    private static void remove(final Path path, final String kind, final String what, final boolean apply,
-            final List<Item> removes, final List<Item> keeps) {
+    private static void remove(
+            final Path path,
+            final String kind,
+            final String what,
+            final boolean apply,
+            final List<Item> removes,
+            final List<Item> keeps) {
         if (apply) {
             try {
                 deleteTree(path);
             } catch (IOException ex) {
                 // Kept, and said: the next prune finds it again.
-                keeps.add(new Item(kind, path.toString(), List.of(what), "not removed: " + ex.getMessage()));
+                keeps.add(
+                        new Item(
+                                kind,
+                                path.toString(),
+                                List.of(what),
+                                "not removed: " + ex.getMessage()));
                 return;
             }
         }
@@ -528,7 +644,8 @@ public final class Prune {
     }
 
     /**
-     * Returns the directory every task's or project's entry of one kind sits in, from the path of one of them.
+     * Returns the directory every task's or project's entry of one kind sits in, from the path of
+     * one of them.
      *
      * @param one The path of an entry, for any name.
      * @return Its directory.
@@ -555,7 +672,8 @@ public final class Prune {
         try (Stream<Path> entries = Files.list(directory)) {
             // Messages only: a fresh mailbox has directories inside these, and they are not mail.
             return entries.filter(Files::isRegularFile)
-                    .filter(path -> !path.getFileName().toString().startsWith(".")).count();
+                    .filter(path -> !path.getFileName().toString().startsWith("."))
+                    .count();
         } catch (IOException ex) {
             return 0;
         }

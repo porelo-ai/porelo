@@ -15,13 +15,13 @@ import java.util.Set;
 
 /**
  * The git smart-HTTP endpoint an agent pushes to.
- * <p>
- * Implements the two request shapes git actually uses and delegates the protocol itself to
- * {@code git upload-pack} and {@code git receive-pack}. Reimplementing the pack protocol would be
- * a great deal of code with a great deal of room to be subtly wrong; the git binaries are already
- * on the host and are the reference implementation.
- * <p>
- * <strong>Bound to loopback while a task runs</strong>, so nothing on the operator's network can
+ *
+ * <p>Implements the two request shapes git actually uses and delegates the protocol itself to
+ * {@code git upload-pack} and {@code git receive-pack}. Reimplementing the pack protocol would be a
+ * great deal of code with a great deal of room to be subtly wrong; the git binaries are already on
+ * the host and are the reference implementation.
+ *
+ * <p><strong>Bound to loopback while a task runs</strong>, so nothing on the operator's network can
  * reach it. A rootless container can still get in because Porelo starts its own containers with
  * {@code org.fuin.porelo.runtime.LoopbackMapping}, which points pasta's address for this host at
  * the host's loopback. Where podman cannot do that - slirp4netns - {@code task run} falls back to
@@ -52,25 +52,26 @@ public class GitHttpServer implements AutoCloseable {
     private long refreshedAt = Long.MIN_VALUE;
 
     /**
-     * The most requests one gate serves at once. An agent that holds its gate's token can send as many as it likes, and
-     * each starts a git on the host; beyond these it is answered at once with 503, never queued without end.
+     * The most requests one gate serves at once. An agent that holds its gate's token can send as
+     * many as it likes, and each starts a git on the host; beyond these it is answered at once with
+     * 503, never queued without end.
      */
     public static final int AT_ONCE = 4;
 
-    private final java.util.concurrent.Semaphore serving = new java.util.concurrent.Semaphore(AT_ONCE);
+    private final java.util.concurrent.Semaphore serving =
+            new java.util.concurrent.Semaphore(AT_ONCE);
 
     /** The least time between two fetches from the upstream, however often the agent fetches. */
     public static final java.time.Duration PACE = java.time.Duration.ofSeconds(5);
 
     /**
-     * The upstream an {@code online} task's gate passes through to: fetched from before the agent fetches, and given
-     * the task's branch while the agent's push runs. Its key stays on the host; the container never holds it.
+     * The upstream an {@code online} task's gate passes through to: fetched from before the agent
+     * fetches, and given the task's branch while the agent's push runs. Its key stays on the host;
+     * the container never holds it.
      */
     public interface Upstream {
 
-        /**
-         * Brings the mirror up to the upstream.
-         */
+        /** Brings the mirror up to the upstream. */
         void refresh();
 
         /**
@@ -84,9 +85,7 @@ public class GitHttpServer implements AutoCloseable {
         String passOn(String ref, String commit);
     }
 
-    /**
-     * Runs a git subprocess for one request.
-     */
+    /** Runs a git subprocess for one request. */
     @FunctionalInterface
     public interface GitProcess {
 
@@ -102,16 +101,17 @@ public class GitHttpServer implements AutoCloseable {
 
         /**
          * Runs git with a request read from a file, writing what it says to a stream as it says it.
-         * <p>
-         * What a push or a fetch carries can be large, so neither is held in memory whole. The default reads the
-         * file and buffers the answer, for a test's git.
+         *
+         * <p>What a push or a fetch carries can be large, so neither is held in memory whole. The
+         * default reads the file and buffers the answer, for a test's git.
          *
          * @param arguments Arguments after {@code git}.
          * @param input The request body.
          * @param output Where git's standard output goes.
          * @throws IOException If the process fails.
          */
-        default void stream(List<String> arguments, Path input, OutputStream output) throws IOException {
+        default void stream(List<String> arguments, Path input, OutputStream output)
+                throws IOException {
             output.write(run(arguments, java.nio.file.Files.readAllBytes(input)));
         }
     }
@@ -131,45 +131,56 @@ public class GitHttpServer implements AutoCloseable {
 
     /**
      * Constructor for one task's gate, which may update exactly one ref.
-     * <p>
-     * <strong>Enforced here, not agreed with the agent.</strong> {@code receive-pack} accepts whatever
-     * refs a push names, and a task that pushed to {@code refs/heads/main} moved the mirror's own branch:
-     * the history the next task of the project clones from, and the base every review compares against.
-     * A push to another task's incoming ref would have written work under that task's name. So every ref
-     * a push would update is read before git sees the request, and anything but this task's own ref is
-     * refused. Measured on 2026-09-29: a plain {@code git push porelo <branch>} landed
-     * in {@code refs/heads/}.
+     *
+     * <p><strong>Enforced here, not agreed with the agent.</strong> {@code receive-pack} accepts
+     * whatever refs a push names, and a task that pushed to {@code refs/heads/main} moved the
+     * mirror's own branch: the history the next task of the project clones from, and the base every
+     * review compares against. A push to another task's incoming ref would have written work under
+     * that task's name. So every ref a push would update is read before git sees the request, and
+     * anything but this task's own ref is refused. Measured on 2026-09-29: a plain {@code git push
+     * porelo <branch>} landed in {@code refs/heads/}.
      *
      * @param address Where to listen.
      * @param mirror The bare mirror.
      * @param token What a push must present.
      * @param git How git is run.
-     * @param ref The one ref a push may update, or {@code null} for any ref under
-     *            {@link GitGate#INCOMING} - never a branch.
+     * @param ref The one ref a push may update, or {@code null} for any ref under {@link
+     *     GitGate#INCOMING} - never a branch.
      */
-    public GitHttpServer(InetSocketAddress address, Path mirror, TaskToken token, GitProcess git,
+    public GitHttpServer(
+            InetSocketAddress address,
+            Path mirror,
+            TaskToken token,
+            GitProcess git,
             @org.jspecify.annotations.Nullable String ref) {
         this(address, mirror, token, git, ref, null, PACE);
     }
 
     /**
      * Constructor for an {@code online} task's gate, which passes its one ref on to the upstream.
-     * <p>
-     * A fetch first brings the mirror up to the upstream, at most once per {@code pace}, so an agent that fetches in a
-     * loop cannot make the host flood the forge with the person's key. A push to the task's ref is given to the
-     * upstream before the agent's push is answered; when the upstream refuses it, the mirror's ref goes back to where
-     * it was and the push is refused with what the upstream said. A push that deletes the ref is refused.
+     *
+     * <p>A fetch first brings the mirror up to the upstream, at most once per {@code pace}, so an
+     * agent that fetches in a loop cannot make the host flood the forge with the person's key. A
+     * push to the task's ref is given to the upstream before the agent's push is answered; when the
+     * upstream refuses it, the mirror's ref goes back to where it was and the push is refused with
+     * what the upstream said. A push that deletes the ref is refused.
      *
      * @param address Where to listen.
      * @param mirror The bare mirror.
      * @param token What a push must present.
      * @param git How git is run.
      * @param ref The one ref a push may update, which is passed on.
-     * @param upstream Where it is passed on to, or {@code null} for a gate that keeps what it takes.
+     * @param upstream Where it is passed on to, or {@code null} for a gate that keeps what it
+     *     takes.
      * @param pace The least time between two fetches from the upstream.
      */
-    public GitHttpServer(InetSocketAddress address, Path mirror, TaskToken token, GitProcess git,
-            @org.jspecify.annotations.Nullable String ref, @org.jspecify.annotations.Nullable Upstream upstream,
+    public GitHttpServer(
+            InetSocketAddress address,
+            Path mirror,
+            TaskToken token,
+            GitProcess git,
+            @org.jspecify.annotations.Nullable String ref,
+            @org.jspecify.annotations.Nullable Upstream upstream,
             java.time.Duration pace) {
         this.upstream = upstream;
         this.pace = pace;
@@ -186,9 +197,7 @@ public class GitHttpServer implements AutoCloseable {
         server.setExecutor(java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor());
     }
 
-    /**
-     * Starts serving.
-     */
+    /** Starts serving. */
     public void start() {
         server.start();
     }
@@ -249,9 +258,10 @@ public class GitHttpServer implements AutoCloseable {
             return false;
         }
         try {
-            final String decoded = new String(
-                    Base64.getDecoder().decode(header.substring("Basic ".length())),
-                    StandardCharsets.UTF_8);
+            final String decoded =
+                    new String(
+                            Base64.getDecoder().decode(header.substring("Basic ".length())),
+                            StandardCharsets.UTF_8);
             final int colon = decoded.indexOf(':');
             return colon >= 0 && token.matches(decoded.substring(colon + 1));
         } catch (IllegalArgumentException ex) {
@@ -271,16 +281,22 @@ public class GitHttpServer implements AutoCloseable {
         if (upstream != null && "git-upload-pack".equals(service)) {
             fetchThrough();
         }
-        final byte[] refs = git.run(hidingOthers(service.substring("git-".length()),
-                "--stateless-rpc", "--advertise-refs", mirror.toString()), new byte[0]);
+        final byte[] refs =
+                git.run(
+                        hidingOthers(
+                                service.substring("git-".length()),
+                                "--stateless-rpc",
+                                "--advertise-refs",
+                                mirror.toString()),
+                        new byte[0]);
 
         final ByteArrayOutputStream body = new ByteArrayOutputStream();
         body.write(packetLine("# service=" + service + "\n"));
         body.write("0000".getBytes(StandardCharsets.US_ASCII));
         body.write(refs);
 
-        exchange.getResponseHeaders().add("Content-Type",
-                "application/x-" + service + "-advertisement");
+        exchange.getResponseHeaders()
+                .add("Content-Type", "application/x-" + service + "-advertisement");
         exchange.getResponseHeaders().add("Cache-Control", "no-cache");
         send(exchange, body.toByteArray());
     }
@@ -292,7 +308,8 @@ public class GitHttpServer implements AutoCloseable {
             return;
         }
 
-        // Spooled to a file beside the mirror rather than held: a push can be as large as the limit, and a few at once
+        // Spooled to a file beside the mirror rather than held: a push can be as large as the
+        // limit, and a few at once
         // took the host's memory. Not /tmp, which is memory on some machines.
         final Path body = java.nio.file.Files.createTempFile(spool(), "request-", ".git");
         try {
@@ -300,57 +317,86 @@ public class GitHttpServer implements AutoCloseable {
                 spool(in, exchange.getRequestHeaders().getFirst("Content-Encoding"), body);
             }
             if ("git-upload-pack".equals(service)) {
-                // A fetch's answer is the pack, as large as the repository: written as git writes it.
-                exchange.getResponseHeaders().add("Content-Type", "application/x-" + service + "-result");
+                // A fetch's answer is the pack, as large as the repository: written as git writes
+                // it.
+                exchange.getResponseHeaders()
+                        .add("Content-Type", "application/x-" + service + "-result");
                 exchange.getResponseHeaders().add("Cache-Control", "no-cache");
                 exchange.sendResponseHeaders(200, 0);
                 try (OutputStream out = exchange.getResponseBody()) {
-                    git.stream(hidingOthers("upload-pack", "--stateless-rpc", mirror.toString()), body, out);
+                    git.stream(
+                            hidingOthers("upload-pack", "--stateless-rpc", mirror.toString()),
+                            body,
+                            out);
                 }
                 return;
             }
             final byte[] request = head(body);
             final List<String> updated = updatedRefs(request);
-            final String refused = updated.stream().filter(each -> !mayUpdate(each)).findFirst().orElse(null);
+            final String refused =
+                    updated.stream().filter(each -> !mayUpdate(each)).findFirst().orElse(null);
             if (refused != null) {
-                // Refused in git's own protocol, not with an HTTP status: a 403 reached the agent as "RPC failed;
-                // HTTP 403", which it read as an authentication problem and gave up on. Answered this way, git
-                // prints the reason as 'remote:' and '! [remote rejected]', and an agent corrects its push.
+                // Refused in git's own protocol, not with an HTTP status: a 403 reached the agent
+                // as "RPC failed;
+                // HTTP 403", which it read as an authentication problem and gave up on. Answered
+                // this way, git
+                // prints the reason as 'remote:' and '! [remote rejected]', and an agent corrects
+                // its push.
                 final String where = ref == null ? GitGate.INCOMING + "<name>" : ref;
-                System.err.println("refused: this gate takes a push to " + where + " only, not to " + printable(refused));
-                exchange.getResponseHeaders().add("Content-Type", "application/x-" + service + "-result");
+                System.err.println(
+                        "refused: this gate takes a push to "
+                                + where
+                                + " only, not to "
+                                + printable(refused));
+                exchange.getResponseHeaders()
+                        .add("Content-Type", "application/x-" + service + "-result");
                 exchange.getResponseHeaders().add("Cache-Control", "no-cache");
                 send(exchange, rejection(updated, where, capabilities(request)));
                 return;
             }
             if (upstream != null) {
-                final String deleted = commands(request).stream().filter(each -> ZERO.equals(each[1]))
-                        .map(each -> each[2]).findFirst().orElse(null);
+                final String deleted =
+                        commands(request).stream()
+                                .filter(each -> ZERO.equals(each[1]))
+                                .map(each -> each[2])
+                                .findFirst()
+                                .orElse(null);
                 if (deleted != null) {
                     System.err.println("refused: a push that deletes " + printable(deleted));
-                    exchange.getResponseHeaders().add("Content-Type", "application/x-" + service + "-result");
+                    exchange.getResponseHeaders()
+                            .add("Content-Type", "application/x-" + service + "-result");
                     exchange.getResponseHeaders().add("Cache-Control", "no-cache");
-                    send(exchange, refusal(updated, "this task's branch is not deleted through its gate",
-                            capabilities(request)));
+                    send(
+                            exchange,
+                            refusal(
+                                    updated,
+                                    "this task's branch is not deleted through its gate",
+                                    capabilities(request)));
                     return;
                 }
             }
 
-            // What receive-pack answers is its status and progress, kilobytes: held, so a refusal can replace it.
+            // What receive-pack answers is its status and progress, kilobytes: held, so a refusal
+            // can replace it.
             final ByteArrayOutputStream response = new ByteArrayOutputStream();
-            git.stream(hidingOthers("receive-pack", "--stateless-rpc", mirror.toString()), body, response);
+            git.stream(
+                    hidingOthers("receive-pack", "--stateless-rpc", mirror.toString()),
+                    body,
+                    response);
 
             if (upstream != null) {
                 final String passed = passOn(commands(request));
                 if (passed != null) {
-                    exchange.getResponseHeaders().add("Content-Type", "application/x-" + service + "-result");
+                    exchange.getResponseHeaders()
+                            .add("Content-Type", "application/x-" + service + "-result");
                     exchange.getResponseHeaders().add("Cache-Control", "no-cache");
                     send(exchange, refusal(updated, passed, capabilities(request)));
                     return;
                 }
             }
 
-            exchange.getResponseHeaders().add("Content-Type", "application/x-" + service + "-result");
+            exchange.getResponseHeaders()
+                    .add("Content-Type", "application/x-" + service + "-result");
             exchange.getResponseHeaders().add("Cache-Control", "no-cache");
             send(exchange, response.toByteArray());
         } finally {
@@ -358,11 +404,14 @@ public class GitHttpServer implements AutoCloseable {
         }
     }
 
-    /** The most of a push's start read into memory to find its commands: they are a line per ref. */
+    /**
+     * The most of a push's start read into memory to find its commands: they are a line per ref.
+     */
     static final int HEAD_LIMIT = 1024 * 1024;
 
     /**
-     * Returns where a request is spooled while git reads it: beside the mirror, on the disk it lives on.
+     * Returns where a request is spooled while git reads it: beside the mirror, on the disk it
+     * lives on.
      *
      * @return The directory.
      */
@@ -372,7 +421,8 @@ public class GitHttpServer implements AutoCloseable {
     }
 
     /**
-     * Copies a request body to a file as it arrives, inflating gzip, within the limits; never holding it whole.
+     * Copies a request body to a file as it arrives, inflating gzip, within the limits; never
+     * holding it whole.
      *
      * @param in The body.
      * @param encoding Its {@code Content-Encoding}, or {@code null}.
@@ -380,21 +430,36 @@ public class GitHttpServer implements AutoCloseable {
      * @throws IOException If it cannot be written, or is larger than the limit.
      * @throws GateException If the coding is not one this reads.
      */
-    static void spool(final InputStream in, final @org.jspecify.annotations.Nullable String encoding, final Path into)
+    static void spool(
+            final InputStream in,
+            final @org.jspecify.annotations.Nullable String encoding,
+            final Path into)
             throws IOException {
         final String coding = encoding == null ? "" : encoding.strip();
         final boolean plain = coding.isEmpty() || "identity".equalsIgnoreCase(coding);
         if (!plain && !"gzip".equalsIgnoreCase(coding) && !"x-gzip".equalsIgnoreCase(coding)) {
-            throw new GateException("a request with a " + encoding + " body is refused: it cannot be read here");
+            throw new GateException(
+                    "a request with a " + encoding + " body is refused: it cannot be read here");
         }
-        final InputStream bounded = new LimitedInputStream(in, BODY_LIMIT, "a request larger than " + BODY_LIMIT
-                + " bytes is refused");
-        try (InputStream body = plain ? bounded : new LimitedInputStream(new java.util.zip.GZIPInputStream(bounded),
-                INFLATED_LIMIT, "a compressed request inflating beyond " + INFLATED_LIMIT + " bytes is refused");
+        final InputStream bounded =
+                new LimitedInputStream(
+                        in,
+                        BODY_LIMIT,
+                        "a request larger than " + BODY_LIMIT + " bytes is refused");
+        try (InputStream body =
+                        plain
+                                ? bounded
+                                : new LimitedInputStream(
+                                        new java.util.zip.GZIPInputStream(bounded),
+                                        INFLATED_LIMIT,
+                                        "a compressed request inflating beyond "
+                                                + INFLATED_LIMIT
+                                                + " bytes is refused");
                 OutputStream out = java.nio.file.Files.newOutputStream(into)) {
             body.transferTo(out);
         } catch (java.util.zip.ZipException ex) {
-            throw new GateException("a gzip request body that does not inflate is refused: " + ex.getMessage(), ex);
+            throw new GateException(
+                    "a gzip request body that does not inflate is refused: " + ex.getMessage(), ex);
         }
     }
 
@@ -436,7 +501,8 @@ public class GitHttpServer implements AutoCloseable {
         }
 
         @Override
-        public int read(final byte[] buffer, final int offset, final int length) throws IOException {
+        public int read(final byte[] buffer, final int offset, final int length)
+                throws IOException {
             final int many = super.read(buffer, offset, length);
             if (many > 0) {
                 count(many);
@@ -456,8 +522,8 @@ public class GitHttpServer implements AutoCloseable {
     static final String ZERO = "0000000000000000000000000000000000000000";
 
     /**
-     * Brings the mirror up to the upstream, unless that was done less than {@link #pace} ago or is being done now:
-     * a fetch in between gets what the last one brought.
+     * Brings the mirror up to the upstream, unless that was done less than {@link #pace} ago or is
+     * being done now: a fetch in between gets what the last one brought.
      */
     private void fetchThrough() {
         synchronized (refreshing) {
@@ -476,25 +542,35 @@ public class GitHttpServer implements AutoCloseable {
     }
 
     /**
-     * Gives the upstream what a push wrote to the task's ref, and puts the mirror's ref back when it is refused.
+     * Gives the upstream what a push wrote to the task's ref, and puts the mirror's ref back when
+     * it is refused.
      *
      * @param commands The push's {@code <old> <new> <ref>} commands.
      * @return {@code null} when the upstream took it, else why not, for the agent.
      */
-    private @org.jspecify.annotations.Nullable String passOn(final List<String[]> commands) throws IOException {
+    private @org.jspecify.annotations.Nullable String passOn(final List<String[]> commands)
+            throws IOException {
         for (final String[] command : commands) {
             if (!command[2].equals(ref)) {
                 // The rescue beside the task's ref stays on the host.
                 continue;
             }
-            final String said = java.util.Objects.requireNonNull(upstream).passOn(command[2], command[1]);
+            final String said =
+                    java.util.Objects.requireNonNull(upstream).passOn(command[2], command[1]);
             if (said == null) {
                 continue;
             }
             System.err.println("the upstream refused " + printable(command[2]) + ": " + said);
-            final List<String> back = ZERO.equals(command[0])
-                    ? List.of("--git-dir", mirror.toString(), "update-ref", "-d", command[2])
-                    : List.of("--git-dir", mirror.toString(), "update-ref", command[2], command[0]);
+            final List<String> back =
+                    ZERO.equals(command[0])
+                            ? List.of(
+                                    "--git-dir", mirror.toString(), "update-ref", "-d", command[2])
+                            : List.of(
+                                    "--git-dir",
+                                    mirror.toString(),
+                                    "update-ref",
+                                    command[2],
+                                    command[0]);
             git.run(back, new byte[0]);
             return "the upstream refused it: " + said.strip().replace('\n', ' ');
         }
@@ -502,10 +578,12 @@ public class GitHttpServer implements AutoCloseable {
     }
 
     /**
-     * Returns git's arguments with every other task's incoming refs hidden, for a gate that serves one task.
-     * <p>
-     * The mirror is the project's, shared by its tasks: served whole, one agent listed another's ref and fetched its
-     * unreviewed work. Hidden refs are neither advertised nor given out when asked for by name.
+     * Returns git's arguments with every other task's incoming refs hidden, for a gate that serves
+     * one task.
+     *
+     * <p>The mirror is the project's, shared by its tasks: served whole, one agent listed another's
+     * ref and fetched its unreviewed work. Hidden refs are neither advertised nor given out when
+     * asked for by name.
      *
      * @param arguments The command after {@code git}.
      * @return The command, with the configuration in front.
@@ -513,10 +591,17 @@ public class GitHttpServer implements AutoCloseable {
     private List<String> hidingOthers(String... arguments) {
         final List<String> command = new java.util.ArrayList<>();
         if (ref != null) {
-            // git matches at a ref's component boundary, so the task's own ref and its rescue are named each: 'task-1'
+            // git matches at a ref's component boundary, so the task's own ref and its rescue are
+            // named each: 'task-1'
             // does not reveal 'task-10'.
-            command.addAll(List.of("-c", "transfer.hideRefs=" + GitGate.INCOMING, "-c", "transfer.hideRefs=!" + ref,
-                    "-c", "transfer.hideRefs=!" + ref + GitGate.RESCUED));
+            command.addAll(
+                    List.of(
+                            "-c",
+                            "transfer.hideRefs=" + GitGate.INCOMING,
+                            "-c",
+                            "transfer.hideRefs=!" + ref,
+                            "-c",
+                            "transfer.hideRefs=!" + ref + GitGate.RESCUED));
         }
         command.addAll(List.of(arguments));
         return command;
@@ -530,19 +615,23 @@ public class GitHttpServer implements AutoCloseable {
      */
     static String printable(String said) {
         final StringBuilder shown = new StringBuilder(said.length());
-        said.codePoints().forEach(point -> {
-            if (point == '\n') {
-                shown.append("\\n");
-            } else if (Character.isISOControl(point)) {
-                shown.append(String.format("\\x%02x", point));
-            } else {
-                shown.appendCodePoint(point);
-            }
-        });
+        said.codePoints()
+                .forEach(
+                        point -> {
+                            if (point == '\n') {
+                                shown.append("\\n");
+                            } else if (Character.isISOControl(point)) {
+                                shown.append(String.format("\\x%02x", point));
+                            } else {
+                                shown.appendCodePoint(point);
+                            }
+                        });
         return shown.toString();
     }
 
-    /** The most a request body may hold: a push's pack, which is the work of one task, never this. */
+    /**
+     * The most a request body may hold: a push's pack, which is the work of one task, never this.
+     */
     static final long BODY_LIMIT = 1024L * 1024 * 1024;
 
     /**
@@ -568,17 +657,19 @@ public class GitHttpServer implements AutoCloseable {
         }
     }
 
-    /** The most a compressed request may inflate to: a fetch's negotiation is kilobytes, never this. */
+    /**
+     * The most a compressed request may inflate to: a fetch's negotiation is kilobytes, never this.
+     */
     static final int INFLATED_LIMIT = 64 * 1024 * 1024;
 
     /**
      * Returns a request body as git reads it.
-     * <p>
-     * <strong>git compresses a fetch's negotiation</strong> ({@code Content-Encoding: gzip}) once it is larger
-     * than a kilobyte - a task with a few dozen commits of its own the gate has not seen. Handed to git as it
-     * came, the fetch failed: "the remote end hung up unexpectedly" (measured 2026-09-30). So gzip is inflated
-     * here, up to {@link #INFLATED_LIMIT}; any other coding is refused, since neither git nor a push's refs can be
-     * read from it.
+     *
+     * <p><strong>git compresses a fetch's negotiation</strong> ({@code Content-Encoding: gzip})
+     * once it is larger than a kilobyte - a task with a few dozen commits of its own the gate has
+     * not seen. Handed to git as it came, the fetch failed: "the remote end hung up unexpectedly"
+     * (measured 2026-09-30). So gzip is inflated here, up to {@link #INFLATED_LIMIT}; any other
+     * coding is refused, since neither git nor a push's refs can be read from it.
      *
      * @param body The body as it arrived.
      * @param encoding Its {@code Content-Encoding}, or {@code null}.
@@ -586,36 +677,49 @@ public class GitHttpServer implements AutoCloseable {
      * @throws GateException If the coding is not one this reads, or it inflates beyond the limit.
      */
     static byte[] decoded(byte[] body, @org.jspecify.annotations.Nullable String encoding) {
-        if (encoding == null || encoding.isBlank() || "identity".equalsIgnoreCase(encoding.strip())) {
+        if (encoding == null
+                || encoding.isBlank()
+                || "identity".equalsIgnoreCase(encoding.strip())) {
             return body;
         }
-        if (!"gzip".equalsIgnoreCase(encoding.strip()) && !"x-gzip".equalsIgnoreCase(encoding.strip())) {
-            throw new GateException("a request with a " + encoding + " body is refused: it cannot be read here");
+        if (!"gzip".equalsIgnoreCase(encoding.strip())
+                && !"x-gzip".equalsIgnoreCase(encoding.strip())) {
+            throw new GateException(
+                    "a request with a " + encoding + " body is refused: it cannot be read here");
         }
-        try (InputStream in = new java.util.zip.GZIPInputStream(new java.io.ByteArrayInputStream(body))) {
+        try (InputStream in =
+                new java.util.zip.GZIPInputStream(new java.io.ByteArrayInputStream(body))) {
             final byte[] inflated = in.readNBytes(INFLATED_LIMIT + 1);
             if (inflated.length > INFLATED_LIMIT) {
-                throw new GateException("a compressed request inflating beyond " + INFLATED_LIMIT + " bytes is refused");
+                throw new GateException(
+                        "a compressed request inflating beyond "
+                                + INFLATED_LIMIT
+                                + " bytes is refused");
             }
             return inflated;
         } catch (IOException ex) {
-            throw new GateException("a gzip request body that does not inflate is refused: " + ex.getMessage(), ex);
+            throw new GateException(
+                    "a gzip request body that does not inflate is refused: " + ex.getMessage(), ex);
         }
     }
 
     private boolean mayUpdate(String updated) {
-        // A task's own ref, and its rescue beside it: the rescue pushes through this same gate, and a gate that
+        // A task's own ref, and its rescue beside it: the rescue pushes through this same gate, and
+        // a gate that
         // took only the one ref refused it - every rescue failed, and the container was kept.
-        return ref != null ? ref.equals(updated) || (ref + GitGate.RESCUED).equals(updated)
-                : updated.startsWith(GitGate.INCOMING) && updated.length() > GitGate.INCOMING.length();
+        return ref != null
+                ? ref.equals(updated) || (ref + GitGate.RESCUED).equals(updated)
+                : updated.startsWith(GitGate.INCOMING)
+                        && updated.length() > GitGate.INCOMING.length();
     }
 
     /**
      * Reads the refs a {@code receive-pack} request would update, from the commands at its start.
-     * <p>
-     * Each command is a pkt-line {@code <old> <new> <ref>}, the first followed by a NUL and the
-     * capabilities, up to a flush packet; the pack follows. A {@code shallow} line may come first. Anything
-     * else - a push certificate, a line that is not three fields - is refused rather than guessed at.
+     *
+     * <p>Each command is a pkt-line {@code <old> <new> <ref>}, the first followed by a NUL and the
+     * capabilities, up to a flush packet; the pack follows. A {@code shallow} line may come first.
+     * Anything else - a push certificate, a line that is not three fields - is refused rather than
+     * guessed at.
      *
      * @param request The request body.
      * @return The refs, in the order named.
@@ -626,7 +730,8 @@ public class GitHttpServer implements AutoCloseable {
     }
 
     /**
-     * Reads the commands at a {@code receive-pack} request's start, each as {@code {old, new, ref}}.
+     * Reads the commands at a {@code receive-pack} request's start, each as {@code {old, new,
+     * ref}}.
      *
      * @param request The request body.
      * @return The commands, in the order named.
@@ -641,7 +746,8 @@ public class GitHttpServer implements AutoCloseable {
             }
             final int length;
             try {
-                length = Integer.parseInt(new String(request, at, 4, StandardCharsets.US_ASCII), 16);
+                length =
+                        Integer.parseInt(new String(request, at, 4, StandardCharsets.US_ASCII), 16);
             } catch (NumberFormatException ex) {
                 throw new GateException("a push whose commands cannot be read is refused", ex);
             }
@@ -657,7 +763,8 @@ public class GitHttpServer implements AutoCloseable {
             if (nul >= 0) {
                 line = line.substring(0, nul);
             }
-            // Only the line end, as receive-pack takes it: trimmed as Java trims, a name ending in U+3000 compared
+            // Only the line end, as receive-pack takes it: trimmed as Java trims, a name ending in
+            // U+3000 compared
             // equal to the task's own ref while git made a second ref of it.
             if (line.endsWith("\n")) {
                 line = line.substring(0, line.length() - 1);
@@ -667,17 +774,20 @@ public class GitHttpServer implements AutoCloseable {
             }
             final String[] fields = line.split(" ");
             if (fields.length != 3) {
-                throw new GateException("a push command that is not '<old> <new> <ref>' is refused: " + line);
+                throw new GateException(
+                        "a push command that is not '<old> <new> <ref>' is refused: " + line);
             }
             refs.add(fields);
         }
     }
 
     /**
-     * Answers a push this gate takes none of, as {@code receive-pack} would answer one its hook declined.
-     * <p>
-     * Every ref is refused - nothing of the push is written - with the reason git shows beside each, and a line
-     * saying how to push instead, which git prints as {@code remote:} when the client asked for a side band.
+     * Answers a push this gate takes none of, as {@code receive-pack} would answer one its hook
+     * declined.
+     *
+     * <p>Every ref is refused - nothing of the push is written - with the reason git shows beside
+     * each, and a line saying how to push instead, which git prints as {@code remote:} when the
+     * client asked for a side band.
      *
      * @param refs What the push named.
      * @param where The ref this gate takes.
@@ -685,8 +795,15 @@ public class GitHttpServer implements AutoCloseable {
      * @return The response body.
      */
     static byte[] rejection(List<String> refs, String where, List<String> capabilities) {
-        return answer(refs, "this task's work goes to " + where + " only", "this task's work goes to " + where
-                + ": push with 'git push porelo', naming no branch, or 'git push porelo HEAD:" + where + "'", capabilities);
+        return answer(
+                refs,
+                "this task's work goes to " + where + " only",
+                "this task's work goes to "
+                        + where
+                        + ": push with 'git push porelo', naming no branch, or 'git push porelo HEAD:"
+                        + where
+                        + "'",
+                capabilities);
     }
 
     /**
@@ -701,7 +818,8 @@ public class GitHttpServer implements AutoCloseable {
         return answer(refs, reason, reason, capabilities);
     }
 
-    private static byte[] answer(List<String> refs, String reason, String remark, List<String> capabilities) {
+    private static byte[] answer(
+            List<String> refs, String reason, String remark, List<String> capabilities) {
         final ByteArrayOutputStream status = new ByteArrayOutputStream();
         status.writeBytes(packetLine("unpack ok\n"));
         for (final String each : refs) {

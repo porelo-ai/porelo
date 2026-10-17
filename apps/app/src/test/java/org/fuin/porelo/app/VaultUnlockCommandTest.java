@@ -8,9 +8,9 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Tests for how long an unlock is kept.
- * <p>
- * A flag nobody can use without reading the help is a flag nobody uses, so what is checked here is
- * that it reads the way somebody types it - and that it refuses clearly rather than guessing.
+ *
+ * <p>A flag nobody can use without reading the help is a flag nobody uses, so what is checked here
+ * is that it reads the way somebody types it - and that it refuses clearly rather than guessing.
  */
 class VaultUnlockCommandTest {
 

@@ -11,19 +11,19 @@ import java.util.Set;
 
 /**
  * Names somebody granted to a task while it was running.
- * <p>
- * A project declares what its tasks may reach before they start. This is the other thing: an agent
- * an hour into a run needs a host nobody thought of, and somebody decides that this run may have
- * it. The grant belongs to the run - it is not in the project file, and the next task will ask
+ *
+ * <p>A project declares what its tasks may reach before they start. This is the other thing: an
+ * agent an hour into a run needs a host nobody thought of, and somebody decides that this run may
+ * have it. The grant belongs to the run - it is not in the project file, and the next task will ask
  * again - which is why it lives in the task's own directory and dies with it.
- * <p>
- * <strong>Appended, never rewritten.</strong> One short line per grant, opened for append: two
- * grants arriving at once cannot lose each other, and nothing has to read the file to write it.
- * The same lesson the project registry learned the hard way, applied before it could bite.
- * <p>
- * This file only says which names are <em>allowed to resolve and be reached</em>. Making that true
- * is two other things: a line in the resolver's servers file, and the clearance watcher letting
- * the first connection through instead of asking about it.
+ *
+ * <p><strong>Appended, never rewritten.</strong> One short line per grant, opened for append: two
+ * grants arriving at once cannot lose each other, and nothing has to read the file to write it. The
+ * same lesson the project registry learned the hard way, applied before it could bite.
+ *
+ * <p>This file only says which names are <em>allowed to resolve and be reached</em>. Making that
+ * true is two other things: a line in the resolver's servers file, and the clearance watcher
+ * letting the first connection through instead of asking about it.
  */
 public final class GrantedNames {
 
@@ -40,21 +40,25 @@ public final class GrantedNames {
      * @param stateDirectory Where the task keeps its files.
      * @param name Host name, as it was granted.
      * @throws IOException If it cannot be written. Never swallowed: a grant nobody wrote down is a
-     *         host the watcher will still ask about, which reads as the grant having been ignored.
+     *     host the watcher will still ask about, which reads as the grant having been ignored.
      */
     public static void add(Path stateDirectory, String name) throws IOException {
-        Files.writeString(stateDirectory.resolve(FILE), name.strip() + System.lineSeparator(),
-                StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        Files.writeString(
+                stateDirectory.resolve(FILE),
+                name.strip() + System.lineSeparator(),
+                StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.APPEND);
     }
 
     /**
      * Takes a name back out of the grants.
-     * <p>
-     * Exact, never by suffix: {@link #covers} lets a grant for {@code example.com} answer for
+     *
+     * <p>Exact, never by suffix: {@link #covers} lets a grant for {@code example.com} answer for
      * {@code api.example.com}, but removing the parent must not silently remove a child somebody
      * granted separately and still means.
-     * <p>
-     * The file is rewritten rather than appended to - the only operation here that is not an
+     *
+     * <p>The file is rewritten rather than appended to - the only operation here that is not an
      * append - because a grant that is still in the file is one the watcher will still honour.
      *
      * @param stateDirectory Where the task keeps its files.
@@ -78,8 +82,11 @@ public final class GrantedNames {
             }
         }
         if (found) {
-            Files.writeString(file, kept.isEmpty() ? ""
-                    : String.join(System.lineSeparator(), kept) + System.lineSeparator(),
+            Files.writeString(
+                    file,
+                    kept.isEmpty()
+                            ? ""
+                            : String.join(System.lineSeparator(), kept) + System.lineSeparator(),
                     StandardCharsets.UTF_8);
         }
         return found;
@@ -114,8 +121,8 @@ public final class GrantedNames {
 
     /**
      * Tells whether a name is covered by the grants a task has.
-     * <p>
-     * A grant covers what is under it, because that is what the resolver does with it: dnsmasq
+     *
+     * <p>A grant covers what is under it, because that is what the resolver does with it: dnsmasq
      * matches {@code server=/example.com/} for {@code cdn.example.com} too. A rule here that was
      * stricter than the resolver's would leave a name resolving and then blocked, which is the one
      * combination the whole design exists to avoid.

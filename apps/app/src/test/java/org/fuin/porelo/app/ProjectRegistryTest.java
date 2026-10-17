@@ -9,9 +9,7 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Tests for {@link ProjectRegistry}, the only record of where a project's file is.
- */
+/** Tests for {@link ProjectRegistry}, the only record of where a project's file is. */
 class ProjectRegistryTest {
 
     @Test
@@ -72,20 +70,23 @@ class ProjectRegistryTest {
         // into the bytes that were then moved into place.
         final Path registry = dir.resolve("projects");
         final int writers = 24;
-        final java.util.concurrent.CountDownLatch go =
-                new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch go = new java.util.concurrent.CountDownLatch(1);
         final java.util.List<Thread> threads = new java.util.ArrayList<>();
         for (int i = 0; i < writers; i++) {
             final String name = "project-" + i;
-            threads.add(Thread.ofVirtual().start(() -> {
-                try {
-                    go.await();
-                } catch (InterruptedException ex) {
-                    Thread.currentThread().interrupt();
-                    return;
-                }
-                new ProjectRegistry(registry).remember(name, dir.resolve(name + "/project.yml"));
-            }));
+            threads.add(
+                    Thread.ofVirtual()
+                            .start(
+                                    () -> {
+                                        try {
+                                            go.await();
+                                        } catch (InterruptedException ex) {
+                                            Thread.currentThread().interrupt();
+                                            return;
+                                        }
+                                        new ProjectRegistry(registry)
+                                                .remember(name, dir.resolve(name + "/project.yml"));
+                                    }));
         }
         go.countDown();
         for (final Thread thread : threads) {
@@ -104,16 +105,21 @@ class ProjectRegistryTest {
         final Path registry = dir.resolve("projects");
         final java.util.List<Thread> threads = new java.util.ArrayList<>();
         for (int i = 0; i < 8; i++) {
-            threads.add(Thread.ofVirtual().start(() ->
-                    new ProjectRegistry(registry).remember("uc", dir.resolve("uc/project.yml"))));
+            threads.add(
+                    Thread.ofVirtual()
+                            .start(
+                                    () ->
+                                            new ProjectRegistry(registry)
+                                                    .remember(
+                                                            "uc", dir.resolve("uc/project.yml"))));
         }
         for (final Thread thread : threads) {
             thread.join();
         }
 
         assertThat(new ProjectRegistry(registry).all())
-                .containsExactly(java.util.Map.entry("uc",
-                        dir.resolve("uc/project.yml").toString()));
+                .containsExactly(
+                        java.util.Map.entry("uc", dir.resolve("uc/project.yml").toString()));
     }
 
     @Test

@@ -10,12 +10,12 @@ import java.util.stream.Stream;
 import org.fuin.porelo.agent.api.AgentDefinition;
 
 /**
- * Where a task's agent reads what Porelo gives it in its task - its handed-in files, the builds of its pushes, its
- * mailbox - and how it is told to.
- * <p>
- * One guide for all of Porelo, since an agent takes one file into its standing instructions. The host's half is a
- * directory of its own per task, mounted into the container when it is made; a task made before that has no such
- * mount and keeps its mailbox's guide.
+ * Where a task's agent reads what Porelo gives it in its task - its handed-in files, the builds of
+ * its pushes, its mailbox - and how it is told to.
+ *
+ * <p>One guide for all of Porelo, since an agent takes one file into its standing instructions. The
+ * host's half is a directory of its own per task, mounted into the container when it is made; a
+ * task made before that has no such mount and keeps its mailbox's guide.
  */
 public final class TaskGuide {
 
@@ -68,17 +68,20 @@ public final class TaskGuide {
     }
 
     /**
-     * Returns how an agent is started in this task: told where its guide is, when the agent declares a way to take it.
-     * <p>
-     * One rule for each way of starting it, attended, unattended and continued. A task made before the guide had a
-     * directory of its own is given its mailbox's guide, as it was, and a task with neither gets nothing added.
+     * Returns how an agent is started in this task: told where its guide is, when the agent
+     * declares a way to take it.
+     *
+     * <p>One rule for each way of starting it, attended, unattended and continued. A task made
+     * before the guide had a directory of its own is given its mailbox's guide, as it was, and a
+     * task with neither gets nothing added.
      *
      * @param definition The agent.
      * @param command How it is started otherwise.
      * @return The command.
      */
     public List<String> instructing(final AgentDefinition definition, final List<String> command) {
-        return Files.isRegularFile(file(), LinkOption.NOFOLLOW_LINKS) ? definition.instructed(command, GUIDE)
+        return Files.isRegularFile(file(), LinkOption.NOFOLLOW_LINKS)
+                ? definition.instructed(command, GUIDE)
                 : mailbox.instructing(definition, command);
     }
 

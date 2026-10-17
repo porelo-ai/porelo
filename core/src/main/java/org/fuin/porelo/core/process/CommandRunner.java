@@ -2,8 +2,8 @@ package org.fuin.porelo.core.process;
 
 /**
  * Runs external programs.
- * <p>
- * An interface rather than a static call, because everything Porelo does to a container goes
+ *
+ * <p>An interface rather than a static call, because everything Porelo does to a container goes
  * through {@code podman}, {@code nft} and {@code git}. Tests that had to invoke those for real
  * would be slow, root-dependent and impossible to run in CI.
  */

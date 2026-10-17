@@ -9,13 +9,13 @@ import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Spec;
 
 /** Lists what this machine is configured to connect out with. */
-@Command(name = "list",
+@Command(
+        name = "list",
         mixinStandardHelpOptions = true,
         description = "Lists the credentials this machine connects out with.")
 public class CredentialsListCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -39,17 +39,25 @@ public class CredentialsListCommand implements Callable<Integer>, PoreloFactory.
     Integer render(final PoreloContext context, final PrintWriter out) {
         final List<Map<String, Object>> rows = new CredentialDeclarations(context).asMaps();
         if (rows.isEmpty()) {
-            out.println("Nothing is declared. A git URL still finds a vault entry named after its"
-                    + " host - 'porelo credentials check <url>' says what one would use.");
+            out.println(
+                    "Nothing is declared. A git URL still finds a vault entry named after its"
+                            + " host - 'porelo credentials check <url>' says what one would use.");
             out.flush();
             return 0;
         }
-        final int width = rows.stream().mapToInt(row -> String.valueOf(row.get("match")).length())
-                .max().orElse(0);
+        final int width =
+                rows.stream()
+                        .mapToInt(row -> String.valueOf(row.get("match")).length())
+                        .max()
+                        .orElse(0);
         for (final Map<String, Object> row : rows) {
-            out.printf("%-" + width + "s  %-8s  %-11s  %s%n", row.get("match"), row.get("kind"),
+            out.printf(
+                    "%-" + width + "s  %-8s  %-11s  %s%n",
+                    row.get("match"),
+                    row.get("kind"),
                     row.get("source"),
-                    (Boolean.TRUE.equals(row.get("present")) ? row.get("id")
+                    (Boolean.TRUE.equals(row.get("present"))
+                            ? row.get("id")
                             : row.get("id") + "  (its value is not there)"));
             if (!Boolean.TRUE.equals(row.get("protected"))) {
                 // Said every time, because it is the difference between a secret this machine can

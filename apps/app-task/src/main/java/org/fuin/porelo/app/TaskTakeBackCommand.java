@@ -12,19 +12,23 @@ import picocli.CommandLine.Spec;
 /**
  * Takes a file handed to a running task out of {@code /porelo/files} again, and writes that down.
  */
-@Command(name = "take-back",
+@Command(
+        name = "take-back",
         mixinStandardHelpOptions = true,
         description = "Takes a handed-in file out of a running task's /porelo/files again.")
-public class TaskTakeBackCommand implements Callable<Integer>, PoreloFactory.ContextAware, Suggests {
+public class TaskTakeBackCommand
+        implements Callable<Integer>, PoreloFactory.ContextAware, Suggests {
 
-    @Parameters(index = "0", paramLabel = "TASK", description = "A running task, as shown by 'porelo task list'.")
+    @Parameters(
+            index = "0",
+            paramLabel = "TASK",
+            description = "A running task, as shown by 'porelo task list'.")
     private String container;
 
     @Parameters(index = "1", paramLabel = "NAME", description = "Its name in /porelo/files.")
     private String name;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -50,13 +54,15 @@ public class TaskTakeBackCommand implements Callable<Integer>, PoreloFactory.Con
         final PrintWriter out = spec.commandLine().getOut();
         final PrintWriter err = spec.commandLine().getErr();
         if (!TaskCandidates.running(context).contains(container)) {
-            err.println("porelo: no running task named '" + container + "' - " + Shown.tasks(context));
+            err.println(
+                    "porelo: no running task named '" + container + "' - " + Shown.tasks(context));
             err.flush();
             return 69;
         }
         try {
-            final HandIns.HandedFile taken = HandIns.of(context).takeBack(container, name,
-                    System.getProperty("user.name", ""));
+            final HandIns.HandedFile taken =
+                    HandIns.of(context)
+                            .takeBack(container, name, System.getProperty("user.name", ""));
             out.println("taken back " + container + ": /porelo/files/" + taken.name());
             out.flush();
             return 0;

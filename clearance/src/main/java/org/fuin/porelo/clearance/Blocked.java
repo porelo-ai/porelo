@@ -2,19 +2,23 @@ package org.fuin.porelo.clearance;
 
 /**
  * One connection the firewall stopped, as it was reported.
- * <p>
- * A record rather than four parameters because both ways into the hub carry the same four fields -
- * the reader calling {@code Report}, and the watcher following the file the reader hook writes -
+ *
+ * <p>A record rather than four parameters because both ways into the hub carry the same four fields
+ * - the reader calling {@code Report}, and the watcher following the file the reader hook writes -
  * and a positional list of that length is where two call sites drift apart.
  *
  * @param destination Host or address the task asked for, and what an allow adds to the set.
  * @param port Port, or {@code 0} when there is none.
  * @param protocol Protocol name, for example {@code tcp}.
  * @param shown How it should be shown to the operator, which may carry a resolved name.
- * @param name The name the container was answered with, or {@code null} when nothing resolved it.
- *        A grant is made for a name, and an address on its own can never match one.
+ * @param name The name the container was answered with, or {@code null} when nothing resolved it. A
+ *     grant is made for a name, and an address on its own can never match one.
  */
-public record Blocked(String destination, int port, String protocol, String shown,
+public record Blocked(
+        String destination,
+        int port,
+        String protocol,
+        String shown,
         @org.jspecify.annotations.Nullable String name) {
 
     /**
@@ -40,10 +44,10 @@ public record Blocked(String destination, int port, String protocol, String show
 
     /**
      * Rebuilds what a key was made of, for a verdict that arrived without the event.
-     * <p>
-     * A client may answer a prompt the hub has not seen: the event reaches subscribers before the
-     * hub decides, so an answer can overtake it. The audit record still has to name a destination,
-     * and the key is the only description there is.
+     *
+     * <p>A client may answer a prompt the hub has not seen: the event reaches subscribers before
+     * the hub decides, so an answer can overtake it. The audit record still has to name a
+     * destination, and the key is the only description there is.
      *
      * @param key Key as {@link #key()} produced it.
      * @param address Address the client asked to allow.

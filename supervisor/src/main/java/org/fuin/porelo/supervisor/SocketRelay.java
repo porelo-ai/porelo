@@ -11,16 +11,16 @@ import java.nio.file.Path;
 
 /**
  * Carries bytes from a port inside a task's network namespace to the broker's socket on the host.
- * <p>
- * <strong>Why this exists rather than binding the broker itself in the namespace.</strong> An
+ *
+ * <p><strong>Why this exists rather than binding the broker itself in the namespace.</strong> An
  * agent that can only be given a URL needs something listening on an address it can dial, and a
  * host-side listener is either unreachable from a rootless container or bound to every interface.
  * Putting the broker in the container's network namespace solves that and creates something worse:
  * the process keeps the host's filesystem, so it reads the host's {@code /etc/resolv.conf} and
  * tries a resolver that does not exist in that namespace - measured, and it fails as "could not
  * reach the provider". Its egress would also be governed by the task's own firewall.
- * <p>
- * A relay has neither problem. It resolves nothing and connects to nothing but a local file, so
+ *
+ * <p>A relay has neither problem. It resolves nothing and connects to nothing but a local file, so
  * the broker stays on the host with the host's DNS, the host's egress and the credential.
  */
 public final class SocketRelay implements Runnable, AutoCloseable {
@@ -66,7 +66,8 @@ public final class SocketRelay implements Runnable, AutoCloseable {
     }
 
     private void relay(SocketChannel client) {
-        try (client; SocketChannel upstream = SocketChannel.open(StandardProtocolFamily.UNIX)) {
+        try (client;
+                SocketChannel upstream = SocketChannel.open(StandardProtocolFamily.UNIX)) {
             upstream.connect(UnixDomainSocketAddress.of(socket));
             final Thread back = Thread.ofVirtual().start(() -> pump(upstream, client));
             pump(client, upstream);

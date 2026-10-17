@@ -16,11 +16,11 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Tests for changing enforcement on a task that is already running.
- * <p>
- * The state used to be chosen when a task started and never again, so what is asserted here is
- * mostly what must <em>not</em> happen: a change recorded for a task that is not running, a
- * watcher left behind when enforcement is turned off, and a resume that would bring back the mode
- * somebody just changed away from.
+ *
+ * <p>The state used to be chosen when a task started and never again, so what is asserted here is
+ * mostly what must <em>not</em> happen: a change recorded for a task that is not running, a watcher
+ * left behind when enforcement is turned off, and a resume that would bring back the mode somebody
+ * just changed away from.
  */
 class RunningClearanceTest {
 
@@ -31,12 +31,16 @@ class RunningClearanceTest {
     private static final String CONTAINER = "porelo-demo-shell-1";
 
     private PoreloContext context(Path dir) {
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
         return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), command -> 0);
     }
 
@@ -45,17 +49,30 @@ class RunningClearanceTest {
         final PoreloContext context = context(dir);
         final Path state = context.paths().tasks().containerState(CONTAINER);
         Files.createDirectories(state);
-        new TaskProfile(1, "claude", TaskMode.SHELL, null, null,
-                java.time.Instant.now().toString(), clearance).writeTo(state);
-        new Sidecar(Sidecar.VERSION, "demo", "guarded", state.resolve("ruleset.nft").toString(),
-                state.resolve("dns.conf").toString(), "/usr/bin/porelo", state.toString())
+        new TaskProfile(
+                        1,
+                        "claude",
+                        TaskMode.SHELL,
+                        null,
+                        null,
+                        java.time.Instant.now().toString(),
+                        clearance)
+                .writeTo(state);
+        new Sidecar(
+                        Sidecar.VERSION,
+                        "demo",
+                        "guarded",
+                        state.resolve("ruleset.nft").toString(),
+                        state.resolve("dns.conf").toString(),
+                        "/usr/bin/porelo",
+                        state.toString())
                 .writeTo(state.resolve("sidecar.json"));
         return state;
     }
 
     private RunningClearance.Result set(Path dir, String mode, boolean dryRun) {
-        return RunningClearance.set(context(dir), CONTAINER, mode, dryRun,
-                new PrintWriter(out, true));
+        return RunningClearance.set(
+                context(dir), CONTAINER, mode, dryRun, new PrintWriter(out, true));
     }
 
     @Test
@@ -92,17 +109,24 @@ class RunningClearanceTest {
         // be signalled, because an id on its own names whatever holds it now.
         final Process watcher = new ProcessBuilder("sleep", "120").start();
         org.fuin.porelo.wire.HelperPid.record(state.resolve("watcher.pid"), watcher.toHandle());
-        new TaskHelpers(java.util.List.of(new TaskHelpers.Helper("watcher",
-                java.util.List.of("porelo", "shield", "watch"), java.util.Map.of(),
-                TaskHelpers.AFTER))).writeTo(state);
+        new TaskHelpers(
+                        java.util.List.of(
+                                new TaskHelpers.Helper(
+                                        "watcher",
+                                        java.util.List.of("porelo", "shield", "watch"),
+                                        java.util.Map.of(),
+                                        TaskHelpers.AFTER)))
+                .writeTo(state);
 
         final RunningClearance.Result result = set(dir, "off", false);
 
         assertThat(result.outcome()).isEqualTo(RunningClearance.Outcome.CHANGED);
         assertThat(result.was()).isEqualTo("prompt");
-        assertThat(runner.invocations()).anySatisfy(command ->
-                assertThat(command.arguments())
-                        .containsExactly("kill", String.valueOf(watcher.pid())));
+        assertThat(runner.invocations())
+                .anySatisfy(
+                        command ->
+                                assertThat(command.arguments())
+                                        .containsExactly("kill", String.valueOf(watcher.pid())));
         assertThat(TaskHelpers.readFrom(state).helpers()).isEmpty();
         assertThat(TaskProfile.readFrom(state).clearance()).isEqualTo("off");
     }
@@ -121,8 +145,8 @@ class RunningClearanceTest {
         assertThat(result.outcome()).isEqualTo(RunningClearance.Outcome.PREVIEWED);
         assertThat(state.resolve("watcher.pid")).exists();
         assertThat(TaskProfile.readFrom(state).clearance()).isEqualTo("prompt");
-        assertThat(runner.invocations()).noneSatisfy(command ->
-                assertThat(command.arguments()).contains("kill"));
+        assertThat(runner.invocations())
+                .noneSatisfy(command -> assertThat(command.arguments()).contains("kill"));
     }
 
     @Test

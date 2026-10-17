@@ -8,9 +8,7 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Whether a recorded process id still names the process it was written for.
- */
+/** Whether a recorded process id still names the process it was written for. */
 class HelperPidTest {
 
     @Test
@@ -18,7 +16,8 @@ class HelperPidTest {
         final Path file = dir.resolve("helper.pid");
         HelperPid.record(file);
 
-        assertThat(HelperPid.verified(file)).get()
+        assertThat(HelperPid.verified(file))
+                .get()
                 .extracting(ProcessHandle::pid)
                 .isEqualTo(ProcessHandle.current().pid());
     }
@@ -31,11 +30,11 @@ class HelperPidTest {
         // an ssh agent or another task's helper - all owned by the same user, so the operating
         // system permits the signal. Recording the start time is what tells them apart.
         final Path file = dir.resolve("helper.pid");
-        Files.writeString(file, ProcessHandle.current().pid() + " 1",
-                StandardCharsets.UTF_8);
+        Files.writeString(file, ProcessHandle.current().pid() + " 1", StandardCharsets.UTF_8);
 
         assertThat(HelperPid.verified(file))
-                .as("same id, a start time from 1970: not the same process").isEmpty();
+                .as("same id, a start time from 1970: not the same process")
+                .isEmpty();
     }
 
     @Test
@@ -45,8 +44,8 @@ class HelperPidTest {
         // answer to "is this still the helper" is no - an orphaned helper is visible and can be
         // stopped by name, whereas a process killed by mistake is simply gone.
         final Path file = dir.resolve("helper.pid");
-        Files.writeString(file, String.valueOf(ProcessHandle.current().pid()),
-                StandardCharsets.UTF_8);
+        Files.writeString(
+                file, String.valueOf(ProcessHandle.current().pid()), StandardCharsets.UTF_8);
 
         assertThat(HelperPid.verified(file)).isEmpty();
     }
@@ -66,7 +65,8 @@ class HelperPidTest {
         HelperPid.record(file);
 
         assertThat(Files.getPosixFilePermissions(file))
-                .containsExactlyInAnyOrder(java.nio.file.attribute.PosixFilePermission.OWNER_READ,
+                .containsExactlyInAnyOrder(
+                        java.nio.file.attribute.PosixFilePermission.OWNER_READ,
                         java.nio.file.attribute.PosixFilePermission.OWNER_WRITE);
     }
 }

@@ -28,8 +28,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Tests for {@link LoginCredentials} and {@link LoginRenewal}: an agent's own sign-in kept whole, and renewed on
- * the host, once, whichever task's broker gets there first.
+ * Tests for {@link LoginCredentials} and {@link LoginRenewal}: an agent's own sign-in kept whole,
+ * and renewed on the host, once, whichever task's broker gets there first.
  */
 class LoginRenewalTest {
 
@@ -41,23 +41,29 @@ class LoginRenewalTest {
 
     private final List<String> bodies = new CopyOnWriteArrayList<>();
 
-    private final AtomicReference<String> answer = new AtomicReference<>(
-            "{\"access_token\":\"at-2\",\"refresh_token\":\"rt-2\",\"expires_in\":28800}");
+    private final AtomicReference<String> answer =
+            new AtomicReference<>(
+                    "{\"access_token\":\"at-2\",\"refresh_token\":\"rt-2\",\"expires_in\":28800}");
 
     private final AtomicReference<Integer> status = new AtomicReference<>(200);
 
     @BeforeEach
     void start() throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/v1/oauth/token", exchange -> {
-            bodies.add(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
-            final byte[] payload = answer.get().getBytes(StandardCharsets.UTF_8);
-            exchange.getResponseHeaders().set("Content-Type", "application/json");
-            exchange.sendResponseHeaders(status.get(), payload.length);
-            try (OutputStream out = exchange.getResponseBody()) {
-                out.write(payload);
-            }
-        });
+        server.createContext(
+                "/v1/oauth/token",
+                exchange -> {
+                    bodies.add(
+                            new String(
+                                    exchange.getRequestBody().readAllBytes(),
+                                    StandardCharsets.UTF_8));
+                    final byte[] payload = answer.get().getBytes(StandardCharsets.UTF_8);
+                    exchange.getResponseHeaders().set("Content-Type", "application/json");
+                    exchange.sendResponseHeaders(status.get(), payload.length);
+                    try (OutputStream out = exchange.getResponseBody()) {
+                        out.write(payload);
+                    }
+                });
         server.start();
     }
 
@@ -71,9 +77,18 @@ class LoginRenewalTest {
     }
 
     private Credential signIn(final Instant ends) {
-        return new Credential("oauth", "at-1", Map.of(Credential.REFRESH_TOKEN, "rt-1",
-                Credential.EXPIRES_AT, String.valueOf(ends.toEpochMilli()), Credential.TOKEN_URL, tokenUrl(),
-                Credential.CLIENT_ID, "the-agents-client"));
+        return new Credential(
+                "oauth",
+                "at-1",
+                Map.of(
+                        Credential.REFRESH_TOKEN,
+                        "rt-1",
+                        Credential.EXPIRES_AT,
+                        String.valueOf(ends.toEpochMilli()),
+                        Credential.TOKEN_URL,
+                        tokenUrl(),
+                        Credential.CLIENT_ID,
+                        "the-agents-client"));
     }
 
     private VaultFile vault(final Path dir, final Credential credential, final boolean own) {
@@ -85,19 +100,28 @@ class LoginRenewalTest {
     }
 
     private LoginRenewal renewal(final VaultFile vault, final Instant at) {
-        return new LoginRenewal("anthropic", vault.read(PASSPHRASE).get("anthropic"), vault,
-                VaultFile.Opener.passphrase(PASSPHRASE), HttpClient.newHttpClient(), Clock.fixed(at, ZoneOffset.UTC));
+        return new LoginRenewal(
+                "anthropic",
+                vault.read(PASSPHRASE).get("anthropic"),
+                vault,
+                VaultFile.Opener.passphrase(PASSPHRASE),
+                HttpClient.newHttpClient(),
+                Clock.fixed(at, ZoneOffset.UTC));
     }
 
     @Test
     void keepsWhatASignInLeftWithTheRefreshTokenHiddenBesideIt(@TempDir Path dir) {
 
-        // Kept whole: both used to keep the token and its type and drop the rest, so nothing could renew it.
-        final Map<String, VaultEntry> entries = vault(dir, signIn(NOW.plusSeconds(3600)), true).read(PASSPHRASE);
+        // Kept whole: both used to keep the token and its type and drop the rest, so nothing could
+        // renew it.
+        final Map<String, VaultEntry> entries =
+                vault(dir, signIn(NOW.plusSeconds(3600)), true).read(PASSPHRASE);
 
         assertThat(entries.get("anthropic").value()).isEqualTo("at-1");
-        assertThat(entries.get("anthropic").settings()).containsEntry("expires_at", "2026-10-01T13:00:00Z")
-                .containsEntry("token_url", tokenUrl()).containsEntry("client_id", "the-agents-client")
+        assertThat(entries.get("anthropic").settings())
+                .containsEntry("expires_at", "2026-10-01T13:00:00Z")
+                .containsEntry("token_url", tokenUrl())
+                .containsEntry("client_id", "the-agents-client")
                 .doesNotContainValue("rt-1");
         assertThat(entries.get(TaskSecrets.GRANT_PREFIX + "anthropic"))
                 .isEqualTo(new VaultEntry("rt-1", "refresh-token", Map.of()));
@@ -106,9 +130,11 @@ class LoginRenewalTest {
     @Test
     void keepsAnImportsEndButNeverWhatWouldRenewIt(@TempDir Path dir) {
 
-        // An import copies what the agent on this machine keeps renewing; renewing the copy would spend the
+        // An import copies what the agent on this machine keeps renewing; renewing the copy would
+        // spend the
         // refresh token the developer's own session renews with.
-        final Map<String, VaultEntry> entries = vault(dir, signIn(NOW.plusSeconds(3600)), false).read(PASSPHRASE);
+        final Map<String, VaultEntry> entries =
+                vault(dir, signIn(NOW.plusSeconds(3600)), false).read(PASSPHRASE);
 
         assertThat(entries.get("anthropic").settings()).containsOnlyKeys("expires_at");
         assertThat(entries).doesNotContainKey(TaskSecrets.GRANT_PREFIX + "anthropic");
@@ -116,7 +142,8 @@ class LoginRenewalTest {
     }
 
     @Test
-    void usesTheStoredTokenUntilShortlyBeforeItEndsAndAsksNobody(@TempDir Path dir) throws Exception {
+    void usesTheStoredTokenUntilShortlyBeforeItEndsAndAsksNobody(@TempDir Path dir)
+            throws Exception {
 
         final VaultFile vault = vault(dir, signIn(NOW.plusSeconds(3600)), true);
 
@@ -125,25 +152,32 @@ class LoginRenewalTest {
     }
 
     @Test
-    void renewsOnTheHostWhenItNearsItsEndAndKeepsWhatTheServiceRotated(@TempDir Path dir) throws Exception {
+    void renewsOnTheHostWhenItNearsItsEndAndKeepsWhatTheServiceRotated(@TempDir Path dir)
+            throws Exception {
 
         final VaultFile vault = vault(dir, signIn(NOW.plusSeconds(30)), true);
 
         assertThat(renewal(vault, NOW).current()).isEqualTo("at-2");
 
-        assertThat(bodies).singleElement().asString().contains("grant_type=refresh_token")
-                .contains("refresh_token=rt-1").contains("client_id=the-agents-client");
+        assertThat(bodies)
+                .singleElement()
+                .asString()
+                .contains("grant_type=refresh_token")
+                .contains("refresh_token=rt-1")
+                .contains("client_id=the-agents-client");
         final Map<String, VaultEntry> kept = vault.read(PASSPHRASE);
         assertThat(kept.get("anthropic").value()).isEqualTo("at-2");
-        assertThat(kept.get("anthropic").settings()).containsEntry("expires_at", "2026-10-01T20:00:00Z");
+        assertThat(kept.get("anthropic").settings())
+                .containsEntry("expires_at", "2026-10-01T20:00:00Z");
         assertThat(kept.get(TaskSecrets.GRANT_PREFIX + "anthropic").value()).isEqualTo("rt-2");
     }
 
     @Test
-    void takesTheTokenAnotherTasksBrokerRenewedInsteadOfSpendingTheRefreshTokenAgain(@TempDir Path dir)
-            throws Exception {
+    void takesTheTokenAnotherTasksBrokerRenewedInsteadOfSpendingTheRefreshTokenAgain(
+            @TempDir Path dir) throws Exception {
 
-        // Two tasks, two brokers, one refresh token the service rotates: the second must not renew with it.
+        // Two tasks, two brokers, one refresh token the service rotates: the second must not renew
+        // with it.
         final VaultFile vault = vault(dir, signIn(NOW.plusSeconds(30)), true);
         final LoginRenewal first = renewal(vault, NOW);
         final LoginRenewal second = renewal(vault, NOW);
@@ -161,7 +195,8 @@ class LoginRenewalTest {
         answer.set("{\"error\":\"invalid_grant\"}");
         final VaultFile vault = vault(dir, signIn(NOW.plusSeconds(30)), true);
 
-        assertThatThrownBy(() -> renewal(vault, NOW).current()).isInstanceOf(TokenPurchase.Ended.class)
+        assertThatThrownBy(() -> renewal(vault, NOW).current())
+                .isInstanceOf(TokenPurchase.Ended.class)
                 .hasMessageContaining("sign in again with 'porelo vault login'");
         assertThat(vault.read(PASSPHRASE).get("anthropic").value()).isEqualTo("at-1");
     }
@@ -169,35 +204,46 @@ class LoginRenewalTest {
     @Test
     void aRenewalThatFailedIsAnsweredFromMemoryForAMomentThenAskedAgain(@TempDir Path dir) {
 
-        // Every request of the task asks for the token: after a refusal each one opened the vault and spent the dead
-        // refresh token at the service again, one after another behind the lock. Asked again after a moment, so a
+        // Every request of the task asks for the token: after a refusal each one opened the vault
+        // and spent the dead
+        // refresh token at the service again, one after another behind the lock. Asked again after
+        // a moment, so a
         // sign-in made anew reaches a running broker.
         status.set(400);
         answer.set("{\"error\":\"invalid_grant\"}");
         final VaultFile vault = vault(dir, signIn(NOW.plusSeconds(30)), true);
-        final Instant[] now = { NOW };
-        final Clock clock = new Clock() {
-            @Override
-            public java.time.ZoneId getZone() {
-                return ZoneOffset.UTC;
-            }
+        final Instant[] now = {NOW};
+        final Clock clock =
+                new Clock() {
+                    @Override
+                    public java.time.ZoneId getZone() {
+                        return ZoneOffset.UTC;
+                    }
 
-            @Override
-            public Clock withZone(final java.time.ZoneId zone) {
-                return this;
-            }
+                    @Override
+                    public Clock withZone(final java.time.ZoneId zone) {
+                        return this;
+                    }
 
-            @Override
-            public Instant instant() {
-                return now[0];
-            }
-        };
-        final LoginRenewal renewal = new LoginRenewal("anthropic", vault.read(PASSPHRASE).get("anthropic"), vault,
-                VaultFile.Opener.passphrase(PASSPHRASE), HttpClient.newHttpClient(), clock);
+                    @Override
+                    public Instant instant() {
+                        return now[0];
+                    }
+                };
+        final LoginRenewal renewal =
+                new LoginRenewal(
+                        "anthropic",
+                        vault.read(PASSPHRASE).get("anthropic"),
+                        vault,
+                        VaultFile.Opener.passphrase(PASSPHRASE),
+                        HttpClient.newHttpClient(),
+                        clock);
 
         assertThatThrownBy(renewal::current).isInstanceOf(TokenPurchase.Ended.class);
-        assertThatThrownBy(renewal::current).as("the same answer, a moment later")
-                .isInstanceOf(TokenPurchase.Ended.class).hasMessageContaining("sign in again");
+        assertThatThrownBy(renewal::current)
+                .as("the same answer, a moment later")
+                .isInstanceOf(TokenPurchase.Ended.class)
+                .hasMessageContaining("sign in again");
         assertThat(bodies).as("the service is asked once for both").hasSize(1);
 
         now[0] = NOW.plusSeconds(6);

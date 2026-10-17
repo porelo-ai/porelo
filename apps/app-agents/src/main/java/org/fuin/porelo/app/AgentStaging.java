@@ -5,11 +5,11 @@ import org.fuin.porelo.core.project.Project;
 
 /**
  * Puts what an agent's own package ships into the image build context.
- * <p>
- * Split out of {@code TaskRunCommand} alongside {@link EgressReport}: this is the part that is
+ *
+ * <p>Split out of {@code TaskRunCommand} alongside {@link EgressReport}: this is the part that is
  * pure filesystem work, and none of it needs to know what a task is.
- * <p>
- * An earlier run's staged copy is reused rather than unpacked again - unpacking hundreds of
+ *
+ * <p>An earlier run's staged copy is reused rather than unpacked again - unpacking hundreds of
  * megabytes on every task would be the slowest thing a run does - and freshness is decided by a
  * marker beside the staged copy rather than by timestamps on the tree, because a package installs
  * with whatever mtimes it was built with.
@@ -22,22 +22,31 @@ final class AgentStaging {
 
     /**
      * Copies what the agent ships into the build context and returns the lines that install it.
-     * <p>
-     * A tool that is a tree of files rather than one binary has no URL to pin, so its own package
-     * carries it and the image build fetches nothing at all. That is why the copy happens here:
-     * the container runtime can only see what is inside the build context.
+     *
+     * <p>A tool that is a tree of files rather than one binary has no URL to pin, so its own
+     * package carries it and the image build fetches nothing at all. That is why the copy happens
+     * here: the container runtime can only see what is inside the build context.
      *
      * @param agent The agent.
      * @param project The project being built.
      * @param out Where progress is reported.
      * @return Build lines, empty when the agent ships nothing.
      */
-    static java.util.List<String> stage(org.fuin.porelo.agent.api.InstalledAgent agent,
-            Project project, PoreloPaths paths, org.fuin.porelo.core.process.CommandRunner runner,
+    static java.util.List<String> stage(
+            org.fuin.porelo.agent.api.InstalledAgent agent,
+            Project project,
+            PoreloPaths paths,
+            org.fuin.porelo.core.process.CommandRunner runner,
             PrintWriter out) {
 
-        return stage(agent.name(), agent.executable(), agent.definition().packaged(), project, paths,
-                runner, out);
+        return stage(
+                agent.name(),
+                agent.executable(),
+                agent.definition().packaged(),
+                project,
+                paths,
+                runner,
+                out);
     }
 
     /**
@@ -51,11 +60,17 @@ final class AgentStaging {
      * @param runner Runs the unpacking.
      * @param out Where progress is reported.
      * @return Build lines, empty when the agent ships nothing.
-     * @throws org.fuin.porelo.agent.api.AgentException If a declared tree is missing or cannot be staged.
+     * @throws org.fuin.porelo.agent.api.AgentException If a declared tree is missing or cannot be
+     *     staged.
      */
-    static java.util.List<String> stage(String name, java.nio.file.Path executable,
-            java.util.List<org.fuin.porelo.agent.api.PackagedTree> trees, Project project, PoreloPaths paths,
-            org.fuin.porelo.core.process.CommandRunner runner, PrintWriter out) {
+    static java.util.List<String> stage(
+            String name,
+            java.nio.file.Path executable,
+            java.util.List<org.fuin.porelo.agent.api.PackagedTree> trees,
+            Project project,
+            PoreloPaths paths,
+            org.fuin.porelo.core.process.CommandRunner runner,
+            PrintWriter out) {
 
         final java.util.List<String> lines = new java.util.ArrayList<>();
         for (final var tree : trees) {
@@ -63,11 +78,16 @@ final class AgentStaging {
             if (!java.nio.file.Files.exists(source)) {
                 // Refused, not reported: an image built without the tree starts a task with no tool
                 // in it, and the one line saying so was easy to miss among the rest.
-                throw new org.fuin.porelo.agent.api.AgentException(name + " ships " + tree.target()
-                        + " from " + source + ", and nothing is there - reinstall the agent");
+                throw new org.fuin.porelo.agent.api.AgentException(
+                        name
+                                + " ships "
+                                + tree.target()
+                                + " from "
+                                + source
+                                + ", and nothing is there - reinstall the agent");
             }
-            final java.nio.file.Path staged = paths.tasks().buildContext(project.name())
-                    .resolve(tree.stagingName());
+            final java.nio.file.Path staged =
+                    paths.tasks().buildContext(project.name()).resolve(tree.stagingName());
             try {
                 if (upToDate(source, staged)) {
                     // Staged by an earlier run of the same package. Unpacking hundreds of
@@ -81,8 +101,9 @@ final class AgentStaging {
                     markStaged(source, staged);
                 }
             } catch (java.io.IOException | RuntimeException ex) {
-                throw new org.fuin.porelo.agent.api.AgentException("could not stage " + source + " for "
-                        + name + ": " + CliErrors.reason(ex), ex);
+                throw new org.fuin.porelo.agent.api.AgentException(
+                        "could not stage " + source + " for " + name + ": " + CliErrors.reason(ex),
+                        ex);
             }
             lines.add("COPY " + tree.stagingName() + " " + tree.target());
             out.println("packaged  " + tree.target() + " from this agent's own package");
@@ -92,10 +113,11 @@ final class AgentStaging {
 
     /**
      * Finds what an agent ships, from where it says.
-     * <p>
-     * A relative path is read beside the agent's binary, so a copy of the agent in one account's
-     * directory ships its own tree. It used to resolve against whatever directory {@code porelo} was
-     * started in, which the CLI and the daemon do not share - and which is nothing to do with the agent.
+     *
+     * <p>A relative path is read beside the agent's binary, so a copy of the agent in one account's
+     * directory ships its own tree. It used to resolve against whatever directory {@code porelo}
+     * was started in, which the CLI and the daemon do not share - and which is nothing to do with
+     * the agent.
      *
      * @param executable The agent's binary.
      * @param declared The path its definition gives.
@@ -112,7 +134,10 @@ final class AgentStaging {
     }
 
     static String stamp(java.nio.file.Path source) throws java.io.IOException {
-        return source + " " + java.nio.file.Files.size(source) + " "
+        return source
+                + " "
+                + java.nio.file.Files.size(source)
+                + " "
                 + java.nio.file.Files.getLastModifiedTime(source).toMillis();
     }
 
@@ -139,13 +164,23 @@ final class AgentStaging {
      * @param target Directory to unpack into, replacing whatever was there.
      * @throws IOException If it cannot be unpacked.
      */
-    static void unpack(org.fuin.porelo.core.process.CommandRunner runner,
-            java.nio.file.Path source, java.nio.file.Path target) throws java.io.IOException {
+    static void unpack(
+            org.fuin.porelo.core.process.CommandRunner runner,
+            java.nio.file.Path source,
+            java.nio.file.Path target)
+            throws java.io.IOException {
 
         deleteTree(target);
         java.nio.file.Files.createDirectories(target);
-        final var result = runner.run(org.fuin.porelo.core.process.Command.of(
-                java.util.List.of("tar", "-xzf", source.toString(), "-C", target.toString())));
+        final var result =
+                runner.run(
+                        org.fuin.porelo.core.process.Command.of(
+                                java.util.List.of(
+                                        "tar",
+                                        "-xzf",
+                                        source.toString(),
+                                        "-C",
+                                        target.toString())));
         if (!result.successful()) {
             throw new java.io.IOException("tar failed: " + result.standardError().strip());
         }
@@ -156,8 +191,8 @@ final class AgentStaging {
             return;
         }
         try (var walk = java.nio.file.Files.walk(directory)) {
-            for (final java.nio.file.Path path
-                    : walk.sorted(java.util.Comparator.reverseOrder()).toList()) {
+            for (final java.nio.file.Path path :
+                    walk.sorted(java.util.Comparator.reverseOrder()).toList()) {
                 java.nio.file.Files.deleteIfExists(path);
             }
         }
@@ -181,7 +216,9 @@ final class AgentStaging {
                     java.nio.file.Files.createDirectories(destination);
                 } else {
                     java.nio.file.Files.createDirectories(destination.getParent());
-                    java.nio.file.Files.copy(path, destination,
+                    java.nio.file.Files.copy(
+                            path,
+                            destination,
                             java.nio.file.StandardCopyOption.REPLACE_EXISTING,
                             java.nio.file.StandardCopyOption.COPY_ATTRIBUTES);
                 }

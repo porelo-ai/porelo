@@ -10,9 +10,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Test for {@link MessageRecord}.
- */
+/** Test for {@link MessageRecord}. */
 class MessageRecordTest {
 
     private Mailbox mailbox(final Path dir) throws IOException {
@@ -48,12 +46,11 @@ class MessageRecordTest {
 
         assertThat(Files.readString(mailbox.record().resolve(MessageRecord.FILE)))
                 .as("a record that quoted refused messages would copy what was refused")
-                .doesNotContain("the secret").contains("the filter refused it");
+                .doesNotContain("the secret")
+                .contains("the filter refused it");
     }
 
-    /**
-     * The point of chaining: a line changed after the fact is named, not silently accepted.
-     */
+    /** The point of chaining: a line changed after the fact is named, not silently accepted. */
     @Test
     void names_the_first_line_that_was_changed_afterwards(@TempDir final Path dir)
             throws IOException {
@@ -83,39 +80,51 @@ class MessageRecordTest {
         final List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
         Files.write(file, List.of(lines.get(0), lines.get(2)), StandardCharsets.UTF_8);
 
-        assertThat(record.firstBrokenLine()).as("the line after the gap no longer follows")
+        assertThat(record.firstBrokenLine())
+                .as("the line after the gap no longer follows")
                 .isEqualTo(2);
     }
 
     @org.junit.jupiter.api.Test
-    void twoWritersAtOnceLeaveARecordThatStillChecksOut(@org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir)
-            throws Exception {
+    void twoWritersAtOnceLeaveARecordThatStillChecksOut(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws Exception {
 
-        // The daemon's pass and a 'talk pass' or 'talk release' wrote at once: both read the same last hash, two
-        // lines shared a 'previous', and 'talk verify' said the record had been changed when nobody had.
+        // The daemon's pass and a 'talk pass' or 'talk release' wrote at once: both read the same
+        // last hash, two
+        // lines shared a 'previous', and 'talk verify' said the record had been changed when nobody
+        // had.
         final Mailbox mailbox = new Mailbox(dir.resolve("porelo-p-t"));
         mailbox.create();
         final java.util.concurrent.CountDownLatch go = new java.util.concurrent.CountDownLatch(1);
         final java.util.List<Thread> writers = new java.util.ArrayList<>();
         for (int w = 0; w < 4; w++) {
             final int writer = w;
-            writers.add(Thread.ofPlatform().start(() -> {
-                try {
-                    go.await();
-                    final MessageRecord record = new MessageRecord(mailbox);
-                    for (int i = 0; i < 100; i++) {
-                        record.append(MessageRecord.TAKEN, "m-" + writer + "-" + i + ".json", "", "", "");
-                    }
-                } catch (final Exception ex) {
-                    throw new IllegalStateException(ex);
-                }
-            }));
+            writers.add(
+                    Thread.ofPlatform()
+                            .start(
+                                    () -> {
+                                        try {
+                                            go.await();
+                                            final MessageRecord record = new MessageRecord(mailbox);
+                                            for (int i = 0; i < 100; i++) {
+                                                record.append(
+                                                        MessageRecord.TAKEN,
+                                                        "m-" + writer + "-" + i + ".json",
+                                                        "",
+                                                        "",
+                                                        "");
+                                            }
+                                        } catch (final Exception ex) {
+                                            throw new IllegalStateException(ex);
+                                        }
+                                    }));
         }
         go.countDown();
         for (final Thread writer : writers) {
             writer.join();
         }
 
-        org.assertj.core.api.Assertions.assertThat(new MessageRecord(mailbox).firstBrokenLine()).isZero();
+        org.assertj.core.api.Assertions.assertThat(new MessageRecord(mailbox).firstBrokenLine())
+                .isZero();
     }
 }

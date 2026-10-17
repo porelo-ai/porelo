@@ -13,13 +13,14 @@ import org.fuin.porelo.vault.VaultEntry;
 import org.jspecify.annotations.Nullable;
 
 /**
- * This machine's deploy keys: one per repository of a project, made here, its secret half in the vault and
- * declared for that repository's upstream, its public half handed out for a person to register at the forge.
- * <p>
- * <strong>Read-only for the project's own repository</strong> (decided on 2026-09-30): a
- * machine reads its project's configuration and never writes it, so a compromised machine cannot change it;
- * only a work repository, where the host pushes approved work, is registered with write access. The access is
- * the forge's to enforce - what this says is how the key is to be registered.
+ * This machine's deploy keys: one per repository of a project, made here, its secret half in the
+ * vault and declared for that repository's upstream, its public half handed out for a person to
+ * register at the forge.
+ *
+ * <p><strong>Read-only for the project's own repository</strong> (decided on 2026-09-30): a machine
+ * reads its project's configuration and never writes it, so a compromised machine cannot change it;
+ * only a work repository, where the host pushes approved work, is registered with write access. The
+ * access is the forge's to enforce - what this says is how the key is to be registered.
  */
 public final class DeployKeys {
 
@@ -35,8 +36,15 @@ public final class DeployKeys {
      * @param writeAccess Whether it is to be registered with write access.
      * @param made Whether it was made just now, rather than found.
      */
-    public record Key(String entry, String repository, String upstream, String publicKey, String fingerprint,
-            String title, boolean writeAccess, boolean made) {
+    public record Key(
+            String entry,
+            String repository,
+            String upstream,
+            String publicKey,
+            String fingerprint,
+            String title,
+            boolean writeAccess,
+            boolean made) {
 
         /**
          * Returns it as plain values, for a wire.
@@ -67,8 +75,7 @@ public final class DeployKeys {
         }
     }
 
-    private DeployKeys() {
-    }
+    private DeployKeys() {}
 
     /**
      * Makes this machine's deploy key for a repository, or returns the one it has.
@@ -76,60 +83,95 @@ public final class DeployKeys {
      * @param context Where the vault and the declarations are.
      * @param project The project.
      * @param repository The repository, or {@code null} for the project's own.
-     * @param readOnly Whether it is to be read-only; {@code null} for the default - read-only for the project's
-     *        own repository, write access for a work repository.
+     * @param readOnly Whether it is to be read-only; {@code null} for the default - read-only for
+     *     the project's own repository, write access for a work repository.
      * @param fresh Whether to make a new one although this machine has one.
      * @return The key.
-     * @throws Refused If the repository has no upstream a key can be for, or the vault cannot be used.
+     * @throws Refused If the repository has no upstream a key can be for, or the vault cannot be
+     *     used.
      */
-    public static Key make(PoreloContext context, Project project, @Nullable String repository,
-            @Nullable Boolean readOnly, boolean fresh) throws Refused {
+    public static Key make(
+            PoreloContext context,
+            Project project,
+            @Nullable String repository,
+            @Nullable Boolean readOnly,
+            boolean fresh)
+            throws Refused {
         return make(context, context.opener().orElse(null), project, repository, readOnly, fresh);
     }
 
     /**
-     * Makes this machine's deploy key for a repository with the vault opened as the caller could, or returns the
-     * one it has.
+     * Makes this machine's deploy key for a repository with the vault opened as the caller could,
+     * or returns the one it has.
      *
      * @param context Where the vault and the declarations are.
-     * @param way How the vault is opened: the keyring's for the daemon, a passphrase asked at a terminal for
-     *        the command; {@code null} when it cannot be.
+     * @param way How the vault is opened: the keyring's for the daemon, a passphrase asked at a
+     *     terminal for the command; {@code null} when it cannot be.
      * @param project The project.
      * @param repository The repository, or {@code null} for the project's own.
      * @param readOnly Whether it is to be read-only; {@code null} for the default.
      * @param fresh Whether to make a new one although this machine has one.
      * @return The key.
-     * @throws Refused If the repository has no upstream a key can be for, or the vault cannot be used.
+     * @throws Refused If the repository has no upstream a key can be for, or the vault cannot be
+     *     used.
      */
-    public static Key make(PoreloContext context, org.fuin.porelo.vault.VaultFile.@Nullable Opener way,
-            Project project, @Nullable String repository, @Nullable Boolean readOnly, boolean fresh)
+    public static Key make(
+            PoreloContext context,
+            org.fuin.porelo.vault.VaultFile.@Nullable Opener way,
+            Project project,
+            @Nullable String repository,
+            @Nullable Boolean readOnly,
+            boolean fresh)
             throws Refused {
         final Repository chosen = GateSupport.repository(project, repository);
-        // The project's own repository, its file naming no upstream - a guarded or offline project's planning - is
+        // The project's own repository, its file naming no upstream - a guarded or offline
+        // project's planning - is
         // still fetched from where this machine follows it, and that is the key it needs.
-        final String upstream = chosen.upstream() != null ? chosen.upstream()
-                : chosen.name().equals(project.name()) ? followedFrom(context, project.name()) : null;
+        final String upstream =
+                chosen.upstream() != null
+                        ? chosen.upstream()
+                        : chosen.name().equals(project.name())
+                                ? followedFrom(context, project.name())
+                                : null;
         if (upstream == null) {
-            throw new Refused("'" + chosen.name() + "' has no upstream, so there is no forge to give a key to");
+            throw new Refused(
+                    "'"
+                            + chosen.name()
+                            + "' has no upstream, so there is no forge to give a key to");
         }
-        return make(context, way, project.name(), chosen.name(), upstream, chosen.name().equals(project.name()),
-                readOnly, fresh);
+        return make(
+                context,
+                way,
+                project.name(),
+                chosen.name(),
+                upstream,
+                chosen.name().equals(project.name()),
+                readOnly,
+                fresh);
     }
 
-    /** Where this machine follows a project from; {@code null} when it does not, or the record cannot be read. */
-    private static @Nullable String followedFrom(final PoreloContext context, final String project) {
+    /**
+     * Where this machine follows a project from; {@code null} when it does not, or the record
+     * cannot be read.
+     */
+    private static @Nullable String followedFrom(
+            final PoreloContext context, final String project) {
         try {
-            return new FollowedProjects(context.paths().projects().followed()).all().stream()
-                    .filter(followed -> followed.name().equals(project)).map(FollowedProjects.Followed::url)
-                    .findFirst().orElse(null);
+            return new FollowedProjects(context.paths().projects().followed())
+                    .all().stream()
+                            .filter(followed -> followed.name().equals(project))
+                            .map(FollowedProjects.Followed::url)
+                            .findFirst()
+                            .orElse(null);
         } catch (java.io.IOException ex) {
             return null;
         }
     }
 
     /**
-     * Makes this machine's deploy key for a repository of a project it does not follow yet - a private one, whose
-     * key has to be registered at the forge before this machine can fetch it at all - or returns the one it has.
+     * Makes this machine's deploy key for a repository of a project it does not follow yet - a
+     * private one, whose key has to be registered at the forge before this machine can fetch it at
+     * all - or returns the one it has.
      *
      * @param context Where the vault and the declarations are.
      * @param way How the vault is opened, or {@code null} when it cannot be.
@@ -142,51 +184,83 @@ public final class DeployKeys {
      * @return The key.
      * @throws Refused If nothing authenticates to the upstream, or the vault cannot be used.
      */
-    public static Key make(PoreloContext context, org.fuin.porelo.vault.VaultFile.@Nullable Opener way,
-            String projectName, String repositoryName, String upstream, boolean own, @Nullable Boolean readOnly,
-            boolean fresh) throws Refused {
+    public static Key make(
+            PoreloContext context,
+            org.fuin.porelo.vault.VaultFile.@Nullable Opener way,
+            String projectName,
+            String repositoryName,
+            String upstream,
+            boolean own,
+            @Nullable Boolean readOnly,
+            boolean fresh)
+            throws Refused {
         final String entry = entry(projectName, repositoryName);
         final String machine = "porelo@" + hostName();
-        // What it would be declared as, before any key is made: an upstream nothing authenticates to - a path on
+        // What it would be declared as, before any key is made: an upstream nothing authenticates
+        // to - a path on
         // this machine - is refused with nothing left behind in the vault.
         final Credential declared;
         try {
-            declared = CredentialDeclarations.named(new Credential(entry, Credential.Kind.SSH_KEY,
-                    CredentialRegistry.normalise(upstream), null, Credential.ANY, Credential.Source.VAULT));
+            declared =
+                    CredentialDeclarations.named(
+                            new Credential(
+                                    entry,
+                                    Credential.Kind.SSH_KEY,
+                                    CredentialRegistry.normalise(upstream),
+                                    null,
+                                    Credential.ANY,
+                                    Credential.Source.VAULT));
             CredentialDeclarations.checkPossible(declared);
         } catch (org.fuin.porelo.core.credential.CredentialException ex) {
             throw new Refused("no deploy key for " + upstream + ": " + ex.getMessage());
         }
-        final java.util.Optional<org.fuin.porelo.vault.VaultFile.Opener> opener = java.util.Optional.ofNullable(way);
+        final java.util.Optional<org.fuin.porelo.vault.VaultFile.Opener> opener =
+                java.util.Optional.ofNullable(way);
         if (opener.isEmpty()) {
-            throw new Refused("the vault is locked, and a deploy key's secret half goes into it; 'porelo vault unlock'"
-                    + " at the machine");
+            throw new Refused(
+                    "the vault is locked, and a deploy key's secret half goes into it; 'porelo vault unlock'"
+                            + " at the machine");
         }
         final VaultEntry existing;
         final AgentKey key;
         try {
-            existing = context.vault().exists() ? kept(context.vault().read(opener.get()), projectName,
-                    repositoryName, upstream) : null;
+            existing =
+                    context.vault().exists()
+                            ? kept(
+                                    context.vault().read(opener.get()),
+                                    projectName,
+                                    repositoryName,
+                                    upstream)
+                            : null;
             if (existing != null && !fresh) {
                 key = org.fuin.porelo.vault.StoredKey.of(existing.value(), machine);
                 // Under its own name from now on, if it was kept under the old one.
                 final String old = legacy(projectName, repositoryName);
-                context.vault().update(opener.get(), all -> {
-                    if (all.get(old) == existing) {
-                        all.remove(old);
-                    }
-                    all.putIfAbsent(entry, existing);
-                    return all;
-                });
+                context.vault()
+                        .update(
+                                opener.get(),
+                                all -> {
+                                    if (all.get(old) == existing) {
+                                        all.remove(old);
+                                    }
+                                    all.putIfAbsent(entry, existing);
+                                    return all;
+                                });
             } else {
                 final SigningKey made = SigningKey.generate(machine);
                 key = made;
-                final VaultEntry kept = new VaultEntry(made.seedBase64(), "ssh-key",
-                        Map.of("upstream", upstream, "made_on", machine));
-                context.vault().update(opener.get(), all -> {
-                    all.put(entry, kept);
-                    return all;
-                });
+                final VaultEntry kept =
+                        new VaultEntry(
+                                made.seedBase64(),
+                                "ssh-key",
+                                Map.of("upstream", upstream, "made_on", machine));
+                context.vault()
+                        .update(
+                                opener.get(),
+                                all -> {
+                                    all.put(entry, kept);
+                                    return all;
+                                });
             }
         } catch (org.fuin.porelo.vault.VaultException ex) {
             throw new Refused("the vault cannot be used: " + ex.getMessage());
@@ -194,19 +268,31 @@ public final class DeployKeys {
         try {
             new CredentialDeclarations(context).declare(declared);
         } catch (org.fuin.porelo.core.credential.CredentialException | java.io.IOException ex) {
-            throw new Refused("the key is in the vault as '" + entry + "', and could not be declared for " + upstream
-                    + ": " + ex.getMessage());
+            throw new Refused(
+                    "the key is in the vault as '"
+                            + entry
+                            + "', and could not be declared for "
+                            + upstream
+                            + ": "
+                            + ex.getMessage());
         }
         final boolean write = readOnly == null ? !own : !readOnly;
         final String line = key.authorizedKeysLine();
         final String fingerprint = SignedBy.fingerprintOf(line);
-        return new Key(entry, repositoryName, upstream, line, fingerprint == null ? "" : fingerprint,
-                "porelo " + hostName() + " " + projectName + "/" + repositoryName, write, existing == null || fresh);
+        return new Key(
+                entry,
+                repositoryName,
+                upstream,
+                line,
+                fingerprint == null ? "" : fingerprint,
+                "porelo " + hostName() + " " + projectName + "/" + repositoryName,
+                write,
+                existing == null || fresh);
     }
 
     /**
-     * Forgets this machine's deploy keys for a project: their vault entries and declarations. What they were
-     * is answered, so whoever registered them at the forge removes them there.
+     * Forgets this machine's deploy keys for a project: their vault entries and declarations. What
+     * they were is answered, so whoever registered them at the forge removes them there.
      *
      * @param context Where the vault and the declarations are.
      * @param project The project.
@@ -217,8 +303,9 @@ public final class DeployKeys {
     }
 
     /**
-     * Returns this machine's deploy keys for a project, as {@link #forget(PoreloContext, Project)} would answer them,
-     * and forgets nothing: what a dry run of a clearing names for a person to remove at the forge.
+     * Returns this machine's deploy keys for a project, as {@link #forget(PoreloContext, Project)}
+     * would answer them, and forgets nothing: what a dry run of a clearing names for a person to
+     * remove at the forge.
      *
      * @param context Where the vault is.
      * @param project The project.
@@ -234,18 +321,34 @@ public final class DeployKeys {
         try {
             final Map<String, VaultEntry> all = context.vault().read(opener.get());
             for (final Repository repository : repositories(project)) {
-                final VaultEntry kept = kept(all, project.name(), repository.name(), repository.upstream());
+                final VaultEntry kept =
+                        kept(all, project.name(), repository.name(), repository.upstream());
                 if (kept == null) {
                     continue;
                 }
-                final String entry = all.get(entry(project.name(), repository.name())) == kept
-                        ? entry(project.name(), repository.name()) : legacy(project.name(), repository.name());
-                final String line = org.fuin.porelo.vault.StoredKey.of(kept.value(), machine).authorizedKeysLine();
+                final String entry =
+                        all.get(entry(project.name(), repository.name())) == kept
+                                ? entry(project.name(), repository.name())
+                                : legacy(project.name(), repository.name());
+                final String line =
+                        org.fuin.porelo.vault.StoredKey.of(kept.value(), machine)
+                                .authorizedKeysLine();
                 final String fingerprint = SignedBy.fingerprintOf(line);
-                held.add(new Key(entry, repository.name(), kept.settings().getOrDefault("upstream", ""), line,
-                        fingerprint == null ? "" : fingerprint,
-                        "porelo " + hostName() + " " + project.name() + "/" + repository.name(),
-                        !repository.name().equals(project.name()), false));
+                held.add(
+                        new Key(
+                                entry,
+                                repository.name(),
+                                kept.settings().getOrDefault("upstream", ""),
+                                line,
+                                fingerprint == null ? "" : fingerprint,
+                                "porelo "
+                                        + hostName()
+                                        + " "
+                                        + project.name()
+                                        + "/"
+                                        + repository.name(),
+                                !repository.name().equals(project.name()),
+                                false));
             }
         } catch (org.fuin.porelo.vault.VaultException ex) {
             return List.of();
@@ -254,8 +357,8 @@ public final class DeployKeys {
     }
 
     /**
-     * Forgets this machine's deploy key for one repository of a project - one taken out of {@code default}, say - and
-     * answers it, so whoever registered it at the forge removes it there.
+     * Forgets this machine's deploy key for one repository of a project - one taken out of {@code
+     * default}, say - and answers it, so whoever registered it at the forge removes it there.
      *
      * @param context Where the vault and the declarations are.
      * @param project The project.
@@ -276,32 +379,52 @@ public final class DeployKeys {
                 if (only != null && !only.equals(repository.name())) {
                     continue;
                 }
-                final VaultEntry held = kept(all, project.name(), repository.name(), repository.upstream());
+                final VaultEntry held =
+                        kept(all, project.name(), repository.name(), repository.upstream());
                 if (held == null) {
                     continue;
                 }
-                final String entry = all.get(entry(project.name(), repository.name())) == held
-                        ? entry(project.name(), repository.name()) : legacy(project.name(), repository.name());
-                final String line = org.fuin.porelo.vault.StoredKey.of(held.value(), machine).authorizedKeysLine();
+                final String entry =
+                        all.get(entry(project.name(), repository.name())) == held
+                                ? entry(project.name(), repository.name())
+                                : legacy(project.name(), repository.name());
+                final String line =
+                        org.fuin.porelo.vault.StoredKey.of(held.value(), machine)
+                                .authorizedKeysLine();
                 final String fingerprint = SignedBy.fingerprintOf(line);
-                forgotten.add(new Key(entry, repository.name(), held.settings().getOrDefault("upstream", ""), line,
-                        fingerprint == null ? "" : fingerprint,
-                        "porelo " + hostName() + " " + project.name() + "/" + repository.name(),
-                        !repository.name().equals(project.name()), false));
+                forgotten.add(
+                        new Key(
+                                entry,
+                                repository.name(),
+                                held.settings().getOrDefault("upstream", ""),
+                                line,
+                                fingerprint == null ? "" : fingerprint,
+                                "porelo "
+                                        + hostName()
+                                        + " "
+                                        + project.name()
+                                        + "/"
+                                        + repository.name(),
+                                !repository.name().equals(project.name()),
+                                false));
                 names.add(entry);
                 if (repository.upstream() != null) {
                     try {
-                        new CredentialDeclarations(context).forget(CredentialRegistry.normalise(repository.upstream()));
+                        new CredentialDeclarations(context)
+                                .forget(CredentialRegistry.normalise(repository.upstream()));
                     } catch (java.io.IOException | RuntimeException ex) {
                         // The record is harmless without its key; the key is what grants access.
                     }
                 }
             }
             if (!names.isEmpty()) {
-                context.vault().update(opener.get(), entries -> {
-                    names.forEach(entries::remove);
-                    return entries;
-                });
+                context.vault()
+                        .update(
+                                opener.get(),
+                                entries -> {
+                                    names.forEach(entries::remove);
+                                    return entries;
+                                });
             }
         } catch (org.fuin.porelo.vault.VaultException ex) {
             // Locked or unreadable: nothing is forgotten, and nothing is said to have been.
@@ -313,15 +436,18 @@ public final class DeployKeys {
     private static List<Repository> repositories(Project project) {
         final List<Repository> all = new ArrayList<>();
         all.add(GateSupport.repository(project, null));
-        project.repositories().stream().filter(each -> !each.name().equals(project.name())).forEach(all::add);
+        project.repositories().stream()
+                .filter(each -> !each.name().equals(project.name()))
+                .forEach(all::add);
         return all;
     }
 
     /**
      * Returns the vault entry a repository's deploy key is kept under.
-     * <p>
-     * With a separator neither name can hold: joined with hyphens, 'web' with 'app-api' and 'web-app' with 'api' were
-     * one entry - the second was given the first one's key, and clearing 'web' deleted 'web-app''s.
+     *
+     * <p>With a separator neither name can hold: joined with hyphens, 'web' with 'app-api' and
+     * 'web-app' with 'api' were one entry - the second was given the first one's key, and clearing
+     * 'web' deleted 'web-app''s.
      *
      * @param project The project.
      * @param repository The repository.
@@ -337,17 +463,23 @@ public final class DeployKeys {
     }
 
     /**
-     * Returns the key a repository has: under its own name, or under the old one only when it was made for this
-     * repository's upstream - a project whose names only meet another's does not inherit its key.
+     * Returns the key a repository has: under its own name, or under the old one only when it was
+     * made for this repository's upstream - a project whose names only meet another's does not
+     * inherit its key.
      */
-    private static @Nullable VaultEntry kept(Map<String, VaultEntry> all, String project, String repository,
+    private static @Nullable VaultEntry kept(
+            Map<String, VaultEntry> all,
+            String project,
+            String repository,
             @Nullable String upstream) {
         final VaultEntry own = all.get(entry(project, repository));
         if (own != null) {
             return own;
         }
         final VaultEntry old = all.get(legacy(project, repository));
-        return old != null && upstream != null && upstream.equals(old.settings().get("upstream")) ? old : null;
+        return old != null && upstream != null && upstream.equals(old.settings().get("upstream"))
+                ? old
+                : null;
     }
 
     static String hostName() {

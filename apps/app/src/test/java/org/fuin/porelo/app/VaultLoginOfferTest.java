@@ -14,15 +14,21 @@ import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 
 /**
- * Tests that {@code porelo vault login} on an agent already signed in offers what it would have told a person to type:
- * the import, a login again, or nothing - at a terminal; and refuses as before without one.
+ * Tests that {@code porelo vault login} on an agent already signed in offers what it would have
+ * told a person to type: the import, a login again, or nothing - at a terminal; and refuses as
+ * before without one.
  */
 class VaultLoginOfferTest {
 
-    private static final AgentLogin.Result SIGNED_IN = new AgentLogin.Result(AgentLogin.Outcome.ALREADY_SIGNED_IN, "",
-            "", 0, "'claude' is already signed in on this machine. Copy what it has with 'porelo vault import claude',"
-                    + " which logs in nowhere - or pass --force to authorize again, which may or may not invalidate"
-                    + " the credential already here");
+    private static final AgentLogin.Result SIGNED_IN =
+            new AgentLogin.Result(
+                    AgentLogin.Outcome.ALREADY_SIGNED_IN,
+                    "",
+                    "",
+                    0,
+                    "'claude' is already signed in on this machine. Copy what it has with 'porelo vault import claude',"
+                            + " which logs in nowhere - or pass --force to authorize again, which may or may not invalidate"
+                            + " the credential already here");
 
     private final List<String> done = new ArrayList<>();
 
@@ -32,16 +38,24 @@ class VaultLoginOfferTest {
 
     private int login(final Path dir, final VaultLoginCommand.Asker asker) {
         final VaultLoginCommand command = new VaultLoginCommand();
-        command.setContext(new PoreloContext(new FakeCommandRunner(),
-                new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin")), arguments -> 0));
-        command.login = (context, agent, dryRun, force, printer) -> {
-            done.add("login force=" + force);
-            return force ? new AgentLogin.Result(AgentLogin.Outcome.STORED, "claude", "oauth", 42, "") : SIGNED_IN;
-        };
-        command.importer = agent -> {
-            done.add("import " + agent);
-            return 0;
-        };
+        command.setContext(
+                new PoreloContext(
+                        new FakeCommandRunner(),
+                        new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin")),
+                        arguments -> 0));
+        command.login =
+                (context, agent, dryRun, force, printer) -> {
+                    done.add("login force=" + force);
+                    return force
+                            ? new AgentLogin.Result(
+                                    AgentLogin.Outcome.STORED, "claude", "oauth", 42, "")
+                            : SIGNED_IN;
+                };
+        command.importer =
+                agent -> {
+                    done.add("import " + agent);
+                    return 0;
+                };
         command.asker = asker;
         final CommandLine cmd = new CommandLine(command);
         cmd.setOut(new PrintWriter(out));
@@ -53,12 +67,19 @@ class VaultLoginOfferTest {
     void atATerminalTheImportIsOfferedFirstAndRuns(@TempDir final Path dir) {
         final List<String> asked = new ArrayList<>();
 
-        final int code = login(dir, question -> {
-            asked.add(question);
-            return "";
-        });
+        final int code =
+                login(
+                        dir,
+                        question -> {
+                            asked.add(question);
+                            return "";
+                        });
 
-        assertThat(asked).singleElement().asString().contains("already signed in").contains("[I/a/c]");
+        assertThat(asked)
+                .singleElement()
+                .asString()
+                .contains("already signed in")
+                .contains("[I/a/c]");
         assertThat(done).containsExactly("login force=false", "import claude");
         assertThat(code).isZero();
     }
@@ -67,14 +88,21 @@ class VaultLoginOfferTest {
     void theQuestionNamesTheLetterOfEachChoiceBesideIt(@TempDir final Path dir) {
         final List<String> asked = new ArrayList<>();
 
-        login(dir, question -> {
-            asked.add(question);
-            return "c";
-        });
+        login(
+                dir,
+                question -> {
+                    asked.add(question);
+                    return "c";
+                });
 
-        // '[I/a/c]' at the end alone left a person to guess which letter was which (found on 2026-10-17).
-        assertThat(asked).singleElement().asString().contains("(i) import what it has")
-                .contains("(a) log in again").contains("(c) cancel");
+        // '[I/a/c]' at the end alone left a person to guess which letter was which (found on
+        // 2026-10-17).
+        assertThat(asked)
+                .singleElement()
+                .asString()
+                .contains("(i) import what it has")
+                .contains("(a) log in again")
+                .contains("(c) cancel");
     }
 
     @Test

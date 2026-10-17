@@ -12,31 +12,44 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * What a person is told about an online task's builds when the helper that follows them is not there: a launch that
- * stopped before it, or a helper that ended while the task runs.
+ * What a person is told about an online task's builds when the helper that follows them is not
+ * there: a launch that stopped before it, or a helper that ended while the task runs.
  */
 class TaskBuildsHelperTest {
 
     private static final String TASK = "porelo-uc-writer";
 
-    @TempDir
-    Path dir;
+    @TempDir Path dir;
 
     private final FakeCommandRunner runner = new FakeCommandRunner();
 
     private PoreloContext context() throws IOException {
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
-        final PoreloContext context = new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
-        new FollowedProjects(context.paths().projects().followed()).write(new FollowedProjects.Followed("uc",
-                "git@example.com:x/uc.git", "a1b2c3", "2026-10-06T00:00:00Z", "APPLIED", ""));
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
+        final PoreloContext context =
+                new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+        new FollowedProjects(context.paths().projects().followed())
+                .write(
+                        new FollowedProjects.Followed(
+                                "uc",
+                                "git@example.com:x/uc.git",
+                                "a1b2c3",
+                                "2026-10-06T00:00:00Z",
+                                "APPLIED",
+                                ""));
         final Path clone = context.paths().projects().followedClone("uc");
         Files.createDirectories(clone);
-        Files.writeString(clone.resolve("project.yml"), """
+        Files.writeString(
+                clone.resolve("project.yml"),
+                """
                 project:
                   name: "uc"
                   security_class: "online"
@@ -53,15 +66,21 @@ class TaskBuildsHelperTest {
     }
 
     private TaskBuilds.View view(final PoreloContext context) {
-        return new TaskInventory(context).tasks().stream().filter(task -> task.name().equals(TASK)).findFirst()
-                .orElseThrow().builds();
+        return new TaskInventory(context)
+                .tasks().stream()
+                        .filter(task -> task.name().equals(TASK))
+                        .findFirst()
+                        .orElseThrow()
+                        .builds();
     }
 
     @Test
     void theHelperFollowsTheBranchTheGatePassedThePushOnTo() {
-        // An online task pushed to refs/heads/<task> at the forge itself; now its gate passes its own ref on as
+        // An online task pushed to refs/heads/<task> at the forge itself; now its gate passes its
+        // own ref on as
         // porelo/<task>, and that is the branch the forge builds.
-        assertThat(BuildsWiring.branchAtTheUpstream("refs/porelo/incoming/builds")).isEqualTo("porelo/builds");
+        assertThat(BuildsWiring.branchAtTheUpstream("refs/porelo/incoming/builds"))
+                .isEqualTo("porelo/builds");
         assertThat(BuildsWiring.branchAtTheUpstream("refs/heads/builds")).isNull();
         assertThat(BuildsWiring.branchAtTheUpstream("refs/porelo/incoming/")).isNull();
         assertThat(BuildsWiring.branchAtTheUpstream(null)).isNull();
@@ -83,11 +102,17 @@ class TaskBuildsHelperTest {
         final PoreloContext context = context();
         new TaskBuilds(context.paths().tasks()).reader(TASK, "github", "");
 
-        assertThat(view(context).problem()).as("no helper's process at all").contains("is not running");
+        assertThat(view(context).problem())
+                .as("no helper's process at all")
+                .contains("is not running");
 
         final Process helper = new ProcessBuilder("sleep", "60").start();
         try {
-            HelperPid.record(context.paths().tasks().containerState(TASK).resolve(BuildsWiring.HELPER + ".pid"),
+            HelperPid.record(
+                    context.paths()
+                            .tasks()
+                            .containerState(TASK)
+                            .resolve(BuildsWiring.HELPER + ".pid"),
                     helper.toHandle());
             assertThat(view(context).problem()).as("its helper runs").isEmpty();
         } finally {

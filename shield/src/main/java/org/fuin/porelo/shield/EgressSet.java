@@ -4,8 +4,8 @@ import java.util.List;
 
 /**
  * A curated group of hosts a project can opt into by name.
- * <p>
- * Written once and reviewed once, so that "reaching npm" means the same thing in every project
+ *
+ * <p>Written once and reviewed once, so that "reaching npm" means the same thing in every project
  * instead of each one re-deriving it and getting it subtly wrong. A set is data, read from a
  * directory, so one can be added or corrected without rebuilding anything.
  *

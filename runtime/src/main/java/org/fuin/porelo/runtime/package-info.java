@@ -1,6 +1,4 @@
-/**
- * Building task images and running task containers with podman.
- */
+/** Building task images and running task containers with podman. */
 @NullMarked
 package org.fuin.porelo.runtime;
 

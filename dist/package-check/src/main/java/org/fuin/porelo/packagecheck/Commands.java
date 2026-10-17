@@ -9,9 +9,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Runs the package managers' own tools, which remain the authority on what a package holds.
- */
+/** Runs the package managers' own tools, which remain the authority on what a package holds. */
 final class Commands {
 
     /**
@@ -30,7 +28,6 @@ final class Commands {
         boolean ok() {
             return exit == 0;
         }
-
     }
 
     private Commands() {
@@ -39,8 +36,8 @@ final class Commands {
 
     /**
      * Runs one command to its end, keeping only what it wrote to standard output.
-     * <p>
-     * Standard error is discarded because a file list is read from standard output, and podman
+     *
+     * <p>Standard error is discarded because a file list is read from standard output, and podman
      * reports an image pull on standard error.
      *
      * @param command the program and its arguments
@@ -61,9 +58,9 @@ final class Commands {
     }
 
     /**
-     * How long one command may run: an image pull or an install that hangs is ended, so the checks after it still run
-     * and report. The whole check took 109 to 133 seconds in four green builds (2026-10-17), and the job allows twenty
-     * minutes.
+     * How long one command may run: an image pull or an install that hangs is ended, so the checks
+     * after it still run and report. The whole check took 109 to 133 seconds in four green builds
+     * (2026-10-17), and the job allows twenty minutes.
      */
     static final Duration LIMIT = Duration.ofMinutes(5);
 
@@ -71,7 +68,8 @@ final class Commands {
     static final int TIMED_OUT = 124;
 
     /**
-     * Runs commands with each one's output fed to the next, as a shell pipe does, within {@link #LIMIT}.
+     * Runs commands with each one's output fed to the next, as a shell pipe does, within {@link
+     * #LIMIT}.
      *
      * @param commands the commands, first to last
      * @param merged whether the last one's standard error is kept with its output
@@ -87,8 +85,8 @@ final class Commands {
      * @param commands the commands, first to last
      * @param merged whether the last one's standard error is kept with its output
      * @param limit how long they may run together
-     * @return what the last one printed, and the first non-zero exit of any of them; {@link #TIMED_OUT} with a line
-     *         saying so when the limit was reached
+     * @return what the last one printed, and the first non-zero exit of any of them; {@link
+     *     #TIMED_OUT} with a line saying so when the limit was reached
      */
     static Result pipe(List<List<String>> commands, boolean merged, Duration limit) {
         final List<ProcessBuilder> builders = commands.stream().map(ProcessBuilder::new).toList();
@@ -97,23 +95,36 @@ final class Commands {
         builders.getLast().redirectErrorStream(merged);
         try {
             final List<Process> processes = ProcessBuilder.startPipeline(builders);
-            // Read beside the wait, so the limit holds while the last command still writes or writes nothing.
+            // Read beside the wait, so the limit holds while the last command still writes or
+            // writes nothing.
             final ByteArrayOutputStream output = new ByteArrayOutputStream();
-            final Thread reading = Thread.ofVirtual().start(() -> {
-                try (InputStream in = processes.getLast().getInputStream()) {
-                    in.transferTo(output);
-                } catch (IOException ex) {
-                    // The command was ended at its limit, and what it wrote until then is kept.
-                }
-            });
+            final Thread reading =
+                    Thread.ofVirtual()
+                            .start(
+                                    () -> {
+                                        try (InputStream in =
+                                                processes.getLast().getInputStream()) {
+                                            in.transferTo(output);
+                                        } catch (IOException ex) {
+                                            // The command was ended at its limit, and what it wrote
+                                            // until then is kept.
+                                        }
+                                    });
             final long deadline = System.nanoTime() + limit.toNanos();
             int exit = 0;
             for (final Process process : processes) {
-                if (!process.waitFor(Math.max(0, deadline - System.nanoTime()), TimeUnit.NANOSECONDS)) {
+                if (!process.waitFor(
+                        Math.max(0, deadline - System.nanoTime()), TimeUnit.NANOSECONDS)) {
                     processes.forEach(Process::destroyForcibly);
                     reading.join(Duration.ofSeconds(5));
-                    return new Result(TIMED_OUT, output.toString(StandardCharsets.UTF_8) + "\n" + commands.getLast()
-                            + " did not end within " + limit.toSeconds() + " s and was ended\n");
+                    return new Result(
+                            TIMED_OUT,
+                            output.toString(StandardCharsets.UTF_8)
+                                    + "\n"
+                                    + commands.getLast()
+                                    + " did not end within "
+                                    + limit.toSeconds()
+                                    + " s and was ended\n");
                 }
                 if (exit == 0) {
                     exit = process.exitValue();
@@ -128,5 +139,4 @@ final class Commands {
             throw new IllegalStateException("interrupted running " + commands, ex);
         }
     }
-
 }

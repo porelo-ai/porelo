@@ -15,8 +15,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Tests for preparing an environment without starting a task.
- * <p>
- * The depths are the feature, so what is asserted is what actually reaches podman. A depth that
+ *
+ * <p>The depths are the feature, so what is asserted is what actually reaches podman. A depth that
  * was accepted, reported and then not applied would be the worst version of this: somebody waits
  * for a full rebuild, gets a cached one, and the thing they were trying to fix is still there.
  */
@@ -27,17 +27,23 @@ class PreparationTest {
     private final StringWriter out = new StringWriter();
 
     private PoreloContext context(Path dir) {
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
         return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), command -> 0);
     }
 
     private Path projectFile(Path dir) throws Exception {
         final Path file = dir.resolve("project.yml");
-        Files.writeString(file, """
+        Files.writeString(
+                file,
+                """
                 project:
                   name: "demo"
                   security_class: "guarded"
@@ -49,8 +55,8 @@ class PreparationTest {
 
     private Preparation.Result prepare(Path dir, Podman.Rebuild rebuild, boolean dryRun)
             throws Exception {
-        return Preparation.prepare(context(dir), projectFile(dir), null, rebuild, dryRun,
-                new PrintWriter(out, true));
+        return Preparation.prepare(
+                context(dir), projectFile(dir), null, rebuild, dryRun, new PrintWriter(out, true));
     }
 
     /** The arguments of the podman build that actually ran. */
@@ -58,7 +64,8 @@ class PreparationTest {
         return runner.invocations().stream()
                 .map(command -> command.arguments())
                 .filter(arguments -> arguments.contains("build"))
-                .findFirst().orElse(List.of());
+                .findFirst()
+                .orElse(List.of());
     }
 
     @Test
@@ -83,8 +90,10 @@ class PreparationTest {
         prepare(dir, Podman.Rebuild.AGENT, false);
 
         assertThat(String.join(" ", build()))
-                .contains("--build-arg").contains("PORELO_LAYER_EPOCH=");
-        assertThat(build()).as("keeping the packages is the whole point of this depth")
+                .contains("--build-arg")
+                .contains("PORELO_LAYER_EPOCH=");
+        assertThat(build())
+                .as("keeping the packages is the whole point of this depth")
                 .doesNotContain("--no-cache");
     }
 
@@ -109,9 +118,14 @@ class PreparationTest {
     @Test
     void aProjectFileThatCannotBeReadIsNamedRatherThanBuiltAround(@TempDir Path dir) {
 
-        final Preparation.Result result = Preparation.prepare(context(dir),
-                dir.resolve("nothing-here.yml"), null, Podman.Rebuild.CACHED, false,
-                new PrintWriter(out, true));
+        final Preparation.Result result =
+                Preparation.prepare(
+                        context(dir),
+                        dir.resolve("nothing-here.yml"),
+                        null,
+                        Podman.Rebuild.CACHED,
+                        false,
+                        new PrintWriter(out, true));
 
         assertThat(result.outcome()).isEqualTo(Preparation.Outcome.NO_SUCH_PROJECT);
         assertThat(result.detail()).isNotBlank();
@@ -124,8 +138,7 @@ class PreparationTest {
         for (final Podman.Rebuild rebuild : Podman.Rebuild.values()) {
             assertThat(Preparation.describe(rebuild)).isNotBlank();
         }
-        assertThat(Preparation.describe(Podman.Rebuild.AGENT))
-                .contains("keep the base image");
+        assertThat(Preparation.describe(Podman.Rebuild.AGENT)).contains("keep the base image");
     }
 
     @Test

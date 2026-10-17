@@ -4,14 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link ServingThreads}.
- */
+/** Tests for {@link ServingThreads}. */
 class ServingThreadsTest {
 
     private static Thread ran(final String kind) throws InterruptedException {
         final Thread[] seen = new Thread[1];
-        ServingThreads.start(kind, "porelo-test", () -> seen[0] = Thread.currentThread()).join(5_000);
+        ServingThreads.start(kind, "porelo-test", () -> seen[0] = Thread.currentThread())
+                .join(5_000);
         return seen[0];
     }
 

@@ -11,13 +11,14 @@ import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
 
 /**
- * Lets a person into a project's conversation - its room - with an account made for them, and shows the login
- * once.
- * <p>
- * Being in the conversation lets them read and write there. Their messages reach a task only once their key
- * is listed for a peer, as anyone's.
+ * Lets a person into a project's conversation - its room - with an account made for them, and shows
+ * the login once.
+ *
+ * <p>Being in the conversation lets them read and write there. Their messages reach a task only
+ * once their key is listed for a peer, as anyone's.
  */
-@Command(name = "join",
+@Command(
+        name = "join",
         mixinStandardHelpOptions = true,
         description = "Lets a person into a project's conversation, and shows their login once.")
 public class TalkJoinCommand implements Callable<Integer>, PoreloFactory.ContextAware {
@@ -31,8 +32,7 @@ public class TalkJoinCommand implements Callable<Integer>, PoreloFactory.Context
     @Option(names = "--reset", description = "Give the person's existing account a new password.")
     private boolean reset;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -47,8 +47,11 @@ public class TalkJoinCommand implements Callable<Integer>, PoreloFactory.Context
         final PrintWriter err = spec.commandLine().getErr();
         final Project project = GateSupport.byName(context, projectName);
         if (project.mail().conversations().isEmpty()) {
-            err.println("porelo: '" + projectName + "' has no conversation: no peer is reached through a transport's"
-                    + " '<scheme>:' address");
+            err.println(
+                    "porelo: '"
+                            + projectName
+                            + "' has no conversation: no peer is reached through a transport's"
+                            + " '<scheme>:' address");
             err.flush();
             return 64;
         }
@@ -61,8 +64,10 @@ public class TalkJoinCommand implements Callable<Integer>, PoreloFactory.Context
             return ex.code() == 17 ? 1 : 69;
         }
         // Shown once, never kept: the transport's own words, which carry the password.
-        out.println(said.get("shown") instanceof String shown && !shown.isBlank() ? shown.strip()
-                : "joined    " + person);
+        out.println(
+                said.get("shown") instanceof String shown && !shown.isBlank()
+                        ? shown.strip()
+                        : "joined    " + person);
         out.flush();
         return 0;
     }

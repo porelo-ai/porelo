@@ -11,7 +11,8 @@ import org.fuin.porelo.wire.varlink.VarlinkServer;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The reader's side of {@link BuildProtocol#INTERFACE}: binds the socket and answers Porelo with a {@link BuildReader}.
+ * The reader's side of {@link BuildProtocol#INTERFACE}: binds the socket and answers Porelo with a
+ * {@link BuildReader}.
  */
 public class BuildServer implements AutoCloseable {
 
@@ -27,24 +28,31 @@ public class BuildServer implements AutoCloseable {
 
         this.server = new VarlinkServer(socket, BuildProtocol.INTERFACE).describedBy(idl());
 
-        server.method("Describe", (parameters, replies) -> {
-            final Map<String, Object> answer = new LinkedHashMap<>();
-            answer.put("protocolVersion", Integer.valueOf(BuildProtocol.VERSION));
-            answer.put("forge", reader.forge());
-            replies.last(answer);
-        });
+        server.method(
+                "Describe",
+                (parameters, replies) -> {
+                    final Map<String, Object> answer = new LinkedHashMap<>();
+                    answer.put("protocolVersion", Integer.valueOf(BuildProtocol.VERSION));
+                    answer.put("forge", reader.forge());
+                    replies.last(answer);
+                });
 
-        server.method("Head", (parameters, replies) -> {
-            final String branch = required(parameters, "branch");
-            final String commit = answering(() -> reader.head(target(parameters), branch));
-            replies.last(Map.of("commit", commit));
-        });
+        server.method(
+                "Head",
+                (parameters, replies) -> {
+                    final String branch = required(parameters, "branch");
+                    final String commit = answering(() -> reader.head(target(parameters), branch));
+                    replies.last(Map.of("commit", commit));
+                });
 
-        server.method("Look", (parameters, replies) -> {
-            final String commit = required(parameters, "commit");
-            final Build.Logs logs = logs(parameters);
-            replies.last(answering(() -> reader.look(target(parameters), commit, logs)).asMap());
-        });
+        server.method(
+                "Look",
+                (parameters, replies) -> {
+                    final String commit = required(parameters, "commit");
+                    final Build.Logs logs = logs(parameters);
+                    replies.last(
+                            answering(() -> reader.look(target(parameters), commit, logs)).asMap());
+                });
     }
 
     /**
@@ -56,9 +64,7 @@ public class BuildServer implements AutoCloseable {
         return server.socketPath();
     }
 
-    /**
-     * Serves until the process is stopped.
-     */
+    /** Serves until the process is stopped. */
     public void serve() {
         server.run();
     }
@@ -74,49 +80,67 @@ public class BuildServer implements AutoCloseable {
      * @return The IDL.
      */
     static String idl() {
-        try (InputStream in = BuildServer.class.getResourceAsStream(BuildProtocol.INTERFACE + ".varlink")) {
+        try (InputStream in =
+                BuildServer.class.getResourceAsStream(BuildProtocol.INTERFACE + ".varlink")) {
             if (in == null) {
-                throw new IllegalStateException("The jar has no " + BuildProtocol.INTERFACE + ".varlink");
+                throw new IllegalStateException(
+                        "The jar has no " + BuildProtocol.INTERFACE + ".varlink");
             }
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException ex) {
-            throw new IllegalStateException("Cannot read " + BuildProtocol.INTERFACE + ".varlink", ex);
+            throw new IllegalStateException(
+                    "Cannot read " + BuildProtocol.INTERFACE + ".varlink", ex);
         }
     }
 
-    /** A refusal travels as the protocol's error of that name, so Porelo tells a rate limit from a failed build. */
+    /**
+     * A refusal travels as the protocol's error of that name, so Porelo tells a rate limit from a
+     * failed build.
+     */
     private static <T> T answering(final java.util.function.Supplier<T> call) {
         try {
             return call.get();
         } catch (BuildRefused ex) {
-            throw new VarlinkException(BuildProtocol.error(ex.reason()), Map.of("detail", ex.detail(),
-                    "retryAfter", Long.valueOf(ex.retryAfterSeconds())));
+            throw new VarlinkException(
+                    BuildProtocol.error(ex.reason()),
+                    Map.of(
+                            "detail",
+                            ex.detail(),
+                            "retryAfter",
+                            Long.valueOf(ex.retryAfterSeconds())));
         }
     }
 
     private static Target target(final Map<String, Object> parameters) {
         try {
-            return new Target(text(parameters.get("upstream")), text(parameters.get("api")),
+            return new Target(
+                    text(parameters.get("upstream")),
+                    text(parameters.get("api")),
                     text(parameters.get("token")));
         } catch (IllegalArgumentException ex) {
-            throw new VarlinkException("org.varlink.service.InvalidParameter", Map.of("parameter",
-                    String.valueOf(ex.getMessage())));
+            throw new VarlinkException(
+                    "org.varlink.service.InvalidParameter",
+                    Map.of("parameter", String.valueOf(ex.getMessage())));
         }
     }
 
     /** Absent, it is "failure": a Porelo that does not say wants what every Porelo got before. */
     private static Build.Logs logs(final Map<String, Object> parameters) {
         try {
-            return parameters.get("logs") == null ? Build.Logs.FAILURE : Build.Logs.of(text(parameters.get("logs")));
+            return parameters.get("logs") == null
+                    ? Build.Logs.FAILURE
+                    : Build.Logs.of(text(parameters.get("logs")));
         } catch (IllegalArgumentException ex) {
-            throw new VarlinkException("org.varlink.service.InvalidParameter", Map.of("parameter", "logs"));
+            throw new VarlinkException(
+                    "org.varlink.service.InvalidParameter", Map.of("parameter", "logs"));
         }
     }
 
     private static String required(final Map<String, Object> parameters, final String name) {
         final String value = text(parameters.get(name));
         if (value.isBlank()) {
-            throw new VarlinkException("org.varlink.service.InvalidParameter", Map.of("parameter", name));
+            throw new VarlinkException(
+                    "org.varlink.service.InvalidParameter", Map.of("parameter", name));
         }
         return value;
     }

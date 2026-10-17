@@ -25,12 +25,16 @@ class ShieldEgressCommandTest {
     private final StringWriter err = new StringWriter();
 
     private PoreloContext context(Path dir) {
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            default -> null;
-        }, dir);
-        return new PoreloContext(new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")),
-                arguments -> 0);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    default -> null;
+                                },
+                        dir);
+        return new PoreloContext(
+                new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
     }
 
     private int execute(PoreloContext context, String... args) {
@@ -46,26 +50,34 @@ class ShieldEgressCommandTest {
         final int code = execute(context(dir), "shield", "egress");
 
         assertThat(code).as(err.toString()).isEqualTo(2);
-        assertThat(err.toString()).contains("say which project, with --project").doesNotContain("'null'");
+        assertThat(err.toString())
+                .contains("say which project, with --project")
+                .doesNotContain("'null'");
     }
 
     /** Two sets on this machine, so a change can be reported in hosts rather than in names. */
     private void installSets(Path dir) throws IOException {
         final Path sets = dir.resolve("data/porelo/egress");
         Files.createDirectories(sets);
-        Files.writeString(sets.resolve("maven.yaml"), """
+        Files.writeString(
+                sets.resolve("maven.yaml"),
+                """
                 name: maven
                 label: Maven Central
                 domains:
                   - repo.maven.apache.org
                   - central.sonatype.com
-                """, StandardCharsets.UTF_8);
-        Files.writeString(sets.resolve("git-hosting.yaml"), """
+                """,
+                StandardCharsets.UTF_8);
+        Files.writeString(
+                sets.resolve("git-hosting.yaml"),
+                """
                 name: git-hosting
                 label: Git hosting
                 domains:
                   - github.com
-                """, StandardCharsets.UTF_8);
+                """,
+                StandardCharsets.UTF_8);
     }
 
     /**
@@ -77,17 +89,23 @@ class ShieldEgressCommandTest {
      */
     private String project(Path dir, String securityClass, String egress) throws IOException {
         final Path file = dir.resolve("project.yml");
-        Files.writeString(file, """
+        Files.writeString(
+                file,
+                """
                 # A comment an operator wrote.
                 project:
                   name: "uc"
                   security_class: "%s"
                 image:
                   base_image: "ubuntu:24.04"
-                %s""".formatted(securityClass, egress), StandardCharsets.UTF_8);
+                %s"""
+                        .formatted(securityClass, egress),
+                StandardCharsets.UTF_8);
         Files.createDirectories(dir.resolve("data/porelo/projects"));
-        Files.writeString(dir.resolve("data/porelo/projects").resolve("uc"),
-                file.toAbsolutePath() + "\n", StandardCharsets.UTF_8);
+        Files.writeString(
+                dir.resolve("data/porelo/projects").resolve("uc"),
+                file.toAbsolutePath() + "\n",
+                StandardCharsets.UTF_8);
         return "uc";
     }
 
@@ -100,7 +118,11 @@ class ShieldEgressCommandTest {
     void showsEveryDestinationWithWhoDecidedIt(@TempDir Path dir) throws IOException {
 
         installSets(dir);
-        final String file = project(dir, "guarded", """
+        final String file =
+                project(
+                        dir,
+                        "guarded",
+                        """
                 egress:
                   sets: [maven]
                   domains: ["nexus.corp.example"]
@@ -109,8 +131,10 @@ class ShieldEgressCommandTest {
         assertThat(execute(context(dir), "shield", "egress", "-p", file)).isZero();
 
         assertThat(out.toString())
-                .contains("repo.maven.apache.org").contains("set maven")
-                .contains("nexus.corp.example").contains("project")
+                .contains("repo.maven.apache.org")
+                .contains("set maven")
+                .contains("nexus.corp.example")
+                .contains("project")
                 .contains("ports 80 and 443");
     }
 
@@ -122,11 +146,22 @@ class ShieldEgressCommandTest {
         installSets(dir);
         final String file = project(dir, "guarded", "");
 
-        assertThat(execute(context(dir), "shield", "egress", "-p", file,
-                "--add-set", "maven", "--dry-run")).isZero();
+        assertThat(
+                        execute(
+                                context(dir),
+                                "shield",
+                                "egress",
+                                "-p",
+                                file,
+                                "--add-set",
+                                "maven",
+                                "--dry-run"))
+                .isZero();
 
         assertThat(out.toString())
-                .contains("opens").contains("repo.maven.apache.org").contains("central.sonatype.com")
+                .contains("opens")
+                .contains("repo.maven.apache.org")
+                .contains("central.sonatype.com")
                 .contains("nothing was written");
         assertThat(Files.readString(projectFileIn(dir))).doesNotContain("egress");
     }
@@ -137,14 +172,25 @@ class ShieldEgressCommandTest {
         installSets(dir);
         final String file = project(dir, "guarded", "");
 
-        assertThat(execute(context(dir), "shield", "egress", "-p", file,
-                "--add-set", "maven", "--add-domain", "nexus.corp.example")).isZero();
+        assertThat(
+                        execute(
+                                context(dir),
+                                "shield",
+                                "egress",
+                                "-p",
+                                file,
+                                "--add-set",
+                                "maven",
+                                "--add-domain",
+                                "nexus.corp.example"))
+                .isZero();
 
         assertThat(Files.readString(projectFileIn(dir)))
                 .contains("  sets: [maven]")
                 .contains("  domains: [\"nexus.corp.example\"]")
                 .contains("# A comment an operator wrote.");
-        assertThat(out.toString()).contains("written")
+        assertThat(out.toString())
+                .contains("written")
                 .contains("applies to the next task, not to one already running");
     }
 
@@ -152,13 +198,25 @@ class ShieldEgressCommandTest {
     void saysWhatARemovalCloses(@TempDir Path dir) throws IOException {
 
         installSets(dir);
-        final String file = project(dir, "guarded", """
+        final String file =
+                project(
+                        dir,
+                        "guarded",
+                        """
                 egress:
                   sets: [maven, git-hosting]
                 """);
 
-        assertThat(execute(context(dir), "shield", "egress", "-p", file,
-                "--remove-set", "git-hosting")).isZero();
+        assertThat(
+                        execute(
+                                context(dir),
+                                "shield",
+                                "egress",
+                                "-p",
+                                file,
+                                "--remove-set",
+                                "git-hosting"))
+                .isZero();
 
         assertThat(out.toString()).contains("closes").contains("github.com");
         assertThat(Files.readString(projectFileIn(dir))).contains("  sets: [maven]");
@@ -172,12 +230,15 @@ class ShieldEgressCommandTest {
         installSets(dir);
         final String file = project(dir, "guarded", "");
 
-        assertThat(execute(context(dir), "shield", "egress", "-p", file,
-                "--add-set", "nonesuch")).isEqualTo(2);
+        assertThat(execute(context(dir), "shield", "egress", "-p", file, "--add-set", "nonesuch"))
+                .isEqualTo(2);
 
         // The names are said, rather than a command to type that would say them.
-        assertThat(err.toString()).contains("Unknown egress set 'nonesuch'")
-                .contains("The sets are: ").contains("maven").contains("git-hosting");
+        assertThat(err.toString())
+                .contains("Unknown egress set 'nonesuch'")
+                .contains("The sets are: ")
+                .contains("maven")
+                .contains("git-hosting");
         assertThat(Files.readString(projectFileIn(dir))).doesNotContain("egress");
     }
 
@@ -189,8 +250,8 @@ class ShieldEgressCommandTest {
         installSets(dir);
         final String file = project(dir, "offline", "");
 
-        assertThat(execute(context(dir), "shield", "egress", "-p", file,
-                "--add-set", "maven")).isEqualTo(2);
+        assertThat(execute(context(dir), "shield", "egress", "-p", file, "--add-set", "maven"))
+                .isEqualTo(2);
 
         assertThat(err.toString()).contains("offline").contains("can declare no egress");
         assertThat(Files.readString(projectFileIn(dir))).doesNotContain("egress:");
@@ -200,14 +261,18 @@ class ShieldEgressCommandTest {
     void sayingWhatIsAlreadyTrueChangesNothing(@TempDir Path dir) throws IOException {
 
         installSets(dir);
-        final String file = project(dir, "guarded", """
+        final String file =
+                project(
+                        dir,
+                        "guarded",
+                        """
                 egress:
                   sets: [maven]
                 """);
         final String before = Files.readString(projectFileIn(dir));
 
-        assertThat(execute(context(dir), "shield", "egress", "-p", file,
-                "--add-set", "maven")).isZero();
+        assertThat(execute(context(dir), "shield", "egress", "-p", file, "--add-set", "maven"))
+                .isZero();
 
         assertThat(out.toString()).contains("no change");
         assertThat(Files.readString(projectFileIn(dir))).isEqualTo(before);
@@ -221,10 +286,19 @@ class ShieldEgressCommandTest {
         installSets(dir);
         final String file = project(dir, "guarded", "");
 
-        assertThat(execute(context(dir), "shield", "egress", "-p", file,
-                "--add-set", "git-hosting")).isZero();
+        assertThat(
+                        execute(
+                                context(dir),
+                                "shield",
+                                "egress",
+                                "-p",
+                                file,
+                                "--add-set",
+                                "git-hosting"))
+                .isZero();
 
-        assertThat(out.toString()).contains("cost")
+        assertThat(out.toString())
+                .contains("cost")
                 .contains("github.com is reachable")
                 .contains("holding no credential");
     }
@@ -237,8 +311,8 @@ class ShieldEgressCommandTest {
         installSets(dir);
         final String file = project(dir, "guarded", "egress:\n  sets: [git-hosting]\n");
 
-        assertThat(execute(context(dir), "shield", "egress", "-p", file,
-                "--add-set", "maven")).isZero();
+        assertThat(execute(context(dir), "shield", "egress", "-p", file, "--add-set", "maven"))
+                .isZero();
 
         assertThat(out.toString()).doesNotContain("cost");
     }
@@ -251,8 +325,17 @@ class ShieldEgressCommandTest {
         installSets(dir);
         final String file = project(dir, "guarded", "");
 
-        assertThat(execute(context(dir), "shield", "egress", "-p", file,
-                "--add-set", "maven", "--dry-run")).isZero();
+        assertThat(
+                        execute(
+                                context(dir),
+                                "shield",
+                                "egress",
+                                "-p",
+                                file,
+                                "--add-set",
+                                "maven",
+                                "--dry-run"))
+                .isZero();
 
         final String report = out.toString();
         assertThat(report.indexOf("repo.maven.apache.org"))
@@ -262,8 +345,14 @@ class ShieldEgressCommandTest {
     @Test
     void saysSoWhenTheProjectFileCannotBeRead(@TempDir Path dir) {
 
-        assertThat(execute(context(dir), "shield", "egress", "-p",
-                dir.resolve("absent.yml").toString())).isEqualTo(2);
+        assertThat(
+                        execute(
+                                context(dir),
+                                "shield",
+                                "egress",
+                                "-p",
+                                dir.resolve("absent.yml").toString()))
+                .isEqualTo(2);
         assertThat(err.toString()).contains("porelo:");
     }
 }

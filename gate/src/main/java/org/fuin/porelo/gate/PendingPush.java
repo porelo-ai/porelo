@@ -11,13 +11,13 @@ import java.time.Instant;
  * @param subject Subject line of that commit.
  * @param at When the commit was made.
  */
-public record PendingPush(String name, String commit, String subject, Instant at,
-        boolean upstream) {
+public record PendingPush(
+        String name, String commit, String subject, Instant at, boolean upstream) {
 
     /**
      * Constructor for a push nothing has checked against the upstream.
-     * <p>
-     * Whether the upstream already has it is measured on a timer, not by the gate, so the gate
+     *
+     * <p>Whether the upstream already has it is measured on a timer, not by the gate, so the gate
      * itself builds these unmarked and whatever reports them fills it in. False is the safe
      * default: it leaves an entry in the queue rather than clearing one that is really waiting.
      *
@@ -42,8 +42,8 @@ public record PendingPush(String name, String commit, String subject, Instant at
 
     /**
      * Returns how long this push has been waiting.
-     * <p>
-     * <strong>Review lag is the number that says whether the gate is working.</strong> A gate
+     *
+     * <p><strong>Review lag is the number that says whether the gate is working.</strong> A gate
      * whose queue is never read stops being a control and becomes a queue: the agent's work piles
      * up, the operator eventually approves in bulk without reading, and the review was theatre.
      * Showing the age makes that visible before it becomes a habit.

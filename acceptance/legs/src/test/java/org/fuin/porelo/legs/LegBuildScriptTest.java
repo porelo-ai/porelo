@@ -20,22 +20,30 @@ class LegBuildScriptTest {
 
     @Test
     void everyModuleTheLegBuildsIsInTheReactor() throws IOException {
-        // The grouping moved app under apps/, and the list a released tool held still named app: every leg stopped
-        // at "Could not find the selected project in the reactor: app", on rented machines only, after the push.
+        // The grouping moved app under apps/, and the list a released tool held still named app:
+        // every leg stopped
+        // at "Could not find the selected project in the reactor: app", on rented machines only,
+        // after the push.
         final List<String> reactor = reactor(ROOT, "");
         final List<String> modules = modules();
 
-        assertThat(modules).as("the modules ci/leg-build.sh builds").isNotEmpty().contains("apps/app");
+        assertThat(modules)
+                .as("the modules ci/leg-build.sh builds")
+                .isNotEmpty()
+                .contains("apps/app");
         assertThat(reactor).as("the reactor's modules").containsAll(modules);
     }
 
     @Test
     void theScriptRunsTheModuleListItNames() throws IOException {
-        assertThat(Files.readString(ROOT.resolve(Leg.BUILD_SCRIPT))).contains("-pl \"$MODULES\" -am");
+        assertThat(Files.readString(ROOT.resolve(Leg.BUILD_SCRIPT)))
+                .contains("-pl \"$MODULES\" -am");
     }
 
     private static List<String> modules() throws IOException {
-        final Matcher list = Pattern.compile("(?m)^MODULES=(\\S+)$").matcher(Files.readString(ROOT.resolve(Leg.BUILD_SCRIPT)));
+        final Matcher list =
+                Pattern.compile("(?m)^MODULES=(\\S+)$")
+                        .matcher(Files.readString(ROOT.resolve(Leg.BUILD_SCRIPT)));
         assertThat(list.find()).as("a MODULES= line in " + Leg.BUILD_SCRIPT).isTrue();
         return List.of(list.group(1).split(","));
     }
@@ -50,7 +58,8 @@ class LegBuildScriptTest {
      */
     private static List<String> reactor(final Path root, final String at) throws IOException {
         final List<String> found = new ArrayList<>();
-        final Matcher module = MODULE.matcher(Files.readString(root.resolve(at).resolve("pom.xml")));
+        final Matcher module =
+                MODULE.matcher(Files.readString(root.resolve(at).resolve("pom.xml")));
         while (module.find()) {
             final String path = at.isEmpty() ? module.group(1) : at + "/" + module.group(1);
             found.add(path);

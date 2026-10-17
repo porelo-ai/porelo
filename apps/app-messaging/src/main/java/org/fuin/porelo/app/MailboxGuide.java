@@ -15,16 +15,19 @@ import org.fuin.porelo.wire.Json;
 
 /**
  * What a task's agent is told about its mailbox: how it works, and whom it can reach.
- * <p>
- * Nothing told a running agent that its mailbox existed (2026-10-04), so messages between tasks worked
- * only when a person explained them by hand. Two files in the box, both written by the host and only read by the agent:
+ *
+ * <p>Nothing told a running agent that its mailbox existed (2026-10-04), so messages between tasks
+ * worked only when a person explained them by hand. Two files in the box, both written by the host
+ * and only read by the agent:
+ *
  * <ul>
- * <li>{@link Mailbox#GUIDE}, how it works. <strong>The same for every task of one Porelo version</strong>: an agent
- * takes it into its system prompt, and a provider caches a prompt by its beginning, so a text that changed between two
- * starts of one session would have the whole conversation read again, uncached (2026-10-04). It says only
- * what the host and the filter enforce, from their own constants, so it cannot promise what they refuse.</li>
- * <li>{@link Mailbox#CARD}, whom the task can reach right now: written again at every pass, read by the agent before
- * it writes. Names only - a task never learns where a peer is.</li>
+ *   <li>{@link Mailbox#GUIDE}, how it works. <strong>The same for every task of one Porelo
+ *       version</strong>: an agent takes it into its system prompt, and a provider caches a prompt
+ *       by its beginning, so a text that changed between two starts of one session would have the
+ *       whole conversation read again, uncached (2026-10-04). It says only what the host and the
+ *       filter enforce, from their own constants, so it cannot promise what they refuse.
+ *   <li>{@link Mailbox#CARD}, whom the task can reach right now: written again at every pass, read
+ *       by the agent before it writes. Names only - a task never learns where a peer is.
  * </ul>
  */
 public final class MailboxGuide {
@@ -126,7 +129,10 @@ public final class MailboxGuide {
                 check to catch one. **Work travels by commit**, through the task's gate, never inside a message.
                 Name the commit by its short form (7 to 12 characters), never the full id. Depending on the
                 project, a person may read a message before it goes.
-                """.replace("@MAIL@", mail).replace("@CARD@", Mailbox.CARD).replace("@PEOPLE@", Mail.PEOPLE)
+                """
+                .replace("@MAIL@", mail)
+                .replace("@CARD@", Mailbox.CARD)
+                .replace("@PEOPLE@", Mail.PEOPLE)
                 .replace("@ROLE@", MessageIntake.AGENT);
     }
 
@@ -144,25 +150,32 @@ public final class MailboxGuide {
         for (final Mail.Peer peer : mail.peers()) {
             final Map<String, Object> each = new LinkedHashMap<>();
             each.put("name", peer.name());
-            each.put("is", Mail.PEOPLE.equals(peer.name()) && peer.conversation()
-                    ? "the people in your project's conversation"
-                    : Mail.Peer.VOUCHED.equals(peer.trust()) && peer.conversation() ? "another task of your project"
-                    : peer.destination().startsWith("@") ? "a person in your project's conversation, in a direct chat"
-                    : "a peer your project names");
+            each.put(
+                    "is",
+                    Mail.PEOPLE.equals(peer.name()) && peer.conversation()
+                            ? "the people in your project's conversation"
+                            : Mail.Peer.VOUCHED.equals(peer.trust()) && peer.conversation()
+                                    ? "another task of your project"
+                                    : peer.destination().startsWith("@")
+                                            ? "a person in your project's conversation, in a direct chat"
+                                            : "a peer your project names");
             peers.add(each);
         }
         put(mailbox, mailbox.card(), Json.write(Map.of("peers", peers)) + "\n");
     }
 
-    private static void put(final Mailbox mailbox, final Path file, final String text) throws IOException {
+    private static void put(final Mailbox mailbox, final Path file, final String text)
+            throws IOException {
         if (Files.isRegularFile(file, java.nio.file.LinkOption.NOFOLLOW_LINKS)
                 && Files.readString(file, StandardCharsets.UTF_8).equals(text)) {
             return;
         }
-        // Beside it and renamed, so the agent never reads half of it; readable by the agent, writable only here.
+        // Beside it and renamed, so the agent never reads half of it; readable by the agent,
+        // writable only here.
         final Path staged = Files.createTempFile(mailbox.root(), ".guide", ".tmp");
         Files.writeString(staged, text, StandardCharsets.UTF_8);
         Files.setPosixFilePermissions(staged, PosixFilePermissions.fromString("rw-r--r--"));
-        Files.move(staged, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        Files.move(
+                staged, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
     }
 }

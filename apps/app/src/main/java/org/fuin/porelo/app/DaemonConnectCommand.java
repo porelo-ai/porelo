@@ -20,17 +20,18 @@ import picocli.CommandLine.Spec;
 
 /**
  * Puts this process's standard input and output onto the daemon's socket, and nothing else.
- * <p>
- * This is the other shape of remote access. With {@code ssh -L} a client forwards a local socket
+ *
+ * <p>This is the other shape of remote access. With {@code ssh -L} a client forwards a local socket
  * file to the remote one and then opens it; with {@code ssh host porelo daemon connect} it speaks
- * varlink straight down the ssh session. No socket file is created on the client, nothing has to
- * be torn down, and the connection lives exactly as long as the ssh command does.
- * <p>
- * <strong>Bytes, not lines.</strong> Varlink frames are NUL-separated JSON and a stream may be
+ * varlink straight down the ssh session. No socket file is created on the client, nothing has to be
+ * torn down, and the connection lives exactly as long as the ssh command does.
+ *
+ * <p><strong>Bytes, not lines.</strong> Varlink frames are NUL-separated JSON and a stream may be
  * answered in many replies over a long time; anything that buffered by line, or waited for a
  * newline, would hold a reply until the next one arrived.
  */
-@Command(name = "connect",
+@Command(
+        name = "connect",
         mixinStandardHelpOptions = true,
         description = "Bridges standard input and output to the daemon's socket, for ssh.")
 public class DaemonConnectCommand implements Callable<Integer>, PoreloFactory.ContextAware {
@@ -38,12 +39,13 @@ public class DaemonConnectCommand implements Callable<Integer>, PoreloFactory.Co
     /** Enough for a whole reply in one read, and small enough not to matter if it is not. */
     private static final int BUFFER = 64 * 1024;
 
-    @Option(names = "--socket", paramLabel = "<path>",
+    @Option(
+            names = "--socket",
+            paramLabel = "<path>",
             description = "Daemon socket. Default: the one in this user's runtime directory.")
     private @Nullable Path socket;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -77,8 +79,8 @@ public class DaemonConnectCommand implements Callable<Integer>, PoreloFactory.Co
 
     /**
      * Copies bytes both ways until either end stops.
-     * <p>
-     * Two virtual threads and no interpretation of what passes through: this end has no idea
+     *
+     * <p>Two virtual threads and no interpretation of what passes through: this end has no idea
      * whether a call is streaming, and a bridge that had to know would be a second implementation
      * of the protocol living in the least useful place.
      *
@@ -94,26 +96,33 @@ public class DaemonConnectCommand implements Callable<Integer>, PoreloFactory.Co
             channel.connect(UnixDomainSocketAddress.of(path));
 
             final OutputStream toDaemon = Channels.newOutputStream(channel);
-            final Thread calls = Thread.ofVirtual().start(() -> {
-                try {
-                    in.transferTo(toDaemon);
-                } catch (IOException ex) {
-                    // The client hung up, which is how this normally ends.
-                } finally {
-                    try {
-                        // Half-close, so a daemon waiting for the rest of a call sees the end of
-                        // it rather than waiting for a client that has gone.
-                        channel.shutdownOutput();
-                    } catch (IOException ex) {
-                        // Already closed.
-                    }
-                }
-            });
+            final Thread calls =
+                    Thread.ofVirtual()
+                            .start(
+                                    () -> {
+                                        try {
+                                            in.transferTo(toDaemon);
+                                        } catch (IOException ex) {
+                                            // The client hung up, which is how this normally ends.
+                                        } finally {
+                                            try {
+                                                // Half-close, so a daemon waiting for the rest of a
+                                                // call sees the end of
+                                                // it rather than waiting for a client that has
+                                                // gone.
+                                                channel.shutdownOutput();
+                                            } catch (IOException ex) {
+                                                // Already closed.
+                                            }
+                                        }
+                                    });
 
             final ByteBuffer buffer = ByteBuffer.allocate(BUFFER);
             while (channel.read(buffer) >= 0) {
                 buffer.flip();
-                out.write(buffer.array(), buffer.arrayOffset() + buffer.position(),
+                out.write(
+                        buffer.array(),
+                        buffer.arrayOffset() + buffer.position(),
                         buffer.remaining());
                 // Every read, because the next reply of a stream may be minutes away and a
                 // buffered one is indistinguishable from a daemon that has stopped answering.

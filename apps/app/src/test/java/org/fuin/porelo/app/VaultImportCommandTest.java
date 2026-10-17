@@ -5,9 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link VaultImportCommand}.
- */
+/** Tests for {@link VaultImportCommand}. */
 class VaultImportCommandTest {
 
     @Test

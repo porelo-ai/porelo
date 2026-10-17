@@ -5,16 +5,16 @@ import java.util.Base64;
 
 /**
  * The 32-byte seed inside an OpenSSH private key file.
- * <p>
- * <strong>Why this exists.</strong> The vault stores an Ed25519 signing key as base64 of its
+ *
+ * <p><strong>Why this exists.</strong> The vault stores an Ed25519 signing key as base64 of its
  * 32-byte seed, which is what {@link SigningKey} takes. Nothing produced that form for a person:
  * what somebody has is the file their company assigned them or {@code ssh-keygen} wrote, and
  * storing that was accepted with a warning about spaces and then failed at the moment it was used
  * with <em>illegal base64 character 2d</em> - an error about base64 for a problem about ssh keys.
  * Measured on 2026-09-19, with a key straight from {@code ssh-keygen -t ed25519}.
- * <p>
- * <strong>What is refused, and clearly.</strong> An encrypted key, because this cannot ask for its
- * passphrase and must not guess; and any algorithm that is not Ed25519, because the agent signs
+ *
+ * <p><strong>What is refused, and clearly.</strong> An encrypted key, because this cannot ask for
+ * its passphrase and must not guess; and any algorithm that is not Ed25519, because the agent signs
  * with Ed25519 and a stored RSA key would fail later rather than here. Both say what to do next.
  */
 public final class OpenSshPrivateKey {
@@ -47,7 +47,7 @@ public final class OpenSshPrivateKey {
      *
      * @param type The algorithm, such as {@code ssh-ed25519}, or "" when it cannot be read.
      * @param encrypted Whether a passphrase protects it. An encrypted key says nothing else about
-     *        itself: its type is inside the part that is encrypted.
+     *     itself: its type is inside the part that is encrypted.
      */
     public record Described(String type, boolean encrypted) {
 
@@ -63,8 +63,8 @@ public final class OpenSshPrivateKey {
 
     /**
      * Tells whether this text is a private key of any kind.
-     * <p>
-     * <strong>Wider than {@link #looksLikeOne(String)} on purpose.</strong> That one knows
+     *
+     * <p><strong>Wider than {@link #looksLikeOne(String)} on purpose.</strong> That one knows
      * OpenSSH's armour, and an RSA key in PEM form says {@code -----BEGIN RSA PRIVATE KEY-----}
      * instead - so it was stored whole, without a word, and failed days later as a key that could
      * not be decoded. Measured on 2026-09-19: 1679 characters in a vault entry that every check
@@ -74,8 +74,7 @@ public final class OpenSshPrivateKey {
      * @return {@code true} for any {@code BEGIN ... PRIVATE KEY} armour.
      */
     public static boolean looksLikeAnyPrivateKey(final String text) {
-        return text != null && text.contains("PRIVATE KEY-----")
-                && text.contains("-----BEGIN");
+        return text != null && text.contains("PRIVATE KEY-----") && text.contains("-----BEGIN");
     }
 
     /**
@@ -85,16 +84,17 @@ public final class OpenSshPrivateKey {
      * @return The word in its armour - {@code OPENSSH}, {@code RSA}, {@code EC} - or "".
      */
     public static String armourOf(final String text) {
-        final java.util.regex.Matcher found = java.util.regex.Pattern
-                .compile("-----BEGIN ([A-Z0-9 ]*)PRIVATE KEY-----").matcher(text);
+        final java.util.regex.Matcher found =
+                java.util.regex.Pattern.compile("-----BEGIN ([A-Z0-9 ]*)PRIVATE KEY-----")
+                        .matcher(text);
         return found.find() ? found.group(1).strip() : "";
     }
 
     /**
      * Says what a private key file is, without failing on one this cannot use.
-     * <p>
-     * Separate from {@link #seedBase64(String)} because listing what a machine has and storing one
-     * of them are different questions: a list that threw on the first RSA key in somebody's
+     *
+     * <p>Separate from {@link #seedBase64(String)} because listing what a machine has and storing
+     * one of them are different questions: a list that threw on the first RSA key in somebody's
      * {@code ~/.ssh} would be a list nobody could see.
      *
      * @param text The whole file.
@@ -110,8 +110,8 @@ public final class OpenSshPrivateKey {
             return null;
         }
         try {
-            final byte[] blob = Base64.getMimeDecoder().decode(
-                    text.substring(begins + BEGIN.length(), ends));
+            final byte[] blob =
+                    Base64.getMimeDecoder().decode(text.substring(begins + BEGIN.length(), ends));
             final Reader reader = new Reader(blob);
             reader.expect(MAGIC, "not an OpenSSH private key");
             final String cipher = reader.string();
@@ -144,14 +144,14 @@ public final class OpenSshPrivateKey {
         final int begins = text.indexOf(BEGIN);
         final int ends = text.indexOf(END);
         if (begins < 0 || ends < begins) {
-            throw new VaultException("This is not an OpenSSH private key file: no "
-                    + "'BEGIN OPENSSH PRIVATE KEY' line. A public key (.pub) is not the one to"
-                    + " store - this machine needs the private half.");
+            throw new VaultException(
+                    "This is not an OpenSSH private key file: no "
+                            + "'BEGIN OPENSSH PRIVATE KEY' line. A public key (.pub) is not the one to"
+                            + " store - this machine needs the private half.");
         }
         final byte[] blob;
         try {
-            blob = Base64.getMimeDecoder().decode(
-                    text.substring(begins + BEGIN.length(), ends));
+            blob = Base64.getMimeDecoder().decode(text.substring(begins + BEGIN.length(), ends));
         } catch (final IllegalArgumentException ex) {
             throw new VaultException("This key file is damaged: its body is not base64.");
         }
@@ -163,13 +163,15 @@ public final class OpenSshPrivateKey {
         if (!"none".equals(cipher)) {
             // A passphrase-protected key. Nothing here can ask for it - this runs in a daemon as
             // often as at a terminal - and guessing is not on the table.
-            throw new VaultException("This key is protected by a passphrase, and this cannot ask"
-                    + " for one. Store a copy without it: 'ssh-keygen -p -f <file>' with an empty"
-                    + " new passphrase writes one. The vault is what keeps it secret from then on.");
+            throw new VaultException(
+                    "This key is protected by a passphrase, and this cannot ask"
+                            + " for one. Store a copy without it: 'ssh-keygen -p -f <file>' with an empty"
+                            + " new passphrase writes one. The vault is what keeps it secret from then on.");
         }
         if (reader.int32() != 1) {
-            throw new VaultException("This file holds more than one key, which is not something"
-                    + " this can choose between. Store a file with one key in it.");
+            throw new VaultException(
+                    "This file holds more than one key, which is not something"
+                            + " this can choose between. Store a file with one key in it.");
         }
         reader.bytes();
         final Reader secret = new Reader(reader.bytes());
@@ -179,19 +181,24 @@ public final class OpenSshPrivateKey {
         if (!"ssh-ed25519".equals(type)) {
             // RSA and ECDSA would be stored happily and fail when the agent signs, which is a
             // different day and a different error.
-            throw new VaultException("This is an " + type + " key and this machine signs with"
-                    + " Ed25519. Ask for an Ed25519 key, or make one with"
-                    + " 'ssh-keygen -t ed25519' and have its public half authorised.");
+            throw new VaultException(
+                    "This is an "
+                            + type
+                            + " key and this machine signs with"
+                            + " Ed25519. Ask for an Ed25519 key, or make one with"
+                            + " 'ssh-keygen -t ed25519' and have its public half authorised.");
         }
         secret.bytes();
         final byte[] privateHalf = secret.bytes();
         if (privateHalf.length < SEED_LENGTH) {
-            throw new VaultException("This Ed25519 key is malformed: its private half is "
-                    + privateHalf.length + " bytes.");
+            throw new VaultException(
+                    "This Ed25519 key is malformed: its private half is "
+                            + privateHalf.length
+                            + " bytes.");
         }
         // The private blob is seed || public half. The seed is what the vault keeps.
-        return Base64.getEncoder().encodeToString(
-                java.util.Arrays.copyOfRange(privateHalf, 0, SEED_LENGTH));
+        return Base64.getEncoder()
+                .encodeToString(java.util.Arrays.copyOfRange(privateHalf, 0, SEED_LENGTH));
     }
 
     /** Reads the length-prefixed fields an OpenSSH key is made of. */
@@ -221,8 +228,11 @@ public final class OpenSshPrivateKey {
             if (at + 4 > bytes.length) {
                 throw new VaultException("This key file ends in the middle of a field.");
             }
-            final int value = ((bytes[at] & 0xFF) << 24) | ((bytes[at + 1] & 0xFF) << 16)
-                    | ((bytes[at + 2] & 0xFF) << 8) | (bytes[at + 3] & 0xFF);
+            final int value =
+                    ((bytes[at] & 0xFF) << 24)
+                            | ((bytes[at + 1] & 0xFF) << 16)
+                            | ((bytes[at + 2] & 0xFF) << 8)
+                            | (bytes[at + 3] & 0xFF);
             at += 4;
             return value;
         }

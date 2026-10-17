@@ -10,21 +10,23 @@ import picocli.CommandLine.Spec;
 
 /**
  * Takes a device's way into the vault away.
- * <p>
- * One wrapped blob is deleted and nothing else happens: no re-keying, no other device disturbed, no
- * passphrase rotated. A lost laptop costs exactly this command.
+ *
+ * <p>One wrapped blob is deleted and nothing else happens: no re-keying, no other device disturbed,
+ * no passphrase rotated. A lost laptop costs exactly this command.
  */
-@Command(name = "revoke",
+@Command(
+        name = "revoke",
         mixinStandardHelpOptions = true,
         description = "Removes a device's way into the vault.")
 public class VaultRevokeCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
-    @Parameters(index = "0", paramLabel = "<id>",
+    @Parameters(
+            index = "0",
+            paramLabel = "<id>",
             description = "The keyslot, as 'porelo vault devices' lists it.")
     private String id;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 

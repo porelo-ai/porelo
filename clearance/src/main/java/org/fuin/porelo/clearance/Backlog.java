@@ -10,15 +10,15 @@ import org.jspecify.annotations.Nullable;
 /**
  * The events waiting for one subscriber that reads more slowly than they arrive, and how many did
  * not fit.
- * <p>
- * Bounded, and an event that does not fit is dropped rather than waited for: the one offering it
+ *
+ * <p>Bounded, and an event that does not fit is dropped rather than waited for: the one offering it
  * is on the path of every blocked packet, and a subscriber that stopped reading must not hold that
  * up. <strong>A drop is counted, and the count goes out</strong> as {@link #MISSED} on the next
  * event taken: a question announced once and dropped here is never asked again, so a subscriber
- * that is not told believes nothing is waiting while a task stays blocked. A drop happens only
- * when the backlog is full, so an event always follows to carry the count.
- * <p>
- * An event that already carries a count - one that passed a backlog before this one - has this
+ * that is not told believes nothing is waiting while a task stays blocked. A drop happens only when
+ * the backlog is full, so an event always follows to carry the count.
+ *
+ * <p>An event that already carries a count - one that passed a backlog before this one - has this
  * backlog's added to it, so a subscriber reading through two of them learns about both.
  */
 public final class Backlog {
@@ -58,7 +58,8 @@ public final class Backlog {
      * @return The event, or {@code null} when none arrived in time.
      * @throws InterruptedException If interrupted while waiting.
      */
-    public @Nullable Map<String, Object> poll(long timeout, TimeUnit unit) throws InterruptedException {
+    public @Nullable Map<String, Object> poll(long timeout, TimeUnit unit)
+            throws InterruptedException {
         final Map<String, Object> event = queue.poll(timeout, unit);
         if (event == null) {
             return null;
@@ -68,7 +69,9 @@ public final class Backlog {
             return event;
         }
         final Map<String, Object> told = new LinkedHashMap<>(event);
-        told.put(MISSED, lost + (event.get(MISSED) instanceof Number earlier ? earlier.longValue() : 0));
+        told.put(
+                MISSED,
+                lost + (event.get(MISSED) instanceof Number earlier ? earlier.longValue() : 0));
         return told;
     }
 }

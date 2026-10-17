@@ -9,17 +9,15 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Runs external programs with {@link ProcessBuilder}.
- * <p>
- * Output is drained on virtual threads. A program that fills a pipe buffer while nobody reads it
+ *
+ * <p>Output is drained on virtual threads. A program that fills a pipe buffer while nobody reads it
  * blocks forever, and {@code podman build} on a large base image fills one easily.
  */
 public class ProcessCommandRunner implements CommandRunner {
 
     private final Duration timeout;
 
-    /**
-     * Constructor with a default timeout of ten minutes.
-     */
+    /** Constructor with a default timeout of ten minutes. */
     public ProcessCommandRunner() {
         this(Duration.ofMinutes(10));
     }
@@ -55,8 +53,10 @@ public class ProcessCommandRunner implements CommandRunner {
             final Thread outThread = Thread.ofVirtual().start(out);
             final Thread errThread = Thread.ofVirtual().start(err);
 
-            // Written on a thread of its own, so the limit runs from the start: written first, a child that did not
-            // read it blocked the caller unbounded, and one that exited without reading it failed a command that
+            // Written on a thread of its own, so the limit runs from the start: written first, a
+            // child that did not
+            // read it blocked the caller unbounded, and one that exited without reading it failed a
+            // command that
             // had succeeded.
             Thread.ofVirtual().start(() -> writeInput(process, command));
 
@@ -64,7 +64,8 @@ public class ProcessCommandRunner implements CommandRunner {
                 if (!process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
                     end(process);
                     finish(process, outThread, errThread);
-                    throw new CommandException(command,
+                    throw new CommandException(
+                            command,
                             new IOException("Timed out after " + timeout.toSeconds() + " s"));
                 }
                 finish(process, outThread, errThread);
@@ -80,7 +81,10 @@ public class ProcessCommandRunner implements CommandRunner {
         }
     }
 
-    /** How long the output is waited for once the program has ended: a grandchild may hold it open for ever. */
+    /**
+     * How long the output is waited for once the program has ended: a grandchild may hold it open
+     * for ever.
+     */
     private static final long OUTPUT_GRACE_MILLIS = 2000;
 
     /** Ends a program and everything it started that is still its own. */
@@ -90,11 +94,12 @@ public class ProcessCommandRunner implements CommandRunner {
     }
 
     /**
-     * Waits a while for the output, and then takes what has arrived: a grandchild that inherited it - a helper of
-     * git's against an upstream that feeds slowly - kept it open, and waiting for it without a limit held the caller
-     * for ever. Its reader ends by itself once the grandchild does.
+     * Waits a while for the output, and then takes what has arrived: a grandchild that inherited it
+     * - a helper of git's against an upstream that feeds slowly - kept it open, and waiting for it
+     * without a limit held the caller for ever. Its reader ends by itself once the grandchild does.
      */
-    private static void finish(Process process, Thread outThread, Thread errThread) throws InterruptedException {
+    private static void finish(Process process, Thread outThread, Thread errThread)
+            throws InterruptedException {
         outThread.join(OUTPUT_GRACE_MILLIS);
         errThread.join(OUTPUT_GRACE_MILLIS);
     }
@@ -109,17 +114,17 @@ public class ProcessCommandRunner implements CommandRunner {
         }
     }
 
-    /**
-     * Reads one stream to the end, keeping whatever it managed to read if the stream breaks.
-     */
+    /** Reads one stream to the end, keeping whatever it managed to read if the stream breaks. */
     private static final class Drain implements Runnable {
 
         private final InputStream stream;
 
         private final java.io.ByteArrayOutputStream collected = new java.io.ByteArrayOutputStream();
 
-        /** How much of a stream is kept: its end, which is where a failure says why. Held whole, a hostile server's
-         * messages through git could run the daemon out of memory. */
+        /**
+         * How much of a stream is kept: its end, which is where a failure says why. Held whole, a
+         * hostile server's messages through git could run the daemon out of memory.
+         */
         private static final int KEPT = 8 * 1024 * 1024;
 
         private long cut;
@@ -160,7 +165,10 @@ public class ProcessCommandRunner implements CommandRunner {
             }
         }
 
-        /** What was read: all of it once the stream ended, what has arrived so far while something still holds it. */
+        /**
+         * What was read: all of it once the stream ended, what has arrived so far while something
+         * still holds it.
+         */
         private String text() {
             final String done = text;
             return done != null ? done : snapshot();

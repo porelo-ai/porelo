@@ -12,8 +12,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * What a mailbox survives, and what ends it.
- * <p>
- * The point of this test is a lifetime rather than a function: a conversation has to outlive the
+ *
+ * <p>The point of this test is a lifetime rather than a function: a conversation has to outlive the
  * container it was held from, so stopping a task must leave it and only removing the task may take
  * it. Asserted on the files, because that is what an agent finds when it comes back.
  */
@@ -22,17 +22,22 @@ class MailboxLifetimeTest {
     private final FakeCommandRunner runner = new FakeCommandRunner();
 
     private PoreloContext context(final Path dir) {
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
         return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
     }
 
-    private Path withMessage(final PoreloContext context, final String container) throws IOException {
+    private Path withMessage(final PoreloContext context, final String container)
+            throws IOException {
         final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox(container));
         mailbox.create();
         final Path read = mailbox.inboxCur().resolve("one.json");
@@ -56,7 +61,8 @@ class MailboxLifetimeTest {
     void removing_the_task_is_what_ends_it(@TempDir final Path dir) throws IOException {
         final PoreloContext context = context(dir);
         final Path message = withMessage(context, "porelo-uc-shell");
-        runner.answering("ps", "porelo-uc-shell\tExited (143)\t1700000000\t1700000100\tuc\tguarded\n");
+        runner.answering(
+                "ps", "porelo-uc-shell\tExited (143)\t1700000000\t1700000100\tuc\tguarded\n");
 
         new TaskControl(context).remove("porelo-uc-shell", false, true);
 
@@ -73,8 +79,11 @@ class MailboxLifetimeTest {
         // Compared as names rather than with AssertJ's path assertion, which resolves the real
         // path and therefore needs the directory to exist - and the point here is where a mailbox
         // WOULD go, before any task has made one.
-        assertThat(mailbox.startsWith(dir.resolve("state"))).as("under the state directory").isTrue();
+        assertThat(mailbox.startsWith(dir.resolve("state")))
+                .as("under the state directory")
+                .isTrue();
         assertThat(mailbox.startsWith(dir.resolve("run"))).isFalse();
-        assertThat(mailbox.startsWith(context.paths().tasks().containerState("porelo-uc-shell"))).isFalse();
+        assertThat(mailbox.startsWith(context.paths().tasks().containerState("porelo-uc-shell")))
+                .isFalse();
     }
 }

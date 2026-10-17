@@ -4,20 +4,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link DnsmasqProbe}.
- */
+/** Tests for {@link DnsmasqProbe}. */
 class DnsmasqProbeTest {
 
     /** Real output from dnsmasq 2.92, which has the feature. */
-    private static final String WITH = """
+    private static final String WITH =
+            """
             Dnsmasq Version 2.92  Copyright (c) 2000-2025 Simon Kelley
             Compile time options: IPv6 GNU-getopt DBus no-UBus i18n IDN2 DHCP DHCPv6 no-Lua TFTP \
             conntrack ipset nftset auth DNSSEC loop-detect inotify dumpfile
             """;
 
     /** The same shape with the feature compiled out. */
-    private static final String WITHOUT = """
+    private static final String WITHOUT =
+            """
             Dnsmasq Version 2.80  Copyright (c) 2000-2018 Simon Kelley
             Compile time options: IPv6 GNU-getopt DBus i18n IDN DHCP DHCPv6 no-Lua TFTP \
             conntrack ipset no-nftset auth DNSSEC loop-detect inotify dumpfile

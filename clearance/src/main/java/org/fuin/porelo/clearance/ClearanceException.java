@@ -1,8 +1,6 @@
 package org.fuin.porelo.clearance;
 
-/**
- * The operator could not be asked.
- */
+/** The operator could not be asked. */
 public class ClearanceException extends RuntimeException {
 
     private static final long serialVersionUID = 1L;

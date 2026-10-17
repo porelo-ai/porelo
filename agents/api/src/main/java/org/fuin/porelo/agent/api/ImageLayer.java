@@ -4,8 +4,8 @@ import java.util.List;
 
 /**
  * The container-build fragments one agent contributes.
- * <p>
- * These are shell, and there is no making them otherwise: installing a third-party CLI is
+ *
+ * <p>These are shell, and there is no making them otherwise: installing a third-party CLI is
  * irreducibly shell, and about a third of the reference implementation's Claude definition is
  * exactly this. Keeping them inside the agent's own module at least confines the churn to one
  * directory.

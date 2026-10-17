@@ -20,10 +20,10 @@ import picocli.CommandLine;
 
 /**
  * Tests for installing the pre-push hook.
- * <p>
- * Against real repositories, because the two things worth getting right are both git's answers
- * rather than ours: where the hooks directory is for this checkout, and whether git would even
- * look there.
+ *
+ * <p>Against real repositories, because the two things worth getting right are both git's answers
+ * rather than ours: where the hooks directory is for this checkout, and whether git would even look
+ * there.
  */
 class GateProtectCommandTest {
 
@@ -37,17 +37,22 @@ class GateProtectCommandTest {
         final List<String> all = new ArrayList<>(List.of("git"));
         all.addAll(List.of(arguments));
         return runner.runOrFail(new Command(all, directory, Map.of(), null))
-                .standardOutput().strip();
+                .standardOutput()
+                .strip();
     }
 
     private int run(Path dir, String... arguments) {
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
-        final PoreloContext context = new PoreloContext(runner,
-                new PoreloPaths(xdg, dir.resolve("bin")), command -> 0);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
+        final PoreloContext context =
+                new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), command -> 0);
         final CommandLine cmd = PoreloCli.commandLine(context);
         cmd.setOut(new PrintWriter(out));
         cmd.setErr(new PrintWriter(err));
@@ -116,8 +121,11 @@ class GateProtectCommandTest {
 
         assertThat(run(root, "gate", "protect", "--repo", work.toString(), "--remove")).isZero();
 
-        assertThat(hook).as("a command that tidied away a file it never wrote would be worse than"
-                + " the problem it solves").exists();
+        assertThat(hook)
+                .as(
+                        "a command that tidied away a file it never wrote would be worse than"
+                                + " the problem it solves")
+                .exists();
         assertThat(out.toString()).contains("nothing");
     }
 
@@ -175,11 +183,13 @@ class GateProtectCommandTest {
         assertThat(run(root, "gate", "protect", "--repo", tree.toString())).isZero();
 
         assertThat(work.resolve(".git").resolve("hooks").resolve("pre-push"))
-                .as("a worktree shares the hooks of the repository it belongs to").exists();
+                .as("a worktree shares the hooks of the repository it belongs to")
+                .exists();
     }
 
     @Test
-    void theCheckIsAppendedToSomebodyElsesHookOnAYesAndRemovedFromItAlone(@TempDir Path root) throws Exception {
+    void theCheckIsAppendedToSomebodyElsesHookOnAYesAndRemovedFromItAlone(@TempDir Path root)
+            throws Exception {
 
         // It said "add 'porelo gate check --quiet' to it" and left the person to edit the file.
         final String theirs = "#!/bin/sh\necho theirs\n";
@@ -187,10 +197,25 @@ class GateProtectCommandTest {
         assertThat(appended).startsWith(theirs).contains("porelo gate check --quiet");
         assertThat(GateProtectCommand.withoutAppended(appended)).isEqualTo(theirs);
         assertThat(GateProtectCommand.withoutAppended(theirs)).isNull();
-        assertThat(GateProtectCommand.appendOffer(Path.of("x/pre-push"), new Offer(question -> "", false, false,
-                new PrintWriter(new java.io.StringWriter(), true)))).as("their file: no by default").isFalse();
-        assertThat(GateProtectCommand.appendOffer(Path.of("x/pre-push"), new Offer(question -> "y", false, false,
-                new PrintWriter(new java.io.StringWriter(), true)))).isTrue();
+        assertThat(
+                        GateProtectCommand.appendOffer(
+                                Path.of("x/pre-push"),
+                                new Offer(
+                                        question -> "",
+                                        false,
+                                        false,
+                                        new PrintWriter(new java.io.StringWriter(), true))))
+                .as("their file: no by default")
+                .isFalse();
+        assertThat(
+                        GateProtectCommand.appendOffer(
+                                Path.of("x/pre-push"),
+                                new Offer(
+                                        question -> "y",
+                                        false,
+                                        false,
+                                        new PrintWriter(new java.io.StringWriter(), true))))
+                .isTrue();
 
         final Path work = repository(root);
         final Path hook = work.resolve(".git").resolve("hooks").resolve("pre-push");
@@ -203,9 +228,11 @@ class GateProtectCommandTest {
     }
 
     @Test
-    void protectingAgainKeepsSomebodyElsesHookTheCheckWasAppendedTo(@TempDir Path root) throws Exception {
+    void protectingAgainKeepsSomebodyElsesHookTheCheckWasAppendedTo(@TempDir Path root)
+            throws Exception {
 
-        // Their hook carries the check's marker once it is appended to, and the second protect took it for its own
+        // Their hook carries the check's marker once it is appended to, and the second protect took
+        // it for its own
         // and wrote its two lines over the whole file.
         final String theirs = "#!/bin/sh\necho theirs\n";
         final Path work = repository(root);
@@ -215,14 +242,17 @@ class GateProtectCommandTest {
 
         assertThat(run(root, "gate", "protect", "--repo", work.toString())).isZero();
 
-        assertThat(Files.readString(hook)).as("their lines are still there, the check once")
+        assertThat(Files.readString(hook))
+                .as("their lines are still there, the check once")
                 .isEqualTo(GateProtectCommand.appended(theirs));
     }
 
     @Test
-    void removingTheCheckFromAHookWhoseLastLineEndIsGoneKeepsTheirLines(@TempDir Path root) throws Exception {
+    void removingTheCheckFromAHookWhoseLastLineEndIsGoneKeepsTheirLines(@TempDir Path root)
+            throws Exception {
 
-        // An editor that drops the file's last line end left the appended block unrecognized, and the marker in it
+        // An editor that drops the file's last line end left the appended block unrecognized, and
+        // the marker in it
         // made the removal take the whole file for its own and delete it.
         final String theirs = "#!/bin/sh\necho theirs\n";
         final String appended = GateProtectCommand.appended(theirs);

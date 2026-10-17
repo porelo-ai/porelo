@@ -5,9 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link World}.
- */
+/** Tests for {@link World}. */
 class WorldTest {
 
     @Test
@@ -18,31 +16,42 @@ class WorldTest {
 
     @Test
     void putsTheTaskWhereTheCommandSaysQuoted() {
-        assertThat(World.aboutTask("porelo talk held {task}", task("porelo-p-shell-1790000000000", null)))
+        assertThat(
+                        World.aboutTask(
+                                "porelo talk held {task}",
+                                task("porelo-p-shell-1790000000000", null)))
                 .isEqualTo("porelo talk held 'porelo-p-shell-1790000000000'");
     }
 
     @Test
     void putsTheStateDirectoryWhereTheCommandSaysQuoted() {
-        assertThat(World.aboutTask("cat {state}/hooks.log", task("porelo-p-shell-1", "/run/user/1/porelo/porelo-p-shell-1")))
+        assertThat(
+                        World.aboutTask(
+                                "cat {state}/hooks.log",
+                                task("porelo-p-shell-1", "/run/user/1/porelo/porelo-p-shell-1")))
                 .isEqualTo("cat '/run/user/1/porelo/porelo-p-shell-1'/hooks.log");
     }
 
     @Test
     void refusesACommandAboutTheTaskThatDoesNotSayWhere() {
         // Run as written, it would act on no task and fail in a way that reads as the product's.
-        assertThatThrownBy(() -> World.aboutTask("porelo talk held", task("porelo-p-shell-1", null)))
-                .isInstanceOf(AssertionError.class).hasMessageContaining("does not say where");
+        assertThatThrownBy(
+                        () -> World.aboutTask("porelo talk held", task("porelo-p-shell-1", null)))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("does not say where");
     }
 
     @Test
     void refusesTheStateDirectoryOfATaskWhoseStartNamedNone() {
-        // Replaced by nothing, the command would read the root of the machine rather than the task's files.
+        // Replaced by nothing, the command would read the root of the machine rather than the
+        // task's files.
         assertThatThrownBy(() -> World.aboutTask("ls {state}", task("porelo-p-shell-1", null)))
-                .isInstanceOf(AssertionError.class).hasMessageContaining("did not say where");
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("did not say where");
     }
 
-    private static World.Task task(String container, @org.jspecify.annotations.Nullable String state) {
+    private static World.Task task(
+            String container, @org.jspecify.annotations.Nullable String state) {
         return new World.Task(container, state, "");
     }
 

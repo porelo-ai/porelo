@@ -16,13 +16,13 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * An ssh-agent that signs with keys the container can never read.
- * <p>
- * The socket is bind-mounted into the task container as {@code SSH_AUTH_SOCK}, so {@code ssh} and
- * {@code git} inside it authenticate normally. What crosses the boundary is a request to sign some
- * bytes and a signature coming back. The private key stays in this process, on the host.
- * <p>
- * Only the two requests that matter are implemented: list identities, and sign. Everything else is
- * answered with a failure rather than a guess - an agent protocol is not a place to be
+ *
+ * <p>The socket is bind-mounted into the task container as {@code SSH_AUTH_SOCK}, so {@code ssh}
+ * and {@code git} inside it authenticate normally. What crosses the boundary is a request to sign
+ * some bytes and a signature coming back. The private key stays in this process, on the host.
+ *
+ * <p>Only the two requests that matter are implemented: list identities, and sign. Everything else
+ * is answered with a failure rather than a guess - an agent protocol is not a place to be
  * accommodating, and adding a key over this socket is exactly what must not be possible.
  */
 public class SshAgentServer implements AutoCloseable, Runnable {
@@ -77,13 +77,13 @@ public class SshAgentServer implements AutoCloseable, Runnable {
             // agent's uid in the image, which Porelo deliberately does not do. So the socket is
             // permissive inside a 0700 directory, and only the one container it is mounted into
             // can see it at all. Same reasoning as the vault proxy's socket.
-            Files.setPosixFilePermissions(socketPath.toAbsolutePath().getParent(),
+            Files.setPosixFilePermissions(
+                    socketPath.toAbsolutePath().getParent(),
                     PosixFilePermissions.fromString("rwx------"));
             // Labelled as it is created: SELinux checks connectto against the socket, not the file.
             channel = SocketContext.openUnixSocket();
             channel.bind(UnixDomainSocketAddress.of(socketPath));
-            Files.setPosixFilePermissions(socketPath,
-                    PosixFilePermissions.fromString("rw-rw-rw-"));
+            Files.setPosixFilePermissions(socketPath, PosixFilePermissions.fromString("rw-rw-rw-"));
         } catch (IOException ex) {
             throw new VaultException("Cannot create the agent socket at " + socketPath, ex);
         }
@@ -166,10 +166,10 @@ public class SshAgentServer implements AutoCloseable, Runnable {
             return switch (buffer.get()) {
                 case SSH_AGENTC_REQUEST_IDENTITIES -> identities();
                 case SSH_AGENTC_SIGN_REQUEST -> sign(buffer);
-                default -> new byte[] { SSH_AGENT_FAILURE };
+                default -> new byte[] {SSH_AGENT_FAILURE};
             };
         } catch (RuntimeException | IOException ex) {
-            return new byte[] { SSH_AGENT_FAILURE };
+            return new byte[] {SSH_AGENT_FAILURE};
         }
     }
 
@@ -200,7 +200,7 @@ public class SshAgentServer implements AutoCloseable, Runnable {
                 return out.toByteArray();
             }
         }
-        return new byte[] { SSH_AGENT_FAILURE };
+        return new byte[] {SSH_AGENT_FAILURE};
     }
 
     private static void write(SocketChannel client, byte[] message) throws IOException {

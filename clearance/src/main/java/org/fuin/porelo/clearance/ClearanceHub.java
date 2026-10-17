@@ -11,17 +11,17 @@ import java.util.function.Consumer;
 
 /**
  * Decides what happens to each blocked connection, once per destination.
- * <p>
- * <strong>Deduplication is not an optimisation here, it is what makes the feature usable.</strong>
- * A blocked connection is retried: an agent's HTTP client, a package manager or a build tool will
- * produce hundreds of identical drop events a second. Asking once per event would bury the desktop
- * and make the answer meaningless.
- * <p>
- * A destination that has been asked about is never asked about again for the life of the task, in
- * either direction. Re-asking after a deny would let an agent extract an allow by simply retrying
- * until the operator's attention slipped - and that is why {@link #restore(List)} exists: the hub
- * of a resumed task starts empty, so without reading its decisions back the retry only has to
- * outlast a watcher rather than an operator.
+ *
+ * <p><strong>Deduplication is not an optimisation here, it is what makes the feature
+ * usable.</strong> A blocked connection is retried: an agent's HTTP client, a package manager or a
+ * build tool will produce hundreds of identical drop events a second. Asking once per event would
+ * bury the desktop and make the answer meaningless.
+ *
+ * <p>A destination that has been asked about is never asked about again for the life of the task,
+ * in either direction. Re-asking after a deny would let an agent extract an allow by simply
+ * retrying until the operator's attention slipped - and that is why {@link #restore(List)} exists:
+ * the hub of a resumed task starts empty, so without reading its decisions back the retry only has
+ * to outlast a watcher rather than an operator.
  */
 public class ClearanceHub {
 
@@ -38,21 +38,27 @@ public class ClearanceHub {
     private final Map<String, Blocked> seen = new ConcurrentHashMap<>();
 
     /**
-     * How many questions one run asks a person. Each port of one address was a question of its own, asked for the
-     * whole prompt time: an agent could keep a person answering, and a real question waited behind a thousand.
-     * Beyond it a new destination stays blocked unasked, recorded as {@link Decision#LIMIT}; a client can still
-     * answer it.
+     * How many questions one run asks a person. Each port of one address was a question of its own,
+     * asked for the whole prompt time: an agent could keep a person answering, and a real question
+     * waited behind a thousand. Beyond it a new destination stays blocked unasked, recorded as
+     * {@link Decision#LIMIT}; a client can still answer it.
      */
     static final int MAX_QUESTIONS = 20;
 
-    private final java.util.concurrent.atomic.AtomicInteger questions = new java.util.concurrent.atomic.AtomicInteger();
+    private final java.util.concurrent.atomic.AtomicInteger questions =
+            new java.util.concurrent.atomic.AtomicInteger();
 
-    /** The destinations whose notification is on screen now, until it is answered there or elsewhere. */
+    /**
+     * The destinations whose notification is on screen now, until it is answered there or
+     * elsewhere.
+     */
     private final java.util.Set<String> asking = ConcurrentHashMap.newKeySet();
 
     private final List<Consumer<Decision>> listeners = new CopyOnWriteArrayList<>();
 
-    /** Names this run was granted while it was running; asked afresh, because grants arrive late. */
+    /**
+     * Names this run was granted while it was running; asked afresh, because grants arrive late.
+     */
     private java.util.function.Predicate<String> granted = name -> false;
 
     /**
@@ -63,7 +69,10 @@ public class ClearanceHub {
      * @param prompt How the operator is asked.
      * @param allow Called with the address when the answer is yes.
      */
-    public ClearanceHub(String project, String task, ClearancePrompt prompt,
+    public ClearanceHub(
+            String project,
+            String task,
+            ClearancePrompt prompt,
             java.util.function.BiConsumer<String, String> allow) {
         this.project = project;
         this.task = task;
@@ -73,8 +82,8 @@ public class ClearanceHub {
 
     /**
      * Registers something to be told about each decision, once, when it is first reached.
-     * <p>
-     * Once and not per event: the journal and any interface hang off this, and a destination an
+     *
+     * <p>Once and not per event: the journal and any interface hang off this, and a destination an
      * agent retries a hundred times a second is one decision. A listener that throws is not caught
      * here - the ones that can fail know what to say about it, and this class does not.
      *
@@ -86,10 +95,10 @@ public class ClearanceHub {
 
     /**
      * Says which names this run has been granted, so they are not asked about.
-     * <p>
-     * A predicate rather than a list, and consulted on every event rather than once: a grant is
-     * made while the task runs, usually because an agent has just been refused something, so a
-     * copy taken at start would never contain the grant that matters.
+     *
+     * <p>A predicate rather than a list, and consulted on every event rather than once: a grant is
+     * made while the task runs, usually because an agent has just been refused something, so a copy
+     * taken at start would never contain the grant that matters.
      *
      * @param names Answers whether a name has been granted to this run.
      */
@@ -132,10 +141,18 @@ public class ClearanceHub {
         }
         asking.add(key);
 
-        final Verdict verdict = prompt.ask(new ClearanceRequest(project, task, blocked.shown(),
-                blocked.destination(), blocked.protocol()));
-        // A person who answered from a client while the notification waited has decided: its running out says
-        // nothing. Written over, the firewall was open while the hub said it was not, and a resume never allowed
+        final Verdict verdict =
+                prompt.ask(
+                        new ClearanceRequest(
+                                project,
+                                task,
+                                blocked.shown(),
+                                blocked.destination(),
+                                blocked.protocol()));
+        // A person who answered from a client while the notification waited has decided: its
+        // running out says
+        // nothing. Written over, the firewall was open while the hub said it was not, and a resume
+        // never allowed
         // it again. An answer at the notification itself came last, and stands.
         if (!asking.remove(key) && verdict == Verdict.TIMEOUT) {
             return decided.getOrDefault(key, Verdict.DENY);
@@ -151,9 +168,9 @@ public class ClearanceHub {
 
     /**
      * Records a verdict that came from somewhere other than this hub's own prompt.
-     * <p>
-     * Used by the varlink {@code Verdict} method, so an operator can answer from a client that is
-     * not the notification Porelo raised. It may arrive for a destination this hub never asked
+     *
+     * <p>Used by the varlink {@code Verdict} method, so an operator can answer from a client that
+     * is not the notification Porelo raised. It may arrive for a destination this hub never asked
      * about - the event reaches subscribers before the answer is waited for - and it may arrive
      * after a prompt ran out, which is the only way an expired question is ever answered.
      *
@@ -163,8 +180,8 @@ public class ClearanceHub {
      */
     public void decide(String key, String address, Verdict verdict) {
         asking.remove(key);
-        final Blocked blocked = seen.computeIfAbsent(key, unknown ->
-                Blocked.fromKey(unknown, address));
+        final Blocked blocked =
+                seen.computeIfAbsent(key, unknown -> Blocked.fromKey(unknown, address));
         final Verdict previous = decided.put(key, verdict);
         if (verdict.allows() && (previous == null || !previous.allows())) {
             // No name here: a verdict from a client names an address, and the name it
@@ -177,15 +194,15 @@ public class ClearanceHub {
     /**
      * Takes back the decisions of an earlier watcher, without asking anything or recording
      * anything.
-     * <p>
-     * <strong>An allow is applied again, not only remembered.</strong> A resumed task gets a fresh
-     * network namespace and the hook rebuilds its ruleset from the project, so the addresses the
-     * operator cleared last time are no longer in it: remembering them would leave the hub
+     *
+     * <p><strong>An allow is applied again, not only remembered.</strong> A resumed task gets a
+     * fresh network namespace and the hook rebuilds its ruleset from the project, so the addresses
+     * the operator cleared last time are no longer in it: remembering them would leave the hub
      * answering allow for a destination the firewall still drops, which is the worst of the three
      * possible states because nothing asks again.
-     * <p>
-     * Nothing is announced. These decisions are already in the journal, and writing them again on
-     * every resume would make the record grow with the number of restarts rather than with the
+     *
+     * <p>Nothing is announced. These decisions are already in the journal, and writing them again
+     * on every resume would make the record grow with the number of restarts rather than with the
      * number of decisions.
      *
      * @param decisions What was decided before, oldest first.
@@ -197,8 +214,13 @@ public class ClearanceHub {
         }
         for (final Decision decision : last.values()) {
             decided.put(decision.key(), decision.verdict());
-            seen.put(decision.key(), new Blocked(decision.destination(), decision.port(),
-                    decision.protocol(), decision.shown()));
+            seen.put(
+                    decision.key(),
+                    new Blocked(
+                            decision.destination(),
+                            decision.port(),
+                            decision.protocol(),
+                            decision.shown()));
             if (decision.verdict().allows()) {
                 // Replayed after a restart. The name is not in the journal, and it does not
                 // need to be: what was recorded at grant time is already on disk.
@@ -208,9 +230,18 @@ public class ClearanceHub {
     }
 
     private void announce(Blocked blocked, Verdict verdict, String source) {
-        final Decision decision = new Decision(Instant.now(), project, task, blocked.key(),
-                blocked.destination(), blocked.port(), blocked.protocol(), blocked.shown(),
-                verdict, source);
+        final Decision decision =
+                new Decision(
+                        Instant.now(),
+                        project,
+                        task,
+                        blocked.key(),
+                        blocked.destination(),
+                        blocked.port(),
+                        blocked.protocol(),
+                        blocked.shown(),
+                        verdict,
+                        source);
         listeners.forEach(listener -> listener.accept(decision));
     }
 
@@ -221,14 +252,14 @@ public class ClearanceHub {
      */
     /**
      * Returns whether this destination has already been answered.
-     * <p>
-     * Asked before a question is published, so an answered one is not announced again. A dropped
+     *
+     * <p>Asked before a question is published, so an answered one is not announced again. A dropped
      * connection is retried, and this hub deliberately records a verdict before asking so a burst
-     * produces one question rather than many - without this, every retry still reached a
-     * subscriber as though it were open, and an interface put a decided question back on screen
-     * with buttons under it. Measured against a real blocked connection on 2026-09-11.
-     * <p>
-     * A cheaper answer than {@link #decisions()}, which copies the whole map, and this is asked
+     * produces one question rather than many - without this, every retry still reached a subscriber
+     * as though it were open, and an interface put a decided question back on screen with buttons
+     * under it. Measured against a real blocked connection on 2026-09-11.
+     *
+     * <p>A cheaper answer than {@link #decisions()}, which copies the whole map, and this is asked
      * for every dropped packet.
      *
      * @param key Key the destination is decided under.

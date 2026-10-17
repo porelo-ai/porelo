@@ -5,12 +5,12 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.fuin.porelo.app.PoreloContext;
 import org.fuin.porelo.app.GateSupport;
-import org.fuin.porelo.app.TaskControl;
-import org.fuin.porelo.app.TaskLaunch;
+import org.fuin.porelo.app.PoreloContext;
 import org.fuin.porelo.app.ProjectInventory;
+import org.fuin.porelo.app.TaskControl;
 import org.fuin.porelo.app.TaskInventory;
+import org.fuin.porelo.app.TaskLaunch;
 import org.fuin.porelo.clearance.ClearanceService;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.gate.GitGate;
@@ -23,39 +23,39 @@ import org.jspecify.annotations.Nullable;
 /**
  * Entry point of the {@code porelod} binary: the domain over a unix socket, for an interface that
  * never shells out to the CLI.
- * <p>
- * <strong>A socket, never a port.</strong> The socket is the only entry point, which makes remote
- * access a tunnelling problem rather than an authentication problem - there is no listener on any
- * interface to authenticate against in the first place. The filesystem decides who may connect:
- * the socket is owner-only, so another account on the same machine is refused by the kernel rather
- * than by a check this had to remember to write.
- * <p>
- * <strong>Varlink, because the agent contract already speaks it.</strong> Porelo drives every agent
- * over varlink, so the protocol, its client, its server and its streaming replies are already
- * built and already tested here. Introducing a second protocol for the same kind of local IPC
- * would be two things to get right instead of one.
- * <p>
- * <strong>The daemon is not a task's parent.</strong> It starts nothing and owns nothing: task
- * containers belong to the container runtime and their helpers are their own processes, recorded
- * in each task's state directory. Killing this leaves every running task exactly where it was,
- * which is what makes restarting it safe.
+ *
+ * <p><strong>A socket, never a port.</strong> The socket is the only entry point, which makes
+ * remote access a tunnelling problem rather than an authentication problem - there is no listener
+ * on any interface to authenticate against in the first place. The filesystem decides who may
+ * connect: the socket is owner-only, so another account on the same machine is refused by the
+ * kernel rather than by a check this had to remember to write.
+ *
+ * <p><strong>Varlink, because the agent contract already speaks it.</strong> Porelo drives every
+ * agent over varlink, so the protocol, its client, its server and its streaming replies are already
+ * built and already tested here. Introducing a second protocol for the same kind of local IPC would
+ * be two things to get right instead of one.
+ *
+ * <p><strong>The daemon is not a task's parent.</strong> It starts nothing and owns nothing: task
+ * containers belong to the container runtime and their helpers are their own processes, recorded in
+ * each task's state directory. Killing this leaves every running task exactly where it was, which
+ * is what makes restarting it safe.
  */
 public final class PoreloDaemon {
 
     /**
      * Varlink interface this serves.
-     * <p>
-     * The trailing digit is the compatibility promise and is not decoration - it is varlink's own
-     * convention, and {@code org.fuin.porelo.Clearance1} already follows it. Within one number the
-     * interface only ever grows: methods, optional parameters and reply fields may be added, and
-     * nothing that exists may be removed, renamed, retyped or made to mean something else. A
+     *
+     * <p>The trailing digit is the compatibility promise and is not decoration - it is varlink's
+     * own convention, and {@code org.fuin.porelo.Clearance1} already follows it. Within one number
+     * the interface only ever grows: methods, optional parameters and reply fields may be added,
+     * and nothing that exists may be removed, renamed, retyped or made to mean something else. A
      * change that cannot be made that way gets the next number and is served <em>beside</em> this
      * one, so a frontend built against either keeps working while a fleet is upgraded piecemeal.
-     * <p>
-     * {@code GetInfo} lists what a daemon offers, so a client picks the newest name it
-     * understands rather than comparing version numbers. The rest is per-method: calling
-     * something an older daemon does not have answers {@code MethodNotFound}, which lets an
-     * interface disable one feature instead of refusing to connect.
+     *
+     * <p>{@code GetInfo} lists what a daemon offers, so a client picks the newest name it
+     * understands rather than comparing version numbers. The rest is per-method: calling something
+     * an older daemon does not have answers {@code MethodNotFound}, which lets an interface disable
+     * one feature instead of refusing to connect.
      */
     public static final String INTERFACE = "org.fuin.porelo.Tasks1";
 
@@ -67,8 +67,8 @@ public final class PoreloDaemon {
 
     /**
      * How often a project scan is repeated, and deliberately slower than {@link #WATCH_INTERVAL}.
-     * <p>
-     * A scan runs {@code podman} and reads the gate's refs for every project, so half a second
+     *
+     * <p>A scan runs {@code podman} and reads the gate's refs for every project, so half a second
      * would spend subprocesses continuously on answers that change on human timescales - a project
      * created, a push arriving at the gate, an environment prepared. The contract names the one
      * place where latency costs something real, and it is {@code Prompts} rather than this: work
@@ -91,20 +91,22 @@ public final class PoreloDaemon {
 
     /**
      * Returns a server offering the calls, bound to the given socket.
-     * <p>
-     * Separate from {@link #main(String[])} so a test can drive the real thing over a real socket
-     * rather than a stand-in: what matters about this is the wire, and a mock of the wire proves
-     * nothing about it.
+     *
+     * <p>Separate from {@link #main(String[])} so a test can drive the real thing over a real
+     * socket rather than a stand-in: what matters about this is the wire, and a mock of the wire
+     * proves nothing about it.
      *
      * @param context Where podman and the paths come from.
      * @param socket Where to bind.
      * @return The server, not yet running.
      */
     public static VarlinkServer serving(PoreloContext context, Path socket) {
-        final VarlinkServer server = new VarlinkServer(socket, INTERFACE)
-                .describedBy(description())
-                .reporting(org.fuin.porelo.app.PoreloVersion.version());
-        // One for the daemon's life: what it derives about waiting for a person is read at a pace that is
+        final VarlinkServer server =
+                new VarlinkServer(socket, INTERFACE)
+                        .describedBy(description())
+                        .reporting(org.fuin.porelo.app.PoreloVersion.version());
+        // One for the daemon's life: what it derives about waiting for a person is read at a pace
+        // that is
         // cheap only when the same instance is asked again.
         final TaskInventory inventory = TaskInventory.deriving(context);
 
@@ -133,25 +135,29 @@ public final class PoreloDaemon {
 
     /**
      * Returns the interface description, read from the jar.
-     * <p>
-     * A resource rather than a string in this file, so that the contract is a document an
-     * interface author can read, diff and be handed - and so that {@link PoreloDaemonTest} can
-     * hold it against the methods actually registered here. Missing it is a broken build rather
-     * than a daemon that answers {@code InterfaceNotFound}: the description is not optional.
+     *
+     * <p>A resource rather than a string in this file, so that the contract is a document an
+     * interface author can read, diff and be handed - and so that {@link PoreloDaemonTest} can hold
+     * it against the methods actually registered here. Missing it is a broken build rather than a
+     * daemon that answers {@code InterfaceNotFound}: the description is not optional.
      *
      * @return The IDL.
      */
     public static String description() {
-        // One interface on the wire, written in parts: each area's methods, types and errors in a file of its own,
-        // so a change to one area's contract is a change to its own file. The order is fixed here, not found.
+        // One interface on the wire, written in parts: each area's methods, types and errors in a
+        // file of its own,
+        // so a change to one area's contract is a change to its own file. The order is fixed here,
+        // not found.
         final StringBuilder description = new StringBuilder();
         for (final String part : PARTS) {
             final String name = "/varlink/" + INTERFACE + "/" + part + ".varlink";
             try (java.io.InputStream in = PoreloDaemon.class.getResourceAsStream(name)) {
                 if (in == null) {
-                    throw new IllegalStateException("The interface description is not on the classpath: " + name);
+                    throw new IllegalStateException(
+                            "The interface description is not on the classpath: " + name);
                 }
-                description.append(new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
+                description.append(
+                        new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
             } catch (java.io.IOException ex) {
                 throw new IllegalStateException("Cannot read the interface description", ex);
             }
@@ -160,7 +166,18 @@ public final class PoreloDaemon {
     }
 
     /** The parts of the interface description, in the order they are served: the header first. */
-    static final List<String> PARTS = List.of("00-header", "10-common", "15-task", "20-project", "25-egress", "30-vault", "35-gate", "40-agent", "45-messaging", "50-machine");
+    static final List<String> PARTS =
+            List.of(
+                    "00-header",
+                    "10-common",
+                    "15-task",
+                    "20-project",
+                    "25-egress",
+                    "30-vault",
+                    "35-gate",
+                    "40-agent",
+                    "45-messaging",
+                    "50-machine");
 
     /**
      * Returns hosts and their origins as a client reads them.
@@ -170,8 +187,10 @@ public final class PoreloDaemon {
      */
     static List<Map<String, Object>> hosts(Map<String, String> origins) {
         return origins.entrySet().stream()
-                .map(entry -> Map.<String, Object>of("host", entry.getKey(),
-                        "origin", entry.getValue()))
+                .map(
+                        entry ->
+                                Map.<String, Object>of(
+                                        "host", entry.getKey(), "origin", entry.getValue()))
                 .toList();
     }
 
@@ -191,8 +210,8 @@ public final class PoreloDaemon {
 
     /**
      * Returns the project file a call names, refusing a call that names none.
-     * <p>
-     * <strong>A name, not a path.</strong> A client cannot see this machine's filesystem, so it
+     *
+     * <p><strong>A name, not a path.</strong> A client cannot see this machine's filesystem, so it
      * has no path to invent - and which project a call is about must not depend on a directory.
      * Where the file comes from is the machine's answer, and it prefers the one it verified.
      *
@@ -208,15 +227,15 @@ public final class PoreloDaemon {
         try {
             return org.fuin.porelo.app.ProjectSource.require(context, name);
         } catch (final org.fuin.porelo.core.project.ProjectException ex) {
-            throw new VarlinkException(INTERFACE + ".Failed",
-                    Map.of("message", String.valueOf(ex.getMessage())));
+            throw new VarlinkException(
+                    INTERFACE + ".Failed", Map.of("message", String.valueOf(ex.getMessage())));
         }
     }
 
     /**
      * Returns the gate of the project a call names.
-     * <p>
-     * The project file is a path the caller gives, the way it gives one to the CLI: a gate
+     *
+     * <p>The project file is a path the caller gives, the way it gives one to the CLI: a gate
      * belongs to a project rather than to a task, and this daemon serves whatever projects the
      * operator has. Reading it fails loudly rather than answering about the wrong gate.
      *
@@ -224,32 +243,38 @@ public final class PoreloDaemon {
      * @return The gate, initialized.
      */
     /**
-     * Returns the pushes waiting at the gate the parameters name that the upstream already has, by name.
+     * Returns the pushes waiting at the gate the parameters name that the upstream already has, by
+     * name.
      *
      * @param parameters The call's parameters: project, repository.
      * @param context The machine.
      * @return Their names.
      */
-    static java.util.Set<String> alreadyUpstream(Map<String, Object> parameters, PoreloContext context) {
+    static java.util.Set<String> alreadyUpstream(
+            Map<String, Object> parameters, PoreloContext context) {
         final Project project = GateSupport.project(projectFile(parameters, context));
-        return GateSupport.alreadyUpstream(context, project,
-                GateSupport.repository(project, text(parameters, "repository")));
+        return GateSupport.alreadyUpstream(
+                context, project, GateSupport.repository(project, text(parameters, "repository")));
     }
 
     static GitGate gate(Map<String, Object> parameters, PoreloContext context) {
         final Project project = GateSupport.project(projectFile(parameters, context));
         final String upstream = address(parameters, "upstream");
-        final GitGate gate = GateSupport.gate(context, project,
-                GateSupport.repository(project, text(parameters, "repository")),
-                upstream.isEmpty() ? null : upstream, null);
+        final GitGate gate =
+                GateSupport.gate(
+                        context,
+                        project,
+                        GateSupport.repository(project, text(parameters, "repository")),
+                        upstream.isEmpty() ? null : upstream,
+                        null);
         gate.initialize();
         return gate;
     }
 
     /**
      * Subscribes to the prompts of every running task that is not already being watched.
-     * <p>
-     * Rescanned rather than taken once: a task started after a client connected raises prompts
+     *
+     * <p>Rescanned rather than taken once: a task started after a client connected raises prompts
      * too, and a client that had to reconnect to see them would miss exactly the ones that arrive
      * while an agent is doing something new.
      *
@@ -258,7 +283,9 @@ public final class PoreloDaemon {
      * @param events Where events from every task go.
      * @param watching Subscriptions already running, by task name.
      */
-    static void subscribe(PoreloContext context, TaskInventory inventory,
+    static void subscribe(
+            PoreloContext context,
+            TaskInventory inventory,
             org.fuin.porelo.clearance.Backlog events,
             Map<String, Thread> watching) {
 
@@ -271,31 +298,60 @@ public final class PoreloDaemon {
             if (socket == null) {
                 continue;
             }
-            watching.put(task.name(), Thread.ofVirtual().start(() -> {
-                try (VarlinkClient client = new VarlinkClient(socket)) {
-                    client.callMore(ClearanceService.INTERFACE + ".Subscribe", Map.of(), event -> {
-                        final Map<String, Object> tagged = new LinkedHashMap<>(event);
-                        // Which task it came from: one socket now carries the prompts of every
-                        // task, and an answer has to go back to the one that asked.
-                        tagged.put("task", task.name());
-                        // And what to answer with. The watcher keys its pending decisions by
-                        // this and the event does not carry it, so a client had to rebuild it
-                        // from the other fields - a separator away from answering a prompt that
-                        // does not exist while the task stays blocked.
-                        tagged.put("key", ClearanceService.key(
-                                String.valueOf(event.get("protocol")),
-                                String.valueOf(event.get("destination")),
-                                event.get("port") instanceof Number port ? port.intValue() : 0));
-                        // Never waits: a client that stopped reading must not block the
-                        // subscription, which is on the path of every dropped packet. What does
-                        // not fit is counted and told to the client.
-                        events.offer(tagged);
-                        return !Thread.currentThread().isInterrupted();
-                    });
-                } catch (RuntimeException | java.io.IOException ex) {
-                    // The watcher went away, which is how a task ending looks from here.
-                }
-            }));
+            watching.put(
+                    task.name(),
+                    Thread.ofVirtual()
+                            .start(
+                                    () -> {
+                                        try (VarlinkClient client = new VarlinkClient(socket)) {
+                                            client.callMore(
+                                                    ClearanceService.INTERFACE + ".Subscribe",
+                                                    Map.of(),
+                                                    event -> {
+                                                        final Map<String, Object> tagged =
+                                                                new LinkedHashMap<>(event);
+                                                        // Which task it came from: one socket now
+                                                        // carries the prompts of every
+                                                        // task, and an answer has to go back to the
+                                                        // one that asked.
+                                                        tagged.put("task", task.name());
+                                                        // And what to answer with. The watcher keys
+                                                        // its pending decisions by
+                                                        // this and the event does not carry it, so
+                                                        // a client had to rebuild it
+                                                        // from the other fields - a separator away
+                                                        // from answering a prompt that
+                                                        // does not exist while the task stays
+                                                        // blocked.
+                                                        tagged.put(
+                                                                "key",
+                                                                ClearanceService.key(
+                                                                        String.valueOf(
+                                                                                event.get(
+                                                                                        "protocol")),
+                                                                        String.valueOf(
+                                                                                event.get(
+                                                                                        "destination")),
+                                                                        event.get("port")
+                                                                                        instanceof
+                                                                                        Number port
+                                                                                ? port.intValue()
+                                                                                : 0));
+                                                        // Never waits: a client that stopped
+                                                        // reading must not block the
+                                                        // subscription, which is on the path of
+                                                        // every dropped packet. What does
+                                                        // not fit is counted and told to the
+                                                        // client.
+                                                        events.offer(tagged);
+                                                        return !Thread.currentThread()
+                                                                .isInterrupted();
+                                                    });
+                                        } catch (RuntimeException | java.io.IOException ex) {
+                                            // The watcher went away, which is how a task ending
+                                            // looks from here.
+                                        }
+                                    }));
         }
     }
 
@@ -317,9 +373,9 @@ public final class PoreloDaemon {
     /**
      * Returns what a watcher compares: everything about a task except how long it has been that
      * way.
-     * <p>
-     * The exit code stays, because a task that was stopped and one that died are different things
-     * a fleet view must show apart; the age goes, because it changes on its own.
+     *
+     * <p>The exit code stays, because a task that was stopped and one that died are different
+     * things a fleet view must show apart; the age goes, because it changes on its own.
      *
      * @param task The task.
      * @return A key that changes only when something an operator would want redrawn changes.
@@ -327,9 +383,9 @@ public final class PoreloDaemon {
     static String withoutAge(TaskInventory.Task task) {
         final String state = task.state();
         final int code = state.startsWith("Exited (") ? state.indexOf(')') : -1;
-        final String settled = code > 0 ? state.substring(0, code + 1)
-                : state.split(" ")[0];
-        // Everything a client is sent, but the state's age: a list of chosen fields here left out every field added
+        final String settled = code > 0 ? state.substring(0, code + 1) : state.split(" ")[0];
+        // Everything a client is sent, but the state's age: a list of chosen fields here left out
+        // every field added
         // later - a handed-in file, a build's verdict - and an open Watch never sent them.
         final java.util.Map<String, Object> sent = new java.util.LinkedHashMap<>(task.asMap());
         sent.put("state", settled);
@@ -338,8 +394,8 @@ public final class PoreloDaemon {
 
     /**
      * Returns the log file of one task, or {@code null} when there is no such thing.
-     * <p>
-     * The name is checked against the files that are actually there rather than resolved as a
+     *
+     * <p>The name is checked against the files that are actually there rather than resolved as a
      * path: a client is not this process, and {@code ../../etc/passwd} is a log name until
      * something refuses it.
      *
@@ -350,9 +406,11 @@ public final class PoreloDaemon {
      */
     static @Nullable Path logOf(PoreloContext context, String task, String log) {
         // The same rule the listing uses, so a client is never offered a file this refuses.
-        if (!ContainerName.isTask(task) || log.isEmpty()
+        if (!ContainerName.isTask(task)
+                || log.isEmpty()
                 || !org.fuin.porelo.app.TaskInventory.isLog(log)
-                || log.contains("/") || log.contains("..")) {
+                || log.contains("/")
+                || log.contains("..")) {
             return null;
         }
         final Path file = context.paths().tasks().containerState(task).resolve(log);
@@ -360,13 +418,12 @@ public final class PoreloDaemon {
     }
 
     /** What one read of a log returned, and where to carry on from. */
-    record Chunk(List<String> lines, long position) {
-    }
+    record Chunk(List<String> lines, long position) {}
 
     /**
      * Reads what a log has gained since the last read.
-     * <p>
-     * By position rather than by watching the file: a log is appended to by another process
+     *
+     * <p>By position rather than by watching the file: a log is appended to by another process
      * entirely - a helper Porelo started - and the cheapest correct answer to "what is new" is how
      * much longer it got. A file that shrank was rotated or replaced, and is read from the start.
      *
@@ -376,13 +433,15 @@ public final class PoreloDaemon {
      */
     /**
      * Returns where the last lines of a log start, read back from its end in blocks.
-     * <p>
-     * A client following a log asked for it from its first line, and a log of 53 MB crossed the socket before anything
-     * was shown: the interface closed under it. A newline that ends the file ends the last line and starts none.
+     *
+     * <p>A client following a log asked for it from its first line, and a log of 53 MB crossed the
+     * socket before anything was shown: the interface closed under it. A newline that ends the file
+     * ends the last line and starts none.
      *
      * @param log The file.
      * @param lines How many lines from the end.
-     * @return The byte position of the first of them; the file's size for none, its start when it holds fewer.
+     * @return The byte position of the first of them; the file's size for none, its start when it
+     *     holds fewer.
      */
     static long startOfLast(Path log, int lines) {
         try (java.io.RandomAccessFile file = new java.io.RandomAccessFile(log.toFile(), "r")) {
@@ -423,22 +482,27 @@ public final class PoreloDaemon {
                 file.seek(start);
                 final byte[] buffer = new byte[(int) Math.min(size - start, MAX_CHUNK)];
                 file.readFully(buffer);
-                // Counted in bytes, never by encoding decoded text again: a byte that is not UTF-8 decodes to a
-                // character that encodes longer, and the position then lay past the end of the file.
+                // Counted in bytes, never by encoding decoded text again: a byte that is not UTF-8
+                // decodes to a
+                // character that encodes longer, and the position then lay past the end of the
+                // file.
                 int end = buffer.length - 1;
                 while (end >= 0 && buffer[end] != '\n') {
                     end--;
                 }
                 if (end < 0) {
-                    // A partial last line is left for the next read - unless the whole read was one, which no later
+                    // A partial last line is left for the next read - unless the whole read was
+                    // one, which no later
                     // read could pass either: then it goes as it is.
                     if (buffer.length < MAX_CHUNK) {
                         return new Chunk(List.of(), start);
                     }
-                    return new Chunk(List.of(new String(buffer, java.nio.charset.StandardCharsets.UTF_8)),
+                    return new Chunk(
+                            List.of(new String(buffer, java.nio.charset.StandardCharsets.UTF_8)),
                             start + buffer.length);
                 }
-                final String text = new String(buffer, 0, end, java.nio.charset.StandardCharsets.UTF_8);
+                final String text =
+                        new String(buffer, 0, end, java.nio.charset.StandardCharsets.UTF_8);
                 return new Chunk(List.of(text.split("\n", -1)), start + end + 1);
             }
         } catch (java.io.IOException ex) {
@@ -457,10 +521,10 @@ public final class PoreloDaemon {
 
     /**
      * Turns a call's parameters into a launch request.
-     * <p>
-     * Only what the caller named is taken; everything else keeps the value the record was
-     * declared with, so the CLI's defaults stay the only defaults. Restating them here would be
-     * a second place for them to drift.
+     *
+     * <p>Only what the caller named is taken; everything else keeps the value the record was
+     * declared with, so the CLI's defaults stay the only defaults. Restating them here would be a
+     * second place for them to drift.
      *
      * @param parameters The call's parameters.
      * @return What to start.
@@ -473,26 +537,26 @@ public final class PoreloDaemon {
      */
     /**
      * Returns one provider as an interface reads it.
-     * <p>
-     * Separated from the call so the key resolution can be exercised: the interesting case is a
+     *
+     * <p>Separated from the call so the key resolution can be exercised: the interesting case is a
      * vault written before credentials were keyed by provider, which no fixture of an empty vault
-     * reaches. A test that only saw an empty vault would pass whether this used the resolved key
-     * or the provider's own name, because there they are the same string.
+     * reaches. A test that only saw an empty vault would pass whether this used the resolved key or
+     * the provider's own name, because there they are the same string.
      *
      * @param provider The provider.
      * @param stored What the vault holds, by name.
-     * @param legacyAgent An agent whose own name this provider's credential may still be under,
-     *        or {@code null} when there is none.
+     * @param legacyAgent An agent whose own name this provider's credential may still be under, or
+     *     {@code null} when there is none.
      * @return The row, carrying no credential value.
      */
-    static Map<String, Object> provider(org.fuin.porelo.agent.api.ProviderDefinition provider,
+    static Map<String, Object> provider(
+            org.fuin.porelo.agent.api.ProviderDefinition provider,
             Map<String, org.fuin.porelo.vault.VaultEntry> stored,
             @org.jspecify.annotations.Nullable String legacyAgent) {
         return org.fuin.porelo.app.ProviderInventory.row(provider, stored, legacyAgent);
     }
 
-    static Map<String, Object> artifact(
-            org.fuin.porelo.agent.api.InstallArtifact artifact) {
+    static Map<String, Object> artifact(org.fuin.porelo.agent.api.InstallArtifact artifact) {
         final Map<String, Object> row = new LinkedHashMap<>();
         row.put("url", artifact.url());
         row.put("sha256", artifact.sha256() == null ? "" : artifact.sha256());
@@ -504,8 +568,9 @@ public final class PoreloDaemon {
 
     /**
      * Returns the log line one Start leaves behind.
-     * <p>
-     * Names and the outcome only: a request can carry a prompt, and a log is not where that goes.
+     *
+     * <p>Names and the outcome only: a request can carry a prompt, and a log is not where that
+     * goes.
      *
      * @param task The task name asked for, or empty for the default.
      * @param container The container it produced or found, or empty when there is none.
@@ -520,11 +585,12 @@ public final class PoreloDaemon {
     /** How often the talk stream looks for new record lines. */
     static final java.time.Duration TALK_INTERVAL = java.time.Duration.ofSeconds(2);
 
-    static org.fuin.porelo.app.Mailbox mailboxOf(PoreloContext context,
-            Map<String, Object> parameters) {
+    static org.fuin.porelo.app.Mailbox mailboxOf(
+            PoreloContext context, Map<String, Object> parameters) {
         final String task = text(parameters, "task");
         if (!org.fuin.porelo.runtime.ContainerName.isTask(task)) {
-            // '' and '..' resolved to directories that exist; a name that is no task's is answered as one.
+            // '' and '..' resolved to directories that exist; a name that is no task's is answered
+            // as one.
             throw new VarlinkException(INTERFACE + ".NoSuchTask", Map.of("task", task));
         }
         final org.fuin.porelo.app.Mailbox mailbox =
@@ -537,8 +603,8 @@ public final class PoreloDaemon {
 
     /**
      * Renders a keyslot for the wire.
-     * <p>
-     * {@code self} is the one field the vault does not know: it is about this session, not about
+     *
+     * <p>{@code self} is the one field the vault does not know: it is about this session, not about
      * the file. It is true for the slot whose share is the one currently held here, which is what
      * lets a list mark "this device".
      *
@@ -546,27 +612,49 @@ public final class PoreloDaemon {
      * @param context The machine.
      * @return The object an interface reads.
      */
-    static Map<String, Object> slotAsMap(org.fuin.porelo.vault.Keyslot slot,
-            PoreloContext context) {
+    static Map<String, Object> slotAsMap(
+            org.fuin.porelo.vault.Keyslot slot, PoreloContext context) {
         final java.util.Optional<byte[]> held =
                 org.fuin.porelo.app.VaultShare.held(context.paths());
-        final boolean self = !slot.recovery() && held.isPresent()
-                && context.vault().takes(slot.id(), held.get());
-        return Map.of("id", slot.id(), "name", slot.name(), "storage", slot.storage(),
-                "enrolled", slot.enrolled(), "lastUsed", slot.lastUsed(),
-                "self", self, "recovery", slot.recovery());
+        final boolean self =
+                !slot.recovery()
+                        && held.isPresent()
+                        && context.vault().takes(slot.id(), held.get());
+        return Map.of(
+                "id",
+                slot.id(),
+                "name",
+                slot.name(),
+                "storage",
+                slot.storage(),
+                "enrolled",
+                slot.enrolled(),
+                "lastUsed",
+                slot.lastUsed(),
+                "self",
+                self,
+                "recovery",
+                slot.recovery());
     }
 
     static List<Map<String, Object>> destinations(PoreloContext context) {
         final java.util.Set<String> seen = new java.util.HashSet<>();
         return org.fuin.porelo.app.Destination.declared(context.paths().xdg().data()).stream()
-                .map(declared -> destinationRow(declared.destination(), declared.file(), declared.packaged(),
-                        seen.add(declared.destination().name())))
+                .map(
+                        declared ->
+                                destinationRow(
+                                        declared.destination(),
+                                        declared.file(),
+                                        declared.packaged(),
+                                        seen.add(declared.destination().name())))
                 .toList();
     }
 
-    static Map<String, Object> destinationRow(org.fuin.porelo.app.Destination destination,
-            java.nio.file.Path file, boolean packaged, boolean inForce) {
+    static Map<String, Object> destinationRow(
+            org.fuin.porelo.app.Destination destination,
+            java.nio.file.Path file,
+            boolean packaged,
+            boolean inForce) {
         final Map<String, Object> row = new LinkedHashMap<>();
         row.put("name", destination.name());
         row.put("label", destination.label());
@@ -583,30 +671,35 @@ public final class PoreloDaemon {
     static Map<String, String> credentials(Map<String, Object> parameters) {
         final Map<String, String> credentials = new LinkedHashMap<>();
         if (parameters.get("credentials") instanceof Map<?, ?> named) {
-            named.forEach((entry, destination) -> credentials.put(String.valueOf(entry), String.valueOf(destination)));
+            named.forEach(
+                    (entry, destination) ->
+                            credentials.put(String.valueOf(entry), String.valueOf(destination)));
         }
         return credentials;
     }
 
-    static TaskLaunch.Request request(Map<String, Object> parameters,
-            PoreloContext context) {
+    static TaskLaunch.Request request(Map<String, Object> parameters, PoreloContext context) {
         final String task = text(parameters, "task");
         final String repository = text(parameters, "repository");
         return new TaskLaunch.Request(
                 // Unnamed: after its repository, as at the command line.
-                !task.isEmpty() ? task : repository.isEmpty() ? "shell"
-                        : org.fuin.porelo.app.TaskNames.fromRepository(context, text(parameters, "project"), repository),
+                !task.isEmpty()
+                        ? task
+                        : repository.isEmpty()
+                                ? "shell"
+                                : org.fuin.porelo.app.TaskNames.fromRepository(
+                                        context, text(parameters, "project"), repository),
                 // A name, resolved here rather than taken as a path. The machine prefers the file
                 // it verified; a client has no filesystem here to point at one.
                 projectFile(parameters, context),
-                empty(parameters, "agent"), empty(parameters, "provider"),
+                empty(parameters, "agent"),
+                empty(parameters, "provider"),
                 empty(parameters, "credentialType"),
                 parameters.get("tokenHours") instanceof Number hours ? hours.intValue() : 8,
                 address(parameters, "upstream").isEmpty() ? null : address(parameters, "upstream"),
                 flag(parameters, "noGate"),
                 flag(parameters, "dryRun"),
-                text(parameters, "clearance").isEmpty() ? "prompt"
-                        : text(parameters, "clearance"),
+                text(parameters, "clearance").isEmpty() ? "prompt" : text(parameters, "clearance"),
                 // Inverted: the contract asks whether to REMOVE, and the request records whether
                 // to keep. The default flipped with the verb - what a caller reaches for first
                 // used to destroy what it had just made.
@@ -614,14 +707,16 @@ public final class PoreloDaemon {
                 // The same vocabulary the CLI uses, taken from the caller rather than guessed at:
                 // a task started over the socket is as much a shell, a session or an unattended
                 // run as one started at the machine, and it has to say which afterwards.
-                org.fuin.porelo.wire.TaskMode.parse(text(parameters, "mode"),
+                org.fuin.porelo.wire.TaskMode.parse(
+                        text(parameters, "mode"),
                         empty(parameters, "prompt") == null
                                 ? org.fuin.porelo.wire.TaskMode.SHELL
                                 : org.fuin.porelo.wire.TaskMode.UNATTENDED),
                 empty(parameters, "prompt"),
                 empty(parameters, "model"),
                 parameters.get("maxTurns") instanceof Number turns ? turns.intValue() : null,
-                parameters.get("minutes") instanceof Number minutes ? minutes.intValue()
+                parameters.get("minutes") instanceof Number minutes
+                        ? minutes.intValue()
                         : TaskLaunch.DEFAULT_MINUTES,
                 // Not defaulted here. A project is a unit of work over one or more repositories,
                 // and a client that does not say which one the task is for gets the same refusal
@@ -637,16 +732,16 @@ public final class PoreloDaemon {
      * @param name Parameter to read.
      * @return Its value, or {@code null} when it was not given.
      */
-    static @org.jspecify.annotations.Nullable String empty(Map<String, Object> parameters,
-            String name) {
+    static @org.jspecify.annotations.Nullable String empty(
+            Map<String, Object> parameters, String name) {
         final String value = text(parameters, name);
         return value.isEmpty() ? null : value;
     }
 
     /**
      * Sends whatever the launch prints as it prints it.
-     * <p>
-     * A writer rather than a collected string, because the point of streaming is that the client
+     *
+     * <p>A writer rather than a collected string, because the point of streaming is that the client
      * sees the image build while it happens.
      */
     static final class StreamingWriter extends java.io.Writer {
@@ -697,8 +792,8 @@ public final class PoreloDaemon {
 
     /**
      * Reads a string parameter, treating a missing one as empty.
-     * <p>
-     * A client is not this process, so nothing it sends can be assumed to be there or to be of
+     *
+     * <p>A client is not this process, so nothing it sends can be assumed to be there or to be of
      * the type this expects. An absent task name reaches {@code TaskControl} as the empty string
      * and is refused there as a name Porelo did not create, which is the same answer the CLI gives.
      *
@@ -708,9 +803,9 @@ public final class PoreloDaemon {
      */
     /**
      * Returns one credential record as plain values, with whether its value is there.
-     * <p>
-     * Built from the listing rather than by hand, so a record answered by one method and the same
-     * record answered by another cannot drift.
+     *
+     * <p>Built from the listing rather than by hand, so a record answered by one method and the
+     * same record answered by another cannot drift.
      *
      * @param declarations Where the records are.
      * @param credential The one to describe.
@@ -720,29 +815,39 @@ public final class PoreloDaemon {
             org.fuin.porelo.app.CredentialDeclarations declarations,
             org.fuin.porelo.core.credential.Credential credential) {
         return declarations.asMaps().stream()
-                .filter(row -> credential.match().equals(row.get("match"))
-                        && credential.purpose().equals(row.get("purpose")))
+                .filter(
+                        row ->
+                                credential.match().equals(row.get("match"))
+                                        && credential.purpose().equals(row.get("purpose")))
                 .findFirst()
-                .orElseGet(() -> {
-                    // Not in the file: a credential found by the names a git URL implies. It is
-                    // real and usable, and saying nothing about it would make an interface show
-                    // "no credential" for a machine that has one.
-                    final Map<String, Object> row = new java.util.LinkedHashMap<>();
-                    row.put("id", credential.id());
-                    row.put("kind", credential.kind().name());
-                    row.put("match", credential.match());
-                    row.put("user", credential.user() == null ? "" : credential.user());
-                    row.put("purpose", credential.purpose());
-                    row.put("source", credential.source().name());
-                    row.put("protected", credential.protectedHere());
-                    // Asked, not assumed. This branch is for a record that is not in the file -
-                    // one found by the names a git URL implies, or one being dry-run before it
-                    // exists - and answering 'true' for both made a dry run say MISSING_VALUE
-                    // and 'present: true' in the same breath.
-                    row.put("present", declarations.holdsValue(credential));
-                    row.put("expires", credential.expires() == null ? "" : credential.expires());
-                    return row;
-                });
+                .orElseGet(
+                        () -> {
+                            // Not in the file: a credential found by the names a git URL implies.
+                            // It is
+                            // real and usable, and saying nothing about it would make an interface
+                            // show
+                            // "no credential" for a machine that has one.
+                            final Map<String, Object> row = new java.util.LinkedHashMap<>();
+                            row.put("id", credential.id());
+                            row.put("kind", credential.kind().name());
+                            row.put("match", credential.match());
+                            row.put("user", credential.user() == null ? "" : credential.user());
+                            row.put("purpose", credential.purpose());
+                            row.put("source", credential.source().name());
+                            row.put("protected", credential.protectedHere());
+                            // Asked, not assumed. This branch is for a record that is not in the
+                            // file -
+                            // one found by the names a git URL implies, or one being dry-run before
+                            // it
+                            // exists - and answering 'true' for both made a dry run say
+                            // MISSING_VALUE
+                            // and 'present: true' in the same breath.
+                            row.put("present", declarations.holdsValue(credential));
+                            row.put(
+                                    "expires",
+                                    credential.expires() == null ? "" : credential.expires());
+                            return row;
+                        });
     }
 
     /**
@@ -759,8 +864,10 @@ public final class PoreloDaemon {
         }
         try {
             final org.fuin.porelo.core.project.Project project =
-                    org.fuin.porelo.core.project.ProjectReader.read(java.nio.file.Path.of(summary.file()));
-            final Map<String, Object> messages = org.fuin.porelo.app.Conversations.row(context, project);
+                    org.fuin.porelo.core.project.ProjectReader.read(
+                            java.nio.file.Path.of(summary.file()));
+            final Map<String, Object> messages =
+                    org.fuin.porelo.app.Conversations.row(context, project);
             if (messages != null) {
                 final Map<String, Object> with = new LinkedHashMap<>(row);
                 with.put("messages", messages);
@@ -802,14 +909,23 @@ public final class PoreloDaemon {
         final String principal = "porelo@" + hostName();
         try {
             final org.fuin.porelo.vault.SigningKey key =
-                    org.fuin.porelo.app.HostKey.loadOrCreate(context.paths().messaging().messageKey(), principal);
+                    org.fuin.porelo.app.HostKey.loadOrCreate(
+                            context.paths().messaging().messageKey(), principal);
             final String line = org.fuin.porelo.app.HostKey.allowedSignersLine(key, principal);
             final String publicKey = line.substring(line.indexOf(' ') + 1);
             final String fingerprint = org.fuin.porelo.app.SignedBy.fingerprintOf(publicKey);
-            return Map.of("principal", principal, "key", publicKey, "line", line,
-                    "fingerprint", fingerprint == null ? "" : fingerprint);
+            return Map.of(
+                    "principal",
+                    principal,
+                    "key",
+                    publicKey,
+                    "line",
+                    line,
+                    "fingerprint",
+                    fingerprint == null ? "" : fingerprint);
         } catch (java.io.IOException ex) {
-            throw new VarlinkException(INTERFACE + ".Failed", Map.of("message", String.valueOf(ex.getMessage())));
+            throw new VarlinkException(
+                    INTERFACE + ".Failed", Map.of("message", String.valueOf(ex.getMessage())));
         }
     }
 
@@ -827,11 +943,11 @@ public final class PoreloDaemon {
     }
 
     /**
-     * Reads a parameter that becomes an argument of another program - a URL, an upstream, a host - refusing one
-     * that would be read there as an option.
-     * <p>
-     * git and ssh-keyscan take these as positional arguments, and a value starting with a dash is an option to
-     * them: {@code --upload-pack=...} is a command git runs.
+     * Reads a parameter that becomes an argument of another program - a URL, an upstream, a host -
+     * refusing one that would be read there as an option.
+     *
+     * <p>git and ssh-keyscan take these as positional arguments, and a value starting with a dash
+     * is an option to them: {@code --upload-pack=...} is a command git runs.
      *
      * @param parameters What the call carried.
      * @param name Parameter to read.
@@ -841,7 +957,8 @@ public final class PoreloDaemon {
     static String address(Map<String, Object> parameters, String name) {
         final String value = text(parameters, name);
         if (value.startsWith("-")) {
-            throw new VarlinkException("org.varlink.service.InvalidParameter", Map.of("parameter", name));
+            throw new VarlinkException(
+                    "org.varlink.service.InvalidParameter", Map.of("parameter", name));
         }
         return value;
     }
@@ -855,9 +972,9 @@ public final class PoreloDaemon {
      */
     /**
      * Reads an optional string parameter, answering {@code null} when it was not given.
-     * <p>
-     * Distinct from {@link #text}, which answers "". Here the difference carries meaning: no agent
-     * named means "the only one installed", while an empty name is a name nothing matches.
+     *
+     * <p>Distinct from {@link #text}, which answers "". Here the difference carries meaning: no
+     * agent named means "the only one installed", while an empty name is a name nothing matches.
      *
      * @param parameters What the call carried.
      * @param name Parameter to read.
@@ -878,7 +995,8 @@ public final class PoreloDaemon {
      * @param args Ignored; the socket location comes from the environment, like everything else.
      */
     /** What porelod prints when asked what it is, rather than starting. */
-    static final String USAGE = """
+    static final String USAGE =
+            """
             Usage: porelod [--help] [--version]
 
             Serves the Porelo domain over an owner-only unix socket, for an interface on this
@@ -890,19 +1008,19 @@ public final class PoreloDaemon {
 
     /**
      * Answers an argument without starting anything, or says there is nothing to answer.
-     * <p>
-     * <strong>It used to ignore every argument and run.</strong> So {@code porelod --help} started
-     * a daemon - reported by the interface agent on 2026-09-12, after asking a binary what it does
-     * left a second Porelo listening on that account's runtime socket. Anything a person types to
-     * find out what something is must not be the thing that starts it.
+     *
+     * <p><strong>It used to ignore every argument and run.</strong> So {@code porelod --help}
+     * started a daemon - reported by the interface agent on 2026-09-12, after asking a binary what
+     * it does left a second Porelo listening on that account's runtime socket. Anything a person
+     * types to find out what something is must not be the thing that starts it.
      *
      * @param args What was passed.
      * @param out Where an answer goes.
      * @param err Where a refusal goes.
      * @return The exit code to use, or {@code null} to start the daemon.
      */
-    static java.lang.@org.jspecify.annotations.Nullable Integer answer(String[] args,
-            java.io.PrintStream out, java.io.PrintStream err) {
+    static java.lang.@org.jspecify.annotations.Nullable Integer answer(
+            String[] args, java.io.PrintStream out, java.io.PrintStream err) {
         if (args.length == 0) {
             return null;
         }
@@ -938,8 +1056,7 @@ public final class PoreloDaemon {
         final Path socket = context.paths().daemonSocket();
         // Started here and not in serving(): this is the one thing the daemon does that reaches
         // the network on its own, and nothing in a test should do that by existing.
-        final java.time.Duration every =
-                org.fuin.porelo.app.UpstreamWatch.interval(System::getenv);
+        final java.time.Duration every = org.fuin.porelo.app.UpstreamWatch.interval(System::getenv);
         // Messages move because this goes and looks: the daemon binds no network interface, so
         // nothing can be pushed to it. Started here for the same reason as the upstream watch -
         // nothing in a test should walk a machine's mailboxes by existing.
@@ -968,26 +1085,38 @@ public final class PoreloDaemon {
             // fetches from elsewhere has to be asked rather than waited on.
             final boolean noticing = mail.startNotices();
             configuration.start();
-            // An update replaces this binary and starts nothing: this notices, and has the account's own manager
+            // An update replaces this binary and starts nothing: this notices, and has the
+            // account's own manager
             // restart the daemon on the new one.
             SelfReplacement.ofThisProcess(context.runner()).start();
             System.out.println("porelod listening on " + socket);
-            System.out.println(messages.isZero() || messages.isNegative()
-                    ? "not moving messages (" + org.fuin.porelo.app.MessageWatch.INTERVAL_VARIABLE
-                            + "=0)"
-                    : "moving every mailbox along every " + messages.toSeconds() + " seconds"
-                            + (noticing ? ", and at once when one lands here"
-                                    : " (this machine cannot watch directories)"));
-            System.out.println(following.isZero() || following.isNegative()
-                    ? "not following project repositories ("
-                            + org.fuin.porelo.app.ConfigurationWatch.INTERVAL_VARIABLE + "=0)"
-                    : "following each project's repository every " + following.toSeconds()
-                            + " seconds");
-            System.out.println(every.isZero() || every.isNegative()
-                    ? "not measuring how far projects are behind upstream ("
-                            + org.fuin.porelo.app.UpstreamWatch.INTERVAL_VARIABLE + "=0)"
-                    : "measuring how far projects are behind upstream every "
-                            + every.toMinutes() + " minutes");
+            System.out.println(
+                    messages.isZero() || messages.isNegative()
+                            ? "not moving messages ("
+                                    + org.fuin.porelo.app.MessageWatch.INTERVAL_VARIABLE
+                                    + "=0)"
+                            : "moving every mailbox along every "
+                                    + messages.toSeconds()
+                                    + " seconds"
+                                    + (noticing
+                                            ? ", and at once when one lands here"
+                                            : " (this machine cannot watch directories)"));
+            System.out.println(
+                    following.isZero() || following.isNegative()
+                            ? "not following project repositories ("
+                                    + org.fuin.porelo.app.ConfigurationWatch.INTERVAL_VARIABLE
+                                    + "=0)"
+                            : "following each project's repository every "
+                                    + following.toSeconds()
+                                    + " seconds");
+            System.out.println(
+                    every.isZero() || every.isNegative()
+                            ? "not measuring how far projects are behind upstream ("
+                                    + org.fuin.porelo.app.UpstreamWatch.INTERVAL_VARIABLE
+                                    + "=0)"
+                            : "measuring how far projects are behind upstream every "
+                                    + every.toMinutes()
+                                    + " minutes");
             System.out.flush();
             server.run();
         } catch (RuntimeException ex) {

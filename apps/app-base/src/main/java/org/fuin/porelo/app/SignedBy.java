@@ -12,18 +12,18 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * The public key a commit was signed with, taken out of the commit itself.
- * <p>
- * <strong>Why this exists.</strong> A machine that refuses a commit names the key's fingerprint,
+ *
+ * <p><strong>Why this exists.</strong> A machine that refuses a commit names the key's fingerprint,
  * because that is what a person can compare with what they were told. Pinning that key then meant
  * finding the whole key somewhere else and pasting it - so the refusal pointed at one string and
- * the cure needed another. With this, a person confirms the fingerprint they were shown and the
- * key itself is read from the commit.
- * <p>
- * <strong>This is not a way around the anchor.</strong> The key still comes from the person: they
- * say which fingerprint they expect, and a key whose fingerprint is anything else is refused. What
- * is read from the repository is only the bytes of a key somebody has already vouched for by name.
- * Reading a key from the repository <em>without</em> that confirmation would make the signature
- * decoration, which is the one rule with no exception.
+ * the cure needed another. With this, a person confirms the fingerprint they were shown and the key
+ * itself is read from the commit.
+ *
+ * <p><strong>This is not a way around the anchor.</strong> The key still comes from the person:
+ * they say which fingerprint they expect, and a key whose fingerprint is anything else is refused.
+ * What is read from the repository is only the bytes of a key somebody has already vouched for by
+ * name. Reading a key from the repository <em>without</em> that confirmation would make the
+ * signature decoration, which is the one rule with no exception.
  */
 public final class SignedBy {
 
@@ -51,13 +51,14 @@ public final class SignedBy {
      * @param repository A clone holding that commit.
      * @param ref What to read, such as {@code FETCH_HEAD}.
      * @return The key as {@code ssh-ed25519 AAAA...}, or {@code null} when the commit carries no
-     *         SSH signature or it cannot be read. Not an error here: the caller is deciding
-     *         whether to trust it and has a better refusal than this could write.
+     *     SSH signature or it cannot be read. Not an error here: the caller is deciding whether to
+     *     trust it and has a better refusal than this could write.
      */
-    public static @Nullable String keyOf(final CommandRunner runner, final Path repository,
-            final String ref) {
-        final CommandResult read = runner.run(Command.of("git", "-C", repository.toString(),
-                "cat-file", "commit", ref));
+    public static @Nullable String keyOf(
+            final CommandRunner runner, final Path repository, final String ref) {
+        final CommandResult read =
+                runner.run(
+                        Command.of("git", "-C", repository.toString(), "cat-file", "commit", ref));
         if (!read.successful()) {
             return null;
         }
@@ -100,8 +101,9 @@ public final class SignedBy {
             return null;
         }
         try {
-            final byte[] digest = MessageDigest.getInstance("SHA-256")
-                    .digest(Base64.getDecoder().decode(fields[1]));
+            final byte[] digest =
+                    MessageDigest.getInstance("SHA-256")
+                            .digest(Base64.getDecoder().decode(fields[1]));
             return "SHA256:" + Base64.getEncoder().withoutPadding().encodeToString(digest);
         } catch (final NoSuchAlgorithmException | IllegalArgumentException ex) {
             return null;
@@ -110,9 +112,9 @@ public final class SignedBy {
 
     /**
      * Returns the base64 body of the {@code gpgsig} header, unwrapped.
-     * <p>
-     * git indents a continued header with one space and wraps the armor itself, so the lines have
-     * to be stripped of both before they are one blob again.
+     *
+     * <p>git indents a continued header with one space and wraps the armor itself, so the lines
+     * have to be stripped of both before they are one blob again.
      */
     private static @Nullable String armoredIn(final String commit) {
         final StringBuilder body = new StringBuilder();
@@ -140,7 +142,9 @@ public final class SignedBy {
         if (at + 4 > bytes.length) {
             return -1;
         }
-        return ((bytes[at] & 0xFF) << 24) | ((bytes[at + 1] & 0xFF) << 16)
-                | ((bytes[at + 2] & 0xFF) << 8) | (bytes[at + 3] & 0xFF);
+        return ((bytes[at] & 0xFF) << 24)
+                | ((bytes[at + 1] & 0xFF) << 16)
+                | ((bytes[at + 2] & 0xFF) << 8)
+                | (bytes[at + 3] & 0xFF);
     }
 }

@@ -16,30 +16,36 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * The peers a task has because of the project it belongs to, rather than because somebody wrote
  * them down.
- * <p>
- * <strong>Why this cannot be a written list.</strong> A project is a unit of work over one or more
- * repositories and a task works on exactly one of them, so two repositories are coordinated by two
- * tasks talking. Those tasks are started and stopped by the machine itself, several a day; a peer
- * list somebody maintained for them would be wrong most of the time, and wrong in the direction
- * where a message silently goes nowhere.
+ *
+ * <p><strong>Why this cannot be a written list.</strong> A project is a unit of work over one or
+ * more repositories and a task works on exactly one of them, so two repositories are coordinated by
+ * two tasks talking. Those tasks are started and stopped by the machine itself, several a day; a
+ * peer list somebody maintained for them would be wrong most of the time, and wrong in the
+ * direction where a message silently goes nowhere.
  */
 class ProjectTasksArePeersTest {
 
     private final FakeCommandRunner runner = new FakeCommandRunner();
 
     private PoreloContext context(final Path dir) {
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
         return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
     }
 
     private static Project project(final String extra) {
-        return ProjectReader.read(new StringReader("""
+        return ProjectReader.read(
+                new StringReader(
+                        """
                 project:
                   name: "acme"
                   security_class: "guarded"
@@ -48,11 +54,17 @@ class ProjectTasksArePeersTest {
                 repositories:
                   backend:
                   frontend:
-                """ + extra), "test");
+                """
+                                + extra),
+                "test");
     }
 
-    /** A project that messages: one peer reached through the project's own conversation on a transport. */
-    private static final String CONVERSATION = """
+    /**
+     * A project that messages: one peer reached through the project's own conversation on a
+     * transport.
+     */
+    private static final String CONVERSATION =
+            """
             mail:
               peers:
                 person: { address: "room:", trust: external }
@@ -72,10 +84,12 @@ class ProjectTasksArePeersTest {
 
         tasks("porelo-acme-planning", "porelo-acme-api", "porelo-acme-web");
 
-        final Mail mail = new MessageWatch(context(dir), Duration.ZERO)
-                .withSiblings(project(CONVERSATION), "porelo-acme-planning");
+        final Mail mail =
+                new MessageWatch(context(dir), Duration.ZERO)
+                        .withSiblings(project(CONVERSATION), "porelo-acme-planning");
 
-        assertThat(mail.peers()).extracting(Mail.Peer::name)
+        assertThat(mail.peers())
+                .extracting(Mail.Peer::name)
                 .as("and the people in its conversation, whom nobody writes down either")
                 .containsExactlyInAnyOrder("person", Mail.PEOPLE, "api", "web");
     }
@@ -85,8 +99,9 @@ class ProjectTasksArePeersTest {
 
         tasks("porelo-acme-planning", "porelo-acme-api");
 
-        final Mail mail = new MessageWatch(context(dir), Duration.ZERO)
-                .withSiblings(project(CONVERSATION), "porelo-acme-planning");
+        final Mail mail =
+                new MessageWatch(context(dir), Duration.ZERO)
+                        .withSiblings(project(CONVERSATION), "porelo-acme-planning");
 
         assertThat(mail.peers()).extracting(Mail.Peer::name).doesNotContain("planning");
     }
@@ -99,21 +114,28 @@ class ProjectTasksArePeersTest {
         // mean nothing.
         tasks("porelo-acme-api", "porelo-other-api");
 
-        final Mail mail = new MessageWatch(context(dir), Duration.ZERO)
-                .withSiblings(project(CONVERSATION), "porelo-acme-planning");
+        final Mail mail =
+                new MessageWatch(context(dir), Duration.ZERO)
+                        .withSiblings(project(CONVERSATION), "porelo-acme-planning");
 
-        assertThat(mail.peers()).extracting(Mail.Peer::name).containsExactly("person", Mail.PEOPLE, "api");
+        assertThat(mail.peers())
+                .extracting(Mail.Peer::name)
+                .containsExactly("person", Mail.PEOPLE, "api");
     }
 
     @Test
     void aStandaloneProjectsTasksAreNobodysPeers(@TempDir Path dir) {
 
-        // No transport that keeps a conversation, so no messaging: the local transport is retired, and a
+        // No transport that keeps a conversation, so no messaging: the local transport is retired,
+        // and a
         // project without a conversation works alone (decided on 2026-09-30).
         tasks("porelo-acme-api", "porelo-acme-web");
 
-        assertThat(new MessageWatch(context(dir), Duration.ZERO).withSiblings(project(""), "porelo-acme-planning")
-                .peers()).isEmpty();
+        assertThat(
+                        new MessageWatch(context(dir), Duration.ZERO)
+                                .withSiblings(project(""), "porelo-acme-planning")
+                                .peers())
+                .isEmpty();
     }
 
     @Test
@@ -121,8 +143,10 @@ class ProjectTasksArePeersTest {
 
         tasks("porelo-acme-api");
 
-        final Mail.Peer peer = new MessageWatch(context(dir), Duration.ZERO)
-                .withSiblings(project(CONVERSATION), "porelo-acme-planning").peer("api");
+        final Mail.Peer peer =
+                new MessageWatch(context(dir), Duration.ZERO)
+                        .withSiblings(project(CONVERSATION), "porelo-acme-planning")
+                        .peer("api");
 
         assertThat(peer.transport()).isEqualTo("room");
         assertThat(peer.conversation()).isTrue();
@@ -138,14 +162,19 @@ class ProjectTasksArePeersTest {
 
         // This is how the exception stays possible and stays explicit: naming a task in
         // 'mail.peers' sends to what the file says rather than to the task next door.
-        final Mail.Peer peer = new MessageWatch(context(dir), Duration.ZERO)
-                .withSiblings(project("""
+        final Mail.Peer peer =
+                new MessageWatch(context(dir), Duration.ZERO)
+                        .withSiblings(
+                                project(
+                                        """
                         mail:
                           peers:
                             api:
                               address: "spool:someone-else"
                               trust: "external"
-                        """), "porelo-acme-planning").peer("api");
+                        """),
+                                "porelo-acme-planning")
+                        .peer("api");
 
         assertThat(peer.transport()).isEqualTo("spool");
         assertThat(peer.destination()).isEqualTo("someone-else");

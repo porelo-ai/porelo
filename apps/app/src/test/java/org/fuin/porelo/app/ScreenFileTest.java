@@ -13,12 +13,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Tests for {@link ScreenFile}: an agent's screen read from a file the task writes, not from a process in it.
+ * Tests for {@link ScreenFile}: an agent's screen read from a file the task writes, not from a
+ * process in it.
  */
 class ScreenFileTest {
 
-    @TempDir
-    Path state;
+    @TempDir Path state;
 
     private static final Instant NOW = Instant.parse("2026-10-07T17:00:00Z");
 
@@ -33,21 +33,26 @@ class ScreenFileTest {
     @Test
     void aWriterThatLooksIsReadAndOneThatStoppedIsNot() throws Exception {
         alive(NOW.minusSeconds(1));
-        Files.writeString(ScreenFile.directory(state).resolve(ScreenFile.SCREEN), "Trust this folder? [y/N]\n");
+        Files.writeString(
+                ScreenFile.directory(state).resolve(ScreenFile.SCREEN),
+                "Trust this folder? [y/N]\n");
         assertThat(ScreenFile.read(state, clock)).isEqualTo("Trust this folder? [y/N]\n");
 
         Files.delete(ScreenFile.directory(state).resolve(ScreenFile.SCREEN));
         assertThat(ScreenFile.read(state, clock)).as("no session drawn").isEmpty();
 
         alive(NOW.minus(ScreenFile.FRESH).minusSeconds(1));
-        assertThat(ScreenFile.read(state, clock)).as("a writer that stopped: ask the task").isNull();
+        assertThat(ScreenFile.read(state, clock))
+                .as("a writer that stopped: ask the task")
+                .isNull();
         assertThat(ScreenFile.read(state.resolve("never-made"), clock)).isNull();
     }
 
     @Test
     void aLinkWhereTheScreenShouldBeIsNotFollowed() throws Exception {
         alive(NOW);
-        final Path elsewhere = Files.writeString(state.resolve("elsewhere.txt"), "a file of the host's\n");
+        final Path elsewhere =
+                Files.writeString(state.resolve("elsewhere.txt"), "a file of the host's\n");
         Files.createSymbolicLink(ScreenFile.directory(state).resolve(ScreenFile.SCREEN), elsewhere);
 
         assertThat(ScreenFile.read(state, clock)).isEmpty();
@@ -61,11 +66,14 @@ class ScreenFileTest {
         final Path bin = Files.createDirectories(state.resolve("bin"));
         final Path drawn = state.resolve("drawn.txt");
         final Path agents = state.resolve("agent-screen");
-        Files.writeString(bin.resolve("tmux"), "#!/bin/sh\n[ -s " + drawn + " ] || exit 1\ncat " + drawn + "\n");
+        Files.writeString(
+                bin.resolve("tmux"),
+                "#!/bin/sh\n[ -s " + drawn + " ] || exit 1\ncat " + drawn + "\n");
         bin.resolve("tmux").toFile().setExecutable(true);
         Files.writeString(drawn, "stub: at work, nothing asked\n");
         final Process drawer = start(ScreenFile.drawerScript(agents.toString()), bin);
-        final Process writer = start(ScreenFile.writerScript(directory.toString(), agents.toString()), bin);
+        final Process writer =
+                start(ScreenFile.writerScript(directory.toString(), agents.toString()), bin);
         try {
             final Path screen = directory.resolve(ScreenFile.SCREEN);
             waitFor(() -> Files.isRegularFile(screen));
@@ -88,23 +96,35 @@ class ScreenFileTest {
     @Test
     void whatTheAgentLeavesInsteadOfADrawingIsNotCopiedAndNothingWaits() throws Exception {
 
-        // The agent's side is the agent's: a link to a file of the root's, or a pipe nobody writes, must neither be
+        // The agent's side is the agent's: a link to a file of the root's, or a pipe nobody writes,
+        // must neither be
         // read through nor hold the copy.
         final Path directory = ScreenFile.prepare(state);
         final Path agents = state.resolve("agent-screen");
-        final Path secret = Files.writeString(state.resolve("roots-own.txt"), "not the agent's to read\n");
+        final Path secret =
+                Files.writeString(state.resolve("roots-own.txt"), "not the agent's to read\n");
         Files.createSymbolicLink(agents, secret);
-        final Process writer = start(ScreenFile.writerScript(directory.toString(), agents.toString()), null);
+        final Process writer =
+                start(ScreenFile.writerScript(directory.toString(), agents.toString()), null);
         try {
             waitFor(() -> Files.exists(directory.resolve(ScreenFile.ALIVE)));
             Thread.sleep(1500);
-            assertThat(directory.resolve(ScreenFile.SCREEN)).as("a link is not followed").doesNotExist();
+            assertThat(directory.resolve(ScreenFile.SCREEN))
+                    .as("a link is not followed")
+                    .doesNotExist();
 
             Files.delete(agents);
             new ProcessBuilder("mkfifo", agents.toString()).start().waitFor();
-            final java.nio.file.attribute.FileTime before = Files.getLastModifiedTime(directory.resolve(ScreenFile.ALIVE));
-            waitFor(() -> Files.getLastModifiedTime(directory.resolve(ScreenFile.ALIVE)).compareTo(before) > 0);
-            assertThat(directory.resolve(ScreenFile.SCREEN)).as("a pipe holds nothing up").doesNotExist();
+            final java.nio.file.attribute.FileTime before =
+                    Files.getLastModifiedTime(directory.resolve(ScreenFile.ALIVE));
+            waitFor(
+                    () ->
+                            Files.getLastModifiedTime(directory.resolve(ScreenFile.ALIVE))
+                                            .compareTo(before)
+                                    > 0);
+            assertThat(directory.resolve(ScreenFile.SCREEN))
+                    .as("a pipe holds nothing up")
+                    .doesNotExist();
         } finally {
             writer.destroy();
             writer.waitFor(5, TimeUnit.SECONDS);
@@ -112,8 +132,10 @@ class ScreenFileTest {
     }
 
     private static Process start(final String script, final Path bin) throws Exception {
-        final ProcessBuilder builder = new ProcessBuilder("sh", "-c", script).redirectErrorStream(true)
-                .redirectOutput(ProcessBuilder.Redirect.DISCARD);
+        final ProcessBuilder builder =
+                new ProcessBuilder("sh", "-c", script)
+                        .redirectErrorStream(true)
+                        .redirectOutput(ProcessBuilder.Redirect.DISCARD);
         if (bin != null) {
             builder.environment().put("PATH", bin + ":" + System.getenv("PATH"));
         }

@@ -36,14 +36,22 @@ public record ContainerFile(String path, String content, boolean ownerOnly) {
         //   a trailing '/' or an empty segment             - names a directory, or nothing.
         for (final char character : path.toCharArray()) {
             if (character < ' ' || character == '\'' || character == '"' || character == '\\') {
-                throw new AgentException("A container file path may not contain quotes, backslashes"
-                        + " or control characters: '" + path + "'");
+                throw new AgentException(
+                        "A container file path may not contain quotes, backslashes"
+                                + " or control characters: '"
+                                + path
+                                + "'");
             }
         }
-        if (path.contains("/../") || path.endsWith("/..") || path.contains("//")
+        if (path.contains("/../")
+                || path.endsWith("/..")
+                || path.contains("//")
                 || path.endsWith("/")) {
-            throw new AgentException("A container file needs a plain absolute path without '..'"
-                    + " or empty segments, not '" + path + "'");
+            throw new AgentException(
+                    "A container file needs a plain absolute path without '..'"
+                            + " or empty segments, not '"
+                            + path
+                            + "'");
         }
     }
 

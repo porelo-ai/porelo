@@ -15,8 +15,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Tests for {@link UpstreamDistance}, against real repositories.
- * <p>
- * Faking git here would test that the arguments match what was written down. What has to be true
+ *
+ * <p>Faking git here would test that the arguments match what was written down. What has to be true
  * is that a real fetch into a real bare mirror counts what a person would count and moves nothing
  * the gate depends on - and only a real one can say.
  */
@@ -27,25 +27,38 @@ class UpstreamDistanceTest {
     private CommandResultOf git(Path directory, String... arguments) {
         final List<String> all = new ArrayList<>(List.of("git"));
         all.addAll(List.of(arguments));
-        return new CommandResultOf(runner.runOrFail(new Command(all, directory,
-                Map.of("GIT_AUTHOR_NAME", "Test", "GIT_AUTHOR_EMAIL", "test@example.com",
-                        "GIT_COMMITTER_NAME", "Test", "GIT_COMMITTER_EMAIL", "test@example.com",
-                        "GIT_TERMINAL_PROMPT", "0"),
-                null)).standardOutput());
+        return new CommandResultOf(
+                runner.runOrFail(
+                                new Command(
+                                        all,
+                                        directory,
+                                        Map.of(
+                                                "GIT_AUTHOR_NAME",
+                                                "Test",
+                                                "GIT_AUTHOR_EMAIL",
+                                                "test@example.com",
+                                                "GIT_COMMITTER_NAME",
+                                                "Test",
+                                                "GIT_COMMITTER_EMAIL",
+                                                "test@example.com",
+                                                "GIT_TERMINAL_PROMPT",
+                                                "0"),
+                                        null))
+                        .standardOutput());
     }
 
     /** Only so the helper reads as a statement rather than as a discarded value. */
-    private record CommandResultOf(String output) { }
+    private record CommandResultOf(String output) {}
 
     /**
      * Builds an upstream with one commit on it and returns its path.
-     * <p>
-     * <strong>The initial branch is named, not inherited.</strong> Without it {@code git init}
+     *
+     * <p><strong>The initial branch is named, not inherited.</strong> Without it {@code git init}
      * takes the branch name from the machine's own configuration, and the upstream ends up with
-     * HEAD pointing at a branch that was never created - which makes {@code git fetch origin}
-     * fail with "couldn't find remote ref HEAD", because with no refspec that is exactly what it
-     * asks for. This test passed on a machine with {@code init.defaultBranch=main} and failed on
-     * CI, which has none: the fixture depended on whoever ran it.
+     * HEAD pointing at a branch that was never created - which makes {@code git fetch origin} fail
+     * with "couldn't find remote ref HEAD", because with no refspec that is exactly what it asks
+     * for. This test passed on a machine with {@code init.defaultBranch=main} and failed on CI,
+     * which has none: the fixture depended on whoever ran it.
      */
     private Path upstreamWithOneCommit(Path root) throws Exception {
         final Path upstream = root.resolve("upstream.git");
@@ -61,33 +74,41 @@ class UpstreamDistanceTest {
     }
 
     @Test
-    void measuresWithWhatTheCredentialsLendAnUpstreamOnlyTheyReach(@TempDir Path root) throws Exception {
+    void measuresWithWhatTheCredentialsLendAnUpstreamOnlyTheyReach(@TempDir Path root)
+            throws Exception {
 
         // The upstream was a private repository over ssh. The follow's fetch and the gate's refresh
-        // lent the deploy key; the measurement fetched without it and answered "Permission denied (publickey)" with
-        // the vault open. Here origin is an address only the lent configuration turns into the real repository.
+        // lent the deploy key; the measurement fetched without it and answered "Permission denied
+        // (publickey)" with
+        // the vault open. Here origin is an address only the lent configuration turns into the real
+        // repository.
         final Path upstream = upstreamWithOneCommit(root);
         final Path mirror = root.resolve("mirror.git");
         git(root, "clone", "--quiet", "--bare", upstream.toString(), mirror.toString());
         git(root, "--git-dir", mirror.toString(), "remote", "set-url", "origin", "lent://upstream");
-        final GitCredentials lending = url -> new GitCredentials.Lease() {
-            @Override
-            public Map<String, String> environment() {
-                return Map.of();
-            }
+        final GitCredentials lending =
+                url ->
+                        new GitCredentials.Lease() {
+                            @Override
+                            public Map<String, String> environment() {
+                                return Map.of();
+                            }
 
-            @Override
-            public List<String> arguments() {
-                return List.of("-c", "url." + upstream + ".insteadOf=" + url);
-            }
+                            @Override
+                            public List<String> arguments() {
+                                return List.of("-c", "url." + upstream + ".insteadOf=" + url);
+                            }
 
-            @Override
-            public void close() {
-            }
-        };
+                            @Override
+                            public void close() {}
+                        };
 
-        assertThat(UpstreamDistance.measure(runner, mirror, GateMode.GATEKEEPING, GitCredentials.NONE).reason())
-                .as("without the lent credential").isEqualTo(UpstreamDistance.Reason.FAILED);
+        assertThat(
+                        UpstreamDistance.measure(
+                                        runner, mirror, GateMode.GATEKEEPING, GitCredentials.NONE)
+                                .reason())
+                .as("without the lent credential")
+                .isEqualTo(UpstreamDistance.Reason.FAILED);
         assertThat(UpstreamDistance.measure(runner, mirror, GateMode.GATEKEEPING, lending).reason())
                 .isEqualTo(UpstreamDistance.Reason.MEASURED);
     }
@@ -117,7 +138,8 @@ class UpstreamDistanceTest {
         final UpstreamDistance.Distance distance =
                 UpstreamDistance.measure(runner, mirror, GateMode.GATEKEEPING);
 
-        assertThat(distance.reason()).as("git said: %s", distance.detail())
+        assertThat(distance.reason())
+                .as("git said: %s", distance.detail())
                 .isEqualTo(UpstreamDistance.Reason.MEASURED);
         assertThat(distance.behind()).isEqualTo(1);
     }
@@ -145,7 +167,8 @@ class UpstreamDistanceTest {
         // The detail is in the message on purpose: without it a failure here reads only
         // "expected MEASURED but was FAILED" and throws away git's own words, which is the one
         // thing that would explain it. That cost a reproduction round on this very test.
-        assertThat(distance.reason()).as("git said: %s", distance.detail())
+        assertThat(distance.reason())
+                .as("git said: %s", distance.detail())
                 .isEqualTo(UpstreamDistance.Reason.MEASURED);
         assertThat(distance.behind()).isEqualTo(2);
         assertThat(distance.measured()).isNotNull();
@@ -163,7 +186,8 @@ class UpstreamDistanceTest {
         final UpstreamDistance.Distance distance =
                 UpstreamDistance.measure(runner, mirror, GateMode.GATEKEEPING);
 
-        assertThat(distance.reason()).as("git said: %s", distance.detail())
+        assertThat(distance.reason())
+                .as("git said: %s", distance.detail())
                 .isEqualTo(UpstreamDistance.Reason.MEASURED);
         assertThat(distance.behind()).isZero();
     }
@@ -177,14 +201,27 @@ class UpstreamDistanceTest {
         final Path upstream = upstreamWithOneCommit(root);
         final Path mirror = root.resolve("mirror.git");
         git(root, "clone", "--quiet", "--bare", upstream.toString(), mirror.toString());
-        final String before = git(mirror, "--git-dir", mirror.toString(),
-                "for-each-ref", "--format=%(refname) %(objectname)").output();
+        final String before =
+                git(
+                                mirror,
+                                "--git-dir",
+                                mirror.toString(),
+                                "for-each-ref",
+                                "--format=%(refname) %(objectname)")
+                        .output();
         commitTo(root, upstream, "two");
 
         UpstreamDistance.measure(runner, mirror, GateMode.GATEKEEPING);
 
-        assertThat(git(mirror, "--git-dir", mirror.toString(),
-                "for-each-ref", "--format=%(refname) %(objectname)").output()).isEqualTo(before);
+        assertThat(
+                        git(
+                                        mirror,
+                                        "--git-dir",
+                                        mirror.toString(),
+                                        "for-each-ref",
+                                        "--format=%(refname) %(objectname)")
+                                .output())
+                .isEqualTo(before);
     }
 
     @Test
@@ -219,8 +256,11 @@ class UpstreamDistanceTest {
     @Test
     void saysNothingHasLookedWhenThereIsNoMirrorYet(@TempDir Path root) {
 
-        assertThat(UpstreamDistance.measure(runner, root.resolve("absent.git"), GateMode.GATEKEEPING)
-                .reason()).isEqualTo(UpstreamDistance.Reason.NEVER_CHECKED);
+        assertThat(
+                        UpstreamDistance.measure(
+                                        runner, root.resolve("absent.git"), GateMode.GATEKEEPING)
+                                .reason())
+                .isEqualTo(UpstreamDistance.Reason.NEVER_CHECKED);
     }
 
     @Test
@@ -233,13 +273,15 @@ class UpstreamDistanceTest {
         final Path mirror = root.resolve("mirror.git");
         git(root, "clone", "--quiet", "--bare", upstream.toString(), mirror.toString());
         try (var walk = java.nio.file.Files.walk(upstream)) {
-            walk.sorted(java.util.Comparator.reverseOrder()).forEach(path -> {
-                try {
-                    java.nio.file.Files.delete(path);
-                } catch (java.io.IOException ex) {
-                    throw new IllegalStateException(ex);
-                }
-            });
+            walk.sorted(java.util.Comparator.reverseOrder())
+                    .forEach(
+                            path -> {
+                                try {
+                                    java.nio.file.Files.delete(path);
+                                } catch (java.io.IOException ex) {
+                                    throw new IllegalStateException(ex);
+                                }
+                            });
         }
 
         final UpstreamDistance.Distance distance =
@@ -265,8 +307,7 @@ class UpstreamDistanceTest {
         java.nio.file.Files.writeString(work.resolve("agent.txt"), "written by the agent\n");
         git(work, "add", ".");
         git(work, "commit", "--quiet", "-m", "agent work");
-        git(work, "push", "--quiet", mirror.toString(),
-                "HEAD:" + GitGate.INCOMING + "shell");
+        git(work, "push", "--quiet", mirror.toString(), "HEAD:" + GitGate.INCOMING + "shell");
         // ...and a person then pushes the same commit upstream themselves, past the gate.
         git(work, "push", "--quiet", upstream.toString(), "main");
 

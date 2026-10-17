@@ -14,27 +14,35 @@ import org.fuin.porelo.wire.TaskProfile;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Tests for {@link ReviewText}: what a person reads before the patch.
- */
+/** Tests for {@link ReviewText}: what a person reads before the patch. */
 class ReviewTextTest {
 
-    @TempDir
-    Path dir;
+    @TempDir Path dir;
 
     private PoreloPaths paths() {
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
         return new PoreloPaths(xdg, dir.resolve("bin"));
     }
 
     private void task(Path directory, String prompt, String push) throws IOException {
         Files.createDirectories(directory);
-        new TaskProfile(1, "asker", TaskMode.UNATTENDED, prompt, GitGate.INCOMING + push,
-                "2026-09-29T12:00:00Z", "deny").writeTo(directory);
+        new TaskProfile(
+                        1,
+                        "asker",
+                        TaskMode.UNATTENDED,
+                        prompt,
+                        GitGate.INCOMING + push,
+                        "2026-09-29T12:00:00Z",
+                        "deny")
+                .writeTo(directory);
     }
 
     @Test
@@ -51,37 +59,63 @@ class ReviewTextTest {
     void findsItInTheCopyKeptAfterARestartToo() throws IOException {
         task(paths().tasks().taskRecord("porelo-checkout-fix"), "fix the flaky test", "fix");
 
-        assertThat(ReviewText.instruction(paths(), "checkout", "fix").describe()).isEqualTo("fix the flaky test");
+        assertThat(ReviewText.instruction(paths(), "checkout", "fix").describe())
+                .isEqualTo("fix the flaky test");
     }
 
     @Test
     void saysSoWhenTheTaskWasStartedWithoutAnInstruction() throws IOException {
         task(paths().tasks().containerState("porelo-checkout-fix"), "", "fix");
 
-        assertThat(ReviewText.instruction(paths(), "checkout", "fix").describe()).startsWith("none:");
+        assertThat(ReviewText.instruction(paths(), "checkout", "fix").describe())
+                .startsWith("none:");
     }
 
     @Test
     void saysSoWhenTheTaskIsGoneRatherThanShowingNothing() {
-        assertThat(ReviewText.instruction(paths(), "checkout", "fix").describe()).startsWith("not known:");
+        assertThat(ReviewText.instruction(paths(), "checkout", "fix").describe())
+                .startsWith("not known:");
     }
 
     @Test
     void namesTheDangerousFirstAndSaysSoWhenThereIsNone() {
-        final String withDanger = ReviewText.render(new ReviewText.Instruction(true, "fix it"), List.of(
-                new ReviewRanking.File(".github/workflows/ci.yml", "M", 1, 0, ReviewRanking.Rank.DANGEROUS,
-                        "a CI definition: it runs with the CI's credentials"),
-                new ReviewRanking.File("App.java", "M", 3, 1, ReviewRanking.Rank.ORDINARY, ""),
-                new ReviewRanking.File("Big.java", "M", 400, 400, ReviewRanking.Rank.REFORMATTING, "whitespace only")));
+        final String withDanger =
+                ReviewText.render(
+                        new ReviewText.Instruction(true, "fix it"),
+                        List.of(
+                                new ReviewRanking.File(
+                                        ".github/workflows/ci.yml",
+                                        "M",
+                                        1,
+                                        0,
+                                        ReviewRanking.Rank.DANGEROUS,
+                                        "a CI definition: it runs with the CI's credentials"),
+                                new ReviewRanking.File(
+                                        "App.java", "M", 3, 1, ReviewRanking.Rank.ORDINARY, ""),
+                                new ReviewRanking.File(
+                                        "Big.java",
+                                        "M",
+                                        400,
+                                        400,
+                                        ReviewRanking.Rank.REFORMATTING,
+                                        "whitespace only")));
 
-        assertThat(withDanger).startsWith("asked: fix it\n\nREAD FIRST - dangerous by kind, however small:\n"
-                + "  M  .github/workflows/ci.yml  +1 -0  a CI definition");
+        assertThat(withDanger)
+                .startsWith(
+                        "asked: fix it\n\nREAD FIRST - dangerous by kind, however small:\n"
+                                + "  M  .github/workflows/ci.yml  +1 -0  a CI definition");
         assertThat(withDanger.indexOf("App.java")).isLessThan(withDanger.indexOf("Big.java"));
-        assertThat(withDanger).contains("Almost never the finding - at the end of the patch:\n"
-                + "  M  Big.java  +400 -400  whitespace only");
+        assertThat(withDanger)
+                .contains(
+                        "Almost never the finding - at the end of the patch:\n"
+                                + "  M  Big.java  +400 -400  whitespace only");
 
-        final String without = ReviewText.render(ReviewText.Instruction.GONE,
-                List.of(new ReviewRanking.File("App.java", "M", 3, 1, ReviewRanking.Rank.ORDINARY, "")));
+        final String without =
+                ReviewText.render(
+                        ReviewText.Instruction.GONE,
+                        List.of(
+                                new ReviewRanking.File(
+                                        "App.java", "M", 3, 1, ReviewRanking.Rank.ORDINARY, "")));
         assertThat(without).contains("Nothing dangerous by kind");
     }
 }

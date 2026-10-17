@@ -6,18 +6,18 @@ import java.util.Optional;
 
 /**
  * Where the {@code porelo} binary is, for the helpers a task starts.
- * <p>
- * A task's gate, credential broker, relay and clearance watcher are all {@code porelo} running with
- * different arguments, and until now each one asked {@code ProcessHandle.current()} for the path to
- * re-execute. That is right in the CLI and wrong everywhere else: measured, a task started through
- * the daemon tried to run {@code porelod gate serve}, which is a binary with no such command, so the
- * container came up with **no gate and no clearance watcher** and nothing said so - the task looked
- * like it had started.
- * <p>
- * The current process wins when it is itself {@code porelo}, which keeps the property that a local
- * build shadows a packaged one: a developer testing a build must get their own helpers, not the
- * installed ones. Otherwise the answer is the {@code porelo} beside whatever is running, and only
- * then the one on the path.
+ *
+ * <p>A task's gate, credential broker, relay and clearance watcher are all {@code porelo} running
+ * with different arguments, and until now each one asked {@code ProcessHandle.current()} for the
+ * path to re-execute. That is right in the CLI and wrong everywhere else: measured, a task started
+ * through the daemon tried to run {@code porelod gate serve}, which is a binary with no such
+ * command, so the container came up with **no gate and no clearance watcher** and nothing said so -
+ * the task looked like it had started.
+ *
+ * <p>The current process wins when it is itself {@code porelo}, which keeps the property that a
+ * local build shadows a packaged one: a developer testing a build must get their own helpers, not
+ * the installed ones. Otherwise the answer is the {@code porelo} beside whatever is running, and
+ * only then the one on the path.
  */
 final class PoreloBinary {
 
@@ -42,8 +42,10 @@ final class PoreloBinary {
         if (NAME.equals(running.getFileName().toString())) {
             return running.toString();
         }
-        final Path beside = running.toAbsolutePath().getParent() == null ? null
-                : running.toAbsolutePath().getParent().resolve(NAME);
+        final Path beside =
+                running.toAbsolutePath().getParent() == null
+                        ? null
+                        : running.toAbsolutePath().getParent().resolve(NAME);
         if (beside != null && Files.isExecutable(beside)) {
             return beside.toString();
         }

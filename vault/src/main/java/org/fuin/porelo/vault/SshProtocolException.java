@@ -1,8 +1,6 @@
 package org.fuin.porelo.vault;
 
-/**
- * A message on the ssh-agent socket could not be understood.
- */
+/** A message on the ssh-agent socket could not be understood. */
 public class SshProtocolException extends RuntimeException {
 
     private static final long serialVersionUID = 1L;

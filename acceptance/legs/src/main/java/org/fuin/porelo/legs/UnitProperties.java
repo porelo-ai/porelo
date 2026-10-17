@@ -7,14 +7,17 @@ import java.util.regex.Pattern;
 
 /**
  * The properties of a systemd unit's {@code [Service]} section that a transient unit can take.
- * <p>
- * What the leg applies to one {@code podman unshare} through {@code systemd-run}, so that a property
- * that breaks rootless podman under the real unit breaks it there too - {@code NoNewPrivileges=yes}
- * did, and every daemon started any other way sailed past it.
+ *
+ * <p>What the leg applies to one {@code podman unshare} through {@code systemd-run}, so that a
+ * property that breaks rootless podman under the real unit breaks it there too - {@code
+ * NoNewPrivileges=yes} did, and every daemon started any other way sailed past it.
  */
 final class UnitProperties {
 
-    /** Properties that describe how the unit runs, not what it may do - a transient unit sets its own. */
+    /**
+     * Properties that describe how the unit runs, not what it may do - a transient unit sets its
+     * own.
+     */
     static final Set<String> LEFT_OUT = Set.of("Type", "ExecStart", "Restart", "RestartSec");
 
     // A letter first, so a comment - "#" or ";" - is never a property.
@@ -28,7 +31,8 @@ final class UnitProperties {
      * Reads the {@code [Service]} section's properties, in the order the unit gives them.
      *
      * @param unit the unit file's content
-     * @return each property as {@code Name=value}, comments, blank lines and {@link #LEFT_OUT} skipped
+     * @return each property as {@code Name=value}, comments, blank lines and {@link #LEFT_OUT}
+     *     skipped
      */
     static List<String> service(String unit) {
         final List<String> properties = new ArrayList<>();
@@ -46,5 +50,4 @@ final class UnitProperties {
         }
         return properties;
     }
-
 }

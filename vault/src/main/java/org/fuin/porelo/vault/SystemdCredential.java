@@ -9,18 +9,17 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Reads the passphrase from a {@code systemd-creds} encrypted file.
- * <p>
- * The strongest tier where it is available: on a machine with a TPM,
- * {@code systemd-creds encrypt} seals the passphrase to the hardware, so the encrypted file is
- * useless on any other machine and useless after the boot state changes. Nothing Porelo does can
- * match that, which is why this tier is tried before the others.
+ *
+ * <p>The strongest tier where it is available: on a machine with a TPM, {@code systemd-creds
+ * encrypt} seals the passphrase to the hardware, so the encrypted file is useless on any other
+ * machine and useless after the boot state changes. Nothing Porelo does can match that, which is
+ * why this tier is tried before the others.
  */
 public class SystemdCredential implements PassphraseSource {
 
     private final CommandRunner runner;
 
-    @Nullable
-    private final String file;
+    @Nullable private final String file;
 
     /**
      * Constructor.
@@ -46,9 +45,12 @@ public class SystemdCredential implements PassphraseSource {
                 // A configured credential that will not decrypt is a real problem: falling through
                 // would prompt for a passphrase the operator sealed precisely so they would not
                 // have to type it.
-                throw new VaultException("systemd-creds could not decrypt " + file
-                        + (result.standardError().isBlank() ? ""
-                                : ": " + result.standardError().strip()));
+                throw new VaultException(
+                        "systemd-creds could not decrypt "
+                                + file
+                                + (result.standardError().isBlank()
+                                        ? ""
+                                        : ": " + result.standardError().strip()));
             }
             final String value = result.standardOutput().strip();
             return value.isEmpty() ? Optional.empty() : Optional.of(value.toCharArray());
@@ -68,12 +70,12 @@ public class SystemdCredential implements PassphraseSource {
      */
     public void seal(char[] plaintext, String target, String name) {
         try {
-            runner.runOrFail(Command.of("systemd-creds", "encrypt",
-                            "--name=" + name, "-", target)
-                    .withInput(new String(plaintext)));
+            runner.runOrFail(
+                    Command.of("systemd-creds", "encrypt", "--name=" + name, "-", target)
+                            .withInput(new String(plaintext)));
         } catch (CommandException ex) {
-            throw new VaultException("systemd-creds could not seal the passphrase: "
-                    + ex.getMessage(), ex);
+            throw new VaultException(
+                    "systemd-creds could not seal the passphrase: " + ex.getMessage(), ex);
         }
     }
 

@@ -13,16 +13,20 @@ import org.jspecify.annotations.Nullable;
  * @param environment Variables to add to the inherited environment.
  * @param input Text written to standard input, or {@code null} to write nothing.
  */
-public record Command(List<String> arguments, @Nullable Path workingDirectory,
-        Map<String, String> environment, @Nullable String input, boolean inheritsEnvironment) {
+public record Command(
+        List<String> arguments,
+        @Nullable Path workingDirectory,
+        Map<String, String> environment,
+        @Nullable String input,
+        boolean inheritsEnvironment) {
 
     /**
      * Constructor with all data.
      *
      * @param arguments Program and its arguments, never empty.
      * @param workingDirectory Directory to run in, or {@code null} for the current one.
-     * @param environment Variables to add to the inherited environment - or, when it is not inherited, the
-     *        whole environment.
+     * @param environment Variables to add to the inherited environment - or, when it is not
+     *     inherited, the whole environment.
      * @param input Text written to standard input, or {@code null} to write nothing.
      * @param inheritsEnvironment Whether the caller's environment is inherited at all.
      */
@@ -42,14 +46,18 @@ public record Command(List<String> arguments, @Nullable Path workingDirectory,
      * @param environment Variables to add to the inherited environment.
      * @param input Text written to standard input, or {@code null} to write nothing.
      */
-    public Command(List<String> arguments, @Nullable Path workingDirectory, Map<String, String> environment,
+    public Command(
+            List<String> arguments,
+            @Nullable Path workingDirectory,
+            Map<String, String> environment,
             @Nullable String input) {
         this(arguments, workingDirectory, environment, input, true);
     }
 
     /**
-     * Returns a copy of this command that starts from a chosen environment instead of the caller's: the base
-     * given, and this command's own variables on top. Nothing else of the caller's reaches it.
+     * Returns a copy of this command that starts from a chosen environment instead of the caller's:
+     * the base given, and this command's own variables on top. Nothing else of the caller's reaches
+     * it.
      *
      * @param base What it starts from.
      * @return New command.
@@ -92,8 +100,8 @@ public record Command(List<String> arguments, @Nullable Path workingDirectory,
 
     /**
      * Returns a copy of this command with variables added to the environment it inherits.
-     * <p>
-     * This is where a value goes when it must not be an argument: a child's environment is
+     *
+     * <p>This is where a value goes when it must not be an argument: a child's environment is
      * readable only by its owner, and its argument list is readable by everyone on the machine.
      *
      * @param variables Variables to add.

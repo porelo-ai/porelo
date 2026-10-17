@@ -2,10 +2,11 @@ package org.fuin.porelo.build.api;
 
 /**
  * The contract between Porelo and a build reader.
- * <p>
- * Porelo and the readers are packaged, versioned and installed separately, so a machine will one day hold a combination
- * nobody tested. The version is what makes that a clear refusal instead of a misread answer: a reader states which
- * protocol it speaks, and Porelo refuses one it does not know.
+ *
+ * <p>Porelo and the readers are packaged, versioned and installed separately, so a machine will one
+ * day hold a combination nobody tested. The version is what makes that a clear refusal instead of a
+ * misread answer: a reader states which protocol it speaks, and Porelo refuses one it does not
+ * know.
  */
 public final class BuildProtocol {
 
@@ -14,9 +15,9 @@ public final class BuildProtocol {
 
     /**
      * Version of this contract.
-     * <p>
-     * Raised when a change would make an older Porelo misread a newer reader, or the reverse. Adding an optional field
-     * does not qualify; renaming or removing one does.
+     *
+     * <p>Raised when a change would make an older Porelo misread a newer reader, or the reverse.
+     * Adding an optional field does not qualify; renaming or removing one does.
      */
     public static final int VERSION = 1;
 

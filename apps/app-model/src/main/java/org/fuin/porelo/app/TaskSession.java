@@ -16,16 +16,16 @@ import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The session an agent was running in a task, so that starting the task again continues the conversation
- * rather than beginning a new one.
- * <p>
- * <strong>The task's, not the container's.</strong> Kept under the state directory, which survives a stop,
- * a restart and a reboot, and deleted with everything else when the task is removed - never in the runtime
- * directory, which a reboot wipes.
- * <p>
- * <strong>Taken from what the host already has</strong>, where the agent declares it is ({@link SessionIds}):
- * an unattended run's own records, or an attached agent's own session files, read by the host reaching into
- * the container. Nothing is given a way to send it.
+ * The session an agent was running in a task, so that starting the task again continues the
+ * conversation rather than beginning a new one.
+ *
+ * <p><strong>The task's, not the container's.</strong> Kept under the state directory, which
+ * survives a stop, a restart and a reboot, and deleted with everything else when the task is
+ * removed - never in the runtime directory, which a reboot wipes.
+ *
+ * <p><strong>Taken from what the host already has</strong>, where the agent declares it is ({@link
+ * SessionIds}): an unattended run's own records, or an attached agent's own session files, read by
+ * the host reaching into the container. Nothing is given a way to send it.
  */
 public final class TaskSession {
 
@@ -72,9 +72,15 @@ public final class TaskSession {
         final Path file = file(container);
         try {
             Files.createDirectories(file.getParent());
-            final Path written = Files.writeString(file.resolveSibling(file.getFileName() + ".new"), id + "\n",
-                    StandardCharsets.UTF_8);
-            Files.move(written, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+            final Path written =
+                    Files.writeString(
+                            file.resolveSibling(file.getFileName() + ".new"),
+                            id + "\n",
+                            StandardCharsets.UTF_8);
+            Files.move(
+                    written,
+                    file,
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING,
                     java.nio.file.StandardCopyOption.ATOMIC_MOVE);
         } catch (IOException ex) {
             throw new UncheckedIOException("could not record the session of " + container, ex);
@@ -124,9 +130,11 @@ public final class TaskSession {
     }
 
     /**
-     * Reads the session an attached agent is keeping, from its own session files inside the running container.
-     * <p>
-     * The newest file ending in the declared suffix names it: the host looks, the container is told nothing.
+     * Reads the session an attached agent is keeping, from its own session files inside the running
+     * container.
+     *
+     * <p>The newest file ending in the declared suffix names it: the host looks, the container is
+     * told nothing.
      *
      * @param container The task's container, running.
      * @param ids Where the agent declares its session files are.
@@ -136,9 +144,14 @@ public final class TaskSession {
         if (ids.directory() == null || ids.suffix() == null) {
             return Optional.empty();
         }
-        // Both words are refused at load unless they are plain path characters, so nothing here is quoting.
-        final String script = "find \"$HOME/" + ids.directory() + "\" -type f -name '*" + ids.suffix()
-                + "' -exec ls -t {} + 2>/dev/null | head -n 1";
+        // Both words are refused at load unless they are plain path characters, so nothing here is
+        // quoting.
+        final String script =
+                "find \"$HOME/"
+                        + ids.directory()
+                        + "\" -type f -name '*"
+                        + ids.suffix()
+                        + "' -exec ls -t {} + 2>/dev/null | head -n 1";
         final CommandResult newest;
         try {
             newest = context.podman().ask(container, Map.of(), List.of("sh", "-c", script));
@@ -153,8 +166,10 @@ public final class TaskSession {
         if (!name.endsWith(ids.suffix())) {
             return Optional.empty();
         }
-        // From inside the file first, where the agent declares the record its id is in: a file named
-        // '<timestamp>_<id>.jsonl' is not an id such an agent takes back, and no rule for cutting the name
+        // From inside the file first, where the agent declares the record its id is in: a file
+        // named
+        // '<timestamp>_<id>.jsonl' is not an id such an agent takes back, and no rule for cutting
+        // the name
         // needs guessing. Only when no record matches is the name the id.
         if (!ids.record().isEmpty()) {
             final Optional<String> inside = fromInside(container, path, ids);
@@ -172,7 +187,12 @@ public final class TaskSession {
     private Optional<String> fromInside(String container, String path, SessionIds ids) {
         final CommandResult head;
         try {
-            head = context.podman().ask(container, Map.of(), List.of("head", "-n", String.valueOf(HEAD), path));
+            head =
+                    context.podman()
+                            .ask(
+                                    container,
+                                    Map.of(),
+                                    List.of("head", "-n", String.valueOf(HEAD), path));
         } catch (RuntimeException ex) {
             return Optional.empty();
         }
@@ -219,24 +239,28 @@ public final class TaskSession {
     }
 
     /**
-     * Records the session an attached agent is keeping, read from its files while the container still runs.
-     * <p>
-     * What stopping a task does before it stops the container: afterwards there is nothing running to ask.
-     * Never fails the stop - a session that could not be read is one the next start does not continue, and
-     * says so.
+     * Records the session an attached agent is keeping, read from its files while the container
+     * still runs.
+     *
+     * <p>What stopping a task does before it stops the container: afterwards there is nothing
+     * running to ask. Never fails the stop - a session that could not be read is one the next start
+     * does not continue, and says so.
      *
      * @param container The task's container, running.
      */
     void rememberAttached(String container) {
         try {
             final org.fuin.porelo.wire.TaskProfile profile =
-                    org.fuin.porelo.wire.TaskProfile.readFrom(context.paths().tasks().containerState(container));
-            if (profile == null || profile.agent() == null
+                    org.fuin.porelo.wire.TaskProfile.readFrom(
+                            context.paths().tasks().containerState(container));
+            if (profile == null
+                    || profile.agent() == null
                     || profile.mode() != org.fuin.porelo.wire.TaskMode.AGENT) {
                 return;
             }
             try (org.fuin.porelo.agent.api.InstalledAgents agents = context.agents()) {
-                agents.find(profile.agent()).map(org.fuin.porelo.agent.api.InstalledAgent::definition)
+                agents.find(profile.agent())
+                        .map(org.fuin.porelo.agent.api.InstalledAgent::definition)
                         .filter(AgentDefinition::supportsResume)
                         .map(AgentDefinition::sessionIds)
                         .flatMap(ids -> fromFiles(container, ids))
@@ -248,13 +272,13 @@ public final class TaskSession {
     }
 
     /**
-     * Returns what starts an attached task's agent again when its session is gone - continuing the session it
-     * was keeping, where the agent can - or {@code null} to join the session that is there, or for a task
-     * whose agent is not the point.
-     * <p>
-     * Only when there is no session: a live one already has its agent, and a second would be two
-     * conversations on one screen. Says which of the two it is, so an interface or a person never assumes a
-     * continuation that did not happen.
+     * Returns what starts an attached task's agent again when its session is gone - continuing the
+     * session it was keeping, where the agent can - or {@code null} to join the session that is
+     * there, or for a task whose agent is not the point.
+     *
+     * <p>Only when there is no session: a live one already has its agent, and a second would be two
+     * conversations on one screen. Says which of the two it is, so an interface or a person never
+     * assumes a continuation that did not happen.
      *
      * @param container The task's container, running.
      * @param out Where the choice is said.
@@ -262,13 +286,25 @@ public final class TaskSession {
      */
     public @Nullable String attachedAgent(String container, java.io.PrintWriter out) {
         final org.fuin.porelo.wire.TaskProfile profile =
-                org.fuin.porelo.wire.TaskProfile.readFrom(context.paths().tasks().containerState(container));
-        if (profile == null || profile.agent() == null || profile.mode() != org.fuin.porelo.wire.TaskMode.AGENT) {
+                org.fuin.porelo.wire.TaskProfile.readFrom(
+                        context.paths().tasks().containerState(container));
+        if (profile == null
+                || profile.agent() == null
+                || profile.mode() != org.fuin.porelo.wire.TaskMode.AGENT) {
             return null;
         }
         try {
-            if (context.podman().ask(container, Map.of(), List.of("tmux", "has-session", "-t",
-                    org.fuin.porelo.runtime.Containerfile.SESSION)).exitCode() == 0) {
+            if (context.podman()
+                            .ask(
+                                    container,
+                                    Map.of(),
+                                    List.of(
+                                            "tmux",
+                                            "has-session",
+                                            "-t",
+                                            org.fuin.porelo.runtime.Containerfile.SESSION))
+                            .exitCode()
+                    == 0) {
                 return null;
             }
         } catch (RuntimeException ex) {
@@ -276,28 +312,39 @@ public final class TaskSession {
         }
         final AgentDefinition definition;
         try (org.fuin.porelo.agent.api.InstalledAgents agents = context.agents()) {
-            definition = agents.find(profile.agent()).map(org.fuin.porelo.agent.api.InstalledAgent::definition)
-                    .orElse(null);
+            definition =
+                    agents.find(profile.agent())
+                            .map(org.fuin.porelo.agent.api.InstalledAgent::definition)
+                            .orElse(null);
         }
         if (definition == null) {
             return null;
         }
-        // The files first: they are what the agent itself kept, and a stop that could not read them left
+        // The files first: they are what the agent itself kept, and a stop that could not read them
+        // left
         // nothing recorded.
         final SessionIds ids = definition.supportsResume() ? definition.sessionIds() : null;
         if (ids != null) {
             fromFiles(container, ids).ifPresent(id -> record(container, id));
         }
         final String id = toContinue(container, definition).orElse(null);
-        final List<String> command = new ArrayList<>(new TaskGuide(context.paths(), container)
-                .instructing(definition, definition.sandboxedCommand()));
+        final List<String> command =
+                new ArrayList<>(
+                        new TaskGuide(context.paths(), container)
+                                .instructing(definition, definition.sandboxedCommand()));
         if (id != null) {
             command.add(java.util.Objects.requireNonNull(definition.resumeFlag()));
             command.add(id);
         }
-        out.println("session   " + (id != null ? "continuing " + id
-                : ids == null ? "a fresh one - " + definition.name() + " does not say how to continue one"
-                : "a fresh one - none was recorded"));
+        out.println(
+                "session   "
+                        + (id != null
+                                ? "continuing " + id
+                                : ids == null
+                                        ? "a fresh one - "
+                                                + definition.name()
+                                                + " does not say how to continue one"
+                                        : "a fresh one - none was recorded"));
         out.flush();
         return org.fuin.porelo.runtime.ShellWords.quote(command);
     }
@@ -305,5 +352,4 @@ public final class TaskSession {
     private Path file(String container) {
         return context.paths().tasks().sessionRecord(container);
     }
-
 }

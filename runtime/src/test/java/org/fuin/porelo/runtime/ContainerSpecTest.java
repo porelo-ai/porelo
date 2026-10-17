@@ -6,9 +6,7 @@ import java.util.List;
 import org.fuin.porelo.core.project.Limits;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link ContainerSpec}, covering the flags that are not negotiable.
- */
+/** Tests for {@link ContainerSpec}, covering the flags that are not negotiable. */
 class ContainerSpecTest {
 
     private List<String> arguments() {
@@ -17,7 +15,8 @@ class ContainerSpecTest {
 
     @Test
     void alwaysDropsPrivileges() {
-        assertThat(arguments()).containsSequence("--security-opt", "no-new-privileges")
+        assertThat(arguments())
+                .containsSequence("--security-opt", "no-new-privileges")
                 .containsSequence("--cap-drop", "ALL");
     }
 
@@ -27,8 +26,9 @@ class ContainerSpecTest {
         // An argument list is world-readable - /proc/<pid>/cmdline is mode 444 and neither
         // supported distribution mounts /proc with hidepid, measured - and an environment is not.
         // Podman copies the value from its own environment when it is given only the name.
-        final ContainerSpec specification = new ContainerSpec("box", "ubuntu:24.04")
-                .environment("PORELO_TOKEN", "porelo_pt_a_secret_value");
+        final ContainerSpec specification =
+                new ContainerSpec("box", "ubuntu:24.04")
+                        .environment("PORELO_TOKEN", "porelo_pt_a_secret_value");
 
         assertThat(specification.toArguments()).containsSequence("--env", "PORELO_TOKEN");
         assertThat(specification.toArguments())
@@ -42,10 +42,11 @@ class ContainerSpecTest {
 
         // The rule rather than one instance of it: no --env argument may carry a value, whatever
         // is added here later.
-        final List<String> arguments = new ContainerSpec("box", "ubuntu:24.04")
-                .environment("ONE", "first")
-                .environment("TWO", "second")
-                .toArguments();
+        final List<String> arguments =
+                new ContainerSpec("box", "ubuntu:24.04")
+                        .environment("ONE", "first")
+                        .environment("TWO", "second")
+                        .toArguments();
 
         for (int i = 0; i < arguments.size() - 1; i++) {
             if ("--env".equals(arguments.get(i))) {
@@ -65,7 +66,8 @@ class ContainerSpecTest {
 
     @Test
     void limitsMemoryAndProcessesWithoutBeingAsked() {
-        assertThat(arguments()).containsSequence("--memory", Limits.DEFAULT_MEMORY)
+        assertThat(arguments())
+                .containsSequence("--memory", Limits.DEFAULT_MEMORY)
                 .containsSequence("--pids-limit", String.valueOf(Limits.DEFAULT_PIDS));
     }
 
@@ -73,8 +75,10 @@ class ContainerSpecTest {
     void passesNoMemoryFlagWhenTheProjectOptedOut() {
 
         // The negative case: an empty value would be passed to podman as a limit of nothing.
-        final List<String> arguments = new ContainerSpec("box", "ubuntu:24.04")
-                .limits(new Limits(null, null, 4096, Limits.DEFAULT_HAND_IN)).toArguments();
+        final List<String> arguments =
+                new ContainerSpec("box", "ubuntu:24.04")
+                        .limits(new Limits(null, null, 4096, Limits.DEFAULT_HAND_IN))
+                        .toArguments();
 
         assertThat(arguments).doesNotContain("--memory");
         assertThat(arguments).containsSequence("--pids-limit", "4096");
@@ -82,8 +86,10 @@ class ContainerSpecTest {
 
     @Test
     void carriesTheProjectsOwnLimits() {
-        assertThat(new ContainerSpec("box", "ubuntu:24.04")
-                .limits(new Limits("2g", "1.5", 512, Limits.DEFAULT_HAND_IN)).toArguments())
+        assertThat(
+                        new ContainerSpec("box", "ubuntu:24.04")
+                                .limits(new Limits("2g", "1.5", 512, Limits.DEFAULT_HAND_IN))
+                                .toArguments())
                 .containsSequence("--memory", "2g")
                 .containsSequence("--cpus", "1.5")
                 .containsSequence("--pids-limit", "512");
@@ -92,10 +98,14 @@ class ContainerSpecTest {
     @Test
     void givesATaskWithItsOwnResolverNoSearchDomainOfTheHost() {
 
-        // The host's search line was copied into the task: it learned internal domain names, and a refused name was
+        // The host's search line was copied into the task: it learned internal domain names, and a
+        // refused name was
         // asked once per domain.
         assertThat(new ContainerSpec("box", "ubuntu:24.04").resolver("10.88.0.53").toArguments())
-                .containsSequence("--dns", "10.88.0.53").contains("--dns-search=.");
-        assertThat(arguments()).as("no resolver of its own, nothing about DNS").doesNotContain("--dns-search=.");
+                .containsSequence("--dns", "10.88.0.53")
+                .contains("--dns-search=.");
+        assertThat(arguments())
+                .as("no resolver of its own, nothing about DNS")
+                .doesNotContain("--dns-search=.");
     }
 }

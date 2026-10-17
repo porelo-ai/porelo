@@ -2,8 +2,8 @@ package org.fuin.porelo.agent.api;
 
 /**
  * The author an agent's commits are attributed to.
- * <p>
- * Set explicitly rather than inherited from the operator, so that a commit made by an agent is
+ *
+ * <p>Set explicitly rather than inherited from the operator, so that a commit made by an agent is
  * distinguishable from one made by a person in the history itself, not only in a review queue.
  *
  * @param name Author name.

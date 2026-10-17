@@ -10,21 +10,26 @@ import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
 
 /**
- * Prints every file handed to a task under that name, taken back or replaced too - also once the task is gone.
- * <p>
- * The record names the files and never holds their content; it says what Porelo did, so a file copied into a
- * container by other means is not in it.
+ * Prints every file handed to a task under that name, taken back or replaced too - also once the
+ * task is gone.
+ *
+ * <p>The record names the files and never holds their content; it says what Porelo did, so a file
+ * copied into a container by other means is not in it.
  */
-@Command(name = "files",
+@Command(
+        name = "files",
         mixinStandardHelpOptions = true,
-        description = "Shows every file handed to a task, also after it is gone: who, when, size and sha256.")
+        description =
+                "Shows every file handed to a task, also after it is gone: who, when, size and sha256.")
 public class TaskFilesCommand implements Callable<Integer>, PoreloFactory.ContextAware, Suggests {
 
-    @Parameters(index = "0", paramLabel = "TASK", description = "A task's name, as 'porelo task list' showed it.")
+    @Parameters(
+            index = "0",
+            paramLabel = "TASK",
+            description = "A task's name, as 'porelo task list' showed it.")
     private String container;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -53,7 +58,11 @@ public class TaskFilesCommand implements Callable<Integer>, PoreloFactory.Contex
         try {
             record = HandIns.of(context).record(container);
         } catch (IOException ex) {
-            err.println("porelo: could not read what was handed to " + container + ": " + ex.getMessage());
+            err.println(
+                    "porelo: could not read what was handed to "
+                            + container
+                            + ": "
+                            + ex.getMessage());
             err.flush();
             return 70;
         }
@@ -62,17 +71,25 @@ public class TaskFilesCommand implements Callable<Integer>, PoreloFactory.Contex
             out.flush();
             return 0;
         }
-        out.printf("%-20s  %-10s  %-12s  %-12s  %10s  %-16s  %s%n", "WHEN", "EVENT", "BY", "RUN", "BYTES", "SHA256",
-                "NAME");
+        out.printf(
+                "%-20s  %-10s  %-12s  %-12s  %10s  %-16s  %s%n",
+                "WHEN", "EVENT", "BY", "RUN", "BYTES", "SHA256", "NAME");
         for (final HandIns.Entry entry : record) {
             final HandIns.HandedFile file = entry.file();
-            out.printf("%-20s  %-10s  %-12s  %-12s  %10d  %-16s  %s%n", file.at(), entry.event(), file.by(),
-                    file.run().length() > 12 ? file.run().substring(0, 12) : file.run(), file.bytes(),
-                    file.sha256().substring(0, Math.min(16, file.sha256().length())), file.name());
+            out.printf(
+                    "%-20s  %-10s  %-12s  %-12s  %10d  %-16s  %s%n",
+                    file.at(),
+                    entry.event(),
+                    file.by(),
+                    file.run().length() > 12 ? file.run().substring(0, 12) : file.run(),
+                    file.bytes(),
+                    file.sha256().substring(0, Math.min(16, file.sha256().length())),
+                    file.name());
         }
         out.println();
-        out.println("What Porelo handed in. A file copied into a container by other means, such as podman cp, is not"
-                + " here.");
+        out.println(
+                "What Porelo handed in. A file copied into a container by other means, such as podman cp, is not"
+                        + " here.");
         out.flush();
         return 0;
     }

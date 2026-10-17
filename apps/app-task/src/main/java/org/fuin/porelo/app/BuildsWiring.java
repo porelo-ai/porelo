@@ -13,8 +13,8 @@ import org.fuin.porelo.core.project.SecurityClass;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Starts the helper that tells an {@code online} task what the build of its push did, when its project names a forge
- * under {@code builds}.
+ * Starts the helper that tells an {@code online} task what the build of its push did, when its
+ * project names a forge under {@code builds}.
  */
 final class BuildsWiring {
 
@@ -46,13 +46,32 @@ final class BuildsWiring {
      * @param builds What the project names.
      * @return Command and arguments.
      */
-    static List<String> command(final PoreloContext context, final String container, final String branch,
-            final String upstream, final Builds builds) {
+    static List<String> command(
+            final PoreloContext context,
+            final String container,
+            final String branch,
+            final String upstream,
+            final Builds builds) {
         final Path state = context.paths().tasks().containerState(container);
-        final List<String> command = new ArrayList<>(List.of(PoreloBinary.path(), "task", "watch-builds", container,
-                "--branch", branch, "--upstream", upstream, "--forge", builds.forge(),
-                "--credential", builds.credential(), "--logs", builds.logs(),
-                "--pid-file", state.resolve(HELPER + ".pid").toString()));
+        final List<String> command =
+                new ArrayList<>(
+                        List.of(
+                                PoreloBinary.path(),
+                                "task",
+                                "watch-builds",
+                                container,
+                                "--branch",
+                                branch,
+                                "--upstream",
+                                upstream,
+                                "--forge",
+                                builds.forge(),
+                                "--credential",
+                                builds.credential(),
+                                "--logs",
+                                builds.logs(),
+                                "--pid-file",
+                                state.resolve(HELPER + ".pid").toString()));
         if (!builds.api().isEmpty()) {
             command.add("--api");
             command.add(builds.api());
@@ -64,12 +83,15 @@ final class BuildsWiring {
      * Returns the branch an online task's gate passes its push on to, the one the forge builds.
      *
      * @param ref The ref the task pushes to.
-     * @return {@code porelo/<task>} for the task's own ref at its gate, {@code null} for anything else.
+     * @return {@code porelo/<task>} for the task's own ref at its gate, {@code null} for anything
+     *     else.
      */
     static @Nullable String branchAtTheUpstream(final @Nullable String ref) {
-        return ref == null || !ref.startsWith(org.fuin.porelo.gate.GitGate.INCOMING)
-                || ref.length() == org.fuin.porelo.gate.GitGate.INCOMING.length() ? null
-                        : "porelo/" + ref.substring(org.fuin.porelo.gate.GitGate.INCOMING.length());
+        return ref == null
+                        || !ref.startsWith(org.fuin.porelo.gate.GitGate.INCOMING)
+                        || ref.length() == org.fuin.porelo.gate.GitGate.INCOMING.length()
+                ? null
+                : "porelo/" + ref.substring(org.fuin.porelo.gate.GitGate.INCOMING.length());
     }
 
     /**
@@ -78,30 +100,41 @@ final class BuildsWiring {
      * @param project The project.
      * @param repository The repository the task works on.
      * @param container The task.
-     * @param ref The ref the task pushes to, {@code refs/porelo/incoming/<task>}, which an online task's gate passes on
-     *        as {@code porelo/<task>} at the upstream.
+     * @param ref The ref the task pushes to, {@code refs/porelo/incoming/<task>}, which an online
+     *     task's gate passes on as {@code porelo/<task>} at the upstream.
      * @param out Where progress goes.
      * @param err Where a reason it was not started goes.
      */
-    void start(final Project project, final Repository repository, final String container, final @Nullable String ref,
-            final PrintWriter out, final PrintWriter err) {
+    void start(
+            final Project project,
+            final Repository repository,
+            final String container,
+            final @Nullable String ref,
+            final PrintWriter out,
+            final PrintWriter err) {
         final Builds builds = project.builds();
         if (builds == null || project.securityClass() != SecurityClass.ONLINE) {
             return;
         }
-        final String upstream = repository.upstream() != null ? repository.upstream() : project.upstream();
+        final String upstream =
+                repository.upstream() != null ? repository.upstream() : project.upstream();
         final String branch = branchAtTheUpstream(ref);
         if (upstream == null || branch == null) {
-            err.println("porelo: the task has no upstream branch, so it is not told what its builds did");
+            err.println(
+                    "porelo: the task has no upstream branch, so it is not told what its builds did");
             err.flush();
             return;
         }
         try {
-            InstalledBuildReader.find(builds.forge(), List.of(context.paths().xdg().data().resolve("builds"),
-                    PoreloPaths.packaged(InstalledBuildReader.PACKAGED)));
+            InstalledBuildReader.find(
+                    builds.forge(),
+                    List.of(
+                            context.paths().xdg().data().resolve("builds"),
+                            PoreloPaths.packaged(InstalledBuildReader.PACKAGED)));
         } catch (RuntimeException ex) {
             // The task runs either way: the builds are what it is told, not what it needs to work.
-            err.println("porelo: " + ex.getMessage() + " This task is not told what its builds did.");
+            err.println(
+                    "porelo: " + ex.getMessage() + " This task is not told what its builds did.");
             err.flush();
             said(container, builds.forge(), String.valueOf(ex.getMessage()));
             return;
@@ -109,27 +142,45 @@ final class BuildsWiring {
         final Path state = context.paths().tasks().containerState(container);
         final List<String> command = command(context, container, branch, upstream, builds);
         try {
-            new ProcessBuilder(org.fuin.porelo.core.process.Scope.around("porelo " + container + " " + HELPER, command))
-                    .redirectErrorStream(true).redirectOutput(state.resolve(HELPER + ".log").toFile()).start();
+            new ProcessBuilder(
+                            org.fuin.porelo.core.process.Scope.around(
+                                    "porelo " + container + " " + HELPER, command))
+                    .redirectErrorStream(true)
+                    .redirectOutput(state.resolve(HELPER + ".log").toFile())
+                    .start();
             recorder.record(HELPER, command, Map.of(), TaskHelpers.AFTER);
             said(container, builds.forge(), "");
-            out.println("builds         " + builds.forge() + ", read with '" + builds.credential()
-                    + "'; each verdict arrives in /porelo/files");
+            out.println(
+                    "builds         "
+                            + builds.forge()
+                            + ", read with '"
+                            + builds.credential()
+                            + "'; each verdict arrives in /porelo/files");
         } catch (java.io.IOException ex) {
-            err.println("porelo: the builds helper did not start (" + ex.getMessage() + "); the task is not told"
-                    + " what its builds did");
-            said(container, builds.forge(), "the helper that follows them did not start: " + ex.getMessage());
+            err.println(
+                    "porelo: the builds helper did not start ("
+                            + ex.getMessage()
+                            + "); the task is not told"
+                            + " what its builds did");
+            said(
+                    container,
+                    builds.forge(),
+                    "the helper that follows them did not start: " + ex.getMessage());
         }
         out.flush();
         err.flush();
     }
 
-    /** Writes down for the task's view which reader follows its builds; a failure here only costs that view. */
+    /**
+     * Writes down for the task's view which reader follows its builds; a failure here only costs
+     * that view.
+     */
     private void said(final String container, final String forge, final String problem) {
         try {
             new TaskBuilds(context.paths().tasks()).reader(container, forge, problem);
         } catch (java.io.IOException ex) {
-            // The helper still works; a person sees nothing about builds until it writes the view itself.
+            // The helper still works; a person sees nothing about builds until it writes the view
+            // itself.
         }
     }
 }

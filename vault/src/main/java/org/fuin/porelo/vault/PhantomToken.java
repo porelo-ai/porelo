@@ -1,15 +1,15 @@
 package org.fuin.porelo.vault;
 
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
-import java.nio.charset.StandardCharsets;
 
 /**
  * A credential that stands in for a real one and is worth nothing without Porelo.
- * <p>
- * The agent is given this instead of the provider's token. It is accepted only by Porelo's own
+ *
+ * <p>The agent is given this instead of the provider's token. It is accepted only by Porelo's own
  * broker, only for the scope it was minted for, and only until the task ends. An agent that leaks
  * one has leaked something that stops working the moment the container does.
  *
@@ -38,7 +38,9 @@ public record PhantomToken(String value, String scope, String subject, Instant e
         RANDOM.nextBytes(bytes);
         return new PhantomToken(
                 PREFIX + Base64.getUrlEncoder().withoutPadding().encodeToString(bytes),
-                scope, subject, expiresAt);
+                scope,
+                subject,
+                expiresAt);
     }
 
     /**
@@ -58,16 +60,16 @@ public record PhantomToken(String value, String scope, String subject, Instant e
      * @return {@code true} if they match.
      */
     public boolean matches(String presented) {
-        return MessageDigest.isEqual(value.getBytes(StandardCharsets.UTF_8),
-                presented.getBytes(StandardCharsets.UTF_8));
+        return MessageDigest.isEqual(
+                value.getBytes(StandardCharsets.UTF_8), presented.getBytes(StandardCharsets.UTF_8));
     }
 
     /**
      * Shortens a token value for printing.
-     * <p>
-     * Shared with {@link #toString()} so there is one rule rather than two: a token that is
-     * printed whole makes any log a usable credential for the token's lifetime, and that has to
-     * be true everywhere, not only where a {@code PhantomToken} object happens to be at hand.
+     *
+     * <p>Shared with {@link #toString()} so there is one rule rather than two: a token that is
+     * printed whole makes any log a usable credential for the token's lifetime, and that has to be
+     * true everywhere, not only where a {@code PhantomToken} object happens to be at hand.
      *
      * @param value Token value.
      * @return Enough to recognize it by, and not enough to use.

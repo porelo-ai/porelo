@@ -16,12 +16,13 @@ import picocli.CommandLine.Spec;
 
 /**
  * Lists the agents installed on this machine.
- * <p>
- * Note what this class does not contain: the name of a single agent. It scans a directory, starts
- * whatever it finds and asks each one to describe itself. An agent installed after this binary was
- * built appears here without this file changing.
+ *
+ * <p>Note what this class does not contain: the name of a single agent. It scans a directory,
+ * starts whatever it finds and asks each one to describe itself. An agent installed after this
+ * binary was built appears here without this file changing.
  */
-@Command(name = "agents",
+@Command(
+        name = "agents",
         mixinStandardHelpOptions = true,
         description = "Lists the agents installed on this machine.")
 public class AgentsCommand implements Callable<Integer> {
@@ -29,22 +30,25 @@ public class AgentsCommand implements Callable<Integer> {
     @Option(names = "--verbose", description = "Also show what each agent needs to reach.")
     private boolean verbose;
 
-    @Option(names = "--directory", paramLabel = "<path>",
+    @Option(
+            names = "--directory",
+            paramLabel = "<path>",
             description = "Extra directory to scan, before the standard ones.")
     private @Nullable Path directory;
 
-    @Option(names = "--supply-chain",
+    @Option(
+            names = "--supply-chain",
             description = "Show what each agent installs, and whether it can be verified.")
     private boolean supplyChain;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private void supplyChain(PrintWriter out, InstalledAgent agent) {
 
         final var definition = agent.definition();
-        out.println("             installs: "
-                + (definition.version() == null ? "nothing" : definition.version()));
+        out.println(
+                "             installs: "
+                        + (definition.version() == null ? "nothing" : definition.version()));
 
         for (final var artifact : definition.artifacts()) {
             out.println("               " + artifact.target());
@@ -66,12 +70,17 @@ public class AgentsCommand implements Callable<Integer> {
         final PrintWriter err = spec.commandLine().getErr();
 
         final XdgPaths xdg = XdgPaths.current();
-        final AgentDirectory locations = directory == null
-                ? AgentDirectory.standard(xdg.data())
-                : new AgentDirectory(java.util.stream.Stream.concat(
-                        java.util.stream.Stream.of(directory),
-                        AgentDirectory.standard(xdg.data()).locations().stream()).toList(),
-                        AgentDirectory.standard(xdg.data()).descriptionLocations());
+        final AgentDirectory locations =
+                directory == null
+                        ? AgentDirectory.standard(xdg.data())
+                        : new AgentDirectory(
+                                java.util.stream.Stream.concat(
+                                                java.util.stream.Stream.of(directory),
+                                                AgentDirectory.standard(xdg.data())
+                                                        .locations()
+                                                        .stream())
+                                        .toList(),
+                                AgentDirectory.standard(xdg.data()).descriptionLocations());
 
         final java.util.Map<String, org.fuin.porelo.agent.api.ProviderDefinition> providers =
                 org.fuin.porelo.agent.api.ProviderDirectory.standard(xdg.data()).all();
@@ -85,22 +94,31 @@ public class AgentsCommand implements Callable<Integer> {
                 return 0;
             }
 
-            // A vendor's description that names nothing usable is said, not quietly skipped: the agent it meant is
+            // A vendor's description that names nothing usable is said, not quietly skipped: the
+            // agent it meant is
             // missing from the list, and the file is the one place that says why.
             for (final AgentDirectory.Description description : locations.descriptions()) {
                 if (description.refusal() != null) {
-                    err.println("porelo: not taken: " + description.file() + " - " + description.refusal());
+                    err.println(
+                            "porelo: not taken: "
+                                    + description.file()
+                                    + " - "
+                                    + description.refusal());
                 }
             }
             err.flush();
             if (agents.size() > 0) {
                 out.printf("%-12s %-16s %-22s %s%n", "NAME", "BINARY", "LABEL", "FROM");
                 for (final InstalledAgent agent : agents.all()) {
-                    out.printf("%-12s %-16s %-22s %s%n", agent.name(),
-                            agent.definition().binary(), agent.definition().label(),
+                    out.printf(
+                            "%-12s %-16s %-22s %s%n",
+                            agent.name(),
+                            agent.definition().binary(),
+                            agent.definition().label(),
                             agent.executable());
                     if (verbose) {
-                        for (final AgentDirectory.Description description : locations.descriptions()) {
+                        for (final AgentDirectory.Description description :
+                                locations.descriptions()) {
                             if (agent.executable().equals(description.executable())) {
                                 out.println("             found by: " + description.file());
                             }
@@ -108,48 +126,77 @@ public class AgentsCommand implements Callable<Integer> {
                         // The address the guard recognises. Somebody looking at a commit and
                         // wondering whether a person or an agent wrote it has nowhere else to
                         // find out, now that a pre-push hook decides on exactly this.
-                        out.println("             commits: "
-                                + agent.definition().gitIdentity().name() + " <"
-                                + agent.definition().gitIdentity().email() + ">");
-                        out.println("             domains: "
-                                + String.join(", ", agent.definition().allowedDomains()));
+                        out.println(
+                                "             commits: "
+                                        + agent.definition().gitIdentity().name()
+                                        + " <"
+                                        + agent.definition().gitIdentity().email()
+                                        + ">");
+                        out.println(
+                                "             domains: "
+                                        + String.join(", ", agent.definition().allowedDomains()));
                         if (agent.definition().provider() != null) {
-                            out.println("             speaks:  "
-                                    + agent.definition().provider().dialect());
+                            out.println(
+                                    "             speaks:  "
+                                            + agent.definition().provider().dialect());
                             for (final var entry : providers.entrySet()) {
                                 if (agent.definition().provider().canDrive(entry.getValue())) {
-                                    out.println("             provider:"
-                                            + (entry.getKey().equals(
-                                                agent.definition().provider().defaultProvider())
-                                                    ? " " + entry.getKey() + " (default)"
-                                                    : " " + entry.getKey())
-                                            + " -> " + entry.getValue().upstreamHost()
-                                            + " (the credential is swapped in on the way out)");
+                                    out.println(
+                                            "             provider:"
+                                                    + (entry.getKey()
+                                                                    .equals(
+                                                                            agent.definition()
+                                                                                    .provider()
+                                                                                    .defaultProvider())
+                                                            ? " " + entry.getKey() + " (default)"
+                                                            : " " + entry.getKey())
+                                                    + " -> "
+                                                    + entry.getValue().upstreamHost()
+                                                    + " (the credential is swapped in on the way out)");
                                 }
                             }
                         }
                         if (!agent.definition().refusedDomains().isEmpty()) {
                             // Shown so that a blocked connection is something the operator was
                             // told about, rather than something they find in a drop log.
-                            out.println("             refused: "
-                                    + String.join(", ", agent.definition().refusedDomains()));
+                            out.println(
+                                    "             refused: "
+                                            + String.join(
+                                                    ", ", agent.definition().refusedDomains()));
                         }
-                        out.println("             resume:  "
-                                + (agent.definition().supportsResume() ? "yes" : "no"));
+                        out.println(
+                                "             resume:  "
+                                        + (agent.definition().supportsResume() ? "yes" : "no"));
                         // What a check waits for once the agent is attached, and for how long. Said
                         // when it is absent too: then whether it reached work cannot be told.
-                        final org.fuin.porelo.agent.api.ReadyMarker ready = agent.definition().ready();
-                        out.println("             ready:   " + (ready == null
-                                ? "not declared - whether it reached work cannot be told"
-                                : "\"" + ready.text() + "\"" + (ready.withinSeconds() == null ? ""
-                                        : " within " + ready.withinSeconds() + "s")));
-                        // What waiting for a person looks like, counted rather than quoted: the wording is
+                        final org.fuin.porelo.agent.api.ReadyMarker ready =
+                                agent.definition().ready();
+                        out.println(
+                                "             ready:   "
+                                        + (ready == null
+                                                ? "not declared - whether it reached work cannot be told"
+                                                : "\""
+                                                        + ready.text()
+                                                        + "\""
+                                                        + (ready.withinSeconds() == null
+                                                                ? ""
+                                                                : " within "
+                                                                        + ready.withinSeconds()
+                                                                        + "s")));
+                        // What waiting for a person looks like, counted rather than quoted: the
+                        // wording is
                         // the agent's, and a count says enough to see whether there is any.
-                        final org.fuin.porelo.agent.api.Waiting waiting = agent.definition().waiting();
-                        out.println("             waiting: " + (waiting == null
-                                ? "not declared - whether it waits for a person cannot be told"
-                                : waiting.screen().size() + " screen rule(s)"
-                                        + (waiting.lastMessage() == null ? "" : ", and where a run's last message is")));
+                        final org.fuin.porelo.agent.api.Waiting waiting =
+                                agent.definition().waiting();
+                        out.println(
+                                "             waiting: "
+                                        + (waiting == null
+                                                ? "not declared - whether it waits for a person cannot be told"
+                                                : waiting.screen().size()
+                                                        + " screen rule(s)"
+                                                        + (waiting.lastMessage() == null
+                                                                ? ""
+                                                                : ", and where a run's last message is")));
                     }
                     if (supplyChain) {
                         supplyChain(out, agent);
@@ -162,17 +209,25 @@ public class AgentsCommand implements Callable<Integer> {
             // claiming a name that is already taken means the agent runs and somebody cannot see
             // which copy they are getting - worth saying, and not worth a non-zero exit on a
             // machine where everything works.
-            agents.ignored().forEach((hidden, running) -> {
-                out.println("ignored   " + hidden);
-                out.println("          " + running + " claimed the same name first and runs");
-            });
+            agents.ignored()
+                    .forEach(
+                            (hidden, running) -> {
+                                out.println("ignored   " + hidden);
+                                out.println(
+                                        "          "
+                                                + running
+                                                + " claimed the same name first and runs");
+                            });
             out.flush();
 
             // Reported rather than thrown: one broken package must not make the machine look as
             // though it has no agents.
             for (final Map.Entry<String, String> failure : agents.failures().entrySet()) {
-                err.println("porelo: " + failure.getKey() + " is installed but unusable: "
-                        + failure.getValue());
+                err.println(
+                        "porelo: "
+                                + failure.getKey()
+                                + " is installed but unusable: "
+                                + failure.getValue());
             }
             err.flush();
             return agents.failures().isEmpty() ? 0 : 1;

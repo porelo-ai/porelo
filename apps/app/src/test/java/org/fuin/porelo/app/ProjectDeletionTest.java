@@ -14,10 +14,10 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Tests for removing what Porelo built for a project.
- * <p>
- * This is the only thing here that destroys, so what is checked hardest is what it refuses to do
- * and what it leaves alone. An unreviewed push exists only in the mirror; a project file belongs
- * to the operator; and a preview that touched anything would make the confirmation a lie.
+ *
+ * <p>This is the only thing here that destroys, so what is checked hardest is what it refuses to do
+ * and what it leaves alone. An unreviewed push exists only in the mirror; a project file belongs to
+ * the operator; and a preview that touched anything would make the confirmation a lie.
  */
 class ProjectDeletionTest {
 
@@ -27,11 +27,15 @@ class ProjectDeletionTest {
 
     private PoreloContext context(Path dir) {
         root = dir;
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
         return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
     }
 
@@ -43,11 +47,15 @@ class ProjectDeletionTest {
         Files.createDirectories(root.resolve("data/porelo/projects"));
         final Path file = root.resolve(name + "-project.yml");
         Files.writeString(file, "project:\n  name: \"" + name + "\"\n", StandardCharsets.UTF_8);
-        Files.writeString(root.resolve("data/porelo/projects").resolve(name),
-                file + "\n", StandardCharsets.UTF_8);
+        Files.writeString(
+                root.resolve("data/porelo/projects").resolve(name),
+                file + "\n",
+                StandardCharsets.UTF_8);
         Files.createDirectories(root.resolve("data/porelo/upstream"));
-        Files.writeString(root.resolve("data/porelo/upstream").resolve(name),
-                "MEASURED\t0\t\t\n", StandardCharsets.UTF_8);
+        Files.writeString(
+                root.resolve("data/porelo/upstream").resolve(name),
+                "MEASURED\t0\t\t\n",
+                StandardCharsets.UTF_8);
         return file;
     }
 
@@ -55,14 +63,19 @@ class ProjectDeletionTest {
         runner.answering("ps", container + "\t" + state + "\n");
         final Path directory = root.resolve("run/porelo").resolve(container);
         Files.createDirectories(directory);
-        new Sidecar(Sidecar.VERSION, project, "guarded", directory.resolve("r.nft").toString(),
-                directory.resolve("dns.conf").toString(), "/usr/bin/porelo", directory.toString())
+        new Sidecar(
+                        Sidecar.VERSION,
+                        project,
+                        "guarded",
+                        directory.resolve("r.nft").toString(),
+                        directory.resolve("dns.conf").toString(),
+                        "/usr/bin/porelo",
+                        directory.toString())
                 .writeTo(directory.resolve("sidecar.json"));
     }
 
     @Test
-    void refusesWhileWorkIsWaitingAtTheGateAndRemovesNothing(@TempDir Path dir)
-            throws IOException {
+    void refusesWhileWorkIsWaitingAtTheGateAndRemovesNothing(@TempDir Path dir) throws IOException {
 
         // The refusal that justifies the whole confirmation. A branch that reached the mirror and
         // was never approved exists NOWHERE else - not in the operator's repository, not in a
@@ -71,7 +84,8 @@ class ProjectDeletionTest {
         project("uc");
         runner.answering("for-each-ref", "refs/porelo/incoming/shell\n");
 
-        final ProjectDeletion.Result result = new ProjectDeletion(context).delete("uc", false, false);
+        final ProjectDeletion.Result result =
+                new ProjectDeletion(context).delete("uc", false, false);
 
         assertThat(result.outcome()).isEqualTo(ProjectDeletion.Outcome.HOLDS_WORK);
         // Named by repository. A bare ref name was enough while a project was one repository;
@@ -79,7 +93,8 @@ class ProjectDeletionTest {
         // risk, and "shell" would be the answer for all of them.
         assertThat(result.unreviewed()).containsExactly("uc/shell");
         assertThat(Files.isDirectory(dir.resolve("data/porelo/mirrors/uc.git")))
-                .as("the mirror is untouched").isTrue();
+                .as("the mirror is untouched")
+                .isTrue();
         assertThat(runner.lines()).noneMatch(line -> line.startsWith("podman rmi"));
     }
 
@@ -91,12 +106,14 @@ class ProjectDeletionTest {
         task("porelo-uc-shell-1", "uc", "Up 4 minutes");
         runner.answering("for-each-ref", "");
 
-        final ProjectDeletion.Result result = new ProjectDeletion(context).delete("uc", false, false);
+        final ProjectDeletion.Result result =
+                new ProjectDeletion(context).delete("uc", false, false);
 
         assertThat(result.outcome()).isEqualTo(ProjectDeletion.Outcome.TASKS_RUNNING);
         assertThat(result.running()).containsExactly("porelo-uc-shell-1");
         assertThat(Files.isDirectory(dir.resolve("data/porelo/mirrors/uc.git")))
-                .as("nothing was removed").isTrue();
+                .as("nothing was removed")
+                .isTrue();
     }
 
     @Test
@@ -132,10 +149,12 @@ class ProjectDeletionTest {
         project("uc");
         runner.answering("for-each-ref", "refs/porelo/incoming/shell\n");
 
-        final ProjectDeletion.Result result = new ProjectDeletion(context).delete("uc", false, true);
+        final ProjectDeletion.Result result =
+                new ProjectDeletion(context).delete("uc", false, true);
 
         assertThat(result.outcome()).isEqualTo(ProjectDeletion.Outcome.DELETED);
-        assertThat(result.unreviewed()).as("what force destroyed, still named")
+        assertThat(result.unreviewed())
+                .as("what force destroyed, still named")
                 .containsExactly("uc/shell");
         assertThat(Files.exists(dir.resolve("data/porelo/mirrors/uc.git"))).isFalse();
     }
@@ -150,7 +169,8 @@ class ProjectDeletionTest {
         final Path file = project("uc");
         runner.answering("for-each-ref", "");
 
-        final ProjectDeletion.Result result = new ProjectDeletion(context).delete("uc", false, false);
+        final ProjectDeletion.Result result =
+                new ProjectDeletion(context).delete("uc", false, false);
 
         assertThat(result.outcome()).isEqualTo(ProjectDeletion.Outcome.DELETED);
         assertThat(Files.isRegularFile(file)).as("the operator's file survives").isTrue();
@@ -166,10 +186,12 @@ class ProjectDeletionTest {
         project("uc");
         runner.answering("for-each-ref", "");
 
-        final ProjectDeletion.Result result = new ProjectDeletion(context).delete("uc", true, false);
+        final ProjectDeletion.Result result =
+                new ProjectDeletion(context).delete("uc", true, false);
 
         assertThat(result.outcome()).isEqualTo(ProjectDeletion.Outcome.PREVIEWED);
-        assertThat(result.removes()).extracting(ProjectDeletion.Removal::kind)
+        assertThat(result.removes())
+                .extracting(ProjectDeletion.Removal::kind)
                 .contains("MIRROR", "BUILD", "REGISTRY", "UPSTREAM_RECORD");
         assertThat(Files.isDirectory(dir.resolve("data/porelo/mirrors/uc.git"))).isTrue();
         assertThat(Files.isRegularFile(dir.resolve("data/porelo/projects/uc"))).isTrue();
@@ -179,7 +201,10 @@ class ProjectDeletionTest {
     @Test
     void aProjectNothingKnowsIsAnOutcomeRatherThanAnError(@TempDir Path dir) {
 
-        assertThat(new ProjectDeletion(context(dir)).delete("never-existed", false, false).outcome())
+        assertThat(
+                        new ProjectDeletion(context(dir))
+                                .delete("never-existed", false, false)
+                                .outcome())
                 .isEqualTo(ProjectDeletion.Outcome.NO_SUCH_PROJECT);
     }
 
@@ -196,6 +221,7 @@ class ProjectDeletionTest {
         assertThat(Files.exists(dir.resolve("data/porelo/build/uc"))).isFalse();
         assertThat(Files.exists(dir.resolve("data/porelo/projects/uc"))).isFalse();
         assertThat(Files.exists(dir.resolve("data/porelo/upstream/uc"))).isFalse();
-        assertThat(runner.lines()).anyMatch(line -> line.contains("rmi") && line.contains("porelo/uc"));
+        assertThat(runner.lines())
+                .anyMatch(line -> line.contains("rmi") && line.contains("porelo/uc"));
     }
 }

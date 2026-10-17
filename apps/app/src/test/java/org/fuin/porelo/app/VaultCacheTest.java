@@ -17,8 +17,7 @@ class VaultCacheTest {
 
     private static final char[] PASSPHRASE = "correct horse battery staple".toCharArray();
 
-    @TempDir
-    Path dir;
+    @TempDir Path dir;
 
     @AfterEach
     void off() {
@@ -31,7 +30,8 @@ class VaultCacheTest {
 
     @Test
     void theDaemonReadsTheVaultOnceWhileItIsUnchangedAndAgainOnceItChanges() {
-        // Each lookup of a conversation's secrets decrypted the whole vault, 150 ms of CPU each: 18 % of a core with two
+        // Each lookup of a conversation's secrets decrypted the whole vault, 150 ms of CPU each: 18
+        // % of a core with two
         // idle tasks in a conversation.
         final VaultFile vault = new VaultFile(dir.resolve("vault.bin"));
         vault.write(Map.of("a", secret("one")), PASSPHRASE);
@@ -55,8 +55,11 @@ class VaultCacheTest {
 
         // The daemon's look finds the vault shut.
         final XdgPaths xdg = XdgPaths.of(name -> null, dir);
-        final PoreloContext context = new PoreloContext(new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")),
-                arguments -> 0);
+        final PoreloContext context =
+                new PoreloContext(
+                        new FakeCommandRunner(),
+                        new PoreloPaths(xdg, dir.resolve("bin")),
+                        arguments -> 0);
         new MessageWatch(context, Duration.ofMinutes(1), () -> false).opened();
         final Map<String, VaultEntry> afterTheLock = VaultCache.read(vault, opener);
         assertThat(afterTheLock).as("read again after the lock").isNotSameAs(held).isEqualTo(held);
@@ -71,7 +74,8 @@ class VaultCacheTest {
 
     @Test
     void theJournalSaysWhatWasDecryptedAndWhatCameFromMemory() {
-        // "0 vault read(s), 3 held" read as three held messages beside 'talk held'; they were three lookups answered
+        // "0 vault read(s), 3 held" read as three held messages beside 'talk held'; they were three
+        // lookups answered
         // from what the daemon holds, and no decryption.
         final VaultFile vault = new VaultFile(dir.resolve("vault.bin"));
         vault.write(Map.of("a", secret("one")), PASSPHRASE);

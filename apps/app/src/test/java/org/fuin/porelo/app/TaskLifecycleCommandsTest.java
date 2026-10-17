@@ -15,9 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 
-/**
- * Tests for {@link TaskListCommand} and {@link TaskStopCommand}.
- */
+/** Tests for {@link TaskListCommand} and {@link TaskStopCommand}. */
 class TaskLifecycleCommandsTest {
 
     private final StringWriter out = new StringWriter();
@@ -30,21 +28,25 @@ class TaskLifecycleCommandsTest {
 
     private PoreloContext context(Path dir) {
         root = dir;
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
         return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
     }
 
     /**
      * Brings a task back, which is what {@code task start} does when the container is already
      * there.
-     * <p>
-     * Driven here rather than through the command line, because there is no verb of its own any
+     *
+     * <p>Driven here rather than through the command line, because there is no verb of its own any
      * more: one verb decides from the task's state. That the VERB reaches this is proved in
      * TaskRunCommandTest, where a project fixture exists; what is proved here is the unit.
      *
@@ -81,8 +83,14 @@ class TaskLifecycleCommandsTest {
     private Path stateOf(String container) throws IOException {
         final Path state = root.resolve("run/porelo").resolve(container);
         Files.createDirectories(state);
-        new Sidecar(Sidecar.VERSION, "uc", "guarded", state.resolve("r.nft").toString(),
-                state.resolve("dns.conf").toString(), "/usr/bin/porelo", state.toString())
+        new Sidecar(
+                        Sidecar.VERSION,
+                        "uc",
+                        "guarded",
+                        state.resolve("r.nft").toString(),
+                        state.resolve("dns.conf").toString(),
+                        "/usr/bin/porelo",
+                        state.toString())
                 .writeTo(state.resolve("sidecar.json"));
         return state;
     }
@@ -100,58 +108,90 @@ class TaskLifecycleCommandsTest {
                 .contains("uc")
                 .contains("guarded")
                 .contains("Up 4 minutes");
-        assertThat(out.toString()).as("another user's container is not Porelo's business")
+        assertThat(out.toString())
+                .as("another user's container is not Porelo's business")
                 .doesNotContain("not-porelo-at-all");
     }
 
-    /** What a restart leaves: the runtime directory gone, the task's knowledge saved where a reboot does not reach. */
+    /**
+     * What a restart leaves: the runtime directory gone, the task's knowledge saved where a reboot
+     * does not reach.
+     */
     private void takenDownByARestart(Path dir, String container) throws IOException {
         takenDownByARestart(dir, container, org.fuin.porelo.wire.TaskMode.AGENT, null);
     }
 
-    private void takenDownByARestart(Path dir, String container, org.fuin.porelo.wire.TaskMode mode,
-            @org.jspecify.annotations.Nullable String prompt) throws IOException {
+    private void takenDownByARestart(
+            Path dir,
+            String container,
+            org.fuin.porelo.wire.TaskMode mode,
+            @org.jspecify.annotations.Nullable String prompt)
+            throws IOException {
         final Path saved = dir.resolve("state/porelo/tasks").resolve(container);
         Files.createDirectories(saved);
-        new org.fuin.porelo.wire.TaskProfile(org.fuin.porelo.wire.TaskProfile.VERSION, "example",
-                mode, prompt, null, "2026-10-01T06:00:00Z", "deny").writeTo(saved);
+        new org.fuin.porelo.wire.TaskProfile(
+                        org.fuin.porelo.wire.TaskProfile.VERSION,
+                        "example",
+                        mode,
+                        prompt,
+                        null,
+                        "2026-10-01T06:00:00Z",
+                        "deny")
+                .writeTo(saved);
     }
 
     @Test
     void anUnattendedTaskTheRestartInterruptedIsNotStartedAgainAndKeepsItsSession(@TempDir Path dir)
             throws IOException {
 
-        // A run nobody watches must not start again on its own after a reboot, and the conversation its next
+        // A run nobody watches must not start again on its own after a reboot, and the conversation
+        // its next
         // start continues must not be lost on the way.
         final PoreloContext context = context(dir);
-        runner.answering("ps", "porelo-uc-talk\tExited (143)\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
-        takenDownByARestart(dir, "porelo-uc-talk", org.fuin.porelo.wire.TaskMode.UNATTENDED, "hello");
+        runner.answering(
+                "ps", "porelo-uc-talk\tExited (143)\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
+        takenDownByARestart(
+                dir, "porelo-uc-talk", org.fuin.porelo.wire.TaskMode.UNATTENDED, "hello");
         new TaskSession(context).record("porelo-uc-talk", "s-1");
 
-        assertThat(execute(context, "task", "start", "--restarted")).as("nothing failed: nothing was started").isZero();
+        assertThat(execute(context, "task", "start", "--restarted"))
+                .as("nothing failed: nothing was started")
+                .isZero();
 
-        assertThat(out.toString()).as("what --restarted said").doesNotContain("back  porelo-uc-talk")
+        assertThat(out.toString())
+                .as("what --restarted said")
+                .doesNotContain("back  porelo-uc-talk")
                 .doesNotContain("back      porelo-uc-talk")
-                .contains("stays     porelo-uc-talk: its run was interrupted by the restart; its session is kept");
+                .contains(
+                        "stays     porelo-uc-talk: its run was interrupted by the restart; its session is kept");
         assertThat(runner.lines()).as("what was run").noneMatch(line -> line.contains(" start "));
-        assertThat(new TaskSession(context).recorded("porelo-uc-talk")).as("its session").contains("s-1");
+        assertThat(new TaskSession(context).recorded("porelo-uc-talk"))
+                .as("its session")
+                .contains("s-1");
     }
 
     @Test
-    void theListDoesNotOfferToBringBackAnUnattendedTaskTheRestartInterrupted(@TempDir Path dir) throws IOException {
+    void theListDoesNotOfferToBringBackAnUnattendedTaskTheRestartInterrupted(@TempDir Path dir)
+            throws IOException {
 
-        // Listed under the line that says '--restarted' brings it back, a person waits for a run that never comes.
+        // Listed under the line that says '--restarted' brings it back, a person waits for a run
+        // that never comes.
         final PoreloContext context = context(dir);
-        runner.answering("ps", "porelo-uc-talk\tExited (143)\t1700000000\t1700000100\tuc\tguarded\tuc\t\n"
-                + "porelo-uc-work\tExited (143)\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
-        takenDownByARestart(dir, "porelo-uc-talk", org.fuin.porelo.wire.TaskMode.UNATTENDED, "hello");
+        runner.answering(
+                "ps",
+                "porelo-uc-talk\tExited (143)\t1700000000\t1700000100\tuc\tguarded\tuc\t\n"
+                        + "porelo-uc-work\tExited (143)\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
+        takenDownByARestart(
+                dir, "porelo-uc-talk", org.fuin.porelo.wire.TaskMode.UNATTENDED, "hello");
         takenDownByARestart(dir, "porelo-uc-work");
 
         assertThat(execute(context, "task", "list")).isZero();
 
-        assertThat(out.toString()).as("what the list said")
+        assertThat(out.toString())
+                .as("what the list said")
                 .contains("down because the machine restarted: porelo-uc-work\n")
-                .contains("interrupted by the machine's restart, staying stopped: porelo-uc-talk\n");
+                .contains(
+                        "interrupted by the machine's restart, staying stopped: porelo-uc-talk\n");
     }
 
     @Test
@@ -159,20 +199,25 @@ class TaskLifecycleCommandsTest {
             throws IOException {
 
         final PoreloContext context = context(dir);
-        runner.answering("ps", "porelo-uc-work\tExited (143)\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
+        runner.answering(
+                "ps", "porelo-uc-work\tExited (143)\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
         takenDownByARestart(dir, "porelo-uc-work");
 
         assertThat(execute(context, "task", "list")).isZero();
-        assertThat(out.toString()).contains("down because the machine restarted: porelo-uc-work")
+        assertThat(out.toString())
+                .contains("down because the machine restarted: porelo-uc-work")
                 .contains("'porelo task start --restarted' brings them all back");
     }
 
     @Test
-    void bringingThemBackNamesNoneAndSaysForEachWhetherItCameBack(@TempDir Path dir) throws IOException {
+    void bringingThemBackNamesNoneAndSaysForEachWhetherItCameBack(@TempDir Path dir)
+            throws IOException {
 
-        // Each goes through the start a person would type; one that cannot come back is said, by name, with why.
+        // Each goes through the start a person would type; one that cannot come back is said, by
+        // name, with why.
         final PoreloContext context = context(dir);
-        runner.answering("ps", "porelo-uc-work\tExited (143)\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
+        runner.answering(
+                "ps", "porelo-uc-work\tExited (143)\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
         takenDownByARestart(dir, "porelo-uc-work");
 
         assertThat(execute(context, "task", "start", "--restarted")).isEqualTo(1);
@@ -182,31 +227,40 @@ class TaskLifecycleCommandsTest {
     @Test
     void anUnnamedTaskIsNamedAfterItsRepositoryAndNeverTakesOverOneThatIsThere(@TempDir Path dir) {
 
-        // Unnamed starts were all 'shell', which read as the wrong mode for an agent's session (2026-10-01).
+        // Unnamed starts were all 'shell', which read as the wrong mode for an agent's session
+        // (2026-10-01).
         final PoreloContext context = context(dir);
         runner.answering("ps", "");
         assertThat(TaskNames.fromRepository(context, "default", "my-first")).isEqualTo("my-first");
 
-        runner.answering("ps", "porelo-default-my-first\tUp 4 minutes\t1700000000\t0\tdefault\tguarded\tmy-first\t\n"
-                + "porelo-default-my-first-2\tExited (0)\t1700000000\t1700000100\tdefault\tguarded\tmy-first\t\n");
-        assertThat(TaskNames.fromRepository(context, "default", "my-first")).isEqualTo("my-first-3");
+        runner.answering(
+                "ps",
+                "porelo-default-my-first\tUp 4 minutes\t1700000000\t0\tdefault\tguarded\tmy-first\t\n"
+                        + "porelo-default-my-first-2\tExited (0)\t1700000000\t1700000100\tdefault\tguarded\tmy-first\t\n");
+        assertThat(TaskNames.fromRepository(context, "default", "my-first"))
+                .isEqualTo("my-first-3");
         // A name neither a container nor a peer may start with.
         assertThat(TaskNames.fromRepository(context, "default", ".github")).isEqualTo("github");
     }
 
     @Test
-    void outsideACheckoutAStoppedTaskIsStartedByEitherOfItsNamesWithoutItsProject(@TempDir Path dir) {
+    void outsideACheckoutAStoppedTaskIsStartedByEitherOfItsNamesWithoutItsProject(
+            @TempDir Path dir) {
 
-        // 'porelo task start t1' in the home directory said no project was named and the directory was in no checkout,
+        // 'porelo task start t1' in the home directory said no project was named and the directory
+        // was in no checkout,
         // while 'porelo tasks' listed t1: only '-p' brought it back.
         final PoreloContext context = context(dir);
-        runner.answering("ps", "porelo-uc-work\tExited (143)\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
+        runner.answering(
+                "ps", "porelo-uc-work\tExited (143)\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
 
         for (final String name : java.util.List.of("work", "porelo-uc-work")) {
             out.getBuffer().setLength(0);
             err.getBuffer().setLength(0);
             execute(context, "task", "start", name, "--detach");
-            assertThat(out.toString()).as(name).contains("project        uc - that of the task porelo-uc-work");
+            assertThat(out.toString())
+                    .as(name)
+                    .contains("project        uc - that of the task porelo-uc-work");
             assertThat(err.toString()).as(name).doesNotContain("no git checkout");
         }
     }
@@ -231,12 +285,17 @@ class TaskLifecycleCommandsTest {
         // survives - so after a reboot every task that outlived it listed "-" for both. No
         // stateOf() here on purpose: that is what a rebooted machine looks like.
         final PoreloContext context = context(dir);
-        runner.answering("ps", "porelo-uc-shell-1\tExited (143)\t1700000000\t1700000100\tuc\tguarded\n");
+        runner.answering(
+                "ps", "porelo-uc-shell-1\tExited (143)\t1700000000\t1700000100\tuc\tguarded\n");
 
         assertThat(execute(context, "task", "list")).isZero();
 
-        final String row = out.toString().lines().filter(line -> line.startsWith("porelo-uc"))
-                .findFirst().orElseThrow();
+        final String row =
+                out.toString()
+                        .lines()
+                        .filter(line -> line.startsWith("porelo-uc"))
+                        .findFirst()
+                        .orElseThrow();
         assertThat(row).contains("uc").contains("guarded").doesNotContain("-  ");
     }
 
@@ -248,12 +307,10 @@ class TaskLifecycleCommandsTest {
         // whose name is a noun lists; the verbs sit under it.
         runner.answering("ps", "porelo-uc-shell\tUp 4 minutes\t1700000000\t0\t\n");
 
-        for (final String[] spelling : new String[][] {
-                { "task" }, { "tasks" }, { "task", "list" } }) {
+        for (final String[] spelling : new String[][] {{"task"}, {"tasks"}, {"task", "list"}}) {
             out.getBuffer().setLength(0);
             assertThat(execute(context(dir), spelling)).as(String.join(" ", spelling)).isZero();
-            assertThat(out.toString()).as(String.join(" ", spelling))
-                    .contains("porelo-uc-shell");
+            assertThat(out.toString()).as(String.join(" ", spelling)).contains("porelo-uc-shell");
         }
     }
 
@@ -264,8 +321,10 @@ class TaskLifecycleCommandsTest {
         // Porelo knew exactly which containers it could have been given. The name is
         // not the hard part of the job; finding it is.
         final PoreloContext context = context(dir);
-        runner.answering("ps", "porelo-uc-shell-1\tExited (143)\t1700000000\t1700000100\t\n"
-                + "porelo-uc-build-2\tUp 4 minutes\t1700000000\t0\t\n");
+        runner.answering(
+                "ps",
+                "porelo-uc-shell-1\tExited (143)\t1700000000\t1700000100\t\n"
+                        + "porelo-uc-build-2\tUp 4 minutes\t1700000000\t0\t\n");
 
         assertThat(execute(context, "task", "remove")).isNotZero();
 
@@ -280,12 +339,16 @@ class TaskLifecycleCommandsTest {
 
         // The other way round, and the reason one list for every command would be wrong twice.
         final PoreloContext context = context(dir);
-        runner.answering("ps", "porelo-uc-shell-1\tExited (143)\t1700000000\t1700000100\t\n"
-                + "porelo-uc-build-2\tUp 4 minutes\t1700000000\t0\t\n");
+        runner.answering(
+                "ps",
+                "porelo-uc-shell-1\tExited (143)\t1700000000\t1700000100\t\n"
+                        + "porelo-uc-build-2\tUp 4 minutes\t1700000000\t0\t\n");
 
         assertThat(execute(context, "task", "attach")).isNotZero();
 
-        assertThat(err.toString()).contains("porelo-uc-build-2").doesNotContain("porelo-uc-shell-1");
+        assertThat(err.toString())
+                .contains("porelo-uc-build-2")
+                .doesNotContain("porelo-uc-shell-1");
     }
 
     @Test
@@ -294,8 +357,10 @@ class TaskLifecycleCommandsTest {
         // A completion built on the 'porelo-' prefix would put the throwaway containers 'vault
         // login' creates back in front of somebody - the same defect that put them in task list.
         final PoreloContext context = context(dir);
-        runner.answering("ps", "porelo-uc-shell-1\tExited (143)\t1700000000\t1700000100\t\n"
-                + "porelo-login-1788886971400\tExited (0)\t1700000000\t1700000100\t\n");
+        runner.answering(
+                "ps",
+                "porelo-uc-shell-1\tExited (143)\t1700000000\t1700000100\t\n"
+                        + "porelo-login-1788886971400\tExited (0)\t1700000000\t1700000100\t\n");
 
         assertThat(execute(context, "task", "remove")).isNotZero();
 
@@ -322,9 +387,13 @@ class TaskLifecycleCommandsTest {
                 .contains("never pushed to the gate");
         // The verbs, not substrings: "--format" contains "rm", which is the same trap already
         // written down about matching "rm --force" by substring.
-        assertThat(runner.lines()).as("a query changes nothing")
-                .noneMatch(line -> line.startsWith("podman rm")
-                        || line.startsWith("podman stop") || line.startsWith("podman kill"));
+        assertThat(runner.lines())
+                .as("a query changes nothing")
+                .noneMatch(
+                        line ->
+                                line.startsWith("podman rm")
+                                        || line.startsWith("podman stop")
+                                        || line.startsWith("podman kill"));
     }
 
     @Test
@@ -351,7 +420,8 @@ class TaskLifecycleCommandsTest {
         // is not the same as holding nothing, and reporting "nothing" would read as nothing to
         // lose - about a task whose workspace may be full of work.
         final PoreloContext context = context(dir);
-        runner.answering("ps", "porelo-uc-shell-1\tExited (143)\t1700000000\t1700000100\tuc\tguarded\n");
+        runner.answering(
+                "ps", "porelo-uc-shell-1\tExited (143)\t1700000000\t1700000100\tuc\tguarded\n");
         stateOf("porelo-uc-shell-1");
 
         assertThat(execute(context, "task", "status", "porelo-uc-shell-1")).isZero();
@@ -388,7 +458,8 @@ class TaskLifecycleCommandsTest {
                 .contains("podman cp porelo-uc-shell-1:/workspace")
                 .as("the workspace survives even though the container cannot start")
                 .contains("porelo task remove porelo-uc-shell-1 --force");
-        assertThat(runner.lines()).as("podman is not asked to do something that cannot work")
+        assertThat(runner.lines())
+                .as("podman is not asked to do something that cannot work")
                 .noneMatch(line -> line.startsWith("podman start"));
     }
 
@@ -406,8 +477,11 @@ class TaskLifecycleCommandsTest {
 
         assertThat(execute(context, "task", "logs", "porelo-uc-shell-1")).isZero();
 
-        assertThat(out.toString()).contains("gate.log").contains("vault.log")
-                .as("only logs").doesNotContain("watcher.pid");
+        assertThat(out.toString())
+                .contains("gate.log")
+                .contains("vault.log")
+                .as("only logs")
+                .doesNotContain("watcher.pid");
     }
 
     @Test
@@ -441,8 +515,10 @@ class TaskLifecycleCommandsTest {
         Files.writeString(state.resolve("gate.log"), "a line\n");
 
         assertThat(execute(context, "task", "logs", "porelo-uc-shell-1")).isZero();
-        assertThat(out.toString()).contains("gate.log")
-                .doesNotContain("vault.token").doesNotContain("sidecar.json");
+        assertThat(out.toString())
+                .contains("gate.log")
+                .doesNotContain("vault.token")
+                .doesNotContain("sidecar.json");
 
         assertThat(execute(context, "task", "logs", "porelo-uc-shell-1", "vault.token"))
                 .isEqualTo(69);
@@ -465,17 +541,26 @@ class TaskLifecycleCommandsTest {
         final java.util.List<TaskInventory.Log> logs =
                 new TaskInventory(context).logs("porelo-uc-shell-1");
 
-        assertThat(logs).filteredOn(log -> log.name().equals("events.jsonl"))
-                .singleElement().extracting(TaskInventory.Log::what).asString()
+        assertThat(logs)
+                .filteredOn(log -> log.name().equals("events.jsonl"))
+                .singleElement()
+                .extracting(TaskInventory.Log::what)
+                .asString()
                 .contains("firewall stopped");
-        assertThat(logs).filteredOn(log -> log.name().equals("reader.err"))
-                .singleElement().extracting(TaskInventory.Log::what).asString()
+        assertThat(logs)
+                .filteredOn(log -> log.name().equals("reader.err"))
+                .singleElement()
+                .extracting(TaskInventory.Log::what)
+                .asString()
                 .as("the consequence, not the description: empty is the normal case")
                 .contains("may be incomplete");
         // And nothing for a name that speaks for itself. A sentence saying gate.log is the gate's
         // log is noise, and noise beside the two that matter is what stops them being read.
-        assertThat(logs).filteredOn(log -> log.name().equals("gate.log"))
-                .singleElement().extracting(TaskInventory.Log::what).isNull();
+        assertThat(logs)
+                .filteredOn(log -> log.name().equals("gate.log"))
+                .singleElement()
+                .extracting(TaskInventory.Log::what)
+                .isNull();
     }
 
     @Test
@@ -520,16 +605,21 @@ class TaskLifecycleCommandsTest {
     }
 
     @Test
-    void statusAndLogsSayWhatAContainerNamedLikeATaskWithNoRecordedIdIs(@TempDir Path dir) throws IOException {
+    void statusAndLogsSayWhatAContainerNamedLikeATaskWithNoRecordedIdIs(@TempDir Path dir)
+            throws IOException {
 
-        // Said "there is no task called" over a stopped container whose removal removes what is in it.
+        // Said "there is no task called" over a stopped container whose removal removes what is in
+        // it.
         runner.answering("ps", "porelo-uc-shell-1\tExited (0) 5 days ago\n");
         final PoreloContext context = context(dir).recognizingTasks();
         stateOf("porelo-uc-shell-1");
 
         assertThat(execute(context, "task", "status", "porelo-uc-shell-1")).isEqualTo(69);
-        assertThat(err.toString()).contains("porelo-uc-shell-1 is named like a task").contains("no container id")
-                .contains("removing it removes what is in it").contains("podman cp")
+        assertThat(err.toString())
+                .contains("porelo-uc-shell-1 is named like a task")
+                .contains("no container id")
+                .contains("removing it removes what is in it")
+                .contains("podman cp")
                 .doesNotContain("there is no task called");
 
         assertThat(execute(context, "task", "logs", "porelo-uc-shell-1")).isEqualTo(69);
@@ -547,8 +637,10 @@ class TaskLifecycleCommandsTest {
 
         assertThat(execute(context, "task", "logs", "porelo-does-not")).isEqualTo(69);
 
-        assertThat(err.toString()).contains("there is no task called porelo-does-not")
-                .as("and the ones that do exist").contains("porelo-uc-shell-1");
+        assertThat(err.toString())
+                .contains("there is no task called porelo-does-not")
+                .as("and the ones that do exist")
+                .contains("porelo-uc-shell-1");
         assertThat(out.toString()).doesNotContain("machine has restarted");
     }
 
@@ -591,25 +683,34 @@ class TaskLifecycleCommandsTest {
 
         assertThat(execute(context, "task", "list")).isZero();
 
-        final String row = out.toString().lines().filter(line -> line.startsWith("porelo-uc"))
-                .findFirst().orElseThrow();
+        final String row =
+                out.toString()
+                        .lines()
+                        .filter(line -> line.startsWith("porelo-uc"))
+                        .findFirst()
+                        .orElseThrow();
         assertThat(row).contains("Exited (143)").doesNotContain("Less than");
         // The helper count still starts where the header says it does.
-        assertThat(row.indexOf("0")).isEqualTo(out.toString().lines().findFirst().orElseThrow()
-                .indexOf("HELPERS"));
+        assertThat(row.indexOf("0"))
+                .isEqualTo(out.toString().lines().findFirst().orElseThrow().indexOf("HELPERS"));
     }
 
     @Test
-    void namesAContainerLikeATaskThatItDoesNotListInsteadOfSayingThereAreNone(@TempDir Path dir) throws IOException {
+    void namesAContainerLikeATaskThatItDoesNotListInsteadOfSayingThereAreNone(@TempDir Path dir)
+            throws IOException {
 
-        // Made before Porelo recorded a container's id: it is not a task Porelo acts on, but saying "No tasks" hid that a
+        // Made before Porelo recorded a container's id: it is not a task Porelo acts on, but saying
+        // "No tasks" hid that a
         // stopped container with a task's record was there, and a prune removed its work unseen.
         runner.answering("ps", "porelo-uc-shell-1\tExited (0) 5 days ago\n");
         final PoreloContext context = context(dir).recognizingTasks();
         stateOf("porelo-uc-shell-1");
 
         assertThat(execute(context, "task", "list")).isZero();
-        assertThat(out.toString()).doesNotContain("No tasks.").contains("not listed").contains("porelo-uc-shell-1")
+        assertThat(out.toString())
+                .doesNotContain("No tasks.")
+                .contains("not listed")
+                .contains("porelo-uc-shell-1")
                 .contains("no container id");
     }
 
@@ -652,8 +753,12 @@ class TaskLifecycleCommandsTest {
         assertThat(execute(context, "task", "stop", "porelo-uc-shell-1")).isZero();
 
         assertThat(runner.lines())
-                .anyMatch(line -> line.startsWith("podman stop") && line.endsWith("porelo-uc-shell-1"));
-        assertThat(runner.lines()).as("removing it would destroy the workspace")
+                .anyMatch(
+                        line ->
+                                line.startsWith("podman stop")
+                                        && line.endsWith("porelo-uc-shell-1"));
+        assertThat(runner.lines())
+                .as("removing it would destroy the workspace")
                 .noneMatch(line -> line.startsWith("podman rm"));
         assertThat(out.toString()).contains("porelo task start");
     }
@@ -696,13 +801,18 @@ class TaskLifecycleCommandsTest {
         final PoreloContext context = context(dir);
         runner.answering("container inspect", "4711");
         final Path state = stateOf("porelo-uc-shell-1");
-        new TaskHelpers(java.util.List.of(
-                new TaskHelpers.Helper("vault",
-                        java.util.List.of("true", "--token-file", "x"), java.util.Map.of(),
-                        TaskHelpers.BEFORE),
-                new TaskHelpers.Helper("watcher",
-                        java.util.List.of("true", "--pid", "1"), java.util.Map.of(),
-                        TaskHelpers.AFTER)))
+        new TaskHelpers(
+                        java.util.List.of(
+                                new TaskHelpers.Helper(
+                                        "vault",
+                                        java.util.List.of("true", "--token-file", "x"),
+                                        java.util.Map.of(),
+                                        TaskHelpers.BEFORE),
+                                new TaskHelpers.Helper(
+                                        "watcher",
+                                        java.util.List.of("true", "--pid", "1"),
+                                        java.util.Map.of(),
+                                        TaskHelpers.AFTER)))
                 .writeTo(state);
 
         assertThat(resume(context, "porelo-uc-shell-1")).isZero();
@@ -717,43 +827,69 @@ class TaskLifecycleCommandsTest {
     }
 
     @Test
-    void resumingATaskWithAGateBringsItsRepositoryUpToItsSource(@TempDir Path dir) throws Exception {
+    void resumingATaskWithAGateBringsItsRepositoryUpToItsSource(@TempDir Path dir)
+            throws Exception {
 
-        // What the checkout gained while the task was down reached it only when another task started.
+        // What the checkout gained while the task was down reached it only when another task
+        // started.
         final PoreloContext context = context(dir);
         final Path checkout = Files.createDirectories(dir.resolve("app"));
-        final org.fuin.porelo.core.process.ProcessCommandRunner git = new org.fuin.porelo.core.process.ProcessCommandRunner();
-        final java.util.function.Consumer<String[]> inCheckout = arguments -> {
-            final java.util.List<String> all = new java.util.ArrayList<>(java.util.List.of("git", "-C",
-                    checkout.toString(), "-c", "user.email=t@example.com", "-c", "user.name=T"));
-            all.addAll(java.util.List.of(arguments));
-            git.runOrFail(org.fuin.porelo.core.process.Command.of(all));
-        };
+        final org.fuin.porelo.core.process.ProcessCommandRunner git =
+                new org.fuin.porelo.core.process.ProcessCommandRunner();
+        final java.util.function.Consumer<String[]> inCheckout =
+                arguments -> {
+                    final java.util.List<String> all =
+                            new java.util.ArrayList<>(
+                                    java.util.List.of(
+                                            "git",
+                                            "-C",
+                                            checkout.toString(),
+                                            "-c",
+                                            "user.email=t@example.com",
+                                            "-c",
+                                            "user.name=T"));
+                    all.addAll(java.util.List.of(arguments));
+                    git.runOrFail(org.fuin.porelo.core.process.Command.of(all));
+                };
         inCheckout.accept(new String[] {"init", "-q", "-b", "main"});
         Files.writeString(checkout.resolve("a.txt"), "a\n");
         inCheckout.accept(new String[] {"add", "."});
         inCheckout.accept(new String[] {"commit", "-q", "-m", "a"});
         new DefaultProject(context).add(checkout.toString(), "app", checkout.toString(), "");
-        final org.fuin.porelo.core.project.Project project = GateSupport.byName(context, DefaultProject.NAME);
-        final org.fuin.porelo.gate.GitGate gate = GateSupport.gate(context, project, project.repository("app"), null,
-                null);
+        final org.fuin.porelo.core.project.Project project =
+                GateSupport.byName(context, DefaultProject.NAME);
+        final org.fuin.porelo.gate.GitGate gate =
+                GateSupport.gate(context, project, project.repository("app"), null, null);
         gate.initialize();
         Files.writeString(checkout.resolve("b.txt"), "b\n");
         inCheckout.accept(new String[] {"add", "."});
         inCheckout.accept(new String[] {"commit", "-q", "-m", "b, while the task was down"});
-        final String moved = git.runOrFail(org.fuin.porelo.core.process.Command.of("git", "-C", checkout.toString(),
-                "rev-parse", "HEAD")).standardOutput().strip();
+        final String moved =
+                git.runOrFail(
+                                org.fuin.porelo.core.process.Command.of(
+                                        "git", "-C", checkout.toString(), "rev-parse", "HEAD"))
+                        .standardOutput()
+                        .strip();
         runner.answering("container inspect", "4711");
-        runner.answering("ps", "porelo-default-app-1\tExited (143)\t1700000000\t1700000100\tdefault\tguarded\tapp\n");
+        runner.answering(
+                "ps",
+                "porelo-default-app-1\tExited (143)\t1700000000\t1700000100\tdefault\tguarded\tapp\n");
         final Path state = stateOf("porelo-default-app-1");
-        new TaskHelpers(java.util.List.of(new TaskHelpers.Helper("gate", java.util.List.of("true"), java.util.Map.of(),
-                TaskHelpers.BEFORE))).writeTo(state);
+        new TaskHelpers(
+                        java.util.List.of(
+                                new TaskHelpers.Helper(
+                                        "gate",
+                                        java.util.List.of("true"),
+                                        java.util.Map.of(),
+                                        TaskHelpers.BEFORE)))
+                .writeTo(state);
 
         resume(context, "porelo-default-app-1");
 
         assertThat(gate.branches()).as(out + "\n" + err).containsEntry("main", moved);
-        assertThat(out.toString()).as("said, as 'task refresh' says it").contains("source    moved main -> "
-                + moved.substring(0, 12));
+        assertThat(out.toString())
+                .as("said, as 'task refresh' says it")
+                .contains("source    moved main -> " + moved.substring(0, 12));
     }
 
     @Test
@@ -766,14 +902,25 @@ class TaskLifecycleCommandsTest {
         runner.answering("container inspect", "4711");
         final Path state = stateOf("porelo-uc-shell-1");
         final Path order = dir.resolve("order.txt");
-        new TaskHelpers(java.util.List.of(new TaskHelpers.Helper("vault",
-                java.util.List.of("/bin/sh", "-c", "echo vault >> " + order),
-                java.util.Map.of(), TaskHelpers.BEFORE))).writeTo(state);
+        new TaskHelpers(
+                        java.util.List.of(
+                                new TaskHelpers.Helper(
+                                        "vault",
+                                        java.util.List.of(
+                                                "/bin/sh", "-c", "echo vault >> " + order),
+                                        java.util.Map.of(),
+                                        TaskHelpers.BEFORE)))
+                .writeTo(state);
 
         resume(context, "porelo-uc-shell-1");
 
-        final int podmanStart = runner.lines().indexOf(runner.lines().stream()
-                .filter(line -> line.startsWith("podman start")).findFirst().orElseThrow());
+        final int podmanStart =
+                runner.lines()
+                        .indexOf(
+                                runner.lines().stream()
+                                        .filter(line -> line.startsWith("podman start"))
+                                        .findFirst()
+                                        .orElseThrow());
         assertThat(podmanStart).isNotNegative();
         for (int i = 0; i < 50 && !Files.exists(order); i++) {
             Thread.sleep(100);
@@ -792,8 +939,13 @@ class TaskLifecycleCommandsTest {
         runner.answering("image inspect", "sha256:new");
         runner.answering("container inspect --format {{.State.Pid}}", "4711");
         final Path state = stateOf("porelo-uc-shell-1");
-        new TaskHelpers(java.util.List.of(new TaskHelpers.Helper("watcher",
-                java.util.List.of("true"), java.util.Map.of(), TaskHelpers.AFTER)))
+        new TaskHelpers(
+                        java.util.List.of(
+                                new TaskHelpers.Helper(
+                                        "watcher",
+                                        java.util.List.of("true"),
+                                        java.util.Map.of(),
+                                        TaskHelpers.AFTER)))
                 .writeTo(state);
 
         resume(context, "porelo-uc-shell-1");
@@ -810,8 +962,13 @@ class TaskLifecycleCommandsTest {
         runner.answering("image inspect", "sha256:same");
         runner.answering("container inspect --format {{.State.Pid}}", "4711");
         final Path state = stateOf("porelo-uc-shell-1");
-        new TaskHelpers(java.util.List.of(new TaskHelpers.Helper("watcher",
-                java.util.List.of("true"), java.util.Map.of(), TaskHelpers.AFTER)))
+        new TaskHelpers(
+                        java.util.List.of(
+                                new TaskHelpers.Helper(
+                                        "watcher",
+                                        java.util.List.of("true"),
+                                        java.util.Map.of(),
+                                        TaskHelpers.AFTER)))
                 .writeTo(state);
 
         resume(context, "porelo-uc-shell-1");
@@ -832,8 +989,13 @@ class TaskLifecycleCommandsTest {
         runner.answering("container inspect", "4711");
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
         final Path state = stateOf("porelo-uc-shell-1");
-        new TaskHelpers(java.util.List.of(new TaskHelpers.Helper("watcher",
-                java.util.List.of("sleep", "30"), java.util.Map.of(), TaskHelpers.AFTER)))
+        new TaskHelpers(
+                        java.util.List.of(
+                                new TaskHelpers.Helper(
+                                        "watcher",
+                                        java.util.List.of("sleep", "30"),
+                                        java.util.Map.of(),
+                                        TaskHelpers.AFTER)))
                 .writeTo(state);
 
         assertThat(resume(context, "porelo-uc-shell-1")).isZero();
@@ -860,9 +1022,18 @@ class TaskLifecycleCommandsTest {
         runner.answering("container inspect", "4711");
         final Path state = stateOf("porelo-uc-shell-1");
         final Path marker = dir.resolve("argv.txt");
-        new TaskHelpers(java.util.List.of(new TaskHelpers.Helper("vault",
-                java.util.List.of("/bin/sh", "-c", "echo \"$@\" > " + marker + "", "sh"),
-                java.util.Map.of(), TaskHelpers.BEFORE))).writeTo(state);
+        new TaskHelpers(
+                        java.util.List.of(
+                                new TaskHelpers.Helper(
+                                        "vault",
+                                        java.util.List.of(
+                                                "/bin/sh",
+                                                "-c",
+                                                "echo \"$@\" > " + marker + "",
+                                                "sh"),
+                                        java.util.Map.of(),
+                                        TaskHelpers.BEFORE)))
+                .writeTo(state);
 
         resume(context, "porelo-uc-shell-1");
 
@@ -901,7 +1072,9 @@ class TaskLifecycleCommandsTest {
         stateOf("porelo-uc-shell-1");
 
         assertThat(execute(context, "task", "remove", "porelo-uc-shell-1")).isEqualTo(65);
-        assertThat(err.toString()).contains("nothing recorded what it holds").contains("--force discards it unseen");
+        assertThat(err.toString())
+                .contains("nothing recorded what it holds")
+                .contains("--force discards it unseen");
         assertThat(runner.lines()).noneMatch(line -> line.startsWith("podman rm"));
     }
 
@@ -996,23 +1169,30 @@ class TaskLifecycleCommandsTest {
     }
 
     @Test
-    void aRescueOfAWorkspaceThatCouldNotBeAskedRemovesNothing(@TempDir Path dir) throws IOException {
+    void aRescueOfAWorkspaceThatCouldNotBeAskedRemovesNothing(@TempDir Path dir)
+            throws IOException {
 
-        // The census failed, so nothing said it held work: --rescue pushed nothing and removed the task, its
+        // The census failed, so nothing said it held work: --rescue pushed nothing and removed the
+        // task, its
         // workspace with it, unrescued and unforced.
         final PoreloContext context = context(dir);
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
         stateOf("porelo-uc-shell-1");
 
         assertThat(execute(context, "task", "remove", "porelo-uc-shell-1", "--rescue")).isNotZero();
-        assertThat(runner.lines()).as("nothing removed").noneMatch(line -> line.startsWith("podman rm"));
+        assertThat(runner.lines())
+                .as("nothing removed")
+                .noneMatch(line -> line.startsWith("podman rm"));
     }
 
     @Test
-    void aStopWhoseWorkspaceCouldNotBeAskedLeavesNoNoteOfHoldingNothing(@TempDir Path dir) throws IOException {
+    void aStopWhoseWorkspaceCouldNotBeAskedLeavesNoNoteOfHoldingNothing(@TempDir Path dir)
+            throws IOException {
 
-        // A note of nothing held lets the next removal go without --force; written for a census that failed, it
-        // let 'task remove' destroy a workspace nobody had looked into. An older note must not stand in for it.
+        // A note of nothing held lets the next removal go without --force; written for a census
+        // that failed, it
+        // let 'task remove' destroy a workspace nobody had looked into. An older note must not
+        // stand in for it.
         final PoreloContext context = context(dir);
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
         final Path state = stateOf("porelo-uc-shell-1");
@@ -1020,7 +1200,9 @@ class TaskLifecycleCommandsTest {
 
         assertThat(execute(context, "task", "stop", "porelo-uc-shell-1")).isZero();
 
-        assertThat(UnhandedWork.read(state).readable()).as("what a later removal reads: nobody looked").isFalse();
+        assertThat(UnhandedWork.read(state).readable())
+                .as("what a later removal reads: nobody looked")
+                .isFalse();
     }
 
     @Test
@@ -1031,8 +1213,7 @@ class TaskLifecycleCommandsTest {
         UnhandedWork.note(stateOf("porelo-uc-shell-1"), new UnhandedWork.Held(true, 0, 0, null));
         workspaceReports(dir, "3 2");
 
-        assertThat(execute(context, "task", "remove", "porelo-uc-shell-1", "--force"))
-                .isZero();
+        assertThat(execute(context, "task", "remove", "porelo-uc-shell-1", "--force")).isZero();
         assertThat(runner.lines()).anyMatch(line -> line.startsWith("podman rm"));
     }
 
@@ -1059,8 +1240,7 @@ class TaskLifecycleCommandsTest {
         runner.answering("diff", "C /etc\nA /opt/tool\nA /opt/tool/bin\nC /var\n");
         UnhandedWork.note(stateOf("porelo-uc-shell-1"), new UnhandedWork.Held(true, 0, 0, null));
 
-        assertThat(execute(context, "task", "remove", "porelo-uc-shell-1", "--force"))
-                .isZero();
+        assertThat(execute(context, "task", "remove", "porelo-uc-shell-1", "--force")).isZero();
 
         // Added paths only: a container that ran at all has changed /etc and /var, and a number
         // that is never zero means nothing.
@@ -1078,15 +1258,16 @@ class TaskLifecycleCommandsTest {
         stateOf("porelo-uc-shell-1");
         workspaceReports(dir, "3 2");
 
-        assertThat(execute(context, "task", "remove", "porelo-uc-shell-1", "--rescue"))
-                .isZero();
+        assertThat(execute(context, "task", "remove", "porelo-uc-shell-1", "--rescue")).isZero();
 
         assertThat(out.toString()).contains("rescued   refs/porelo/incoming/shell-rescued");
         // In the environment of the exec, not in its arguments: podman is told the name and
         // copies the value out of the environment it was started with.
         assertThat(runner.invocations())
-                .anyMatch(command -> "refs/porelo/incoming/shell-rescued"
-                        .equals(command.environment().get("PORELO_TASK_REF")));
+                .anyMatch(
+                        command ->
+                                "refs/porelo/incoming/shell-rescued"
+                                        .equals(command.environment().get("PORELO_TASK_REF")));
         assertThat(runner.lines()).noneMatch(line -> line.contains("shell-rescued"));
         assertThat(runner.lines()).anyMatch(line -> line.startsWith("podman rm"));
     }

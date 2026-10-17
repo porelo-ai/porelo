@@ -10,7 +10,7 @@
 name: os-packages-fedora
 label: Fedora packages
 domains:
-  - mirrors.fedoraproject.org
-  - download.fedoraproject.org
-  - dl.fedoraproject.org
-  - registry.fedoraproject.org
+    - mirrors.fedoraproject.org
+    - download.fedoraproject.org
+    - dl.fedoraproject.org
+    - registry.fedoraproject.org

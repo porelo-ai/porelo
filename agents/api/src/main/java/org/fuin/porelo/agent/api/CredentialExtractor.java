@@ -5,8 +5,8 @@ import java.util.Optional;
 
 /**
  * Reads an agent's credential out of the config directory it wrote during login.
- * <p>
- * Every vendor stores it differently, which is why this is an interface rather than a field. Two
+ *
+ * <p>Every vendor stores it differently, which is why this is an interface rather than a field. Two
  * shapes cover most of them and are implemented here; anything else is implemented by the agent
  * module that needs it, next to the agent it belongs to.
  */

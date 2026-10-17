@@ -1,6 +1,4 @@
-/**
- * Fixtures shared by the modules' tests. Not published.
- */
+/** Fixtures shared by the modules' tests. Not published. */
 @NullMarked
 package org.fuin.porelo.testing;
 

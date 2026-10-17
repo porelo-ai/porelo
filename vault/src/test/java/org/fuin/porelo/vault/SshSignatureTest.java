@@ -5,9 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
 
-/**
- * Test for {@link SshSignature}.
- */
+/** Test for {@link SshSignature}. */
 class SshSignatureTest {
 
     private static final String NAMESPACE = "porelo-message";
@@ -20,7 +18,8 @@ class SshSignatureTest {
     void signs_and_verifies_the_exact_bytes() {
         final String signature = SshSignature.sign(key, message, NAMESPACE);
 
-        assertThat(signature).startsWith("-----BEGIN SSH SIGNATURE-----")
+        assertThat(signature)
+                .startsWith("-----BEGIN SSH SIGNATURE-----")
                 .endsWith("-----END SSH SIGNATURE-----\n");
         assertThat(SshSignature.verify(message, signature, key.keyBlob(), NAMESPACE)).isTrue();
     }
@@ -48,8 +47,13 @@ class SshSignatureTest {
     void another_key_does_not_verify() {
         final String signature = SshSignature.sign(key, message, NAMESPACE);
 
-        assertThat(SshSignature.verify(message, signature,
-                SigningKey.generate("somebody else").keyBlob(), NAMESPACE)).isFalse();
+        assertThat(
+                        SshSignature.verify(
+                                message,
+                                signature,
+                                SigningKey.generate("somebody else").keyBlob(),
+                                NAMESPACE))
+                .isFalse();
     }
 
     @Test
@@ -64,8 +68,12 @@ class SshSignatureTest {
         assertThat(SshSignature.signerOf("not a signature")).isNull();
         assertThat(SshSignature.verify(message, "not a signature", key.keyBlob(), NAMESPACE))
                 .isFalse();
-        assertThat(SshSignature.verify(message,
-                "-----BEGIN SSH SIGNATURE-----\nAAAA\n-----END SSH SIGNATURE-----\n",
-                key.keyBlob(), NAMESPACE)).isFalse();
+        assertThat(
+                        SshSignature.verify(
+                                message,
+                                "-----BEGIN SSH SIGNATURE-----\nAAAA\n-----END SSH SIGNATURE-----\n",
+                                key.keyBlob(),
+                                NAMESPACE))
+                .isFalse();
     }
 }

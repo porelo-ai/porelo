@@ -10,15 +10,17 @@ import org.fuin.porelo.core.project.ProjectReader;
 
 /**
  * Checks a draft {@code project.yml} against this machine, before a person commits it.
- * <p>
- * <strong>Three answers, because they block different things</strong> (decided on
- * 2026-09-30): what Porelo refuses anywhere - YAML that does not parse, a key or value the schema refuses - blocks the
- * commit; what this machine's {@code follow} would refuse - an egress set it does not have - means this machine
- * would not take it; and what only this machine lacks - a destination, a vault entry, a transport - or a key a
- * later Porelo may know, warns: one project may run on machines set up differently.
- * <p>
- * A transport's section under {@code mail.transports} is asked of the transport, when it offers a {@code settings}
- * check: what it would refuse anywhere blocks the commit, and what it warns of warns.
+ *
+ * <p><strong>Three answers, because they block different things</strong> (decided on 2026-09-30):
+ * what Porelo refuses anywhere - YAML that does not parse, a key or value the schema refuses -
+ * blocks the commit; what this machine's {@code follow} would refuse - an egress set it does not
+ * have - means this machine would not take it; and what only this machine lacks - a destination, a
+ * vault entry, a transport - or a key a later Porelo may know, warns: one project may run on
+ * machines set up differently.
+ *
+ * <p>A transport's section under {@code mail.transports} is asked of the transport, when it offers
+ * a {@code settings} check: what it would refuse anywhere blocks the commit, and what it warns of
+ * warns.
  */
 public final class ProjectFileCheck {
 
@@ -41,8 +43,7 @@ public final class ProjectFileCheck {
         }
     }
 
-    private ProjectFileCheck() {
-    }
+    private ProjectFileCheck() {}
 
     @SuppressWarnings("unchecked")
     private static Map<String, Object> settings(Object section) {
@@ -72,8 +73,12 @@ public final class ProjectFileCheck {
             refused.add(FollowedProjects.RESERVED);
         }
         try {
-            for (final String unknown : ProjectReader.unknownKeys(new StringReader(text), "project.yml")) {
-                warnings.add("'" + unknown + "' is not a setting this machine's Porelo knows; it has no effect here");
+            for (final String unknown :
+                    ProjectReader.unknownKeys(new StringReader(text), "project.yml")) {
+                warnings.add(
+                        "'"
+                                + unknown
+                                + "' is not a setting this machine's Porelo knows; it has no effect here");
             }
         } catch (RuntimeException ex) {
             // Read above already; nothing more to say about it.
@@ -87,36 +92,58 @@ public final class ProjectFileCheck {
         }
         final Map<String, Destination> destinations = Destination.all(context.paths().xdg().data());
         final var providers = context.providers();
-        final Map<String, org.fuin.porelo.vault.VaultEntry> stored = context.readableCredentials().orElse(null);
-        project.credentials().forEach((entry, destination) -> {
-            if (Destination.resolve(destination, destinations, providers, null) == null) {
-                warnings.add("credential '" + entry + "' is for '" + destination + "', and no destination or provider"
-                        + " of that name is declared on this machine");
-            }
-            if (stored != null && !stored.containsKey(entry)) {
-                warnings.add("credential '" + entry + "' is not in this machine's vault");
-            }
-        });
+        final Map<String, org.fuin.porelo.vault.VaultEntry> stored =
+                context.readableCredentials().orElse(null);
+        project.credentials()
+                .forEach(
+                        (entry, destination) -> {
+                            if (Destination.resolve(destination, destinations, providers, null)
+                                    == null) {
+                                warnings.add(
+                                        "credential '"
+                                                + entry
+                                                + "' is for '"
+                                                + destination
+                                                + "', and no destination or provider"
+                                                + " of that name is declared on this machine");
+                            }
+                            if (stored != null && !stored.containsKey(entry)) {
+                                warnings.add(
+                                        "credential '"
+                                                + entry
+                                                + "' is not in this machine's vault");
+                            }
+                        });
         for (final String scheme : project.mail().conversations()) {
             if (context.paths().messaging().transportDirectory().find(scheme) == null) {
-                warnings.add("no '" + scheme + "' transport is installed on this machine, so its tasks cannot message");
+                warnings.add(
+                        "no '"
+                                + scheme
+                                + "' transport is installed on this machine, so its tasks cannot message");
             }
         }
-        // A transport's own section is the transport's to judge: Porelo's schema leaves it open, and the
-        // transport otherwise refuses it only when setup runs, at the first task start - after the commit.
-        final TransportLifecycle transports = new TransportLifecycle(context, context.paths().messaging().transportDirectory());
-        project.mail().transports().forEach((scheme, section) -> {
-            final String where = "mail.transports." + scheme + ": ";
-            try {
-                final TransportLifecycle.SettingsCheck said = transports.settings(scheme, settings(section));
-                if (said != null) {
-                    said.refused().forEach(each -> refused.add(where + each));
-                    said.warnings().forEach(each -> warnings.add(where + each));
-                }
-            } catch (TransportLifecycle.Refused ex) {
-                warnings.add(where + "not checked: " + ex.getMessage());
-            }
-        });
+        // A transport's own section is the transport's to judge: Porelo's schema leaves it open,
+        // and the
+        // transport otherwise refuses it only when setup runs, at the first task start - after the
+        // commit.
+        final TransportLifecycle transports =
+                new TransportLifecycle(context, context.paths().messaging().transportDirectory());
+        project.mail()
+                .transports()
+                .forEach(
+                        (scheme, section) -> {
+                            final String where = "mail.transports." + scheme + ": ";
+                            try {
+                                final TransportLifecycle.SettingsCheck said =
+                                        transports.settings(scheme, settings(section));
+                                if (said != null) {
+                                    said.refused().forEach(each -> refused.add(where + each));
+                                    said.warnings().forEach(each -> warnings.add(where + each));
+                                }
+                            } catch (TransportLifecycle.Refused ex) {
+                                warnings.add(where + "not checked: " + ex.getMessage());
+                            }
+                        });
         return new Result(refused, refusedHere, warnings);
     }
 }

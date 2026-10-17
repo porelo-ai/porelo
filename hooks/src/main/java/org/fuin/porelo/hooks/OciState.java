@@ -10,8 +10,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * The container state an OCI runtime writes to a hook's standard input.
- * <p>
- * Defined by the OCI runtime specification: the runtime pipes one JSON object in and expects the
+ *
+ * <p>Defined by the OCI runtime specification: the runtime pipes one JSON object in and expects the
  * hook to exit. Only the fields Porelo needs are read; an unknown field is ignored, because the
  * runtime is free to add them.
  *
@@ -54,7 +54,8 @@ public record OciState(String id, long pid, Map<String, String> annotations) {
 
         final Map<String, String> annotations = new java.util.LinkedHashMap<>();
         if (root.get("annotations") instanceof Map<?, ?> map) {
-            map.forEach((key, value) -> annotations.put(String.valueOf(key), String.valueOf(value)));
+            map.forEach(
+                    (key, value) -> annotations.put(String.valueOf(key), String.valueOf(value)));
         }
 
         return new OciState(containerId, pid, Map.copyOf(annotations));

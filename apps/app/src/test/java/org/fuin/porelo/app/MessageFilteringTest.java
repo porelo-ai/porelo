@@ -10,9 +10,7 @@ import org.fuin.porelo.testing.FakeCommandRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Test for {@link MessageFiltering}.
- */
+/** Test for {@link MessageFiltering}. */
 class MessageFilteringTest {
 
     private final FakeCommandRunner runner = new FakeCommandRunner();
@@ -40,12 +38,15 @@ class MessageFilteringTest {
                 new MessageFiltering(runner, filter(dir)).run(mailbox, false);
 
         assertThat(outcome.ran()).isTrue();
-        // Reporting only, a payload in plain text left unless a person happened to hold it, and the person was
+        // Reporting only, a payload in plain text left unless a person happened to hold it, and the
+        // person was
         // not told the filter would have refused it.
-        assertThat(runner.lines()).singleElement(org.assertj.core.api.InstanceOfAssertFactories.STRING)
+        assertThat(runner.lines())
+                .singleElement(org.assertj.core.api.InstanceOfAssertFactories.STRING)
                 .contains("--mail " + mailbox.root())
                 .contains("--blocking")
-                // Every message is put in place by rename: the filter's 200 ms settle only delayed each one.
+                // Every message is put in place by rename: the filter's 200 ms settle only delayed
+                // each one.
                 .contains("--stabilityDelayMillis 0");
     }
 
@@ -56,7 +57,8 @@ class MessageFilteringTest {
 
         new MessageFiltering(runner, filter(dir)).run(mailbox, true);
 
-        assertThat(runner.lines()).singleElement(org.assertj.core.api.InstanceOfAssertFactories.STRING)
+        assertThat(runner.lines())
+                .singleElement(org.assertj.core.api.InstanceOfAssertFactories.STRING)
                 .doesNotContain("--blocking");
     }
 
@@ -91,8 +93,8 @@ class MessageFilteringTest {
      */
     @Test
     void a_machine_without_a_filter_sends_nothing(@TempDir final Path dir) throws IOException {
-        final MessageFiltering.Outcome outcome = new MessageFiltering(runner, null)
-                .run(mailbox(dir), false);
+        final MessageFiltering.Outcome outcome =
+                new MessageFiltering(runner, null).run(mailbox(dir), false);
 
         assertThat(outcome.ran()).isFalse();
         assertThat(outcome.detail()).contains("nothing is sent");

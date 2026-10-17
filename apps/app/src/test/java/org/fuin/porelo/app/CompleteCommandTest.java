@@ -8,8 +8,8 @@ import picocli.CommandLine;
 
 /**
  * What TAB is answered with.
- * <p>
- * Driven through the real command tree rather than a fixture: the point of asking the program is
+ *
+ * <p>Driven through the real command tree rather than a fixture: the point of asking the program is
  * that the answers cannot drift from what the program accepts, and a test that built its own tree
  * would be testing the fixture.
  */
@@ -79,8 +79,7 @@ class CompleteCommandTest {
 
         // The words between the program and the partial word say which command we are in, and a
         // word that is not a subcommand is an option or an argument rather than a step down.
-        assertThat(completing("porelo", "task", "remove", "--force", "--"))
-                .contains("--rescue");
+        assertThat(completing("porelo", "task", "remove", "--force", "--")).contains("--rescue");
     }
 
     @Test

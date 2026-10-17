@@ -18,10 +18,10 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Checks the built {@code .deb} and {@code .rpm} against each other and against a real install.
- * <p>
- * Run after {@code -Pdist verify}, from the tree's root, with
- * {@code ./mvnw -pl dist/package-check compile exec:java@package-check}.
- * Needs {@code dpkg-deb}, {@code dpkg} and podman, and pulls the ubuntu and fedora images the pom pins.
+ *
+ * <p>Run after {@code -Pdist verify}, from the tree's root, with {@code ./mvnw -pl
+ * dist/package-check compile exec:java@package-check}. Needs {@code dpkg-deb}, {@code dpkg} and
+ * podman, and pulls the ubuntu and fedora images the pom pins.
  */
 public final class Main {
 
@@ -31,8 +31,14 @@ public final class Main {
     static final Set<String> SHIPS = Set.of("porelo-app", "porelod", "porelo-core", "picocli");
 
     /** What it must not: the acceptance kit's and the release tooling's, which never ship. */
-    static final Set<String> NEVER = Set.of("cucumber-core", "junit-platform-engine", "sshj", "porelo-acceptance-kit",
-            "porelo-machines", "porelo-release");
+    static final Set<String> NEVER =
+            Set.of(
+                    "cucumber-core",
+                    "junit-platform-engine",
+                    "sshj",
+                    "porelo-acceptance-kit",
+                    "porelo-machines",
+                    "porelo-release");
 
     /** The image the .rpm is read and installed in, by its registry and its digest. */
     static final String FEDORA = image("fedora");
@@ -68,7 +74,8 @@ public final class Main {
         }
         final String image = images.getProperty(name, "");
         if (image.isBlank() || image.contains("${")) {
-            throw new IllegalStateException("the " + name + " image is '" + image + "' - was images.properties filtered?");
+            throw new IllegalStateException(
+                    "the " + name + " image is '" + image + "' - was images.properties filtered?");
         }
         return image;
     }
@@ -90,8 +97,8 @@ public final class Main {
 
     /**
      * Runs every check.
-     * <p>
-     * Throws rather than exiting: this runs inside Maven's own JVM, and an exit would end Maven.
+     *
+     * <p>Throws rather than exiting: this runs inside Maven's own JVM, and an exit would end Maven.
      *
      * @param args the repository root, or nothing for the current directory
      */
@@ -99,7 +106,8 @@ public final class Main {
         final Path root = Path.of(args.length > 0 ? args[0] : ".").toAbsolutePath().normalize();
         final int code = run(root, System.getenv("GITHUB_RUN_ID") != null, System.out);
         if (code != 0) {
-            throw new IllegalStateException(code == 2 ? "no packages to check" : "the packages failed their check");
+            throw new IllegalStateException(
+                    code == 2 ? "no packages to check" : "the packages failed their check");
         }
     }
 
@@ -139,7 +147,8 @@ public final class Main {
         report.section("deb and rpm agree");
         Parity.check(debFiles(deb), rpmFiles(rpm), report);
 
-        // Registered as a vendor's agent is: under a name of its own, by one description, which the installs below find.
+        // Registered as a vendor's agent is: under a name of its own, by one description, which the
+        // installs below find.
         report.section("the agent is packaged as a vendor's would be");
         AgentLayout.check("the agent deb", debFiles(agentDeb), report);
         AgentLayout.check("the agent rpm", rpmFiles(agentRpm), report);
@@ -148,15 +157,24 @@ public final class Main {
         final String poreloVersion = debField(deb, "Version");
         final String poreloBill = Bill.mavenVersion(poreloVersion);
         final String agentBill = Bill.mavenVersion(debField(agentDeb, "Version"));
-        new Bill("the porelo deb", "porelo-dist-deb", poreloBill, SHIPS, NEVER).check(debBill(deb, "porelo"), billPath("porelo"), report);
-        new Bill("the porelo rpm", "porelo-dist-deb", poreloBill, SHIPS, NEVER).check(rpmBill(rpm, "porelo"), billPath("porelo"), report);
+        new Bill("the porelo deb", "porelo-dist-deb", poreloBill, SHIPS, NEVER)
+                .check(debBill(deb, "porelo"), billPath("porelo"), report);
+        new Bill("the porelo rpm", "porelo-dist-deb", poreloBill, SHIPS, NEVER)
+                .check(rpmBill(rpm, "porelo"), billPath("porelo"), report);
         final String stub = "porelo-agent-stub";
-        new Bill("the agent deb", stub, agentBill, Set.of(), Set.of()).check(debBill(agentDeb, stub), billPath(stub), report);
-        new Bill("the agent rpm", stub, agentBill, Set.of(), Set.of()).check(rpmBill(agentRpm, stub), billPath(stub), report);
+        new Bill("the agent deb", stub, agentBill, Set.of(), Set.of())
+                .check(debBill(agentDeb, stub), billPath(stub), report);
+        new Bill("the agent rpm", stub, agentBill, Set.of(), Set.of())
+                .check(rpmBill(agentRpm, stub), billPath(stub), report);
 
         report.section("versions");
-        final String rpmVersion = inFedora(rpm, "rpm", "-qp", "--qf", "%{VERSION}", "/pkg/" + rpm.getFileName()).output().strip();
-        report.check(poreloVersion.equals(rpmVersion), "both packages are version " + poreloVersion,
+        final String rpmVersion =
+                inFedora(rpm, "rpm", "-qp", "--qf", "%{VERSION}", "/pkg/" + rpm.getFileName())
+                        .output()
+                        .strip();
+        report.check(
+                poreloVersion.equals(rpmVersion),
+                "both packages are version " + poreloVersion,
                 "version disagreement: deb says " + poreloVersion + ", rpm says " + rpmVersion);
         VersionOrder.check(poreloVersion, inCi, Main::dpkgGreater, report);
 
@@ -167,7 +185,10 @@ public final class Main {
         install.check("Fedora 43", FEDORA_OLDEST, install.fedora(), rpmVersion, report);
 
         out.println();
-        out.println(report.failures() == 0 ? "== all checks passed ==" : "== " + report.failures() + " check(s) failed ==");
+        out.println(
+                report.failures() == 0
+                        ? "== all checks passed =="
+                        : "== " + report.failures() + " check(s) failed ==");
         return report.failures() == 0 ? 0 : 1;
     }
 
@@ -177,9 +198,10 @@ public final class Main {
 
     /**
      * Finds the one package matching a pattern.
-     * <p>
-     * More than one is refused rather than picked from: {@code target} keeps every package a build
-     * without {@code clean} made, and a check of the wrong one passes on a binary nobody meant to test.
+     *
+     * <p>More than one is refused rather than picked from: {@code target} keeps every package a
+     * build without {@code clean} made, and a check of the wrong one passes on a binary nobody
+     * meant to test.
      */
     private static @Nullable Path only(Path directory, String glob, PrintStream out) {
         final List<Path> found = new ArrayList<>();
@@ -193,8 +215,15 @@ public final class Main {
         if (found.size() == 1) {
             return found.getFirst();
         }
-        out.println(found.isEmpty() ? "no " + glob + " under " + directory
-                : found.size() + " packages match " + glob + " under " + directory + " - which one was just built cannot be told");
+        out.println(
+                found.isEmpty()
+                        ? "no " + glob + " under " + directory
+                        : found.size()
+                                + " packages match "
+                                + glob
+                                + " under "
+                                + directory
+                                + " - which one was just built cannot be told");
         return null;
     }
 
@@ -203,7 +232,8 @@ public final class Main {
         if (!listing.ok()) {
             throw new IllegalStateException("dpkg-deb could not list " + deb);
         }
-        return listing.output().lines()
+        return listing.output()
+                .lines()
                 .filter(line -> !line.startsWith("d"))
                 .map(line -> line.split("\\s+"))
                 .filter(fields -> fields.length > 5)
@@ -225,21 +255,41 @@ public final class Main {
     }
 
     private static @Nullable String debBill(Path deb, String name) {
-        final Commands.Result bill = Commands.pipe(List.of(List.of("dpkg-deb", "--fsys-tarfile", deb.toString()),
-                List.of("tar", "-xO", "." + billPath(name))), false);
+        final Commands.Result bill =
+                Commands.pipe(
+                        List.of(
+                                List.of("dpkg-deb", "--fsys-tarfile", deb.toString()),
+                                List.of("tar", "-xO", "." + billPath(name))),
+                        false);
         return bill.ok() ? bill.output() : null;
     }
 
     private static @Nullable String rpmBill(Path rpm, String name) {
-        // rpm2archive, not rpm2cpio: the fedora image has no cpio, and that pipe read as a missing file.
-        final Commands.Result bill = inFedora(rpm, "sh", "-c",
-                "rpm2archive -n - < '/pkg/" + rpm.getFileName() + "' | tar -xO '." + billPath(name) + "'");
+        // rpm2archive, not rpm2cpio: the fedora image has no cpio, and that pipe read as a missing
+        // file.
+        final Commands.Result bill =
+                inFedora(
+                        rpm,
+                        "sh",
+                        "-c",
+                        "rpm2archive -n - < '/pkg/"
+                                + rpm.getFileName()
+                                + "' | tar -xO '."
+                                + billPath(name)
+                                + "'");
         return bill.ok() ? bill.output() : null;
     }
 
     private static Commands.Result inFedora(Path rpm, String... command) {
-        final List<String> line = new ArrayList<>(List.of("podman", "run", "--rm", "-v",
-                rpm.getParent() + ":/pkg:ro,Z", FEDORA));
+        final List<String> line =
+                new ArrayList<>(
+                        List.of(
+                                "podman",
+                                "run",
+                                "--rm",
+                                "-v",
+                                rpm.getParent() + ":/pkg:ro,Z",
+                                FEDORA));
         line.addAll(Arrays.asList(command));
         return Commands.run(line);
     }
@@ -247,5 +297,4 @@ public final class Main {
     private static boolean dpkgGreater(String higher, String lower) {
         return Commands.run(List.of("dpkg", "--compare-versions", higher, "gt", lower)).ok();
     }
-
 }

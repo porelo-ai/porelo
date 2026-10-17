@@ -8,9 +8,7 @@ import java.time.Instant;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link TokenBroker}.
- */
+/** Tests for {@link TokenBroker}. */
 class TokenBrokerTest {
 
     private static final Map<String, String> REAL =
@@ -100,8 +98,8 @@ class TokenBrokerTest {
         final PhantomToken token = broker.mint("github", "task-1", Duration.ofHours(1));
 
         assertThat(broker.exchange(token.value(), now)).hasValue("ghp_the_real_one");
-        assertThat(broker.exchange(token.value(), now)).isNotEqualTo(
-                java.util.Optional.of("glpat_the_real_one"));
+        assertThat(broker.exchange(token.value(), now))
+                .isNotEqualTo(java.util.Optional.of("glpat_the_real_one"));
     }
 
     @Test
@@ -121,10 +119,12 @@ class TokenBrokerTest {
         // length of one request, for no benefit.
         final java.util.concurrent.atomic.AtomicInteger reads =
                 new java.util.concurrent.atomic.AtomicInteger();
-        final TokenBroker counting = new TokenBroker(() -> {
-            reads.incrementAndGet();
-            return REAL;
-        });
+        final TokenBroker counting =
+                new TokenBroker(
+                        () -> {
+                            reads.incrementAndGet();
+                            return REAL;
+                        });
 
         final PhantomToken token = counting.mint("github", "task-1", Duration.ofHours(1));
         counting.exchange(token.value(), now);

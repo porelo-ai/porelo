@@ -8,9 +8,7 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Tests for {@link GrantedNames}, the record of what somebody let a running task reach.
- */
+/** Tests for {@link GrantedNames}, the record of what somebody let a running task reach. */
 class GrantedNamesTest {
 
     @Test
@@ -57,21 +55,23 @@ class GrantedNamesTest {
         // Appended, never rewritten: a read-modify-write file would drop one of these, and the
         // grant that went missing would look like a grant that was ignored.
         final int writers = 16;
-        final java.util.concurrent.CountDownLatch go =
-                new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch go = new java.util.concurrent.CountDownLatch(1);
         final java.util.List<Thread> threads = new java.util.ArrayList<>();
         for (int i = 0; i < writers; i++) {
             final String name = "host-" + i + ".example.test";
-            threads.add(Thread.ofVirtual().start(() -> {
-                try {
-                    go.await();
-                    GrantedNames.add(dir, name);
-                } catch (InterruptedException ex) {
-                    Thread.currentThread().interrupt();
-                } catch (IOException ex) {
-                    throw new IllegalStateException(ex);
-                }
-            }));
+            threads.add(
+                    Thread.ofVirtual()
+                            .start(
+                                    () -> {
+                                        try {
+                                            go.await();
+                                            GrantedNames.add(dir, name);
+                                        } catch (InterruptedException ex) {
+                                            Thread.currentThread().interrupt();
+                                        } catch (IOException ex) {
+                                            throw new IllegalStateException(ex);
+                                        }
+                                    }));
         }
         go.countDown();
         for (final Thread thread : threads) {

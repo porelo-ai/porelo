@@ -13,14 +13,16 @@ import org.fuin.porelo.wire.Json;
 
 /**
  * Finds a message a person is asked to decide about, by id or file name, and says where it stands.
- * <p>
- * <strong>One lookup for reading and deciding</strong>, so what a person read is what they decide
- * about: the same message, named the same way, with no window in which the two could disagree.
- * <p>
- * Three places, and no others: {@code hold/}, what the filter refused ({@code rejected/}) and what it
- * could not check at all ({@code error/}). A refused original holds what was refused in clear text,
- * secrets included; it was decided that a person may read it in full and still deliver it, so
- * it is found here - by a person asking, never by the stream or the record, which stay without content.
+ *
+ * <p><strong>One lookup for reading and deciding</strong>, so what a person read is what they
+ * decide about: the same message, named the same way, with no window in which the two could
+ * disagree.
+ *
+ * <p>Three places, and no others: {@code hold/}, what the filter refused ({@code rejected/}) and
+ * what it could not check at all ({@code error/}). A refused original holds what was refused in
+ * clear text, secrets included; it was decided that a person may read it in full and still deliver
+ * it, so it is found here - by a person asking, never by the stream or the record, which stay
+ * without content.
  */
 final class MessageLookup {
 
@@ -46,8 +48,7 @@ final class MessageLookup {
      * @param file The message.
      * @param standing Where it stands.
      */
-    record Found(Path file, Standing standing) {
-    }
+    record Found(Path file, Standing standing) {}
 
     private MessageLookup() {
         throw new UnsupportedOperationException("Utility class");
@@ -73,8 +74,8 @@ final class MessageLookup {
 
     /**
      * Returns every message a person may be asked about, in the three places, in that order.
-     * <p>
-     * The one enumeration a list, a read and a decision share: what a list shows is exactly what
+     *
+     * <p>The one enumeration a list, a read and a decision share: what a list shows is exactly what
      * {@link #find} can find, standing included.
      *
      * @param mailbox The task's mailbox.
@@ -88,8 +89,12 @@ final class MessageLookup {
         }
         final java.util.Set<String> refusedByPerson = refusedByPerson(mailbox);
         for (final Path refused : messages(mailbox.rejected())) {
-            found.add(new Found(refused, refusedByPerson.contains(refused.getFileName().toString())
-                    ? Standing.REFUSED_BY_PERSON : Standing.REFUSED_BY_FILTER));
+            found.add(
+                    new Found(
+                            refused,
+                            refusedByPerson.contains(refused.getFileName().toString())
+                                    ? Standing.REFUSED_BY_PERSON
+                                    : Standing.REFUSED_BY_FILTER));
         }
         for (final Path unchecked : messages(mailbox.error())) {
             found.add(new Found(unchecked, Standing.UNCHECKED));
@@ -98,7 +103,8 @@ final class MessageLookup {
     }
 
     /**
-     * Returns the filter's own answer to a message it refused - why, in its words, without the text.
+     * Returns the filter's own answer to a message it refused - why, in its words, without the
+     * text.
      *
      * @param mailbox The task's mailbox.
      * @param id The refused message's id.
@@ -110,7 +116,8 @@ final class MessageLookup {
             return "";
         }
         // Wherever the answer is now: waiting in feedback/, or already handed to the agent's inbox.
-        for (final Path directory : List.of(mailbox.feedback(), mailbox.inboxNew(), mailbox.inboxCur())) {
+        for (final Path directory :
+                List.of(mailbox.feedback(), mailbox.inboxNew(), mailbox.inboxCur())) {
             for (final Path answer : messages(directory)) {
                 final String text = answerText(answer, id);
                 if (!text.isEmpty()) {
@@ -122,19 +129,21 @@ final class MessageLookup {
     }
 
     /**
-     * Says what the filter would have refused in a message it let through only because it reports, from its receipt.
-     * <p>
-     * Only the rule and the excerpts the filter masked: the message itself holds the original, and a person reads
-     * that on purpose or not at all.
+     * Says what the filter would have refused in a message it let through only because it reports,
+     * from its receipt.
+     *
+     * <p>Only the rule and the excerpts the filter masked: the message itself holds the original,
+     * and a person reads that on purpose or not at all.
      *
      * @param mailbox The task's mailbox.
      * @param id The message's id.
-     * @return "the filter would have refused it: RULE (excerpt, ...)", or "" when it would not, or its receipt is
-     *         gone.
+     * @return "the filter would have refused it: RULE (excerpt, ...)", or "" when it would not, or
+     *     its receipt is gone.
      * @throws IOException Reading failed.
      */
     /**
-     * Returns where the host keeps its copy of every answer the filter gave, out of the agent's reach.
+     * Returns where the host keeps its copy of every answer the filter gave, out of the agent's
+     * reach.
      *
      * @param mailbox The task's mailbox.
      * @return Directory.
@@ -145,9 +154,9 @@ final class MessageLookup {
 
     /**
      * Says whether a message may leave, from the filter's answer to it as the host keeps it.
-     * <p>
-     * <strong>Fail closed</strong> (2026-10-04): an answer that is missing - a
-     * filter defect, a receipt lost in a crash - holds the message, as a flagged one is held, never reads as clean.
+     *
+     * <p><strong>Fail closed</strong> (2026-10-04): an answer that is missing - a filter defect, a
+     * receipt lost in a crash - holds the message, as a flagged one is held, never reads as clean.
      * And only the host's copies are asked, never the agent's box, which the agent can empty.
      *
      * @param mailbox The task's mailbox.
@@ -169,15 +178,20 @@ final class MessageLookup {
                 }
             }
         }
-        // A message whose id cannot be read is no exception: after the filter every accepted message has one, so
+        // A message whose id cannot be read is no exception: after the filter every accepted
+        // message has one, so
         // an empty one means Porelo could not read it, and that holds too (2026-10-04).
-        return answered ? "" : id.isEmpty() ? "its id cannot be read, so it waits for a person"
-                : "the filter's answer to it is missing, so it waits for a person";
+        return answered
+                ? ""
+                : id.isEmpty()
+                        ? "its id cannot be read, so it waits for a person"
+                        : "the filter's answer to it is missing, so it waits for a person";
     }
 
     private static boolean answersTo(final Path answer, final String id) {
         try {
-            return Json.parse(Files.readString(answer, StandardCharsets.UTF_8)) instanceof Map<?, ?> document
+            return Json.parse(Files.readString(answer, StandardCharsets.UTF_8))
+                            instanceof Map<?, ?> document
                     && document.get("metadata") instanceof Map<?, ?> metadata
                     && id.equals(metadata.get("inReplyToMessageId"));
         } catch (final IOException | RuntimeException ex) {
@@ -189,7 +203,8 @@ final class MessageLookup {
         if (id.isEmpty()) {
             return "";
         }
-        for (final Path directory : List.of(mailbox.feedback(), mailbox.inboxNew(), mailbox.inboxCur())) {
+        for (final Path directory :
+                List.of(mailbox.feedback(), mailbox.inboxNew(), mailbox.inboxCur())) {
             for (final Path answer : messages(directory)) {
                 final String verdict = verdict(answer, id);
                 if (!verdict.isEmpty()) {
@@ -202,26 +217,31 @@ final class MessageLookup {
 
     private static String verdict(final Path answer, final String id) {
         try {
-            if (!(Json.parse(Files.readString(answer, StandardCharsets.UTF_8)) instanceof Map<?, ?> document)
+            if (!(Json.parse(Files.readString(answer, StandardCharsets.UTF_8))
+                            instanceof Map<?, ?> document)
                     || !(document.get("metadata") instanceof Map<?, ?> metadata)
                     || !id.equals(metadata.get("inReplyToMessageId"))
                     || !(document.get("parts") instanceof List<?> parts)) {
                 return "";
             }
             for (final Object part : parts) {
-                if (part instanceof Map<?, ?> each && each.get("data") instanceof Map<?, ?> data
+                if (part instanceof Map<?, ?> each
+                        && each.get("data") instanceof Map<?, ?> data
                         && Boolean.TRUE.equals(data.get("wouldReject"))) {
                     final List<String> excerpts = new java.util.ArrayList<>();
                     if (data.get("findings") instanceof List<?> findings) {
                         for (final Object finding : findings) {
                             if (finding instanceof Map<?, ?> found
-                                    && found.get("redactedExcerpt") instanceof String excerpt && !excerpt.isEmpty()) {
+                                    && found.get("redactedExcerpt") instanceof String excerpt
+                                    && !excerpt.isEmpty()) {
                                 excerpts.add(excerpt);
                             }
                         }
                     }
-                    final String rule = data.get("decidingRule") instanceof String named ? named : "a rule";
-                    return "the filter would have refused it: " + rule
+                    final String rule =
+                            data.get("decidingRule") instanceof String named ? named : "a rule";
+                    return "the filter would have refused it: "
+                            + rule
                             + (excerpts.isEmpty() ? "" : " (" + String.join(", ", excerpts) + ")");
                 }
             }
@@ -233,19 +253,24 @@ final class MessageLookup {
 
     private static String answerText(final Path answer, final String id) {
         try {
-            if (!(Json.parse(Files.readString(answer, StandardCharsets.UTF_8)) instanceof Map<?, ?> document)
+            if (!(Json.parse(Files.readString(answer, StandardCharsets.UTF_8))
+                            instanceof Map<?, ?> document)
                     || !(document.get("parts") instanceof List<?> parts)) {
                 return "";
             }
             String text = "";
             boolean about = false;
             for (final Object part : parts) {
-                if (part instanceof Map<?, ?> each && each.get("text") instanceof String words && text.isEmpty()) {
+                if (part instanceof Map<?, ?> each
+                        && each.get("text") instanceof String words
+                        && text.isEmpty()) {
                     text = words;
                 }
-                if (part instanceof Map<?, ?> each && each.get("data") instanceof Map<?, ?> data
+                if (part instanceof Map<?, ?> each
+                        && each.get("data") instanceof Map<?, ?> data
                         && id.equals(data.get("rejectedMessageId"))
-                        && !(data.get("tool") instanceof Map<?, ?> tool && HostBounce.TOOL.equals(tool.get("name")))) {
+                        && !(data.get("tool") instanceof Map<?, ?> tool
+                                && HostBounce.TOOL.equals(tool.get("name")))) {
                     about = true;
                 }
             }
@@ -273,7 +298,8 @@ final class MessageLookup {
         try {
             return MessageFile.id(message);
         } catch (final IOException | RuntimeException ex) {
-            // What the filter could not check may not parse at all; it still answers to its file name.
+            // What the filter could not check may not parse at all; it still answers to its file
+            // name.
             return "";
         }
     }
@@ -285,7 +311,8 @@ final class MessageLookup {
         try (Stream<Path> entries = Files.list(directory)) {
             return entries.filter(Files::isRegularFile)
                     .filter(path -> path.getFileName().toString().endsWith(".json"))
-                    .sorted(Comparator.comparing(path -> path.getFileName().toString())).toList();
+                    .sorted(Comparator.comparing(path -> path.getFileName().toString()))
+                    .toList();
         }
     }
 }

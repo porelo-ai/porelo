@@ -6,8 +6,8 @@ import java.io.StringReader;
 import org.junit.jupiter.api.Test;
 
 /**
- * A setting Porelo no longer reads is refused by name, wherever it stands: a file that carries it would otherwise
- * look as if it still did something.
+ * A setting Porelo no longer reads is refused by name, wherever it stands: a file that carries it
+ * would otherwise look as if it still did something.
  */
 class ProjectRemovedSettingTest {
 
@@ -17,14 +17,18 @@ class ProjectRemovedSettingTest {
 
     @Test
     void refusesUnreadWorkMayLeaveUnderProjectAndSaysWhatDecidesInstead() {
-        assertThatThrownBy(() -> read("""
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        """
                 project:
                   name: "p"
                   security_class: "guarded"
                   unread_work_may_leave: true
                 image:
                   base_image: "ubuntu:24.04"
-                """)).isInstanceOf(ProjectException.class)
+                """))
+                .isInstanceOf(ProjectException.class)
                 .as("the key named, and what replaces it")
                 .hasMessageContaining("'project.unread_work_may_leave' is no longer a setting")
                 .hasMessageContaining("mail.rules");
@@ -32,7 +36,10 @@ class ProjectRemovedSettingTest {
 
     @Test
     void refusesItInAnyOtherPlaceByTheSameName() {
-        assertThatThrownBy(() -> read("""
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        """
                 project:
                   name: "p"
                   security_class: "guarded"
@@ -40,7 +47,8 @@ class ProjectRemovedSettingTest {
                   base_image: "ubuntu:24.04"
                 mail:
                   unread_work_may_leave: false
-                """)).isInstanceOf(ProjectException.class)
+                """))
+                .isInstanceOf(ProjectException.class)
                 .hasMessageContaining("'mail.unread_work_may_leave' is no longer a setting");
     }
 }

@@ -10,16 +10,18 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * Holds a file's lock across threads and processes: the daemon's pass and a command at the terminal work on one
- * mailbox, and a lock of either kind alone leaves the other way open.
+ * Holds a file's lock across threads and processes: the daemon's pass and a command at the terminal
+ * work on one mailbox, and a lock of either kind alone leaves the other way open.
  */
 final class FileLocks {
 
-    /** One lock per file in this process: a second channel's lock of the same file throws instead of waiting. */
+    /**
+     * One lock per file in this process: a second channel's lock of the same file throws instead of
+     * waiting.
+     */
     private static final ConcurrentHashMap<Path, ReentrantLock> HELD = new ConcurrentHashMap<>();
 
-    private FileLocks() {
-    }
+    private FileLocks() {}
 
     /** What runs while the lock is held. */
     @FunctionalInterface
@@ -44,14 +46,18 @@ final class FileLocks {
      * @throws IOException Locking, reading or writing failed.
      */
     static <T> T holding(final Path lock, final Locked<T> locked) throws IOException {
-        final ReentrantLock here = HELD.computeIfAbsent(lock.toAbsolutePath().normalize(), path -> new ReentrantLock());
+        final ReentrantLock here =
+                HELD.computeIfAbsent(
+                        lock.toAbsolutePath().normalize(), path -> new ReentrantLock());
         here.lock();
         try {
             if (here.getHoldCount() > 1) {
                 return locked.run();
             }
             Files.createDirectories(lock.toAbsolutePath().getParent());
-            try (FileChannel channel = FileChannel.open(lock, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+            try (FileChannel channel =
+                            FileChannel.open(
+                                    lock, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
                     FileLock held = channel.lock()) {
                 return locked.run();
             }
@@ -61,11 +67,12 @@ final class FileLocks {
     }
 
     /**
-     * Says whether nobody holds a lock file now, without waiting: a lock that is held - by this process or another -
-     * marks what is in use, which nothing may remove.
+     * Says whether nobody holds a lock file now, without waiting: a lock that is held - by this
+     * process or another - marks what is in use, which nothing may remove.
      *
      * @param lock The lock file.
-     * @return {@code true} when it could be taken this moment; {@code false} when it is held or cannot be opened.
+     * @return {@code true} when it could be taken this moment; {@code false} when it is held or
+     *     cannot be opened.
      */
     public static boolean free(final Path lock) {
         if (HELD.containsKey(lock.toAbsolutePath().normalize())

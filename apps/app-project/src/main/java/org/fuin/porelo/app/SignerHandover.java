@@ -17,13 +17,13 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * The keys a followed project's configuration is taken from, handed on by the keys before them.
- * <p>
- * A person names the first key at the follow, out of band. After that the project's own file says whose
- * commits change it, under {@code project.signers}: a commit that changes that list counts only when it is
- * signed by a key in force before it, so the keys pinned here hand on to the ones it names - and a key never
- * vouches for the commit that adds it. Every commit since the one in force that changes the list is checked
- * in order, so a key added and removed again in between is followed through. A project whose file names no
- * signers keeps the keys pinned at the follow.
+ *
+ * <p>A person names the first key at the follow, out of band. After that the project's own file
+ * says whose commits change it, under {@code project.signers}: a commit that changes that list
+ * counts only when it is signed by a key in force before it, so the keys pinned here hand on to the
+ * ones it names - and a key never vouches for the commit that adds it. Every commit since the one
+ * in force that changes the list is checked in order, so a key added and removed again in between
+ * is followed through. A project whose file names no signers keeps the keys pinned at the follow.
  */
 final class SignerHandover {
 
@@ -34,14 +34,16 @@ final class SignerHandover {
      *
      * @param keys The keys in force after the last of them, each as type and key.
      * @param changed Whether they differ from the ones pinned here.
-     * @param tip The verdict on the commit fetched when it changed the list itself, checked with the keys before
-     *        it; {@code null} when it did not, and it is checked with {@link #keys()}.
-     * @param refused The verdict on a commit that changed the list without being signed by a key in force, or
-     *        {@code null}.
+     * @param tip The verdict on the commit fetched when it changed the list itself, checked with
+     *     the keys before it; {@code null} when it did not, and it is checked with {@link #keys()}.
+     * @param refused The verdict on a commit that changed the list without being signed by a key in
+     *     force, or {@code null}.
      */
-    record Handed(List<String> keys, boolean changed, ConfigurationGate.@Nullable Verdict tip,
-            ConfigurationGate.@Nullable Verdict refused) {
-    }
+    record Handed(
+            List<String> keys,
+            boolean changed,
+            ConfigurationGate.@Nullable Verdict tip,
+            ConfigurationGate.@Nullable Verdict refused) {}
 
     private final CommandRunner runner;
     private final Path signers;
@@ -75,7 +77,8 @@ final class SignerHandover {
         final List<String> commits;
         Set<String> last;
         if (inForce.isEmpty()) {
-            // The first commit taken: only it, against the key the person named. Older history may be signed by
+            // The first commit taken: only it, against the key the person named. Older history may
+            // be signed by
             // keys long retired, and none of it is what is applied.
             commits = List.of(tip);
             last = new LinkedHashSet<>(pinned);
@@ -95,7 +98,8 @@ final class SignerHandover {
             try {
                 named = at(clone, commit);
             } catch (final ProjectException ex) {
-                // A list that cannot be read is no list: what the commit means is left to the reader, which
+                // A list that cannot be read is no list: what the commit means is left to the
+                // reader, which
                 // refuses the file when it is the one applied.
                 continue;
             }
@@ -104,9 +108,17 @@ final class SignerHandover {
             }
             final ConfigurationGate.Verdict verdict = verify(clone, project, keys, commit);
             if (!verdict.mayApply()) {
-                return new Handed(keys, false, null, new ConfigurationGate.Verdict(verdict.outcome(),
-                        verdict.commit(), verdict.signer(), "changes project.signers and is not signed by a key"
-                                + " in force before it, so it is not applied: " + verdict.detail()));
+                return new Handed(
+                        keys,
+                        false,
+                        null,
+                        new ConfigurationGate.Verdict(
+                                verdict.outcome(),
+                                verdict.commit(),
+                                verdict.signer(),
+                                "changes project.signers and is not signed by a key"
+                                        + " in force before it, so it is not applied: "
+                                        + verdict.detail()));
             }
             keys = named;
             last = new LinkedHashSet<>(named);
@@ -114,7 +126,11 @@ final class SignerHandover {
                 tipVerdict = verdict;
             }
         }
-        return new Handed(keys, !new LinkedHashSet<>(keys).equals(new LinkedHashSet<>(pinned)), tipVerdict, null);
+        return new Handed(
+                keys,
+                !new LinkedHashSet<>(keys).equals(new LinkedHashSet<>(pinned)),
+                tipVerdict,
+                null);
     }
 
     /**
@@ -126,15 +142,18 @@ final class SignerHandover {
      * @param ref What to check.
      * @return The verdict.
      */
-    ConfigurationGate.Verdict verify(final Path clone, final String project, final List<String> keys,
-            final String ref) {
+    ConfigurationGate.Verdict verify(
+            final Path clone, final String project, final List<String> keys, final String ref) {
         Path own = null;
         try {
             own = Files.createTempFile("porelo-signers-", "");
             Files.write(own, keys.stream().map(key -> project + " " + key).toList());
             return new ConfigurationGate(runner, own).verify(clone, ref);
         } catch (final IOException ex) {
-            return new ConfigurationGate.Verdict(ConfigurationGate.Outcome.UNREADABLE, "", "",
+            return new ConfigurationGate.Verdict(
+                    ConfigurationGate.Outcome.UNREADABLE,
+                    "",
+                    "",
                     "the keys in force could not be written down: " + ex.getMessage());
         } finally {
             if (own != null) {
@@ -152,7 +171,8 @@ final class SignerHandover {
      *
      * @param project The project.
      * @param keys What is in force now.
-     * @return What was pinned and unpinned, by fingerprint, for a person to read; "" when nothing changed.
+     * @return What was pinned and unpinned, by fingerprint, for a person to read; "" when nothing
+     *     changed.
      * @throws IOException If the file cannot be written.
      */
     String pin(final String project, final List<String> keys) throws IOException {
@@ -167,15 +187,24 @@ final class SignerHandover {
         }
         keys.forEach(key -> lines.add(project + " " + key));
         Files.createDirectories(signers.toAbsolutePath().getParent());
-        final Path staged = Files.createTempFile(signers.toAbsolutePath().getParent(), ".project-signers-", "");
+        final Path staged =
+                Files.createTempFile(signers.toAbsolutePath().getParent(), ".project-signers-", "");
         Files.write(staged, lines);
-        Files.move(staged, signers, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        Files.move(
+                staged,
+                signers,
+                StandardCopyOption.REPLACE_EXISTING,
+                StandardCopyOption.ATOMIC_MOVE);
         final List<String> said = new ArrayList<>();
-        keys.stream().filter(key -> !before.contains(key))
+        keys.stream()
+                .filter(key -> !before.contains(key))
                 .forEach(key -> said.add("pinned " + fingerprint(key)));
-        before.stream().filter(key -> !keys.contains(key))
+        before.stream()
+                .filter(key -> !keys.contains(key))
                 .forEach(key -> said.add("unpinned " + fingerprint(key)));
-        return said.isEmpty() ? "" : String.join(", ", said) + " for " + project + ", as project.signers says";
+        return said.isEmpty()
+                ? ""
+                : String.join(", ", said) + " for " + project + ", as project.signers says";
     }
 
     private static String fingerprint(final String key) {
@@ -201,17 +230,33 @@ final class SignerHandover {
     }
 
     private List<String> between(final Path clone, final String older, final String newer) {
-        // First parent: the line of commits the project's main moved along, each one as it was taken -
+        // First parent: the line of commits the project's main moved along, each one as it was
+        // taken -
         // a merge counts as the commit that brought the change.
-        final CommandResult listed = runner.run(Command.of("git", "-C", clone.toString(), "rev-list",
-                "--reverse", "--first-parent", older + ".." + newer));
-        return listed.successful() ? listed.standardOutput().lines().map(String::strip)
-                .filter(line -> !line.isEmpty()).toList() : List.of();
+        final CommandResult listed =
+                runner.run(
+                        Command.of(
+                                "git",
+                                "-C",
+                                clone.toString(),
+                                "rev-list",
+                                "--reverse",
+                                "--first-parent",
+                                older + ".." + newer));
+        return listed.successful()
+                ? listed.standardOutput()
+                        .lines()
+                        .map(String::strip)
+                        .filter(line -> !line.isEmpty())
+                        .toList()
+                : List.of();
     }
 
     private @Nullable List<String> at(final Path clone, final String commit) {
-        final CommandResult shown = runner.run(Command.of("git", "-C", clone.toString(), "show",
-                commit + ":" + FILE));
-        return shown.successful() ? ProjectReader.signers(shown.standardOutput(), FILE + " at " + commit) : null;
+        final CommandResult shown =
+                runner.run(Command.of("git", "-C", clone.toString(), "show", commit + ":" + FILE));
+        return shown.successful()
+                ? ProjectReader.signers(shown.standardOutput(), FILE + " at " + commit)
+                : null;
     }
 }

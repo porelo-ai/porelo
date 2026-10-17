@@ -17,36 +17,45 @@ import picocli.CommandLine.Spec;
 
 /**
  * Caches the vault passphrase in the kernel keyring for the rest of the session.
- * <p>
- * Without this an operator answers a passphrase prompt on every command. With it they answer once
- * per login, and the answer lives in the kernel rather than in any file - so it is gone at logout
- * and never survives a reboot.
+ *
+ * <p>Without this an operator answers a passphrase prompt on every command. With it they answer
+ * once per login, and the answer lives in the kernel rather than in any file - so it is gone at
+ * logout and never survives a reboot.
  */
-@Command(name = "unlock",
+@Command(
+        name = "unlock",
         mixinStandardHelpOptions = true,
-        description = "Caches the vault passphrase in this account's kernel keyring, where the"
-                + " daemon and later sessions find it.")
+        description =
+                "Caches the vault passphrase in this account's kernel keyring, where the"
+                        + " daemon and later sessions find it.")
 public class VaultUnlockCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
-    @Option(names = "--forget",
+    @Option(
+            names = "--forget",
             description = "Removes the cached passphrase instead. The same as 'vault lock'.")
     private boolean forget;
 
-    @Option(names = "--passphrase-command", paramLabel = "<command>",
+    @Option(
+            names = "--passphrase-command",
+            paramLabel = "<command>",
             description = "Command whose first output line is the passphrase.")
     private @Nullable String passphraseCommand;
 
-    @Option(names = "--systemd-credential", paramLabel = "<file>",
+    @Option(
+            names = "--systemd-credential",
+            paramLabel = "<file>",
             description = "systemd-creds encrypted file holding the passphrase.")
     private @Nullable String systemdCredential;
 
-    @Option(names = "--for", paramLabel = "<duration>",
-            description = "How long to keep it: 45s, 30m, 8h. Without this it is kept until"
-                    + " 'vault lock' or until your last session ends.")
+    @Option(
+            names = "--for",
+            paramLabel = "<duration>",
+            description =
+                    "How long to keep it: 45s, 30m, 8h. Without this it is kept until"
+                            + " 'vault lock' or until your last session ends.")
     private @Nullable String keepFor;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -57,8 +66,8 @@ public class VaultUnlockCommand implements Callable<Integer>, PoreloFactory.Cont
 
     /**
      * Reads a duration written the way somebody types it.
-     * <p>
-     * Not ISO-8601: an operator bounding an unlock writes {@code 30m}, not {@code PT30M}, and a
+     *
+     * <p>Not ISO-8601: an operator bounding an unlock writes {@code 30m}, not {@code PT30M}, and a
      * flag nobody can use without reading the help is a flag nobody uses.
      *
      * @param text Value of {@code --for}, or {@code null}.
@@ -74,15 +83,17 @@ public class VaultUnlockCommand implements Callable<Integer>, PoreloFactory.Cont
         final java.util.regex.Matcher matcher =
                 java.util.regex.Pattern.compile("^(\\d+)([smh])$").matcher(said);
         if (!matcher.matches()) {
-            throw new IllegalArgumentException("cannot read '" + text + "' as a duration;"
-                    + " write it as 45s, 30m or 8h");
+            throw new IllegalArgumentException(
+                    "cannot read '" + text + "' as a duration;" + " write it as 45s, 30m or 8h");
         }
         final long amount = Long.parseLong(matcher.group(1));
         if (amount == 0) {
             // Zero would be a key the kernel discards at once, which reads as "unlock did
             // nothing" - and somebody who means that has 'vault lock'.
-            throw new IllegalArgumentException("'--for 0" + matcher.group(2)
-                    + "' would discard it immediately; use 'porelo vault lock' to not cache one");
+            throw new IllegalArgumentException(
+                    "'--for 0"
+                            + matcher.group(2)
+                            + "' would discard it immediately; use 'porelo vault lock' to not cache one");
         }
         return switch (matcher.group(2)) {
             case "s" -> java.time.Duration.ofSeconds(amount);
@@ -103,12 +114,27 @@ public class VaultUnlockCommand implements Callable<Integer>, PoreloFactory.Cont
             return VaultLockCommand.lock(context, out);
         }
 
-        if (!context.vault().exists() && asker != Offer.Asker.NOBODY && new Offer(asker, false, false, err).resolve(
-                new Offer.Remedy("there is no vault at " + context.vault().path() + " to unlock",
-                        "Make one now, as 'porelo vault init' does - it asks the passphrase twice and keeps it?",
-                        "porelo vault init", "", false,
-                        () -> context.exec().applyAsInt(java.util.List.of(PoreloBinary.path(), "vault", "init")) == 0,
-                        () -> context.vault().exists()))) {
+        if (!context.vault().exists()
+                && asker != Offer.Asker.NOBODY
+                && new Offer(asker, false, false, err)
+                        .resolve(
+                                new Offer.Remedy(
+                                        "there is no vault at "
+                                                + context.vault().path()
+                                                + " to unlock",
+                                        "Make one now, as 'porelo vault init' does - it asks the passphrase twice and keeps it?",
+                                        "porelo vault init",
+                                        "",
+                                        false,
+                                        () ->
+                                                context.exec()
+                                                                .applyAsInt(
+                                                                        java.util.List.of(
+                                                                                PoreloBinary.path(),
+                                                                                "vault",
+                                                                                "init"))
+                                                        == 0,
+                                        () -> context.vault().exists()))) {
             out.println("vault     made, and unlocked by 'porelo vault init'");
             out.flush();
             return 0;
@@ -116,10 +142,14 @@ public class VaultUnlockCommand implements Callable<Integer>, PoreloFactory.Cont
         if (!context.vault().exists()) {
             // Refused before anything is asked: a passphrase cached for a vault that does not exist
             // opens nothing, and the first 'vault put' then made the vault with it - typed once, so
-            // a typo became the passphrase with nothing to compare it against. 'vault init' asks twice.
-            err.println("porelo: there is no vault at " + context.vault().path() + " to unlock -"
-                    + " create it with 'porelo vault init', which sets the passphrase and caches it;"
-                    + " nothing was cached");
+            // a typo became the passphrase with nothing to compare it against. 'vault init' asks
+            // twice.
+            err.println(
+                    "porelo: there is no vault at "
+                            + context.vault().path()
+                            + " to unlock -"
+                            + " create it with 'porelo vault init', which sets the passphrase and caches it;"
+                            + " nothing was cached");
             err.flush();
             return 1;
         }
@@ -133,12 +163,15 @@ public class VaultUnlockCommand implements Callable<Integer>, PoreloFactory.Cont
         final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
 
         final var runner = new ProcessCommandRunner();
-        final PassphraseTiers tiers = new PassphraseTiers(
-                // Strongest first: a TPM-sealed credential beats a password manager, which beats
-                // typing. The keyring itself is not in this list - it is what is being filled.
-                new SystemdCredential(runner, systemdCredential),
-                new CommandPassphrase(runner, passphraseCommand),
-                new ConsolePassphrase("Vault passphrase: "));
+        final PassphraseTiers tiers =
+                new PassphraseTiers(
+                        // Strongest first: a TPM-sealed credential beats a password manager, which
+                        // beats
+                        // typing. The keyring itself is not in this list - it is what is being
+                        // filled.
+                        new SystemdCredential(runner, systemdCredential),
+                        new CommandPassphrase(runner, passphraseCommand),
+                        new ConsolePassphrase("Vault passphrase: "));
 
         try {
             final char[] passphrase = tiers.require();
@@ -146,8 +179,10 @@ public class VaultUnlockCommand implements Callable<Integer>, PoreloFactory.Cont
             // reads as a possibly corrupt vault.
             final var vault = context.vault();
             if (!vault.accepts(passphrase)) {
-                err.println("porelo: that passphrase does not open " + vault.path()
-                        + " - nothing was cached");
+                err.println(
+                        "porelo: that passphrase does not open "
+                                + vault.path()
+                                + " - nothing was cached");
                 err.flush();
                 return 70;
             }
@@ -160,10 +195,11 @@ public class VaultUnlockCommand implements Callable<Integer>, PoreloFactory.Cont
                 return 2;
             }
             keyring.store(passphrase, bound);
-            out.println(bound == null
-                    ? "cached in this account's kernel keyring - the daemon and later sessions"
-                            + " find it, and it is gone at reboot"
-                    : "cached in the kernel keyring; the kernel discards it in " + keepFor);
+            out.println(
+                    bound == null
+                            ? "cached in this account's kernel keyring - the daemon and later sessions"
+                                    + " find it, and it is gone at reboot"
+                            : "cached in the kernel keyring; the kernel discards it in " + keepFor);
             out.flush();
             return 0;
         } catch (VaultException ex) {
@@ -173,6 +209,9 @@ public class VaultUnlockCommand implements Callable<Integer>, PoreloFactory.Cont
         }
     }
 
-    /** Who is asked, where a refusal would name the command: this process's terminal, or nobody without one. */
+    /**
+     * Who is asked, where a refusal would name the command: this process's terminal, or nobody
+     * without one.
+     */
     Offer.Asker asker = Offer.atTerminal() ? Offer.Asker.terminal() : Offer.Asker.NOBODY;
 }

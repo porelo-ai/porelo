@@ -13,15 +13,15 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Removes what Porelo built for a project.
- * <p>
- * <strong>Not "deleting the project".</strong> The project file is the operator's, in their own
+ *
+ * <p><strong>Not "deleting the project".</strong> The project file is the operator's, in their own
  * directory, usually beside their own repository, and so is the checkout and the real upstream.
  * None of them is touched. What goes is the gate mirror, the task image, the build directory, the
  * registry entry, the recorded upstream distance, and every task with its container, state and
  * logs. Afterwards the project file is still there and running a task in that directory builds all
  * of it again - which is the property that makes this safe to offer at all.
- * <p>
- * <strong>It refuses rather than decides.</strong> Unreviewed pushes exist only in the mirror -
+ *
+ * <p><strong>It refuses rather than decides.</strong> Unreviewed pushes exist only in the mirror -
  * nothing else has them, anywhere - and a running task is work being cut off mid-flight. Both stop
  * it, both are named, and {@code force} is how somebody says they meant it. That is the shape
  * {@link TaskControl#stop} already has, so saying it twice means the same thing here as there.
@@ -84,8 +84,13 @@ public final class ProjectDeletion {
      * @param running Tasks that are up.
      * @param detail Why it was refused or what went wrong, or {@code null}.
      */
-    public record Result(Outcome outcome, List<Removal> removes, List<String> keeps,
-            List<String> unreviewed, List<String> running, @Nullable String detail) {
+    public record Result(
+            Outcome outcome,
+            List<Removal> removes,
+            List<String> keeps,
+            List<String> unreviewed,
+            List<String> running,
+            @Nullable String detail) {
 
         /**
          * Constructor with defensive copies.
@@ -143,23 +148,42 @@ public final class ProjectDeletion {
     public Result delete(String project, boolean dryRun, boolean force) {
 
         if (DefaultProject.is(project)) {
-            return new Result(Outcome.BUILT_IN, List.of(), List.of(), List.of(), List.of(),
-                    "'" + project + "' is always there and is never removed; take a repository out of it with"
+            return new Result(
+                    Outcome.BUILT_IN,
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    "'"
+                            + project
+                            + "' is always there and is never removed; take a repository out of it with"
                             + " 'porelo project default remove <repository>'");
         }
 
-        final ProjectInventory.Summary summary = new ProjectInventory(context).projects().stream()
-                .filter(candidate -> candidate.name().equals(project))
-                .findFirst().orElse(null);
+        final ProjectInventory.Summary summary =
+                new ProjectInventory(context)
+                        .projects().stream()
+                                .filter(candidate -> candidate.name().equals(project))
+                                .findFirst()
+                                .orElse(null);
         if (summary == null) {
-            return new Result(Outcome.NO_SUCH_PROJECT, List.of(), List.of(), List.of(), List.of(),
+            return new Result(
+                    Outcome.NO_SUCH_PROJECT,
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    List.of(),
                     "nothing here knows a project called " + project);
         }
 
-        final List<TaskInventory.Task> tasks = new TaskInventory(context).tasks().stream()
-                .filter(task -> project.equals(task.project())).toList();
-        final List<String> running = tasks.stream().filter(TaskInventory.Task::running)
-                .map(TaskInventory.Task::name).toList();
+        final List<TaskInventory.Task> tasks =
+                new TaskInventory(context)
+                        .tasks().stream().filter(task -> project.equals(task.project())).toList();
+        final List<String> running =
+                tasks.stream()
+                        .filter(TaskInventory.Task::running)
+                        .map(TaskInventory.Task::name)
+                        .toList();
         final List<String> unreviewed = unreviewedIn(project);
 
         // Named so a confirmation can say what survives. The interface would otherwise have to
@@ -170,7 +194,8 @@ public final class ProjectDeletion {
         // the verified clone, and the clone goes - so naming it here said "kept" and "removed"
         // about the same path, in the same preview. Found by running the published package.
         if (summary.file() != null
-                && !Path.of(summary.file()).startsWith(context.paths().projects().followedClone(project))) {
+                && !Path.of(summary.file())
+                        .startsWith(context.paths().projects().followedClone(project))) {
             keeps.add(summary.file());
         }
         keeps.add("the checkout and the real upstream, wherever they are");
@@ -178,12 +203,23 @@ public final class ProjectDeletion {
         final List<Removal> removes = plan(project, summary, tasks);
 
         if (!force && !unreviewed.isEmpty()) {
-            return new Result(Outcome.HOLDS_WORK, removes, keeps, unreviewed, running,
-                    unreviewed.size() + " push(es) reached the gate and nobody reviewed them."
+            return new Result(
+                    Outcome.HOLDS_WORK,
+                    removes,
+                    keeps,
+                    unreviewed,
+                    running,
+                    unreviewed.size()
+                            + " push(es) reached the gate and nobody reviewed them."
                             + " Nothing else has them: review or reject them, or say force.");
         }
         if (!force && !running.isEmpty()) {
-            return new Result(Outcome.TASKS_RUNNING, removes, keeps, unreviewed, running,
+            return new Result(
+                    Outcome.TASKS_RUNNING,
+                    removes,
+                    keeps,
+                    unreviewed,
+                    running,
                     running.size() + " task(s) are still up. Stop them, or say force.");
         }
         if (dryRun) {
@@ -203,10 +239,18 @@ public final class ProjectDeletion {
                 final TaskControl.Stopped removal =
                         new TaskControl(context).remove(task.name(), false, force);
                 if (!removal.removed()) {
-                    return new Result(Outcome.HOLDS_WORK, removes, keeps,
-                            List.of(task.name()), running,
-                            "task " + task.name() + " was not removed: "
-                                    + removal.outcome().name().toLowerCase(java.util.Locale.ROOT)
+                    return new Result(
+                            Outcome.HOLDS_WORK,
+                            removes,
+                            keeps,
+                            List.of(task.name()),
+                            running,
+                            "task "
+                                    + task.name()
+                                    + " was not removed: "
+                                    + removal.outcome()
+                                            .name()
+                                            .toLowerCase(java.util.Locale.ROOT)
                                             .replace('_', ' ')
                                     + (removal.work() == null ? "" : " - " + removal.work())
                                     + ". Nothing else has been removed. Deal with it, or say"
@@ -226,14 +270,19 @@ public final class ProjectDeletion {
             Files.deleteIfExists(context.paths().projects().projectRegistry().resolve(project));
             Files.deleteIfExists(context.paths().projects().upstreamRecords().resolve(project));
         } catch (IOException | RuntimeException ex) {
-            return new Result(Outcome.FAILED, removes, keeps, unreviewed, running,
+            return new Result(
+                    Outcome.FAILED,
+                    removes,
+                    keeps,
+                    unreviewed,
+                    running,
                     "could not finish removing " + project + ": " + ex.getMessage());
         }
         return new Result(Outcome.DELETED, removes, keeps, unreviewed, running, null);
     }
 
-    private List<Removal> plan(String project, ProjectInventory.Summary summary,
-            List<TaskInventory.Task> tasks) {
+    private List<Removal> plan(
+            String project, ProjectInventory.Summary summary, List<TaskInventory.Task> tasks) {
         final List<Removal> removes = new ArrayList<>();
         for (final Path mirror : mirrorsOf(project)) {
             removes.add(new Removal("MIRROR", mirror.toString()));
@@ -242,15 +291,28 @@ public final class ProjectDeletion {
             removes.add(new Removal("IMAGE", "porelo/" + project));
         }
         if (Files.isDirectory(context.paths().tasks().buildContext(project))) {
-            removes.add(new Removal("BUILD", context.paths().tasks().buildContext(project).toString()));
+            removes.add(
+                    new Removal("BUILD", context.paths().tasks().buildContext(project).toString()));
         }
         if (Files.isRegularFile(context.paths().projects().projectRegistry().resolve(project))) {
-            removes.add(new Removal("REGISTRY",
-                    context.paths().projects().projectRegistry().resolve(project).toString()));
+            removes.add(
+                    new Removal(
+                            "REGISTRY",
+                            context.paths()
+                                    .projects()
+                                    .projectRegistry()
+                                    .resolve(project)
+                                    .toString()));
         }
         if (Files.isRegularFile(context.paths().projects().upstreamRecords().resolve(project))) {
-            removes.add(new Removal("UPSTREAM_RECORD",
-                    context.paths().projects().upstreamRecords().resolve(project).toString()));
+            removes.add(
+                    new Removal(
+                            "UPSTREAM_RECORD",
+                            context.paths()
+                                    .projects()
+                                    .upstreamRecords()
+                                    .resolve(project)
+                                    .toString()));
         }
         // The verified clone. Named here, and removed below, because BOTH ways of ending a
         // project have to take it: the terminal removed it by hand afterwards and the socket did
@@ -258,8 +320,10 @@ public final class ProjectDeletion {
         // contract said the clone goes, and one of the two paths quietly did not. Found through
         // the interface.
         if (Files.isDirectory(context.paths().projects().followedClone(project))) {
-            removes.add(new Removal("FOLLOWED_CLONE",
-                    context.paths().projects().followedClone(project).toString()));
+            removes.add(
+                    new Removal(
+                            "FOLLOWED_CLONE",
+                            context.paths().projects().followedClone(project).toString()));
         }
         tasks.forEach(task -> removes.add(new Removal("TASK", task.name())));
         return removes;
@@ -269,8 +333,9 @@ public final class ProjectDeletion {
         final List<String> waiting = new ArrayList<>();
         for (final Path mirror : mirrorsOf(project)) {
             try {
-                for (final String ref : new GitGate(context.runner(), mirror,
-                        GateMode.GATEKEEPING, null).pending()) {
+                for (final String ref :
+                        new GitGate(context.runner(), mirror, GateMode.GATEKEEPING, null)
+                                .pending()) {
                     // Named by repository, because a bare ref name would be ambiguous the moment a
                     // project has two of them and the person deciding has to know which is at risk.
                     waiting.add(nameOf(mirror) + "/" + ref);
@@ -287,8 +352,8 @@ public final class ProjectDeletion {
 
     /**
      * Returns every mirror this project has, its own repository's first.
-     * <p>
-     * <strong>Read from disk, not from the project file.</strong> Deleting is exactly the moment
+     *
+     * <p><strong>Read from disk, not from the project file.</strong> Deleting is exactly the moment
      * the file may already be gone or may no longer name a repository whose mirror still holds
      * pushes nobody has reviewed. What decides whether work is at risk has to be what is there.
      *
@@ -305,9 +370,11 @@ public final class ProjectDeletion {
         final Path named = mirrors.resolve(project);
         if (Files.isDirectory(named)) {
             try (java.util.stream.Stream<Path> entries = Files.list(named)) {
-                found.addAll(entries.filter(Files::isDirectory)
-                        .filter(path -> path.getFileName().toString().endsWith(".git"))
-                        .sorted(java.util.Comparator.comparing(Path::toString)).toList());
+                found.addAll(
+                        entries.filter(Files::isDirectory)
+                                .filter(path -> path.getFileName().toString().endsWith(".git"))
+                                .sorted(java.util.Comparator.comparing(Path::toString))
+                                .toList());
             } catch (IOException ex) {
                 throw new IllegalStateException("cannot read the mirrors under " + named, ex);
             }

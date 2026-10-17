@@ -1,8 +1,6 @@
 package org.fuin.porelo.runtime;
 
-/**
- * A container or image operation could not be carried out.
- */
+/** A container or image operation could not be carried out. */
 public class ContainerException extends RuntimeException {
 
     private static final long serialVersionUID = 1L;

@@ -10,10 +10,10 @@ import org.jspecify.annotations.Nullable;
 /**
  * The query string of a request target, as the broker needs it: read one parameter, replace it, and
  * never write it to a log.
- * <p>
- * <strong>A key in the URL is a key in the log.</strong> The broker logs one line per request, and a
- * target carries its query string. This project has paid once already for a token printed in full, so
- * every logged target has its query reduced to the names of its parameters.
+ *
+ * <p><strong>A key in the URL is a key in the log.</strong> The broker logs one line per request,
+ * and a target carries its query string. This project has paid once already for a token printed in
+ * full, so every logged target has its query reduced to the names of its parameters.
  */
 final class Query {
 
@@ -40,7 +40,8 @@ final class Query {
     }
 
     /**
-     * Returns the target with every occurrence of a parameter removed and one with the given value added.
+     * Returns the target with every occurrence of a parameter removed and one with the given value
+     * added.
      *
      * @param target The request target.
      * @param name The parameter.
@@ -57,7 +58,10 @@ final class Query {
                 kept.add(pair);
             }
         }
-        kept.add(URLEncoder.encode(name, StandardCharsets.UTF_8) + "=" + URLEncoder.encode(value, StandardCharsets.UTF_8));
+        kept.add(
+                URLEncoder.encode(name, StandardCharsets.UTF_8)
+                        + "="
+                        + URLEncoder.encode(value, StandardCharsets.UTF_8));
         return path + "?" + String.join("&", kept);
     }
 
@@ -80,11 +84,14 @@ final class Query {
                 kept.add(pair);
             }
         }
-        return kept.isEmpty() ? target.substring(0, question) : target.substring(0, question) + "?" + String.join("&", kept);
+        return kept.isEmpty()
+                ? target.substring(0, question)
+                : target.substring(0, question) + "?" + String.join("&", kept);
     }
 
     /**
-     * Returns the target as a log may show it: the path, and the query's parameter names without values.
+     * Returns the target as a log may show it: the path, and the query's parameter names without
+     * values.
      *
      * @param target The request target.
      * @return The target, with no value of any parameter in it.

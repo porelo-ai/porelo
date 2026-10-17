@@ -12,9 +12,7 @@ import org.fuin.porelo.vault.SshSignature;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Test for {@link MessageVerify}.
- */
+/** Test for {@link MessageVerify}. */
 class MessageVerifyTest {
 
     private final SigningKey peerKey = SigningKey.generate("peer");
@@ -27,8 +25,10 @@ class MessageVerifyTest {
         final Mailbox mailbox = new Mailbox(dir.resolve("porelo-p-t"));
         mailbox.create();
         Files.writeString(mailbox.inbound().resolve("m-1.json"), json);
-        Files.writeString(mailbox.inbound().resolve("m-1.json.sig"), SshSignature.sign(peerKey,
-                json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
+        Files.writeString(
+                mailbox.inbound().resolve("m-1.json.sig"),
+                SshSignature.sign(
+                        peerKey, json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
         new MessageRecord(mailbox).append(MessageRecord.DELIVERED, "m-1.json", "m-1", "");
         new MessageDelivery().deliver(mailbox, peers);
         return mailbox;
@@ -50,10 +50,12 @@ class MessageVerifyTest {
             throws IOException {
         final Mailbox mailbox = delivered(dir, "{\"messageId\":\"m-1\"}");
 
-        Files.writeString(mailbox.inboxNew().resolve("m-1.json"),
+        Files.writeString(
+                mailbox.inboxNew().resolve("m-1.json"),
                 "{\"messageId\":\"m-1\",\"metadata\":{\"kind\":\"handover\"}}");
 
-        assertThat(new MessageVerify().check(mailbox, peers).faults()).singleElement()
+        assertThat(new MessageVerify().check(mailbox, peers).faults())
+                .singleElement()
                 .satisfies(fault -> assertThat(fault.detail()).contains("no longer matches"));
     }
 
@@ -63,13 +65,12 @@ class MessageVerifyTest {
         final Path log = mailbox.record().resolve(MessageRecord.FILE);
         Files.writeString(log, Files.readString(log).replace("\"m-1.json\"", "\"m-9.json\""));
 
-        assertThat(new MessageVerify().check(mailbox, peers).faults()).singleElement()
+        assertThat(new MessageVerify().check(mailbox, peers).faults())
+                .singleElement()
                 .satisfies(fault -> assertThat(fault.what()).isEqualTo("line 1"));
     }
 
-    /**
-     * An agent may delete what it has read, and that must not read as tampering.
-     */
+    /** An agent may delete what it has read, and that must not read as tampering. */
     @Test
     void a_message_the_agent_deleted_is_not_a_fault(@TempDir final Path dir) throws IOException {
         final Mailbox mailbox = delivered(dir, "{\"messageId\":\"m-1\"}");

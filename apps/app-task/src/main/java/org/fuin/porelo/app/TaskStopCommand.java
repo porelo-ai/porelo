@@ -1,28 +1,26 @@
 package org.fuin.porelo.app;
 
 import java.io.PrintWriter;
-import java.nio.file.Path;
 import java.util.concurrent.Callable;
-import org.fuin.porelo.runtime.ContainerName;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
-import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
 
 /**
  * Stops a task and everything it started.
- * <p>
- * <strong>The container is stopped, not removed.</strong> Its filesystem is the task's workspace,
- * so removing it would throw away the agent's work and leave nothing to come back to.
+ *
+ * <p><strong>The container is stopped, not removed.</strong> Its filesystem is the task's
+ * workspace, so removing it would throw away the agent's work and leave nothing to come back to.
  * Removal is a separate decision, and a separate command: {@code porelo task remove}.
- * <p>
- * Stopping the container is not enough on its own either: the credential proxy, the git gate and
+ *
+ * <p>Stopping the container is not enough on its own either: the credential proxy, the git gate and
  * the clearance watcher run on the host. The poststop hook reaps what a container that ran
- * recorded; anything it misses is stopped here, and every helper is checked afterwards rather
- * than assumed to be gone.
+ * recorded; anything it misses is stopped here, and every helper is checked afterwards rather than
+ * assumed to be gone.
  */
-@Command(name = "stop",
+@Command(
+        name = "stop",
         mixinStandardHelpOptions = true,
         description = "Stops a task, its container and its helpers.")
 public class TaskStopCommand implements Callable<Integer>, PoreloFactory.ContextAware, Suggests {
@@ -39,16 +37,22 @@ public class TaskStopCommand implements Callable<Integer>, PoreloFactory.Context
         return "tasks";
     }
 
-    @Parameters(index = "0", arity = "0..1", paramLabel = "TASK",
-            description = "Container name, as shown by 'porelo task list'. Default: the task started from the checkout you stand in.")
+    @Parameters(
+            index = "0",
+            arity = "0..1",
+            paramLabel = "TASK",
+            description =
+                    "Container name, as shown by 'porelo task list'. Default: the task started from the checkout you stand in.")
     private @org.jspecify.annotations.Nullable String container;
 
-    @picocli.CommandLine.Option(names = "--all", description = "Stops every running task and its helpers, as 'porelo"
-            + " panic' does, and journals it.")
+    @picocli.CommandLine.Option(
+            names = "--all",
+            description =
+                    "Stops every running task and its helpers, as 'porelo"
+                            + " panic' does, and journals it.")
     private boolean all;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -65,14 +69,21 @@ public class TaskStopCommand implements Callable<Integer>, PoreloFactory.Context
                 spec.commandLine().getErr().flush();
                 return 2;
             }
-            // The same operation as 'porelo panic', and the same words: one stop of everything, however it is asked.
+            // The same operation as 'porelo panic', and the same words: one stop of everything,
+            // however it is asked.
             final PanicCommand panic = new PanicCommand();
             panic.setContext(context);
-            return new picocli.CommandLine(panic).setOut(spec.commandLine().getOut())
-                    .setErr(spec.commandLine().getErr()).execute();
+            return new picocli.CommandLine(panic)
+                    .setOut(spec.commandLine().getOut())
+                    .setErr(spec.commandLine().getErr())
+                    .execute();
         }
-        final TaskTarget.Found found = TaskTarget.resolve(context, container, java.nio.file.Path.of("."),
-                TaskTarget.console(spec.commandLine().getOut()));
+        final TaskTarget.Found found =
+                TaskTarget.resolve(
+                        context,
+                        container,
+                        java.nio.file.Path.of("."),
+                        TaskTarget.console(spec.commandLine().getOut()));
         if (found.container() == null) {
             spec.commandLine().getErr().println("porelo: " + found.refusal());
             if ((Object) this instanceof Suggests suggests) {
@@ -88,8 +99,7 @@ public class TaskStopCommand implements Callable<Integer>, PoreloFactory.Context
 
         // Decided by TaskControl, which the daemon calls too: a refusal that exists in one caller
         // and not the other is a task removed with work in it. This renders, and nothing else.
-        final TaskControl.Stopped result =
-                new TaskControl(context).stop(container);
+        final TaskControl.Stopped result = new TaskControl(context).stop(container);
 
         switch (result.outcome()) {
             case NOT_A_TASK -> {
@@ -111,8 +121,12 @@ public class TaskStopCommand implements Callable<Integer>, PoreloFactory.Context
         }
 
         out.println("stopped   " + container);
-        out.println("helpers   " + (result.helpers() - result.surviving().size())
-                + " of " + result.helpers() + " stopped");
+        out.println(
+                "helpers   "
+                        + (result.helpers() - result.surviving().size())
+                        + " of "
+                        + result.helpers()
+                        + " stopped");
         for (final String alive : result.surviving()) {
             out.println("          still running: " + alive);
         }

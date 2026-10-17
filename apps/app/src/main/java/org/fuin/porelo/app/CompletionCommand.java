@@ -15,16 +15,17 @@ import picocli.CommandLine.Spec;
 
 /**
  * Prints the shell script that turns TAB into a question for {@code porelo __complete}.
- * <p>
- * <strong>The package installs the same two files</strong>, so on a machine where Porelo was
+ *
+ * <p><strong>The package installs the same two files</strong>, so on a machine where Porelo was
  * installed from the deb or the rpm this command is not needed at all. It exists for the cases the
  * package cannot reach: a binary somebody copied, a shell whose completion directory is not the
  * system one, and reading what a shell is about to be told to do before telling it.
- * <p>
- * The scripts are resources rather than generated text. Generating them would put shell quoting
+ *
+ * <p>The scripts are resources rather than generated text. Generating them would put shell quoting
  * inside Java string literals, where nobody can run it to see whether it works.
  */
-@Command(name = "completion",
+@Command(
+        name = "completion",
         mixinStandardHelpOptions = true,
         description = "Prints the TAB completion script for a shell.")
 public class CompletionCommand implements Callable<Integer>, Suggests {
@@ -33,12 +34,14 @@ public class CompletionCommand implements Callable<Integer>, Suggests {
     private static final java.util.Map<String, String> SCRIPTS =
             java.util.Map.of("bash", "/completion/porelo", "zsh", "/completion/_porelo");
 
-    @Parameters(index = "0", arity = "0..1", paramLabel = "SHELL",
+    @Parameters(
+            index = "0",
+            arity = "0..1",
+            paramLabel = "SHELL",
             description = "Which shell: bash or zsh.")
     private @Nullable String shell;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     @Override
     public List<String> candidates() {
@@ -62,8 +65,11 @@ public class CompletionCommand implements Callable<Integer>, Suggests {
         final String name = shell == null ? null : shell.toLowerCase(Locale.ROOT);
         final String resource = name == null ? null : SCRIPTS.get(name);
         if (resource == null) {
-            err.println("porelo: " + (name == null ? "which shell?"
-                    : "no completion script for '" + shell + "'"));
+            err.println(
+                    "porelo: "
+                            + (name == null
+                                    ? "which shell?"
+                                    : "no completion script for '" + shell + "'"));
             Suggests.offer(err, this);
             err.flush();
             return 64;
@@ -81,8 +87,11 @@ public class CompletionCommand implements Callable<Integer>, Suggests {
             out.flush();
             return 0;
         } catch (IOException ex) {
-            err.println("porelo: the " + name + " completion script could not be read: "
-                    + ex.getMessage());
+            err.println(
+                    "porelo: the "
+                            + name
+                            + " completion script could not be read: "
+                            + ex.getMessage());
             err.flush();
             return 70;
         }

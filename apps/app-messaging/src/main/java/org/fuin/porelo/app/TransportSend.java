@@ -15,14 +15,14 @@ import org.fuin.porelo.core.process.CommandRunner;
 
 /**
  * Hands queued messages to the transport that carries them.
- * <p>
- * The adapter is asked and believed about one thing only: whether it handed the message over, and
- * whether a failure is worth trying again. Everything else stays here - moving the message, writing
- * the receipt, deciding what a permanent failure means.
- * <p>
- * <strong>The three exits are the contract</strong>, and they are the reason a queue can be read by
- * a person: {@code 0} handed over, {@code 75} temporary and therefore still ours to retry, anything
- * else permanent. Getting those backwards either loses a message or retries one forever.
+ *
+ * <p>The adapter is asked and believed about one thing only: whether it handed the message over,
+ * and whether a failure is worth trying again. Everything else stays here - moving the message,
+ * writing the receipt, deciding what a permanent failure means.
+ *
+ * <p><strong>The three exits are the contract</strong>, and they are the reason a queue can be read
+ * by a person: {@code 0} handed over, {@code 75} temporary and therefore still ours to retry,
+ * anything else permanent. Getting those backwards either loses a message or retries one forever.
  */
 public final class TransportSend {
 
@@ -36,9 +36,8 @@ public final class TransportSend {
      * @param deferred Messages still waiting, which the next pass tries again.
      * @param refused Messages nothing will carry, with why.
      */
-    public record Result(List<String> sent, List<String> deferred,
-            List<MessageDelivery.Held> refused) {
-    }
+    public record Result(
+            List<String> sent, List<String> deferred, List<MessageDelivery.Held> refused) {}
 
     private final CommandRunner runner;
 
@@ -63,7 +62,8 @@ public final class TransportSend {
      * @param transports Where the adapters are.
      * @param access What a transport needs to act as a task, beyond the message.
      */
-    public TransportSend(final CommandRunner runner, final TransportDirectory transports, final Access access) {
+    public TransportSend(
+            final CommandRunner runner, final TransportDirectory transports, final Access access) {
         this.runner = runner;
         this.transports = transports;
         this.access = access;
@@ -74,9 +74,12 @@ public final class TransportSend {
      * argument - and, where the host decides it, the destination.
      *
      * @param environment Variables for the transport.
-     * @param to The destination to hand the transport instead of the peer's, or {@code null} for the peer's.
+     * @param to The destination to hand the transport instead of the peer's, or {@code null} for
+     *     the peer's.
      */
-    public record Acting(java.util.Map<String, String> environment, @org.jspecify.annotations.Nullable String to,
+    public record Acting(
+            java.util.Map<String, String> environment,
+            @org.jspecify.annotations.Nullable String to,
             java.util.Map<String, String> accounts) {
 
         /**
@@ -85,15 +88,22 @@ public final class TransportSend {
          * @param environment Variables for the transport.
          * @param to The destination to hand the transport instead of the peer's, or {@code null}.
          */
-        public Acting(java.util.Map<String, String> environment, @org.jspecify.annotations.Nullable String to) {
+        public Acting(
+                java.util.Map<String, String> environment,
+                @org.jspecify.annotations.Nullable String to) {
             this(environment, to, java.util.Map.of());
         }
     }
 
-    /** The option a transport announces, as {@code "mention": true}, when it mentions an account it is given. */
+    /**
+     * The option a transport announces, as {@code "mention": true}, when it mentions an account it
+     * is given.
+     */
     static final String MENTION = "mention";
 
-    /** Says what a transport needs to act as a task; {@code null} for nothing beyond the message. */
+    /**
+     * Says what a transport needs to act as a task; {@code null} for nothing beyond the message.
+     */
     @FunctionalInterface
     public interface Access {
 
@@ -105,7 +115,8 @@ public final class TransportSend {
          * @return What it is given, or {@code null} for nothing.
          * @throws IOException If it cannot be had; the message is deferred.
          */
-        @org.jspecify.annotations.Nullable Acting acting(String transport, String container) throws IOException;
+        @org.jspecify.annotations.Nullable
+        Acting acting(String transport, String container) throws IOException;
     }
 
     /**
@@ -136,7 +147,8 @@ public final class TransportSend {
         try {
             acting = access.acting(transport, mailbox.root().getFileName().toString());
         } catch (final IOException ex) {
-            // Its account or its room cannot be had now: nothing is lost, the queue waits for the next pass.
+            // Its account or its room cannot be had now: nothing is lost, the queue waits for the
+            // next pass.
             for (final Path message : queued(active)) {
                 deferred.add(message.getFileName().toString());
                 moveWithCompanions(message, waiting);
@@ -154,32 +166,54 @@ public final class TransportSend {
                     message.resolveSibling(name + MessageDispatch.DESTINATION_SUFFIX);
             if (!Files.isRegularFile(destination)) {
                 moveWithCompanions(message, mailbox.hold());
-                refused.add(new MessageDelivery.Held(name,
-                        "it is queued without a destination, so nothing knows where it was going"));
+                refused.add(
+                        new MessageDelivery.Held(
+                                name,
+                                "it is queued without a destination, so nothing knows where it was going"));
                 continue;
             }
-            // The room the task acts in, as every task of the project is reached through it - and a person's own chat
-            // only for an answer to what they said there; in the room a person is mentioned instead (the operator in
+            // The room the task acts in, as every task of the project is reached through it - and a
+            // person's own chat
+            // only for an answer to what they said there; in the room a person is mentioned instead
+            // (the operator in
             // walk 10, 2026-10-04).
             final String queued = Files.readString(destination, StandardCharsets.UTF_8).strip();
             final boolean person = queued.startsWith("@") && acting != null && acting.to() != null;
             final boolean direct = person && "direct".equals(via(message));
-            final List<String> arguments = new ArrayList<>(List.of(adapter.toString(), "send", message.toString(),
-                    signature.toString(), "--to", direct || (!person && !queued.isEmpty()) || acting == null
-                            || acting.to() == null ? queued : acting.to()));
-            // Beside the message, never inside it, and only for a transport that says it takes it: an option it does
-            // not list is its 64. Written here, on the host, from the checked message - never a file a task wrote.
+            final List<String> arguments =
+                    new ArrayList<>(
+                            List.of(
+                                    adapter.toString(),
+                                    "send",
+                                    message.toString(),
+                                    signature.toString(),
+                                    "--to",
+                                    direct
+                                                    || (!person && !queued.isEmpty())
+                                                    || acting == null
+                                                    || acting.to() == null
+                                            ? queued
+                                            : acting.to()));
+            // Beside the message, never inside it, and only for a transport that says it takes it:
+            // an option it does
+            // not list is its 64. Written here, on the host, from the checked message - never a
+            // file a task wrote.
             final Path line = message.resolveSibling(name + SHOWN_SUFFIX);
             if (shows) {
-                Files.writeString(line, shown(Files.readString(message, StandardCharsets.UTF_8), task(mailbox)),
+                Files.writeString(
+                        line,
+                        shown(Files.readString(message, StandardCharsets.UTF_8), task(mailbox)),
                         StandardCharsets.UTF_8);
                 arguments.add("--shown");
                 arguments.add(line.toString());
             }
-            // The task it is for, mentioned by its account, so the room shows whom it is meant for: never a person, who is
+            // The task it is for, mentioned by its account, so the room shows whom it is meant for:
+            // never a person, who is
             // reached in a direct chat, and nobody for the room's people.
-            final String mention = !mentions || acting == null || direct ? null
-                    : person ? queued : acting.accounts().get(recipient(message));
+            final String mention =
+                    !mentions || acting == null || direct
+                            ? null
+                            : person ? queued : acting.accounts().get(recipient(message));
             if (mention != null) {
                 arguments.add("--" + MENTION);
                 arguments.add(mention);
@@ -206,9 +240,12 @@ public final class TransportSend {
                 deferred.add(name);
             } else {
                 moveWithCompanions(message, mailbox.hold());
-                refused.add(new MessageDelivery.Held(name, result.standardError().strip().isEmpty()
-                        ? "the transport refused it, exit " + result.exitCode()
-                        : result.standardError().strip()));
+                refused.add(
+                        new MessageDelivery.Held(
+                                name,
+                                result.standardError().strip().isEmpty()
+                                        ? "the transport refused it, exit " + result.exitCode()
+                                        : result.standardError().strip()));
             }
         }
         return new Result(sent, deferred, refused);
@@ -216,11 +253,12 @@ public final class TransportSend {
 
     /**
      * Returns the line a person reads in a conversation: who wrote to whom, and the text.
-     * <p>
-     * Made on the host from the message the filter checked, mechanically and from nothing else: its text parts, its
-     * {@code metadata.to}, and the task it came from as the host knows it. No kind, no id, no word Porelo adds. A part that is not text is named
-     * by its media type, never its bytes. The transport carries it unread beside the message, which travels whole for
-     * the agents.
+     *
+     * <p>Made on the host from the message the filter checked, mechanically and from nothing else:
+     * its text parts, its {@code metadata.to}, and the task it came from as the host knows it. No
+     * kind, no id, no word Porelo adds. A part that is not text is named by its media type, never
+     * its bytes. The transport carries it unread beside the message, which travels whole for the
+     * agents.
      *
      * @param message The message as JSON.
      * @param from The sending task's name, as the host knows it.
@@ -229,7 +267,8 @@ public final class TransportSend {
     private static String via(final Path message) {
         try {
             if (org.fuin.porelo.wire.Json.parse(Files.readString(message, StandardCharsets.UTF_8))
-                    instanceof java.util.Map<?, ?> document && document.get("metadata") instanceof java.util.Map<?, ?> m
+                            instanceof java.util.Map<?, ?> document
+                    && document.get("metadata") instanceof java.util.Map<?, ?> m
                     && m.get("via") instanceof String via) {
                 return via;
             }
@@ -242,7 +281,8 @@ public final class TransportSend {
     private static String recipient(final Path message) {
         try {
             if (org.fuin.porelo.wire.Json.parse(Files.readString(message, StandardCharsets.UTF_8))
-                    instanceof java.util.Map<?, ?> document && document.get("metadata") instanceof java.util.Map<?, ?> m
+                            instanceof java.util.Map<?, ?> document
+                    && document.get("metadata") instanceof java.util.Map<?, ?> m
                     && m.get("to") instanceof String to) {
                 return to;
             }
@@ -256,22 +296,31 @@ public final class TransportSend {
         if (!(org.fuin.porelo.wire.Json.parse(message) instanceof java.util.Map<?, ?> document)) {
             return "";
         }
-        final java.util.Map<?, ?> metadata = document.get("metadata") instanceof java.util.Map<?, ?> said ? said
-                : java.util.Map.of();
+        final java.util.Map<?, ?> metadata =
+                document.get("metadata") instanceof java.util.Map<?, ?> said
+                        ? said
+                        : java.util.Map.of();
         final List<String> parts = new ArrayList<>();
         if (document.get("parts") instanceof List<?> all) {
             for (final Object part : all) {
-                if (part instanceof java.util.Map<?, ?> each && each.get("text") instanceof String text) {
+                if (part instanceof java.util.Map<?, ?> each
+                        && each.get("text") instanceof String text) {
                     parts.add(text);
                 } else if (part instanceof java.util.Map<?, ?> each) {
-                    parts.add("[" + (each.get("mediaType") instanceof String type ? type : "data") + "]");
+                    parts.add(
+                            "["
+                                    + (each.get("mediaType") instanceof String type ? type : "data")
+                                    + "]");
                 }
             }
         }
         return String.join("\n\n", parts);
     }
 
-    /** The option a transport announces, as {@code "shown": true}, when it shows a person a line of Porelo's. */
+    /**
+     * The option a transport announces, as {@code "shown": true}, when it shows a person a line of
+     * Porelo's.
+     */
     static final String SHOWN = "shown";
 
     /** The line's file beside a queued message, there only while its transport runs. */
@@ -293,7 +342,9 @@ public final class TransportSend {
         for (final String suffix : new String[] {".sig", MessageDispatch.DESTINATION_SUFFIX}) {
             final Path companion = message.resolveSibling(name + suffix);
             if (Files.isRegularFile(companion)) {
-                Files.move(companion, target.resolve(name + suffix),
+                Files.move(
+                        companion,
+                        target.resolve(name + suffix),
                         StandardCopyOption.REPLACE_EXISTING);
             }
         }
@@ -307,7 +358,8 @@ public final class TransportSend {
         try (Stream<Path> entries = Files.list(directory)) {
             return entries.filter(Files::isRegularFile)
                     .filter(path -> path.getFileName().toString().endsWith(".json"))
-                    .sorted(Comparator.comparing(path -> path.getFileName().toString())).toList();
+                    .sorted(Comparator.comparing(path -> path.getFileName().toString()))
+                    .toList();
         }
     }
 }

@@ -17,8 +17,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * A message that arrives by polling, through the whole pass.
- * <p>
- * The two halves that only meet here: the host works out which transport fetched a message, and
+ *
+ * <p>The two halves that only meet here: the host works out which transport fetched a message, and
  * what that transport promised decides whether the message has to prove who owned it.
  */
 class PollingArrivalTest {
@@ -36,18 +36,25 @@ class PollingArrivalTest {
         final Path transports = dir.resolve("transports");
         Files.createDirectories(transports);
         final Path adapter = transports.resolve(TransportDirectory.PREFIX + "spool");
-        final String signature = SshSignature.sign(peerKey,
-                json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE);
+        final String signature =
+                SshSignature.sign(
+                        peerKey, json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE);
         Files.writeString(dir.resolve("m-1.json"), json);
         Files.writeString(dir.resolve("m-1.json.sig"), signature);
-        Files.writeString(adapter, "#!/bin/sh\n"
-                + "case \"$1\" in\n"
-                + "  describe) echo '{\"scheme\":\"spool\",\"poll\":true,\"attests\":[\"owner\"]}' ;;\n"
-                + "  poll) shift; cp " + dir.resolve("m-1.json") + " \"$2/m-1.json\";"
-                + " cp " + dir.resolve("m-1.json.sig") + " \"$2/m-1.json.sig\";"
-                + (owner == null ? "" : " printf '" + owner + "' > \"$2/m-1.json.owner\";")
-                + " echo '{\"received\":1}' ;;\n"
-                + "esac\n");
+        Files.writeString(
+                adapter,
+                "#!/bin/sh\n"
+                        + "case \"$1\" in\n"
+                        + "  describe) echo '{\"scheme\":\"spool\",\"poll\":true,\"attests\":[\"owner\"]}' ;;\n"
+                        + "  poll) shift; cp "
+                        + dir.resolve("m-1.json")
+                        + " \"$2/m-1.json\";"
+                        + " cp "
+                        + dir.resolve("m-1.json.sig")
+                        + " \"$2/m-1.json.sig\";"
+                        + (owner == null ? "" : " printf '" + owner + "' > \"$2/m-1.json.owner\";")
+                        + " echo '{\"received\":1}' ;;\n"
+                        + "esac\n");
         Files.setPosixFilePermissions(adapter, PosixFilePermissions.fromString("rwx------"));
         return transports;
     }
@@ -58,9 +65,15 @@ class PollingArrivalTest {
         mailbox.create();
         // No filter installed, which stops nothing arriving: what a peer sent is delivered whether
         // or not this machine can send anything today.
-        final MessagePass pass = new MessagePass(new ProcessCommandRunner(), hostKey, null,
-                new TransportDirectory(List.of(transports)));
-        return pass.run(mailbox, mail,
+        final MessagePass pass =
+                new MessagePass(
+                        new ProcessCommandRunner(),
+                        hostKey,
+                        null,
+                        new TransportDirectory(List.of(transports)));
+        return pass.run(
+                mailbox,
+                mail,
                 List.of(new MessageDelivery.Peer("bob", List.of(peerKey.keyBlob()))),
                 new Moderation(mailbox.root().resolveSibling("moderation.json")));
     }
@@ -72,7 +85,8 @@ class PollingArrivalTest {
 
         assertThat(report.polled().arrivals()).containsEntry("m-1.json", "spool");
         assertThat(report.delivered().delivered())
-                .extracting(MessageDelivery.Delivered::message).containsExactly("m-1.json");
+                .extracting(MessageDelivery.Delivered::message)
+                .containsExactly("m-1.json");
     }
 
     /**
@@ -85,8 +99,12 @@ class PollingArrivalTest {
         final MessagePass.Report report = run(dir, null);
 
         assertThat(report.delivered().delivered()).isEmpty();
-        assertThat(report.delivered().held()).singleElement().satisfies(held ->
-                assertThat(held.reason()).contains("attests who owned it, and it did not"));
+        assertThat(report.delivered().held())
+                .singleElement()
+                .satisfies(
+                        held ->
+                                assertThat(held.reason())
+                                        .contains("attests who owned it, and it did not"));
     }
 
     @Test
@@ -95,8 +113,10 @@ class PollingArrivalTest {
         final MessagePass.Report report = run(dir, "1009 carol");
 
         assertThat(report.delivered().delivered()).isEmpty();
-        assertThat(report.delivered().held()).singleElement().satisfies(held ->
-                assertThat(held.reason()).contains("written by the user 'carol'"));
+        assertThat(report.delivered().held())
+                .singleElement()
+                .satisfies(
+                        held -> assertThat(held.reason()).contains("written by the user 'carol'"));
     }
 
     /**
@@ -109,12 +129,15 @@ class PollingArrivalTest {
             @TempDir final Path dir) throws IOException {
         // An adapter that polls and finds nothing: what is in the inbound got there earlier.
         final Path transports = spool(dir, "1004 bob");
-        Files.writeString(transports.resolve(TransportDirectory.PREFIX + "spool"), "#!/bin/sh\n"
-                + "case \"$1\" in\n"
-                + "  describe) echo '{\"scheme\":\"spool\",\"poll\":true,\"attests\":[\"owner\"]}' ;;\n"
-                + "  poll) echo '{\"received\":0}' ;;\n"
-                + "esac\n");
-        Files.setPosixFilePermissions(transports.resolve(TransportDirectory.PREFIX + "spool"),
+        Files.writeString(
+                transports.resolve(TransportDirectory.PREFIX + "spool"),
+                "#!/bin/sh\n"
+                        + "case \"$1\" in\n"
+                        + "  describe) echo '{\"scheme\":\"spool\",\"poll\":true,\"attests\":[\"owner\"]}' ;;\n"
+                        + "  poll) echo '{\"received\":0}' ;;\n"
+                        + "esac\n");
+        Files.setPosixFilePermissions(
+                transports.resolve(TransportDirectory.PREFIX + "spool"),
                 PosixFilePermissions.fromString("rwx------"));
         final Mailbox mailbox = new Mailbox(dir.resolve("porelo-p-t"));
         mailbox.create();
@@ -123,13 +146,23 @@ class PollingArrivalTest {
         Files.copy(dir.resolve("m-1.json.sig"), mailbox.inbound().resolve("m-1.json.sig"));
         Files.writeString(mailbox.inbound().resolve("m-1.json.owner"), "1009 carol");
 
-        final MessagePass.Report report = new MessagePass(new ProcessCommandRunner(), hostKey, null,
-                new TransportDirectory(List.of(transports))).run(mailbox, mail,
-                        List.of(new MessageDelivery.Peer("bob", List.of(peerKey.keyBlob()))),
-                new Moderation(mailbox.root().resolveSibling("moderation.json")));
+        final MessagePass.Report report =
+                new MessagePass(
+                                new ProcessCommandRunner(),
+                                hostKey,
+                                null,
+                                new TransportDirectory(List.of(transports)))
+                        .run(
+                                mailbox,
+                                mail,
+                                List.of(
+                                        new MessageDelivery.Peer(
+                                                "bob", List.of(peerKey.keyBlob()))),
+                                new Moderation(mailbox.root().resolveSibling("moderation.json")));
 
         assertThat(report.delivered().delivered()).isEmpty();
-        assertThat(report.delivered().held()).anySatisfy(held ->
-                assertThat(held.reason()).contains("written by the user 'carol'"));
+        assertThat(report.delivered().held())
+                .anySatisfy(
+                        held -> assertThat(held.reason()).contains("written by the user 'carol'"));
     }
 }

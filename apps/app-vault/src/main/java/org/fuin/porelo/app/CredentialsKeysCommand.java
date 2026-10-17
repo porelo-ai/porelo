@@ -9,18 +9,18 @@ import picocli.CommandLine.Spec;
 
 /**
  * Lists the ssh keys this account already has.
- * <p>
- * So that "use the key that is already here" is a choice from a list rather than a path typed from
- * memory. Two wrong paths were typed in one afternoon - one from another machine, one the public
- * half - and both were recorded as perfectly good records pointing at nothing.
+ *
+ * <p>So that "use the key that is already here" is a choice from a list rather than a path typed
+ * from memory. Two wrong paths were typed in one afternoon - one from another machine, one the
+ * public half - and both were recorded as perfectly good records pointing at nothing.
  */
-@Command(name = "keys",
+@Command(
+        name = "keys",
         mixinStandardHelpOptions = true,
         description = "Lists the ssh keys this account has, without reading any of them.")
 public class CredentialsKeysCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -32,17 +32,19 @@ public class CredentialsKeysCommand implements Callable<Integer>, PoreloFactory.
     @Override
     public Integer call() {
         final PrintWriter out = spec.commandLine().getOut();
-        final List<SshKeys.Key> keys =
-                new SshKeys(context.paths().xdg().home()).all();
+        final List<SshKeys.Key> keys = new SshKeys(context.paths().xdg().home()).all();
         if (keys.isEmpty()) {
-            out.println("No ssh keys in ~/.ssh. 'ssh-keygen -t ed25519' makes one, and its public"
-                    + " half is what a forge has to be told about.");
+            out.println(
+                    "No ssh keys in ~/.ssh. 'ssh-keygen -t ed25519' makes one, and its public"
+                            + " half is what a forge has to be told about.");
             out.flush();
             return 0;
         }
         final int width = keys.stream().mapToInt(key -> key.path().length()).max().orElse(0);
         for (final SshKeys.Key key : keys) {
-            out.printf("%-" + width + "s  %-12s  %s%n", key.path(),
+            out.printf(
+                    "%-" + width + "s  %-12s  %s%n",
+                    key.path(),
                     key.type().isEmpty() ? "(encrypted)" : key.type(),
                     key.fingerprint().isEmpty() ? "" : key.fingerprint());
             if (!key.comment().isEmpty()) {

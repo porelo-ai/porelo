@@ -7,15 +7,16 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Tests for the one rule that says whether a machine can run a task.
- * <p>
- * Kept separate from the probes themselves, because the rule has to be exercised in both
- * directions and no fixture of a real machine offers both. It is used by the CLI's exit code and
- * by the daemon's answer, so a machine cannot be called ready by one and unready by the other.
+ *
+ * <p>Kept separate from the probes themselves, because the rule has to be exercised in both
+ * directions and no fixture of a real machine offers both. It is used by the CLI's exit code and by
+ * the daemon's answer, so a machine cannot be called ready by one and unready by the other.
  */
 class DoctorReadinessTest {
 
     private static Probe probe(Probe.State state) {
-        return state == Probe.State.OK ? new Probe("thing", state, "found", null)
+        return state == Probe.State.OK
+                ? new Probe("thing", state, "found", null)
                 : new Probe("thing", state, "not found", "install it");
     }
 
@@ -39,8 +40,10 @@ class DoctorReadinessTest {
 
         // The machine does run tasks and the report says how well. Treating either as unready
         // would refuse work on a machine that works, and people would stop reading the report.
-        assertThat(DoctorCommand.ready(
-                List.of(probe(Probe.State.DEGRADED), probe(Probe.State.UNKNOWN)))).isTrue();
+        assertThat(
+                        DoctorCommand.ready(
+                                List.of(probe(Probe.State.DEGRADED), probe(Probe.State.UNKNOWN))))
+                .isTrue();
     }
 
     @Test

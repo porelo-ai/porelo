@@ -1,11 +1,11 @@
 package org.fuin.porelo.legs;
 
 /**
- * One reading of a machine's CPU time, from the first line of {@code /proc/stat}: how many ticks passed in all, and how
- * many of them the host gave to others while this machine had work (steal).
- * <p>
- * Read before and after a leg's build, it says whether a slow build was a slow host: on a shared-vCPU type a build
- * whose threads are all busy can still get a fraction of the CPU.
+ * One reading of a machine's CPU time, from the first line of {@code /proc/stat}: how many ticks
+ * passed in all, and how many of them the host gave to others while this machine had work (steal).
+ *
+ * <p>Read before and after a leg's build, it says whether a slow build was a slow host: on a
+ * shared-vCPU type a build whose threads are all busy can still get a fraction of the CPU.
  *
  * @param total Every tick counted, steal included; negative when the line could not be read.
  * @param steal The ticks stolen.
@@ -28,7 +28,8 @@ record CpuSteal(long total, long steal) {
         }
         try {
             long total = 0;
-            // user nice system idle iowait irq softirq steal; guest and guest_nice are counted in user and nice.
+            // user nice system idle iowait irq softirq steal; guest and guest_nice are counted in
+            // user and nice.
             for (int i = 1; i <= 8; i++) {
                 total += Long.parseLong(fields[i]);
             }
@@ -51,7 +52,11 @@ record CpuSteal(long total, long steal) {
             return "the host's steal could not be read";
         }
         final long stolen = after.steal - before.steal;
-        return stolen + " of " + ticks + " ticks stolen by the host ("
-                + String.format(java.util.Locale.ROOT, "%.1f", 100.0 * stolen / ticks) + " %)";
+        return stolen
+                + " of "
+                + ticks
+                + " ticks stolen by the host ("
+                + String.format(java.util.Locale.ROOT, "%.1f", 100.0 * stolen / ticks)
+                + " %)";
     }
 }

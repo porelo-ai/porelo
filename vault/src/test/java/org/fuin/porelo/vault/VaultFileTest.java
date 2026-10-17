@@ -15,15 +15,13 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Tests for {@link VaultFile}.
- */
+/** Tests for {@link VaultFile}. */
 class VaultFileTest {
 
     private static final char[] PASSPHRASE = "correct horse battery staple".toCharArray();
@@ -36,20 +34,20 @@ class VaultFileTest {
 
     /**
      * Replaces text in the header's JSON, which is in the clear and authenticated.
-     * <p>
-     * The length field is corrected too, the way somebody editing the file would have to: leaving
-     * it stale truncates the JSON and the test then measures a parse failure rather than the
-     * authentication it is about.
+     *
+     * <p>The length field is corrected too, the way somebody editing the file would have to:
+     * leaving it stale truncates the JSON and the test then measures a parse failure rather than
+     * the authentication it is about.
      */
     private static void patchHeader(Path file, String from, String to) throws IOException {
         final byte[] content = Files.readAllBytes(file);
         final String raw = new String(content, StandardCharsets.ISO_8859_1);
         assertThat(raw).as("the header should contain " + from).contains(from);
-        final byte[] patched = raw.replace(from, to)
-                .getBytes(StandardCharsets.ISO_8859_1);
+        final byte[] patched = raw.replace(from, to).getBytes(StandardCharsets.ISO_8859_1);
         final java.nio.ByteBuffer buffer = java.nio.ByteBuffer.wrap(patched);
         buffer.position(VaultHeader.MAGIC.length + 4);
-        buffer.putInt(buffer.getInt(VaultHeader.MAGIC.length + 4) + (patched.length - content.length));
+        buffer.putInt(
+                buffer.getInt(VaultHeader.MAGIC.length + 4) + (patched.length - content.length));
         Files.write(file, patched);
     }
 
@@ -58,9 +56,12 @@ class VaultFileTest {
     /** Offset of the salt: iteration count, memory and parallelism follow the version. */
     private static final int HEADER_SALT_OFFSET = 24;
 
-    private static final Map<String, VaultEntry> ENTRIES = Map.of(
-            "github.token", VaultEntry.of("ghp_example"),
-            "gitlab.token", new VaultEntry("glpat_example", "oauth"));
+    private static final Map<String, VaultEntry> ENTRIES =
+            Map.of(
+                    "github.token",
+                    VaultEntry.of("ghp_example"),
+                    "gitlab.token",
+                    new VaultEntry("glpat_example", "oauth"));
 
     @Test
     void survivesARoundTrip(@TempDir Path dir) {
@@ -77,14 +78,27 @@ class VaultFileTest {
         // A credential stopped being one value: an OAuth client is its secret and a token URL, a
         // client id and scopes, which are configuration.
         final VaultFile vault = new VaultFile(dir.resolve("vault.bin"));
-        final Map<String, VaultEntry> entries = Map.of("forge-app", new VaultEntry("s3cr3t-client-secret-value", "oauth-client",
-                Map.of("client_id", "porelo-app", "token_url", "https://auth.example.com/token", "scopes", "repo read:org")));
+        final Map<String, VaultEntry> entries =
+                Map.of(
+                        "forge-app",
+                        new VaultEntry(
+                                "s3cr3t-client-secret-value",
+                                "oauth-client",
+                                Map.of(
+                                        "client_id",
+                                        "porelo-app",
+                                        "token_url",
+                                        "https://auth.example.com/token",
+                                        "scopes",
+                                        "repo read:org")));
         vault.write(entries, PASSPHRASE);
 
         final VaultEntry read = vault.read(PASSPHRASE).get("forge-app");
         assertThat(read.value()).isEqualTo("s3cr3t-client-secret-value");
-        assertThat(read.settings()).containsEntry("token_url", "https://auth.example.com/token")
-                .containsEntry("scopes", "repo read:org").hasSize(3);
+        assertThat(read.settings())
+                .containsEntry("token_url", "https://auth.example.com/token")
+                .containsEntry("scopes", "repo read:org")
+                .hasSize(3);
     }
 
     @Test
@@ -92,7 +106,9 @@ class VaultFileTest {
 
         // So an older Porelo reading the same vault still finds what it wrote.
         final VaultFile vault = new VaultFile(dir.resolve("vault.bin"));
-        vault.write(Map.of("anthropic", new VaultEntry("sk-ant-0123456789abcdefghij", "api-key")), PASSPHRASE);
+        vault.write(
+                Map.of("anthropic", new VaultEntry("sk-ant-0123456789abcdefghij", "api-key")),
+                PASSPHRASE);
 
         assertThat(vault.read(PASSPHRASE).get("anthropic").settings()).isEmpty();
     }
@@ -100,7 +116,8 @@ class VaultFileTest {
     @Test
     void refusesASettingNameThatIsNotOne() {
         assertThatThrownBy(() -> new VaultEntry("x", null, Map.of("Token URL", "y")))
-                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("is not a setting name");
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("is not a setting name");
     }
 
     @Test
@@ -215,7 +232,8 @@ class VaultFileTest {
     void rejectsSomethingThatIsNotAVault(@TempDir Path dir) throws IOException {
 
         final Path file = dir.resolve("vault.bin");
-        Files.writeString(file, "this is not a vault at all, but it is long enough to have a header");
+        Files.writeString(
+                file, "this is not a vault at all, but it is long enough to have a header");
 
         assertThatThrownBy(() -> new VaultFile(file).read(PASSPHRASE))
                 .isInstanceOf(VaultException.class)
@@ -240,7 +258,8 @@ class VaultFileTest {
         new VaultFile(file).write(ENTRIES, PASSPHRASE);
 
         assertThat(Files.getPosixFilePermissions(file))
-                .containsExactlyInAnyOrder(java.nio.file.attribute.PosixFilePermission.OWNER_READ,
+                .containsExactlyInAnyOrder(
+                        java.nio.file.attribute.PosixFilePermission.OWNER_READ,
                         java.nio.file.attribute.PosixFilePermission.OWNER_WRITE);
     }
 
@@ -248,16 +267,22 @@ class VaultFileTest {
     void updateAddsToWhatIsAlreadyThere(@TempDir Path dir) {
 
         final VaultFile vault = new VaultFile(dir.resolve("vault.bin"));
-        vault.update(PASSPHRASE, entries -> {
-            entries.put("first", VaultEntry.of("1"));
-            return entries;
-        });
-        vault.update(PASSPHRASE, entries -> {
-            entries.put("second", VaultEntry.of("2"));
-            return entries;
-        });
+        vault.update(
+                PASSPHRASE,
+                entries -> {
+                    entries.put("first", VaultEntry.of("1"));
+                    return entries;
+                });
+        vault.update(
+                PASSPHRASE,
+                entries -> {
+                    entries.put("second", VaultEntry.of("2"));
+                    return entries;
+                });
 
-        assertThat(vault.read(PASSPHRASE)).containsEntry("first", VaultEntry.of("1")).containsEntry("second", VaultEntry.of("2"));
+        assertThat(vault.read(PASSPHRASE))
+                .containsEntry("first", VaultEntry.of("1"))
+                .containsEntry("second", VaultEntry.of("2"));
     }
 
     @Test
@@ -271,10 +296,14 @@ class VaultFileTest {
         final ExecutorService pool = Executors.newFixedThreadPool(4);
         for (int i = 0; i < 12; i++) {
             final String name = "key" + i;
-            pool.submit(() -> vault.update(PASSPHRASE, entries -> {
-                entries.put(name, VaultEntry.of(name));
-                return entries;
-            }));
+            pool.submit(
+                    () ->
+                            vault.update(
+                                    PASSPHRASE,
+                                    entries -> {
+                                        entries.put(name, VaultEntry.of(name));
+                                        return entries;
+                                    }));
         }
         pool.shutdown();
         assertThat(pool.awaitTermination(120, TimeUnit.SECONDS)).isTrue();
@@ -285,25 +314,41 @@ class VaultFileTest {
     @Test
     void anUpdateWaitsForAnotherProcessHoldingTheLock(@TempDir Path dir) throws Exception {
 
-        // Threads of one process are kept apart by a lock in memory; only the file lock keeps two processes apart,
+        // Threads of one process are kept apart by a lock in memory; only the file lock keeps two
+        // processes apart,
         // and two `porelo` processes storing at once are the case it exists for.
         final Path file = dir.resolve("vault.bin");
         final VaultFile vault = new VaultFile(file);
         vault.write(ENTRIES, PASSPHRASE);
 
-        final Process holder = new ProcessBuilder(Path.of(System.getProperty("java.home"), "bin", "java").toString(),
-                "-cp", System.getProperty("java.class.path"), LockHolder.class.getName(),
-                file.resolveSibling("vault.bin.lock").toString())
-                .redirectError(ProcessBuilder.Redirect.INHERIT).start();
+        final Process holder =
+                new ProcessBuilder(
+                                Path.of(System.getProperty("java.home"), "bin", "java").toString(),
+                                "-cp",
+                                System.getProperty("java.class.path"),
+                                LockHolder.class.getName(),
+                                file.resolveSibling("vault.bin.lock").toString())
+                        .redirectError(ProcessBuilder.Redirect.INHERIT)
+                        .start();
         try {
-            assertThat(new BufferedReader(new InputStreamReader(holder.getInputStream(),
-                    StandardCharsets.UTF_8)).readLine()).as("the other process").isEqualTo("locked");
+            assertThat(
+                            new BufferedReader(
+                                            new InputStreamReader(
+                                                    holder.getInputStream(),
+                                                    StandardCharsets.UTF_8))
+                                    .readLine())
+                    .as("the other process")
+                    .isEqualTo("locked");
 
-            final CompletableFuture<Void> update = CompletableFuture.runAsync(
-                    () -> vault.update(PASSPHRASE, entries -> {
-                        entries.put("third", VaultEntry.of("3"));
-                        return entries;
-                    }));
+            final CompletableFuture<Void> update =
+                    CompletableFuture.runAsync(
+                            () ->
+                                    vault.update(
+                                            PASSPHRASE,
+                                            entries -> {
+                                                entries.put("third", VaultEntry.of("3"));
+                                                return entries;
+                                            }));
             Thread.sleep(1_000);
             assertThat(update).as("the update while the other process holds the lock").isNotDone();
 
@@ -318,8 +363,7 @@ class VaultFileTest {
     /** Takes the lock a vault's update takes, says so, and holds it until its input closes. */
     static final class LockHolder {
 
-        private LockHolder() {
-        }
+        private LockHolder() {}
 
         public static void main(final String[] args) throws IOException {
             try (RandomAccessFile file = new RandomAccessFile(args[0], "rw");
@@ -339,9 +383,14 @@ class VaultFileTest {
         final VaultFile vault = new VaultFile(dir.resolve("sub/vault.bin"));
         vault.write(ENTRIES, PASSPHRASE);
 
-        assertThatThrownBy(() -> vault.update(PASSPHRASE, entries -> {
-            throw new IllegalStateException("deliberate");
-        })).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(
+                        () ->
+                                vault.update(
+                                        PASSPHRASE,
+                                        entries -> {
+                                            throw new IllegalStateException("deliberate");
+                                        }))
+                .isInstanceOf(IllegalStateException.class);
 
         assertThat(vault.read(PASSPHRASE)).isEqualTo(ENTRIES);
     }
@@ -349,23 +398,34 @@ class VaultFileTest {
     @Test
     void leavesTheOldVaultAndNoSecondCopyIfReplacingFails(@TempDir Path dir) throws IOException {
 
-        // Fails where only the atomic replacement protects the vault: the new content is written and durable,
+        // Fails where only the atomic replacement protects the vault: the new content is written
+        // and durable,
         // and has not yet replaced the file.
         final Path file = dir.resolve("vault.bin");
         new VaultFile(file).write(ENTRIES, PASSPHRASE);
-        final VaultFile failing = new VaultFile(file, () -> {
-            throw new UncheckedIOException(new IOException("No space left on device"));
-        });
+        final VaultFile failing =
+                new VaultFile(
+                        file,
+                        () -> {
+                            throw new UncheckedIOException(
+                                    new IOException("No space left on device"));
+                        });
 
-        assertThatThrownBy(() -> failing.update(PASSPHRASE, entries -> {
-            entries.put("third", VaultEntry.of("3"));
-            return entries;
-        })).hasRootCauseMessage("No space left on device");
+        assertThatThrownBy(
+                        () ->
+                                failing.update(
+                                        PASSPHRASE,
+                                        entries -> {
+                                            entries.put("third", VaultEntry.of("3"));
+                                            return entries;
+                                        }))
+                .hasRootCauseMessage("No space left on device");
 
         assertThat(new VaultFile(file).read(PASSPHRASE)).isEqualTo(ENTRIES);
         try (var left = Files.list(dir)) {
             assertThat(left.map(path -> path.getFileName().toString()))
-                    .as("files beside the vault").containsExactlyInAnyOrder("vault.bin", "vault.bin.lock");
+                    .as("files beside the vault")
+                    .containsExactlyInAnyOrder("vault.bin", "vault.bin.lock");
         }
     }
 
@@ -414,11 +474,9 @@ class VaultFileTest {
 
         // All three reached a real vault. The placeholder is the one a length check misses: it is
         // 24 characters, and it is what the guide tells you to replace.
-        assertThat(VaultEntry.of("<your real key or token>").suspicious())
-                .contains("placeholder");
+        assertThat(VaultEntry.of("<your real key or token>").suspicious()).contains("placeholder");
         assertThat(VaultEntry.of("testtest").suspicious()).contains("8 characters");
-        assertThat(VaultEntry.of("sk ant token with spaces here").suspicious())
-                .contains("spaces");
+        assertThat(VaultEntry.of("sk ant token with spaces here").suspicious()).contains("spaces");
     }
 
     @Test
@@ -450,10 +508,11 @@ class VaultFileTest {
         // Re-encrypting must not be a way to lose a credential. There is no second copy anywhere,
         // so anything dropped here is gone for good.
         final VaultFile vault = new VaultFile(dir.resolve("vault.bin"));
-        final Map<String, VaultEntry> before = Map.of(
-                "anthropic", new VaultEntry("sk-one", "api-key"),
-                "openai", new VaultEntry("sk-two", "api-key"),
-                "github", VaultEntry.of("ghp-three"));
+        final Map<String, VaultEntry> before =
+                Map.of(
+                        "anthropic", new VaultEntry("sk-one", "api-key"),
+                        "openai", new VaultEntry("sk-two", "api-key"),
+                        "github", VaultEntry.of("ghp-three"));
         vault.write(before, "old one".toCharArray());
 
         vault.rekey("old one".toCharArray(), "new one".toCharArray());
@@ -473,7 +532,8 @@ class VaultFileTest {
                 .isInstanceOf(VaultException.class);
 
         assertThat(vault.accepts("old one".toCharArray()))
-                .as("the vault still opens with what it always did").isTrue();
+                .as("the vault still opens with what it always did")
+                .isTrue();
     }
 
     @Test
@@ -486,8 +546,8 @@ class VaultFileTest {
         vault.write(Map.of("one", VaultEntry.of("a")), "pass".toCharArray());
         final byte[] first = saltOf(dir.resolve("vault.bin"));
 
-        vault.write(Map.of("one", VaultEntry.of("a"), "two", VaultEntry.of("b")),
-                "pass".toCharArray());
+        vault.write(
+                Map.of("one", VaultEntry.of("a"), "two", VaultEntry.of("b")), "pass".toCharArray());
 
         assertThat(saltOf(dir.resolve("vault.bin"))).isEqualTo(first);
         assertThat(vault.read("pass".toCharArray())).containsKeys("one", "two");
@@ -529,8 +589,7 @@ class VaultFileTest {
         final VaultFile vault = new VaultFile(dir.resolve("vault.bin"));
         vault.write(Map.of("one", VaultEntry.of("a")), "pass".toCharArray());
 
-        assertThat(saltOf(dir.resolve("vault.bin"))).isNotEmpty()
-                .isNotEqualTo(new byte[16]);
+        assertThat(saltOf(dir.resolve("vault.bin"))).isNotEmpty().isNotEqualTo(new byte[16]);
     }
 
     @Test

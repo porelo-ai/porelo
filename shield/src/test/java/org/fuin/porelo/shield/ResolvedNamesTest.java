@@ -4,13 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link ResolvedNames}.
- */
+/** Tests for {@link ResolvedNames}. */
 class ResolvedNamesTest {
 
     /** Real lines, including the IPv6 answer that reached an operator as a bare number. */
-    private static final String LOG = """
+    private static final String LOG =
+            """
             dnsmasq[881150]: query[A] api.example.test from 127.0.0.1
             dnsmasq[881150]: reply api.example.test is 93.184.216.34
             dnsmasq[881150]: reply api.example.test is 2607:6bc0::10
@@ -44,7 +43,9 @@ class ResolvedNamesTest {
     void doesNotConfuseAnAddressThatIsAPrefixOfAnother() {
 
         // '10.0.0.1' must not match a line answering '10.0.0.11'.
-        assertThat(ResolvedNames.nameFor(
-                "dnsmasq[1]: reply longer.example.test is 10.0.0.11", "10.0.0.1")).isEmpty();
+        assertThat(
+                        ResolvedNames.nameFor(
+                                "dnsmasq[1]: reply longer.example.test is 10.0.0.11", "10.0.0.1"))
+                .isEmpty();
     }
 }

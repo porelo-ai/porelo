@@ -16,13 +16,13 @@ import picocli.CommandLine;
 
 /**
  * Tests for the verb that ends a project.
- * <p>
- * <strong>What is measured here is the project nobody follows.</strong> A project made before
+ *
+ * <p><strong>What is measured here is the project nobody follows.</strong> A project made before
  * following existed - a task was started with a file, which wrote a mirror and a registry entry -
  * is in no follow record, and this command used to refuse it outright. The project stayed in the
  * listing with its mirror and its image and no command ended it; two of them were cleared by hand
- * on a test machine, which is not something an interface can do. What is at risk is the same
- * either way, so the checks have to be the same either way.
+ * on a test machine, which is not something an interface can do. What is at risk is the same either
+ * way, so the checks have to be the same either way.
  */
 class ProjectUnfollowCommandTest {
 
@@ -32,38 +32,47 @@ class ProjectUnfollowCommandTest {
 
     private PoreloContext context(final Path dir) {
         root = dir;
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
         return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
     }
 
-    /** A project the old way: a mirror, a build directory and a registry entry. Nothing follows it. */
+    /**
+     * A project the old way: a mirror, a build directory and a registry entry. Nothing follows it.
+     */
     private void unfollowedProject(final String name) throws IOException {
-        Files.createDirectories(root.resolve("data/porelo/mirrors").resolve(name + ".git")
-                .resolve("objects"));
+        Files.createDirectories(
+                root.resolve("data/porelo/mirrors").resolve(name + ".git").resolve("objects"));
         Files.createDirectories(root.resolve("data/porelo/build").resolve(name));
         Files.createDirectories(root.resolve("data/porelo/projects"));
         final Path file = root.resolve(name + "-project.yml");
         Files.writeString(file, "project:\n  name: \"" + name + "\"\n", StandardCharsets.UTF_8);
-        Files.writeString(root.resolve("data/porelo/projects").resolve(name), file + "\n",
+        Files.writeString(
+                root.resolve("data/porelo/projects").resolve(name),
+                file + "\n",
                 StandardCharsets.UTF_8);
     }
 
-    private record Run(int code, String out, String err) { }
+    private record Run(int code, String out, String err) {}
 
     private Run run(final PoreloContext context, final String... arguments) {
         final ProjectUnfollowCommand command = new ProjectUnfollowCommand();
         command.setContext(context);
         final StringWriter out = new StringWriter();
         final StringWriter err = new StringWriter();
-        final int code = new CommandLine(command)
-                .setOut(new PrintWriter(out, true))
-                .setErr(new PrintWriter(err, true))
-                .execute(arguments);
+        final int code =
+                new CommandLine(command)
+                        .setOut(new PrintWriter(out, true))
+                        .setErr(new PrintWriter(err, true))
+                        .execute(arguments);
         return new Run(code, out.toString(), err.toString());
     }
 
@@ -77,7 +86,8 @@ class ProjectUnfollowCommandTest {
         final Run previewed = run(context, "objects4j", "--dry-run");
 
         assertThat(previewed.code()).isZero();
-        assertThat(previewed.out()).contains("would remove objects4j")
+        assertThat(previewed.out())
+                .contains("would remove objects4j")
                 .contains("does not follow")
                 // What goes, by name. A preview that says only "yes, something" is not a preview.
                 .contains("mirrors")
@@ -140,15 +150,16 @@ class ProjectUnfollowCommandTest {
 
         // It did not, over the socket: the terminal removed the clone by hand AFTER the deletion
         // and the daemon never did, so a project unfollowed from an interface left its verified
-        // clone on the machine - while the contract said the clone goes. Found through the interface.
+        // clone on the machine - while the contract said the clone goes. Found through the
+        // interface.
         // Removed through ProjectDeletion now, which is the one thing both ways call, and it is
         // named in the preview for the same reason.
         final PoreloContext context = context(dir);
         unfollowedProject("uc");
         final Path clone = context.paths().projects().followedClone("uc");
         Files.createDirectories(clone);
-        Files.writeString(clone.resolve("project.yml"), "project:\n  name: \"uc\"\n",
-                StandardCharsets.UTF_8);
+        Files.writeString(
+                clone.resolve("project.yml"), "project:\n  name: \"uc\"\n", StandardCharsets.UTF_8);
 
         final Run previewed = run(context, "uc", "--dry-run");
         assertThat(previewed.out()).contains(clone.toString());
@@ -156,8 +167,13 @@ class ProjectUnfollowCommandTest {
         assertThat(previewed.out()).contains("followed clone").doesNotContain("Removal[");
         // And what is inside the clone is NOT listed as kept, because the clone goes. Saying
         // both about one path in one preview is worse than saying neither.
-        assertThat(previewed.out().lines().filter(line -> line.contains("kept:"))
-                .anyMatch(line -> line.contains(clone.toString()))).isFalse();
+        assertThat(
+                        previewed
+                                .out()
+                                .lines()
+                                .filter(line -> line.contains("kept:"))
+                                .anyMatch(line -> line.contains(clone.toString())))
+                .isFalse();
         assertThat(clone).exists();
 
         run(context, "uc");

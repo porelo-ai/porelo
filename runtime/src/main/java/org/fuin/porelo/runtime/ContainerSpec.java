@@ -8,9 +8,9 @@ import java.util.Map;
 
 /**
  * What a task container is created with.
- * <p>
- * Built rather than passed as a raw argument list, so that the security-relevant flags are stated
- * once, in one place, and are visible to a test.
+ *
+ * <p>Built rather than passed as a raw argument list, so that the security-relevant flags are
+ * stated once, in one place, and are visible to a test.
  */
 public class ContainerSpec {
 
@@ -43,8 +43,7 @@ public class ContainerSpec {
     @org.jspecify.annotations.Nullable
     private String memory = org.fuin.porelo.core.project.Limits.DEFAULT_MEMORY;
 
-    @org.jspecify.annotations.Nullable
-    private String cpus;
+    @org.jspecify.annotations.Nullable private String cpus;
 
     private int pids = org.fuin.porelo.core.project.Limits.DEFAULT_PIDS;
 
@@ -86,11 +85,11 @@ public class ContainerSpec {
 
     /**
      * Adds a label.
-     * <p>
-     * <strong>A label rather than an annotation, for anything a listing needs.</strong> Both
-     * outlive the session and both are the runtime's to keep, but only labels come back from
-     * {@code podman ps}: an annotation costs one {@code inspect} per row, which is a call per
-     * line of a list an interface redraws.
+     *
+     * <p><strong>A label rather than an annotation, for anything a listing needs.</strong> Both
+     * outlive the session and both are the runtime's to keep, but only labels come back from {@code
+     * podman ps}: an annotation costs one {@code inspect} per row, which is a call per line of a
+     * list an interface redraws.
      *
      * @param key Label key.
      * @param value Label value.
@@ -115,11 +114,11 @@ public class ContainerSpec {
 
     /**
      * Sets an environment variable inside the container.
-     * <p>
-     * <strong>Only ever a phantom token, never a real credential.</strong> What is set here is
+     *
+     * <p><strong>Only ever a phantom token, never a real credential.</strong> What is set here is
      * readable from the container's own metadata for as long as it exists, which a real credential
-     * must never be. The value no longer reaches podman's argument list - see
-     * {@link #toArguments()} - but that is the weaker of the two reasons, not a license.
+     * must never be. The value no longer reaches podman's argument list - see {@link
+     * #toArguments()} - but that is the weaker of the two reasons, not a license.
      *
      * @param name Variable name.
      * @param value Variable value.
@@ -132,11 +131,11 @@ public class ContainerSpec {
 
     /**
      * Returns the variables the podman process itself must carry when these arguments are run.
-     * <p>
-     * <strong>Inseparable from {@link #toArguments()}.</strong> The arguments name the variables
+     *
+     * <p><strong>Inseparable from {@link #toArguments()}.</strong> The arguments name the variables
      * and do not carry their values; podman copies each value from its own environment. Running
-     * those arguments without this map does not fail - measured: podman passes nothing at all for
-     * a name it cannot resolve - so the container comes up missing a variable, which for an agent
+     * those arguments without this map does not fail - measured: podman passes nothing at all for a
+     * name it cannot resolve - so the container comes up missing a variable, which for an agent
      * means quietly falling back to its own compiled-in endpoint.
      *
      * @return Variables to give the podman process.
@@ -147,10 +146,10 @@ public class ContainerSpec {
 
     /**
      * Returns {@code --env NAME} for each variable, without any value.
-     * <p>
-     * A value in an argument is world-readable: {@code /proc/<pid>/cmdline} is mode 444 and
-     * {@code /proc} carries no {@code hidepid} on either supported distribution, measured. Named
-     * on the command line and carried in the environment, the value is only ever readable by its
+     *
+     * <p>A value in an argument is world-readable: {@code /proc/<pid>/cmdline} is mode 444 and
+     * {@code /proc} carries no {@code hidepid} on either supported distribution, measured. Named on
+     * the command line and carried in the environment, the value is only ever readable by its
      * owner. Podman copies it from its own environment, byte for byte - measured with a value
      * holding spaces, a colon and trailing padding, which is what the git gate's header is.
      *
@@ -159,10 +158,11 @@ public class ContainerSpec {
      */
     public static List<String> passedThrough(java.util.Collection<String> names) {
         final List<String> arguments = new ArrayList<>();
-        names.forEach(name -> {
-            arguments.add("--env");
-            arguments.add(name);
-        });
+        names.forEach(
+                name -> {
+                    arguments.add("--env");
+                    arguments.add(name);
+                });
         return List.copyOf(arguments);
     }
 
@@ -243,35 +243,44 @@ public class ContainerSpec {
 
         arguments.addAll(passedThrough(environment.keySet()));
 
-        resolvers.forEach(address -> {
-            // Without this the agent uses the host's resolver, the firewall sees only addresses,
-            // and a name the operator would have recognized reaches the prompt as a bare IP.
-            arguments.add("--dns");
-            arguments.add(address);
-        });
+        resolvers.forEach(
+                address -> {
+                    // Without this the agent uses the host's resolver, the firewall sees only
+                    // addresses,
+                    // and a name the operator would have recognized reaches the prompt as a bare
+                    // IP.
+                    arguments.add("--dns");
+                    arguments.add(address);
+                });
         if (!resolvers.isEmpty()) {
-            // '.' is podman's "no search domain". Without it the host's search line was copied in: the task learned
-            // the internal domains of the place it ran in, and every name it asked was asked once per domain too
+            // '.' is podman's "no search domain". Without it the host's search line was copied in:
+            // the task learned
+            // the internal domains of the place it ran in, and every name it asked was asked once
+            // per domain too
             // (found on 2026-10-13).
             arguments.add("--dns-search=.");
         }
 
-        annotations.forEach((key, value) -> {
-            arguments.add("--annotation");
-            arguments.add(key + "=" + value);
-        });
+        annotations.forEach(
+                (key, value) -> {
+                    arguments.add("--annotation");
+                    arguments.add(key + "=" + value);
+                });
 
-        labels.forEach((key, value) -> {
-            arguments.add("--label");
-            arguments.add(key + "=" + value);
-        });
+        labels.forEach(
+                (key, value) -> {
+                    arguments.add("--label");
+                    arguments.add(key + "=" + value);
+                });
 
-        volumes.forEach((host, mountPoint) -> {
-            arguments.add("--volume");
-            // 'Z' relabels for SELinux. Without it the mount is unreadable on an enforcing host,
-            // which is the platform the hooks were verified on.
-            arguments.add(host + ":" + mountPoint + ":Z");
-        });
+        volumes.forEach(
+                (host, mountPoint) -> {
+                    arguments.add("--volume");
+                    // 'Z' relabels for SELinux. Without it the mount is unreadable on an enforcing
+                    // host,
+                    // which is the platform the hooks were verified on.
+                    arguments.add(host + ":" + mountPoint + ":Z");
+                });
 
         arguments.add(image);
         arguments.addAll(command);

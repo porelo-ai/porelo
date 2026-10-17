@@ -8,13 +8,13 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Tests for {@link ProcessHardening}.
- * <p>
- * Every assertion reads the value back from the kernel instead of trusting a return code, which is
- * the rule spike C5 left behind.
- * <p>
- * Only the reversible measures are exercised. {@code PR_SET_NO_NEW_PRIVS} cannot be cleared again
- * for the lifetime of the process, so applying it here would leak into every later test in the same
- * surefire JVM.
+ *
+ * <p>Every assertion reads the value back from the kernel instead of trusting a return code, which
+ * is the rule spike C5 left behind.
+ *
+ * <p>Only the reversible measures are exercised. {@code PR_SET_NO_NEW_PRIVS} cannot be cleared
+ * again for the lifetime of the process, so applying it here would leak into every later test in
+ * the same surefire JVM.
  */
 class ProcessHardeningTest {
 

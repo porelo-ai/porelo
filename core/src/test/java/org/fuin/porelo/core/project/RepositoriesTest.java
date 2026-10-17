@@ -8,8 +8,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * What a project made of several repositories accepts, and what it refuses.
- * <p>
- * The refusals are the point. A project is a unit of work over one or more repositories, and the
+ *
+ * <p>The refusals are the point. A project is a unit of work over one or more repositories, and the
  * ways that can go wrong are all the same shape: a name meaning two different repositories, or a
  * repository nothing can be cloned from - both of which would be found inside a container, minutes
  * later, as a git error against the wrong history.
@@ -20,7 +20,8 @@ class RepositoriesTest {
         return ProjectReader.read(new StringReader(yaml), "test");
     }
 
-    private static final String HEAD = """
+    private static final String HEAD =
+            """
             project:
               name: "acme"
               security_class: "guarded"
@@ -38,7 +39,10 @@ class RepositoriesTest {
 
     @Test
     void theProjectsOwnRepositoryIsOfferedFirst() {
-        final Project project = read(HEAD + """
+        final Project project =
+                read(
+                        HEAD
+                                + """
                 repositories:
                   frontend:
                     upstream: "git@example.com:acme/frontend.git"
@@ -53,7 +57,9 @@ class RepositoriesTest {
 
     @Test
     void theProjectsOwnUpstreamIsItsOwnRepositorysUpstream() {
-        final Project project = read("""
+        final Project project =
+                read(
+                        """
                 project:
                   name: "acme"
                   security_class: "guarded"
@@ -69,7 +75,11 @@ class RepositoriesTest {
     void aRepositoryNamedAfterTheProjectIsRefused() {
         // That name belongs to the project's own repository. Accepting it would give one name two
         // mirrors, and a task would get whichever one was looked up first.
-        assertThatThrownBy(() -> read(HEAD + """
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        HEAD
+                                                + """
                 repositories:
                   acme:
                     upstream: "git@example.com:acme/other.git"
@@ -80,7 +90,10 @@ class RepositoriesTest {
 
     @Test
     void aRepositoryWithNoUpstreamIsOneWhoseWorkStaysHere() {
-        final Project project = read(HEAD + """
+        final Project project =
+                read(
+                        HEAD
+                                + """
                 repositories:
                   scratch:
                 """);
@@ -92,7 +105,10 @@ class RepositoriesTest {
     void anOnlineProjectNeedsAnUpstreamForEveryRepository() {
         // Online means the agent's own remote IS the upstream, so a repository without one is a
         // repository nothing can be cloned from. Refused here rather than in a container.
-        assertThatThrownBy(() -> read("""
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        """
                 project:
                   name: "acme"
                   security_class: "online"
@@ -108,7 +124,11 @@ class RepositoriesTest {
 
     @Test
     void aRepositoryNameThatCannotBeADirectoryIsRefused() {
-        assertThatThrownBy(() -> read(HEAD + """
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        HEAD
+                                                + """
                 repositories:
                   "../escape":
                     upstream: "git@example.com:acme/x.git"
@@ -126,7 +146,11 @@ class RepositoriesTest {
     void theSameNameTwiceIsRefusedByTheFileItself() {
         // YAML refuses it before the reader sees it, which is the earliest anybody could. Checked
         // so that a change to the loader options cannot quietly make the last entry win.
-        assertThatThrownBy(() -> read(HEAD + """
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        HEAD
+                                                + """
                 repositories:
                   backend:
                     upstream: "git@example.com:acme/one.git"
@@ -139,7 +163,11 @@ class RepositoriesTest {
     @Test
     void repositoriesThatAreNotAMappingAreRefused() {
         // A list is the plausible wrong guess, so it gets a message rather than a class cast.
-        assertThatThrownBy(() -> read(HEAD + """
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        HEAD
+                                                + """
                 repositories:
                   - backend
                   - frontend

@@ -14,23 +14,27 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Asking what a declaration would do, before anything is written.
- * <p>
- * The last step of a wizard: somebody is about to rely on this, and every refusal the real thing
+ *
+ * <p>The last step of a wizard: somebody is about to rely on this, and every refusal the real thing
  * gives has to come out here instead - or the check is worse than none, because it grants
  * confidence it has not earned.
  */
 class CredentialDryRunTest {
 
     private PoreloContext context(final Path dir) {
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
-        return new PoreloContext(new FakeCommandRunner(),
-                new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
+        return new PoreloContext(
+                new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
     }
 
     @Test
@@ -39,9 +43,15 @@ class CredentialDryRunTest {
         final PoreloContext context = context(dir);
         final CredentialDeclarations declarations = new CredentialDeclarations(context);
 
-        final CredentialDeclarations.Check would = declarations.wouldDeclare(new Credential("k",
-                Credential.Kind.SSH_KEY, "https://github.com/acme/", null, "git",
-                Credential.Source.FILE));
+        final CredentialDeclarations.Check would =
+                declarations.wouldDeclare(
+                        new Credential(
+                                "k",
+                                Credential.Kind.SSH_KEY,
+                                "https://github.com/acme/",
+                                null,
+                                "git",
+                                Credential.Source.FILE));
 
         assertThat(would.detail()).contains("reached over https");
         // Nothing written: the file is the record, and a check that recorded what it was asked
@@ -58,14 +68,21 @@ class CredentialDryRunTest {
         final PoreloContext context = context(dir);
         context.vault().write(java.util.Map.of(), "a-passphrase".toCharArray());
 
-        final CredentialDeclarations.Check would = new CredentialDeclarations(context)
-                .wouldDeclare(new Credential("", Credential.Kind.TOKEN,
-                        "https://forge.example/acme/", null, "git", Credential.Source.VAULT));
+        final CredentialDeclarations.Check would =
+                new CredentialDeclarations(context)
+                        .wouldDeclare(
+                                new Credential(
+                                        "",
+                                        Credential.Kind.TOKEN,
+                                        "https://forge.example/acme/",
+                                        null,
+                                        "git",
+                                        Credential.Source.VAULT));
 
         assertThat(would.outcome()).isEqualTo(CredentialDeclarations.Outcome.MISSING_VALUE);
         // Named, though nobody named it - so what a person is told to run is a command that works.
-        assertThat(would.storeCommand()).isEqualTo(
-                "porelo vault put git.token.forge.example --type token");
+        assertThat(would.storeCommand())
+                .isEqualTo("porelo vault put git.token.forge.example --type token");
     }
 
     @Test
@@ -77,11 +94,18 @@ class CredentialDryRunTest {
         final Path key = dir.resolve("id_ed25519");
         Files.writeString(key, "-----BEGIN OPENSSH PRIVATE KEY-----\n", StandardCharsets.UTF_8);
 
-        final Credential declared = new Credential("", Credential.Kind.SSH_KEY,
-                "ssh://github.com", null, "git", Credential.Source.VAULT);
+        final Credential declared =
+                new Credential(
+                        "",
+                        Credential.Kind.SSH_KEY,
+                        "ssh://github.com",
+                        null,
+                        "git",
+                        Credential.Source.VAULT);
 
-        assertThat(CredentialDeclarations.storeCommandFor(
-                CredentialDeclarations.named(declared), key.toString()))
+        assertThat(
+                        CredentialDeclarations.storeCommandFor(
+                                CredentialDeclarations.named(declared), key.toString()))
                 .isEqualTo("porelo vault put git.ssh.github.com --from-file " + key);
         // And without it, the form that asks for the file to be piped in.
         assertThat(CredentialDeclarations.storeCommandFor(CredentialDeclarations.named(declared)))
@@ -105,9 +129,16 @@ class CredentialDryRunTest {
         // Two different things to do first. A wizard told MISSING_VALUE sends somebody to
         // 'vault put', which fails at its last step on a machine that has no vault at all.
         // Found on an account that had never made one.
-        final CredentialDeclarations.Check would = new CredentialDeclarations(context(dir))
-                .wouldDeclare(new Credential("", Credential.Kind.TOKEN,
-                        "https://forge.example/", null, "git", Credential.Source.VAULT));
+        final CredentialDeclarations.Check would =
+                new CredentialDeclarations(context(dir))
+                        .wouldDeclare(
+                                new Credential(
+                                        "",
+                                        Credential.Kind.TOKEN,
+                                        "https://forge.example/",
+                                        null,
+                                        "git",
+                                        Credential.Source.VAULT));
 
         assertThat(would.outcome()).isEqualTo(CredentialDeclarations.Outcome.NO_VAULT);
         assertThat(would.detail()).contains("no vault yet");

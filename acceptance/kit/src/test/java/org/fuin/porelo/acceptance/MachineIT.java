@@ -5,9 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
-/**
- * Tests for {@link Machine}, run only when a machine was named.
- */
+/** Tests for {@link Machine}, run only when a machine was named. */
 @EnabledIfSystemProperty(named = "porelo.acceptance.host", matches = ".+")
 class MachineIT {
 

@@ -16,11 +16,11 @@ import org.freedesktop.dbus.types.Variant;
 
 /**
  * Asks through a desktop notification with Allow and Deny buttons.
- * <p>
- * Uses the session bus, so it only works where the operator actually is. A container's own
- * processes cannot reach it: stuck in a rootless user namespace, they fail the bus's
- * {@code SO_PEERCRED} check. That is the reason the prompt lives on this side of the boundary and
- * the reader only reports events.
+ *
+ * <p>Uses the session bus, so it only works where the operator actually is. A container's own
+ * processes cannot reach it: stuck in a rootless user namespace, they fail the bus's {@code
+ * SO_PEERCRED} check. That is the reason the prompt lives on this side of the boundary and the
+ * reader only reports events.
  */
 public class DesktopPrompt implements ClearancePrompt, AutoCloseable {
 
@@ -33,9 +33,7 @@ public class DesktopPrompt implements ClearancePrompt, AutoCloseable {
     /** How long the expired notice stays up: -1 leaves it to the notification server. */
     private static final int EXPIRED_TIMEOUT = -1;
 
-    /**
-     * The part of {@code org.freedesktop.Notifications} Porelo uses.
-     */
+    /** The part of {@code org.freedesktop.Notifications} Porelo uses. */
     @DBusInterfaceName("org.freedesktop.Notifications")
     public interface Notifications extends DBusInterface {
 
@@ -52,8 +50,15 @@ public class DesktopPrompt implements ClearancePrompt, AutoCloseable {
          * @param timeout Milliseconds, or zero to never expire.
          * @return Notification id.
          */
-        UInt32 Notify(String appName, UInt32 replacesId, String appIcon, String summary,
-                String body, List<String> actions, Map<String, Variant<?>> hints, int timeout);
+        UInt32 Notify(
+                String appName,
+                UInt32 replacesId,
+                String appIcon,
+                String summary,
+                String body,
+                List<String> actions,
+                Map<String, Variant<?>> hints,
+                int timeout);
 
         /**
          * Closes a notification.
@@ -64,8 +69,8 @@ public class DesktopPrompt implements ClearancePrompt, AutoCloseable {
 
         /**
          * Sent when the operator presses one of the buttons.
-         * <p>
-         * Must be nested inside the interface: dbus-java derives the object path from the
+         *
+         * <p>Must be nested inside the interface: dbus-java derives the object path from the
          * enclosing type, and a top-level signal class is rejected at runtime.
          */
         class ActionInvoked extends DBusSignal {
@@ -91,9 +96,7 @@ public class DesktopPrompt implements ClearancePrompt, AutoCloseable {
             }
         }
 
-        /**
-         * Sent when a notification disappears without an action.
-         */
+        /** Sent when a notification disappears without an action. */
         class NotificationClosed extends DBusSignal {
 
             /** Notification that closed. */
@@ -134,12 +137,17 @@ public class DesktopPrompt implements ClearancePrompt, AutoCloseable {
         this.timeout = timeout;
         try {
             connection = DBusConnectionBuilder.forSessionBus().build();
-            notifications = connection.getRemoteObject("org.freedesktop.Notifications",
-                    "/org/freedesktop/Notifications", Notifications.class);
+            notifications =
+                    connection.getRemoteObject(
+                            "org.freedesktop.Notifications",
+                            "/org/freedesktop/Notifications",
+                            Notifications.class);
         } catch (Exception ex) {
-            throw new ClearanceException("Cannot reach the desktop notification service: "
-                    + ex.getClass().getSimpleName()
-                    + (ex.getMessage() == null ? "" : ": " + ex.getMessage()), ex);
+            throw new ClearanceException(
+                    "Cannot reach the desktop notification service: "
+                            + ex.getClass().getSimpleName()
+                            + (ex.getMessage() == null ? "" : ": " + ex.getMessage()),
+                    ex);
         }
     }
 
@@ -150,20 +158,32 @@ public class DesktopPrompt implements ClearancePrompt, AutoCloseable {
         final AtomicReference<Verdict> verdict = new AtomicReference<>(Verdict.TIMEOUT);
         final AtomicReference<UInt32> shown = new AtomicReference<>();
 
-        // Removed again when the question is done: registered per question and never removed, every handler stayed,
+        // Removed again when the question is done: registered per question and never removed, every
+        // handler stayed,
         // kept its question, and every signal walked them all.
-        try (AutoCloseable handler = connection.addSigHandler(Notifications.ActionInvoked.class, signal -> {
-                if (shown.get() != null && shown.get().equals(signal.id)) {
-                    verdict.set(ALLOW.equals(signal.actionKey) ? Verdict.ALLOW : Verdict.DENY);
-                    answered.countDown();
-                }
-            })) {
+        try (AutoCloseable handler =
+                connection.addSigHandler(
+                        Notifications.ActionInvoked.class,
+                        signal -> {
+                            if (shown.get() != null && shown.get().equals(signal.id)) {
+                                verdict.set(
+                                        ALLOW.equals(signal.actionKey)
+                                                ? Verdict.ALLOW
+                                                : Verdict.DENY);
+                                answered.countDown();
+                            }
+                        })) {
 
-            final UInt32 id = notifications.Notify("Porelo", new UInt32(0), "network-error",
-                    request.summary(), request.body(),
-                    List.of(ALLOW, "Allow", DENY, "Deny"),
-                    Map.of("urgency", new Variant<>((byte) 2)),
-                    (int) timeout.toMillis());
+            final UInt32 id =
+                    notifications.Notify(
+                            "Porelo",
+                            new UInt32(0),
+                            "network-error",
+                            request.summary(),
+                            request.body(),
+                            List.of(ALLOW, "Allow", DENY, "Deny"),
+                            Map.of("urgency", new Variant<>((byte) 2)),
+                            (int) timeout.toMillis());
             shown.set(id);
 
             if (!answered.await(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
@@ -181,8 +201,8 @@ public class DesktopPrompt implements ClearancePrompt, AutoCloseable {
 
     /**
      * Replaces a question nobody answered with what its silence did.
-     * <p>
-     * Replaced rather than closed. Leaving the question on screen would invite an answer nothing
+     *
+     * <p>Replaced rather than closed. Leaving the question on screen would invite an answer nothing
      * is listening for, but simply taking it away is worse: the destination stays blocked and will
      * not be asked about again, so an operator who was away comes back to a machine that looks as
      * though it was never asked. The buttons go with it, and the urgency drops - critical
@@ -192,8 +212,14 @@ public class DesktopPrompt implements ClearancePrompt, AutoCloseable {
      * @param request What was asked.
      */
     private void expire(UInt32 id, ClearanceRequest request) {
-        notifications.Notify("Porelo", id, "network-error", request.expiredSummary(),
-                request.expiredBody(), List.of(), Map.of("urgency", new Variant<>((byte) 1)),
+        notifications.Notify(
+                "Porelo",
+                id,
+                "network-error",
+                request.expiredSummary(),
+                request.expiredBody(),
+                List.of(),
+                Map.of("urgency", new Variant<>((byte) 1)),
                 EXPIRED_TIMEOUT);
     }
 

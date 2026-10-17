@@ -13,29 +13,46 @@ import java.util.Map;
 import org.fuin.porelo.wire.Json;
 
 /**
- * The part of a task's state that is knowledge about the task, kept where a reboot does not reach it.
- * <p>
- * <strong>One rule for where a file lives</strong>: what describes something live - a socket, a pid file,
- * a log - is volatile and stays in the runtime directory; what is knowledge about the task is durable. The
- * runtime directory is still where everything is used from: the container's annotation and mounts name its
- * paths, fixed when the container was created. So the durable files are <em>copies</em>, saved whenever they
- * change and put back when a reboot left the runtime directory empty - never a second place anything is read
- * from while the task runs.
- * <p>
- * <strong>Nothing secret is saved here.</strong> The resume record is saved without the gate token, and the
- * phantom provider token's file is not saved at all; both are in the vault ({@link TaskSecrets}).
+ * The part of a task's state that is knowledge about the task, kept where a reboot does not reach
+ * it.
+ *
+ * <p><strong>One rule for where a file lives</strong>: what describes something live - a socket, a
+ * pid file, a log - is volatile and stays in the runtime directory; what is knowledge about the
+ * task is durable. The runtime directory is still where everything is used from: the container's
+ * annotation and mounts name its paths, fixed when the container was created. So the durable files
+ * are <em>copies</em>, saved whenever they change and put back when a reboot left the runtime
+ * directory empty - never a second place anything is read from while the task runs.
+ *
+ * <p><strong>Nothing secret is saved here.</strong> The resume record is saved without the gate
+ * token, and the phantom provider token's file is not saved at all; both are in the vault ({@link
+ * TaskSecrets}).
  */
 public final class TaskState {
 
     /**
-     * The durable files: what the task is, how its helpers are started, the work it held when it stopped, and
-     * the egress it was given - the resolver's files, the firewall ruleset, the hooks' description and the
-     * run-scope grants - which cannot be rebuilt exactly from anything else.
+     * The durable files: what the task is, how its helpers are started, the work it held when it
+     * stopped, and the egress it was given - the resolver's files, the firewall ruleset, the hooks'
+     * description and the run-scope grants - which cannot be rebuilt exactly from anything else.
      */
-    static final List<String> DURABLE = List.of(org.fuin.porelo.wire.Sidecar.RECORDED_ID, "task.json", TaskInventory.CREDENTIALS_FILE, TaskInventory.GRANTS_FILE, TaskHelpers.FILE, UnhandedWork.FILE, "dns.conf",
-            TaskRunner.HAND_IN_LIMIT_FILE, "dnsmasq.servers", "ruleset.nft", "sidecar.json", "granted", "granted-addresses");
+    static final List<String> DURABLE =
+            List.of(
+                    org.fuin.porelo.wire.Sidecar.RECORDED_ID,
+                    "task.json",
+                    TaskInventory.CREDENTIALS_FILE,
+                    TaskInventory.GRANTS_FILE,
+                    TaskHelpers.FILE,
+                    UnhandedWork.FILE,
+                    "dns.conf",
+                    TaskRunner.HAND_IN_LIMIT_FILE,
+                    "dnsmasq.servers",
+                    "ruleset.nft",
+                    "sidecar.json",
+                    "granted",
+                    "granted-addresses");
 
-    /** The environment entry of the gate helper that is a secret, and is kept in the vault instead. */
+    /**
+     * The environment entry of the gate helper that is a secret, and is kept in the vault instead.
+     */
     static final String GATE_TOKEN = "PORELO_GATE_TOKEN";
 
     private final PoreloContext context;
@@ -50,8 +67,8 @@ public final class TaskState {
     }
 
     /**
-     * Saves a task's durable files as they are now. Never fails the caller: a task whose state could not be saved
-     * runs, and only its return after a reboot is lost.
+     * Saves a task's durable files as they are now. Never fails the caller: a task whose state
+     * could not be saved runs, and only its return after a reboot is lost.
      *
      * @param container The task's container.
      */
@@ -72,16 +89,24 @@ public final class TaskState {
                 }
                 final Path written = to.resolveSibling(name + ".new");
                 if (TaskHelpers.FILE.equals(name)) {
-                    Files.writeString(written, withoutSecrets(Files.readString(from, StandardCharsets.UTF_8)),
+                    Files.writeString(
+                            written,
+                            withoutSecrets(Files.readString(from, StandardCharsets.UTF_8)),
                             StandardCharsets.UTF_8);
                 } else {
                     Files.copy(from, written, StandardCopyOption.REPLACE_EXISTING);
                 }
-                Files.setPosixFilePermissions(written, PosixFilePermissions.fromString("rw-------"));
-                Files.move(written, to, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+                Files.setPosixFilePermissions(
+                        written, PosixFilePermissions.fromString("rw-------"));
+                Files.move(
+                        written,
+                        to,
+                        StandardCopyOption.REPLACE_EXISTING,
+                        StandardCopyOption.ATOMIC_MOVE);
             }
         } catch (IOException | RuntimeException ex) {
-            // Reported by the start after a reboot that finds nothing to bring back, not by the run.
+            // Reported by the start after a reboot that finds nothing to bring back, not by the
+            // run.
         }
     }
 
@@ -93,7 +118,8 @@ public final class TaskState {
      */
     public boolean saved(String container) {
         final Path durable = context.paths().tasks().taskRecord(container);
-        return Files.isRegularFile(durable.resolve("task.json")) || Files.isRegularFile(durable.resolve(TaskHelpers.FILE));
+        return Files.isRegularFile(durable.resolve("task.json"))
+                || Files.isRegularFile(durable.resolve(TaskHelpers.FILE));
     }
 
     /**
@@ -144,12 +170,14 @@ public final class TaskState {
      * @return The same record without the secret.
      */
     static String withoutSecrets(String resume) {
-        if (!(Json.parse(resume) instanceof Map<?, ?> document) || !(document.get("helpers") instanceof List<?> helpers)) {
+        if (!(Json.parse(resume) instanceof Map<?, ?> document)
+                || !(document.get("helpers") instanceof List<?> helpers)) {
             return resume;
         }
         final List<Object> stripped = new java.util.ArrayList<>();
         for (final Object each : helpers) {
-            if (each instanceof Map<?, ?> helper && helper.get("environment") instanceof Map<?, ?> environment) {
+            if (each instanceof Map<?, ?> helper
+                    && helper.get("environment") instanceof Map<?, ?> environment) {
                 final Map<Object, Object> copy = new LinkedHashMap<>(helper);
                 final Map<Object, Object> kept = new LinkedHashMap<>(environment);
                 kept.remove(GATE_TOKEN);
@@ -170,5 +198,4 @@ public final class TaskState {
             Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwx------"));
         }
     }
-
 }

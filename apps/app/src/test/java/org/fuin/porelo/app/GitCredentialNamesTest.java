@@ -6,10 +6,10 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Which vault entry a git URL reaches for.
- * <p>
- * The scheme decides the kind and the host decides which one. Both halves are measured here
- * because both are the whole interface a person sees: the name they type into
- * {@code porelo vault put} is the name this resolves.
+ *
+ * <p>The scheme decides the kind and the host decides which one. Both halves are measured here
+ * because both are the whole interface a person sees: the name they type into {@code porelo vault
+ * put} is the name this resolves.
  */
 class GitCredentialNamesTest {
 
@@ -82,15 +82,20 @@ class GitCredentialNamesTest {
         // a record nothing could store into - 'porelo vault put' with no argument - and a
         // 'porelo vault remove ' with nothing after it. Found through the
         // interface's own declare.
-        assertThat(GitCredentialNames.impliedName(GitCredentialNames.Kind.KEY,
-                "ssh://github.com/acme/x.git")).isEqualTo("git.ssh.github.com");
-        assertThat(GitCredentialNames.impliedName(GitCredentialNames.Kind.TOKEN,
-                "https://gitlab.example/acme/")).isEqualTo("git.token.gitlab.example");
+        assertThat(
+                        GitCredentialNames.impliedName(
+                                GitCredentialNames.Kind.KEY, "ssh://github.com/acme/x.git"))
+                .isEqualTo("git.ssh.github.com");
+        assertThat(
+                        GitCredentialNames.impliedName(
+                                GitCredentialNames.Kind.TOKEN, "https://gitlab.example/acme/"))
+                .isEqualTo("git.token.gitlab.example");
         // And it is the SAME name the fallback looks in, so a credential declared without a name
         // and one stored without a declaration are one entry rather than two that shadow.
         assertThat(GitCredentialNames.candidatesFor("git@github.com:acme/x.git"))
-                .contains(GitCredentialNames.impliedName(GitCredentialNames.Kind.KEY,
-                        "ssh://github.com/acme/x.git"));
+                .contains(
+                        GitCredentialNames.impliedName(
+                                GitCredentialNames.Kind.KEY, "ssh://github.com/acme/x.git"));
         // A destination with no host cannot be named after one, and is refused rather than
         // recorded namelessly.
         assertThat(GitCredentialNames.impliedName(GitCredentialNames.Kind.KEY, "/a/path")).isNull();

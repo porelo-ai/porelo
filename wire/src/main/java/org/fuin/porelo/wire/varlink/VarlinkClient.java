@@ -9,9 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Predicate;
 
-/**
- * Calls a varlink method over a unix socket.
- */
+/** Calls a varlink method over a unix socket. */
 public class VarlinkClient implements AutoCloseable {
 
     private final VarlinkConnection connection;
@@ -54,15 +52,17 @@ public class VarlinkClient implements AutoCloseable {
     }
 
     /**
-     * Calls a method with {@code more} and hands each reply to a consumer until the stream ends
-     * or the consumer asks to stop.
+     * Calls a method with {@code more} and hands each reply to a consumer until the stream ends or
+     * the consumer asks to stop.
      *
      * @param method Fully qualified method name.
      * @param parameters Call parameters.
      * @param consumer Receives each reply; returning {@code false} stops the stream.
      * @throws VarlinkException If the peer returns an error.
      */
-    public void callMore(String method, Map<String, Object> parameters,
+    public void callMore(
+            String method,
+            Map<String, Object> parameters,
             Predicate<Map<String, Object>> consumer) {
         try {
             send(method, parameters, true);
@@ -74,8 +74,8 @@ public class VarlinkClient implements AutoCloseable {
                     // showing what it last saw, which for a fleet view or a clearance prompt is
                     // worse than an error. A finished stream arrives as a reply without
                     // 'continues'; a socket that simply ends did not finish.
-                    throw new VarlinkException("The service closed the stream of " + method
-                            + " before it ended");
+                    throw new VarlinkException(
+                            "The service closed the stream of " + method + " before it ended");
                 }
                 final Map<String, Object> values = replyParameters(reply);
                 if (!consumer.test(values)) {
@@ -107,7 +107,8 @@ public class VarlinkClient implements AutoCloseable {
     private static Map<String, Object> replyParameters(Map<String, Object> reply) {
         if (reply.get("error") instanceof String error) {
             final Object parameters = reply.get("parameters");
-            throw new VarlinkException(error,
+            throw new VarlinkException(
+                    error,
                     parameters instanceof Map<?, ?> map ? (Map<String, Object>) map : Map.of());
         }
         final Object parameters = reply.get("parameters");

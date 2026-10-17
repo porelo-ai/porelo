@@ -17,16 +17,16 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Keeps Porelo from knowing which agents exist.
- * <p>
- * The point of the agent modules is that the dependency arrow runs one way: an agent knows about
+ *
+ * <p>The point of the agent modules is that the dependency arrow runs one way: an agent knows about
  * Porelo, Porelo does not know about agents. That is easy to state, easy to believe, and easy to
  * break by accident - so it is checked rather than trusted.
- * <p>
- * The reference implementation shows exactly how it breaks. Its {@code claude.yaml} declares
+ *
+ * <p>The reference implementation shows exactly how it breaks. Its {@code claude.yaml} declares
  * {@code capabilities.log_format: claude-stream-json}, the roster parses it into a typed field and
- * carries it faithfully to the code that needs it, and then that code ignores it and writes
- * {@code if effective_agent == "claude"} instead. A thirteenth agent declaring the same capability
- * would be shown as plain text, silently. These two rules are what would have caught that.
+ * carries it faithfully to the code that needs it, and then that code ignores it and writes {@code
+ * if effective_agent == "claude"} instead. A thirteenth agent declaring the same capability would
+ * be shown as plain text, silently. These two rules are what would have caught that.
  */
 class AgentIsolationTest {
 
@@ -44,14 +44,18 @@ class AgentIsolationTest {
 
         final JavaClasses classes = new ClassFileImporter().importPackages("org.fuin.porelo");
 
-        final ArchRule rule = noClasses()
-                .that().resideOutsideOfPackage("org.fuin.porelo.agent..")
-                .should().dependOnClassesThat()
-                .resideInAPackage("org.fuin.porelo.agent.impl..")
-                .because("an agent is discovered through the agent API, never named. Depending"
-                        + " on one"
-                        + " here would make adding the next agent a change to this module")
-                .allowEmptyShould(true);
+        final ArchRule rule =
+                noClasses()
+                        .that()
+                        .resideOutsideOfPackage("org.fuin.porelo.agent..")
+                        .should()
+                        .dependOnClassesThat()
+                        .resideInAPackage("org.fuin.porelo.agent.impl..")
+                        .because(
+                                "an agent is discovered through the agent API, never named. Depending"
+                                        + " on one"
+                                        + " here would make adding the next agent a change to this module")
+                        .allowEmptyShould(true);
 
         rule.check(classes);
     }
@@ -61,16 +65,23 @@ class AgentIsolationTest {
 
         final JavaClasses classes = new ClassFileImporter().importPackages("org.fuin.porelo.app");
 
-        final ArchRule rule = noClasses()
-                .should().dependOnClassesThat(
-                        com.tngtech.archunit.base.DescribedPredicate.describe(
-                                "an agent package other than " + API,
-                                javaClass -> javaClass.getPackageName().startsWith("org.fuin.porelo.agent.")
-                                        && !javaClass.getPackageName().equals(API)))
-                .because("porelo-app is the composition root: it may call the agent API and must"
-                        + " not know"
-                        + " what implements it")
-                .allowEmptyShould(true);
+        final ArchRule rule =
+                noClasses()
+                        .should()
+                        .dependOnClassesThat(
+                                com.tngtech.archunit.base.DescribedPredicate.describe(
+                                        "an agent package other than " + API,
+                                        javaClass ->
+                                                javaClass
+                                                                .getPackageName()
+                                                                .startsWith(
+                                                                        "org.fuin.porelo.agent.")
+                                                        && !javaClass.getPackageName().equals(API)))
+                        .because(
+                                "porelo-app is the composition root: it may call the agent API and must"
+                                        + " not know"
+                                        + " what implements it")
+                        .allowEmptyShould(true);
 
         rule.check(classes);
     }
@@ -134,9 +145,7 @@ class AgentIsolationTest {
                     .forEach(path -> scan(root, path, providerNames, offences));
         }
 
-        assertThat(offences)
-                .as("provider names used as string literals in Java")
-                .isEmpty();
+        assertThat(offences).as("provider names used as string literals in Java").isEmpty();
     }
 
     /**
@@ -164,14 +173,15 @@ class AgentIsolationTest {
 
     /**
      * Tells whether a path is Java this project builds.
-     * <p>
-     * Scoped to Maven source roots rather than every {@code .java} file under the repository. The
-     * first version was not, and reported a spike probe under {@code .porelo/} - a scratch file
+     *
+     * <p>Scoped to Maven source roots rather than every {@code .java} file under the repository.
+     * The first version was not, and reported a spike probe under {@code .porelo/} - a scratch file
      * from Phase 0 that is not compiled, not shipped, and not subject to any of this.
      */
     private static boolean isProductSource(Path path) {
         final String name = path.toString();
-        // Nor under a hidden directory, which git ignores here: a worktree kept in '.worktrees/' is another checkout
+        // Nor under a hidden directory, which git ignores here: a worktree kept in '.worktrees/' is
+        // another checkout
         // of this repository, and its sources were reported as this one's.
         return name.endsWith(".java")
                 && !name.contains("/target/")
@@ -213,8 +223,13 @@ class AgentIsolationTest {
                     // Not target/: a built module holds a copy of its own definition, and counting
                     // it would report every offense twice.
                     .filter(path -> !path.toString().contains("/target/"))
-                    .filter(path -> path.getParent() != null
-                            && path.getParent().getFileName().toString().equals("agent"))
+                    .filter(
+                            path ->
+                                    path.getParent() != null
+                                            && path.getParent()
+                                                    .getFileName()
+                                                    .toString()
+                                                    .equals("agent"))
                     .filter(path -> path.getFileName().toString().endsWith(".yaml"))
                     .map(path -> path.getFileName().toString().replace(".yaml", ""))
                     .distinct()

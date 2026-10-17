@@ -4,10 +4,11 @@ import org.fuin.porelo.core.project.SecurityClass;
 
 /**
  * What the gate is allowed to do with what an agent pushed.
- * <p>
- * {@link #OFFLINE} forwards nothing. {@link #GATEKEEPING} forwards what a person approved; {@link #ONLINE} also has its
- * gate pass a task's push on at once, through {@link GitGate#passOn}, which the task's gate server calls while the push
- * runs. In both, only the host holds the key the upstream takes.
+ *
+ * <p>{@link #OFFLINE} forwards nothing. {@link #GATEKEEPING} forwards what a person approved;
+ * {@link #ONLINE} also has its gate pass a task's push on at once, through {@link GitGate#passOn},
+ * which the task's gate server calls while the push runs. In both, only the host holds the key the
+ * upstream takes.
  */
 public enum GateMode {
 
@@ -24,8 +25,9 @@ public enum GateMode {
     GATEKEEPING,
 
     /**
-     * Forwarding is permitted, as in {@link #GATEKEEPING}, and a task's push is passed on at once: its gate gives the
-     * task's branch to the upstream while the agent's push runs, so nothing waits for review.
+     * Forwarding is permitted, as in {@link #GATEKEEPING}, and a task's push is passed on at once:
+     * its gate gives the task's branch to the upstream while the agent's push runs, so nothing
+     * waits for review.
      */
     ONLINE;
 
@@ -45,8 +47,8 @@ public enum GateMode {
 
     /**
      * Tells whether this mode can ever forward to an upstream.
-     * <p>
-     * True for both {@link #GATEKEEPING} and {@link #ONLINE}, and in both the forwarding happens
+     *
+     * <p>True for both {@link #GATEKEEPING} and {@link #ONLINE}, and in both the forwarding happens
      * only through {@link GitGate#approve}. Nothing else in the gate sends anything off the
      * machine.
      *

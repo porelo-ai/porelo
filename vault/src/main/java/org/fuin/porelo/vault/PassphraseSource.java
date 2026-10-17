@@ -4,10 +4,10 @@ import java.util.Optional;
 
 /**
  * Somewhere the vault passphrase can come from.
- * <p>
- * Tiers are tried in order and the first that produces one wins, so a host with a password manager
- * never prompts and a host without one still works. A tier that is not configured returns empty
- * rather than throwing: not being set up is the normal case for most of them.
+ *
+ * <p>Tiers are tried in order and the first that produces one wins, so a host with a password
+ * manager never prompts and a host without one still works. A tier that is not configured returns
+ * empty rather than throwing: not being set up is the normal case for most of them.
  */
 @FunctionalInterface
 public interface PassphraseSource {

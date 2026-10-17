@@ -2,15 +2,16 @@ package org.fuin.porelo.build.api;
 
 /**
  * What a build reader implements: one forge, asked about one branch or one commit at a time.
- * <p>
- * A reader in its own repository implements this, and its main method hands it to {@link BuildMain#run}; Porelo finds
- * the executable, starts it, and asks it over {@link BuildProtocol#INTERFACE}.
+ *
+ * <p>A reader in its own repository implements this, and its main method hands it to {@link
+ * BuildMain#run}; Porelo finds the executable, starts it, and asks it over {@link
+ * BuildProtocol#INTERFACE}.
  */
 public interface BuildReader {
 
     /**
-     * Returns the forge this reader reads, which is what a project file names under {@code builds.forge} and the name
-     * its executable is installed under.
+     * Returns the forge this reader reads, which is what a project file names under {@code
+     * builds.forge} and the name its executable is installed under.
      *
      * @return Lower-case letters, digits and hyphens.
      */
@@ -31,7 +32,8 @@ public interface BuildReader {
      *
      * @param target Where and with what.
      * @param commit The full sha.
-     * @param logs Which jobs' logs to hand over: each failed one, or every one once the verdict is final.
+     * @param logs Which jobs' logs to hand over: each failed one, or every one once the verdict is
+     *     final.
      * @return The build; {@link Build#UNKNOWN} when the forge holds none for the commit.
      * @throws BuildRefused When the forge would not answer.
      */

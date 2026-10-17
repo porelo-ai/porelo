@@ -8,12 +8,11 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link ClearanceHub}.
- */
+/** Tests for {@link ClearanceHub}. */
 class ClearanceHubTest {
 
-    private static final Blocked ONE_ONE_ONE_ONE = new Blocked("1.1.1.1", 443, "tcp", "1.1.1.1:443");
+    private static final Blocked ONE_ONE_ONE_ONE =
+            new Blocked("1.1.1.1", 443, "tcp", "1.1.1.1:443");
 
     private static final Blocked QUAD_NINE = new Blocked("9.9.9.9", 443, "tcp", "9.9.9.9:443");
 
@@ -24,10 +23,15 @@ class ClearanceHubTest {
     private final AtomicInteger asked = new AtomicInteger();
 
     private ClearanceHub hub(Verdict answer) {
-        final ClearanceHub hub = new ClearanceHub("uc", "shell", request -> {
-            asked.incrementAndGet();
-            return answer;
-        }, (address, name) -> allowed.add(address));
+        final ClearanceHub hub =
+                new ClearanceHub(
+                        "uc",
+                        "shell",
+                        request -> {
+                            asked.incrementAndGet();
+                            return answer;
+                        },
+                        (address, name) -> allowed.add(address));
         hub.onDecision(announced::add);
         return hub;
     }
@@ -99,11 +103,16 @@ class ClearanceHubTest {
         // The key is recorded as denied before the prompt returns, so a burst during the wait
         // cannot produce a second notification.
         final ClearanceHub[] holder = new ClearanceHub[1];
-        holder[0] = new ClearanceHub("uc", "shell", request -> {
-            asked.incrementAndGet();
-            holder[0].handle(ONE_ONE_ONE_ONE);
-            return Verdict.ALLOW;
-        }, (address, name) -> allowed.add(address));
+        holder[0] =
+                new ClearanceHub(
+                        "uc",
+                        "shell",
+                        request -> {
+                            asked.incrementAndGet();
+                            holder[0].handle(ONE_ONE_ONE_ONE);
+                            return Verdict.ALLOW;
+                        },
+                        (address, name) -> allowed.add(address));
 
         holder[0].handle(ONE_ONE_ONE_ONE);
 
@@ -144,10 +153,13 @@ class ClearanceHubTest {
         // indistinguishable afterwards from one that was never asked.
         hub(Verdict.TIMEOUT).handle(ONE_ONE_ONE_ONE);
 
-        assertThat(announced).singleElement().satisfies(decision -> {
-            assertThat(decision.verdict()).isEqualTo(Verdict.TIMEOUT);
-            assertThat(decision.source()).isEqualTo(Decision.PROMPT);
-        });
+        assertThat(announced)
+                .singleElement()
+                .satisfies(
+                        decision -> {
+                            assertThat(decision.verdict()).isEqualTo(Verdict.TIMEOUT);
+                            assertThat(decision.source()).isEqualTo(Decision.PROMPT);
+                        });
     }
 
     @Test
@@ -157,12 +169,15 @@ class ClearanceHubTest {
         hub.decide("tcp/1.1.1.1/443", "1.1.1.1", Verdict.ALLOW);
 
         assertThat(allowed).containsExactly("1.1.1.1");
-        assertThat(announced).singleElement().satisfies(decision -> {
-            assertThat(decision.source()).isEqualTo(Decision.CLIENT);
-            assertThat(decision.destination()).isEqualTo("1.1.1.1");
-            assertThat(decision.port()).isEqualTo(443);
-            assertThat(decision.protocol()).isEqualTo("tcp");
-        });
+        assertThat(announced)
+                .singleElement()
+                .satisfies(
+                        decision -> {
+                            assertThat(decision.source()).isEqualTo(Decision.CLIENT);
+                            assertThat(decision.destination()).isEqualTo("1.1.1.1");
+                            assertThat(decision.port()).isEqualTo(443);
+                            assertThat(decision.protocol()).isEqualTo("tcp");
+                        });
     }
 
     @Test
@@ -173,8 +188,8 @@ class ClearanceHubTest {
         final ClearanceHub hub = hub(Verdict.DENY);
         hub.granted("docs.example.test"::equals);
 
-        final Blocked blocked = new Blocked("1.1.1.1", 443, "tcp", "docs.example.test:443",
-                "docs.example.test");
+        final Blocked blocked =
+                new Blocked("1.1.1.1", 443, "tcp", "docs.example.test:443", "docs.example.test");
 
         assertThat(hub.handle(blocked)).isEqualTo(Verdict.ALLOW);
         assertThat(asked).hasValue(0);
@@ -191,7 +206,8 @@ class ClearanceHubTest {
 
         hub.handle(new Blocked("1.1.1.1", 443, "tcp", "docs:443", "docs.example.test"));
 
-        assertThat(announced).singleElement()
+        assertThat(announced)
+                .singleElement()
                 .satisfies(decision -> assertThat(decision.source()).isEqualTo(Decision.GRANTED));
     }
 
@@ -242,29 +258,45 @@ class ClearanceHubTest {
 
         // A client may answer what the prompt already timed out on, and the file holds both.
         final ClearanceHub hub = hub(Verdict.DENY);
-        hub.restore(List.of(decision(ONE_ONE_ONE_ONE, Verdict.TIMEOUT),
-                decision(ONE_ONE_ONE_ONE, Verdict.ALLOW)));
+        hub.restore(
+                List.of(
+                        decision(ONE_ONE_ONE_ONE, Verdict.TIMEOUT),
+                        decision(ONE_ONE_ONE_ONE, Verdict.ALLOW)));
 
         assertThat(hub.decisions()).containsEntry("tcp/1.1.1.1/443", Verdict.ALLOW);
         assertThat(allowed).containsExactly("1.1.1.1");
     }
 
     private static Decision decision(Blocked blocked, Verdict verdict) {
-        return new Decision(Instant.parse("2026-09-07T10:15:30Z"), "uc", "shell", blocked.key(),
-                blocked.destination(), blocked.port(), blocked.protocol(), blocked.shown(),
-                verdict, Decision.PROMPT);
+        return new Decision(
+                Instant.parse("2026-09-07T10:15:30Z"),
+                "uc",
+                "shell",
+                blocked.key(),
+                blocked.destination(),
+                blocked.port(),
+                blocked.protocol(),
+                blocked.shown(),
+                verdict,
+                Decision.PROMPT);
     }
 
     @Test
     void anAnswerFromAClientWhileTheNotificationWaitsIsNotUndoneByItRunningOut() {
 
-        // The notification timing out wrote TIMEOUT over the person's ALLOW from an interface: the firewall was
+        // The notification timing out wrote TIMEOUT over the person's ALLOW from an interface: the
+        // firewall was
         // open, the hub said it was not, and after a resume it was never allowed again.
         final ClearanceHub[] holder = new ClearanceHub[1];
-        holder[0] = new ClearanceHub("uc", "shell", request -> {
-            holder[0].decide("tcp/1.1.1.1/443", "1.1.1.1", Verdict.ALLOW);
-            return Verdict.TIMEOUT;
-        }, (address, name) -> allowed.add(address));
+        holder[0] =
+                new ClearanceHub(
+                        "uc",
+                        "shell",
+                        request -> {
+                            holder[0].decide("tcp/1.1.1.1/443", "1.1.1.1", Verdict.ALLOW);
+                            return Verdict.TIMEOUT;
+                        },
+                        (address, name) -> allowed.add(address));
         holder[0].onDecision(announced::add);
 
         assertThat(holder[0].handle(ONE_ONE_ONE_ONE)).isEqualTo(Verdict.ALLOW);
@@ -276,7 +308,8 @@ class ClearanceHubTest {
     @Test
     void anAgentCannotKeepAPersonAnsweringOneQuestionAfterAnother() {
 
-        // Each port of one address was a question of its own, asked for the whole prompt time: a thousand in a row,
+        // Each port of one address was a question of its own, asked for the whole prompt time: a
+        // thousand in a row,
         // and a real one waited behind them.
         final ClearanceHub hub = hub(Verdict.DENY);
         for (int port = 1; port <= ClearanceHub.MAX_QUESTIONS + 5; port++) {

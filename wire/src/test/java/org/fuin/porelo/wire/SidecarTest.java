@@ -8,14 +8,18 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Tests for {@link Sidecar}.
- */
+/** Tests for {@link Sidecar}. */
 class SidecarTest {
 
-    private static final Sidecar SIDECAR = new Sidecar(Sidecar.VERSION, "uc", "guarded",
-            "/run/user/1000/porelo/uc/ruleset.nft", "/run/user/1000/porelo/uc/dns.conf",
-            "/usr/bin/porelo", "/run/user/1000/porelo/uc");
+    private static final Sidecar SIDECAR =
+            new Sidecar(
+                    Sidecar.VERSION,
+                    "uc",
+                    "guarded",
+                    "/run/user/1000/porelo/uc/ruleset.nft",
+                    "/run/user/1000/porelo/uc/dns.conf",
+                    "/usr/bin/porelo",
+                    "/run/user/1000/porelo/uc");
 
     @Test
     void survivesARoundTrip() {

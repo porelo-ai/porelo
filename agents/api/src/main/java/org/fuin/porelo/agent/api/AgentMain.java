@@ -5,17 +5,19 @@ import java.util.Map;
 
 /**
  * The {@code main} every agent binary shares.
- * <p>
- * An agent's own entry point is three lines:
+ *
+ * <p>An agent's own entry point is three lines:
+ *
  * <pre>
  * public static void main(String[] args) {
  *     AgentMain.run(new ExampleAgent(), args);
  * }
  * </pre>
- * Two modes, and both are useful. {@code serve} is what Porelo spawns.
- * {@code describe} prints the definition as JSON, which makes an installed agent inspectable with
- * nothing but the binary and {@code jq} - worth having when an operator is asking why Porelo will
- * not use an agent they just installed.
+ *
+ * Two modes, and both are useful. {@code serve} is what Porelo spawns. {@code describe} prints the
+ * definition as JSON, which makes an installed agent inspectable with nothing but the binary and
+ * {@code jq} - worth having when an operator is asking why Porelo will not use an agent they just
+ * installed.
  */
 public final class AgentMain {
 
@@ -42,17 +44,22 @@ public final class AgentMain {
      * @param err Standard error.
      * @return Exit code.
      */
-    public static int execute(Agent agent, String[] arguments,
-            java.io.PrintStream out, java.io.PrintStream err) {
+    public static int execute(
+            Agent agent, String[] arguments, java.io.PrintStream out, java.io.PrintStream err) {
 
         final String mode = arguments.length > 0 ? arguments[0] : "describe";
 
         try {
             switch (mode) {
                 case "describe" -> {
-                    out.println(org.fuin.porelo.wire.Json.write(Map.of(
-                            "protocolVersion", Integer.valueOf(AgentProtocol.VERSION),
-                            "definition", AgentDefinitionJson.write(agent.definition()))));
+                    out.println(
+                            org.fuin.porelo.wire.Json.write(
+                                    Map.of(
+                                            "protocolVersion",
+                                                    Integer.valueOf(AgentProtocol.VERSION),
+                                            "definition",
+                                                    AgentDefinitionJson.write(
+                                                            agent.definition()))));
                     return 0;
                 }
                 case "serve" -> {

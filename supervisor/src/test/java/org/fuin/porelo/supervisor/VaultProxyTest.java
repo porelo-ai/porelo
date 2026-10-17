@@ -24,10 +24,10 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Tests for {@link VaultProxy}, against a fake provider.
- * <p>
- * The swap is only believable if it is checked from the far side, so the fake upstream records
- * exactly what reached it. That is what tells a real credential injection apart from a request
- * that merely succeeded.
+ *
+ * <p>The swap is only believable if it is checked from the far side, so the fake upstream records
+ * exactly what reached it. That is what tells a real credential injection apart from a request that
+ * merely succeeded.
  */
 class VaultProxyTest {
 
@@ -61,31 +61,36 @@ class VaultProxyTest {
         responseType = new AtomicReference<>("application/json");
         responseEncoding = new AtomicReference<>(null);
         upstream = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        upstream.createContext("/", exchange -> {
-            final Map<String, String> headers = new java.util.LinkedHashMap<>();
-            exchange.getRequestHeaders()
-                    .forEach((name, values) -> headers.put(name.toLowerCase(), values.get(0)));
-            headers.put(":target", exchange.getRequestURI().toString());
-            headers.put(":method", exchange.getRequestMethod());
-            received.add(headers);
-            final byte[] arrived = exchange.getRequestBody().readAllBytes();
-            rawBody.set(arrived);
-            body.set(new String(arrived, StandardCharsets.UTF_8));
+        upstream.createContext(
+                "/",
+                exchange -> {
+                    final Map<String, String> headers = new java.util.LinkedHashMap<>();
+                    exchange.getRequestHeaders()
+                            .forEach(
+                                    (name, values) ->
+                                            headers.put(name.toLowerCase(), values.get(0)));
+                    headers.put(":target", exchange.getRequestURI().toString());
+                    headers.put(":method", exchange.getRequestMethod());
+                    received.add(headers);
+                    final byte[] arrived = exchange.getRequestBody().readAllBytes();
+                    rawBody.set(arrived);
+                    body.set(new String(arrived, StandardCharsets.UTF_8));
 
-            final byte[] raw = rawResponse.get();
-            final byte[] payload = raw != null
-                    ? raw : responseBody.get().getBytes(StandardCharsets.UTF_8);
-            if (responseType.get() != null) {
-                exchange.getResponseHeaders().set("Content-Type", responseType.get());
-            }
-            if (responseEncoding.get() != null) {
-                exchange.getResponseHeaders().set("Content-Encoding", responseEncoding.get());
-            }
-            exchange.sendResponseHeaders(200, payload.length);
-            try (OutputStream out = exchange.getResponseBody()) {
-                out.write(payload);
-            }
-        });
+                    final byte[] raw = rawResponse.get();
+                    final byte[] payload =
+                            raw != null ? raw : responseBody.get().getBytes(StandardCharsets.UTF_8);
+                    if (responseType.get() != null) {
+                        exchange.getResponseHeaders().set("Content-Type", responseType.get());
+                    }
+                    if (responseEncoding.get() != null) {
+                        exchange.getResponseHeaders()
+                                .set("Content-Encoding", responseEncoding.get());
+                    }
+                    exchange.sendResponseHeaders(200, payload.length);
+                    try (OutputStream out = exchange.getResponseBody()) {
+                        out.write(payload);
+                    }
+                });
         upstream.start();
     }
 
@@ -95,14 +100,18 @@ class VaultProxyTest {
     }
 
     private VaultProxy proxy(Path socket, String header, String prefix, String credential) {
-        return proxy(socket, header, prefix, presented -> {
-            if (!PHANTOM.equals(presented)) {
-                return new TokenExchange.Rejected();
-            }
-            return credential.isBlank()
-                    ? new TokenExchange.Unavailable("no credential for this task")
-                    : new TokenExchange.Granted(credential);
-        });
+        return proxy(
+                socket,
+                header,
+                prefix,
+                presented -> {
+                    if (!PHANTOM.equals(presented)) {
+                        return new TokenExchange.Rejected();
+                    }
+                    return credential.isBlank()
+                            ? new TokenExchange.Unavailable("no credential for this task")
+                            : new TokenExchange.Granted(credential);
+                });
     }
 
     @Test
@@ -113,52 +122,77 @@ class VaultProxyTest {
         // message: the token was this task's, the task simply outlived it.
         final java.time.Instant when = java.time.Instant.parse("2026-09-04T18:00:00Z");
         final Path socket = dir.resolve("vault.sock");
-        try (VaultProxy proxy = proxy(socket, "x-api-key", "",
-                presented -> new TokenExchange.Expired(when))) {
+        try (VaultProxy proxy =
+                proxy(socket, "x-api-key", "", presented -> new TokenExchange.Expired(when))) {
 
-            final String response = send(socket, "POST /v1/messages HTTP/1.1\r\n"
-                    + "x-api-key: " + PHANTOM + "\r\ncontent-length: 0\r\n\r\n");
+            final String response =
+                    send(
+                            socket,
+                            "POST /v1/messages HTTP/1.1\r\n"
+                                    + "x-api-key: "
+                                    + PHANTOM
+                                    + "\r\ncontent-length: 0\r\n\r\n");
 
             assertThat(response).startsWith("HTTP/1.1 401");
             assertThat(response)
                     .contains("expired at " + when)
                     .contains("resume the task")
                     .contains("--token-hours");
-            assertThat(response).as("it is not the same case as a token from another task")
+            assertThat(response)
+                    .as("it is not the same case as a token from another task")
                     .doesNotContain("not this task's token");
             assertThat(received).as("nothing left the machine").isEmpty();
         }
     }
 
     private VaultProxy proxy(Path socket, String header, String prefix, TokenExchange exchange) {
-        final VaultProxy proxy = new VaultProxy(socket,
-                "http://127.0.0.1:" + upstream.getAddress().getPort(), exchange, header, prefix);
+        final VaultProxy proxy =
+                new VaultProxy(
+                        socket,
+                        "http://127.0.0.1:" + upstream.getAddress().getPort(),
+                        exchange,
+                        header,
+                        prefix);
         Thread.ofPlatform().daemon().start(proxy);
         return proxy;
     }
 
     /** Sends one raw request over the socket and returns the whole response. */
     @Test
-    void aCompressedRequestBodyReachesTheUpstreamByteForByteWithItsEncoding(@TempDir Path dir) throws IOException {
+    void aCompressedRequestBodyReachesTheUpstreamByteForByteWithItsEncoding(@TempDir Path dir)
+            throws IOException {
 
-        // Measured on 2026-09-30 after a finding elsewhere: an agent that compresses its requests (Content-Encoding:
-        // zstd) failed at a broker that decoded bodies. This one only swaps the credential header, so the body goes
+        // Measured on 2026-09-30 after a finding elsewhere: an agent that compresses its requests
+        // (Content-Encoding:
+        // zstd) failed at a broker that decoded bodies. This one only swaps the credential header,
+        // so the body goes
         // on as the same bytes, its coding named as it was.
         final Path socket = dir.resolve("vault.sock");
-        // A real frame now: the broker reads a zstd body for a token grant, and refuses one that does not decode.
+        // A real frame now: the broker reads a zstd body for a token grant, and refuses one that
+        // does not decode.
         final byte[] plain = "{\"input\":\"hello\"}".getBytes(StandardCharsets.UTF_8);
-        final io.airlift.compress.v3.zstd.ZstdCompressor zstd = io.airlift.compress.v3.zstd.ZstdCompressor.create();
+        final io.airlift.compress.v3.zstd.ZstdCompressor zstd =
+                io.airlift.compress.v3.zstd.ZstdCompressor.create();
         final byte[] frame = new byte[zstd.maxCompressedLength(plain.length)];
-        final byte[] compressed = java.util.Arrays.copyOf(frame, zstd.compress(plain, 0, plain.length, frame, 0,
-                frame.length));
+        final byte[] compressed =
+                java.util.Arrays.copyOf(
+                        frame, zstd.compress(plain, 0, plain.length, frame, 0, frame.length));
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL);
                 SocketChannel channel = SocketChannel.open(UnixDomainSocketAddress.of(socket))) {
-            channel.write(java.nio.ByteBuffer.wrap(("POST /v1/responses HTTP/1.1\r\n" + "x-api-key: " + PHANTOM
-                    + "\r\ncontent-encoding: zstd\r\ncontent-length: " + compressed.length + "\r\n\r\n")
-                    .getBytes(StandardCharsets.UTF_8)));
+            channel.write(
+                    java.nio.ByteBuffer.wrap(
+                            ("POST /v1/responses HTTP/1.1\r\n"
+                                            + "x-api-key: "
+                                            + PHANTOM
+                                            + "\r\ncontent-encoding: zstd\r\ncontent-length: "
+                                            + compressed.length
+                                            + "\r\n\r\n")
+                                    .getBytes(StandardCharsets.UTF_8)));
             channel.write(java.nio.ByteBuffer.wrap(compressed));
-            final String response = new String(java.nio.channels.Channels.newInputStream(channel).readAllBytes(),
-                    StandardCharsets.UTF_8);
+            final String response =
+                    new String(
+                            java.nio.channels.Channels.newInputStream(channel).readAllBytes(),
+                            StandardCharsets.UTF_8);
 
             assertThat(response).startsWith("HTTP/1.1 200");
             assertThat(received.get(0).get("content-encoding")).isEqualTo("zstd");
@@ -191,8 +225,10 @@ class VaultProxyTest {
         responseBody.set("{\"access_token\":\"sk-live-RENEWED\",\"refresh_token\":\"rt-8b2\"}");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
 
-            final String response = send(socket, "GET /v1/whatever HTTP/1.1\r\n"
-                    + "x-api-key: " + PHANTOM + "\r\n\r\n");
+            final String response =
+                    send(
+                            socket,
+                            "GET /v1/whatever HTTP/1.1\r\n" + "x-api-key: " + PHANTOM + "\r\n\r\n");
 
             assertThat(response).startsWith("HTTP/1.1 403");
             assertThat(response).contains("answered with a credential");
@@ -207,11 +243,14 @@ class VaultProxyTest {
         // words back. Inside a JSON string the quotes arrive escaped, which is what tells the two
         // apart - a completion is not a credential.
         final Path socket = dir.resolve("vault.sock");
-        responseBody.set("{\"content\":[{\"text\":\"Send {\\\"refresh_token\\\": ...} to renew.\"}]}");
+        responseBody.set(
+                "{\"content\":[{\"text\":\"Send {\\\"refresh_token\\\": ...} to renew.\"}]}");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
 
-            final String response = send(socket, "GET /v1/messages HTTP/1.1\r\n"
-                    + "x-api-key: " + PHANTOM + "\r\n\r\n");
+            final String response =
+                    send(
+                            socket,
+                            "GET /v1/messages HTTP/1.1\r\n" + "x-api-key: " + PHANTOM + "\r\n\r\n");
 
             assertThat(response).startsWith("HTTP/1.1 200");
             assertThat(response).contains("to renew.");
@@ -227,9 +266,14 @@ class VaultProxyTest {
         final Path socket = dir.resolve("vault.sock");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
 
-            final String response = send(socket, "POST /v1/oauth/token HTTP/1.1\r\n"
-                    + "x-api-key: " + PHANTOM + "\r\n"
-                    + "content-length: 30\r\n\r\n{\"grant_type\":\"refresh_token\"}");
+            final String response =
+                    send(
+                            socket,
+                            "POST /v1/oauth/token HTTP/1.1\r\n"
+                                    + "x-api-key: "
+                                    + PHANTOM
+                                    + "\r\n"
+                                    + "content-length: 30\r\n\r\n{\"grant_type\":\"refresh_token\"}");
 
             assertThat(response).startsWith("HTTP/1.1 403");
             assertThat(response).contains("cannot be renewed or exchanged");
@@ -238,21 +282,33 @@ class VaultProxyTest {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(strings = {
-        "grant_type=refresh%5Ftoken",
-        "grant%5Ftype=refresh_token",
-        "{\"grant_type\":\"refresh\\u005ftoken\"}",
-        "{\"grant\\u005ftype\": \"client_credentials\"}"})
-    void refusesARenewalHoweverItsBodyIsSpelled(final String body, @TempDir Path dir) throws IOException {
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {
+                "grant_type=refresh%5Ftoken",
+                "grant%5Ftype=refresh_token",
+                "{\"grant_type\":\"refresh\\u005ftoken\"}",
+                "{\"grant\\u005ftype\": \"client_credentials\"}"
+            })
+    void refusesARenewalHoweverItsBodyIsSpelled(final String body, @TempDir Path dir)
+            throws IOException {
 
-        // The pattern read the raw bytes, so an encoding of the same words - a form's %5F, a JSON escape - went out
+        // The pattern read the raw bytes, so an encoding of the same words - a form's %5F, a JSON
+        // escape - went out
         // with the real credential attached.
         final Path socket = dir.resolve("vault.sock");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
 
-            final String response = send(socket, "POST /v1/oauth/token HTTP/1.1\r\n"
-                    + "x-api-key: " + PHANTOM + "\r\n"
-                    + "content-length: " + body.getBytes(StandardCharsets.UTF_8).length + "\r\n\r\n" + body);
+            final String response =
+                    send(
+                            socket,
+                            "POST /v1/oauth/token HTTP/1.1\r\n"
+                                    + "x-api-key: "
+                                    + PHANTOM
+                                    + "\r\n"
+                                    + "content-length: "
+                                    + body.getBytes(StandardCharsets.UTF_8).length
+                                    + "\r\n\r\n"
+                                    + body);
 
             assertThat(response).startsWith("HTTP/1.1 403");
             assertThat(received).isEmpty();
@@ -268,15 +324,22 @@ class VaultProxyTest {
         }
         final Path socket = dir.resolve("vault.sock");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL);
-                java.nio.channels.SocketChannel channel = java.nio.channels.SocketChannel.open(
-                        java.net.UnixDomainSocketAddress.of(socket))) {
-            final byte[] head = ("POST /v1/oauth/token HTTP/1.1\r\nx-api-key: " + PHANTOM
-                    + "\r\ncontent-encoding: gzip\r\ncontent-length: " + zipped.size() + "\r\n\r\n")
-                    .getBytes(StandardCharsets.UTF_8);
+                java.nio.channels.SocketChannel channel =
+                        java.nio.channels.SocketChannel.open(
+                                java.net.UnixDomainSocketAddress.of(socket))) {
+            final byte[] head =
+                    ("POST /v1/oauth/token HTTP/1.1\r\nx-api-key: "
+                                    + PHANTOM
+                                    + "\r\ncontent-encoding: gzip\r\ncontent-length: "
+                                    + zipped.size()
+                                    + "\r\n\r\n")
+                            .getBytes(StandardCharsets.UTF_8);
             channel.write(java.nio.ByteBuffer.wrap(head));
             channel.write(java.nio.ByteBuffer.wrap(zipped.toByteArray()));
-            final String response = new String(java.nio.channels.Channels.newInputStream(channel).readAllBytes(),
-                    StandardCharsets.UTF_8);
+            final String response =
+                    new String(
+                            java.nio.channels.Channels.newInputStream(channel).readAllBytes(),
+                            StandardCharsets.UTF_8);
 
             assertThat(response).startsWith("HTTP/1.1 403");
             assertThat(received).isEmpty();
@@ -293,10 +356,15 @@ class VaultProxyTest {
         final Path socket = dir.resolve("vault.sock");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
 
-            final String response = send(socket, "POST /oauth2/token HTTP/1.1\r\n"
-                    + "x-api-key: " + PHANTOM + "\r\n"
-                    + "content-type: application/x-www-form-urlencoded\r\n"
-                    + "content-length: 29\r\n\r\ngrant_type=client_credentials");
+            final String response =
+                    send(
+                            socket,
+                            "POST /oauth2/token HTTP/1.1\r\n"
+                                    + "x-api-key: "
+                                    + PHANTOM
+                                    + "\r\n"
+                                    + "content-type: application/x-www-form-urlencoded\r\n"
+                                    + "content-length: 29\r\n\r\ngrant_type=client_credentials");
 
             assertThat(response).startsWith("HTTP/1.1 403");
             assertThat(received).as("the real credential never left this machine").isEmpty();
@@ -311,9 +379,14 @@ class VaultProxyTest {
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
 
             // When
-            final String response = send(socket, "POST /v1/messages HTTP/1.1\r\n"
-                    + "x-api-key: " + PHANTOM + "\r\n"
-                    + "content-length: 2\r\n\r\n{}");
+            final String response =
+                    send(
+                            socket,
+                            "POST /v1/messages HTTP/1.1\r\n"
+                                    + "x-api-key: "
+                                    + PHANTOM
+                                    + "\r\n"
+                                    + "content-length: 2\r\n\r\n{}");
 
             // Then
             assertThat(response).startsWith("HTTP/1.1 200");
@@ -333,10 +406,15 @@ class VaultProxyTest {
         final Path socket = dir.resolve("vault.sock");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
 
-            final String response = send(socket, "POST /v1/messages HTTP/1.1\r\n"
-                    + "x-api-key: " + PHANTOM + "\r\n"
-                    + "accept-encoding: gzip, deflate, br\r\n"
-                    + "content-length: 2\r\n\r\n{}");
+            final String response =
+                    send(
+                            socket,
+                            "POST /v1/messages HTTP/1.1\r\n"
+                                    + "x-api-key: "
+                                    + PHANTOM
+                                    + "\r\n"
+                                    + "accept-encoding: gzip, deflate, br\r\n"
+                                    + "content-length: 2\r\n\r\n{}");
 
             assertThat(response).startsWith("HTTP/1.1 200");
             assertThat(received.get(0).get("accept-encoding")).isEqualTo("identity");
@@ -349,8 +427,11 @@ class VaultProxyTest {
         final Path socket = dir.resolve("vault.sock");
         try (VaultProxy proxy = proxy(socket, "Authorization", "Bearer ", REAL)) {
 
-            send(socket, "POST /v1/messages HTTP/1.1\r\nauthorization: Bearer " + PHANTOM
-                    + "\r\ncontent-length: 0\r\n\r\n");
+            send(
+                    socket,
+                    "POST /v1/messages HTTP/1.1\r\nauthorization: Bearer "
+                            + PHANTOM
+                            + "\r\ncontent-length: 0\r\n\r\n");
 
             assertThat(received.get(0).get("authorization")).isEqualTo("Bearer " + REAL);
         }
@@ -364,11 +445,19 @@ class VaultProxyTest {
         final Path socket = dir.resolve("vault.sock");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
 
-            send(socket, "POST /v1/messages HTTP/1.1\r\n"
-                    + "x-api-key: " + PHANTOM + "\r\n"
-                    + "authorization: Bearer " + PHANTOM + "\r\n"
-                    + "private-token: " + PHANTOM + "\r\n"
-                    + "content-length: 0\r\n\r\n");
+            send(
+                    socket,
+                    "POST /v1/messages HTTP/1.1\r\n"
+                            + "x-api-key: "
+                            + PHANTOM
+                            + "\r\n"
+                            + "authorization: Bearer "
+                            + PHANTOM
+                            + "\r\n"
+                            + "private-token: "
+                            + PHANTOM
+                            + "\r\n"
+                            + "content-length: 0\r\n\r\n");
 
             assertThat(received.get(0).values()).noneMatch(value -> value.contains("porelo_pt_"));
             assertThat(received.get(0)).doesNotContainKey("private-token");
@@ -382,8 +471,11 @@ class VaultProxyTest {
         final Path socket = dir.resolve("vault.sock");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
 
-            final String response = send(socket, "POST /v1/messages HTTP/1.1\r\n"
-                    + "x-api-key: porelo_pt_someOtherTask\r\ncontent-length: 0\r\n\r\n");
+            final String response =
+                    send(
+                            socket,
+                            "POST /v1/messages HTTP/1.1\r\n"
+                                    + "x-api-key: porelo_pt_someOtherTask\r\ncontent-length: 0\r\n\r\n");
 
             assertThat(response).startsWith("HTTP/1.1 401");
             assertThat(response).contains("authentication_error");
@@ -411,8 +503,13 @@ class VaultProxyTest {
         final Path socket = dir.resolve("vault.sock");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", "")) {
 
-            final String response = send(socket, "POST /v1/messages HTTP/1.1\r\n"
-                    + "x-api-key: " + PHANTOM + "\r\ncontent-length: 0\r\n\r\n");
+            final String response =
+                    send(
+                            socket,
+                            "POST /v1/messages HTTP/1.1\r\n"
+                                    + "x-api-key: "
+                                    + PHANTOM
+                                    + "\r\ncontent-length: 0\r\n\r\n");
 
             assertThat(response).startsWith("HTTP/1.1 503");
             assertThat(response).contains("no credential for this task");
@@ -427,10 +524,14 @@ class VaultProxyTest {
         final Path socket = dir.resolve("vault.sock");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
 
-            send(socket, "POST /v1/messages HTTP/1.1\r\n"
-                    + "x-api-key: " + PHANTOM + "\r\n"
-                    + "transfer-encoding: chunked\r\n\r\n"
-                    + "5\r\nhello\r\n6\r\n world\r\n0\r\n\r\n");
+            send(
+                    socket,
+                    "POST /v1/messages HTTP/1.1\r\n"
+                            + "x-api-key: "
+                            + PHANTOM
+                            + "\r\n"
+                            + "transfer-encoding: chunked\r\n\r\n"
+                            + "5\r\nhello\r\n6\r\n world\r\n0\r\n\r\n");
 
             assertThat(body.get()).isEqualTo("hello world");
         }
@@ -445,8 +546,13 @@ class VaultProxyTest {
         final Path socket = dir.resolve("vault.sock");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
 
-            final String response = send(socket, "POST /v1/messages HTTP/1.1\r\n"
-                    + "x-api-key: " + PHANTOM + "\r\ncontent-length: 0\r\n\r\n");
+            final String response =
+                    send(
+                            socket,
+                            "POST /v1/messages HTTP/1.1\r\n"
+                                    + "x-api-key: "
+                                    + PHANTOM
+                                    + "\r\ncontent-length: 0\r\n\r\n");
 
             assertThat(response).contains("Transfer-Encoding: chunked");
             assertThat(response).contains("data: {\"delta\":\"one\"}");
@@ -456,33 +562,50 @@ class VaultProxyTest {
     }
 
     @Test
-    void anMcpServersFirstEventReachesTheAgentBeforeTheServerSaysMore(@TempDir Path dir) throws Exception {
+    void anMcpServersFirstEventReachesTheAgentBeforeTheServerSaysMore(@TempDir Path dir)
+            throws Exception {
 
-        // An MCP server over HTTP answers in server-sent events and may send one small event and then wait - a
-        // notification stream, a progress event. The answer was held until 8 KiB had arrived, so the agent saw nothing
+        // An MCP server over HTTP answers in server-sent events and may send one small event and
+        // then wait - a
+        // notification stream, a progress event. The answer was held until 8 KiB had arrived, so
+        // the agent saw nothing
         // while the server waited. Its session header has to cross both ways as well.
-        upstream.createContext("/mcp", exchange -> {
-            received.add(java.util.Map.of("mcp-session-id",
-                    String.valueOf(exchange.getRequestHeaders().getFirst("Mcp-Session-Id"))));
-            exchange.getRequestBody().readAllBytes();
-            exchange.getResponseHeaders().set("Content-Type", "text/event-stream");
-            exchange.getResponseHeaders().set("Mcp-Session-Id", "s-1");
-            exchange.sendResponseHeaders(200, 0);
-            try (OutputStream out = exchange.getResponseBody()) {
-                out.write("event: message\ndata: {\"first\":true}\n\n".getBytes(StandardCharsets.UTF_8));
-                out.flush();
-                Thread.sleep(3000);
-                out.write("event: message\ndata: {\"second\":true}\n\n".getBytes(StandardCharsets.UTF_8));
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            }
-        });
+        upstream.createContext(
+                "/mcp",
+                exchange -> {
+                    received.add(
+                            java.util.Map.of(
+                                    "mcp-session-id",
+                                    String.valueOf(
+                                            exchange.getRequestHeaders()
+                                                    .getFirst("Mcp-Session-Id"))));
+                    exchange.getRequestBody().readAllBytes();
+                    exchange.getResponseHeaders().set("Content-Type", "text/event-stream");
+                    exchange.getResponseHeaders().set("Mcp-Session-Id", "s-1");
+                    exchange.sendResponseHeaders(200, 0);
+                    try (OutputStream out = exchange.getResponseBody()) {
+                        out.write(
+                                "event: message\ndata: {\"first\":true}\n\n"
+                                        .getBytes(StandardCharsets.UTF_8));
+                        out.flush();
+                        Thread.sleep(3000);
+                        out.write(
+                                "event: message\ndata: {\"second\":true}\n\n"
+                                        .getBytes(StandardCharsets.UTF_8));
+                    } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
+                    }
+                });
         final Path socket = dir.resolve("vault.sock");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL);
                 SocketChannel channel = SocketChannel.open(UnixDomainSocketAddress.of(socket))) {
-            channel.write(java.nio.ByteBuffer.wrap(("POST /mcp HTTP/1.1\r\nx-api-key: " + PHANTOM
-                    + "\r\nMcp-Session-Id: s-1\r\nAccept: application/json, text/event-stream\r\n"
-                    + "content-length: 2\r\n\r\n{}").getBytes(StandardCharsets.UTF_8)));
+            channel.write(
+                    java.nio.ByteBuffer.wrap(
+                            ("POST /mcp HTTP/1.1\r\nx-api-key: "
+                                            + PHANTOM
+                                            + "\r\nMcp-Session-Id: s-1\r\nAccept: application/json, text/event-stream\r\n"
+                                            + "content-length: 2\r\n\r\n{}")
+                                    .getBytes(StandardCharsets.UTF_8)));
             final long started = System.nanoTime();
             final InputStream in = java.nio.channels.Channels.newInputStream(channel);
             final StringBuilder seen = new StringBuilder();
@@ -496,9 +619,15 @@ class VaultProxyTest {
             }
             final long millis = (System.nanoTime() - started) / 1_000_000;
 
-            assertThat(seen.toString()).contains("{\"first\":true}").containsIgnoringCase("Mcp-Session-Id: s-1");
-            assertThat(millis).as("the first event, before the server's pause ends").isLessThan(2000);
-            assertThat(received).anySatisfy(headers -> assertThat(headers).containsEntry("mcp-session-id", "s-1"));
+            assertThat(seen.toString())
+                    .contains("{\"first\":true}")
+                    .containsIgnoringCase("Mcp-Session-Id: s-1");
+            assertThat(millis)
+                    .as("the first event, before the server's pause ends")
+                    .isLessThan(2000);
+            assertThat(received)
+                    .anySatisfy(
+                            headers -> assertThat(headers).containsEntry("mcp-session-id", "s-1"));
         }
     }
 
@@ -514,8 +643,9 @@ class VaultProxyTest {
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
             assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(socket)))
                     .isEqualTo("rw-rw-rw-");
-            assertThat(PosixFilePermissions
-                    .toString(Files.getPosixFilePermissions(socket.getParent())))
+            assertThat(
+                            PosixFilePermissions.toString(
+                                    Files.getPosixFilePermissions(socket.getParent())))
                     .isEqualTo("rwx------");
         }
     }
@@ -536,8 +666,13 @@ class VaultProxyTest {
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
 
             send(socket, "POST /v1 HTTP/1.1\r\nx-api-key: wrong\r\ncontent-length: 0\r\n\r\n");
-            final String second = send(socket, "POST /v1/messages HTTP/1.1\r\n"
-                    + "x-api-key: " + PHANTOM + "\r\ncontent-length: 0\r\n\r\n");
+            final String second =
+                    send(
+                            socket,
+                            "POST /v1/messages HTTP/1.1\r\n"
+                                    + "x-api-key: "
+                                    + PHANTOM
+                                    + "\r\ncontent-length: 0\r\n\r\n");
 
             assertThat(second).startsWith("HTTP/1.1 200");
         }
@@ -565,8 +700,10 @@ class VaultProxyTest {
      */
     private static void assertNeverArrived(String response, String secret) {
         assertThat(response).as("the credential did not cross").doesNotContain(secret);
-        assertThat(response).as("an answer that cannot be classified safely is terminated,"
-                + " so the agent sees a truncated stream rather than a complete one")
+        assertThat(response)
+                .as(
+                        "an answer that cannot be classified safely is terminated,"
+                                + " so the agent sees a truncated stream rather than a complete one")
                 .doesNotEndWith("0\r\n\r\n");
     }
 
@@ -580,12 +717,15 @@ class VaultProxyTest {
         // Every watched name in this answer is escaped. An earlier version of this test also
         // carried a plain "refresh_token", which made it pass against a literal matcher too -
         // it was asserting the scan worked while testing nothing about escapes.
-        responseBody.set("{\"\\u0061ccess_token\":\"sk-live-ESCAPED\","
-                + "\"\\u0072efresh_token\":\"rt-esc\"}");
+        responseBody.set(
+                "{\"\\u0061ccess_token\":\"sk-live-ESCAPED\","
+                        + "\"\\u0072efresh_token\":\"rt-esc\"}");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
 
-            final String response = send(socket, "GET /v1/whatever HTTP/1.1\r\n"
-                    + "x-api-key: " + PHANTOM + "\r\n\r\n");
+            final String response =
+                    send(
+                            socket,
+                            "GET /v1/whatever HTTP/1.1\r\n" + "x-api-key: " + PHANTOM + "\r\n\r\n");
 
             assertThat(response).startsWith("HTTP/1.1 403");
             assertThat(response).doesNotContain("sk-live-ESCAPED").doesNotContain("rt-esc");
@@ -593,22 +733,26 @@ class VaultProxyTest {
     }
 
     @Test
-    void cutsOffACredentialThatArrivesAfterTheStreamedPrefix(@TempDir Path dir)
-            throws IOException {
+    void cutsOffACredentialThatArrivesAfterTheStreamedPrefix(@TempDir Path dir) throws IOException {
 
         // The earlier shape scanned a bounded prefix and streamed the rest unread, and a
         // credential past that point reached the container. The headers are already gone by
         // then, so there is no status left to answer with: the only thing that still withholds
         // it is to stop writing.
         final Path socket = dir.resolve("vault.sock");
-        responseBody.set(filler(VaultProxy.PEEK * 3)
-                + "\",\"access_token\":\"sk-live-LATE\"}");
+        responseBody.set(filler(VaultProxy.PEEK * 3) + "\",\"access_token\":\"sk-live-LATE\"}");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
 
-            final String response = send(socket, "POST /v1/messages HTTP/1.1\r\n"
-                    + "x-api-key: " + PHANTOM + "\r\ncontent-length: 0\r\n\r\n");
+            final String response =
+                    send(
+                            socket,
+                            "POST /v1/messages HTTP/1.1\r\n"
+                                    + "x-api-key: "
+                                    + PHANTOM
+                                    + "\r\ncontent-length: 0\r\n\r\n");
 
-            assertThat(response).as("the harmless prefix was already streaming")
+            assertThat(response)
+                    .as("the harmless prefix was already streaming")
                     .contains("Transfer-Encoding: chunked");
             assertNeverArrived(response, "sk-live-LATE");
         }
@@ -623,12 +767,16 @@ class VaultProxyTest {
         // without it each half matches nothing.
         final String name = "\"access_token\":";
         final Path socket = dir.resolve("vault.sock");
-        responseBody.set(filler(VaultProxy.PEEK - name.length() + 4)
-                + name + "\"sk-live-SPLIT\"}");
+        responseBody.set(filler(VaultProxy.PEEK - name.length() + 4) + name + "\"sk-live-SPLIT\"}");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
 
-            final String response = send(socket, "POST /v1/messages HTTP/1.1\r\n"
-                    + "x-api-key: " + PHANTOM + "\r\ncontent-length: 0\r\n\r\n");
+            final String response =
+                    send(
+                            socket,
+                            "POST /v1/messages HTTP/1.1\r\n"
+                                    + "x-api-key: "
+                                    + PHANTOM
+                                    + "\r\ncontent-length: 0\r\n\r\n");
 
             assertNeverArrived(response, "sk-live-SPLIT");
         }
@@ -643,10 +791,11 @@ class VaultProxyTest {
         // the reasoning that produced the bounded prefix.
         final Path socket = dir.resolve("vault.sock");
         final byte[] head = filler(VaultProxy.PEEK * 2).getBytes(StandardCharsets.UTF_8);
-        final byte[] malformed = {(byte) 0xC3, (byte) 0x28, (byte) 0xFF, (byte) 0xFE,
-                (byte) 0xE2, (byte) 0x82};
-        final byte[] tail = ",\"access_token\":\"sk-live-AFTERBADBYTES\"}"
-                .getBytes(StandardCharsets.UTF_8);
+        final byte[] malformed = {
+            (byte) 0xC3, (byte) 0x28, (byte) 0xFF, (byte) 0xFE, (byte) 0xE2, (byte) 0x82
+        };
+        final byte[] tail =
+                ",\"access_token\":\"sk-live-AFTERBADBYTES\"}".getBytes(StandardCharsets.UTF_8);
         final byte[] answer = new byte[head.length + malformed.length + tail.length];
         System.arraycopy(head, 0, answer, 0, head.length);
         System.arraycopy(malformed, 0, answer, head.length, malformed.length);
@@ -654,8 +803,13 @@ class VaultProxyTest {
         rawResponse.set(answer);
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
 
-            final String response = send(socket, "POST /v1/messages HTTP/1.1\r\n"
-                    + "x-api-key: " + PHANTOM + "\r\ncontent-length: 0\r\n\r\n");
+            final String response =
+                    send(
+                            socket,
+                            "POST /v1/messages HTTP/1.1\r\n"
+                                    + "x-api-key: "
+                                    + PHANTOM
+                                    + "\r\ncontent-length: 0\r\n\r\n");
 
             assertNeverArrived(response, "sk-live-AFTERBADBYTES");
         }
@@ -672,12 +826,20 @@ class VaultProxyTest {
         // but whitespace whatever the network does.
         final String name = "\"access_token\"";
         final Path socket = dir.resolve("vault.sock");
-        responseBody.set(filler(VaultProxy.PEEK - name.length()) + name
-                + " ".repeat(VaultProxy.PEEK * 3) + ":\"sk-live-PATIENT\"}");
+        responseBody.set(
+                filler(VaultProxy.PEEK - name.length())
+                        + name
+                        + " ".repeat(VaultProxy.PEEK * 3)
+                        + ":\"sk-live-PATIENT\"}");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
 
-            final String response = send(socket, "POST /v1/messages HTTP/1.1\r\n"
-                    + "x-api-key: " + PHANTOM + "\r\ncontent-length: 0\r\n\r\n");
+            final String response =
+                    send(
+                            socket,
+                            "POST /v1/messages HTTP/1.1\r\n"
+                                    + "x-api-key: "
+                                    + PHANTOM
+                                    + "\r\ncontent-length: 0\r\n\r\n");
 
             assertNeverArrived(response, "sk-live-PATIENT");
         }
@@ -694,8 +856,10 @@ class VaultProxyTest {
         responseBody.set("{\"access_token\":\"sk-live-HIDDEN\"}");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
 
-            final String response = send(socket, "GET /v1/whatever HTTP/1.1\r\n"
-                    + "x-api-key: " + PHANTOM + "\r\n\r\n");
+            final String response =
+                    send(
+                            socket,
+                            "GET /v1/whatever HTTP/1.1\r\n" + "x-api-key: " + PHANTOM + "\r\n\r\n");
 
             assertThat(response).startsWith("HTTP/1.1 502");
             assertThat(response).contains("content-encoding gzip");
@@ -713,8 +877,10 @@ class VaultProxyTest {
         responseType.set("application/octet-stream");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
 
-            final String response = send(socket, "GET /v1/whatever HTTP/1.1\r\n"
-                    + "x-api-key: " + PHANTOM + "\r\n\r\n");
+            final String response =
+                    send(
+                            socket,
+                            "GET /v1/whatever HTTP/1.1\r\n" + "x-api-key: " + PHANTOM + "\r\n\r\n");
 
             assertThat(response).startsWith("HTTP/1.1 502");
             assertThat(response).contains("content-type application/octet-stream");
@@ -732,15 +898,27 @@ class VaultProxyTest {
         responseBody.set("data: {\"delta\":\"one\"}\n\n");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
 
-            assertThat(send(socket, "POST /v1/messages HTTP/1.1\r\n" + "x-api-key: " + PHANTOM
-                    + "\r\ncontent-length: 0\r\n\r\n")).startsWith("HTTP/1.1 200");
+            assertThat(
+                            send(
+                                    socket,
+                                    "POST /v1/messages HTTP/1.1\r\n"
+                                            + "x-api-key: "
+                                            + PHANTOM
+                                            + "\r\ncontent-length: 0\r\n\r\n"))
+                    .startsWith("HTTP/1.1 200");
         }
         responseType.set("application/json; charset=utf-8");
         final Path second = dir.resolve("vault2.sock");
         try (VaultProxy proxy = proxy(second, "x-api-key", "", REAL)) {
 
-            assertThat(send(second, "POST /v1/messages HTTP/1.1\r\n" + "x-api-key: " + PHANTOM
-                    + "\r\ncontent-length: 0\r\n\r\n")).startsWith("HTTP/1.1 200");
+            assertThat(
+                            send(
+                                    second,
+                                    "POST /v1/messages HTTP/1.1\r\n"
+                                            + "x-api-key: "
+                                            + PHANTOM
+                                            + "\r\ncontent-length: 0\r\n\r\n"))
+                    .startsWith("HTTP/1.1 200");
         }
     }
 
@@ -755,8 +933,14 @@ class VaultProxyTest {
         responseBody.set("");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
 
-            assertThat(send(socket, "GET /v1/whatever HTTP/1.1\r\n"
-                    + "x-api-key: " + PHANTOM + "\r\n\r\n")).startsWith("HTTP/1.1 200");
+            assertThat(
+                            send(
+                                    socket,
+                                    "GET /v1/whatever HTTP/1.1\r\n"
+                                            + "x-api-key: "
+                                            + PHANTOM
+                                            + "\r\n\r\n"))
+                    .startsWith("HTTP/1.1 200");
         }
     }
 
@@ -770,8 +954,10 @@ class VaultProxyTest {
         responseBody.set("{\"access_token\":\"sk-live-UNDECLARED\"}");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
 
-            final String response = send(socket, "GET /v1/whatever HTTP/1.1\r\n"
-                    + "x-api-key: " + PHANTOM + "\r\n\r\n");
+            final String response =
+                    send(
+                            socket,
+                            "GET /v1/whatever HTTP/1.1\r\n" + "x-api-key: " + PHANTOM + "\r\n\r\n");
 
             assertThat(response).startsWith("HTTP/1.1 502");
             assertThat(response).contains("no content-type");
@@ -788,8 +974,13 @@ class VaultProxyTest {
         responseBody.set("{\"ok\":true}");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
 
-            final String response = send(socket, "POST /v1/messages HTTP/1.1\r\n"
-                    + "x-api-key: " + PHANTOM + "\r\ncontent-length: 0\r\n\r\n");
+            final String response =
+                    send(
+                            socket,
+                            "POST /v1/messages HTTP/1.1\r\n"
+                                    + "x-api-key: "
+                                    + PHANTOM
+                                    + "\r\ncontent-length: 0\r\n\r\n");
 
             assertThat(response).startsWith("HTTP/1.1 200").doesNotContain(REAL);
             assertThat(received.get(0)).containsEntry("x-api-key", REAL);

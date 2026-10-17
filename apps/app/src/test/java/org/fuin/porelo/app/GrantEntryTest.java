@@ -12,12 +12,16 @@ import org.fuin.porelo.agent.api.ProviderDefinitionReader;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link GrantEntry}: the entry {@code porelo vault authorize} makes for a provider a person has not stored
- * anything for yet, from the provider's grant and the client id of the agent that signs in.
+ * Tests for {@link GrantEntry}: the entry {@code porelo vault authorize} makes for a provider a
+ * person has not stored anything for yet, from the provider's grant and the client id of the agent
+ * that signs in.
  */
 class GrantEntryTest {
 
-    private static final ProviderDefinition COPILOT = ProviderDefinitionReader.read(new StringReader("""
+    private static final ProviderDefinition COPILOT =
+            ProviderDefinitionReader.read(
+                    new StringReader(
+                            """
             name: github-copilot
             upstream: https://api.githubcopilot.com
             dialects:
@@ -27,17 +31,24 @@ class GrantEntryTest {
               device_authorization_url: https://github.com/login/device/code
               token_url: https://github.com/login/oauth/access_token
               scopes: read:user
-            """), "github-copilot.yaml");
+            """),
+                    "github-copilot.yaml");
 
-    private static final ProviderDefinition OPENROUTER = ProviderDefinitionReader.read(new StringReader("""
+    private static final ProviderDefinition OPENROUTER =
+            ProviderDefinitionReader.read(
+                    new StringReader(
+                            """
             name: openrouter
             upstream: https://openrouter.ai
             dialects:
               openai: "/api/v1"
-            """), "openrouter.yaml");
+            """),
+                    "openrouter.yaml");
 
     private static AgentDefinition agent(final String name, final String grants) {
-        return AgentDefinitionReader.read(new StringReader("""
+        return AgentDefinitionReader.read(
+                new StringReader(
+                        """
                 name: %s
                 binary: %s
                 git_identity:
@@ -45,10 +56,13 @@ class GrantEntryTest {
                   email: x@example.com
                 headless:
                   prompt_flag: "-p"
-                %s""".formatted(name, name, grants)), name + ".yaml");
+                %s"""
+                                .formatted(name, name, grants)),
+                name + ".yaml");
     }
 
-    private static final String SIGNS_IN = """
+    private static final String SIGNS_IN =
+            """
             login:
               grants:
                 github-copilot:
@@ -60,17 +74,20 @@ class GrantEntryTest {
 
     @Test
     void makesTheEntryFromTheProvidersGrantAndTheAgentsClientId() {
-        final GrantEntry.Choice choice = GrantEntry.choose(COPILOT, List.of(agent("omp", SIGNS_IN)), null);
+        final GrantEntry.Choice choice =
+                GrantEntry.choose(COPILOT, List.of(agent("omp", SIGNS_IN)), null);
 
         assertThat(choice.refusal()).isNull();
         assertThat(choice.agent()).isEqualTo("omp");
         assertThat(choice.entry().type()).isEqualTo("oauth-device");
-        assertThat(choice.entry().settings()).containsExactlyInAnyOrderEntriesOf(Map.of(
-                "client_id", "Ov23-github",
-                "device_authorization_url", "https://github.com/login/device/code",
-                "token_url", "https://github.com/login/oauth/access_token",
-                "scopes", "read:user",
-                "client_owner", "another tool's app"));
+        assertThat(choice.entry().settings())
+                .containsExactlyInAnyOrderEntriesOf(
+                        Map.of(
+                                "client_id", "Ov23-github",
+                                "device_authorization_url", "https://github.com/login/device/code",
+                                "token_url", "https://github.com/login/oauth/access_token",
+                                "scopes", "read:user",
+                                "client_owner", "another tool's app"));
     }
 
     @Test
@@ -83,14 +100,18 @@ class GrantEntryTest {
     @Test
     void refusesWhenNoInstalledAgentSignsInToIt() {
         assertThat(GrantEntry.choose(COPILOT, List.of(agent("claude", "")), null).refusal())
-                .contains("no installed agent").contains("github-copilot");
+                .contains("no installed agent")
+                .contains("github-copilot");
     }
 
     @Test
     void asksWhichAgentWhenSeveralSignInAndTakesTheOneNamed() {
         final List<AgentDefinition> two = List.of(agent("omp", SIGNS_IN), agent("pi", SIGNS_IN));
 
-        assertThat(GrantEntry.choose(COPILOT, two, null).refusal()).contains("--agent").contains("omp").contains("pi");
+        assertThat(GrantEntry.choose(COPILOT, two, null).refusal())
+                .contains("--agent")
+                .contains("omp")
+                .contains("pi");
         assertThat(GrantEntry.choose(COPILOT, two, "pi").agent()).isEqualTo("pi");
         assertThat(GrantEntry.choose(COPILOT, two, "claude").refusal()).contains("claude");
     }
@@ -100,9 +121,20 @@ class GrantEntryTest {
         final List<AgentDefinition> two = List.of(agent("omp", SIGNS_IN), agent("pi", SIGNS_IN));
         final java.io.StringWriter said = new java.io.StringWriter();
 
-        assertThat(GrantEntry.choose(COPILOT, two, null, new Offer(question -> "2", false, false,
-                new java.io.PrintWriter(said, true))).agent()).isEqualTo("pi");
+        assertThat(
+                        GrantEntry.choose(
+                                        COPILOT,
+                                        two,
+                                        null,
+                                        new Offer(
+                                                question -> "2",
+                                                false,
+                                                false,
+                                                new java.io.PrintWriter(said, true)))
+                                .agent())
+                .isEqualTo("pi");
         assertThat(said.toString()).contains("1  omp").contains("2  pi");
-        assertThat(GrantEntry.choose(COPILOT, two, null, Offer.NOBODY).refusal()).contains("--agent");
+        assertThat(GrantEntry.choose(COPILOT, two, null, Offer.NOBODY).refusal())
+                .contains("--agent");
     }
 }

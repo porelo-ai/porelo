@@ -1,8 +1,6 @@
 package org.fuin.porelo.core.project;
 
-/**
- * A project definition could not be read, or is not usable as it stands.
- */
+/** A project definition could not be read, or is not usable as it stands. */
 public class ProjectException extends RuntimeException {
 
     private static final long serialVersionUID = 1L;

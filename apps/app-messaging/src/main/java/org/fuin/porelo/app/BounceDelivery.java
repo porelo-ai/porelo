@@ -11,18 +11,18 @@ import java.util.stream.Stream;
 
 /**
  * Puts the filter's answers into the agent's own inbox.
- * <p>
- * A receipt or a refusal is a bounce: it arrives where the agent already reads, in the format it
+ *
+ * <p>A receipt or a refusal is a bounce: it arrives where the agent already reads, in the format it
  * already reads, rather than through a channel of its own. That is what a mail system does with a
  * message it could not deliver, and the reason an agent needs no special case for being refused.
- * <p>
- * <strong>A bounce goes around the filter, never through it.</strong> It is the filter's own answer,
- * written on this machine and never carried anywhere, and it carries a data part that the narrowed
- * schema refuses for anything arriving from outside. Putting it through the check that produced it
- * would refuse it for being what it is.
- * <p>
- * <strong>And it is not signature-checked</strong>, for the same reason: it never left the machine.
- * What guards it is that only this host writes into that directory.
+ *
+ * <p><strong>A bounce goes around the filter, never through it.</strong> It is the filter's own
+ * answer, written on this machine and never carried anywhere, and it carries a data part that the
+ * narrowed schema refuses for anything arriving from outside. Putting it through the check that
+ * produced it would refuse it for being what it is.
+ *
+ * <p><strong>And it is not signature-checked</strong>, for the same reason: it never left the
+ * machine. What guards it is that only this host writes into that directory.
  */
 public final class BounceDelivery {
 
@@ -40,10 +40,14 @@ public final class BounceDelivery {
             final String name = answer.getFileName().toString();
             // Through tmp and a rename, so the agent never lists half an answer - the same
             // discipline every other hop in the mailbox keeps.
-            // The host keeps its own copy, where the agent cannot reach it: whether a message the filter answered
+            // The host keeps its own copy, where the agent cannot reach it: whether a message the
+            // filter answered
             // may leave is read from here, never from the agent's box, which the agent can empty.
             Files.createDirectories(MessageLookup.answers(mailbox));
-            Files.copy(answer, MessageLookup.answers(mailbox).resolve(name), StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(
+                    answer,
+                    MessageLookup.answers(mailbox).resolve(name),
+                    StandardCopyOption.REPLACE_EXISTING);
             final Path staged = mailbox.inboxTmp().resolve(name);
             Files.move(answer, staged, StandardCopyOption.REPLACE_EXISTING);
             mailbox.intoInbox(staged);
@@ -59,7 +63,8 @@ public final class BounceDelivery {
         try (Stream<Path> entries = Files.list(feedback)) {
             return entries.filter(Files::isRegularFile)
                     .filter(path -> path.getFileName().toString().endsWith(".json"))
-                    .sorted(Comparator.comparing(path -> path.getFileName().toString())).toList();
+                    .sorted(Comparator.comparing(path -> path.getFileName().toString()))
+                    .toList();
         }
     }
 }

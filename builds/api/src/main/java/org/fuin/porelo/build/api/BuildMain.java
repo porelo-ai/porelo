@@ -6,7 +6,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * The whole main method of a build reader: {@code describe} prints what it is, {@code serve <socket>} answers Porelo.
+ * The whole main method of a build reader: {@code describe} prints what it is, {@code serve
+ * <socket>} answers Porelo.
  */
 public final class BuildMain {
 
@@ -33,7 +34,10 @@ public final class BuildMain {
      * @param err Standard error.
      * @return 0, 2 for a wrong command line, 70 when it failed.
      */
-    public static int execute(final BuildReader reader, final String[] arguments, final PrintStream out,
+    public static int execute(
+            final BuildReader reader,
+            final String[] arguments,
+            final PrintStream out,
             final PrintStream err) {
 
         final String mode = arguments.length > 0 ? arguments[0] : "describe";
@@ -52,7 +56,8 @@ public final class BuildMain {
                         return 2;
                     }
                     try (BuildServer server = new BuildServer(reader, Path.of(arguments[1]))) {
-                        // What Porelo waits for: the socket file appears before bind() returns, so waiting for the
+                        // What Porelo waits for: the socket file appears before bind() returns, so
+                        // waiting for the
                         // file could connect to a socket nobody listens on.
                         out.println("ready " + server.socketPath());
                         out.flush();

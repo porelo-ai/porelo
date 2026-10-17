@@ -7,14 +7,14 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * A provider of models, declared once and reachable by any agent that speaks one of its dialects.
- * <p>
- * This is the half of the old inline {@code proxy} block that belongs to whoever serves the
+ *
+ * <p>This is the half of the old inline {@code proxy} block that belongs to whoever serves the
  * models rather than to whoever asks them: where the requests go, which header carries a
- * credential, and what path each wire format is served under. It exists because two agents
- * reaching the same provider described it twice, in their own words, and the descriptions were
- * free to drift.
- * <p>
- * <strong>There is deliberately no behavior here.</strong> A provider is data, which is why it
+ * credential, and what path each wire format is served under. It exists because two agents reaching
+ * the same provider described it twice, in their own words, and the descriptions were free to
+ * drift.
+ *
+ * <p><strong>There is deliberately no behavior here.</strong> A provider is data, which is why it
  * ships as a file rather than as a binary the way an agent does.
  *
  * @param name Short name, and the key an operator types.
@@ -25,17 +25,26 @@ import org.jspecify.annotations.Nullable;
  * @param authPrefix Credential type to the string placed before the credential.
  * @param unbrokerable Credential type to why it cannot go through the proxy.
  * @param tokenEnvironment Credential type to the variable this provider's credential is
- *        conventionally read from.
- * @param grant What a person grants once for it: the flow's {@code kind}, its URLs and {@code scopes}, the same for
- *        everyone; empty for a provider reached with a key. The client id is the signing-in agent's.
+ *     conventionally read from.
+ * @param grant What a person grants once for it: the flow's {@code kind}, its URLs and {@code
+ *     scopes}, the same for everyone; empty for a provider reached with a key. The client id is the
+ *     signing-in agent's.
  */
-public record ProviderDefinition(String name, String label, String upstream,
-        Map<String, String> dialects, Map<String, String> authHeader,
-        Map<String, String> authPrefix, Map<String, String> unbrokerable,
-        Map<String, String> tokenEnvironment, Map<String, String> authQuery, Map<String, String> grant) {
+public record ProviderDefinition(
+        String name,
+        String label,
+        String upstream,
+        Map<String, String> dialects,
+        Map<String, String> authHeader,
+        Map<String, String> authPrefix,
+        Map<String, String> unbrokerable,
+        Map<String, String> tokenEnvironment,
+        Map<String, String> authQuery,
+        Map<String, String> grant) {
 
     /**
-     * Constructor for a provider a person grants nothing for, as every provider was before {@code grant}.
+     * Constructor for a provider a person grants nothing for, as every provider was before {@code
+     * grant}.
      *
      * @param name Short name.
      * @param label Human-readable name.
@@ -47,15 +56,32 @@ public record ProviderDefinition(String name, String label, String upstream,
      * @param tokenEnvironment Credential type to the variable its token goes in.
      * @param authQuery Credential type to the URL parameter its key travels in.
      */
-    public ProviderDefinition(String name, String label, String upstream, Map<String, String> dialects,
-            Map<String, String> authHeader, Map<String, String> authPrefix, Map<String, String> unbrokerable,
-            Map<String, String> tokenEnvironment, Map<String, String> authQuery) {
-        this(name, label, upstream, dialects, authHeader, authPrefix, unbrokerable, tokenEnvironment, authQuery, Map.of());
+    public ProviderDefinition(
+            String name,
+            String label,
+            String upstream,
+            Map<String, String> dialects,
+            Map<String, String> authHeader,
+            Map<String, String> authPrefix,
+            Map<String, String> unbrokerable,
+            Map<String, String> tokenEnvironment,
+            Map<String, String> authQuery) {
+        this(
+                name,
+                label,
+                upstream,
+                dialects,
+                authHeader,
+                authPrefix,
+                unbrokerable,
+                tokenEnvironment,
+                authQuery,
+                Map.of());
     }
 
     /**
-     * Constructor for a provider whose keys all travel in a header - every provider before a key could
-     * go in the URL, and the shape every caller built before {@code authQuery} existed.
+     * Constructor for a provider whose keys all travel in a header - every provider before a key
+     * could go in the URL, and the shape every caller built before {@code authQuery} existed.
      *
      * @param name Short name.
      * @param label Human-readable name.
@@ -66,10 +92,25 @@ public record ProviderDefinition(String name, String label, String upstream,
      * @param unbrokerable Credential type to why it cannot be brokered.
      * @param tokenEnvironment Credential type to the variable its token goes in.
      */
-    public ProviderDefinition(String name, String label, String upstream, Map<String, String> dialects,
-            Map<String, String> authHeader, Map<String, String> authPrefix, Map<String, String> unbrokerable,
+    public ProviderDefinition(
+            String name,
+            String label,
+            String upstream,
+            Map<String, String> dialects,
+            Map<String, String> authHeader,
+            Map<String, String> authPrefix,
+            Map<String, String> unbrokerable,
             Map<String, String> tokenEnvironment) {
-        this(name, label, upstream, dialects, authHeader, authPrefix, unbrokerable, tokenEnvironment, Map.of());
+        this(
+                name,
+                label,
+                upstream,
+                dialects,
+                authHeader,
+                authPrefix,
+                unbrokerable,
+                tokenEnvironment,
+                Map.of());
     }
 
     /** Dialect an agent names when it speaks whatever the provider's own format is. */
@@ -92,8 +133,10 @@ public record ProviderDefinition(String name, String label, String upstream,
     public ProviderDefinition {
         if (!name.matches("[a-z0-9][a-z0-9-]{0,30}")) {
             // The name becomes a vault key and reaches command lines, both stricter than YAML.
-            throw new AgentException("Invalid provider name '" + name
-                    + "', expected lower-case letters, digits and hyphens");
+            throw new AgentException(
+                    "Invalid provider name '"
+                            + name
+                            + "', expected lower-case letters, digits and hyphens");
         }
         if (upstream == null || upstream.isBlank()) {
             throw new AgentException("Provider '" + name + "' needs an upstream");
@@ -103,12 +146,16 @@ public record ProviderDefinition(String name, String label, String upstream,
             if (uri.getHost() == null || !"https".equals(uri.getScheme())) {
                 // Plain HTTP would send the real credential in the clear, and a URI without a
                 // host cannot produce the deny rule that stops an agent going direct.
-                throw new AgentException("Provider '" + name + "' upstream '" + upstream
-                        + "' must be an https URL naming a host");
+                throw new AgentException(
+                        "Provider '"
+                                + name
+                                + "' upstream '"
+                                + upstream
+                                + "' must be an https URL naming a host");
             }
         } catch (IllegalArgumentException ex) {
-            throw new AgentException("Provider '" + name + "' upstream '" + upstream
-                    + "' is not a URL");
+            throw new AgentException(
+                    "Provider '" + name + "' upstream '" + upstream + "' is not a URL");
         }
         if (dialects.isEmpty()) {
             // Without one there is nothing for an agent to match against, so the provider could
@@ -116,9 +163,13 @@ public record ProviderDefinition(String name, String label, String upstream,
             throw new AgentException("Provider '" + name + "' declares no dialects");
         }
         if (dialects.containsKey(NATIVE_DIALECT)) {
-            throw new AgentException("Provider '" + name + "' declares a dialect called '"
-                    + NATIVE_DIALECT + "', which is the name an agent uses to ask for whichever"
-                    + " dialect comes first");
+            throw new AgentException(
+                    "Provider '"
+                            + name
+                            + "' declares a dialect called '"
+                            + NATIVE_DIALECT
+                            + "', which is the name an agent uses to ask for whichever"
+                            + " dialect comes first");
         }
         dialects = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(dialects));
         authHeader = Map.copyOf(authHeader);
@@ -129,8 +180,8 @@ public record ProviderDefinition(String name, String label, String upstream,
 
     /**
      * Returns the host an agent must not be allowed to reach directly.
-     * <p>
-     * Whenever a phantom token is issued, this host is withheld from the firewall, so an agent
+     *
+     * <p>Whenever a phantom token is issued, this host is withheld from the firewall, so an agent
      * that ignores the redirect gets a dropped connection and an audit entry rather than quietly
      * sending the phantom token to the provider.
      *
@@ -161,10 +212,10 @@ public record ProviderDefinition(String name, String label, String upstream,
 
     /**
      * Returns the path the given dialect is served under.
-     * <p>
-     * The same provider serves different wire formats at different paths, and getting this wrong
-     * does not fail cleanly: a base URL missing its path answers "model not found" rather than
-     * 404, which reads as a bad model name.
+     *
+     * <p>The same provider serves different wire formats at different paths, and getting this wrong
+     * does not fail cleanly: a base URL missing its path answers "model not found" rather than 404,
+     * which reads as a bad model name.
      *
      * @param dialect Wire format, or {@link #NATIVE_DIALECT} for whichever comes first.
      * @return Path to append to the endpoint, possibly empty.
@@ -174,8 +225,13 @@ public record ProviderDefinition(String name, String label, String upstream,
         final String wanted = NATIVE_DIALECT.equals(dialect) ? nativeDialect() : dialect;
         final String path = dialects.get(wanted);
         if (path == null) {
-            throw new AgentException("Provider '" + name + "' does not serve '" + wanted
-                    + "', only " + dialects.keySet());
+            throw new AgentException(
+                    "Provider '"
+                            + name
+                            + "' does not serve '"
+                            + wanted
+                            + "', only "
+                            + dialects.keySet());
         }
         return path;
     }
@@ -187,7 +243,8 @@ public record ProviderDefinition(String name, String label, String upstream,
      * @return Header name, {@code Authorization} when none is declared.
      */
     public String authHeaderFor(String credentialType) {
-        return authHeader.getOrDefault(credentialType,
+        return authHeader.getOrDefault(
+                credentialType,
                 authHeader.getOrDefault(AgentDefinition.DEFAULT_TOKEN_KEY, "Authorization"));
     }
 
@@ -198,8 +255,8 @@ public record ProviderDefinition(String name, String label, String upstream,
      * @return Prefix, empty when none is declared.
      */
     public String authPrefixFor(String credentialType) {
-        return authPrefix.getOrDefault(credentialType,
-                authPrefix.getOrDefault(AgentDefinition.DEFAULT_TOKEN_KEY, ""));
+        return authPrefix.getOrDefault(
+                credentialType, authPrefix.getOrDefault(AgentDefinition.DEFAULT_TOKEN_KEY, ""));
     }
 
     /**
@@ -211,7 +268,8 @@ public record ProviderDefinition(String name, String label, String upstream,
     @Nullable
     public String tokenVariable(String credentialType) {
         final String specific = tokenEnvironment.get(credentialType);
-        return specific != null ? specific
+        return specific != null
+                ? specific
                 : tokenEnvironment.get(AgentDefinition.DEFAULT_TOKEN_KEY);
     }
 
@@ -236,16 +294,17 @@ public record ProviderDefinition(String name, String label, String upstream,
     }
 
     /**
-     * Returns the query parameter the credential of a type travels in, when the service takes its key
-     * in the URL rather than in a header.
-     * <p>
-     * Declared as {@code auth_query}, by credential type like {@code auth_header}. Where it is declared,
-     * the key goes into that parameter of the request's URL and into no header.
+     * Returns the query parameter the credential of a type travels in, when the service takes its
+     * key in the URL rather than in a header.
+     *
+     * <p>Declared as {@code auth_query}, by credential type like {@code auth_header}. Where it is
+     * declared, the key goes into that parameter of the request's URL and into no header.
      *
      * @param credentialType Credential type, for example {@code api-key}.
      * @return The parameter's name, or {@code null} when the key travels in a header.
      */
     public @Nullable String authQueryFor(String credentialType) {
-        return authQuery.getOrDefault(credentialType, authQuery.get(AgentDefinition.DEFAULT_TOKEN_KEY));
+        return authQuery.getOrDefault(
+                credentialType, authQuery.get(AgentDefinition.DEFAULT_TOKEN_KEY));
     }
 }

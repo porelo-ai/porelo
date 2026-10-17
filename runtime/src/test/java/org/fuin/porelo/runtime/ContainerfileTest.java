@@ -4,26 +4,28 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.List;
 import java.nio.charset.StandardCharsets;
-import org.fuin.porelo.core.project.Limits;
+import java.util.List;
 import org.fuin.porelo.core.project.Egress;
+import org.fuin.porelo.core.project.Limits;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.SecurityClass;
 import org.junit.jupiter.api.Test;
 
 /**
  * Golden-file test for {@link Containerfile}.
- * <p>
- * The fixture is compared byte for byte. When Containerfile generation moves to a template engine,
- * this test is what decides whether the generated image is still the same image.
+ *
+ * <p>The fixture is compared byte for byte. When Containerfile generation moves to a template
+ * engine, this test is what decides whether the generated image is still the same image.
  */
 class ContainerfileTest {
 
     @Test
     void rendersTheExpectedFile() throws IOException {
 
-        final Project project = new Project("uc", "Ultimate Container", SecurityClass.GUARDED, "ubuntu:24.04", null);
+        final Project project =
+                new Project(
+                        "uc", "Ultimate Container", SecurityClass.GUARDED, "ubuntu:24.04", null);
 
         assertThat(Containerfile.render(project)).isEqualTo(golden("Containerfile.uc"));
     }
@@ -31,16 +33,21 @@ class ContainerfileTest {
     @Test
     void everyTaskImageGetsPython3WhereItCanAndNoImageFailsForWantOfIt() {
 
-        // An agent that evaluates Python warned at every start in 'default': its image had no Python, and a person
+        // An agent that evaluates Python warned at every start in 'default': its image had no
+        // Python, and a person
         // cannot change 'default'.
-        final String rendered = Containerfile.render(new Project("default", "", SecurityClass.GUARDED, "ubuntu:24.04",
-                null));
+        final String rendered =
+                Containerfile.render(
+                        new Project("default", "", SecurityClass.GUARDED, "ubuntu:24.04", null));
 
-        assertThat(rendered).contains("if command -v python3 >/dev/null 2>&1; then :;")
+        assertThat(rendered)
+                .contains("if command -v python3 >/dev/null 2>&1; then :;")
                 .contains("apt-get install -y --no-install-recommends python3")
-                .contains("apk add --no-cache python3").contains("dnf install -y python3");
+                .contains("apk add --no-cache python3")
+                .contains("dnf install -y python3");
         final String step = rendered.substring(rendered.indexOf("if command -v python3"));
-        assertThat(step.substring(0, step.indexOf("    fi"))).as("an image with no package manager still builds")
+        assertThat(step.substring(0, step.indexOf("    fi")))
+                .as("an image with no package manager still builds")
                 .doesNotContain("exit 1");
     }
 
@@ -49,9 +56,17 @@ class ContainerfileTest {
 
         // The point of the key: a machine behind a corporate mirror, or one where Canonical's own
         // is the only thing reachable, says so once in the project file.
-        final Project project = new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", null,
-                null, Limits.defaults(), Egress.none(),
-                List.of("http://mirror.example.test/ubuntu/"));
+        final Project project =
+                new Project(
+                        "uc",
+                        "",
+                        SecurityClass.GUARDED,
+                        "ubuntu:24.04",
+                        null,
+                        null,
+                        Limits.defaults(),
+                        Egress.none(),
+                        List.of("http://mirror.example.test/ubuntu/"));
 
         // The URIs line itself, not the whole file: the comment above it names the default's
         // hosts as measurements, and a naive doesNotContain trips over its own documentation.
@@ -65,8 +80,17 @@ class ContainerfileTest {
 
         // Said rather than ignored. Somebody who names sources under an image that cannot use them
         // has an expectation nothing will meet, and a silent no-op reads as configured.
-        final Project named = new Project("uc", "", SecurityClass.GUARDED, "fedora:41", null,
-                null, Limits.defaults(), Egress.none(), List.of("http://mirror.example.test/f/"));
+        final Project named =
+                new Project(
+                        "uc",
+                        "",
+                        SecurityClass.GUARDED,
+                        "fedora:41",
+                        null,
+                        null,
+                        Limits.defaults(),
+                        Egress.none(),
+                        List.of("http://mirror.example.test/f/"));
         assertThat(Containerfile.render(named)).contains("elif true; then");
 
         // And a project that named nothing must still build on the same base.
@@ -82,9 +106,13 @@ class ContainerfileTest {
         // install packages. Getting this backwards produces an image that builds and then fails
         // at run time.
         final Project project = new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", null);
-        final String rendered = Containerfile.render(project,
-                new ImageLayers(List.of("RUN apt-get install -y jq"),
-                        List.of("RUN curl -o /home/agent/.local/bin/x https://example.com/x")));
+        final String rendered =
+                Containerfile.render(
+                        project,
+                        new ImageLayers(
+                                List.of("RUN apt-get install -y jq"),
+                                List.of(
+                                        "RUN curl -o /home/agent/.local/bin/x https://example.com/x")));
 
         final int root = rendered.indexOf("apt-get install -y jq");
         final int switchUser = rendered.indexOf("USER agent");
@@ -98,11 +126,16 @@ class ContainerfileTest {
     void theProjectsOwnLinesGoIntoTheImage() {
 
         // This is how additional tooling gets into a box.
-        final Project project = new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04",
-                "RUN apt-get update && apt-get install -y ripgrep\n");
+        final Project project =
+                new Project(
+                        "uc",
+                        "",
+                        SecurityClass.GUARDED,
+                        "ubuntu:24.04",
+                        "RUN apt-get update && apt-get install -y ripgrep\n");
 
-        assertThat(project.imageSnippetLines()).containsExactly(
-                "RUN apt-get update && apt-get install -y ripgrep");
+        assertThat(project.imageSnippetLines())
+                .containsExactly("RUN apt-get update && apt-get install -y ripgrep");
     }
 
     @Test
@@ -111,8 +144,9 @@ class ContainerfileTest {
         // Every pinned agent install needs curl, cloning the workspace needs git, and an online
         // project pushes over ssh; a base image cannot be assumed to have any of them. Without
         // this the failure is a confusing "not found" inside someone else's layer.
-        assertThat(Containerfile.render(
-                new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", null)))
+        assertThat(
+                        Containerfile.render(
+                                new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", null)))
                 .contains("command -v curl")
                 .contains("command -v git")
                 .contains("command -v ssh")
@@ -122,8 +156,9 @@ class ContainerfileTest {
     @Test
     void saysWhichBaseImageCannotBePreparedRatherThanFailingObscurely() {
 
-        assertThat(Containerfile.render(
-                new Project("uc", "", SecurityClass.GUARDED, "scratch", null)))
+        assertThat(
+                        Containerfile.render(
+                                new Project("uc", "", SecurityClass.GUARDED, "scratch", null)))
                 .contains("no curl/git/ssh/tmux and no known package manager in scratch");
     }
 
@@ -132,7 +167,8 @@ class ContainerfileTest {
 
         final Project project = new Project("uc", "", SecurityClass.OFFLINE, "ubuntu:24.04", null);
 
-        assertThat(Containerfile.render(project)).contains("org.fuin.porelo.security-class=\"offline\"");
+        assertThat(Containerfile.render(project))
+                .contains("org.fuin.porelo.security-class=\"offline\"");
     }
 
     private String golden(String name) throws IOException {
@@ -145,10 +181,12 @@ class ContainerfileTest {
     @Test
     void refusesABaseImageWithPorelosRootAndMakesTheHandInDirectoriesBeforeAnythingElseCan() {
 
-        // Checked before the project's own image lines run, which could create /porelo themselves: what is
+        // Checked before the project's own image lines run, which could create /porelo themselves:
+        // what is
         // refused is the base image, and what comes after is Porelo's.
-        final Project project = new Project("uc", "Ultimate Container", SecurityClass.GUARDED,
-                "ubuntu:24.04", null);
+        final Project project =
+                new Project(
+                        "uc", "Ultimate Container", SecurityClass.GUARDED, "ubuntu:24.04", null);
         final String rendered = Containerfile.render(project);
 
         assertThat(rendered)
@@ -156,7 +194,8 @@ class ContainerfileTest {
                 .contains("the base image ubuntu:24.04 already has /porelo")
                 .contains("mkdir -p /porelo/files /porelo/.incoming")
                 .contains("chmod 0700 /porelo/.incoming");
-        assertThat(rendered.indexOf("if [ -e /porelo ]")).as("the check before the agent's layers")
+        assertThat(rendered.indexOf("if [ -e /porelo ]"))
+                .as("the check before the agent's layers")
                 .isLessThan(rendered.indexOf("ARG PORELO_LAYER_EPOCH"));
     }
 
@@ -166,8 +205,9 @@ class ContainerfileTest {
         // The figure 'porelo task attach' claims on returning. Inherited rather than pinned, it
         // would be whatever the base image or a dotfile happened to say, and an interface would
         // have nothing true to put on the screen.
-        final Project project = new Project("uc", "Ultimate Container", SecurityClass.GUARDED,
-                "ubuntu:24.04", null);
+        final Project project =
+                new Project(
+                        "uc", "Ultimate Container", SecurityClass.GUARDED, "ubuntu:24.04", null);
 
         assertThat(Containerfile.render(project))
                 .contains("history-limit " + Containerfile.SCROLLBACK)
@@ -177,9 +217,12 @@ class ContainerfileTest {
     @Test
     void aSessionFeelsLikeTheTerminalOutside() {
 
-        // Measured 2026-10-09 with tmux 3.4 behind 'podman exec -it', against the same path without tmux: Esc arrived
-        // 501 ms late, Shift+Enter and focus events not at all, and truecolour, the clipboard (OSC 52), links and the
-        // title were dropped on the way out. The wheel reached an agent in the alternate screen as nothing it asked for.
+        // Measured 2026-10-09 with tmux 3.4 behind 'podman exec -it', against the same path without
+        // tmux: Esc arrived
+        // 501 ms late, Shift+Enter and focus events not at all, and truecolour, the clipboard (OSC
+        // 52), links and the
+        // title were dropped on the way out. The wheel reached an agent in the alternate screen as
+        // nothing it asked for.
         final Project project = new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", null);
 
         assertThat(Containerfile.render(project))
@@ -188,28 +231,35 @@ class ContainerfileTest {
                 .contains("set -g focus-events on")
                 .contains("set -g set-clipboard on")
                 .contains("set -gq allow-passthrough on")
-                .contains("set -asq terminal-features \"xterm*:RGB:clipboard:hyperlinks:focus:title:extkeys\"")
+                .contains(
+                        "set -asq terminal-features \"xterm*:RGB:clipboard:hyperlinks:focus:title:extkeys\"")
                 .contains("set -g set-titles on")
                 .contains("set -g mouse on")
-                .contains("bind -n S-PPage if -F \"#{alternate_on}\" \"send-keys S-PPage\" \"copy-mode -eu\"")
-                // Scrolled back with Shift+PageUp, Shift+PageDown did nothing: it was bound neither outside copy mode
+                .contains(
+                        "bind -n S-PPage if -F \"#{alternate_on}\" \"send-keys S-PPage\" \"copy-mode -eu\"")
+                // Scrolled back with Shift+PageUp, Shift+PageDown did nothing: it was bound neither
+                // outside copy mode
                 // nor in it, so the way back down was a key a plain terminal does not need.
-                .contains("bind -n S-NPage if -F \"#{pane_in_mode}\" \"send-keys -X page-down\" \"send-keys S-NPage\"");
+                .contains(
+                        "bind -n S-NPage if -F \"#{pane_in_mode}\" \"send-keys -X page-down\" \"send-keys S-NPage\"");
     }
 
     @Test
     void aPersonsOwnSettingsComeAfterPorelosAndWhatPoreloDependsOnAfterThem() {
 
-        // A person's file may change any key, the mouse or the colours, and nothing Porelo states about a session: how
+        // A person's file may change any key, the mouse or the colours, and nothing Porelo states
+        // about a session: how
         // much it remembers, and the terminal the agent is told it has.
-        final String rendered = Containerfile.render(
-                new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", null));
+        final String rendered =
+                Containerfile.render(
+                        new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", null));
 
         final int own = rendered.indexOf("source-file -q " + Containerfile.ACCOUNT_TMUX_CONF);
         final int porelos = rendered.indexOf("source-file " + Containerfile.REQUIRED_TMUX_CONF);
         assertThat(own).as("the account's file is read").isPositive();
         assertThat(porelos).as("after it, what Porelo depends on").isGreaterThan(own);
-        assertThat(rendered.indexOf("history-limit " + Containerfile.SCROLLBACK)).isGreaterThan(porelos);
+        assertThat(rendered.indexOf("history-limit " + Containerfile.SCROLLBACK))
+                .isGreaterThan(porelos);
         assertThat(rendered.substring(porelos)).contains("default-terminal");
     }
 
@@ -243,17 +293,19 @@ class ContainerfileTest {
         // would have to be edited by whoever broke it, which is the one person it has to survive.
         final Project project = new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", null);
         final String rendered = Containerfile.render(project);
-        final String recipe = rendered.lines()
-                .filter(line -> line.startsWith("LABEL org.fuin.porelo.recipe="))
-                .findFirst().orElseThrow();
+        final String recipe =
+                rendered.lines()
+                        .filter(line -> line.startsWith("LABEL org.fuin.porelo.recipe="))
+                        .findFirst()
+                        .orElseThrow();
 
         assertThat(recipe).contains(Containerfile.fingerprint(project));
         assertThat(rendered).contains("ENV LANG=C.UTF-8");
 
         // The body is in the digest: a project whose base image and snippet are identical but
         // whose rendered recipe differs must not share a fingerprint.
-        final Project other = new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04",
-                "RUN echo different");
+        final Project other =
+                new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", "RUN echo different");
         assertThat(Containerfile.fingerprint(other))
                 .as("a different recipe is a different fingerprint")
                 .isNotEqualTo(Containerfile.fingerprint(project));
@@ -268,7 +320,6 @@ class ContainerfileTest {
         final Project project = new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", null);
         final String withoutLayers = Containerfile.fingerprint(project);
 
-        assertThat(Containerfile.render(project, ImageLayers.none()))
-                .contains(withoutLayers);
+        assertThat(Containerfile.render(project, ImageLayers.none())).contains(withoutLayers);
     }
 }

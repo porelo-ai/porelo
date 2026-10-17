@@ -5,14 +5,15 @@ import java.util.function.BooleanSupplier;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Where something is missing and Porelo would tell a person which command to type, offers that command's own remedy
- * instead, checks again after it, and carries on.
- * <p>
- * One helper for every such place, so each asks alike: at a terminal it asks and runs the remedy; without one, or with
- * {@code --no-input}, it refuses as before and names the command. {@code --yes} takes a harmless remedy without asking
- * and never a destructive one, which first shows what it touches and defaults to no. A remedy is the function of the
- * command a person would have typed, never a copy of it, and is never taken on trust: the precondition is checked
- * again after it. Several gaps at one start are asked one after another by calling this for each in turn.
+ * Where something is missing and Porelo would tell a person which command to type, offers that
+ * command's own remedy instead, checks again after it, and carries on.
+ *
+ * <p>One helper for every such place, so each asks alike: at a terminal it asks and runs the
+ * remedy; without one, or with {@code --no-input}, it refuses as before and names the command.
+ * {@code --yes} takes a harmless remedy without asking and never a destructive one, which first
+ * shows what it touches and defaults to no. A remedy is the function of the command a person would
+ * have typed, never a copy of it, and is never taken on trust: the precondition is checked again
+ * after it. Several gaps at one start are asked one after another by calling this for each in turn.
  */
 public final class Offer {
 
@@ -40,7 +41,9 @@ public final class Offer {
             return question -> {
                 final java.io.Console console = System.console();
                 // A console object alone is no terminal: since Java 22 one exists for a pipe too.
-                return console == null || !console.isTerminal() ? null : console.readLine("%s ", question);
+                return console == null || !console.isTerminal()
+                        ? null
+                        : console.readLine("%s ", question);
             };
         }
     }
@@ -51,15 +54,21 @@ public final class Offer {
      * @param missing What is missing, as the refusal says it.
      * @param question What is asked, without its choices.
      * @param command The command a person would type, named where nobody is asked.
-     * @param affected What a destructive remedy touches, shown before asking; empty for a harmless one.
-     * @param destructive Whether the remedy discards, deletes or leaves something behind: asked with no as default, and
-     *        never taken by {@code --yes}.
+     * @param affected What a destructive remedy touches, shown before asking; empty for a harmless
+     *     one.
+     * @param destructive Whether the remedy discards, deletes or leaves something behind: asked
+     *     with no as default, and never taken by {@code --yes}.
      * @param remedy The command's own function; {@code false} when it failed.
      * @param holds Whether the precondition holds, checked before and again after the remedy.
      */
-    public record Remedy(String missing, String question, String command, String affected, boolean destructive,
-            BooleanSupplier remedy, BooleanSupplier holds) {
-    }
+    public record Remedy(
+            String missing,
+            String question,
+            String command,
+            String affected,
+            boolean destructive,
+            BooleanSupplier remedy,
+            BooleanSupplier holds) {}
 
     /**
      * Says whether this process has a terminal a person can answer at.
@@ -88,9 +97,14 @@ public final class Offer {
      * @param asker Who is asked.
      * @param noInput Whether nothing is asked, as {@code --no-input} says.
      * @param yes Whether a harmless remedy is taken without asking, as {@code --yes} says.
-     * @param err Where a refusal is said, or {@code null} to say it at {@link #resolve(Remedy, PrintWriter)}.
+     * @param err Where a refusal is said, or {@code null} to say it at {@link #resolve(Remedy,
+     *     PrintWriter)}.
      */
-    public Offer(final Asker asker, final boolean noInput, final boolean yes, final @Nullable PrintWriter err) {
+    public Offer(
+            final Asker asker,
+            final boolean noInput,
+            final boolean yes,
+            final @Nullable PrintWriter err) {
         this.asker = asker;
         this.noInput = noInput;
         this.yes = yes;
@@ -132,9 +146,10 @@ public final class Offer {
     }
 
     /**
-     * Asks whether to go ahead where the caller does the remedy itself and checks again afterwards, under the same rules
-     * as {@link #resolve}: nothing asked with {@code --no-input} or without a terminal, {@code --yes} for a harmless
-     * step only, a destructive one showing what it touches and defaulting to no.
+     * Asks whether to go ahead where the caller does the remedy itself and checks again afterwards,
+     * under the same rules as {@link #resolve}: nothing asked with {@code --no-input} or without a
+     * terminal, {@code --yes} for a harmless step only, a destructive one showing what it touches
+     * and defaulting to no.
      *
      * @param missing What is missing, as the refusal says it.
      * @param question What is asked, without its choices.
@@ -142,9 +157,13 @@ public final class Offer {
      * @param destructive Whether the step discards, deletes or leaves something behind.
      * @return Whether to go ahead.
      */
-    public boolean confirm(final String missing, final String question, final String affected,
+    public boolean confirm(
+            final String missing,
+            final String question,
+            final String affected,
             final boolean destructive) {
-        return wanted(new Remedy(missing, question, "", affected, destructive, () -> false, () -> false),
+        return wanted(
+                new Remedy(missing, question, "", affected, destructive, () -> false, () -> false),
                 java.util.Objects.requireNonNull(err, "no writer to say a refusal on"));
     }
 
@@ -159,27 +178,36 @@ public final class Offer {
             said.println("porelo: " + gap.missing() + " - this touches " + gap.affected());
             said.flush();
         }
-        final String answer = asker.ask(gap.missing() + ". " + gap.question() + (gap.destructive() ? " [y/N]" : " [Y/n]"));
+        final String answer =
+                asker.ask(
+                        gap.missing()
+                                + ". "
+                                + gap.question()
+                                + (gap.destructive() ? " [y/N]" : " [Y/n]"));
         if (answer == null) {
             return false;
         }
         final String given = answer.strip().toLowerCase(java.util.Locale.ROOT);
-        return gap.destructive() ? given.equals("y") || given.equals("yes")
+        return gap.destructive()
+                ? given.equals("y") || given.equals("yes")
                 : given.isEmpty() || given.equals("y") || given.equals("yes");
     }
 
     /**
-     * Asks a person to choose one of several where a refusal would ask for an option, or refuses as before.
-     * <p>
-     * A choice is never taken by {@code --yes}: there is no harmless default among several.
+     * Asks a person to choose one of several where a refusal would ask for an option, or refuses as
+     * before.
+     *
+     * <p>A choice is never taken by {@code --yes}: there is no harmless default among several.
      *
      * @param missing What is missing, as the refusal says it.
      * @param options What may be chosen, in the order shown.
      * @param command The command a person would type, named where nobody is asked.
      * @return The one chosen, or {@code null} when nothing was, said with the command.
      */
-    public @Nullable String choose(final String missing, final java.util.List<String> options, final String command) {
-        final PrintWriter said = java.util.Objects.requireNonNull(err, "no writer to say a refusal on");
+    public @Nullable String choose(
+            final String missing, final java.util.List<String> options, final String command) {
+        final PrintWriter said =
+                java.util.Objects.requireNonNull(err, "no writer to say a refusal on");
         String chosen = null;
         if (!noInput && !options.isEmpty()) {
             said.println("porelo: " + missing + ":");
@@ -201,16 +229,19 @@ public final class Offer {
     }
 
     /**
-     * Asks a person for a line of text - a path, an address - where a refusal would ask for it as an option, or refuses
-     * as before. Never answered by {@code --yes}: there is no harmless default for what a person has to say.
+     * Asks a person for a line of text - a path, an address - where a refusal would ask for it as
+     * an option, or refuses as before. Never answered by {@code --yes}: there is no harmless
+     * default for what a person has to say.
      *
      * @param missing What is missing, as the refusal says it.
      * @param question What is asked.
      * @param command The command a person would type, named where nobody answers.
      * @return The answer, trimmed, or {@code null} when none came - said with the command.
      */
-    public @Nullable String text(final String missing, final String question, final String command) {
-        final PrintWriter said = java.util.Objects.requireNonNull(err, "no writer to say a refusal on");
+    public @Nullable String text(
+            final String missing, final String question, final String command) {
+        final PrintWriter said =
+                java.util.Objects.requireNonNull(err, "no writer to say a refusal on");
         final String answer = noInput ? null : asker.ask(missing + ". " + question);
         if (answer == null || answer.isBlank()) {
             said.println("porelo: " + missing + "; run '" + command + "'");

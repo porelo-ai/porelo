@@ -6,24 +6,24 @@ import java.io.IOException;
 
 /**
  * Starting a task, and the state a scenario needs before one.
- * <p>
- * <strong>What, not how.</strong> A feature file says a task nobody is watching was started; which
- * flags produce that, and where the vault keeps its file, are decisions this kit makes and changes
- * without every agent's scenarios changing with it. A scenario that spells out
- * {@code cd ~/p && porelo task start --agent a --prompt hello} is not describing behaviour, it is
- * describing this class - and it goes stale the day a flag is renamed.
- * <p>
- * The exception, deliberately, is a scenario about the command line itself: what a person types at
- * a terminal and what comes back is the product's surface, so {@code I run "porelo doctor"} names
- * the command because the command is the subject.
+ *
+ * <p><strong>What, not how.</strong> A feature file says a task nobody is watching was started;
+ * which flags produce that, and where the vault keeps its file, are decisions this kit makes and
+ * changes without every agent's scenarios changing with it. A scenario that spells out {@code cd
+ * ~/p && porelo task start --agent a --prompt hello} is not describing behaviour, it is describing
+ * this class - and it goes stale the day a flag is renamed.
+ *
+ * <p>The exception, deliberately, is a scenario about the command line itself: what a person types
+ * at a terminal and what comes back is the product's surface, so {@code I run "porelo doctor"}
+ * names the command because the command is the subject.
  */
 public class TaskSteps {
 
     /**
      * A prompt is what makes a run unattended.
-     * <p>
-     * Its content is irrelevant - every scenario using this expects a refusal before the agent is
-     * ever asked anything - so it is a fixed word rather than a parameter that would read as
+     *
+     * <p>Its content is irrelevant - every scenario using this expects a refusal before the agent
+     * is ever asked anything - so it is a fixed word rather than a parameter that would read as
      * though it mattered.
      */
     private static final String PROMPT = "hello";
@@ -41,15 +41,15 @@ public class TaskSteps {
 
     /**
      * Makes sure the vault has no credential under a name.
-     * <p>
-     * <strong>States a premise rather than assuming one.</strong> Whether a machine holds a
+     *
+     * <p><strong>States a premise rather than assuming one.</strong> Whether a machine holds a
      * credential depends on what an earlier feature did, so a scenario about a task that cannot
      * authenticate has to say so itself. Left unsaid, the same scenario passed for the agent whose
      * provider nothing had stored and failed for the two whose provider it had - which was luck in
      * both directions.
-     * <p>
-     * Removing is idempotent by design: Porelo answers "nothing named x was in the vault" and exits
-     * zero, because removing something that is not there leaves the wanted state.
+     *
+     * <p>Removing is idempotent by design: Porelo answers "nothing named x was in the vault" and
+     * exits zero, because removing something that is not there leaves the wanted state.
      *
      * @param name Vault entry, usually the provider a task would authenticate to.
      * @throws IOException If the machine cannot be reached.
@@ -61,9 +61,9 @@ public class TaskSteps {
 
     /**
      * Starts a task in a project with nobody watching it.
-     * <p>
-     * Unattended is the mode that refuses rather than warns: nobody is there to read a warning, so
-     * a run that cannot authenticate is stopped before the gate, the image and the container. An
+     *
+     * <p>Unattended is the mode that refuses rather than warns: nobody is there to read a warning,
+     * so a run that cannot authenticate is stopped before the gate, the image and the container. An
      * attached task deliberately does not refuse - working inside the container by hand is what a
      * shell task is for.
      *
@@ -86,17 +86,21 @@ public class TaskSteps {
     static String startCommand(String project, String agent) {
         // The repository is always named: a project's own repository is called after the project,
         // and these fixtures have only that one. Porelo never picks, not even then.
-        return "porelo task start --project " + Shell.quote(aName(project))
-                + " --agent " + Shell.quote(agent)
-                + " --repository " + Shell.quote(aName(project))
-                + " --prompt " + Shell.quote(PROMPT);
+        return "porelo task start --project "
+                + Shell.quote(aName(project))
+                + " --agent "
+                + Shell.quote(agent)
+                + " --repository "
+                + Shell.quote(aName(project))
+                + " --prompt "
+                + Shell.quote(PROMPT);
     }
 
     /**
      * Asks what a task would do, without doing any of it.
-     * <p>
-     * Nothing is built, so this is what a scenario uses when the question is about what Porelo says
-     * rather than about what it creates.
+     *
+     * <p>Nothing is built, so this is what a scenario uses when the question is about what Porelo
+     * says rather than about what it creates.
      *
      * @param project Project directory in the operator's home.
      * @param agent Which agent the task would run.
@@ -115,17 +119,20 @@ public class TaskSteps {
      * @return The command.
      */
     static String planCommand(String project, String agent) {
-        return "porelo task start --project " + Shell.quote(aName(project))
-                + " --agent " + Shell.quote(agent)
-                + " --repository " + Shell.quote(aName(project))
+        return "porelo task start --project "
+                + Shell.quote(aName(project))
+                + " --agent "
+                + Shell.quote(agent)
+                + " --repository "
+                + Shell.quote(aName(project))
                 + " --dry-run --detach";
     }
 
     /**
      * Refuses a project name that is not one.
-     * <p>
-     * The name is quoted where it goes now, so this is no longer what stands between a fixture and
-     * a shell - it is what stops a scenario naming something no project could be called, which
+     *
+     * <p>The name is quoted where it goes now, so this is no longer what stands between a fixture
+     * and a shell - it is what stops a scenario naming something no project could be called, which
      * would otherwise fail deep inside a start with a message about a project nobody has.
      *
      * @param project The project.
@@ -133,17 +140,18 @@ public class TaskSteps {
      */
     static String aName(String project) {
         if (!project.matches("[A-Za-z0-9._-]+")) {
-            throw new IllegalArgumentException("Not a project name: '" + project
-                    + "'. Letters, digits, dot, dash and underscore only.");
+            throw new IllegalArgumentException(
+                    "Not a project name: '"
+                            + project
+                            + "'. Letters, digits, dot, dash and underscore only.");
         }
         return project;
     }
 
-
     /**
      * Reads the vault exactly as it lies on disk.
-     * <p>
-     * Where that is belongs here rather than in every agent's scenarios: a feature file naming
+     *
+     * <p>Where that is belongs here rather than in every agent's scenarios: a feature file naming
      * {@code ~/.local/share/porelo/vault.bin} is asserting about a path it has no opinion on, and
      * would have to be edited in three repositories the day the path moves.
      *
@@ -156,16 +164,15 @@ public class TaskSteps {
 
     /**
      * Tries to log in to an agent.
-     * <p>
-     * Asked rather than done: the scenarios using this are about an agent that declares no way to
-     * log in at all, and the answer must come before anything is contacted.
+     *
+     * <p>Asked rather than done: the scenarios using this are about an agent that declares no way
+     * to log in at all, and the answer must come before anything is contacted.
      *
      * @param agent Which agent.
      * @throws IOException If the machine cannot be reached.
      */
     @When("logging in to the {string} agent is attempted")
     public void loggingInIsAttempted(String agent) throws IOException {
-        world.output(world.run("porelo vault login " + Shell.quote(agent)
-                + " --dry-run"));
+        world.output(world.run("porelo vault login " + Shell.quote(agent) + " --dry-run"));
     }
 }

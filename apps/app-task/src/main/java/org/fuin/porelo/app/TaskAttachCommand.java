@@ -11,26 +11,27 @@ import picocli.CommandLine.Spec;
 
 /**
  * Opens a shell inside a running task, in a session that survives leaving it.
- * <p>
- * <strong>This is what an interface runs over ssh.</strong> varlink is one call in and many
+ *
+ * <p><strong>This is what an interface runs over ssh.</strong> varlink is one call in and many
  * replies out - there is no way for a client to keep sending into an open call - so a session
  * cannot be a method. ssh is the byte pipe varlink is not, and a client that already forwards the
  * daemon socket already has an ssh connection to multiplex a second channel on. Running Porelo's
- * own verb rather than the runtime's command is what keeps the client from learning which
- * container runtime is underneath, and lets Porelo refuse before anything is exec'd.
- * <p>
- * <strong>Leaving does not end it.</strong> The session is a multiplexer inside the container, not
- * a process on the channel, so closing the window leaves it running and the next attachment finds
- * it as it was, with the last {@value org.fuin.porelo.runtime.Containerfile#SCROLLBACK} lines it
- * printed. That figure is pinned in the image rather than inherited, because what re-entering may
- * claim has to be a number somebody chose. It ends with the container: {@code task stop} takes it, and starting the
- * task again brings back an empty one.
- * <p>
- * <strong>No refusal by security class.</strong> The class governs egress - what resolves and what
- * leaves - and a person typing in a container is neither. An offline project is precisely the one
- * where somebody has to work by hand, because the agent reaches nothing.
+ * own verb rather than the runtime's command is what keeps the client from learning which container
+ * runtime is underneath, and lets Porelo refuse before anything is exec'd.
+ *
+ * <p><strong>Leaving does not end it.</strong> The session is a multiplexer inside the container,
+ * not a process on the channel, so closing the window leaves it running and the next attachment
+ * finds it as it was, with the last {@value org.fuin.porelo.runtime.Containerfile#SCROLLBACK} lines
+ * it printed. That figure is pinned in the image rather than inherited, because what re-entering
+ * may claim has to be a number somebody chose. It ends with the container: {@code task stop} takes
+ * it, and starting the task again brings back an empty one.
+ *
+ * <p><strong>No refusal by security class.</strong> The class governs egress - what resolves and
+ * what leaves - and a person typing in a container is neither. An offline project is precisely the
+ * one where somebody has to work by hand, because the agent reaches nothing.
  */
-@Command(name = "attach",
+@Command(
+        name = "attach",
         mixinStandardHelpOptions = true,
         description = "Opens a shell in a running task. Leaving it does not end it.")
 public class TaskAttachCommand implements Callable<Integer>, PoreloFactory.ContextAware, Suggests {
@@ -50,12 +51,15 @@ public class TaskAttachCommand implements Callable<Integer>, PoreloFactory.Conte
     /** Name of the session inside the container. One per container, found again on return. */
     static final String SESSION = org.fuin.porelo.runtime.Containerfile.SESSION;
 
-    @Parameters(index = "0", arity = "0..1", paramLabel = "TASK",
-            description = "Container name, as shown by 'porelo task list'. Default: the task started from the checkout you stand in.")
+    @Parameters(
+            index = "0",
+            arity = "0..1",
+            paramLabel = "TASK",
+            description =
+                    "Container name, as shown by 'porelo task list'. Default: the task started from the checkout you stand in.")
     private @org.jspecify.annotations.Nullable String container;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -66,10 +70,10 @@ public class TaskAttachCommand implements Callable<Integer>, PoreloFactory.Conte
 
     /**
      * Returns the command that attaches to the session, creating it if there is none.
-     * <p>
-     * {@code new-session -A} is attach-or-create in one call, so returning to a task and starting
-     * one for the first time are the same operation - which is what makes "coming back" reliable
-     * rather than a second code path that is exercised less.
+     *
+     * <p>{@code new-session -A} is attach-or-create in one call, so returning to a task and
+     * starting one for the first time are the same operation - which is what makes "coming back"
+     * reliable rather than a second code path that is exercised less.
      *
      * @return Program and arguments, to run inside the container.
      */
@@ -78,18 +82,24 @@ public class TaskAttachCommand implements Callable<Integer>, PoreloFactory.Conte
         // session remembers is the answer to "what may re-entering claim", and inheriting it from
         // whatever the image or a user's dotfile happened to say would make that answer unknown
         // to the one process that has to state it.
-        return java.util.List.of("tmux", "-f", org.fuin.porelo.runtime.Containerfile.TMUX_CONF,
-                "new-session", "-A", "-s", SESSION);
+        return java.util.List.of(
+                "tmux",
+                "-f",
+                org.fuin.porelo.runtime.Containerfile.TMUX_CONF,
+                "new-session",
+                "-A",
+                "-s",
+                SESSION);
     }
 
     /**
      * Asks whether to start a stopped task, when there is somebody there to ask.
-     * <p>
-     * <strong>The terminal check is not optional.</strong> This command is also how a script gets
-     * into a task, and a script that finds one stopped must fail rather than wait for an answer
-     * nobody will type. Without a terminal the old refusal stands, unchanged.
-     * <p>
-     * Yes is the default because the question only exists at all after somebody asked to attach:
+     *
+     * <p><strong>The terminal check is not optional.</strong> This command is also how a script
+     * gets into a task, and a script that finds one stopped must fail rather than wait for an
+     * answer nobody will type. Without a terminal the old refusal stands, unchanged.
+     *
+     * <p>Yes is the default because the question only exists at all after somebody asked to attach:
      * the answer is already implied, and the prompt is there to say what it will cost.
      *
      * @param out Where the question is asked.
@@ -109,8 +119,8 @@ public class TaskAttachCommand implements Callable<Integer>, PoreloFactory.Conte
 
     /**
      * Reads the answer to the question above.
-     * <p>
-     * Separate from the console because {@link java.io.Console} is final and cannot be
+     *
+     * <p>Separate from the console because {@link java.io.Console} is final and cannot be
      * constructed, so this is the only part of the prompt a test can reach - and it is the part
      * with a decision in it.
      *
@@ -128,8 +138,12 @@ public class TaskAttachCommand implements Callable<Integer>, PoreloFactory.Conte
 
     @Override
     public Integer call() {
-        final TaskTarget.Found found = TaskTarget.resolve(context, container, java.nio.file.Path.of("."),
-                TaskTarget.console(spec.commandLine().getOut()));
+        final TaskTarget.Found found =
+                TaskTarget.resolve(
+                        context,
+                        container,
+                        java.nio.file.Path.of("."),
+                        TaskTarget.console(spec.commandLine().getOut()));
         if (found.container() == null) {
             spec.commandLine().getErr().println("porelo: " + found.refusal());
             if ((Object) this instanceof Suggests suggests) {
@@ -149,14 +163,16 @@ public class TaskAttachCommand implements Callable<Integer>, PoreloFactory.Conte
             err.flush();
             return 69;
         }
-        final boolean running = context.podman().poreloTasks().stream()
-                .filter(task -> task.name().equals(container))
-                .anyMatch(ContainerSummary::running);
+        final boolean running =
+                context.podman().poreloTasks().stream()
+                        .filter(task -> task.name().equals(container))
+                        .anyMatch(ContainerSummary::running);
         if (!running) {
             // Named as the two different things it can be. "Not running" sends somebody to
             // starting it again; "no such task" sends them to 'task list'.
-            final boolean known = context.podman().poreloTasks().stream()
-                    .anyMatch(task -> task.name().equals(container));
+            final boolean known =
+                    context.podman().poreloTasks().stream()
+                            .anyMatch(task -> task.name().equals(container));
             if (!known) {
                 err.println("porelo: no task called " + container + " - " + Shown.tasks(context));
                 // A name that is not there is exactly when the ones that are, are worth showing.
@@ -169,8 +185,11 @@ public class TaskAttachCommand implements Callable<Integer>, PoreloFactory.Conte
             // one level down already makes for itself: attach-or-create is one operation, so
             // coming back is not a second code path exercised less often.
             if (!offerToStart(out, System.console())) {
-                err.println("porelo: " + container + " is not running - 'porelo task start'"
-                        + " in its project brings it back with the workspace it has");
+                err.println(
+                        "porelo: "
+                                + container
+                                + " is not running - 'porelo task start'"
+                                + " in its project brings it back with the workspace it has");
                 err.flush();
                 return 69;
             }
@@ -190,13 +209,17 @@ public class TaskAttachCommand implements Callable<Integer>, PoreloFactory.Conte
         // other end. One handle for both calls - context.podman() builds a new one each time, so
         // asking through two of them would ask the container twice.
         final org.fuin.porelo.runtime.Podman podman = context.podman();
-        // An agent task whose session is gone starts its agent again, continuing where it can; otherwise
+        // An agent task whose session is gone starts its agent again, continuing where it can;
+        // otherwise
         // the session that is there, or a shell.
         final String agent = new TaskSession(context).attachedAgent(container, out);
         if (agent != null) {
-            return context.exec().applyAsInt(context.tasks().attachCommand(container, "/bin/bash", agent, null));
+            return context.exec()
+                    .applyAsInt(context.tasks().attachCommand(container, "/bin/bash", agent, null));
         }
-        return context.exec().applyAsInt(podman.attachArguments(container,
-                sessionCommand(), podman.terminalFor(container)));
+        return context.exec()
+                .applyAsInt(
+                        podman.attachArguments(
+                                container, sessionCommand(), podman.terminalFor(container)));
     }
 }

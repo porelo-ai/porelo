@@ -20,17 +20,17 @@ import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
 
 /**
- * A service a task's credential is for, when it is not a model provider: a forge, a search endpoint, an MCP
- * server.
- * <p>
- * <strong>A second kind, not a widened provider.</strong> A provider is which models it serves and in which
- * wire format; a forge or a search endpoint has no wire format in that sense, and widening the provider would
- * leave half its fields meaningless for half its instances. Decided 2026-09-09. What the two share is how a
- * key reaches the service - the header, the prefix, or the URL parameter - and that is all a destination
- * declares beside where it is.
- * <p>
- * A provider is then one kind of destination: a credential may name a provider, and it is reached as the
- * provider declares.
+ * A service a task's credential is for, when it is not a model provider: a forge, a search
+ * endpoint, an MCP server.
+ *
+ * <p><strong>A second kind, not a widened provider.</strong> A provider is which models it serves
+ * and in which wire format; a forge or a search endpoint has no wire format in that sense, and
+ * widening the provider would leave half its fields meaningless for half its instances. Decided
+ * 2026-09-09. What the two share is how a key reaches the service - the header, the prefix, or the
+ * URL parameter - and that is all a destination declares beside where it is.
+ *
+ * <p>A provider is then one kind of destination: a credential may name a provider, and it is
+ * reached as the provider declares.
  *
  * @param name Short name, and the key a project and a run name it by.
  * @param label Human-readable name.
@@ -39,7 +39,12 @@ import org.yaml.snakeyaml.constructor.SafeConstructor;
  * @param authPrefix Text before the key in that header, for example {@code "Bearer "}.
  * @param authQuery The URL parameter the key goes in instead, or {@code null} for the header.
  */
-public record Destination(String name, String label, String upstream, String authHeader, String authPrefix,
+public record Destination(
+        String name,
+        String label,
+        String upstream,
+        String authHeader,
+        String authPrefix,
         @Nullable String authQuery) {
 
     /** Where a package installs destination declarations. */
@@ -58,17 +63,24 @@ public record Destination(String name, String label, String upstream, String aut
     public Destination {
         if (!name.matches("[a-z0-9][a-z0-9-]{0,30}")) {
             // The name becomes part of a variable's name and reaches command lines.
-            throw new IllegalArgumentException("Invalid destination name '" + name
-                    + "', expected lower-case letters, digits and hyphens");
+            throw new IllegalArgumentException(
+                    "Invalid destination name '"
+                            + name
+                            + "', expected lower-case letters, digits and hyphens");
         }
         final URI uri = parsed(name, upstream);
         if (uri.getHost() == null || !"https".equals(uri.getScheme())) {
             // A key sent in the clear is a key given away, whatever the broker does before it.
-            throw new IllegalArgumentException("Destination '" + name + "' must be reached over https, not '"
-                    + upstream + "'");
+            throw new IllegalArgumentException(
+                    "Destination '"
+                            + name
+                            + "' must be reached over https, not '"
+                            + upstream
+                            + "'");
         }
         if (authHeader.isBlank()) {
-            throw new IllegalArgumentException("Destination '" + name + "' names no header for its key");
+            throw new IllegalArgumentException(
+                    "Destination '" + name + "' names no header for its key");
         }
     }
 
@@ -76,7 +88,8 @@ public record Destination(String name, String label, String upstream, String aut
         try {
             return URI.create(upstream);
         } catch (IllegalArgumentException ex) {
-            throw new IllegalArgumentException("Destination '" + name + "': '" + upstream + "' is not a URL", ex);
+            throw new IllegalArgumentException(
+                    "Destination '" + name + "': '" + upstream + "' is not a URL", ex);
         }
     }
 
@@ -97,8 +110,12 @@ public record Destination(String name, String label, String upstream, String aut
      * @return The destination.
      */
     public static Destination of(ProviderDefinition provider, String credentialType) {
-        return new Destination(provider.name(), provider.label(), provider.upstream(),
-                provider.authHeaderFor(credentialType), provider.authPrefixFor(credentialType),
+        return new Destination(
+                provider.name(),
+                provider.label(),
+                provider.upstream(),
+                provider.authHeaderFor(credentialType),
+                provider.authPrefixFor(credentialType),
                 provider.authQueryFor(credentialType));
     }
 
@@ -117,7 +134,8 @@ public record Destination(String name, String label, String upstream, String aut
         try {
             loaded = new Yaml(new SafeConstructor(options)).load(reader);
         } catch (RuntimeException ex) {
-            throw new IllegalArgumentException("Cannot parse " + origin + ": " + ex.getMessage(), ex);
+            throw new IllegalArgumentException(
+                    "Cannot parse " + origin + ": " + ex.getMessage(), ex);
         }
         if (!(loaded instanceof Map<?, ?> root)) {
             throw new IllegalArgumentException(origin + " is empty or is not a YAML mapping");
@@ -131,8 +149,13 @@ public record Destination(String name, String label, String upstream, String aut
         final String header = text(root, "auth_header");
         final String prefix = text(root, "auth_prefix");
         try {
-            return new Destination(name, label == null ? name : label, upstream,
-                    header == null ? "Authorization" : header, prefix == null ? "" : prefix, text(root, "auth_query"));
+            return new Destination(
+                    name,
+                    label == null ? name : label,
+                    upstream,
+                    header == null ? "Authorization" : header,
+                    prefix == null ? "" : prefix,
+                    text(root, "auth_query"));
         } catch (IllegalArgumentException ex) {
             throw new IllegalArgumentException(origin + ": " + ex.getMessage(), ex);
         }
@@ -165,7 +188,8 @@ public record Destination(String name, String label, String upstream, String aut
     }
 
     /**
-     * Resolves what a credential names: a declared destination, or a provider as the destination it is.
+     * Resolves what a credential names: a declared destination, or a provider as the destination it
+     * is.
      *
      * @param name What the credential names.
      * @param destinations The declared destinations.
@@ -173,15 +197,23 @@ public record Destination(String name, String label, String upstream, String aut
      * @param credentialType The credential's kind, for a provider's header.
      * @return The destination, or {@code null} when nothing by that name is declared.
      */
-    public static @Nullable Destination resolve(String name, Map<String, Destination> destinations,
-            Map<String, ProviderDefinition> providers, @Nullable String credentialType) {
+    public static @Nullable Destination resolve(
+            String name,
+            Map<String, Destination> destinations,
+            Map<String, ProviderDefinition> providers,
+            @Nullable String credentialType) {
         final Destination declared = destinations.get(name);
         if (declared != null) {
             return declared;
         }
         final ProviderDefinition provider = providers.get(name);
-        return provider == null ? null
-                : of(provider, credentialType == null ? AgentDefinition.DEFAULT_TOKEN_KEY : credentialType);
+        return provider == null
+                ? null
+                : of(
+                        provider,
+                        credentialType == null
+                                ? AgentDefinition.DEFAULT_TOKEN_KEY
+                                : credentialType);
     }
 
     private static List<Path> files(Path location) {
@@ -189,8 +221,11 @@ public record Destination(String name, String label, String upstream, String aut
             return List.of();
         }
         try (Stream<Path> entries = Files.list(location)) {
-            return new ArrayList<>(entries.filter(Files::isRegularFile)
-                    .filter(path -> path.getFileName().toString().endsWith(".yaml")).sorted().toList());
+            return new ArrayList<>(
+                    entries.filter(Files::isRegularFile)
+                            .filter(path -> path.getFileName().toString().endsWith(".yaml"))
+                            .sorted()
+                            .toList());
         } catch (IOException ex) {
             return List.of();
         }
@@ -201,14 +236,14 @@ public record Destination(String name, String label, String upstream, String aut
      *
      * @param destination The destination.
      * @param file The file that declares it.
-     * @param packaged Whether a package installed it, which a person cannot edit or remove here - a file of
-     *        their own under the same name takes its place instead.
+     * @param packaged Whether a package installed it, which a person cannot edit or remove here - a
+     *     file of their own under the same name takes its place instead.
      */
-    public record Declared(Destination destination, Path file, boolean packaged) {
-    }
+    public record Declared(Destination destination, Path file, boolean packaged) {}
 
     /**
-     * Lists every declaration for one user, the one in force for each name first and any it shadows after.
+     * Lists every declaration for one user, the one in force for each name first and any it shadows
+     * after.
      *
      * @param dataHome The user's data directory.
      * @return The declarations; unreadable files are left out.
@@ -218,7 +253,11 @@ public record Destination(String name, String label, String upstream, String aut
         for (final Path location : List.of(dataHome.resolve("destinations"), PACKAGED)) {
             for (final Path file : files(location)) {
                 try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
-                    found.add(new Declared(read(reader, file.toString()), file, location.equals(PACKAGED)));
+                    found.add(
+                            new Declared(
+                                    read(reader, file.toString()),
+                                    file,
+                                    location.equals(PACKAGED)));
                 } catch (IOException | IllegalArgumentException ex) {
                     // One unreadable declaration hides itself, never the others.
                 }
@@ -250,8 +289,8 @@ public record Destination(String name, String label, String upstream, String aut
     }
 
     /**
-     * Writes a destination into the user's own directory, where it takes the place of a packaged one of the
-     * same name.
+     * Writes a destination into the user's own directory, where it takes the place of a packaged
+     * one of the same name.
      *
      * @param dataHome The user's data directory.
      * @param destination What to write.
@@ -263,7 +302,10 @@ public record Destination(String name, String label, String upstream, String aut
         final Path file = directory.resolve(destination.name() + ".yaml");
         final Path staged = directory.resolve("." + destination.name() + ".yaml.tmp");
         Files.writeString(staged, destination.yaml(), StandardCharsets.UTF_8);
-        Files.move(staged, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+        Files.move(
+                staged,
+                file,
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING,
                 java.nio.file.StandardCopyOption.ATOMIC_MOVE);
         return file;
     }

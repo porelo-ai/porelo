@@ -1,8 +1,6 @@
 package org.fuin.porelo.wire;
 
-/**
- * A JSON document could not be read or written.
- */
+/** A JSON document could not be read or written. */
 public class JsonException extends RuntimeException {
 
     private static final long serialVersionUID = 1L;

@@ -1,30 +1,30 @@
 package org.fuin.porelo.acceptance;
 
-import org.fuin.porelo.machines.Ssh;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.fuin.porelo.machines.Ssh;
 import org.jspecify.annotations.Nullable;
 
 /**
  * What one scenario holds while it runs: the machine, the terminal on it, and the last thing a
  * script wrote.
- * <p>
- * <strong>Exists so that two glue classes act on one terminal.</strong> Cucumber makes a new
+ *
+ * <p><strong>Exists so that two glue classes act on one terminal.</strong> Cucumber makes a new
  * instance of every glue class per scenario, and without an object factory each would open its own
  * session - so a step in this kit and a step in an agent's own glue would be typing into different
- * shells. The picocontainer factory hands both the same {@code World}, which is the whole reason
- * it is on the classpath.
- * <p>
- * <strong>The terminal is the scenario's; the connection is the run's.</strong> See
- * {@link Machine#shared()} for why a connection per scenario got this suite refused by sshd.
- * <p>
- * <strong>A secret is remembered by the name of the variable it came from, never printed.</strong>
- * A scenario asserts that a credential was <em>not</em> echoed, and an assertion that fails by
- * printing the expected value would put the credential into the run log and the annotation on the
- * feature file. Every check here says which variable, and never what was in it.
+ * shells. The picocontainer factory hands both the same {@code World}, which is the whole reason it
+ * is on the classpath.
+ *
+ * <p><strong>The terminal is the scenario's; the connection is the run's.</strong> See {@link
+ * Machine#shared()} for why a connection per scenario got this suite refused by sshd.
+ *
+ * <p><strong>A secret is remembered by the name of the variable it came from, never
+ * printed.</strong> A scenario asserts that a credential was <em>not</em> echoed, and an assertion
+ * that fails by printing the expected value would put the credential into the run log and the
+ * annotation on the feature file. Every check here says which variable, and never what was in it.
  */
 public final class World implements AutoCloseable {
 
@@ -50,20 +50,21 @@ public final class World implements AutoCloseable {
     private @Nullable String daemonUnit;
 
     /**
-     * Every project the kit made in this run, in any scenario, by the account it was made under - removed once
-     * the run is over, as that account.
+     * Every project the kit made in this run, in any scenario, by the account it was made under -
+     * removed once the run is over, as that account.
      */
-    private static final java.util.Map<String, java.util.Set<String>> PROJECTS = new java.util.LinkedHashMap<>();
+    private static final java.util.Map<String, java.util.Set<String>> PROJECTS =
+            new java.util.LinkedHashMap<>();
 
     /**
      * A task this scenario started and left running.
      *
      * @param container The container it runs in.
-     * @param state Its state directory on the machine, or {@code null} if the start did not name one.
+     * @param state Its state directory on the machine, or {@code null} if the start did not name
+     *     one.
      * @param said What the start printed, searched later for a secret like any log.
      */
-    public record Task(String container, @Nullable String state, String said) {
-    }
+    public record Task(String container, @Nullable String state, String said) {}
 
     /** Constructor for the object factory, which makes one per scenario. */
     public World() {
@@ -71,7 +72,8 @@ public final class World implements AutoCloseable {
     }
 
     /**
-     * Returns the machine - this scenario's account's connection, opened the first time any scenario asks.
+     * Returns the machine - this scenario's account's connection, opened the first time any
+     * scenario asks.
      *
      * @return The machine.
      * @throws IOException If it cannot be reached.
@@ -82,10 +84,10 @@ public final class World implements AutoCloseable {
 
     /**
      * Runs a command with no terminal, in this scenario's environment.
-     * <p>
-     * <strong>Every step sends through here, never through the machine directly</strong>, so that a
-     * scenario with a vault of its own has every command use it - a step that went around would act
-     * on the account's vault while the scenario believed it was acting on its own.
+     *
+     * <p><strong>Every step sends through here, never through the machine directly</strong>, so
+     * that a scenario with a vault of its own has every command use it - a step that went around
+     * would act on the account's vault while the scenario believed it was acting on its own.
      *
      * @param command What to run.
      * @return What it wrote and what it exited with.
@@ -118,8 +120,8 @@ public final class World implements AutoCloseable {
     }
 
     /**
-     * Opens a terminal in this scenario's environment that echoes what is typed, as a person's does: at it, a
-     * passphrase that appears on screen was echoed by the prompt and not by the kit.
+     * Opens a terminal in this scenario's environment that echoes what is typed, as a person's
+     * does: at it, a passphrase that appears on screen was echoed by the prompt and not by the kit.
      *
      * @return The terminal.
      * @throws IOException If it cannot be opened.
@@ -195,13 +197,15 @@ public final class World implements AutoCloseable {
     }
 
     /**
-     * Declares what a failed tool call of this scenario's agent shows, so that a wait stops once it repeats.
+     * Declares what a failed tool call of this scenario's agent shows, so that a wait stops once it
+     * repeats.
      *
      * @param marker Text the agent shows with every failed tool call, and only then.
      */
     public void toolFailure(String marker) {
         if (marker.isBlank()) {
-            throw new IllegalArgumentException("a tool failure marker that is blank is on every line");
+            throw new IllegalArgumentException(
+                    "a tool failure marker that is blank is on every line");
         }
         toolFailure = marker;
     }
@@ -222,8 +226,8 @@ public final class World implements AutoCloseable {
      */
     public Terminal terminal() {
         if (terminal == null) {
-            throw new AssertionError("No terminal is open: start with 'Given a terminal on the"
-                    + " machine'");
+            throw new AssertionError(
+                    "No terminal is open: start with 'Given a terminal on the" + " machine'");
         }
         return terminal;
     }
@@ -273,8 +277,8 @@ public final class World implements AutoCloseable {
 
     /**
      * Returns the value of a variable in the runner's environment, remembering it as a secret.
-     * <p>
-     * Remembered so that a later step can assert it appeared nowhere, by name.
+     *
+     * <p>Remembered so that a later step can assert it appeared nowhere, by name.
      *
      * @param variable The variable's name.
      * @return Its value.
@@ -282,8 +286,11 @@ public final class World implements AutoCloseable {
     public String secret(String variable) {
         final String value = System.getenv(variable);
         if (value == null || value.isBlank()) {
-            throw new AssertionError("The environment variable " + variable + " is not set on"
-                    + " the machine running this suite");
+            throw new AssertionError(
+                    "The environment variable "
+                            + variable
+                            + " is not set on"
+                            + " the machine running this suite");
         }
         secrets.put(variable, value);
         return value;
@@ -308,23 +315,25 @@ public final class World implements AutoCloseable {
      * @return {@code true} if the value is in the text.
      */
     public boolean contains(String variable, String text) {
-        final String value = secrets.containsKey(variable) ? secrets.get(variable)
-                : secret(variable);
+        final String value =
+                secrets.containsKey(variable) ? secrets.get(variable) : secret(variable);
         return text.contains(value);
     }
 
     /**
      * Tells whether text contains a secret even where a line break was put into it.
-     * <p>
-     * A value that reaches a log across a newline - wrapped output, two writes, a formatter breaking
-     * a long line - matches nothing line by line, and the check reads as proof that nothing leaked.
+     *
+     * <p>A value that reaches a log across a newline - wrapped output, two writes, a formatter
+     * breaking a long line - matches nothing line by line, and the check reads as proof that
+     * nothing leaked.
      *
      * @param variable The variable's name, as given to {@link #secret}.
      * @param text Where to look.
      * @return {@code true} if the value is in the text, with or without its line breaks.
      */
     public boolean containsAcrossLines(String variable, String text) {
-        return contains(variable, text) || contains(variable, text.replace("\r", "").replace("\n", ""));
+        return contains(variable, text)
+                || contains(variable, text.replace("\r", "").replace("\n", ""));
     }
 
     /**
@@ -339,8 +348,8 @@ public final class World implements AutoCloseable {
 
     /**
      * Replaces every secret this scenario holds with the name it came from.
-     * <p>
-     * For a failure message that has to show what a command printed: a command that leaked would
+     *
+     * <p>For a failure message that has to show what a command printed: a command that leaked would
      * otherwise have its leak repeated into the run log by the assertion that caught it.
      *
      * @param text What a command printed.
@@ -366,9 +375,10 @@ public final class World implements AutoCloseable {
 
     /**
      * Remembers a project the kit made, so it can be removed when the run is over.
-     * <p>
-     * Per run, not per scenario: some scenarios share a project on purpose - one restarts the machine,
-     * the next asks what the task on it says - and removing it between them breaks the second.
+     *
+     * <p>Per run, not per scenario: some scenarios share a project on purpose - one restarts the
+     * machine, the next asks what the task on it says - and removing it between them breaks the
+     * second.
      *
      * @param name The project's name and directory in the operator's home.
      */
@@ -386,7 +396,8 @@ public final class World implements AutoCloseable {
      */
     static java.util.Map<String, java.util.List<String>> takeProjects() {
         synchronized (PROJECTS) {
-            final java.util.Map<String, java.util.List<String>> made = new java.util.LinkedHashMap<>();
+            final java.util.Map<String, java.util.List<String>> made =
+                    new java.util.LinkedHashMap<>();
             PROJECTS.forEach((account, names) -> made.put(account, java.util.List.copyOf(names)));
             PROJECTS.clear();
             return made;
@@ -400,7 +411,8 @@ public final class World implements AutoCloseable {
      */
     public Task task() {
         if (task == null) {
-            throw new AssertionError("No task is running: start one with 'When a task is started in ...'");
+            throw new AssertionError(
+                    "No task is running: start one with 'When a task is started in ...'");
         }
         return task;
     }
@@ -426,10 +438,10 @@ public final class World implements AutoCloseable {
 
     /**
      * Replaces every {@code ${NAME}} in a command from the runner's environment.
-     * <p>
-     * For a model name or a version that CI chooses per run - a value a scenario should not
-     * hardcode and a person would type. Not for a credential: a secret goes through
-     * {@link #secret} and standard input, never into a command.
+     *
+     * <p>For a model name or a version that CI chooses per run - a value a scenario should not
+     * hardcode and a person would type. Not for a credential: a secret goes through {@link #secret}
+     * and standard input, never into a command.
      *
      * @param command The command as written in the scenario.
      * @return The command as it should be typed.
@@ -440,8 +452,10 @@ public final class World implements AutoCloseable {
         while (matcher.find()) {
             final String value = System.getenv(matcher.group(1));
             if (value == null) {
-                throw new AssertionError("The scenario names ${" + matcher.group(1)
-                        + "} and the environment running this suite does not set it");
+                throw new AssertionError(
+                        "The scenario names ${"
+                                + matcher.group(1)
+                                + "} and the environment running this suite does not set it");
             }
             matcher.appendReplacement(expanded, Matcher.quoteReplacement(value));
         }
@@ -451,11 +465,13 @@ public final class World implements AutoCloseable {
 
     /**
      * Puts a task's container name where a command says {@code {task}}.
-     * <p>
-     * A container name carries a timestamp and a run id, so a scenario cannot write it down; it names
-     * the task this scenario started instead, as a person would copy it from {@code porelo task list}.
      *
-     * {@code {state}} is the task's state directory on the machine, where its logs and helpers' files are.
+     * <p>A container name carries a timestamp and a run id, so a scenario cannot write it down; it
+     * names the task this scenario started instead, as a person would copy it from {@code porelo
+     * task list}.
+     *
+     * <p>{@code {state}} is the task's state directory on the machine, where its logs and helpers'
+     * files are.
      *
      * @param command The command as written in the scenario.
      * @param task The task this scenario started.
@@ -463,13 +479,15 @@ public final class World implements AutoCloseable {
      */
     public static String aboutTask(String command, Task task) {
         if (!command.contains("{task}") && !command.contains("{state}")) {
-            throw new AssertionError("The step is about the task and the command does not say where: "
-                    + command);
+            throw new AssertionError(
+                    "The step is about the task and the command does not say where: " + command);
         }
         final String state = task.state();
         if (command.contains("{state}") && state == null) {
-            throw new AssertionError("The command names the task's state directory and its start did not say"
-                    + " where that is: " + command);
+            throw new AssertionError(
+                    "The command names the task's state directory and its start did not say"
+                            + " where that is: "
+                            + command);
         }
         return command.replace("{task}", Shell.quote(task.container()))
                 .replace("{state}", state == null ? "" : Shell.quote(state));

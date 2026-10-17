@@ -505,6 +505,13 @@
 
         <plugins>
 
+            <!-- The shared code style, from porelo-parent: google-java-format (AOSP) and shfmt, checked in validate.
+                 'spotless:apply' formats; the formatting commit is in .git-blame-ignore-revs. -->
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+            </plugin>
+
             <!-- The package version, computed once for every module.
 
                  It used to be computed twice, in dist-deb and dist-rpm, and nowhere else - so the
@@ -676,7 +683,7 @@
                                 <groupId>org.fuin.porelo</groupId>
                                 <artifactId>porelo-release</artifactId>
                             </executableDependency>
-                            <commandlineArgs>-classpath %classpath org.fuin.porelo.release.Main check-shared ${maven.multiModuleProjectDirectory}/AGENTS.md</commandlineArgs>
+                            <commandlineArgs>-classpath %classpath org.fuin.porelo.release.Main check-shared ${maven.multiModuleProjectDirectory}/AGENTS.md ${maven.multiModuleProjectDirectory}/.editorconfig</commandlineArgs>
                         </configuration>
                     </execution>
                     <!-- A release builds and packages with no snapshot: run on a tag, on the effective pom

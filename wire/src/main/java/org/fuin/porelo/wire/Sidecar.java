@@ -9,13 +9,13 @@ import java.util.Map;
 
 /**
  * What the launcher tells the OCI hooks about one container.
- * <p>
- * This is the whole contract between the {@code porelo} binary and the three hook binaries. They
+ *
+ * <p>This is the whole contract between the {@code porelo} binary and the three hook binaries. They
  * share no other code and no library, so the file is the interface: the launcher writes it before
  * creating the container, and each hook reads it when the runtime fires.
- * <p>
- * Changing a field name changes that contract. The hooks are installed once and outlive any single
- * release of the CLI, so a rename must be treated as a protocol change, not a refactoring.
+ *
+ * <p>Changing a field name changes that contract. The hooks are installed once and outlive any
+ * single release of the CLI, so a rename must be treated as a protocol change, not a refactoring.
  *
  * @param version Schema version, so a newer hook can recognize an older file.
  * @param project Project name, for log messages and for the operator reading the file.
@@ -23,20 +23,26 @@ import java.util.Map;
  * @param rulesetFile Path to the generated nftables ruleset the nft hook loads.
  * @param dnsConfigFile Path to the generated dnsmasq configuration the supervisor hook loads.
  * @param poreloBinary Path to the {@code porelo} binary, so a hook can start the long-running
- *        helpers that need it. The hooks are static and make no native calls; anything that does
- *        has to be a separate process, and this is where they find it.
+ *     helpers that need it. The hooks are static and make no native calls; anything that does has
+ *     to be a separate process, and this is where they find it.
  * @param stateDirectory Directory the hooks write their own state into.
  */
-public record Sidecar(int version, String project, String securityClass,
-        String rulesetFile, String dnsConfigFile, String poreloBinary, String stateDirectory) {
+public record Sidecar(
+        int version,
+        String project,
+        String securityClass,
+        String rulesetFile,
+        String dnsConfigFile,
+        String poreloBinary,
+        String stateDirectory) {
 
     /**
      * Current schema version.
-     * <p>
-     * Bumped to 3 when the path to the {@code porelo} binary was added. The hooks are installed from the
-     * same package as the {@code porelo} binary, so the two are never out of step in a normal
-     * installation - and a hook that quietly ignored this field would leave the container with a
-     * resolver address and nothing listening on it, which is worse than refusing to start.
+     *
+     * <p>Bumped to 3 when the path to the {@code porelo} binary was added. The hooks are installed
+     * from the same package as the {@code porelo} binary, so the two are never out of step in a
+     * normal installation - and a hook that quietly ignored this field would leave the container
+     * with a resolver address and nothing listening on it, which is worse than refusing to start.
      */
     public static final int VERSION = 3;
 
@@ -44,11 +50,13 @@ public record Sidecar(int version, String project, String securityClass,
     public static final String ANNOTATION = "org.fuin.porelo.sidecar";
 
     /**
-     * Beside the sidecar, in the task's state directory: the id podman gave back when Porelo created the task.
-     * <p>
-     * <strong>What makes a container Porelo's task</strong> (2026-10-04): never its name, never a label -
-     * anything that runs as the account can give a container either. Written once, right after create and before
-     * the container first starts, so its hooks can compare it with the id the runtime hands them.
+     * Beside the sidecar, in the task's state directory: the id podman gave back when Porelo
+     * created the task.
+     *
+     * <p><strong>What makes a container Porelo's task</strong> (2026-10-04): never its name, never
+     * a label - anything that runs as the account can give a container either. Written once, right
+     * after create and before the container first starts, so its hooks can compare it with the id
+     * the runtime hands them.
      */
     public static final String RECORDED_ID = "container.id";
 
@@ -59,14 +67,19 @@ public record Sidecar(int version, String project, String securityClass,
      * @param id The container id.
      * @throws java.io.IOException Writing failed.
      */
-    public static void recordId(final java.nio.file.Path state, final String id) throws java.io.IOException {
+    public static void recordId(final java.nio.file.Path state, final String id)
+            throws java.io.IOException {
         if (!id.strip().matches("[0-9a-f]{12,64}")) {
             throw new java.io.IOException("podman gave back no container id: '" + id.strip() + "'");
         }
         java.nio.file.Files.createDirectories(state);
         final java.nio.file.Path staged = state.resolve("." + RECORDED_ID + ".tmp");
-        java.nio.file.Files.writeString(staged, id.strip() + "\n", java.nio.charset.StandardCharsets.UTF_8);
-        java.nio.file.Files.move(staged, state.resolve(RECORDED_ID), java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+        java.nio.file.Files.writeString(
+                staged, id.strip() + "\n", java.nio.charset.StandardCharsets.UTF_8);
+        java.nio.file.Files.move(
+                staged,
+                state.resolve(RECORDED_ID),
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING,
                 java.nio.file.StandardCopyOption.ATOMIC_MOVE);
     }
 
@@ -76,13 +89,16 @@ public record Sidecar(int version, String project, String securityClass,
      * @param state The task's state directory.
      * @return The id, or {@code null} when Porelo recorded none - then it is no task of Porelo's.
      */
-    public static @org.jspecify.annotations.Nullable String recordedId(final java.nio.file.Path state) {
+    public static @org.jspecify.annotations.Nullable String recordedId(
+            final java.nio.file.Path state) {
         final java.nio.file.Path file = state.resolve(RECORDED_ID);
         try {
             if (!java.nio.file.Files.isRegularFile(file, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
                 return null;
             }
-            final String id = java.nio.file.Files.readString(file, java.nio.charset.StandardCharsets.UTF_8).strip();
+            final String id =
+                    java.nio.file.Files.readString(file, java.nio.charset.StandardCharsets.UTF_8)
+                            .strip();
             return id.matches("[0-9a-f]{12,64}") ? id : null;
         } catch (final java.io.IOException ex) {
             return null;
@@ -91,12 +107,12 @@ public record Sidecar(int version, String project, String securityClass,
 
     /**
      * Label carrying the project a task belongs to.
-     * <p>
-     * <strong>The same fact as in the sidecar, kept where it lives as long as the task does.</strong>
-     * The sidecar is in {@code $XDG_RUNTIME_DIR}, which the system destroys when the user's last
-     * session ends - so after a reboot every surviving container listed its project and class as
-     * "-". The container itself is what the listing is about, so this is where the two facts that
-     * identify it belong.
+     *
+     * <p><strong>The same fact as in the sidecar, kept where it lives as long as the task
+     * does.</strong> The sidecar is in {@code $XDG_RUNTIME_DIR}, which the system destroys when the
+     * user's last session ends - so after a reboot every surviving container listed its project and
+     * class as "-". The container itself is what the listing is about, so this is where the two
+     * facts that identify it belong.
      */
     public static final String PROJECT_LABEL = "org.fuin.porelo.project";
 
@@ -105,19 +121,19 @@ public record Sidecar(int version, String project, String securityClass,
 
     /**
      * Label carrying the repository this task works on. See {@link #PROJECT_LABEL}.
-     * <p>
-     * On the container rather than only in the sidecar, for the reason the other two are: a
-     * listing has to say which repository a task is in after a reboot, and bringing a task back
-     * has to carry it over. A container created before this existed carries no such label, which
-     * reads as the project's own repository - the only one there was.
+     *
+     * <p>On the container rather than only in the sidecar, for the reason the other two are: a
+     * listing has to say which repository a task is in after a reboot, and bringing a task back has
+     * to carry it over. A container created before this existed carries no such label, which reads
+     * as the project's own repository - the only one there was.
      */
     public static final String REPOSITORY_LABEL = "org.fuin.porelo.repository";
 
     /**
      * Label carrying the commit the task's configuration was verified at, or "" when nothing
      * verified it. See {@link #PROJECT_LABEL}.
-     * <p>
-     * On the container because the project moves on. <em>"What was this task actually running
+     *
+     * <p>On the container because the project moves on. <em>"What was this task actually running
      * under"</em> is asked after something has gone wrong, by which time the followed clone holds
      * something newer - and a question about a task must not be answered from a file that has
      * changed since.
@@ -176,11 +192,17 @@ public record Sidecar(int version, String project, String securityClass,
         if (version != VERSION) {
             // Refusing an unknown version beats guessing at its meaning: the nft hook fails closed,
             // so a misread file is worse than no file.
-            throw new JsonException("Unsupported sidecar version " + version + ", expected " + VERSION);
+            throw new JsonException(
+                    "Unsupported sidecar version " + version + ", expected " + VERSION);
         }
-        return new Sidecar(version, string(map, "project"), string(map, "securityClass"),
-                string(map, "rulesetFile"), string(map, "dnsConfigFile"),
-                string(map, "poreloBinary"), string(map, "stateDirectory"));
+        return new Sidecar(
+                version,
+                string(map, "project"),
+                string(map, "securityClass"),
+                string(map, "rulesetFile"),
+                string(map, "dnsConfigFile"),
+                string(map, "poreloBinary"),
+                string(map, "stateDirectory"));
     }
 
     /**

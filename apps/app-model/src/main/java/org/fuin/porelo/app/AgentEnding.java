@@ -19,14 +19,15 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Says how a task's agent ended its run, when it has.
- * <p>
- * A provider answered 402 and the agent ended; the task said "idle", then "working", and nothing pointed the person at
- * what had happened. The agent reads its own end (each ends its output its own way); this asks it about the last lines
- * of the task's log, and adds what the workspace holds that never reached the gate - an agent can finish its report and
- * end before it pushes.
- * <p>
- * <strong>Asked only of a quiet log, and once per size.</strong> A log still growing is a run still going, and asking
- * on every pass would start every agent twice a second for every running task.
+ *
+ * <p>A provider answered 402 and the agent ended; the task said "idle", then "working", and nothing
+ * pointed the person at what had happened. The agent reads its own end (each ends its output its
+ * own way); this asks it about the last lines of the task's log, and adds what the workspace holds
+ * that never reached the gate - an agent can finish its report and end before it pushes.
+ *
+ * <p><strong>Asked only of a quiet log, and once per size.</strong> A log still growing is a run
+ * still going, and asking on every pass would start every agent twice a second for every running
+ * task.
  */
 public final class AgentEnding {
 
@@ -39,9 +40,7 @@ public final class AgentEnding {
     /** How many lines from the end are offered to the agent. */
     static final int LINES = 40;
 
-    /**
-     * Asks an agent which of its last lines is the end of its run.
-     */
+    /** Asks an agent which of its last lines is the end of its run. */
     @FunctionalInterface
     public interface Reader {
 
@@ -65,7 +64,12 @@ public final class AgentEnding {
      * @param status The provider's HTTP status, when the provider refused.
      * @param unpushed Changed files and commits in the workspace that never reached the gate.
      */
-    public record Ended(String at, boolean finished, String error, String source, @Nullable Integer status,
+    public record Ended(
+            String at,
+            boolean finished,
+            String error,
+            String source,
+            @Nullable Integer status,
             int unpushed) {
 
         /**
@@ -87,8 +91,7 @@ public final class AgentEnding {
         }
     }
 
-    private record Seen(long size, @Nullable Ended ended) {
-    }
+    private record Seen(long size, @Nullable Ended ended) {}
 
     private final Podman podman;
 
@@ -118,24 +121,28 @@ public final class AgentEnding {
      * @return The reading.
      */
     public static AgentEnding of(PoreloContext context) {
-        return new AgentEnding(context.runner(), Clock.systemUTC(), (agent, fromEnd) -> {
-            try (org.fuin.porelo.agent.api.InstalledAgents agents = context.agents()) {
-                final org.fuin.porelo.agent.api.InstalledAgent installed = agents.find(agent).orElse(null);
-                if (installed == null) {
-                    return null;
-                }
-                for (final String line : fromEnd) {
-                    final AgentEnd ended = installed.ended(line);
-                    if (ended != null) {
-                        return ended;
+        return new AgentEnding(
+                context.runner(),
+                Clock.systemUTC(),
+                (agent, fromEnd) -> {
+                    try (org.fuin.porelo.agent.api.InstalledAgents agents = context.agents()) {
+                        final org.fuin.porelo.agent.api.InstalledAgent installed =
+                                agents.find(agent).orElse(null);
+                        if (installed == null) {
+                            return null;
+                        }
+                        for (final String line : fromEnd) {
+                            final AgentEnd ended = installed.ended(line);
+                            if (ended != null) {
+                                return ended;
+                            }
+                        }
+                        return null;
+                    } catch (RuntimeException ex) {
+                        // An agent that cannot be asked says nothing about its end, as before.
+                        return null;
                     }
-                }
-                return null;
-            } catch (RuntimeException ex) {
-                // An agent that cannot be asked says nothing about its end, as before.
-                return null;
-            }
-        });
+                });
     }
 
     /**
@@ -147,7 +154,8 @@ public final class AgentEnding {
      * @param state Its state directory, holding {@code task.log}.
      * @return How it ended, or {@code null} while it runs, or when its agent does not say.
      */
-    public @Nullable Ended about(String container, boolean running, @Nullable String agent, Path state) {
+    public @Nullable Ended about(
+            String container, boolean running, @Nullable String agent, Path state) {
         final Path log = state.resolve("task.log");
         if (agent == null || !Files.isRegularFile(log)) {
             return null;
@@ -168,15 +176,24 @@ public final class AgentEnding {
             return known.ended();
         }
         final AgentEnd end = reader.ended(agent, lastLines(log, size));
-        final Ended ended = end == null ? null : new Ended(written.toString(), end.finished(), end.error(),
-                end.source(), end.status(), unpushed(container, running, state));
+        final Ended ended =
+                end == null
+                        ? null
+                        : new Ended(
+                                written.toString(),
+                                end.finished(),
+                                end.error(),
+                                end.source(),
+                                end.status(),
+                                unpushed(container, running, state));
         seen.put(container, new Seen(size, ended));
         return ended;
     }
 
     private int unpushed(String container, boolean running, Path state) {
         // A stopped task is not asked: what it held was written down when it stopped.
-        final UnhandedWork.Held held = running ? UnhandedWork.ask(podman, container) : UnhandedWork.read(state);
+        final UnhandedWork.Held held =
+                running ? UnhandedWork.ask(podman, container) : UnhandedWork.read(state);
         return held.readable() ? held.changedFiles() + held.unpushedCommits() : 0;
     }
 
@@ -191,7 +208,8 @@ public final class AgentEnding {
         }
         final String[] lines = new String(tail, StandardCharsets.UTF_8).split("\n");
         final List<String> fromEnd = new ArrayList<>();
-        // The first line of a cut read may be the end of a longer one: only whole lines are offered.
+        // The first line of a cut read may be the end of a longer one: only whole lines are
+        // offered.
         final int first = size > length ? 1 : 0;
         for (int i = lines.length - 1; i >= first && fromEnd.size() < LINES; i--) {
             if (!lines[i].isBlank()) {

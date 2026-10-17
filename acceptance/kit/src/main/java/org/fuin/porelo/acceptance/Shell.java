@@ -1,8 +1,6 @@
 package org.fuin.porelo.acceptance;
 
-/**
- * Quoting for a command that has to survive being passed through another shell.
- */
+/** Quoting for a command that has to survive being passed through another shell. */
 final class Shell {
 
     private Shell() {

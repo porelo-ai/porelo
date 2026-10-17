@@ -4,14 +4,14 @@ import java.util.List;
 
 /**
  * The state an agent needs in a task container before it will run unattended.
- * <p>
- * A vendor's tool typically expects to have been used interactively at least once: a first-run
+ *
+ * <p>A vendor's tool typically expects to have been used interactively at least once: a first-run
  * wizard answered, a folder trusted, a credential stored where its own login would have put it. A
  * fresh container has none of that, so the tool stops and asks. Porelo cannot answer those
  * questions - they are the vendor's, and they change - so the agent answers them and Porelo writes
  * the bytes.
- * <p>
- * The endpoint is passed in because some agents cannot be pointed at a broker with a variable at
+ *
+ * <p>The endpoint is passed in because some agents cannot be pointed at a broker with a variable at
  * all: their endpoint lives in a configuration file, and only the agent knows its shape.
  */
 @FunctionalInterface

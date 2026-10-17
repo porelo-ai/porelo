@@ -9,11 +9,11 @@ import org.junit.jupiter.api.Test;
 /**
  * What a repository may say about its own egress and its own limits, and how it combines with the
  * project's.
- * <p>
- * <strong>Two rules, on purpose.</strong> Egress is added and a limit replaces, because egress is a
- * list of grants - where adding is the only operation that makes sense - and a limit is one number
- * with nothing to add it to. Most of what is checked here is the second rule's trap: a key nobody
- * wrote means <em>the project's</em>, never the default.
+ *
+ * <p><strong>Two rules, on purpose.</strong> Egress is added and a limit replaces, because egress
+ * is a list of grants - where adding is the only operation that makes sense - and a limit is one
+ * number with nothing to add it to. Most of what is checked here is the second rule's trap: a key
+ * nobody wrote means <em>the project's</em>, never the default.
  */
 class RepositoryEgressAndLimitsTest {
 
@@ -22,7 +22,8 @@ class RepositoryEgressAndLimitsTest {
     }
 
     /** A project that raises memory and pids away from the defaults, so a fallback is visible. */
-    private static final String HEAD = """
+    private static final String HEAD =
+            """
             project:
               name: "acme"
               security_class: "guarded"
@@ -39,7 +40,10 @@ class RepositoryEgressAndLimitsTest {
 
     @Test
     void aRepositoryThatSaysNothingRunsExactlyAsTheProjectSays() {
-        final Project project = read(HEAD + """
+        final Project project =
+                read(
+                        HEAD
+                                + """
                 repositories:
                   backend:
                 """);
@@ -52,7 +56,10 @@ class RepositoryEgressAndLimitsTest {
 
     @Test
     void aRepositorysEgressIsAddedToTheProjects() {
-        final Project project = read(HEAD + """
+        final Project project =
+                read(
+                        HEAD
+                                + """
                 repositories:
                   frontend:
                     egress:
@@ -69,7 +76,10 @@ class RepositoryEgressAndLimitsTest {
 
     @Test
     void aSetNamedInBothPlacesIsNamedOnce() {
-        final Project project = read(HEAD + """
+        final Project project =
+                read(
+                        HEAD
+                                + """
                 repositories:
                   frontend:
                     egress:
@@ -81,7 +91,10 @@ class RepositoryEgressAndLimitsTest {
 
     @Test
     void oneRepositorysEgressIsNotAnothers() {
-        final Project project = read(HEAD + """
+        final Project project =
+                read(
+                        HEAD
+                                + """
                 repositories:
                   frontend:
                     egress:
@@ -96,7 +109,10 @@ class RepositoryEgressAndLimitsTest {
 
     @Test
     void aRepositorysLimitReplacesTheProjectsForThatKeyOnly() {
-        final Project project = read(HEAD + """
+        final Project project =
+                read(
+                        HEAD
+                                + """
                 repositories:
                   frontend:
                     limits:
@@ -114,7 +130,10 @@ class RepositoryEgressAndLimitsTest {
 
     @Test
     void aRepositoryNamingOnlyPidsKeepsTheProjectsMemory() {
-        final Project project = read(HEAD + """
+        final Project project =
+                read(
+                        HEAD
+                                + """
                 repositories:
                   backend:
                     limits:
@@ -128,7 +147,10 @@ class RepositoryEgressAndLimitsTest {
 
     @Test
     void aRepositoryCanOptOutOfALimitOnPurpose() {
-        final Project project = read(HEAD + """
+        final Project project =
+                read(
+                        HEAD
+                                + """
                 repositories:
                   backend:
                     limits:
@@ -140,7 +162,11 @@ class RepositoryEgressAndLimitsTest {
 
     @Test
     void aBadSetNameUnderARepositoryIsRefusedLikeOneAtTheTop() {
-        assertThatThrownBy(() -> read(HEAD + """
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        HEAD
+                                                + """
                 repositories:
                   frontend:
                     egress:
@@ -152,7 +178,11 @@ class RepositoryEgressAndLimitsTest {
 
     @Test
     void aProcessLimitThatLeavesNothingToRunIsRefused() {
-        assertThatThrownBy(() -> read(HEAD + """
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        HEAD
+                                                + """
                 repositories:
                   backend:
                     limits:
@@ -164,7 +194,11 @@ class RepositoryEgressAndLimitsTest {
 
     @Test
     void aRepositorysEgressThatIsNotAMappingSaysWhichBlockWasWrong() {
-        assertThatThrownBy(() -> read(HEAD + """
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        HEAD
+                                                + """
                 repositories:
                   frontend:
                     egress: [flutter]

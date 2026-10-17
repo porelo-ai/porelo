@@ -15,8 +15,8 @@ import picocli.CommandLine;
 
 /**
  * Tests for opening a shell in a running task.
- * <p>
- * The arguments are the whole behaviour: this command replaces its own process with the session,
+ *
+ * <p>The arguments are the whole behaviour: this command replaces its own process with the session,
  * so what it builds is what a person ends up talking to. Getting the program and its arguments
  * joined into one string would have podman look for an executable with spaces in its name, which
  * fails as "no such file" and reads like a broken container.
@@ -30,16 +30,23 @@ class TaskAttachCommandTest {
     private final StringWriter err = new StringWriter();
 
     private int run(Path dir, String... arguments) {
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
-        final PoreloContext context = new PoreloContext(runner,
-                new PoreloPaths(xdg, dir.resolve("bin")), command -> {
-                    attached.addAll(command);
-                    return 0;
-                });
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
+        final PoreloContext context =
+                new PoreloContext(
+                        runner,
+                        new PoreloPaths(xdg, dir.resolve("bin")),
+                        command -> {
+                            attached.addAll(command);
+                            return 0;
+                        });
         final CommandLine cmd = PoreloCli.commandLine(context);
         cmd.setOut(new PrintWriter(new StringWriter()));
         cmd.setErr(new PrintWriter(err));
@@ -56,9 +63,19 @@ class TaskAttachCommandTest {
 
         assertThat(run(dir, "task", "attach", "porelo-uc-shell-1")).isZero();
 
-        assertThat(attached).containsSubsequence("exec", "--interactive", "--tty",
-                "porelo-uc-shell-1", "tmux", "-f", "/etc/porelo/tmux.conf",
-                "new-session", "-A", "-s", "porelo");
+        assertThat(attached)
+                .containsSubsequence(
+                        "exec",
+                        "--interactive",
+                        "--tty",
+                        "porelo-uc-shell-1",
+                        "tmux",
+                        "-f",
+                        "/etc/porelo/tmux.conf",
+                        "new-session",
+                        "-A",
+                        "-s",
+                        "porelo");
     }
 
     @Test
@@ -131,7 +148,8 @@ class TaskAttachCommandTest {
         // that cannot answer costs nothing here: the offer swallows it and the refusal stands.
         assertThat(run(dir, "task", "attach", "some-other-container")).isEqualTo(69);
         assertThat(attached).as("nothing is attached to a name that is not a task").isEmpty();
-        assertThat(runner.lines()).as("only ever asked to list, never to act")
+        assertThat(runner.lines())
+                .as("only ever asked to list, never to act")
                 .allMatch(line -> line.startsWith("podman ps"));
     }
 

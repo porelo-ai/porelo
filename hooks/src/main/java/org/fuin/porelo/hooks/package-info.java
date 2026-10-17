@@ -1,6 +1,4 @@
-/**
- * OCI hooks (HOOKS)
- */
+/** OCI hooks (HOOKS) */
 @NullMarked
 package org.fuin.porelo.hooks;
 

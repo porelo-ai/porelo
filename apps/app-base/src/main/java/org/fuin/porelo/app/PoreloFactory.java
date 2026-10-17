@@ -4,8 +4,8 @@ import picocli.CommandLine.IFactory;
 
 /**
  * Creates command objects with a {@link PoreloContext} already set.
- * <p>
- * Picocli instantiates subcommands itself, so this is where the context is handed to them.
+ *
+ * <p>Picocli instantiates subcommands itself, so this is where the context is handed to them.
  */
 public class PoreloFactory implements IFactory {
 
@@ -31,9 +31,7 @@ public class PoreloFactory implements IFactory {
         return instance;
     }
 
-    /**
-     * Implemented by commands that need the context.
-     */
+    /** Implemented by commands that need the context. */
     public interface ContextAware {
 
         /**

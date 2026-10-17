@@ -16,19 +16,19 @@ import org.yaml.snakeyaml.constructor.SafeConstructor;
 
 /**
  * What credentials this machine has, and which one a destination gets.
- * <p>
- * <strong>Readable with the vault shut</strong>, which is the whole reason it is a file of its own.
- * A machine that keeps its only record of a credential inside the encrypted thing cannot tell
+ *
+ * <p><strong>Readable with the vault shut</strong>, which is the whole reason it is a file of its
+ * own. A machine that keeps its only record of a credential inside the encrypted thing cannot tell
  * <em>"a credential for this host is configured, unlock the vault"</em> from <em>"nothing is
  * configured, store one"</em> - and those two send a person to opposite places. Nothing secret is
  * in here: names, kinds, destinations, usernames.
- * <p>
- * <strong>The longest match wins.</strong> A URL is normalised - {@code git@host:path} is
- * {@code ssh://host/path} - and the record whose {@code match} is the longest prefix of it is the
- * one used. That is how one credential covers a forge and another covers one group on it, without
- * an ordering rule nobody can remember.
- * <p>
- * <strong>A missing file is not an error.</strong> A machine that has never needed one has none,
+ *
+ * <p><strong>The longest match wins.</strong> A URL is normalised - {@code git@host:path} is {@code
+ * ssh://host/path} - and the record whose {@code match} is the longest prefix of it is the one
+ * used. That is how one credential covers a forge and another covers one group on it, without an
+ * ordering rule nobody can remember.
+ *
+ * <p><strong>A missing file is not an error.</strong> A machine that has never needed one has none,
  * and callers fall back to what they did before.
  */
 public final class CredentialRegistry {
@@ -92,33 +92,58 @@ public final class CredentialRegistry {
             throw new CredentialException("a credential in " + file + " names no 'match'");
         }
         final Credential.Source source = source(file, text(fields, "source"));
-        final String id = text(fields, source == Credential.Source.VAULT ? "vault"
-                : source == Credential.Source.FILE ? "file"
-                : source == Credential.Source.ENVIRONMENT ? "env" : "vault");
+        final String id =
+                text(
+                        fields,
+                        source == Credential.Source.VAULT
+                                ? "vault"
+                                : source == Credential.Source.FILE
+                                        ? "file"
+                                        : source == Credential.Source.ENVIRONMENT
+                                                ? "env"
+                                                : "vault");
         if (id == null && source != Credential.Source.AGENT) {
-            throw new CredentialException("the credential for '" + match + "' in " + file
-                    + " says source '" + source.name().toLowerCase(Locale.ROOT)
-                    + "' and does not say where");
+            throw new CredentialException(
+                    "the credential for '"
+                            + match
+                            + "' in "
+                            + file
+                            + " says source '"
+                            + source.name().toLowerCase(Locale.ROOT)
+                            + "' and does not say where");
         }
-        return new Credential(id == null ? "" : id, kind(file, match, text(fields, "kind")),
-                normalise(match), text(fields, "user"),
+        return new Credential(
+                id == null ? "" : id,
+                kind(file, match, text(fields, "kind")),
+                normalise(match),
+                text(fields, "user"),
                 java.util.Objects.requireNonNullElse(text(fields, "purpose"), Credential.ANY),
-                source, text(fields, "expires"));
+                source,
+                text(fields, "expires"));
     }
 
-    private static Credential.Kind kind(final Path file, final String match,
-            final @Nullable String said) {
+    private static Credential.Kind kind(
+            final Path file, final String match, final @Nullable String said) {
         if (said == null) {
-            throw new CredentialException("the credential for '" + match + "' in " + file
-                    + " does not say its 'kind': ssh-key, token, basic or oauth");
+            throw new CredentialException(
+                    "the credential for '"
+                            + match
+                            + "' in "
+                            + file
+                            + " does not say its 'kind': ssh-key, token, basic or oauth");
         }
         return switch (said.strip().toLowerCase(Locale.ROOT)) {
             case "ssh-key", "ssh", "key" -> Credential.Kind.SSH_KEY;
             case "token", "pat" -> Credential.Kind.TOKEN;
             case "basic", "password" -> Credential.Kind.BASIC;
             case "oauth" -> Credential.Kind.OAUTH;
-            default -> throw new CredentialException("'" + said + "' in " + file
-                    + " is not a kind of credential: ssh-key, token, basic or oauth");
+            default ->
+                    throw new CredentialException(
+                            "'"
+                                    + said
+                                    + "' in "
+                                    + file
+                                    + " is not a kind of credential: ssh-key, token, basic or oauth");
         };
     }
 
@@ -131,8 +156,13 @@ public final class CredentialRegistry {
             case "file" -> Credential.Source.FILE;
             case "env", "environment" -> Credential.Source.ENVIRONMENT;
             case "agent", "ssh-agent" -> Credential.Source.AGENT;
-            default -> throw new CredentialException("'" + said + "' in " + file
-                    + " is not a source: vault, file, env or agent");
+            default ->
+                    throw new CredentialException(
+                            "'"
+                                    + said
+                                    + "' in "
+                                    + file
+                                    + " is not a source: vault, file, env or agent");
         };
     }
 
@@ -176,8 +206,8 @@ public final class CredentialRegistry {
 
     /**
      * Writes a URL the way {@code match} is compared against.
-     * <p>
-     * {@code git@github.com:acme/x.git} and {@code ssh://git@github.com/acme/x.git} are the same
+     *
+     * <p>{@code git@github.com:acme/x.git} and {@code ssh://git@github.com/acme/x.git} are the same
      * destination written two ways, and a person should not have to write a record for each.
      *
      * @param url Any git-style URL.

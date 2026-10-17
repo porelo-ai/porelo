@@ -10,20 +10,20 @@ import java.util.stream.Stream;
 
 /**
  * The message keys the other users of this machine have published, and which of them to believe.
- * <p>
- * <strong>A key is believed only if its file and the directory holding it are both owned by the
+ *
+ * <p><strong>A key is believed only if its file and the directory holding it are both owned by the
  * user they are named after.</strong> {@code keys/bob/key.pub} counts as bob's key when bob owns
  * both, and counts as nothing otherwise.
- * <p>
- * <strong>A directory each, rather than a file each in one shared directory.</strong> Measured on
- * 2026-09-18: with one shared directory, a group member could create {@code keys/bob.pub} before
+ *
+ * <p><strong>A directory each, rather than a file each in one shared directory.</strong> Measured
+ * on 2026-09-18: with one shared directory, a group member could create {@code keys/bob.pub} before
  * bob ever published. The owner check disbelieved it correctly - and the sticky bit then stopped
- * bob removing it, so bob could never publish and his messaging was silenced until root
- * intervened. Nothing was forged and nothing could be repaired. With a directory per account, made
- * by root, there is no name left to take. Found by the filter's agent, confirmed here.
- * <p>
- * That is the same kind of fact as the one a transport attests about a message: the kernel says who
- * wrote a file, and nothing in the file can contradict it. Agreed with the filter's agent on
+ * bob removing it, so bob could never publish and his messaging was silenced until root intervened.
+ * Nothing was forged and nothing could be repaired. With a directory per account, made by root,
+ * there is no name left to take. Found by the filter's agent, confirmed here.
+ *
+ * <p>That is the same kind of fact as the one a transport attests about a message: the kernel says
+ * who wrote a file, and nothing in the file can contradict it. Agreed with the filter's agent on
  * 2026-09-18 (their issue 010).
  */
 public final class SharedKeys {
@@ -39,8 +39,8 @@ public final class SharedKeys {
      * Reads the keys this machine's users have published to each other.
      *
      * @param directory Where they publish, which need not exist.
-     * @return One peer per believable file, named after the user that owns it. Empty when
-     *         messaging between users was never allowed here.
+     * @return One peer per believable file, named after the user that owns it. Empty when messaging
+     *     between users was never allowed here.
      * @throws IOException Reading failed.
      */
     public static List<MessageDelivery.Peer> read(final Path directory) throws IOException {

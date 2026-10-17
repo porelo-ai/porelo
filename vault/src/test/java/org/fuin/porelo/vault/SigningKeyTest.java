@@ -7,9 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link SigningKey}.
- */
+/** Tests for {@link SigningKey}. */
 class SigningKeyTest {
 
     @Test

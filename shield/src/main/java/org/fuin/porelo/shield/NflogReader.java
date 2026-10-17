@@ -8,11 +8,11 @@ import java.util.function.Consumer;
 
 /**
  * Reads dropped packets from an NFLOG group and reports them.
- * <p>
- * Must run inside the container's network namespace, because NFLOG is per-namespace. It is started
- * by the reader hook, which enters the namespace with {@code nsenter} first.
- * <p>
- * <strong>Soft-fail by design.</strong> Losing this costs visibility, not containment: the
+ *
+ * <p>Must run inside the container's network namespace, because NFLOG is per-namespace. It is
+ * started by the reader hook, which enters the namespace with {@code nsenter} first.
+ *
+ * <p><strong>Soft-fail by design.</strong> Losing this costs visibility, not containment: the
  * firewall is already loaded and keeps dropping whether anyone is listening or not.
  */
 public class NflogReader implements AutoCloseable {
@@ -50,14 +50,17 @@ public class NflogReader implements AutoCloseable {
         try {
             socket.send(bindMessage(group));
             final byte[] acknowledgement = socket.receive(4096);
-            final int error = acknowledgement.length >= 20
-                    ? ByteBuffer.wrap(acknowledgement).order(ByteOrder.nativeOrder()).getInt(16)
-                    : -1;
+            final int error =
+                    acknowledgement.length >= 20
+                            ? ByteBuffer.wrap(acknowledgement)
+                                    .order(ByteOrder.nativeOrder())
+                                    .getInt(16)
+                            : -1;
             if (error != 0) {
                 // Almost always no CAP_NET_ADMIN in the owning user namespace, which means the
                 // reader was started outside the container's namespace.
-                throw new NetlinkException("The kernel refused the NFLOG bind to group " + group,
-                        Math.abs(error));
+                throw new NetlinkException(
+                        "The kernel refused the NFLOG bind to group " + group, Math.abs(error));
             }
         } catch (RuntimeException ex) {
             socket.close();
@@ -110,9 +113,7 @@ public class NflogReader implements AutoCloseable {
         }
     }
 
-    /**
-     * Asks the read loop to stop after the current message.
-     */
+    /** Asks the read loop to stop after the current message. */
     public void stop() {
         running = false;
     }

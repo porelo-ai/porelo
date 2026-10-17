@@ -14,11 +14,11 @@ import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What the builds of a task's pushes did, as Porelo told the task: the record that outlives the task, and the view a
- * person sees while it runs.
- * <p>
- * The record holds what was delivered - commit, verdict, job, the log's name, size and hash - and never a line of a
- * log: the log is kept only in the task it was handed to, and goes with it.
+ * What the builds of a task's pushes did, as Porelo told the task: the record that outlives the
+ * task, and the view a person sees while it runs.
+ *
+ * <p>The record holds what was delivered - commit, verdict, job, the log's name, size and hash -
+ * and never a line of a log: the log is kept only in the task it was handed to, and goes with it.
  */
 public final class TaskBuilds {
 
@@ -31,8 +31,7 @@ public final class TaskBuilds {
      * @param bytes Its size.
      * @param sha256 Its content's hash, hex.
      */
-    public record Log(String name, long bytes, String sha256) {
-    }
+    public record Log(String name, long bytes, String sha256) {}
 
     /**
      * One job of a build, and its log as it was handed into the task.
@@ -67,7 +66,13 @@ public final class TaskBuilds {
      * @param detail Why it is unknown, or what more the forge said; "" otherwise.
      * @param run The container id of the task it went to.
      */
-    public record Seen(String commit, String verdict, List<Job> jobs, String since, String detail, String run) {
+    public record Seen(
+            String commit,
+            String verdict,
+            List<Job> jobs,
+            String since,
+            String detail,
+            String run) {
 
         /**
          * Returns it as the daemon sends it, the agreed contract.
@@ -113,10 +118,16 @@ public final class TaskBuilds {
         }
     }
 
-    /** The helper that follows a task's builds: its pid file, its log and its entry in the resume record. */
+    /**
+     * The helper that follows a task's builds: its pid file, its log and its entry in the resume
+     * record.
+     */
     public static final String HELPER = "builds";
 
-    /** The file in a task's state that says which reader follows its builds, and what keeps it from doing so. */
+    /**
+     * The file in a task's state that says which reader follows its builds, and what keeps it from
+     * doing so.
+     */
     static final String READER_FILE = "builds.json";
 
     /**
@@ -137,23 +148,42 @@ public final class TaskBuilds {
      */
     public void write(final String container, final Seen seen) throws IOException {
         final Path record = recordOf(container);
-        Files.createDirectories(record.getParent(), PosixFilePermissions.asFileAttribute(
-                PosixFilePermissions.fromString("rwx------")));
+        Files.createDirectories(
+                record.getParent(),
+                PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")));
         if (!Files.exists(record)) {
-            Files.createFile(record, PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
+            Files.createFile(
+                    record,
+                    PosixFilePermissions.asFileAttribute(
+                            PosixFilePermissions.fromString("rw-------")));
         }
         final Map<String, Object> line = new LinkedHashMap<>(seen.asMap());
-        // The record keeps each log's size and hash beside its name: what was delivered, never a line of it.
-        line.put("jobs", seen.jobs().stream().map(job -> {
-            final Map<String, Object> each = new LinkedHashMap<>(job.asMap());
-            if (job.log() != null) {
-                each.put("log", Map.of("name", job.log().name(), "bytes", job.log().bytes(),
-                        "sha256", job.log().sha256()));
-            }
-            return each;
-        }).toList());
+        // The record keeps each log's size and hash beside its name: what was delivered, never a
+        // line of it.
+        line.put(
+                "jobs",
+                seen.jobs().stream()
+                        .map(
+                                job -> {
+                                    final Map<String, Object> each =
+                                            new LinkedHashMap<>(job.asMap());
+                                    if (job.log() != null) {
+                                        each.put(
+                                                "log",
+                                                Map.of(
+                                                        "name",
+                                                        job.log().name(),
+                                                        "bytes",
+                                                        job.log().bytes(),
+                                                        "sha256",
+                                                        job.log().sha256()));
+                                    }
+                                    return each;
+                                })
+                        .toList());
         line.put("run", seen.run());
-        Files.writeString(record, Json.write(line) + "\n", StandardCharsets.UTF_8, StandardOpenOption.APPEND);
+        Files.writeString(
+                record, Json.write(line) + "\n", StandardCharsets.UTF_8, StandardOpenOption.APPEND);
     }
 
     /**
@@ -175,21 +205,33 @@ public final class TaskBuilds {
                 if (map.get("jobs") instanceof List<?> listed) {
                     for (final Object entry : listed) {
                         if (entry instanceof Map<?, ?> job) {
-                            final Log log = job.get("log") instanceof Map<?, ?> each ? new Log(text(each.get("name")),
-                                    number(each.get("bytes")), text(each.get("sha256"))) : null;
+                            final Log log =
+                                    job.get("log") instanceof Map<?, ?> each
+                                            ? new Log(
+                                                    text(each.get("name")),
+                                                    number(each.get("bytes")),
+                                                    text(each.get("sha256")))
+                                            : null;
                             jobs.add(new Job(text(job.get("name")), text(job.get("result")), log));
                         }
                     }
                 }
-                seen.add(new Seen(text(map.get("commit")), text(map.get("verdict")), jobs, text(map.get("since")),
-                        text(map.get("detail")), text(map.get("run"))));
+                seen.add(
+                        new Seen(
+                                text(map.get("commit")),
+                                text(map.get("verdict")),
+                                jobs,
+                                text(map.get("since")),
+                                text(map.get("detail")),
+                                text(map.get("run"))));
             }
         }
         return seen;
     }
 
     /**
-     * Returns the builds of a task's current run, each commit's newest verdict, the newest commit first.
+     * Returns the builds of a task's current run, each commit's newest verdict, the newest commit
+     * first.
      *
      * @param container The task.
      * @return The builds; empty before the first push and where nothing can be read.
@@ -200,12 +242,14 @@ public final class TaskBuilds {
         try {
             for (final Seen seen : record(container)) {
                 if (seen.run().equals(run)) {
-                    // A commit keeps the place it was first seen at, so the order is the order of the pushes.
+                    // A commit keeps the place it was first seen at, so the order is the order of
+                    // the pushes.
                     newest.put(seen.commit(), seen);
                 }
             }
         } catch (IOException | RuntimeException ex) {
-            // An unreadable record says no build is known rather than failing the listing it is a part of.
+            // An unreadable record says no build is known rather than failing the listing it is a
+            // part of.
             return List.of();
         }
         final List<Seen> builds = new ArrayList<>(newest.values());
@@ -221,13 +265,15 @@ public final class TaskBuilds {
      * @param problem Why it does not follow them; "" when it does.
      * @throws IOException When it cannot be written.
      */
-    public void reader(final String container, final String reader, final String problem) throws IOException {
+    public void reader(final String container, final String reader, final String problem)
+            throws IOException {
         final Path state = paths.containerState(container);
         Files.createDirectories(state);
         final Map<String, Object> said = new LinkedHashMap<>();
         said.put("reader", reader);
         said.put("problem", problem);
-        Files.writeString(state.resolve(READER_FILE), Json.write(said) + "\n", StandardCharsets.UTF_8);
+        Files.writeString(
+                state.resolve(READER_FILE), Json.write(said) + "\n", StandardCharsets.UTF_8);
     }
 
     /**
@@ -240,11 +286,14 @@ public final class TaskBuilds {
         final Path file = paths.containerState(container).resolve(READER_FILE);
         try {
             if (Files.isRegularFile(file)
-                    && Json.parse(Files.readString(file, StandardCharsets.UTF_8)) instanceof Map<?, ?> said) {
-                return new View(text(said.get("reader")), text(said.get("problem")), current(container));
+                    && Json.parse(Files.readString(file, StandardCharsets.UTF_8))
+                            instanceof Map<?, ?> said) {
+                return new View(
+                        text(said.get("reader")), text(said.get("problem")), current(container));
             }
         } catch (IOException | RuntimeException ex) {
-            // Unreadable, it says nothing follows them rather than failing the listing it is a part of.
+            // Unreadable, it says nothing follows them rather than failing the listing it is a part
+            // of.
         }
         return View.none();
     }

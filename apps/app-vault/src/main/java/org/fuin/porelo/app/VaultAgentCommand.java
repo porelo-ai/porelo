@@ -17,50 +17,65 @@ import picocli.CommandLine.Spec;
 
 /**
  * Runs the ssh-agent that signs for a task container.
- * <p>
- * The socket it creates is what gets bind-mounted into the container as {@code SSH_AUTH_SOCK}. The
- * key itself stays in this process: a container can ask for a signature and cannot obtain the key
- * that produces it.
+ *
+ * <p>The socket it creates is what gets bind-mounted into the container as {@code SSH_AUTH_SOCK}.
+ * The key itself stays in this process: a container can ask for a signature and cannot obtain the
+ * key that produces it.
  */
-@Command(name = "agent",
+@Command(
+        name = "agent",
         mixinStandardHelpOptions = true,
         description = "Runs an ssh-agent that signs with a key from the vault.")
 public class VaultAgentCommand implements Callable<Integer> {
 
-    @Option(names = "--socket", paramLabel = "<path>", required = true,
+    @Option(
+            names = "--socket",
+            paramLabel = "<path>",
+            required = true,
             description = "Where to create the agent socket.")
     private Path socket;
 
-    @Option(names = "--key", paramLabel = "<name>",
+    @Option(
+            names = "--key",
+            paramLabel = "<name>",
             description = "Vault entry holding the key seed. Default: ${DEFAULT-VALUE}")
     private String keyName = "ssh.default";
 
-    @Option(names = "--passphrase-command", paramLabel = "<command>",
+    @Option(
+            names = "--passphrase-command",
+            paramLabel = "<command>",
             description = "Command whose first output line is the vault passphrase.")
     private @Nullable String passphraseCommand;
 
-    @Option(names = "--systemd-credential", paramLabel = "<file>",
+    @Option(
+            names = "--systemd-credential",
+            paramLabel = "<file>",
             description = "systemd-creds encrypted file holding the vault passphrase.")
     private @Nullable String systemdCredential;
 
-    @Option(names = "--ephemeral",
+    @Option(
+            names = "--ephemeral",
             description = "Generates a throwaway key instead of reading the vault. For testing.")
     private boolean ephemeral;
 
-    @Option(names = "--print-public-key",
+    @Option(
+            names = "--print-public-key",
             description = "Prints the public key in authorized_keys form and keeps running.")
     private boolean printPublicKey;
 
-    @Option(names = "--pid-file", paramLabel = "<file>",
+    @Option(
+            names = "--pid-file",
+            paramLabel = "<file>",
             description = "Writes this process's id here, so the poststop hook can reap it.")
     private @Nullable Path pidFile;
 
-    @Option(names = "--seconds", paramLabel = "<n>",
+    @Option(
+            names = "--seconds",
+            paramLabel = "<n>",
             description = "Stop after this long. Zero means run until killed.")
     private int seconds;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     @Override
     public Integer call() throws Exception {
@@ -68,8 +83,10 @@ public class VaultAgentCommand implements Callable<Integer> {
         final PrintWriter out = spec.commandLine().getOut();
         final PrintWriter err = spec.commandLine().getErr();
 
-        // Before the key is read: this process holds its seed for as long as it serves, and a core dump of it, or a
-        // debugger of the same user attached, is a copy of the key. Process-wide, and kept for its life.
+        // Before the key is read: this process holds its seed for as long as it serves, and a core
+        // dump of it, or a
+        // debugger of the same user attached, is a copy of the key. Process-wide, and kept for its
+        // life.
         org.fuin.porelo.core.hardening.ProcessHardening.disableDumping();
         final org.fuin.porelo.vault.AgentKey key;
         try {
@@ -125,12 +142,18 @@ public class VaultAgentCommand implements Callable<Integer> {
             return VaultFile.Opener.share(share.get());
         }
         final var runner = new org.fuin.porelo.core.process.ProcessCommandRunner();
-        return VaultFile.Opener.passphrase(new org.fuin.porelo.vault.PassphraseTiers(
-                // The keyring first here, unlike 'vault unlock': this runs per task, and the whole
-                // point of the cache is that it answers without asking anyone.
-                org.fuin.porelo.vault.KernelKeyring.source(paths.vault().vaultKeyringKey()),
-                new org.fuin.porelo.vault.SystemdCredential(runner, systemdCredential),
-                new org.fuin.porelo.vault.CommandPassphrase(runner, passphraseCommand),
-                new org.fuin.porelo.vault.ConsolePassphrase("Vault passphrase: ")).require());
+        return VaultFile.Opener.passphrase(
+                new org.fuin.porelo.vault.PassphraseTiers(
+                                // The keyring first here, unlike 'vault unlock': this runs per
+                                // task, and the whole
+                                // point of the cache is that it answers without asking anyone.
+                                org.fuin.porelo.vault.KernelKeyring.source(
+                                        paths.vault().vaultKeyringKey()),
+                                new org.fuin.porelo.vault.SystemdCredential(
+                                        runner, systemdCredential),
+                                new org.fuin.porelo.vault.CommandPassphrase(
+                                        runner, passphraseCommand),
+                                new org.fuin.porelo.vault.ConsolePassphrase("Vault passphrase: "))
+                        .require());
     }
 }

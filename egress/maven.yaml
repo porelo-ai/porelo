@@ -8,9 +8,9 @@
 name: maven
 label: Maven Central
 domains:
-  - repo.maven.apache.org
-  # Snapshots. A different host from releases, and needed by any project building against an
-  # unreleased dependency.
-  - central.sonatype.com
-  # The same service under the name older poms and settings hard-code.
-  - repo1.maven.org
+    - repo.maven.apache.org
+    # Snapshots. A different host from releases, and needed by any project building against an
+    # unreleased dependency.
+    - central.sonatype.com
+    # The same service under the name older poms and settings hard-code.
+    - repo1.maven.org

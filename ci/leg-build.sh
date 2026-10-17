@@ -7,5 +7,6 @@
 # acceptance/legs on every build, so a regrouping that breaks it fails here and not on a rented machine.
 set -eu
 MODULES=apps/app,daemon,hooks,agents/stub,builds/stub
-# porelo's settings.xml, where the build tooling's snapshots come from; the machine has none of its own.
-exec ./mvnw -B -s settings.xml -Pnative -DskipTests package ${1:+-Dporelo.snapshot.run=$1} -pl "$MODULES" -am
+# porelo's settings.xml, where the build tooling's snapshots come from; the machine has none of its own. The code
+# style is the Build job's to check, and a rented machine has no shfmt to check it with.
+exec ./mvnw -B -s settings.xml -Pnative -DskipTests -Dspotless.check.skip=true package ${1:+-Dporelo.snapshot.run=$1} -pl "$MODULES" -am

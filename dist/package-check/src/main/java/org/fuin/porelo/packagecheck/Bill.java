@@ -12,12 +12,12 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Checks the CycloneDX bill a package installs under {@code /usr/share/porelo/sbom}.
- * <p>
- * What the bill is for is a reader: an operator can see what a package carries without installing
- * it, and a native image is opaque to a scanner afterwards. It is checked here, on the package,
- * because no acceptance leg installs one - a leg stages a build.
- * <p>
- * <strong>Nothing in this repository compares one bill with the next.</strong> This proves the
+ *
+ * <p>What the bill is for is a reader: an operator can see what a package carries without
+ * installing it, and a native image is opaque to a scanner afterwards. It is checked here, on the
+ * package, because no acceptance leg installs one - a leg stages a build.
+ *
+ * <p><strong>Nothing in this repository compares one bill with the next.</strong> This proves the
  * document exists, describes the right package and names what ships; a dependency set that changed
  * between two releases passes in silence.
  *
@@ -43,7 +43,9 @@ record Bill(String label, String subject, String version, Set<String> ships, Set
         }
         final List<String> components = new ArrayList<>();
         final String fault = fault(json, components);
-        report.check(fault == null, label + " ships a bill for itself (" + components.size() + " components)",
+        report.check(
+                fault == null,
+                label + " ships a bill for itself (" + components.size() + " components)",
                 label + " ships a bill that " + fault);
     }
 
@@ -99,20 +101,24 @@ record Bill(String label, String subject, String version, Set<String> ships, Set
 
     /**
      * The version a bill records for a package version.
-     * <p>
-     * A bill records the Maven version, and snapshot packages carry a build number: the package is
-     * {@code 0.1.0~snapshot.69}, the bill says {@code 0.1.0-SNAPSHOT}. So every build of a release
-     * line writes the same bill version, and a bill left over from an earlier build is invisible here.
+     *
+     * <p>A bill records the Maven version, and snapshot packages carry a build number: the package
+     * is {@code 0.1.0~snapshot.69}, the bill says {@code 0.1.0-SNAPSHOT}. So every build of a
+     * release line writes the same bill version, and a bill left over from an earlier build is
+     * invisible here.
      *
      * @param packageVersion the package's version
      * @return the Maven version
      */
     static String mavenVersion(String packageVersion) {
         final int tilde = packageVersion.indexOf('~');
-        if (tilde >= 0 && packageVersion.substring(tilde + 1).toLowerCase(Locale.ROOT).startsWith("snapshot")) {
+        if (tilde >= 0
+                && packageVersion
+                        .substring(tilde + 1)
+                        .toLowerCase(Locale.ROOT)
+                        .startsWith("snapshot")) {
             return packageVersion.substring(0, tilde) + "-SNAPSHOT";
         }
         return packageVersion;
     }
-
 }

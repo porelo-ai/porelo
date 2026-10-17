@@ -4,10 +4,6 @@ import java.io.PrintWriter;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.concurrent.Callable;
-import org.fuin.porelo.agent.api.Credential;
-import org.fuin.porelo.agent.api.InstalledAgent;
-import org.fuin.porelo.vault.VaultEntry;
-import org.fuin.porelo.vault.VaultException;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
@@ -17,25 +13,31 @@ import picocli.CommandLine.Spec;
 
 /**
  * Copies a credential an agent already holds on this host into the vault.
- * <p>
- * An agent that has been logged in keeps its credential in a file of its own. Retyping it into the
- * vault is work that invites a typo, and the commonest typo is storing the guide's placeholder.
+ *
+ * <p>An agent that has been logged in keeps its credential in a file of its own. Retyping it into
+ * the vault is work that invites a typo, and the commonest typo is storing the guide's placeholder.
  */
-@Command(name = "import",
+@Command(
+        name = "import",
         mixinStandardHelpOptions = true,
         description = "Copies a credential the agent already holds on this host into the vault.")
 public class VaultImportCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
-    @Parameters(index = "0", arity = "0..1", paramLabel = "<agent>",
+    @Parameters(
+            index = "0",
+            arity = "0..1",
+            paramLabel = "<agent>",
             description = "Agent to import from. Default: the only one installed.")
     private @Nullable String agentName;
 
-    @Option(names = "--config-dir", paramLabel = "<dir>",
-            description = "Where the agent keeps its credentials. Default: what the agent declares.")
+    @Option(
+            names = "--config-dir",
+            paramLabel = "<dir>",
+            description =
+                    "Where the agent keeps its credentials. Default: what the agent declares.")
     private @Nullable String configDirectory;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -63,8 +65,8 @@ public class VaultImportCommand implements Callable<Integer>, PoreloFactory.Cont
 
     /**
      * Caches the passphrase that was just typed, so the next command does not ask again.
-     * <p>
-     * Importing is normally the first thing an operator does, and being asked twice in a row for
+     *
+     * <p>Importing is normally the first thing an operator does, and being asked twice in a row for
      * the same secret reads as something having gone wrong.
      *
      * @param passphrase The passphrase.
@@ -75,7 +77,8 @@ public class VaultImportCommand implements Callable<Integer>, PoreloFactory.Cont
             return;
         }
         try {
-            new org.fuin.porelo.vault.KernelKeyring(context.paths().vault().vaultKeyringKey()).store(passphrase);
+            new org.fuin.porelo.vault.KernelKeyring(context.paths().vault().vaultKeyringKey())
+                    .store(passphrase);
             out.println("unlocked  cached in this account's keyring, where the daemon finds it");
         } catch (RuntimeException ex) {
             // Not being able to cache is not a reason for the import to have failed.
@@ -94,17 +97,32 @@ public class VaultImportCommand implements Callable<Integer>, PoreloFactory.Cont
         // than a refusal. What already opens it - a cached passphrase, or a device's share - is
         // used first, so somebody at the machine is not asked for something they do not need.
         final char[][] typed = new char[1][];
-        final CredentialImport.Result result = CredentialImport.run(context, agentName,
-                configDirectory, () -> context.opener().or(() -> {
-                    typed[0] = context.requirePassphrase();
-                    return Optional.of(org.fuin.porelo.vault.VaultFile.Opener.passphrase(typed[0]));
-                }));
+        final CredentialImport.Result result =
+                CredentialImport.run(
+                        context,
+                        agentName,
+                        configDirectory,
+                        () ->
+                                context.opener()
+                                        .or(
+                                                () -> {
+                                                    typed[0] = context.requirePassphrase();
+                                                    return Optional.of(
+                                                            org.fuin.porelo.vault.VaultFile.Opener
+                                                                    .passphrase(typed[0]));
+                                                }));
 
-        if (result.outcome() == CredentialImport.Outcome.NOTHING_TO_IMPORT && agentName != null
+        if (result.outcome() == CredentialImport.Outcome.NOTHING_TO_IMPORT
+                && agentName != null
                 && Offer.atTerminal()) {
             err.println("porelo: " + result.detail());
             err.flush();
-            return loginInstead(agentName, new Offer(Offer.Asker.terminal(), false, false, err), context) ? 0 : 69;
+            return loginInstead(
+                            agentName,
+                            new Offer(Offer.Asker.terminal(), false, false, err),
+                            context)
+                    ? 0
+                    : 69;
         }
         if (result.outcome() != CredentialImport.Outcome.IMPORTED) {
             err.println("porelo: " + result.detail());
@@ -116,8 +134,15 @@ public class VaultImportCommand implements Callable<Integer>, PoreloFactory.Cont
             cache(typed[0], out);
         }
         // The value is never echoed: what is useful is that it arrived and which kind it is.
-        out.println("imported  " + result.name() + " (" + result.type() + ", "
-                + result.length() + " characters) from " + result.source());
+        out.println(
+                "imported  "
+                        + result.name()
+                        + " ("
+                        + result.type()
+                        + ", "
+                        + result.length()
+                        + " characters) from "
+                        + result.source());
         out.flush();
         if (!result.detail().isEmpty()) {
             err.println("porelo: " + result.detail());
@@ -127,21 +152,35 @@ public class VaultImportCommand implements Callable<Integer>, PoreloFactory.Cont
     }
 
     /**
-     * Offers the agent's own login where there is nothing of it to import, run as {@code porelo vault login} itself on
-     * this terminal.
+     * Offers the agent's own login where there is nothing of it to import, run as {@code porelo
+     * vault login} itself on this terminal.
      *
      * @param agent The agent.
      * @param offer Who is asked.
      * @param context The machine.
      * @return Whether the login ran and stored its credential.
      */
-    static boolean loginInstead(final String agent, final Offer offer, final PoreloContext context) {
+    static boolean loginInstead(
+            final String agent, final Offer offer, final PoreloContext context) {
         final int[] exit = {-1};
-        return offer.resolve(new Offer.Remedy("nothing of '" + agent + "' to import on this machine",
-                "Log in with it now, as 'porelo vault login " + agent + "' does?", "porelo vault login " + agent, "",
-                false, () -> {
-                    exit[0] = context.exec().applyAsInt(java.util.List.of(PoreloBinary.path(), "vault", "login", agent));
-                    return exit[0] == 0;
-                }, () -> exit[0] == 0));
+        return offer.resolve(
+                new Offer.Remedy(
+                        "nothing of '" + agent + "' to import on this machine",
+                        "Log in with it now, as 'porelo vault login " + agent + "' does?",
+                        "porelo vault login " + agent,
+                        "",
+                        false,
+                        () -> {
+                            exit[0] =
+                                    context.exec()
+                                            .applyAsInt(
+                                                    java.util.List.of(
+                                                            PoreloBinary.path(),
+                                                            "vault",
+                                                            "login",
+                                                            agent));
+                            return exit[0] == 0;
+                        },
+                        () -> exit[0] == 0));
     }
 }

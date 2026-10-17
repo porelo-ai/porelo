@@ -12,9 +12,7 @@ import org.fuin.porelo.vault.SshSignature;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Test for {@link MessageIntake}.
- */
+/** Test for {@link MessageIntake}. */
 class MessageIntakeTest {
 
     private final SigningKey key = SigningKey.generate("host");
@@ -37,10 +35,14 @@ class MessageIntakeTest {
         assertThat(taken).containsExactly("m-1.json");
         assertThat(mailbox.outboxNew().resolve("m-1.json")).doesNotExist();
         assertThat(mailbox.incoming().resolve("m-1.json")).exists();
-        final String signature =
-                Files.readString(mailbox.incoming().resolve("m-1.json.sig"));
-        assertThat(SshSignature.verify(json.getBytes(StandardCharsets.UTF_8), signature,
-                key.keyBlob(), MessageIntake.NAMESPACE)).isTrue();
+        final String signature = Files.readString(mailbox.incoming().resolve("m-1.json.sig"));
+        assertThat(
+                        SshSignature.verify(
+                                json.getBytes(StandardCharsets.UTF_8),
+                                signature,
+                                key.keyBlob(),
+                                MessageIntake.NAMESPACE))
+                .isTrue();
     }
 
     @Test
@@ -70,7 +72,8 @@ class MessageIntakeTest {
     void a_message_never_arrives_without_its_signature(@TempDir final Path dir) throws IOException {
         final Mailbox mailbox = mailbox(dir);
         for (int i = 0; i < 5; i++) {
-            Files.writeString(mailbox.outboxNew().resolve("m-" + i + ".json"),
+            Files.writeString(
+                    mailbox.outboxNew().resolve("m-" + i + ".json"),
                     "{\"messageId\":\"m-" + i + "\"}");
         }
 
@@ -78,15 +81,21 @@ class MessageIntakeTest {
 
         try (var entries = Files.list(mailbox.incoming())) {
             entries.filter(path -> path.getFileName().toString().endsWith(".json"))
-                    .forEach(message -> assertThat(
-                            message.resolveSibling(message.getFileName() + ".sig")).exists());
+                    .forEach(
+                            message ->
+                                    assertThat(
+                                                    message.resolveSibling(
+                                                            message.getFileName() + ".sig"))
+                                            .exists());
         }
     }
 
     @Test
-    void whatIsTakenIsTheHostsOwnCopyWhichTheAgentCannotChangeAfterwards(@TempDir final Path dir) throws IOException {
+    void whatIsTakenIsTheHostsOwnCopyWhichTheAgentCannotChangeAfterwards(@TempDir final Path dir)
+            throws IOException {
 
-        // Renamed onward, the file stayed the agent's inode: through a hard link it kept in its outbox it could change
+        // Renamed onward, the file stayed the agent's inode: through a hard link it kept in its
+        // outbox it could change
         // a message after it was signed, after the filter and after a person read it.
         final Mailbox mailbox = mailbox(dir);
         final Path message = mailbox.outboxNew().resolve("m-1.json");
@@ -103,9 +112,12 @@ class MessageIntakeTest {
     @Test
     void aLinkTheAgentPlacedIsNotFollowed(@TempDir final Path dir) throws IOException {
 
-        // Followed, the host read whatever file its account can and signed it as the agent's message.
+        // Followed, the host read whatever file its account can and signed it as the agent's
+        // message.
         final Mailbox mailbox = mailbox(dir);
-        final Path secret = Files.writeString(dir.resolve("secret.json"), "{\"messageId\":\"s\",\"key\":\"x\"}");
+        final Path secret =
+                Files.writeString(
+                        dir.resolve("secret.json"), "{\"messageId\":\"s\",\"key\":\"x\"}");
         Files.createSymbolicLink(mailbox.outboxNew().resolve("m-1.json"), secret);
 
         assertThat(new MessageIntake(key).take(mailbox)).isEmpty();
@@ -115,10 +127,12 @@ class MessageIntakeTest {
     @Test
     void aFileBeyondTheLimitIsNotReadAndStopsNothing(@TempDir final Path dir) throws IOException {
 
-        // Read whole, a sparse file of gigabytes threw OutOfMemoryError and ended messaging on the machine.
+        // Read whole, a sparse file of gigabytes threw OutOfMemoryError and ended messaging on the
+        // machine.
         final Mailbox mailbox = mailbox(dir);
-        try (java.io.RandomAccessFile huge = new java.io.RandomAccessFile(
-                mailbox.outboxNew().resolve("a.json").toFile(), "rw")) {
+        try (java.io.RandomAccessFile huge =
+                new java.io.RandomAccessFile(
+                        mailbox.outboxNew().resolve("a.json").toFile(), "rw")) {
             huge.setLength(3L * 1024 * 1024 * 1024);
         }
         Files.writeString(mailbox.outboxNew().resolve("b.json"), "{\"messageId\":\"b\"}");
@@ -128,10 +142,11 @@ class MessageIntakeTest {
     }
 
     @Test
-    void anOutboxTheAgentReplacedWithALinkIsNotReadAndWhatItPointsAtIsLeftAlone(@TempDir final Path dir)
-            throws IOException {
+    void anOutboxTheAgentReplacedWithALinkIsNotReadAndWhatItPointsAtIsLeftAlone(
+            @TempDir final Path dir) throws IOException {
 
-        // The box is the task's: replaced by a link, its outbox led the host to read, sign and delete files anywhere
+        // The box is the task's: replaced by a link, its outbox led the host to read, sign and
+        // delete files anywhere
         // its account can.
         final Mailbox mailbox = mailbox(dir);
         final Path elsewhere = Files.createDirectories(dir.resolve("elsewhere"));
@@ -139,8 +154,10 @@ class MessageIntakeTest {
         Files.delete(mailbox.outboxNew());
         Files.createSymbolicLink(mailbox.outboxNew(), elsewhere);
 
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> new MessageIntake(key).take(mailbox))
-                .isInstanceOf(IOException.class).hasMessageContaining("link");
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> new MessageIntake(key).take(mailbox))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("link");
         assertThat(elsewhere.resolve("precious.json")).exists();
     }
 }

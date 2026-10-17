@@ -6,9 +6,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link Backlog}.
- */
+/** Tests for {@link Backlog}. */
 class BacklogTest {
 
     @Test
@@ -16,7 +14,8 @@ class BacklogTest {
         final Backlog backlog = new Backlog(2);
         backlog.offer(Map.of("destination", "pypi.org"));
 
-        assertThat(backlog.poll(0, TimeUnit.MILLISECONDS)).isEqualTo(Map.of("destination", "pypi.org"));
+        assertThat(backlog.poll(0, TimeUnit.MILLISECONDS))
+                .isEqualTo(Map.of("destination", "pypi.org"));
         assertThat(backlog.poll(0, TimeUnit.MILLISECONDS)).isNull();
     }
 
@@ -30,7 +29,8 @@ class BacklogTest {
         }
 
         assertThat(backlog.poll(0, TimeUnit.MILLISECONDS))
-                .containsEntry("destination", "host0").containsEntry(Backlog.MISSED, 3L);
+                .containsEntry("destination", "host0")
+                .containsEntry(Backlog.MISSED, 3L);
         assertThat(backlog.poll(0, TimeUnit.MILLISECONDS))
                 .as("told once, not again")
                 .doesNotContainKey(Backlog.MISSED);

@@ -11,9 +11,7 @@ import java.util.function.UnaryOperator;
 import org.fuin.porelo.machines.Ssh;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link Repeated}, with tries and looks that are counted instead of run.
- */
+/** Tests for {@link Repeated}, with tries and looks that are counted instead of run. */
 class RepeatedTest {
 
     private static final Duration SOON = Duration.ofMillis(20);
@@ -23,13 +21,14 @@ class RepeatedTest {
         final AtomicInteger looks = new AtomicInteger();
         return new Terminal.Loops() {
             @Override
-            public void reset() {
-            }
+            public void reset() {}
 
             @Override
             public Optional<String> check() {
-                return looks.incrementAndGet() < look ? Optional.empty()
-                        : Optional.of("In porelo-busy-busy the tool failure \"✘ Write\" scrolled by 3 times");
+                return looks.incrementAndGet() < look
+                        ? Optional.empty()
+                        : Optional.of(
+                                "In porelo-busy-busy the tool failure \"✘ Write\" scrolled by 3 times");
             }
         };
     }
@@ -38,9 +37,17 @@ class RepeatedTest {
     void returnsTheFirstTryThatExitsZero() throws IOException {
         final AtomicInteger tries = new AtomicInteger();
 
-        final Ssh.Output done = Repeated.untilZero("porelo talk held", () -> tries.incrementAndGet() < 3
-                ? new Ssh.Output("", "nothing yet", 1) : new Ssh.Output("5555", "", 0),
-                loopingFrom(Integer.MAX_VALUE), Duration.ofSeconds(240), SOON, UnaryOperator.identity());
+        final Ssh.Output done =
+                Repeated.untilZero(
+                        "porelo talk held",
+                        () ->
+                                tries.incrementAndGet() < 3
+                                        ? new Ssh.Output("", "nothing yet", 1)
+                                        : new Ssh.Output("5555", "", 0),
+                        loopingFrom(Integer.MAX_VALUE),
+                        Duration.ofSeconds(240),
+                        SOON,
+                        UnaryOperator.identity());
 
         assertThat(done.out()).isEqualTo("5555");
         assertThat(tries).hasValue(3);
@@ -51,10 +58,18 @@ class RepeatedTest {
         final AtomicInteger tries = new AtomicInteger();
         final long began = System.nanoTime();
 
-        assertThatThrownBy(() -> Repeated.untilZero("porelo talk held", () -> {
-            tries.incrementAndGet();
-            return new Ssh.Output("", "nothing yet", 1);
-        }, loopingFrom(2), Duration.ofSeconds(240), SOON, UnaryOperator.identity()))
+        assertThatThrownBy(
+                        () ->
+                                Repeated.untilZero(
+                                        "porelo talk held",
+                                        () -> {
+                                            tries.incrementAndGet();
+                                            return new Ssh.Output("", "nothing yet", 1);
+                                        },
+                                        loopingFrom(2),
+                                        Duration.ofSeconds(240),
+                                        SOON,
+                                        UnaryOperator.identity()))
                 .isInstanceOf(AssertionError.class)
                 .hasMessageContaining("Stopped running \"porelo talk held\"")
                 .hasMessageContaining("\"✘ Write\" scrolled by 3 times")
@@ -66,8 +81,15 @@ class RepeatedTest {
 
     @Test
     void failsWithTheLastTryWhenTheTimeRunsOut() {
-        assertThatThrownBy(() -> Repeated.untilZero("porelo talk held", () -> new Ssh.Output("", "nothing yet", 1),
-                loopingFrom(Integer.MAX_VALUE), Duration.ofMillis(200), SOON, UnaryOperator.identity()))
+        assertThatThrownBy(
+                        () ->
+                                Repeated.untilZero(
+                                        "porelo talk held",
+                                        () -> new Ssh.Output("", "nothing yet", 1),
+                                        loopingFrom(Integer.MAX_VALUE),
+                                        Duration.ofMillis(200),
+                                        SOON,
+                                        UnaryOperator.identity()))
                 .isInstanceOf(AssertionError.class)
                 .hasMessageContaining("did not exit zero within 0s")
                 .hasMessageContaining("nothing yet");
@@ -75,8 +97,15 @@ class RepeatedTest {
 
     @Test
     void aFailureSaysNothingTheFilterHides() {
-        assertThatThrownBy(() -> Repeated.untilZero("porelo talk held", () -> new Ssh.Output("", "token abc", 1),
-                loopingFrom(1), Duration.ofSeconds(240), SOON, text -> text.replace("abc", "***")))
+        assertThatThrownBy(
+                        () ->
+                                Repeated.untilZero(
+                                        "porelo talk held",
+                                        () -> new Ssh.Output("", "token abc", 1),
+                                        loopingFrom(1),
+                                        Duration.ofSeconds(240),
+                                        SOON,
+                                        text -> text.replace("abc", "***")))
                 .hasMessageNotContaining("abc");
     }
 }

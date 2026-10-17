@@ -9,16 +9,12 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Tests for {@link AgentDirectory}, and in particular for which copy of an agent runs.
- */
+/** Tests for {@link AgentDirectory}, and in particular for which copy of an agent runs. */
 class AgentDirectoryTest {
 
-    @TempDir
-    private Path own;
+    @TempDir private Path own;
 
-    @TempDir
-    private Path packaged;
+    @TempDir private Path packaged;
 
     /**
      * Writes an executable agent binary.
@@ -50,8 +46,7 @@ class AgentDirectoryTest {
         final Path mine = agent(own, "alpha");
         agent(packaged, "alpha");
 
-        assertThat(new AgentDirectory(List.of(own, packaged)).executables())
-                .containsExactly(mine);
+        assertThat(new AgentDirectory(List.of(own, packaged)).executables()).containsExactly(mine);
     }
 
     @Test
@@ -61,8 +56,7 @@ class AgentDirectoryTest {
         agent(own, "alpha");
         final Path theirs = agent(packaged, "alpha");
 
-        assertThat(new AgentDirectory(List.of(own, packaged)).shadowed())
-                .containsExactly(theirs);
+        assertThat(new AgentDirectory(List.of(own, packaged)).shadowed()).containsExactly(theirs);
     }
 
     @Test

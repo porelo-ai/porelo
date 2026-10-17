@@ -10,13 +10,14 @@ import java.nio.file.attribute.PosixFilePermissions;
 import org.fuin.porelo.runtime.Containerfile;
 
 /**
- * What a task's agent is told about Porelo in its task: its handed-in files, the builds of its pushes, and its mailbox
- * where it has one.
- * <p>
- * Nothing told an agent that {@code /porelo/files} existed, so it pushed and never looked at its red build unless a
- * person remembered to say so. <strong>The same for every task of one Porelo version</strong>, as
- * the mailbox's guide is and for the same reason: an agent takes it into its system prompt, which a provider caches by
- * its beginning. The files' part comes first, since every task has {@code /porelo/files}; the mailbox's follows it.
+ * What a task's agent is told about Porelo in its task: its handed-in files, the builds of its
+ * pushes, and its mailbox where it has one.
+ *
+ * <p>Nothing told an agent that {@code /porelo/files} existed, so it pushed and never looked at its
+ * red build unless a person remembered to say so. <strong>The same for every task of one Porelo
+ * version</strong>, as the mailbox's guide is and for the same reason: an agent takes it into its
+ * system prompt, which a provider caches by its beginning. The files' part comes first, since every
+ * task has {@code /porelo/files}; the mailbox's follows it.
  */
 public final class TaskGuideText {
 
@@ -31,7 +32,8 @@ public final class TaskGuideText {
      * @return Markdown.
      */
     public static String text(final boolean mailbox) {
-        final String files = """
+        final String files =
+                """
                 # Porelo in this task
 
                 This task runs in Porelo. What follows is what Porelo gives you here besides your workspace:
@@ -73,7 +75,8 @@ public final class TaskGuideText {
 
                 **After you push, read `build-<commit>.txt` until its verdict is final, before you call the work
                 done.** On `failure`, read the log each failed `job` line names, fix the cause, and push again.
-                """.replace("@FILES@", Containerfile.HAND_IN_FILES);
+                """
+                        .replace("@FILES@", Containerfile.HAND_IN_FILES);
         return mailbox ? files + "\n" + MailboxGuide.text() : files;
     }
 
@@ -101,6 +104,7 @@ public final class TaskGuideText {
         final Path staged = Files.createTempFile(directory.getParent(), ".guide", ".tmp");
         Files.writeString(staged, text, StandardCharsets.UTF_8);
         Files.setPosixFilePermissions(staged, PosixFilePermissions.fromString("rw-r--r--"));
-        Files.move(staged, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        Files.move(
+                staged, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
     }
 }

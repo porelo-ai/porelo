@@ -10,9 +10,10 @@ import org.junit.jupiter.api.Test;
 
 /**
  * What the proxy accepts as a body.
- * <p>
- * Everything here used to be accepted and forwarded to the provider under this task's credential,
- * which turns a malformed request into an unexplainable provider error rather than a refusal.
+ *
+ * <p>Everything here used to be accepted and forwarded to the provider under this task's
+ * credential, which turns a malformed request into an unexplainable provider error rather than a
+ * refusal.
  */
 class HttpFramingTest {
 
@@ -33,7 +34,8 @@ class HttpFramingTest {
     @Test
     void exactlyTheDeclaredLengthIsAccepted() throws IOException {
         assertThat(HttpHead.readExactly(bytes("0123456789"), 10))
-                .asString(StandardCharsets.UTF_8).isEqualTo("0123456789");
+                .asString(StandardCharsets.UTF_8)
+                .isEqualTo("0123456789");
     }
 
     @Test
@@ -55,7 +57,8 @@ class HttpFramingTest {
     @Test
     void aWellFramedChunkedBodyIsAccepted() throws IOException {
         assertThat(HttpHead.readChunked(bytes("4\r\nabcd\r\n3\r\nefg\r\n0\r\n\r\n"), 1024))
-                .asString(StandardCharsets.UTF_8).isEqualTo("abcdefg");
+                .asString(StandardCharsets.UTF_8)
+                .isEqualTo("abcdefg");
     }
 
     @Test

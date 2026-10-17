@@ -3,6 +3,6 @@
 name: go
 label: Go modules
 domains:
-  - proxy.golang.org
-  - sum.golang.org
-  - index.golang.org
+    - proxy.golang.org
+    - sum.golang.org
+    - index.golang.org

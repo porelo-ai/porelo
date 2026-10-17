@@ -11,14 +11,14 @@ import java.util.stream.Stream;
 
 /**
  * Where provider declarations are found.
- * <p>
- * A directory scan rather than a list, so a provider can be added without changing or rebuilding
+ *
+ * <p>A directory scan rather than a list, so a provider can be added without changing or rebuilding
  * anything - which is the point of declaring providers separately at all.
- * <p>
- * Two locations, checked in order, matching {@link AgentDirectory}. A declaration in the
+ *
+ * <p>Two locations, checked in order, matching {@link AgentDirectory}. A declaration in the
  * operator's own directory wins over a packaged one of the same name, so a provider can be tried
- * without root. Unlike agents these are data files, not executables, so they live under
- * {@code share} rather than {@code libexec}.
+ * without root. Unlike agents these are data files, not executables, so they live under {@code
+ * share} rather than {@code libexec}.
  */
 public class ProviderDirectory {
 
@@ -60,10 +60,10 @@ public class ProviderDirectory {
 
     /**
      * Finds every declared provider.
-     * <p>
-     * A declaration that cannot be read is skipped rather than fatal: one broken file an operator
-     * dropped in must not stop every other provider from working. It is not silent either -
-     * {@link #unreadable()} is what reports it.
+     *
+     * <p>A declaration that cannot be read is skipped rather than fatal: one broken file an
+     * operator dropped in must not stop every other provider from working. It is not silent either
+     * - {@link #unreadable()} is what reports it.
      *
      * @return Providers by name, the operator's own winning over a packaged one.
      */
@@ -81,12 +81,13 @@ public class ProviderDirectory {
     }
 
     /**
-     * Returns the declarations set aside because an earlier one names the same provider, each with the one that won.
-     * <p>
-     * The first file to name a provider wins, whatever it is called, and the provider's name is the vault key its
-     * credential is kept under: a file dropped in as {@code experiment.yaml} naming a packaged provider takes it over,
-     * and with it where the stored key goes. That is allowed - a person's own declaration is meant to win - and
-     * said.
+     * Returns the declarations set aside because an earlier one names the same provider, each with
+     * the one that won.
+     *
+     * <p>The first file to name a provider wins, whatever it is called, and the provider's name is
+     * the vault key its credential is kept under: a file dropped in as {@code experiment.yaml}
+     * naming a packaged provider takes it over, and with it where the stored key goes. That is
+     * allowed - a person's own declaration is meant to win - and said.
      *
      * @return File set aside to the file that won, empty when no name is declared twice.
      */

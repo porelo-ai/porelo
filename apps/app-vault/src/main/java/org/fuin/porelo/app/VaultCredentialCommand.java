@@ -15,46 +15,58 @@ import picocli.CommandLine.Spec;
 
 /**
  * Answers git when it asks for the password of an https repository.
- * <p>
- * <strong>git's own protocol, not an invention.</strong> git runs a credential helper with
+ *
+ * <p><strong>git's own protocol, not an invention.</strong> git runs a credential helper with
  * {@code get}, writes {@code protocol=}, {@code host=} and a blank line to its standard input, and
- * reads {@code username=} and {@code password=} back. Porelo wires it up per command
- * ({@code git -c credential.https://host.helper=...}), so nothing is written into any git config
- * and the helper is offered to that host alone.
- * <p>
- * <strong>Why the token is not an argument.</strong> {@code /proc/<pid>/cmdline} is world readable
- * on both supported distributions, so a token on a command line is readable by every account on
- * the machine. What travels as an argument here is the <em>name of the vault entry</em>; the value
- * is read from the vault by this process and written to one pipe.
+ * reads {@code username=} and {@code password=} back. Porelo wires it up per command ({@code git -c
+ * credential.https://host.helper=...}), so nothing is written into any git config and the helper is
+ * offered to that host alone.
+ *
+ * <p><strong>Why the token is not an argument.</strong> {@code /proc/<pid>/cmdline} is world
+ * readable on both supported distributions, so a token on a command line is readable by every
+ * account on the machine. What travels as an argument here is the <em>name of the vault entry</em>;
+ * the value is read from the vault by this process and written to one pipe.
  */
-@Command(name = "credential",
+@Command(
+        name = "credential",
         mixinStandardHelpOptions = true,
         description = "Answers git's credential protocol from the vault. Run by git, not by hand.")
 public class VaultCredentialCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
-    @Parameters(index = "0", arity = "0..1", paramLabel = "<operation>",
+    @Parameters(
+            index = "0",
+            arity = "0..1",
+            paramLabel = "<operation>",
             description = "What git asks: get, store or erase. Only 'get' answers.")
     private String operation = "get";
 
-    @Option(names = "--entry", paramLabel = "<name>",
+    @Option(
+            names = "--entry",
+            paramLabel = "<name>",
             description = "Vault entry holding the token, as 'porelo vault list' shows it.")
     private @Nullable String entry;
 
-    @Option(names = "--env", paramLabel = "<variable>",
-            description = "Environment variable holding the token, for a value this machine did"
-                    + " not store.")
+    @Option(
+            names = "--env",
+            paramLabel = "<variable>",
+            description =
+                    "Environment variable holding the token, for a value this machine did"
+                            + " not store.")
     private @Nullable String variable;
 
-    @Option(names = "--file", paramLabel = "<path>",
+    @Option(
+            names = "--file",
+            paramLabel = "<path>",
             description = "File holding the token, for a value this machine did not store.")
     private @Nullable String file;
 
-    @Option(names = "--username", paramLabel = "<name>",
+    @Option(
+            names = "--username",
+            paramLabel = "<name>",
             description = "What to answer as the user. Default: ${DEFAULT-VALUE}")
     private String username = "x-access-token";
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -77,8 +89,8 @@ public class VaultCredentialCommand implements Callable<Integer>, PoreloFactory.
         }
         // Read git's request even though every field is already known: git waits for the helper
         // to consume it, and a helper that answers without reading can deadlock on a full pipe.
-        try (BufferedReader asked = new BufferedReader(
-                new InputStreamReader(System.in, StandardCharsets.UTF_8))) {
+        try (BufferedReader asked =
+                new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8))) {
             String line = asked.readLine();
             while (line != null && !line.isBlank()) {
                 line = asked.readLine();
@@ -100,11 +112,11 @@ public class VaultCredentialCommand implements Callable<Integer>, PoreloFactory.
 
     /**
      * Returns the secret from wherever this was told it lives.
-     * <p>
-     * Three sources because a person working on their own machine may already have the value -
-     * exported, or in a file - and should not have to keep a second copy of it in a vault. What
-     * the vault adds is being encrypted and shuttable; the other two are as protected as whatever
-     * holds them, which is the person's choice to make and the machine's job to say.
+     *
+     * <p>Three sources because a person working on their own machine may already have the value -
+     * exported, or in a file - and should not have to keep a second copy of it in a vault. What the
+     * vault adds is being encrypted and shuttable; the other two are as protected as whatever holds
+     * them, which is the person's choice to make and the machine's job to say.
      *
      * @param err Where to explain a miss.
      * @return The value, or {@code null} when there is none.
@@ -121,8 +133,8 @@ public class VaultCredentialCommand implements Callable<Integer>, PoreloFactory.
         }
         if (file != null) {
             try {
-                final String value = java.nio.file.Files.readString(
-                        java.nio.file.Path.of(file)).strip();
+                final String value =
+                        java.nio.file.Files.readString(java.nio.file.Path.of(file)).strip();
                 if (value.isEmpty()) {
                     err.println("porelo: " + file + " is empty");
                     err.flush();

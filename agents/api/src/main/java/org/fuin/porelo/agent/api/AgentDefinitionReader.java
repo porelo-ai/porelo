@@ -16,10 +16,10 @@ import org.yaml.snakeyaml.constructor.SafeConstructor;
 
 /**
  * Reads an {@code agent.yaml} into an {@link AgentDefinition}.
- * <p>
- * Loaded as plain maps and mapped by hand, for the same two reasons as the project reader: binding
- * onto records would need reflection metadata in a native image, and would let a definition name
- * any class on the classpath.
+ *
+ * <p>Loaded as plain maps and mapped by hand, for the same two reasons as the project reader:
+ * binding onto records would need reflection metadata in a native image, and would let a definition
+ * name any class on the classpath.
  */
 public final class AgentDefinitionReader {
 
@@ -38,8 +38,8 @@ public final class AgentDefinitionReader {
     public static AgentDefinition fromResource(Class<?> loader, String resource) {
         try (InputStream in = loader.getResourceAsStream(resource)) {
             if (in == null) {
-                throw new AgentException("No agent definition at " + resource
-                        + " in " + loader.getName());
+                throw new AgentException(
+                        "No agent definition at " + resource + " in " + loader.getName());
             }
             return read(new InputStreamReader(in, StandardCharsets.UTF_8), resource);
         } catch (IOException ex) {
@@ -111,12 +111,14 @@ public final class AgentDefinitionReader {
                 // An EMPTY list is not the same as absent. An agent whose login is "just run me"
                 // declares the section with no arguments, and reading that as "cannot log in"
                 // would refuse the commonest shape there is.
-                root.get("login") == null ? null
+                root.get("login") == null
+                        ? null
                         : strings(optionalSection(root, "login").get("arguments")),
                 // Where that login is described. Optional even when the section is there: an
                 // agent may have a login and no page about it, and a missing link is better than
                 // one somebody invented.
-                root.get("login") == null ? null
+                root.get("login") == null
+                        ? null
                         : optional(optionalSection(root, "login"), "documentation"),
                 // What this agent needs to be told so that it stops asking permission for things
                 // the container already prevents. Declared because the flag is the agent's own
@@ -127,13 +129,17 @@ public final class AgentDefinitionReader {
                 ready(session, origin),
                 waiting(session, origin),
                 sessionIds(session, origin),
-                // How it takes standing instructions from a file: the agent's own flag, which Porelo must not guess.
+                // How it takes standing instructions from a file: the agent's own flag, which
+                // Porelo must not guess.
                 // Absent is the common case, and gets nothing added.
                 strings(optionalSection(root, "instructions").get("arguments")),
-                // What its screen shows at rest, so a message that names it may wake it; absent, it is never typed into.
+                // What its screen shows at rest, so a message that names it may wake it; absent, it
+                // is never typed into.
                 session.get("at_rest") instanceof Map<?, ?> rest
-                        ? new AtRest(strings(rest.get("shows")), strings(rest.get("lacks"))) : null,
-                // The OAuth apps it signs in to providers with, which 'porelo vault authorize' grants for it.
+                        ? new AtRest(strings(rest.get("shows")), strings(rest.get("lacks")))
+                        : null,
+                // The OAuth apps it signs in to providers with, which 'porelo vault authorize'
+                // grants for it.
                 grants(optionalSection(root, "login").get("grants"), origin));
     }
 
@@ -149,18 +155,27 @@ public final class AgentDefinitionReader {
             return List.of();
         }
         if (!(value instanceof Map<?, ?> byProvider)) {
-            throw new AgentException(origin + ": login.grants must be a mapping of provider to its grant");
+            throw new AgentException(
+                    origin + ": login.grants must be a mapping of provider to its grant");
         }
         final List<AgentGrant> grants = new java.util.ArrayList<>();
-        byProvider.forEach((provider, grant) -> {
-            if (!(grant instanceof Map<?, ?> section) || !(section.get("hosts") instanceof Map<?, ?> hosts)) {
-                throw new AgentException(origin + ": the grant for '" + provider + "' needs 'hosts', the client id by"
-                        + " host");
-            }
-            final Map<String, String> ids = new java.util.LinkedHashMap<>();
-            hosts.forEach((host, id) -> ids.put(String.valueOf(host), String.valueOf(id)));
-            grants.add(new AgentGrant(String.valueOf(provider), ids, optional(section, "owner")));
-        });
+        byProvider.forEach(
+                (provider, grant) -> {
+                    if (!(grant instanceof Map<?, ?> section)
+                            || !(section.get("hosts") instanceof Map<?, ?> hosts)) {
+                        throw new AgentException(
+                                origin
+                                        + ": the grant for '"
+                                        + provider
+                                        + "' needs 'hosts', the client id by"
+                                        + " host");
+                    }
+                    final Map<String, String> ids = new java.util.LinkedHashMap<>();
+                    hosts.forEach((host, id) -> ids.put(String.valueOf(host), String.valueOf(id)));
+                    grants.add(
+                            new AgentGrant(
+                                    String.valueOf(provider), ids, optional(section, "owner")));
+                });
         return List.copyOf(grants);
     }
 
@@ -181,7 +196,10 @@ public final class AgentDefinitionReader {
         }
         only(ids, List.of("record", "key", "directory", "suffix"), origin, "session.session_id");
         try {
-            return new SessionIds(map(ids.get("record")), optional(ids, "key"), optional(ids, "directory"),
+            return new SessionIds(
+                    map(ids.get("record")),
+                    optional(ids, "key"),
+                    optional(ids, "directory"),
                     optional(ids, "suffix"));
         } catch (AgentException ex) {
             throw new AgentException(origin + ": " + ex.getMessage(), ex);
@@ -190,10 +208,11 @@ public final class AgentDefinitionReader {
 
     /**
      * Reads what waiting for a person looks like in this agent's output: {@code session.waiting}.
-     * <p>
-     * Absent is an answer of its own, as for the ready marker: an agent that cannot tell declares
-     * nothing, and Porelo then says it cannot tell rather than that the agent is not waiting. Every key is
-     * named, so a misspelt one is refused rather than read as a rule that never matches.
+     *
+     * <p>Absent is an answer of its own, as for the ready marker: an agent that cannot tell
+     * declares nothing, and Porelo then says it cannot tell rather than that the agent is not
+     * waiting. Every key is named, so a misspelt one is refused rather than read as a rule that
+     * never matches.
      *
      * @param session The {@code session} block, empty when there is none.
      * @param origin Name used in error messages.
@@ -207,15 +226,23 @@ public final class AgentDefinitionReader {
         if (!(declared instanceof Map<?, ?> waiting)) {
             throw new AgentException(origin + ": 'session.waiting' is a mapping");
         }
-        only(waiting, List.of("screen", "not_its_screen", "last_message"), origin, "session.waiting");
+        only(
+                waiting,
+                List.of("screen", "not_its_screen", "last_message"),
+                origin,
+                "session.waiting");
         try {
             final Map<?, ?> last = optionalSection(waiting, "last_message");
             Waiting.LastMessage lastMessage = null;
             if (waiting.get("last_message") != null) {
                 only(last, List.of("record", "text"), origin, "session.waiting.last_message");
-                lastMessage = new Waiting.LastMessage(map(last.get("record")), required(last, "text", origin));
+                lastMessage =
+                        new Waiting.LastMessage(
+                                map(last.get("record")), required(last, "text", origin));
             }
-            return new Waiting(rules(waiting.get("screen"), origin), rules(waiting.get("not_its_screen"), origin),
+            return new Waiting(
+                    rules(waiting.get("screen"), origin),
+                    rules(waiting.get("not_its_screen"), origin),
                     lastMessage);
         } catch (AgentException ex) {
             // A record's own refusal does not know which file it came from; say it.
@@ -234,14 +261,20 @@ public final class AgentDefinitionReader {
         final List<Waiting.Rule> rules = new ArrayList<>();
         for (final Object each : list) {
             if (!(each instanceof Map<?, ?> rule)) {
-                throw new AgentException(origin + ": a waiting rule is a mapping, not '" + each + "'");
+                throw new AgentException(
+                        origin + ": a waiting rule is a mapping, not '" + each + "'");
             }
             only(rule, List.of("contains", "in_last_lines", "for"), origin, "a waiting rule");
             final Object lines = rule.get("in_last_lines");
             if (lines != null && !(lines instanceof Integer)) {
-                throw new AgentException(origin + ": 'in_last_lines' is a number of lines, not '" + lines + "'");
+                throw new AgentException(
+                        origin + ": 'in_last_lines' is a number of lines, not '" + lines + "'");
             }
-            rules.add(new Waiting.Rule(required(rule, "contains", origin), (Integer) lines, optional(rule, "for")));
+            rules.add(
+                    new Waiting.Rule(
+                            required(rule, "contains", origin),
+                            (Integer) lines,
+                            optional(rule, "for")));
         }
         return rules;
     }
@@ -249,17 +282,18 @@ public final class AgentDefinitionReader {
     private static void only(Map<?, ?> section, List<String> keys, String origin, String where) {
         for (final Object key : section.keySet()) {
             if (!keys.contains(String.valueOf(key))) {
-                throw new AgentException(origin + ": " + where + " takes " + keys + ", not '" + key + "'");
+                throw new AgentException(
+                        origin + ": " + where + " takes " + keys + ", not '" + key + "'");
             }
         }
     }
 
     /**
-     * Reads what the agent shows once it has reached work: {@code session.ready_marker}, and how long
-     * that may take, {@code session.ready_within_seconds}.
-     * <p>
-     * Absent is an answer of its own: an agent whose ready screen has no stable text declares nothing,
-     * and a check of it then says it cannot tell rather than passing.
+     * Reads what the agent shows once it has reached work: {@code session.ready_marker}, and how
+     * long that may take, {@code session.ready_within_seconds}.
+     *
+     * <p>Absent is an answer of its own: an agent whose ready screen has no stable text declares
+     * nothing, and a check of it then says it cannot tell rather than passing.
      *
      * @param session The {@code session} block, empty when there is none.
      * @param origin Name used in error messages.
@@ -270,26 +304,32 @@ public final class AgentDefinitionReader {
         final Object within = session.get("ready_within_seconds");
         if (text == null || text.isBlank()) {
             if (within != null) {
-                throw new AgentException(origin + ": 'ready_within_seconds' bounds a 'ready_marker', and none is declared");
+                throw new AgentException(
+                        origin
+                                + ": 'ready_within_seconds' bounds a 'ready_marker', and none is declared");
             }
             return null;
         }
         if (within != null && !(within instanceof Integer)) {
-            throw new AgentException(origin + ": 'ready_within_seconds' is a number of seconds, not '" + within + "'");
+            throw new AgentException(
+                    origin
+                            + ": 'ready_within_seconds' is a number of seconds, not '"
+                            + within
+                            + "'");
         }
         return new ReadyMarker(text, (Integer) within);
     }
 
     /**
      * Reads the {@code provider} block.
-     * <p>
-     * Absent for an agent that cannot be redirected at a proxy. That is a real case rather than
+     *
+     * <p>Absent for an agent that cannot be redirected at a proxy. That is a real case rather than
      * an error - it means the agent has to be given its credential directly, which is a decision
      * the operator makes with {@code --credential-type direct}, not something this reader can fix.
-     * <p>
-     * What is <em>not</em> here any more is the provider's own half: upstream, header, prefix and
-     * path. Those are declared once, in the provider's own file, and an agent that restated them
-     * would be free to disagree with the agent next to it about the same provider.
+     *
+     * <p>What is <em>not</em> here any more is the provider's own half: upstream, header, prefix
+     * and path. Those are declared once, in the provider's own file, and an agent that restated
+     * them would be free to disagree with the agent next to it about the same provider.
      *
      * @param provider The provider block.
      * @param origin Where the definition came from, for error messages.
@@ -308,15 +348,22 @@ public final class AgentDefinitionReader {
             // mistake, and a silent one, so it is named.
             for (final String key : List.of("endpoint", "socket_env", "base_url_env", "default")) {
                 if (provider.get(key) != null) {
-                    throw new AgentException(origin + ": 'provider." + key + "' is set, so the"
-                            + " block must also name the 'dialect' the agent speaks, or 'native'");
+                    throw new AgentException(
+                            origin
+                                    + ": 'provider."
+                                    + key
+                                    + "' is set, so the"
+                                    + " block must also name the 'dialect' the agent speaks, or 'native'");
                 }
             }
             return null;
         }
-        return new AgentProvider(dialect, optional(provider, "default"),
+        return new AgentProvider(
+                dialect,
+                optional(provider, "default"),
                 ProviderRoute.Endpoint.of(optional(provider, "endpoint"), origin),
-                optional(provider, "socket_env"), optional(provider, "base_url_env"));
+                optional(provider, "socket_env"),
+                optional(provider, "base_url_env"));
     }
 
     private static String text(@Nullable String value) {
@@ -335,8 +382,9 @@ public final class AgentDefinitionReader {
             if (!(element instanceof Map<?, ?> entry)) {
                 throw new AgentException(origin + ": each 'install.packaged' entry must be a map");
             }
-            result.add(new PackagedTree(required(entry, "source", origin),
-                    required(entry, "target", origin)));
+            result.add(
+                    new PackagedTree(
+                            required(entry, "source", origin), required(entry, "target", origin)));
         }
         return List.copyOf(result);
     }
@@ -353,31 +401,36 @@ public final class AgentDefinitionReader {
             if (!(item instanceof Map<?, ?> map)) {
                 throw new AgentException(origin + ": each install artifact must be a mapping");
             }
-            result.add(new InstallArtifact(
-                    required(map, "url", origin),
-                    optional(map, "sha256"),
-                    required(map, "target", origin),
-                    mode(map.get("mode"), origin),
-                    Boolean.TRUE.equals(map.get("unverified")),
-                    optional(map, "reason"),
-                    optional(map, "license")));
+            result.add(
+                    new InstallArtifact(
+                            required(map, "url", origin),
+                            optional(map, "sha256"),
+                            required(map, "target", origin),
+                            mode(map.get("mode"), origin),
+                            Boolean.TRUE.equals(map.get("unverified")),
+                            optional(map, "reason"),
+                            optional(map, "license")));
         }
         return List.copyOf(result);
     }
 
     /**
      * Reads an artifact's mode, which must be written as a string.
-     * <p>
-     * {@code mode: 0644} is the number 420 to YAML, and the file was installed as 0420; {@code 0755} became 493 and was
-     * refused in words that did not say why.
+     *
+     * <p>{@code mode: 0644} is the number 420 to YAML, and the file was installed as 0420; {@code
+     * 0755} became 493 and was refused in words that did not say why.
      */
     private static String mode(final @Nullable Object mode, final String origin) {
         if (mode == null) {
             return "0755";
         }
         if (!(mode instanceof String said)) {
-            throw new AgentException(origin + ": an install artifact's mode must be a string, as in mode: '0644' -"
-                    + " written as a number YAML reads it in octal, and " + mode + " is not what was meant");
+            throw new AgentException(
+                    origin
+                            + ": an install artifact's mode must be a string, as in mode: '0644' -"
+                            + " written as a number YAML reads it in octal, and "
+                            + mode
+                            + " is not what was meant");
         }
         return said;
     }
@@ -423,10 +476,14 @@ public final class AgentDefinitionReader {
         if (value instanceof String single) {
             // A YAML block scalar is one string holding several lines. Splitting it here means an
             // install fragment can be written as a readable block rather than a list of lines.
-            return single.lines().filter(line -> !line.isBlank()).map(String::stripTrailing).toList();
+            return single.lines()
+                    .filter(line -> !line.isBlank())
+                    .map(String::stripTrailing)
+                    .toList();
         }
         if (!(value instanceof List<?> list)) {
-            throw new AgentException("Expected a list but found " + value.getClass().getSimpleName());
+            throw new AgentException(
+                    "Expected a list but found " + value.getClass().getSimpleName());
         }
         final List<String> result = new ArrayList<>();
         list.forEach(item -> result.add(String.valueOf(item)));
@@ -438,8 +495,8 @@ public final class AgentDefinitionReader {
             return Map.of();
         }
         if (!(value instanceof Map<?, ?> source)) {
-            throw new AgentException("Expected a mapping but found "
-                    + value.getClass().getSimpleName());
+            throw new AgentException(
+                    "Expected a mapping but found " + value.getClass().getSimpleName());
         }
         final Map<String, String> result = new LinkedHashMap<>();
         source.forEach((key, item) -> result.put(String.valueOf(key), String.valueOf(item)));

@@ -10,19 +10,25 @@ import org.fuin.porelo.agent.api.AgentDefinition;
 import org.fuin.porelo.wire.Json;
 
 /**
- * Wakes an agent at rest at its prompt when a message for it arrived: one fixed line typed into its terminal.
- * <p>
- * A person writes in the project's conversation and nothing else (2026-10-04), so an agent waiting at
- * its prompt has to learn that a message for it is there. Typed only where its agent declares what its screen shows at
- * rest and shows it now, and never where a question to a person is open: the line and its Enter would answer it
- * (2026-10-04). The line is Porelo's own and the same every time; what was written reaches the agent only
- * as the file the host put into its inbox.
+ * Wakes an agent at rest at its prompt when a message for it arrived: one fixed line typed into its
+ * terminal.
+ *
+ * <p>A person writes in the project's conversation and nothing else (2026-10-04), so an agent
+ * waiting at its prompt has to learn that a message for it is there. Typed only where its agent
+ * declares what its screen shows at rest and shows it now, and never where a question to a person
+ * is open: the line and its Enter would answer it (2026-10-04). The line is Porelo's own and the
+ * same every time; what was written reaches the agent only as the file the host put into its inbox.
  */
 public final class AgentWake {
 
     /** What is typed. */
-    public static final String LINE = "A message for you waits in " + Mailbox.MOUNT + "/inbox/new - read it and answer"
-            + " as " + Mailbox.GUIDE + " says.";
+    public static final String LINE =
+            "A message for you waits in "
+                    + Mailbox.MOUNT
+                    + "/inbox/new - read it and answer"
+                    + " as "
+                    + Mailbox.GUIDE
+                    + " says.";
 
     private final PoreloContext context;
 
@@ -33,7 +39,10 @@ public final class AgentWake {
 
     private final Terminal terminal;
 
-    /** What the wake does with a task's terminal: read its screen, type a line with Enter, press Enter alone. */
+    /**
+     * What the wake does with a task's terminal: read its screen, type a line with Enter, press
+     * Enter alone.
+     */
     interface Terminal {
 
         /**
@@ -68,22 +77,25 @@ public final class AgentWake {
      * @param context The machine.
      */
     public AgentWake(final PoreloContext context) {
-        this(context, LOOK, new Terminal() {
-            @Override
-            public org.fuin.porelo.runtime.Podman.Screen screen(final String container) {
-                return context.podman().screen(container, 20, false);
-            }
+        this(
+                context,
+                LOOK,
+                new Terminal() {
+                    @Override
+                    public org.fuin.porelo.runtime.Podman.Screen screen(final String container) {
+                        return context.podman().screen(container, 20, false);
+                    }
 
-            @Override
-            public boolean type(final String container, final String line) {
-                return context.podman().type(container, line);
-            }
+                    @Override
+                    public boolean type(final String container, final String line) {
+                        return context.podman().type(container, line);
+                    }
 
-            @Override
-            public boolean enter(final String container) {
-                return context.podman().enter(container);
-            }
-        });
+                    @Override
+                    public boolean enter(final String container) {
+                        return context.podman().enter(container);
+                    }
+                });
     }
 
     /**
@@ -100,8 +112,9 @@ public final class AgentWake {
     }
 
     /**
-     * Says whether a message in a task's inbox is for that task's agent to act on: it names the task, or was said to
-     * it in a direct chat. Every other message there is the room's conversation, read when the agent next looks.
+     * Says whether a message in a task's inbox is for that task's agent to act on: it names the
+     * task, or was said to it in a direct chat. Every other message there is the room's
+     * conversation, read when the agent next looks.
      *
      * @param message The message, in the inbox.
      * @param container The task.
@@ -110,43 +123,57 @@ public final class AgentWake {
      */
     static boolean namesIt(final Path message, final String container, final String project) {
         try {
-            if (!(Json.parse(Files.readString(message, StandardCharsets.UTF_8)) instanceof Map<?, ?> document)
+            if (!(Json.parse(Files.readString(message, StandardCharsets.UTF_8))
+                            instanceof Map<?, ?> document)
                     || !(document.get("metadata") instanceof Map<?, ?> metadata)) {
                 return false;
             }
-            if (Boolean.TRUE.equals(metadata.get("direct")) || "direct".equals(metadata.get("via"))) {
+            if (Boolean.TRUE.equals(metadata.get("direct"))
+                    || "direct".equals(metadata.get("via"))) {
                 return true;
             }
             if (metadata.get("inReplyToMessageId") != null || decided(document)) {
-                // The filter's answer to the agent's own message: worth waking for only when it refused it or would
-                // have, never for a receipt. Known by its decision too, because an id the detectors flagged is not
+                // The filter's answer to the agent's own message: worth waking for only when it
+                // refused it or would
+                // have, never for a receipt. Known by its decision too, because an id the detectors
+                // flagged is not
                 // repeated in the answer.
                 return refused(document);
             }
             final String task = org.fuin.porelo.runtime.ContainerName.taskIn(project, container);
             final Object to = metadata.get("to");
-            final List<?> named = to instanceof List<?> list ? list : to == null ? List.of() : List.of(to);
+            final List<?> named =
+                    to instanceof List<?> list ? list : to == null ? List.of() : List.of(to);
             if (named.isEmpty() && PersonsWords.VIA_ROOM.equals(metadata.get("via"))) {
-                // A person asking the room without naming anybody asks every task in it (the operator, walk 10:
-                // "Wer ist da?" and nobody answered). A task's word to nobody stays the room's talk.
+                // A person asking the room without naming anybody asks every task in it (the
+                // operator, walk 10:
+                // "Wer ist da?" and nobody answered). A task's word to nobody stays the room's
+                // talk.
                 return true;
             }
-            return named.stream().map(String::valueOf).anyMatch(name -> name.equals(container) || name.equals(task));
+            return named.stream()
+                    .map(String::valueOf)
+                    .anyMatch(name -> name.equals(container) || name.equals(task));
         } catch (final IOException | RuntimeException ex) {
             return false;
         }
     }
 
     private static boolean decided(final Map<?, ?> document) {
-        return document.get("parts") instanceof List<?> parts && parts.stream().anyMatch(part ->
-                part instanceof Map<?, ?> each && each.get("data") instanceof Map<?, ?> data
-                        && data.get("decision") != null);
+        return document.get("parts") instanceof List<?> parts
+                && parts.stream()
+                        .anyMatch(
+                                part ->
+                                        part instanceof Map<?, ?> each
+                                                && each.get("data") instanceof Map<?, ?> data
+                                                && data.get("decision") != null);
     }
 
     private static boolean refused(final Map<?, ?> document) {
         if (document.get("parts") instanceof List<?> parts) {
             for (final Object part : parts) {
-                if (part instanceof Map<?, ?> each && each.get("data") instanceof Map<?, ?> data
+                if (part instanceof Map<?, ?> each
+                        && each.get("data") instanceof Map<?, ?> data
                         && ("rejected".equalsIgnoreCase(String.valueOf(data.get("decision")))
                                 || Boolean.TRUE.equals(data.get("wouldReject")))) {
                     return true;
@@ -160,18 +187,23 @@ public final class AgentWake {
     static final String ANNOUNCED = "wake-announced";
 
     /**
-     * Tells a task's agent at rest about every message in its inbox that names it and it was not told about yet.
-     * <p>
-     * <strong>Tried at every pass until it lands or the message is read</strong> (2026-10-04): a word
-     * that arrived while the agent worked found it busy, the one try was spent, and it went to rest with mail it was
-     * never told of. Each message is announced once; one line covers all that wait.
+     * Tells a task's agent at rest about every message in its inbox that names it and it was not
+     * told about yet.
+     *
+     * <p><strong>Tried at every pass until it lands or the message is read</strong> (2026-10-04): a
+     * word that arrived while the agent worked found it busy, the one try was spent, and it went to
+     * rest with mail it was never told of. Each message is announced once; one line covers all that
+     * wait.
      *
      * @param mailbox The task's mailbox.
      * @param container The task.
-     * @param project Its project's name, or {@code null} when it is not known: then only a direct word counts.
+     * @param project Its project's name, or {@code null} when it is not known: then only a direct
+     *     word counts.
      * @return Whether the line was typed.
      */
-    public boolean announce(final Mailbox mailbox, final String container,
+    public boolean announce(
+            final Mailbox mailbox,
+            final String container,
             final @org.jspecify.annotations.Nullable String project) {
         return announce(mailbox, container, project, () -> wake(container));
     }
@@ -185,28 +217,40 @@ public final class AgentWake {
      * @param waking What wakes it, and says whether it did.
      * @return Whether it was woken.
      */
-    boolean announce(final Mailbox mailbox, final String container,
-            final @org.jspecify.annotations.Nullable String project, final java.util.function.BooleanSupplier waking) {
+    boolean announce(
+            final Mailbox mailbox,
+            final String container,
+            final @org.jspecify.annotations.Nullable String project,
+            final java.util.function.BooleanSupplier waking) {
         try {
-            // One at a time per task, across the daemon's passes and a person's 'talk tell' in another process: two
-            // paths that found the same message at the same moment of rest typed it twice, and the second Enter broke
+            // One at a time per task, across the daemon's passes and a person's 'talk tell' in
+            // another process: two
+            // paths that found the same message at the same moment of rest typed it twice, and the
+            // second Enter broke
             // into the turn the first had started (2026-10-04).
             Files.createDirectories(mailbox.record());
-            return FileLocks.holding(mailbox.record().resolve(".wake.lock"),
+            return FileLocks.holding(
+                    mailbox.record().resolve(".wake.lock"),
                     () -> announceHeld(mailbox, container, project, waking));
         } catch (final IOException | RuntimeException ex) {
             return false;
         }
     }
 
-    /** After a line was typed, how long nothing more is typed into the task, whatever its screen still shows. */
+    /**
+     * After a line was typed, how long nothing more is typed into the task, whatever its screen
+     * still shows.
+     */
     static final java.time.Duration QUIET = java.time.Duration.ofSeconds(10);
 
     /** Beside a mailbox's record: when its agent was last woken. */
     static final String LAST = "wake-last";
 
-    private boolean announceHeld(final Mailbox mailbox, final String container,
-            final @org.jspecify.annotations.Nullable String project, final java.util.function.BooleanSupplier waking) {
+    private boolean announceHeld(
+            final Mailbox mailbox,
+            final String container,
+            final @org.jspecify.annotations.Nullable String project,
+            final java.util.function.BooleanSupplier waking) {
         try {
             if (quiet(mailbox.record())) {
                 return false;
@@ -221,15 +265,24 @@ public final class AgentWake {
                 try (java.util.stream.Stream<Path> listed = Files.list(mailbox.inboxNew())) {
                     listed.filter(path -> path.getFileName().toString().endsWith(".json"))
                             .filter(path -> !told.contains(path.getFileName().toString()))
-                            .filter(path -> namesIt(path, container, project == null ? "" : project))
+                            .filter(
+                                    path ->
+                                            namesIt(
+                                                    path,
+                                                    container,
+                                                    project == null ? "" : project))
                             .forEach(path -> waiting.add(path.getFileName().toString()));
                 }
             }
             if (waiting.isEmpty() || !waking.getAsBoolean()) {
                 return false;
             }
-            Files.writeString(record, String.join("\n", waiting) + "\n", StandardCharsets.UTF_8,
-                    java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+            Files.writeString(
+                    record,
+                    String.join("\n", waiting) + "\n",
+                    StandardCharsets.UTF_8,
+                    java.nio.file.StandardOpenOption.CREATE,
+                    java.nio.file.StandardOpenOption.APPEND);
             woke(mailbox.record());
             return true;
         } catch (final IOException | RuntimeException ex) {
@@ -238,26 +291,34 @@ public final class AgentWake {
     }
 
     /**
-     * Returns whether a line was typed within {@link #QUIET}: the screen still reads "at rest" for a moment after it,
-     * until the agent starts its turn, and what arrives then is announced at a later pass, never typed into the turn.
+     * Returns whether a line was typed within {@link #QUIET}: the screen still reads "at rest" for
+     * a moment after it, until the agent starts its turn, and what arrives then is announced at a
+     * later pass, never typed into the turn.
      */
     private static boolean quiet(final Path records) throws IOException {
         final Path last = records.resolve(LAST);
         return Files.isRegularFile(last)
-                && Files.getLastModifiedTime(last).toInstant().isAfter(java.time.Instant.now().minus(QUIET));
+                && Files.getLastModifiedTime(last)
+                        .toInstant()
+                        .isAfter(java.time.Instant.now().minus(QUIET));
     }
 
     private static void woke(final Path records) throws IOException {
-        Files.writeString(records.resolve(LAST), java.time.Instant.now() + "\n", StandardCharsets.UTF_8);
+        Files.writeString(
+                records.resolve(LAST), java.time.Instant.now() + "\n", StandardCharsets.UTF_8);
     }
 
     /** What is typed when files arrived, before their names. */
-    public static final String FILES = "arrived in " + org.fuin.porelo.runtime.Containerfile.HAND_IN_FILES + ": ";
+    public static final String FILES =
+            "arrived in " + org.fuin.porelo.runtime.Containerfile.HAND_IN_FILES + ": ";
 
     /** How many names one line gives; the rest are counted. */
     static final int NAMED = 5;
 
-    /** Beside the wake's record: the files in /porelo/files its agent was told of, a name and its sha256 per line. */
+    /**
+     * Beside the wake's record: the files in /porelo/files its agent was told of, a name and its
+     * sha256 per line.
+     */
     static final String FILES_ANNOUNCED = "wake-files";
 
     /**
@@ -267,18 +328,24 @@ public final class AgentWake {
      * @return One line.
      */
     static String filesLine(final List<String> names) {
-        final String named = String.join(", ", names.subList(0, Math.min(NAMED, names.size())))
-                + (names.size() > NAMED ? " and " + (names.size() - NAMED) + " more" : "");
-        return (names.size() == 1 ? "A file " : "Files ") + FILES + named + " - read " + TaskGuide.GUIDE
+        final String named =
+                String.join(", ", names.subList(0, Math.min(NAMED, names.size())))
+                        + (names.size() > NAMED ? " and " + (names.size() - NAMED) + " more" : "");
+        return (names.size() == 1 ? "A file " : "Files ")
+                + FILES
+                + named
+                + " - read "
+                + TaskGuide.GUIDE
                 + " if you do not know what it is for.";
     }
 
     /**
-     * Tells a task's agent at rest about every file in {@code /porelo/files} it was not told about yet: handed in by a
-     * person, or a build's verdict and its logs, a file replaced by one of other content as a new one.
-     * <p>
-     * Tried at every pass, as a message is, until it lands; under the same lock and the same quiet as a message's line,
-     * so the two never break into each other's turn.
+     * Tells a task's agent at rest about every file in {@code /porelo/files} it was not told about
+     * yet: handed in by a person, or a build's verdict and its logs, a file replaced by one of
+     * other content as a new one.
+     *
+     * <p>Tried at every pass, as a message is, until it lands; under the same lock and the same
+     * quiet as a message's line, so the two never break into each other's turn.
      *
      * @param container The task.
      * @return Whether the line was typed.
@@ -294,35 +361,69 @@ public final class AgentWake {
      * @param waking Types a line, and says whether it did.
      * @return Whether it was woken.
      */
-    boolean announceFiles(final String container, final java.util.function.Predicate<String> waking) {
+    boolean announceFiles(
+            final String container, final java.util.function.Predicate<String> waking) {
         try {
             final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox(container));
-            // The mailbox's record where there is one, so the lock and the quiet are the message's too.
-            final Path records = mailbox.exists() ? mailbox.record() : context.paths().tasks().taskRecord(container);
+            // The mailbox's record where there is one, so the lock and the quiet are the message's
+            // too.
+            final Path records =
+                    mailbox.exists()
+                            ? mailbox.record()
+                            : context.paths().tasks().taskRecord(container);
             Files.createDirectories(records);
-            return FileLocks.holding(records.resolve(".wake.lock"), () -> {
-                try {
-                    if (quiet(records)) {
-                        return false;
-                    }
-                    final Path record = records.resolve(FILES_ANNOUNCED);
-                    final java.util.Set<String> told = new java.util.HashSet<>(Files.isRegularFile(record)
-                            ? Files.readAllLines(record, StandardCharsets.UTF_8) : List.of());
-                    final List<HandIns.HandedFile> arrived = HandIns.of(context).summary(container).files().stream()
-                            .filter(file -> !told.contains(file.name() + " " + file.sha256())).toList();
-                    if (arrived.isEmpty()
-                            || !waking.test(filesLine(arrived.stream().map(HandIns.HandedFile::name).toList()))) {
-                        return false;
-                    }
-                    Files.writeString(record, String.join("\n", arrived.stream()
-                            .map(file -> file.name() + " " + file.sha256()).toList()) + "\n", StandardCharsets.UTF_8,
-                            java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
-                    woke(records);
-                    return true;
-                } catch (final IOException | RuntimeException ex) {
-                    return false;
-                }
-            });
+            return FileLocks.holding(
+                    records.resolve(".wake.lock"),
+                    () -> {
+                        try {
+                            if (quiet(records)) {
+                                return false;
+                            }
+                            final Path record = records.resolve(FILES_ANNOUNCED);
+                            final java.util.Set<String> told =
+                                    new java.util.HashSet<>(
+                                            Files.isRegularFile(record)
+                                                    ? Files.readAllLines(
+                                                            record, StandardCharsets.UTF_8)
+                                                    : List.of());
+                            final List<HandIns.HandedFile> arrived =
+                                    HandIns.of(context).summary(container).files().stream()
+                                            .filter(
+                                                    file ->
+                                                            !told.contains(
+                                                                    file.name()
+                                                                            + " "
+                                                                            + file.sha256()))
+                                            .toList();
+                            if (arrived.isEmpty()
+                                    || !waking.test(
+                                            filesLine(
+                                                    arrived.stream()
+                                                            .map(HandIns.HandedFile::name)
+                                                            .toList()))) {
+                                return false;
+                            }
+                            Files.writeString(
+                                    record,
+                                    String.join(
+                                                    "\n",
+                                                    arrived.stream()
+                                                            .map(
+                                                                    file ->
+                                                                            file.name()
+                                                                                    + " "
+                                                                                    + file.sha256())
+                                                            .toList())
+                                            + "\n",
+                                    StandardCharsets.UTF_8,
+                                    java.nio.file.StandardOpenOption.CREATE,
+                                    java.nio.file.StandardOpenOption.APPEND);
+                            woke(records);
+                            return true;
+                        } catch (final IOException | RuntimeException ex) {
+                            return false;
+                        }
+                    });
         } catch (final IOException | RuntimeException ex) {
             return false;
         }
@@ -330,8 +431,8 @@ public final class AgentWake {
 
     /**
      * Wakes a task's own agent, as its task's record names it, when it is at rest.
-     * <p>
-     * Never fails: an agent not woken finds the message in its inbox when it next looks.
+     *
+     * <p>Never fails: an agent not woken finds the message in its inbox when it next looks.
      *
      * @param container The task.
      * @return Whether the line was typed.
@@ -350,13 +451,16 @@ public final class AgentWake {
     boolean wake(final String container, final String line) {
         try {
             final org.fuin.porelo.wire.TaskProfile profile =
-                    org.fuin.porelo.wire.TaskProfile.readFrom(context.paths().tasks().containerState(container));
+                    org.fuin.porelo.wire.TaskProfile.readFrom(
+                            context.paths().tasks().containerState(container));
             final String agent = profile == null ? null : profile.agent();
             if (agent == null) {
                 return false;
             }
             try (org.fuin.porelo.agent.api.InstalledAgents agents = context.agents()) {
-                return agents.find(agent).map(found -> wake(container, found.definition(), line)).orElse(false);
+                return agents.find(agent)
+                        .map(found -> wake(container, found.definition(), line))
+                        .orElse(false);
             }
         } catch (final RuntimeException ex) {
             return false;
@@ -375,7 +479,8 @@ public final class AgentWake {
     }
 
     /**
-     * Types a line into a task's terminal when its agent is at rest there and no question to a person is open.
+     * Types a line into a task's terminal when its agent is at rest there and no question to a
+     * person is open.
      *
      * @param container The task.
      * @param definition Its agent.
@@ -383,28 +488,35 @@ public final class AgentWake {
      * @return Whether it was typed.
      */
     boolean wake(final String container, final AgentDefinition definition, final String line) {
-        // Both, or never: an agent whose screen does not tell a question it put from its rest would take the line and
+        // Both, or never: an agent whose screen does not tell a question it put from its rest would
+        // take the line and
         // its Enter as the answer to a question nobody can see is open.
         if (definition.atRest() == null || definition.waiting() == null) {
             return false;
         }
-        // Rest that holds over two looks: an agent's work line comes and goes between its tool calls, and one look
+        // Rest that holds over two looks: an agent's work line comes and goes between its tool
+        // calls, and one look
         // that fell into such a gap typed into a turn that was still running.
         if (!rests(container, definition) || !pause() || !rests(container, definition)) {
             return false;
         }
         final Path stuck = context.paths().tasks().containerState(container).resolve(STUCK);
-        // A line of ours that stood in the box last time is there still: Enter alone, never the line a second time.
+        // A line of ours that stood in the box last time is there still: Enter alone, never the
+        // line a second time.
         final boolean standing = Files.isRegularFile(stuck);
         if (!(standing ? terminal.enter(container) : terminal.type(container, line))) {
             return false;
         }
-        // An agent that took the line works, and its screen says so. One that still rests left the line standing in its
+        // An agent that took the line works, and its screen says so. One that still rests left the
+        // line standing in its
         // input box: it took the Enter while it drew something.
         if (!pause() || !rests(container, definition)) {
             return taken(stuck);
         }
-        System.out.println("wake      " + container + ": pressed Enter again - the line stood in the input box");
+        System.out.println(
+                "wake      "
+                        + container
+                        + ": pressed Enter again - the line stood in the input box");
         System.out.flush();
         terminal.enter(container);
         if (!pause() || !rests(container, definition)) {
@@ -416,12 +528,18 @@ public final class AgentWake {
         } catch (final IOException ex) {
             // Next time the line is typed again rather than only submitted: worse, not wrong.
         }
-        System.out.println("wake      " + container + ": the line still stands in the input box - not delivered");
+        System.out.println(
+                "wake      "
+                        + container
+                        + ": the line still stands in the input box - not delivered");
         System.out.flush();
         return false;
     }
 
-    /** Beside a task's state: a line of Porelo's that stood in the agent's input box when it was last woken. */
+    /**
+     * Beside a task's state: a line of Porelo's that stood in the agent's input box when it was
+     * last woken.
+     */
     static final String STUCK = "wake-stuck";
 
     private static boolean taken(final Path stuck) {
@@ -442,11 +560,16 @@ public final class AgentWake {
         final String shown = String.join("\n", screen.lines());
         final org.fuin.porelo.agent.api.Waiting waiting = definition.waiting();
         final org.fuin.porelo.agent.api.AtRest atRest = definition.atRest();
-        return waiting != null && atRest != null
-                && waiting.read(shown).seen() != org.fuin.porelo.agent.api.Waiting.Seen.WAITING && atRest.matches(shown);
+        return waiting != null
+                && atRest != null
+                && waiting.read(shown).seen() != org.fuin.porelo.agent.api.Waiting.Seen.WAITING
+                && atRest.matches(shown);
     }
 
-    /** Waits between two looks; {@code false} when interrupted, so nothing is typed into a daemon that is stopping. */
+    /**
+     * Waits between two looks; {@code false} when interrupted, so nothing is typed into a daemon
+     * that is stopping.
+     */
     private boolean pause() {
         if (look.isZero()) {
             return true;

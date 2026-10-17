@@ -11,12 +11,11 @@ import org.fuin.porelo.agent.api.ProviderDefinition;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Tests for {@link Destination}: a service a credential is for that is not a model provider.
- */
+/** Tests for {@link Destination}: a service a credential is for that is not a model provider. */
 class DestinationTest {
 
-    private static final String SEARCH = """
+    private static final String SEARCH =
+            """
             name: brave-search
             label: Brave Search
             upstream: https://api.search.brave.com
@@ -36,7 +35,9 @@ class DestinationTest {
 
     @Test
     void aKeyMayGoInTheUrlInstead() {
-        final Destination maps = Destination.parse("""
+        final Destination maps =
+                Destination.parse(
+                        """
                 name: maps
                 upstream: https://maps.example.com
                 auth_query: key
@@ -47,12 +48,15 @@ class DestinationTest {
 
     @Test
     void refusesAServiceReachedInTheClear() {
-        assertThatThrownBy(() -> Destination.parse("name: plain\nupstream: http://api.example.com\n"))
-                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("over https");
+        assertThatThrownBy(
+                        () -> Destination.parse("name: plain\nupstream: http://api.example.com\n"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("over https");
     }
 
     @Test
-    void findsTheUsersOwnBeforeThePackagedOnesAndSkipsWhatItCannotRead(@TempDir Path dataHome) throws IOException {
+    void findsTheUsersOwnBeforeThePackagedOnesAndSkipsWhatItCannotRead(@TempDir Path dataHome)
+            throws IOException {
         Files.createDirectories(dataHome.resolve("destinations"));
         Files.writeString(dataHome.resolve("destinations/brave.yaml"), SEARCH);
         Files.writeString(dataHome.resolve("destinations/broken.yaml"), "name: [");
@@ -62,14 +66,23 @@ class DestinationTest {
 
     @Test
     void aProviderIsADestinationToo() {
-        final ProviderDefinition anthropic = new ProviderDefinition("anthropic", "Anthropic", "https://api.anthropic.com",
-                Map.of("anthropic-messages", ""), Map.of("_default", "x-api-key"), Map.of("_default", ""), Map.of(),
-                Map.of());
+        final ProviderDefinition anthropic =
+                new ProviderDefinition(
+                        "anthropic",
+                        "Anthropic",
+                        "https://api.anthropic.com",
+                        Map.of("anthropic-messages", ""),
+                        Map.of("_default", "x-api-key"),
+                        Map.of("_default", ""),
+                        Map.of(),
+                        Map.of());
 
-        final Destination resolved = Destination.resolve("anthropic", Map.of(), Map.of("anthropic", anthropic), null);
+        final Destination resolved =
+                Destination.resolve("anthropic", Map.of(), Map.of("anthropic", anthropic), null);
 
         assertThat(resolved).isNotNull();
         assertThat(resolved.authHeader()).isEqualTo("x-api-key");
-        assertThat(Destination.resolve("nobody", Map.of(), Map.of("anthropic", anthropic), null)).isNull();
+        assertThat(Destination.resolve("nobody", Map.of(), Map.of("anthropic", anthropic), null))
+                .isNull();
     }
 }

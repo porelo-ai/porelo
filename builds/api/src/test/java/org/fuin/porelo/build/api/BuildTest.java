@@ -19,12 +19,16 @@ class BuildTest {
 
         final byte[] kept = new Build.Job("Build / test", "failure", log).log();
 
-        assertThat(kept).as("the last 64 KiB, which is where a failure is").hasSize(Build.TAIL).doesNotContain('x');
+        assertThat(kept)
+                .as("the last 64 KiB, which is where a failure is")
+                .hasSize(Build.TAIL)
+                .doesNotContain('x');
     }
 
     @Test
     void handsOverTheLogsOfAtMostFiftyJobs() {
-        final List<Build.Job> matrix = IntStream.range(0, 200).mapToObj(n -> new Build.Job("j" + n, "success")).toList();
+        final List<Build.Job> matrix =
+                IntStream.range(0, 200).mapToObj(n -> new Build.Job("j" + n, "success")).toList();
 
         assertThat(new Build(Build.SUCCESS, matrix, "").jobs()).hasSize(Build.MOST_JOBS);
     }
@@ -34,29 +38,38 @@ class BuildTest {
         final byte[] full = new byte[Build.TAIL];
         Arrays.fill(full, (byte) 'x');
         full[Build.TAIL - 1] = 'E';
-        final List<Build.Job> jobs = IntStream.range(0, Build.MOST_JOBS)
-                .mapToObj(n -> new Build.Job("j" + n, "failure", full)).toList();
+        final List<Build.Job> jobs =
+                IntStream.range(0, Build.MOST_JOBS)
+                        .mapToObj(n -> new Build.Job("j" + n, "failure", full))
+                        .toList();
         final List<Build.Job> few = jobs.subList(0, Build.MOST_LOG_BYTES / Build.TAIL);
 
         final List<Build.Job> shared = new Build(Build.FAILURE, jobs, "").jobs();
 
-        assertThat(shared).extracting(job -> job.log().length).containsOnly(Build.MOST_LOG_BYTES / Build.MOST_JOBS);
+        assertThat(shared)
+                .extracting(job -> job.log().length)
+                .containsOnly(Build.MOST_LOG_BYTES / Build.MOST_JOBS);
         assertThat(shared).allSatisfy(job -> assertThat(job.logText()).endsWith("E"));
-        assertThat(new Build(Build.FAILURE, few, "").jobs()).as("as many as fit whole are kept whole")
-                .extracting(job -> job.log().length).containsOnly(Build.TAIL);
+        assertThat(new Build(Build.FAILURE, few, "").jobs())
+                .as("as many as fit whole are kept whole")
+                .extracting(job -> job.log().length)
+                .containsOnly(Build.TAIL);
     }
 
     @Test
     void refusesAVerdictTheProtocolDoesNotHave() {
-        assertThatThrownBy(() -> new Build("passed", "")).isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("passed").hasMessageContaining(Build.SUCCESS);
+        assertThatThrownBy(() -> new Build("passed", ""))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("passed")
+                .hasMessageContaining(Build.SUCCESS);
     }
 
     @Test
     void readsTheLogPolicyAProjectFileNames() {
         assertThat(Build.Logs.of("failure")).isEqualTo(Build.Logs.FAILURE);
         assertThat(Build.Logs.of("all").wire()).isEqualTo("all");
-        assertThatThrownBy(() -> Build.Logs.of("some")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> Build.Logs.of("some"))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -67,18 +80,38 @@ class BuildTest {
 
     @Test
     void travelsOverTheProtocolWithItsLogsIntact() {
-        final Build failed = new Build(Build.FAILURE, List.of(new Build.Job("Build / lint", "failure",
-                new byte[] {0, (byte) 0xff, 'a'}), new Build.Job("Build / docs", "skipped")), "two runs failed");
+        final Build failed =
+                new Build(
+                        Build.FAILURE,
+                        List.of(
+                                new Build.Job(
+                                        "Build / lint",
+                                        "failure",
+                                        new byte[] {0, (byte) 0xff, 'a'}),
+                                new Build.Job("Build / docs", "skipped")),
+                        "two runs failed");
 
         assertThat(Build.of(failed.asMap())).isEqualTo(failed);
-        assertThat(Build.of(Build.unknown("no build").asMap())).isEqualTo(Build.unknown("no build"));
+        assertThat(Build.of(Build.unknown("no build").asMap()))
+                .isEqualTo(Build.unknown("no build"));
     }
 
     @Test
     void neverShowsALogOrATargetsTokenInAString() {
-        assertThat(new Build(Build.FAILURE, List.of(new Build.Job("t", "failure",
-                "secret line".getBytes(StandardCharsets.UTF_8))), "").toString())
-                .doesNotContain("secret line").contains("11 bytes");
-        assertThat(new Target("git@forge.example:o/n.git", "", "ghp_token").toString()).doesNotContain("ghp_token");
+        assertThat(
+                        new Build(
+                                        Build.FAILURE,
+                                        List.of(
+                                                new Build.Job(
+                                                        "t",
+                                                        "failure",
+                                                        "secret line"
+                                                                .getBytes(StandardCharsets.UTF_8))),
+                                        "")
+                                .toString())
+                .doesNotContain("secret line")
+                .contains("11 bytes");
+        assertThat(new Target("git@forge.example:o/n.git", "", "ghp_token").toString())
+                .doesNotContain("ghp_token");
     }
 }

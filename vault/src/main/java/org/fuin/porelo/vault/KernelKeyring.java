@@ -15,23 +15,23 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * The Linux kernel keyring, used as a volatile unlock cache.
- * <p>
- * The passphrase is held by the kernel rather than by any file, so it survives between
- * {@code porelo} invocations - an operator unlocks once per login instead of once per command - and
- * disappears when the account's last session ends. Nothing is written to disk, and nothing
- * survives a reboot.
- * <p>
- * <strong>It is the USER keyring, which is why a daemon finds it.</strong> Measured on
+ *
+ * <p>The passphrase is held by the kernel rather than by any file, so it survives between {@code
+ * porelo} invocations - an operator unlocks once per login instead of once per command - and
+ * disappears when the account's last session ends. Nothing is written to disk, and nothing survives
+ * a reboot.
+ *
+ * <p><strong>It is the USER keyring, which is why a daemon finds it.</strong> Measured on
  * 2026-09-19: a passphrase cached by one ssh session is readable by a later ssh session and by a
  * systemd <em>user</em> unit - which is what the daemon is. An interface that opens a vault by
  * running the unlock in a terminal it then closes has therefore opened it for the daemon too. The
  * command used to say "for this session", which invited exactly the opposite conclusion.
- * <p>
- * The key is created in the <em>user</em> keyring and linked into the session keyring, which is
- * what makes it visible to later processes in the same session. Its permission mask is
- * {@code 0x3F2F0000}: all rights for the owner, none for anyone else.
- * <p>
- * Requires {@code libkeyutils}. Where it is absent every method reports unavailable rather than
+ *
+ * <p>The key is created in the <em>user</em> keyring and linked into the session keyring, which is
+ * what makes it visible to later processes in the same session. Its permission mask is {@code
+ * 0x3F2F0000}: all rights for the owner, none for anyone else.
+ *
+ * <p>Requires {@code libkeyutils}. Where it is absent every method reports unavailable rather than
  * failing, because a missing unlock cache is an inconvenience and not an error.
  */
 public class KernelKeyring {
@@ -41,11 +41,11 @@ public class KernelKeyring {
 
     /**
      * The errno values that mean the key is not there to be had.
-     * <p>
-     * Absence, expiry and revocation are the same answer to an operator: there is nothing cached
+     *
+     * <p>Absence, expiry and revocation are the same answer to an operator: there is nothing cached
      * and nothing to do about it. Every other failure means the search could not establish
-     * anything, and reporting that as absence is the tool making a claim about a secret that it
-     * has not checked. {@code --for} makes expiry ordinary rather than exotic - it is what the
+     * anything, and reporting that as absence is the tool making a claim about a secret that it has
+     * not checked. {@code --for} makes expiry ordinary rather than exotic - it is what the
      * recommended option produces half an hour later.
      */
     private static final int ENOKEY = 126;
@@ -61,13 +61,13 @@ public class KernelKeyring {
 
     /**
      * Where the passphrase is looked for, in order.
-     * <p>
-     * <strong>The user keyring first, because that is where it was put.</strong> The session
+     *
+     * <p><strong>The user keyring first, because that is where it was put.</strong> The session
      * keyring finds it only through a link, and {@code pam_keyinit} revokes a session keyring when
      * its login ends - so a process that outlives its login, such as a {@code vault serve} for a
      * long task, was searching a revoked keyring while the key sat untouched in {@code @u}.
      */
-    private static final int[] SEARCHED = { KEY_SPEC_USER_KEYRING, KEY_SPEC_SESSION_KEYRING };
+    private static final int[] SEARCHED = {KEY_SPEC_USER_KEYRING, KEY_SPEC_SESSION_KEYRING};
 
     /**
      * Owner may view, read, write, search, link and set attributes; nobody else may do anything.
@@ -89,7 +89,7 @@ public class KernelKeyring {
     private static final @Nullable SymbolLookup KEYUTILS = load();
 
     private static @Nullable SymbolLookup load() {
-        for (final String name : new String[] { "libkeyutils.so.1", "libkeyutils.so" }) {
+        for (final String name : new String[] {"libkeyutils.so.1", "libkeyutils.so"}) {
             try {
                 return SymbolLookup.libraryLookup(name, Arena.global());
             } catch (IllegalArgumentException | UnsatisfiedLinkError ex) {
@@ -119,15 +119,20 @@ public class KernelKeyring {
         return KEYUTILS != null;
     }
 
-    private static MethodHandle handle(String name, MemoryLayout returnType,
-            MemoryLayout... arguments) {
+    private static MethodHandle handle(
+            String name, MemoryLayout returnType, MemoryLayout... arguments) {
         if (KEYUTILS == null) {
-            throw new VaultException("libkeyutils is not installed, so the kernel keyring cannot be used");
+            throw new VaultException(
+                    "libkeyutils is not installed, so the kernel keyring cannot be used");
         }
         return LINKER.downcallHandle(
-                KEYUTILS.find(name).orElseThrow(() ->
-                        new VaultException("Symbol '" + name + "' not found in libkeyutils")),
-                FunctionDescriptor.of(returnType, arguments), CAPTURE);
+                KEYUTILS.find(name)
+                        .orElseThrow(
+                                () ->
+                                        new VaultException(
+                                                "Symbol '" + name + "' not found in libkeyutils")),
+                FunctionDescriptor.of(returnType, arguments),
+                CAPTURE);
     }
 
     /**
@@ -143,8 +148,8 @@ public class KernelKeyring {
     /**
      * Stores a passphrase in the keyring, replacing any previous one, and optionally bounds how
      * long the kernel keeps it.
-     * <p>
-     * <strong>The kernel discards it, not Porelo.</strong> Nothing has to remember to, no timer
+     *
+     * <p><strong>The kernel discards it, not Porelo.</strong> Nothing has to remember to, no timer
      * runs, and a process that dies leaves nothing behind that outlives its welcome. Without a
      * bound the passphrase lives until it is dropped or until the user's last session ends, which
      * is one behaviour and no choice - the bound is the choice.
@@ -153,8 +158,8 @@ public class KernelKeyring {
      * @param timeout How long the kernel should keep it, or {@code null} for no bound.
      * @throws VaultException If the keyring is unavailable or the kernel refuses.
      */
-    public void store(char[] passphrase, java.time.@org.jspecify.annotations.Nullable
-            Duration timeout) {
+    public void store(
+            char[] passphrase, java.time.@org.jspecify.annotations.Nullable Duration timeout) {
 
         requireAvailable();
         final byte[] bytes = new String(passphrase).getBytes(StandardCharsets.UTF_8);
@@ -162,52 +167,93 @@ public class KernelKeyring {
         try (Arena arena = Arena.ofConfined()) {
 
             final MemorySegment errno = arena.allocate(ERRNO_LAYOUT);
-            final MethodHandle link = handle("keyctl_link", ValueLayout.JAVA_LONG,
-                    ValueLayout.JAVA_INT, ValueLayout.JAVA_INT);
-            final MethodHandle addKey = handle("add_key", ValueLayout.JAVA_INT,
-                    ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS,
-                    ValueLayout.JAVA_LONG, ValueLayout.JAVA_INT);
-            final MethodHandle setPermissions = handle("keyctl_setperm", ValueLayout.JAVA_LONG,
-                    ValueLayout.JAVA_INT, ValueLayout.JAVA_INT);
+            final MethodHandle link =
+                    handle(
+                            "keyctl_link",
+                            ValueLayout.JAVA_LONG,
+                            ValueLayout.JAVA_INT,
+                            ValueLayout.JAVA_INT);
+            final MethodHandle addKey =
+                    handle(
+                            "add_key",
+                            ValueLayout.JAVA_INT,
+                            ValueLayout.ADDRESS,
+                            ValueLayout.ADDRESS,
+                            ValueLayout.ADDRESS,
+                            ValueLayout.JAVA_LONG,
+                            ValueLayout.JAVA_INT);
+            final MethodHandle setPermissions =
+                    handle(
+                            "keyctl_setperm",
+                            ValueLayout.JAVA_LONG,
+                            ValueLayout.JAVA_INT,
+                            ValueLayout.JAVA_INT);
 
             // Link the user keyring into the session keyring first, or a key added to the user
             // keyring is not findable from a later process in the same session.
-            final long linked = (long) link.invokeExact(errno,
-                    KEY_SPEC_USER_KEYRING, KEY_SPEC_SESSION_KEYRING);
+            final long linked =
+                    (long) link.invokeExact(errno, KEY_SPEC_USER_KEYRING, KEY_SPEC_SESSION_KEYRING);
             if (linked == -1L) {
-                throw new VaultException("Cannot link the user keyring into the session keyring"
-                        + " (errno=" + errorNumber(errno) + ")");
+                throw new VaultException(
+                        "Cannot link the user keyring into the session keyring"
+                                + " (errno="
+                                + errorNumber(errno)
+                                + ")");
             }
 
             final MemorySegment payload = arena.allocate(bytes.length);
             MemorySegment.copy(bytes, 0, payload, ValueLayout.JAVA_BYTE, 0, bytes.length);
 
-            final int serial = (int) addKey.invokeExact(errno,
-                    arena.allocateFrom(TYPE), arena.allocateFrom(description),
-                    payload, (long) bytes.length, KEY_SPEC_USER_KEYRING);
+            final int serial =
+                    (int)
+                            addKey.invokeExact(
+                                    errno,
+                                    arena.allocateFrom(TYPE),
+                                    arena.allocateFrom(description),
+                                    payload,
+                                    (long) bytes.length,
+                                    KEY_SPEC_USER_KEYRING);
             if (serial == -1) {
-                throw new VaultException("Cannot store the passphrase in the keyring"
-                        + " (errno=" + errorNumber(errno) + ")");
+                throw new VaultException(
+                        "Cannot store the passphrase in the keyring"
+                                + " (errno="
+                                + errorNumber(errno)
+                                + ")");
             }
 
-            final long permissions = (long) setPermissions.invokeExact(errno, serial, KEY_PERMISSIONS);
+            final long permissions =
+                    (long) setPermissions.invokeExact(errno, serial, KEY_PERMISSIONS);
             if (permissions == -1L) {
-                throw new VaultException("Cannot restrict the keyring entry"
-                        + " (errno=" + errorNumber(errno) + ")");
+                throw new VaultException(
+                        "Cannot restrict the keyring entry"
+                                + " (errno="
+                                + errorNumber(errno)
+                                + ")");
             }
 
             if (timeout != null) {
                 // Set last, on a key that is already stored and already restricted: a bound on a
-                // key that failed to be locked down would be the wrong thing to get right. The kernel
-                // keeps the expiry in whole seconds of the clock, so a bound of n seconds lasts from
+                // key that failed to be locked down would be the wrong thing to get right. The
+                // kernel
+                // keeps the expiry in whole seconds of the clock, so a bound of n seconds lasts
+                // from
                 // n-1 to n: one second short at most, which no bound a person sets notices.
-                final MethodHandle setTimeout = handle("keyctl_set_timeout",
-                        ValueLayout.JAVA_LONG, ValueLayout.JAVA_INT, ValueLayout.JAVA_INT);
-                final long bounded = (long) setTimeout.invokeExact(errno, serial,
-                        (int) Math.max(1L, timeout.toSeconds()));
+                final MethodHandle setTimeout =
+                        handle(
+                                "keyctl_set_timeout",
+                                ValueLayout.JAVA_LONG,
+                                ValueLayout.JAVA_INT,
+                                ValueLayout.JAVA_INT);
+                final long bounded =
+                        (long)
+                                setTimeout.invokeExact(
+                                        errno, serial, (int) Math.max(1L, timeout.toSeconds()));
                 if (bounded == -1L) {
-                    throw new VaultException("Cannot bound how long the passphrase is kept"
-                            + " (errno=" + errorNumber(errno) + ")");
+                    throw new VaultException(
+                            "Cannot bound how long the passphrase is kept"
+                                    + " (errno="
+                                    + errorNumber(errno)
+                                    + ")");
                 }
             }
 
@@ -234,16 +280,32 @@ public class KernelKeyring {
         try (Arena arena = Arena.ofConfined()) {
 
             final MemorySegment errno = arena.allocate(ERRNO_LAYOUT);
-            final MethodHandle search = handle("keyctl_search", ValueLayout.JAVA_LONG,
-                    ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS,
-                    ValueLayout.JAVA_INT);
-            final MethodHandle read = handle("keyctl_read", ValueLayout.JAVA_LONG,
-                    ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG);
+            final MethodHandle search =
+                    handle(
+                            "keyctl_search",
+                            ValueLayout.JAVA_LONG,
+                            ValueLayout.JAVA_INT,
+                            ValueLayout.ADDRESS,
+                            ValueLayout.ADDRESS,
+                            ValueLayout.JAVA_INT);
+            final MethodHandle read =
+                    handle(
+                            "keyctl_read",
+                            ValueLayout.JAVA_LONG,
+                            ValueLayout.JAVA_INT,
+                            ValueLayout.ADDRESS,
+                            ValueLayout.JAVA_LONG);
 
             long serial = -1L;
             for (final int keyring : SEARCHED) {
-                serial = (long) search.invokeExact(errno, keyring,
-                        arena.allocateFrom(TYPE), arena.allocateFrom(description), 0);
+                serial =
+                        (long)
+                                search.invokeExact(
+                                        errno,
+                                        keyring,
+                                        arena.allocateFrom(TYPE),
+                                        arena.allocateFrom(description),
+                                        0);
                 if (serial != -1L) {
                     break;
                 }
@@ -272,8 +334,8 @@ public class KernelKeyring {
 
     /**
      * What became of the cached passphrase.
-     * <p>
-     * Three outcomes rather than two, because "nothing was cached" and "I could not tell" are
+     *
+     * <p>Three outcomes rather than two, because "nothing was cached" and "I could not tell" are
      * different things to say to somebody who has just asked for a secret to be dropped.
      */
     public enum Forgotten {
@@ -290,12 +352,12 @@ public class KernelKeyring {
 
     /**
      * Removes the cached passphrase.
-     * <p>
-     * <strong>A failure is never reported as absence.</strong> The search returns {@code -1} for
+     *
+     * <p><strong>A failure is never reported as absence.</strong> The search returns {@code -1} for
      * any reason at all, and treating that as "nothing was cached" told an operator the passphrase
      * was gone while it was still in the keyring - a claim about a secret that had not been
-     * checked. Only absence, expiry and revocation are answers; everything else is
-     * {@link Forgotten#UNKNOWN}.
+     * checked. Only absence, expiry and revocation are answers; everything else is {@link
+     * Forgotten#UNKNOWN}.
      *
      * @return What was established.
      */
@@ -308,17 +370,32 @@ public class KernelKeyring {
         try (Arena arena = Arena.ofConfined()) {
 
             final MemorySegment errno = arena.allocate(ERRNO_LAYOUT);
-            final MethodHandle search = handle("keyctl_search", ValueLayout.JAVA_LONG,
-                    ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS,
-                    ValueLayout.JAVA_INT);
-            final MethodHandle unlink = handle("keyctl_unlink", ValueLayout.JAVA_LONG,
-                    ValueLayout.JAVA_INT, ValueLayout.JAVA_INT);
+            final MethodHandle search =
+                    handle(
+                            "keyctl_search",
+                            ValueLayout.JAVA_LONG,
+                            ValueLayout.JAVA_INT,
+                            ValueLayout.ADDRESS,
+                            ValueLayout.ADDRESS,
+                            ValueLayout.JAVA_INT);
+            final MethodHandle unlink =
+                    handle(
+                            "keyctl_unlink",
+                            ValueLayout.JAVA_LONG,
+                            ValueLayout.JAVA_INT,
+                            ValueLayout.JAVA_INT);
 
             long serial = -1L;
             int failure = 0;
             for (final int keyring : SEARCHED) {
-                serial = (long) search.invokeExact(errno, keyring,
-                        arena.allocateFrom(TYPE), arena.allocateFrom(description), 0);
+                serial =
+                        (long)
+                                search.invokeExact(
+                                        errno,
+                                        keyring,
+                                        arena.allocateFrom(TYPE),
+                                        arena.allocateFrom(description),
+                                        0);
                 if (serial != -1L) {
                     break;
                 }
@@ -354,8 +431,9 @@ public class KernelKeyring {
 
     private static void requireAvailable() {
         if (!available()) {
-            throw new VaultException("libkeyutils is not available, so the kernel keyring"
-                    + " cannot be used on this host");
+            throw new VaultException(
+                    "libkeyutils is not available, so the kernel keyring"
+                            + " cannot be used on this host");
         }
     }
 

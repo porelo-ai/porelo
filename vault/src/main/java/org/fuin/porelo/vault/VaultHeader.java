@@ -12,19 +12,21 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * The part of a vault file that is readable without opening it.
+ *
  * <p>
+ *
  * <pre>
  * magic "PORELOVLT" | version | header length | header JSON | content nonce | AEAD ciphertext+tag
  * </pre>
- * <p>
- * <strong>JSON rather than packed binary</strong>, because what it holds is a table of variable
+ *
+ * <p><strong>JSON rather than packed binary</strong>, because what it holds is a table of variable
  * length whose shape will grow - a slot has a name, a storage kind and two timestamps - and a
  * hand-rolled parser for that is a place for a length field to be read wrong. It costs a few
  * hundred bytes in a file that holds tens of entries.
- * <p>
- * <strong>Everything from the magic to the content nonce is authenticated as additional data</strong>,
- * so no part of this can be changed without invalidating the content's tag: not a slot's wrapped
- * key, not the KDF parameters, not a device's recorded name.
+ *
+ * <p><strong>Everything from the magic to the content nonce is authenticated as additional
+ * data</strong>, so no part of this can be changed without invalidating the content's tag: not a
+ * slot's wrapped key, not the KDF parameters, not a device's recorded name.
  */
 final class VaultHeader {
 
@@ -52,9 +54,15 @@ final class VaultHeader {
      * @param memoryKib Argon2id memory, for a passphrase slot. Zero otherwise.
      * @param parallelism Argon2id parallelism, for a passphrase slot. Zero otherwise.
      */
-    record Slot(String kind, Keyslot slot, byte[] salt, byte[] nonce, byte[] wrapped,
-            int iterations, int memoryKib, int parallelism) {
-    }
+    record Slot(
+            String kind,
+            Keyslot slot,
+            byte[] salt,
+            byte[] nonce,
+            byte[] wrapped,
+            int iterations,
+            int memoryKib,
+            int parallelism) {}
 
     private final List<Slot> slots;
 
@@ -62,8 +70,8 @@ final class VaultHeader {
 
     private final byte[] authenticated;
 
-    private VaultHeader(final List<Slot> slots, final byte[] contentNonce,
-            final byte[] authenticated) {
+    private VaultHeader(
+            final List<Slot> slots, final byte[] contentNonce, final byte[] authenticated) {
         this.slots = slots;
         this.contentNonce = contentNonce;
         this.authenticated = authenticated;
@@ -126,8 +134,8 @@ final class VaultHeader {
         document.put("slots", written);
         final byte[] json = Json.write(document).getBytes(StandardCharsets.UTF_8);
 
-        final ByteBuffer buffer = ByteBuffer.allocate(
-                MAGIC.length + 4 + 4 + json.length + contentNonce.length);
+        final ByteBuffer buffer =
+                ByteBuffer.allocate(MAGIC.length + 4 + 4 + json.length + contentNonce.length);
         buffer.put(MAGIC);
         buffer.putInt(VERSION);
         buffer.putInt(json.length);
@@ -158,9 +166,15 @@ final class VaultHeader {
         if (version != VERSION) {
             // Refused, never half read. There is one format, and a file from before it is not
             // migrated - it is recreated, which costs only retyping what it held.
-            throw new VaultException(name + " is a version " + version + " vault, and this Porelo"
-                    + " reads version " + VERSION + " only. There is no conversion: create the"
-                    + " vault again with 'porelo vault init' and enter its credentials once more.");
+            throw new VaultException(
+                    name
+                            + " is a version "
+                            + version
+                            + " vault, and this Porelo"
+                            + " reads version "
+                            + VERSION
+                            + " only. There is no conversion: create the"
+                            + " vault again with 'porelo vault init' and enter its credentials once more.");
         }
         final int length = buffer.getInt();
         if (length < 0 || length > buffer.remaining()) {
@@ -196,21 +210,32 @@ final class VaultHeader {
         if (slots.isEmpty()) {
             throw new VaultException(name + " has no keyslots");
         }
-        final byte[] authenticated =
-                java.util.Arrays.copyOfRange(content, 0, buffer.position());
+        final byte[] authenticated = java.util.Arrays.copyOfRange(content, 0, buffer.position());
         return new VaultHeader(List.copyOf(slots), contentNonce, authenticated);
     }
 
     private static Slot slot(final Map<?, ?> one, final Object name) {
         final String kind = text(one, "kind");
-        final Keyslot keyslot = new Keyslot(text(one, "id"), text(one, "name"),
-                text(one, "storage"), text(one, "enrolled"), text(one, "lastUsed"),
-                PASSPHRASE_SLOT.equals(kind));
+        final Keyslot keyslot =
+                new Keyslot(
+                        text(one, "id"),
+                        text(one, "name"),
+                        text(one, "storage"),
+                        text(one, "enrolled"),
+                        text(one, "lastUsed"),
+                        PASSPHRASE_SLOT.equals(kind));
         final byte[] salt = decode(one.get("salt"), name);
         final byte[] nonce = decode(one.get("nonce"), name);
         final byte[] wrapped = decode(one.get("wrapped"), name);
-        return new Slot(kind, keyslot, salt, nonce, wrapped, number(one, "iterations"),
-                number(one, "memory"), number(one, "parallelism"));
+        return new Slot(
+                kind,
+                keyslot,
+                salt,
+                nonce,
+                wrapped,
+                number(one, "iterations"),
+                number(one, "memory"),
+                number(one, "parallelism"));
     }
 
     private static String text(final Map<?, ?> one, final String key) {

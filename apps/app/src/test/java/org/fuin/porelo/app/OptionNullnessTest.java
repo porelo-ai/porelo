@@ -12,10 +12,10 @@ import picocli.CommandLine.Model.ArgSpec;
 
 /**
  * An option picocli may leave unset is declared {@code @Nullable}.
- * <p>
- * NullAway is told that picocli initializes its fields, because it does - but only the ones it is
- * given. An optional option with no default is still {@code null} when {@code call()} runs, and a
- * field that does not say so is one NullAway trusts and nothing checks. This is what keeps that
+ *
+ * <p>NullAway is told that picocli initializes its fields, because it does - but only the ones it
+ * is given. An optional option with no default is still {@code null} when {@code call()} runs, and
+ * a field that does not say so is one NullAway trusts and nothing checks. This is what keeps that
  * trust honest, for every command, including the next one somebody adds.
  */
 class OptionNullnessTest {
@@ -26,7 +26,8 @@ class OptionNullnessTest {
         walk(PoreloCli.commandLine(PoreloContext.real()), undeclared);
 
         assertThat(undeclared.stream().distinct().toList())
-                .as("options and parameters that can be null and do not say so").isEmpty();
+                .as("options and parameters that can be null and do not say so")
+                .isEmpty();
     }
 
     @Test
@@ -68,22 +69,33 @@ class OptionNullnessTest {
         final List<ArgSpec> arguments = new ArrayList<>(command.getCommandSpec().options());
         arguments.addAll(command.getCommandSpec().positionalParameters());
         for (final ArgSpec argument : arguments) {
-            if (mayBeNull(argument) && argument.userObject() instanceof Field field
+            if (mayBeNull(argument)
+                    && argument.userObject() instanceof Field field
                     && !field.getAnnotatedType().isAnnotationPresent(Nullable.class)) {
-                undeclared.add(command.getCommandSpec().qualifiedName() + " " + name(argument) + " ("
-                        + field.getDeclaringClass().getSimpleName() + "." + field.getName() + ")");
+                undeclared.add(
+                        command.getCommandSpec().qualifiedName()
+                                + " "
+                                + name(argument)
+                                + " ("
+                                + field.getDeclaringClass().getSimpleName()
+                                + "."
+                                + field.getName()
+                                + ")");
             }
         }
         command.getSubcommands().values().forEach(sub -> walk(sub, undeclared));
     }
 
     private static boolean mayBeNull(ArgSpec argument) {
-        return !argument.required() && argument.defaultValue() == null && argument.initialValue() == null
+        return !argument.required()
+                && argument.defaultValue() == null
+                && argument.initialValue() == null
                 && !argument.type().isPrimitive();
     }
 
     private static String name(ArgSpec argument) {
-        return argument instanceof CommandLine.Model.OptionSpec option ? option.longestName() : argument.paramLabel();
+        return argument instanceof CommandLine.Model.OptionSpec option
+                ? option.longestName()
+                : argument.paramLabel();
     }
-
 }

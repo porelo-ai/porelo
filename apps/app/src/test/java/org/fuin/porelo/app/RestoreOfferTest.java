@@ -11,13 +11,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Tests that restoring a gate over a mirror that is there offers to move it aside under a dated name, never over
- * another, instead of sending a person to move it.
+ * Tests that restoring a gate over a mirror that is there offers to move it aside under a dated
+ * name, never over another, instead of sending a person to move it.
  */
 class RestoreOfferTest {
 
-    @TempDir
-    private Path dir;
+    @TempDir private Path dir;
 
     @Test
     void theMirrorGoesAsideUnderADatedNameThatIsNeverTaken() throws Exception {
@@ -32,8 +31,15 @@ class RestoreOfferTest {
     @Test
     void itIsAskedAndNobodyToAskIsTheRefusalAsBefore() {
         final Path mirror = dir.resolve("uc.git");
-        assertThat(GateRestoreCommand.moveAside(mirror, new Offer(question -> "", false, false,
-                new PrintWriter(new StringWriter(), true)))).isTrue();
+        assertThat(
+                        GateRestoreCommand.moveAside(
+                                mirror,
+                                new Offer(
+                                        question -> "",
+                                        false,
+                                        false,
+                                        new PrintWriter(new StringWriter(), true))))
+                .isTrue();
         assertThat(GateRestoreCommand.moveAside(mirror, Offer.NOBODY)).isFalse();
     }
 }

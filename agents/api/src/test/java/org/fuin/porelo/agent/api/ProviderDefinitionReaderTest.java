@@ -6,12 +6,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.io.StringReader;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link ProviderDefinitionReader} and {@link ProviderDefinition}.
- */
+/** Tests for {@link ProviderDefinitionReader} and {@link ProviderDefinition}. */
 class ProviderDefinitionReaderTest {
 
-    private static final String OPENROUTER = """
+    private static final String OPENROUTER =
+            """
             name: openrouter
             label: OpenRouter
             upstream: https://openrouter.ai
@@ -66,7 +65,9 @@ class ProviderDefinitionReaderTest {
     @Test
     void aProviderMayServeItsOwnDialectAtTheRoot() {
 
-        final ProviderDefinition anthropic = read("""
+        final ProviderDefinition anthropic =
+                read(
+                        """
                 name: anthropic
                 upstream: https://api.anthropic.com
                 dialects:
@@ -98,7 +99,10 @@ class ProviderDefinitionReaderTest {
     @Test
     void refusesAnUpstreamThatWouldSendTheCredentialInTheClear() {
 
-        assertThatThrownBy(() -> read("""
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        """
                 name: example
                 upstream: http://api.example.com
                 dialects:
@@ -113,7 +117,10 @@ class ProviderDefinitionReaderTest {
 
         // It could never be selected, so a declaration without dialects is a mistake rather
         // than a choice.
-        assertThatThrownBy(() -> read("""
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        """
                 name: example
                 upstream: https://api.example.com
                 """))
@@ -126,7 +133,10 @@ class ProviderDefinitionReaderTest {
 
         // 'native' is how an agent asks for whichever comes first, so a provider offering one by
         // that name would be unreachable through the very word meant to reach it.
-        assertThatThrownBy(() -> read("""
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        """
                 name: example
                 upstream: https://api.example.com
                 dialects:
@@ -139,7 +149,10 @@ class ProviderDefinitionReaderTest {
     @Test
     void refusesANameThatWillNotSurviveTheLayersBelow() {
 
-        assertThatThrownBy(() -> read("""
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        """
                 name: Open Router
                 upstream: https://openrouter.ai
                 dialects:
@@ -153,7 +166,9 @@ class ProviderDefinitionReaderTest {
     void readsAKeyThatBelongsInTheUrl() {
 
         // A service that takes its key as ?key=... declares the parameter, and then no header.
-        final ProviderDefinition provider = read("""
+        final ProviderDefinition provider =
+                read(
+                        """
                 name: gemini
                 upstream: https://generativelanguage.googleapis.com
                 dialects:
@@ -163,54 +178,69 @@ class ProviderDefinitionReaderTest {
                 """);
 
         assertThat(provider.authQueryFor("api-key")).isEqualTo("key");
-        assertThat(read(OPENROUTER).authQueryFor("api-key")).as("a provider that declares none").isNull();
+        assertThat(read(OPENROUTER).authQueryFor("api-key"))
+                .as("a provider that declares none")
+                .isNull();
     }
 
     @Test
-    void everyShippedProviderReadsAndCopilotIsReachedAtItsRootWithABearer() throws java.io.IOException {
-        try (java.util.stream.Stream<java.nio.file.Path> files = java.nio.file.Files.list(
-                java.nio.file.Path.of("..", "..", "providers"))) {
-            for (final java.nio.file.Path file : files.filter(each -> each.toString().endsWith(".yaml")).toList()) {
-                assertThat(ProviderDefinitionReader.fromFile(file).name()).as(file.toString())
+    void everyShippedProviderReadsAndCopilotIsReachedAtItsRootWithABearer()
+            throws java.io.IOException {
+        try (java.util.stream.Stream<java.nio.file.Path> files =
+                java.nio.file.Files.list(java.nio.file.Path.of("..", "..", "providers"))) {
+            for (final java.nio.file.Path file :
+                    files.filter(each -> each.toString().endsWith(".yaml")).toList()) {
+                assertThat(ProviderDefinitionReader.fromFile(file).name())
+                        .as(file.toString())
                         .isEqualTo(file.getFileName().toString().replace(".yaml", ""));
             }
         }
 
-        final ProviderDefinition copilot = ProviderDefinitionReader.fromFile(
-                java.nio.file.Path.of("..", "..", "providers", "github-copilot.yaml"));
+        final ProviderDefinition copilot =
+                ProviderDefinitionReader.fromFile(
+                        java.nio.file.Path.of("..", "..", "providers", "github-copilot.yaml"));
 
         // Oh My Pi puts every Copilot path under one base, and Copilot serves them all at its root.
         assertThat(copilot.pathFor(ProviderDefinition.NATIVE_DIALECT)).isEmpty();
         assertThat(copilot.upstreamHost()).isEqualTo("api.githubcopilot.com");
         assertThat(copilot.authHeaderFor("oauth-device")).isEqualTo("Authorization");
         assertThat(copilot.authPrefixFor("oauth-device")).isEqualTo("Bearer ");
-        // Without a variable to put the task's token in, nothing was brokered and the agent had no key.
+        // Without a variable to put the task's token in, nothing was brokered and the agent had no
+        // key.
         assertThat(copilot.tokenVariable("oauth-device")).isEqualTo("COPILOT_GITHUB_TOKEN");
     }
 
     @org.junit.jupiter.api.Test
-    void aProviderDeclaredTwiceSaysWhichFileWonAndWhichWasSetAside(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir)
-            throws Exception {
+    void aProviderDeclaredTwiceSaysWhichFileWonAndWhichWasSetAside(
+            @org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
 
-        // The first file to name a provider won, whatever it was called, and nothing said another was set aside: a file
-        // dropped in as 'experiment.yaml' took 'openrouter' over, and with it where the stored key goes.
+        // The first file to name a provider won, whatever it was called, and nothing said another
+        // was set aside: a file
+        // dropped in as 'experiment.yaml' took 'openrouter' over, and with it where the stored key
+        // goes.
         final java.nio.file.Path own = java.nio.file.Files.createDirectories(dir.resolve("own"));
-        final java.nio.file.Path packaged = java.nio.file.Files.createDirectories(dir.resolve("packaged"));
-        java.nio.file.Files.writeString(own.resolve("experiment.yaml"),
+        final java.nio.file.Path packaged =
+                java.nio.file.Files.createDirectories(dir.resolve("packaged"));
+        java.nio.file.Files.writeString(
+                own.resolve("experiment.yaml"),
                 OPENROUTER.replace("https://openrouter.ai", "https://other.example"));
         java.nio.file.Files.writeString(packaged.resolve("openrouter.yaml"), OPENROUTER);
 
         final ProviderDirectory directory = new ProviderDirectory(java.util.List.of(own, packaged));
 
         assertThat(directory.all().get("openrouter").upstream()).isEqualTo("https://other.example");
-        assertThat(directory.shadowed()).containsEntry(packaged.resolve("openrouter.yaml"), own.resolve("experiment.yaml"));
+        assertThat(directory.shadowed())
+                .containsEntry(packaged.resolve("openrouter.yaml"), own.resolve("experiment.yaml"));
     }
 
     @Test
     void readsTheGrantAPersonGivesOnceWithTheSettingsEveryoneShares() {
-        // GitHub's device flow is the same for everybody but the client: the URLs and the scope belong to the provider,
+        // GitHub's device flow is the same for everybody but the client: the URLs and the scope
+        // belong to the provider,
         // the client id to the agent that signs in, so a person types none of them.
-        final ProviderDefinition copilot = read("""
+        final ProviderDefinition copilot =
+                read(
+                        """
                 name: github-copilot
                 upstream: https://api.githubcopilot.com
                 dialects:
@@ -222,7 +252,8 @@ class ProviderDefinitionReaderTest {
                   scopes: read:user
                 """);
 
-        assertThat(copilot.grant()).containsEntry("kind", "oauth-device")
+        assertThat(copilot.grant())
+                .containsEntry("kind", "oauth-device")
                 .containsEntry("device_authorization_url", "https://github.com/login/device/code")
                 .containsEntry("token_url", "https://github.com/login/oauth/access_token")
                 .containsEntry("scopes", "read:user")

@@ -11,39 +11,55 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Which key the host lends for an upstream reached over ssh: the gate's fetch and the push an online task's gate passes
- * on use it, and no container holds it.
+ * Which key the host lends for an upstream reached over ssh: the gate's fetch and the push an
+ * online task's gate passes on use it, and no container holds it.
  */
 class OnlineSshKeyTest {
 
     private static final String UPSTREAM = "git@github.com:porelo-ai/porelo-test-2.git";
 
-    @TempDir
-    Path dir;
+    @TempDir Path dir;
 
     private PoreloContext context() {
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_STATE_HOME" -> dir.resolve("state").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
-        return new PoreloContext(new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
+        return new PoreloContext(
+                new FakeCommandRunner(), new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
     }
 
     @Test
     void theKeyTheProjectDeclaredForItsUpstreamIsTheOneTheAgentSignsWith() throws IOException {
 
-        // The machine held the project's deploy keys and no 'ssh.default', and the key was looked for by that fixed
+        // The machine held the project's deploy keys and no 'ssh.default', and the key was looked
+        // for by that fixed
         // name: nothing could be lent, and nothing could be pushed.
         final PoreloContext context = context();
-        new CredentialDeclarations(context).declare(new Credential("deploy:porelo-test-project:porelo-test-2",
-                Credential.Kind.SSH_KEY, org.fuin.porelo.core.credential.CredentialRegistry.normalise(UPSTREAM), null,
-                Credential.ANY, Credential.Source.VAULT));
+        new CredentialDeclarations(context)
+                .declare(
+                        new Credential(
+                                "deploy:porelo-test-project:porelo-test-2",
+                                Credential.Kind.SSH_KEY,
+                                org.fuin.porelo.core.credential.CredentialRegistry.normalise(
+                                        UPSTREAM),
+                                null,
+                                Credential.ANY,
+                                Credential.Source.VAULT));
 
-        assertThat(FollowCredential.sshKeyFor(context, UPSTREAM)).isEqualTo("deploy:porelo-test-project:porelo-test-2");
-        assertThat(FollowCredential.sshKeyFor(context, "https://github.com/porelo-ai/porelo-test-2.git"))
-                .as("not an ssh address").isNull();
+        assertThat(FollowCredential.sshKeyFor(context, UPSTREAM))
+                .isEqualTo("deploy:porelo-test-project:porelo-test-2");
+        assertThat(
+                        FollowCredential.sshKeyFor(
+                                context, "https://github.com/porelo-ai/porelo-test-2.git"))
+                .as("not an ssh address")
+                .isNull();
     }
 }

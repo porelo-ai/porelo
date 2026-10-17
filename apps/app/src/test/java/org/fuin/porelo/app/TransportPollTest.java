@@ -11,10 +11,10 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Test for {@link TransportPoll}.
- * <p>
- * Driven with real little programs rather than a fake runner: what is worth asserting is that the
- * host works out <em>which</em> transport put a file there by looking at the directory, and a fake
- * that reported what it did would be testing the claim this exists not to trust.
+ *
+ * <p>Driven with real little programs rather than a fake runner: what is worth asserting is that
+ * the host works out <em>which</em> transport put a file there by looking at the directory, and a
+ * fake that reported what it did would be testing the claim this exists not to trust.
  */
 class TransportPollTest {
 
@@ -34,7 +34,8 @@ class TransportPollTest {
     }
 
     private TransportPoll poll(final Path transports) {
-        return new TransportPoll(new org.fuin.porelo.core.process.ProcessCommandRunner(),
+        return new TransportPoll(
+                new org.fuin.porelo.core.process.ProcessCommandRunner(),
                 new TransportDirectory(java.util.List.of(transports)));
     }
 
@@ -42,7 +43,10 @@ class TransportPollTest {
     void asks_a_transport_that_polls_and_learns_what_it_brought(@TempDir final Path dir)
             throws IOException {
         final Mailbox mailbox = mailbox(dir);
-        adapter(dir.resolve("transports"), "spool", """
+        adapter(
+                dir.resolve("transports"),
+                "spool",
+                """
                 case "$1" in
                   describe) echo '{"scheme":"spool","poll":true,"attests":["owner"]}' ;;
                   poll) shift; printf '{"messageId":"m-1"}' > "$2/m-1.json"; echo '{"received":1}' ;;
@@ -60,7 +64,10 @@ class TransportPollTest {
     void does_not_ask_a_transport_that_says_it_needs_no_polling(@TempDir final Path dir)
             throws IOException {
         final Mailbox mailbox = mailbox(dir);
-        adapter(dir.resolve("transports"), "local", """
+        adapter(
+                dir.resolve("transports"),
+                "local",
+                """
                 case "$1" in
                   describe) echo '{"scheme":"local","poll":false,"attests":[]}' ;;
                   poll) printf '{"messageId":"never"}' > "$3/never.json" ;;
@@ -89,7 +96,10 @@ class TransportPollTest {
     void a_transport_that_cannot_run_is_reported_not_swallowed(@TempDir final Path dir)
             throws IOException {
         final Mailbox mailbox = mailbox(dir);
-        adapter(dir.resolve("transports"), "spool", """
+        adapter(
+                dir.resolve("transports"),
+                "spool",
+                """
                 case "$1" in
                   describe) echo '{"scheme":"spool","poll":true,"attests":["owner"]}' ;;
                   poll) echo 'no drop directory on this machine' >&2; exit 2 ;;
@@ -98,18 +108,26 @@ class TransportPollTest {
 
         final TransportPoll.Outcome outcome = poll(dir.resolve("transports")).poll(mailbox);
 
-        assertThat(outcome.failures()).hasEntrySatisfying("spool",
-                why -> assertThat(why).contains("cannot run").contains("no drop directory"));
+        assertThat(outcome.failures())
+                .hasEntrySatisfying(
+                        "spool",
+                        why ->
+                                assertThat(why)
+                                        .contains("cannot run")
+                                        .contains("no drop directory"));
     }
 
     /**
-     * What it fetched before failing is still there, so it still counts - anything else would
-     * leave messages nobody looks at again.
+     * What it fetched before failing is still there, so it still counts - anything else would leave
+     * messages nobody looks at again.
      */
     @Test
     void what_arrived_before_a_failure_still_counts(@TempDir final Path dir) throws IOException {
         final Mailbox mailbox = mailbox(dir);
-        adapter(dir.resolve("transports"), "spool", """
+        adapter(
+                dir.resolve("transports"),
+                "spool",
+                """
                 case "$1" in
                   describe) echo '{"scheme":"spool","poll":true,"attests":["owner"]}' ;;
                   poll) shift; printf '{"messageId":"m-1"}' > "$2/m-1.json"; exit 2 ;;
@@ -130,13 +148,19 @@ class TransportPollTest {
     void tells_two_transports_arrivals_apart(@TempDir final Path dir) throws IOException {
         final Mailbox mailbox = mailbox(dir);
         final Path transports = dir.resolve("transports");
-        adapter(transports, "aaa", """
+        adapter(
+                transports,
+                "aaa",
+                """
                 case "$1" in
                   describe) echo '{"scheme":"aaa","poll":true,"attests":[]}' ;;
                   poll) shift; printf 'x' > "$2/from-aaa.json" ;;
                 esac
                 """);
-        adapter(transports, "bbb", """
+        adapter(
+                transports,
+                "bbb",
+                """
                 case "$1" in
                   describe) echo '{"scheme":"bbb","poll":true,"attests":["owner"]}' ;;
                   poll) shift; printf 'x' > "$2/from-bbb.json" ;;
@@ -151,15 +175,18 @@ class TransportPollTest {
     }
 
     /**
-     * A message arrives with a signature beside it and, from a transport that attests one, an
-     * owner file. Counting those as arrivals would report three where one came, and would put
-     * names in the map that nothing ever looks up.
+     * A message arrives with a signature beside it and, from a transport that attests one, an owner
+     * file. Counting those as arrivals would report three where one came, and would put names in
+     * the map that nothing ever looks up.
      */
     @Test
     void counts_the_message_and_not_what_arrives_beside_it(@TempDir final Path dir)
             throws IOException {
         final Mailbox mailbox = mailbox(dir);
-        adapter(dir.resolve("transports"), "spool", """
+        adapter(
+                dir.resolve("transports"),
+                "spool",
+                """
                 case "$1" in
                   describe) echo '{"scheme":"spool","poll":true,"attests":["owner"]}' ;;
                   poll) shift; printf 'sig' > "$2/m-1.json.sig";
@@ -170,7 +197,7 @@ class TransportPollTest {
 
         final TransportPoll.Outcome outcome = poll(dir.resolve("transports")).poll(mailbox);
 
-        assertThat(outcome.arrivals()).containsExactly(
-                org.assertj.core.api.Assertions.entry("m-1.json", "spool"));
+        assertThat(outcome.arrivals())
+                .containsExactly(org.assertj.core.api.Assertions.entry("m-1.json", "spool"));
     }
 }

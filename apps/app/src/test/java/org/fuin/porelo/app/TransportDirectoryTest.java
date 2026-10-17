@@ -10,21 +10,18 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Test for {@link TransportDirectory}.
- */
+/** Test for {@link TransportDirectory}. */
 class TransportDirectoryTest {
 
-    @TempDir
-    private Path temp;
+    @TempDir private Path temp;
 
     private Path adapter(final Path directory, final String fileName, final boolean executable)
             throws IOException {
         Files.createDirectories(directory);
         final Path file = directory.resolve(fileName);
         Files.writeString(file, "#!/bin/sh\n");
-        Files.setPosixFilePermissions(file,
-                PosixFilePermissions.fromString(executable ? "rwx------" : "rw-------"));
+        Files.setPosixFilePermissions(
+                file, PosixFilePermissions.fromString(executable ? "rwx------" : "rw-------"));
         return file;
     }
 

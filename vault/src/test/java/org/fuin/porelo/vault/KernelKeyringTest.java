@@ -17,8 +17,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Tests for {@link KernelKeyring}, against the real kernel.
- * <p>
- * A unique description per run, so a failing test cannot leave something behind that a later run
+ *
+ * <p>A unique description per run, so a failing test cannot leave something behind that a later run
  * then reads back and passes on.
  */
 class KernelKeyringTest {
@@ -39,8 +39,12 @@ class KernelKeyringTest {
 
         keyring.store("correct horse battery staple".toCharArray());
 
-        assertThat(keyring.read()).hasValueSatisfying(value ->
-                assertThat(value).containsExactly("correct horse battery staple".toCharArray()));
+        assertThat(keyring.read())
+                .hasValueSatisfying(
+                        value ->
+                                assertThat(value)
+                                        .containsExactly(
+                                                "correct horse battery staple".toCharArray()));
     }
 
     @Test
@@ -79,11 +83,14 @@ class KernelKeyringTest {
         // told an operator a passphrase was gone while it was still in the keyring. Absence,
         // expiry and revocation are answers; every other errno is not.
         assertThat(KernelKeyring.missing(126)).as("ENOKEY, nothing there").isTrue();
-        assertThat(KernelKeyring.missing(127)).as("EKEYEXPIRED, and --for makes this ordinary")
+        assertThat(KernelKeyring.missing(127))
+                .as("EKEYEXPIRED, and --for makes this ordinary")
                 .isTrue();
-        assertThat(KernelKeyring.missing(128)).as("EKEYREVOKED, as pam_keyinit does at logout")
+        assertThat(KernelKeyring.missing(128))
+                .as("EKEYREVOKED, as pam_keyinit does at logout")
                 .isTrue();
-        assertThat(KernelKeyring.missing(13)).as("EACCES settles nothing about the secret")
+        assertThat(KernelKeyring.missing(13))
+                .as("EACCES settles nothing about the secret")
                 .isFalse();
         assertThat(KernelKeyring.missing(12)).as("ENOMEM settles nothing either").isFalse();
         assertThat(KernelKeyring.missing(0)).as("no errno at all is not absence").isFalse();
@@ -97,7 +104,8 @@ class KernelKeyringTest {
         assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
 
         keyring.store("secret".toCharArray());
-        // A new, empty session keyring for this process alone: the link store() made is gone, as after a logout,
+        // A new, empty session keyring for this process alone: the link store() made is gone, as
+        // after a logout,
         // and the operator's own session keyring is not touched.
         joinANewSessionKeyring();
 
@@ -109,10 +117,10 @@ class KernelKeyringTest {
         final Linker linker = Linker.nativeLinker();
         final SymbolLookup keyutils =
                 SymbolLookup.libraryLookup("libkeyutils.so.1", Arena.global());
-        final MethodHandle join = linker.downcallHandle(
-                keyutils.find("keyctl_join_session_keyring").orElseThrow(),
-                FunctionDescriptor.of(ValueLayout.JAVA_INT,
-                        ValueLayout.ADDRESS));
+        final MethodHandle join =
+                linker.downcallHandle(
+                        keyutils.find("keyctl_join_session_keyring").orElseThrow(),
+                        FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS));
         final int serial;
         try {
             serial = (int) join.invokeExact(MemorySegment.NULL);
@@ -130,8 +138,9 @@ class KernelKeyringTest {
         keyring.store("first".toCharArray());
         keyring.store("second".toCharArray());
 
-        assertThat(keyring.read()).hasValueSatisfying(value ->
-                assertThat(value).containsExactly("second".toCharArray()));
+        assertThat(keyring.read())
+                .hasValueSatisfying(
+                        value -> assertThat(value).containsExactly("second".toCharArray()));
     }
 
     @Test
@@ -144,8 +153,8 @@ class KernelKeyringTest {
         final char[] passphrase = "Straße-\u00e9\u00e8-\u4f60\u597d".toCharArray();
         keyring.store(passphrase);
 
-        assertThat(keyring.read()).hasValueSatisfying(value ->
-                assertThat(value).containsExactly(passphrase));
+        assertThat(keyring.read())
+                .hasValueSatisfying(value -> assertThat(value).containsExactly(passphrase));
     }
 
     @Test
@@ -160,8 +169,8 @@ class KernelKeyringTest {
     }
 
     @Test
-    void unlocksTheVaultItStoredThePassphraseFor(@org.junit.jupiter.api.io.TempDir
-            java.nio.file.Path dir) {
+    void unlocksTheVaultItStoredThePassphraseFor(
+            @org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) {
 
         assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
 
@@ -187,13 +196,16 @@ class KernelKeyringTest {
         // "the passphrase is gone".
         assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
 
-        // The kernel keeps the expiry in whole seconds of the clock, so a bound of n seconds lasts from n-1 to n. Stored
-        // just before a second turns over and read just after it - the case a slow run hit by chance - a key with a
+        // The kernel keeps the expiry in whole seconds of the clock, so a bound of n seconds lasts
+        // from n-1 to n. Stored
+        // just before a second turns over and read just after it - the case a slow run hit by
+        // chance - a key with a
         // one-second bound is already gone, 30 ms later.
         while (System.currentTimeMillis() % 1000 < 980) {
             Thread.sleep(5);
         }
-        keyring.store("correct horse battery staple".toCharArray(), Duration.ofSeconds(BOUND_SECONDS));
+        keyring.store(
+                "correct horse battery staple".toCharArray(), Duration.ofSeconds(BOUND_SECONDS));
         Thread.sleep(1000 - System.currentTimeMillis() % 1000 + 10);
         assertThat(keyring.read()).as("stored, before the bound runs out").isPresent();
 

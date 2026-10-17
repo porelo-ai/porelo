@@ -16,8 +16,8 @@ import org.yaml.snakeyaml.constructor.SafeConstructor;
 
 /**
  * Reads a provider declaration into a {@link ProviderDefinition}.
- * <p>
- * Loaded as plain maps and mapped by hand, for the same reason as the agent reader: binding onto
+ *
+ * <p>Loaded as plain maps and mapped by hand, for the same reason as the agent reader: binding onto
  * records would need reflection metadata in a native image, and would let a declaration name any
  * class on the classpath.
  */
@@ -53,8 +53,8 @@ public final class ProviderDefinitionReader {
     public static ProviderDefinition fromResource(Class<?> loader, String resource) {
         try (InputStream in = loader.getResourceAsStream(resource)) {
             if (in == null) {
-                throw new AgentException("No provider declaration at " + resource
-                        + " in " + loader.getName());
+                throw new AgentException(
+                        "No provider declaration at " + resource + " in " + loader.getName());
             }
             return read(new InputStreamReader(in, StandardCharsets.UTF_8), resource);
         } catch (IOException ex) {
@@ -86,7 +86,8 @@ public final class ProviderDefinitionReader {
         }
 
         final String name = required(root, "name", origin);
-        return new ProviderDefinition(name,
+        return new ProviderDefinition(
+                name,
                 root.get("label") == null ? name : String.valueOf(root.get("label")),
                 required(root, "upstream", origin),
                 // Ordered, because the dialect a provider declares first is the one it is, and
@@ -97,7 +98,8 @@ public final class ProviderDefinitionReader {
                 ordered(root.get("unbrokerable"), origin),
                 ordered(root.get("token_env"), origin),
                 ordered(root.get("auth_query"), origin),
-                // What a person grants once, as everyone does: the kind of flow, its URLs and scopes. The client id is
+                // What a person grants once, as everyone does: the kind of flow, its URLs and
+                // scopes. The client id is
                 // not here; it is the agent's that signs in, in its own definition.
                 ordered(root.get("grant"), origin));
     }
@@ -115,13 +117,14 @@ public final class ProviderDefinitionReader {
             return Map.of();
         }
         if (!(value instanceof Map<?, ?> source)) {
-            throw new AgentException(origin + ": expected a mapping but found "
-                    + value.getClass().getSimpleName());
+            throw new AgentException(
+                    origin + ": expected a mapping but found " + value.getClass().getSimpleName());
         }
         final Map<String, String> result = new LinkedHashMap<>();
         // Not Map.copyOf: that loses insertion order, and the first dialect is meaningful.
-        source.forEach((key, item) -> result.put(String.valueOf(key),
-                item == null ? "" : String.valueOf(item)));
+        source.forEach(
+                (key, item) ->
+                        result.put(String.valueOf(key), item == null ? "" : String.valueOf(item)));
         return result;
     }
 }

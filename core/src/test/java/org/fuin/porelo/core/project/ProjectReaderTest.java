@@ -6,12 +6,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.io.StringReader;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link ProjectReader}.
- */
+/** Tests for {@link ProjectReader}. */
 class ProjectReaderTest {
 
-    private static final String MINIMAL = """
+    private static final String MINIMAL =
+            """
             project:
               name: "uc"
               description: "Ultimate Container"
@@ -44,7 +43,10 @@ class ProjectReaderTest {
 
         // Online puts the agent's own remote at the upstream, so without one the class means
         // nothing. Caught here rather than as a git error inside a container.
-        assertThatThrownBy(() -> read("""
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        """
                 project:
                   name: "uc"
                   security_class: "online"
@@ -60,20 +62,26 @@ class ProjectReaderTest {
 
         // A guarded project keeps the gate in the path, and an approved push names the upstream
         // on the command line. Requiring it here would make the common case depend on the rare.
-        assertThat(read("""
+        assertThat(
+                        read("""
                 project:
                   name: "uc"
                   security_class: "guarded"
                 image:
                   base_image: "ubuntu:24.04"
-                """).upstream()).isNull();
+                """)
+                                .upstream())
+                .isNull();
     }
 
     @Test
     void ignoresSectionsItDoesNotUnderstandYet() {
 
         // A project file written for a later version must not stop an older binary from running.
-        final Project project = read(MINIMAL + """
+        final Project project =
+                read(
+                        MINIMAL
+                                + """
                 git:
                   upstream_url: "https://example.com/x.git"
 
@@ -83,14 +91,19 @@ class ProjectReaderTest {
 
         assertThat(project.name()).isEqualTo("uc");
         // Accepted, and said: a warning names each, so nobody believes it applied.
-        assertThat(ProjectReader.unknownKeys(new java.io.StringReader(MINIMAL + "git:\n  upstream_url: x\n"), "t"))
+        assertThat(
+                        ProjectReader.unknownKeys(
+                                new java.io.StringReader(MINIMAL + "git:\n  upstream_url: x\n"),
+                                "t"))
                 .containsExactly("git");
     }
 
     @Test
     void descriptionIsOptional() {
 
-        final Project project = read("""
+        final Project project =
+                read(
+                        """
                 project:
                   name: "uc"
                   security_class: "offline"
@@ -112,7 +125,10 @@ class ProjectReaderTest {
     @Test
     void rejectsAMissingKey() {
 
-        assertThatThrownBy(() -> read("""
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        """
                 project:
                   name: "uc"
                 image:
@@ -142,8 +158,12 @@ class ProjectReaderTest {
     void rejectsDuplicateKeys() {
 
         // A duplicate silently wins in most YAML readers. In a security policy that is a bug.
-        assertThatThrownBy(() -> read(MINIMAL.replace("image:\n  base_image",
-                "image:\n  base_image: \"a\"\n  base_image")))
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        MINIMAL.replace(
+                                                "image:\n  base_image",
+                                                "image:\n  base_image: \"a\"\n  base_image")))
                 .isInstanceOf(ProjectException.class)
                 .hasMessageContaining("Cannot parse");
     }
@@ -151,14 +171,18 @@ class ProjectReaderTest {
     @Test
     void reportsTheOriginOfTheProblem() {
 
-        assertThatThrownBy(() -> ProjectReader.read(new StringReader("[]"), "/etc/porelo/project.yml"))
+        assertThatThrownBy(
+                        () -> ProjectReader.read(new StringReader("[]"), "/etc/porelo/project.yml"))
                 .isInstanceOf(ProjectException.class)
                 .hasMessageContaining("/etc/porelo/project.yml");
     }
 
     @Test
     void readsDeclaredLimits() {
-        final Project project = ProjectReader.read(new java.io.StringReader("""
+        final Project project =
+                ProjectReader.read(
+                        new java.io.StringReader(
+                                """
                 project:
                   name: "demo"
                   security_class: "guarded"
@@ -168,7 +192,8 @@ class ProjectReaderTest {
                   pids: 512
                 image:
                   base_image: "ubuntu:24.04"
-                """), "test");
+                """),
+                        "test");
 
         assertThat(project.limits().memory()).isEqualTo("2g");
         assertThat(project.limits().cpus()).isEqualTo("1.5");
@@ -177,7 +202,10 @@ class ProjectReaderTest {
 
     @Test
     void readsTheLargestFileATaskTakesAsASize() {
-        final Project project = ProjectReader.read(new java.io.StringReader("""
+        final Project project =
+                ProjectReader.read(
+                        new java.io.StringReader(
+                                """
                 project:
                   name: "demo"
                   security_class: "guarded"
@@ -185,15 +213,22 @@ class ProjectReaderTest {
                   hand_in: "1g"
                 image:
                   base_image: "ubuntu:24.04"
-                """), "test");
+                """),
+                        "test");
 
         assertThat(project.limits().handIn()).isEqualTo(1024L * 1024 * 1024);
-        assertThat(project.limits().memory()).as("the other keys keep their defaults").isEqualTo("8g");
+        assertThat(project.limits().memory())
+                .as("the other keys keep their defaults")
+                .isEqualTo("8g");
     }
 
     @Test
     void refusesAHandInLimitThatIsNoSize() {
-        assertThatThrownBy(() -> ProjectReader.read(new java.io.StringReader("""
+        assertThatThrownBy(
+                        () ->
+                                ProjectReader.read(
+                                        new java.io.StringReader(
+                                                """
                 project:
                   name: "demo"
                   security_class: "guarded"
@@ -201,9 +236,11 @@ class ProjectReaderTest {
                   hand_in: "lots"
                 image:
                   base_image: "ubuntu:24.04"
-                """), "test"))
+                """),
+                                        "test"))
                 .isInstanceOf(ProjectException.class)
-                .hasMessageContaining("limits.hand_in").hasMessageContaining("lots");
+                .hasMessageContaining("limits.hand_in")
+                .hasMessageContaining("lots");
     }
 
     @Test
@@ -211,13 +248,17 @@ class ProjectReaderTest {
 
         // The case that matters: a project file written before limits existed must still be
         // limited, not silently unlimited.
-        final Project project = ProjectReader.read(new java.io.StringReader("""
+        final Project project =
+                ProjectReader.read(
+                        new java.io.StringReader(
+                                """
                 project:
                   name: "demo"
                   security_class: "guarded"
                 image:
                   base_image: "ubuntu:24.04"
-                """), "test");
+                """),
+                        "test");
 
         assertThat(project.limits()).isEqualTo(Limits.defaults());
     }
@@ -225,7 +266,9 @@ class ProjectReaderTest {
     @Test
     void readsWhereAptShouldFetchFrom() {
 
-        final Project project = read("""
+        final Project project =
+                read(
+                        """
                 project:
                   name: "uc"
                   security_class: "guarded"
@@ -238,8 +281,8 @@ class ProjectReaderTest {
 
         assertThat(project.declaresPackageSources()).isTrue();
         assertThat(project.effectivePackageSources())
-                .containsExactly("http://mirror.corp.example/ubuntu/",
-                        "http://archive.ubuntu.com/ubuntu/");
+                .containsExactly(
+                        "http://mirror.corp.example/ubuntu/", "http://archive.ubuntu.com/ubuntu/");
     }
 
     @Test
@@ -252,14 +295,18 @@ class ProjectReaderTest {
         assertThat(project.declaresPackageSources()).isFalse();
         assertThat(project.effectivePackageSources())
                 .isEqualTo(Project.DEFAULT_PACKAGE_SOURCES)
-                .allMatch(source -> source.startsWith("http://"),
+                .allMatch(
+                        source -> source.startsWith("http://"),
                         "Ubuntu's mirrors serve no TLS; an https default never answers");
     }
 
     @Test
     void refusesSourcesThatCannotBeFetchedFrom() {
 
-        assertThatThrownBy(() -> read("""
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        """
                 project:
                   name: "uc"
                   security_class: "guarded"
@@ -270,7 +317,10 @@ class ProjectReaderTest {
                 .isInstanceOf(ProjectException.class)
                 .hasMessageContaining("is not an http or https URL");
 
-        assertThatThrownBy(() -> read("""
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        """
                 project:
                   name: "uc"
                   security_class: "guarded"
@@ -285,7 +335,9 @@ class ProjectReaderTest {
     @Test
     void readsWhatTheProjectMayReach() {
 
-        final Project project = read("""
+        final Project project =
+                read(
+                        """
                 project:
                   name: "uc"
                   security_class: "guarded"
@@ -311,7 +363,10 @@ class ProjectReaderTest {
     @Test
     void anOfflineProjectCannotDeclareEgress() {
 
-        assertThatThrownBy(() -> read("""
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        """
                 project:
                   name: "uc"
                   security_class: "offline"
@@ -332,15 +387,19 @@ class ProjectReaderTest {
         // configuration. A value carrying a newline is not a bad host name - it is extra
         // configuration, written by whoever can edit this file.
         final String[] hostile = {
-                "evil.example\\nserver=/#/8.8.8.8",
-                "evil.example/../..",
-                "*.example.com",
-                "http://evil.example",
-                "evil example",
-                "UPPER.example.com" };
+            "evil.example\\nserver=/#/8.8.8.8",
+            "evil.example/../..",
+            "*.example.com",
+            "http://evil.example",
+            "evil example",
+            "UPPER.example.com"
+        };
 
         for (final String domain : hostile) {
-            assertThatThrownBy(() -> read("""
+            assertThatThrownBy(
+                            () ->
+                                    read(
+                                            """
                     project:
                       name: "uc"
                       security_class: "guarded"
@@ -348,7 +407,8 @@ class ProjectReaderTest {
                       domains: ["%s"]
                     image:
                       base_image: "ubuntu:24.04"
-                    """.formatted(domain)))
+                    """
+                                                    .formatted(domain)))
                     .as("domain %s", domain)
                     .isInstanceOf(ProjectException.class)
                     .hasMessageContaining("Invalid egress domain");
@@ -358,7 +418,10 @@ class ProjectReaderTest {
     @Test
     void refusesASetNameThatIsNotOne() {
 
-        assertThatThrownBy(() -> read("""
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        """
                 project:
                   name: "uc"
                   security_class: "guarded"
@@ -376,7 +439,10 @@ class ProjectReaderTest {
 
         // 'sets: maven' is a plausible typo for 'sets: [maven]', and silently accepting it would
         // make the file's meaning depend on YAML rather than on what it says.
-        assertThatThrownBy(() -> read("""
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        """
                 project:
                   name: "uc"
                   security_class: "guarded"
@@ -391,7 +457,10 @@ class ProjectReaderTest {
 
     @Test
     void letsAProjectOptOutOfTheMemoryCapOnPurpose() {
-        final Project project = ProjectReader.read(new java.io.StringReader("""
+        final Project project =
+                ProjectReader.read(
+                        new java.io.StringReader(
+                                """
                 project:
                   name: "demo"
                   security_class: "guarded"
@@ -399,7 +468,8 @@ class ProjectReaderTest {
                   memory: "none"
                 image:
                   base_image: "ubuntu:24.04"
-                """), "test");
+                """),
+                        "test");
 
         assertThat(project.limits().memory()).isNull();
         assertThat(project.limits().pids()).isEqualTo(2048);
@@ -407,23 +477,33 @@ class ProjectReaderTest {
 
     @Test
     void readsTheCredentialsEveryTaskOfTheProjectHolds() {
-        final Project project = read(MINIMAL + """
+        final Project project =
+                read(
+                        MINIMAL
+                                + """
                 credentials:
                   search: brave-search
                   forge-app: forge
                 """);
 
-        assertThat(project.credentials()).containsExactly(java.util.Map.entry("search", "brave-search"),
-                java.util.Map.entry("forge-app", "forge"));
+        assertThat(project.credentials())
+                .containsExactly(
+                        java.util.Map.entry("search", "brave-search"),
+                        java.util.Map.entry("forge-app", "forge"));
         assertThat(read(MINIMAL).credentials()).isEmpty();
     }
 
     @Test
     void anOfflineProjectNamesNoUpstream() {
-        // The host cloned an offline project's mirror from it on the first start: offline then meant "offline after
+        // The host cloned an offline project's mirror from it on the first start: offline then
+        // meant "offline after
         // the first start". It never connects; a repository comes in as a file.
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> read(MINIMAL
-                .replace("security_class: \"online\"", "security_class: \"offline\"")))
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                read(
+                                        MINIMAL.replace(
+                                                "security_class: \"online\"",
+                                                "security_class: \"offline\"")))
                 .isInstanceOf(ProjectException.class)
                 .hasMessageContaining("is offline, so it names no upstream")
                 .hasMessageContaining("porelo gate restore");
@@ -431,52 +511,91 @@ class ProjectReaderTest {
 
     @Test
     void anOfflineProjectsFurtherRepositoryNamesNoUpstream() {
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> read(MINIMAL
-                .replace("security_class: \"online\"", "security_class: \"offline\"")
-                .replace("  upstream: \"git@github.com:example/uc.git\"\n", "") + """
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                read(
+                                        MINIMAL.replace(
+                                                                "security_class: \"online\"",
+                                                                "security_class: \"offline\"")
+                                                        .replace(
+                                                                "  upstream: \"git@github.com:example/uc.git\"\n",
+                                                                "")
+                                                + """
                 repositories:
                   backend:
                     upstream: "git@github.com:example/backend.git"
-                """)).isInstanceOf(ProjectException.class)
+                """))
+                .isInstanceOf(ProjectException.class)
                 .hasMessageContaining("backend")
                 .hasMessageContaining("names no upstream");
     }
 
     @Test
     void anOfflineProjectWithoutAnUpstreamIsRead() {
-        assertThat(read(MINIMAL.replace("security_class: \"online\"", "security_class: \"offline\"")
-                .replace("  upstream: \"git@github.com:example/uc.git\"\n", "")).upstream()).isNull();
+        assertThat(
+                        read(MINIMAL.replace(
+                                                "security_class: \"online\"",
+                                                "security_class: \"offline\"")
+                                        .replace(
+                                                "  upstream: \"git@github.com:example/uc.git\"\n",
+                                                ""))
+                                .upstream())
+                .isNull();
     }
 
     @Test
     void anOfflineProjectDeclaresNoCredentials() {
-        // The broker would reach the destination for the task, and an offline project reaches nothing.
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> read(MINIMAL
-                .replace("security_class: \"online\"", "security_class: \"offline\"")
-                .replace("  upstream: \"git@github.com:example/uc.git\"\n", "") + """
+        // The broker would reach the destination for the task, and an offline project reaches
+        // nothing.
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                read(
+                                        MINIMAL.replace(
+                                                                "security_class: \"online\"",
+                                                                "security_class: \"offline\"")
+                                                        .replace(
+                                                                "  upstream: \"git@github.com:example/uc.git\"\n",
+                                                                "")
+                                                + """
                 credentials:
                   search: brave-search
-                """)).isInstanceOf(ProjectException.class).hasMessageContaining("can declare no credentials");
+                """))
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("can declare no credentials");
     }
 
     @Test
     void anUpstreamOrImageThatGitOrPodmanWouldTakeForAnOptionIsRefused() {
 
-        // An upstream reached 'git fetch' as it was written: '--upload-pack=<command>' ran that command on the host
+        // An upstream reached 'git fetch' as it was written: '--upload-pack=<command>' ran that
+        // command on the host
         // at the next task start, and 'ext::' does the same by design.
-        for (final String upstream : java.util.List.of("--upload-pack=touch /tmp/owned;false", "ext::sh -c id",
-                "fd::3", "git@host:repo\n--upload-pack=x")) {
-            org.assertj.core.api.Assertions.assertThatThrownBy(() -> read(MINIMAL.replace(
-                    "git@github.com:example/uc.git", upstream.replace("\n", "\\n"))))
-                    .as(upstream).isInstanceOf(ProjectException.class).hasMessageContaining("upstream");
+        for (final String upstream :
+                java.util.List.of(
+                        "--upload-pack=touch /tmp/owned;false",
+                        "ext::sh -c id",
+                        "fd::3",
+                        "git@host:repo\n--upload-pack=x")) {
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                            () ->
+                                    read(
+                                            MINIMAL.replace(
+                                                    "git@github.com:example/uc.git",
+                                                    upstream.replace("\n", "\\n"))))
+                    .as(upstream)
+                    .isInstanceOf(ProjectException.class)
+                    .hasMessageContaining("upstream");
         }
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> read(MINIMAL.replace("ubuntu:24.04", "--privileged")))
-                .isInstanceOf(ProjectException.class).hasMessageContaining("base_image");
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> read(MINIMAL.replace("ubuntu:24.04", "--privileged")))
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("base_image");
     }
 
     @Test
     void aRepositorysUpstreamIsHeldToTheSameRule() {
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> new Repository("work", "--upload-pack=x"))
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> new Repository("work", "--upload-pack=x"))
                 .isInstanceOf(ProjectException.class);
         assertThat(new Repository("work", "https://github.com/o/r.git").upstream())
                 .isEqualTo("https://github.com/o/r.git");
@@ -484,24 +603,37 @@ class ProjectReaderTest {
     }
 
     @Test
-    void aSnippetFileIsReadFromTheRepositoryAndNowhereElse(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir)
-            throws Exception {
+    void aSnippetFileIsReadFromTheRepositoryAndNowhereElse(
+            @org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
 
-        // Resolved as written, an absolute path, '../' or a link read any file the person can - a key included - into
+        // Resolved as written, an absolute path, '../' or a link read any file the person can - a
+        // key included - into
         // the image the agent runs in, or into an error on their screen.
-        final java.nio.file.Path repository = java.nio.file.Files.createDirectories(dir.resolve("repository"));
+        final java.nio.file.Path repository =
+                java.nio.file.Files.createDirectories(dir.resolve("repository"));
         java.nio.file.Files.writeString(dir.resolve("outside.txt"), "RUN echo secret");
         java.nio.file.Files.writeString(repository.resolve("snippet.txt"), "RUN echo inside");
-        java.nio.file.Files.createSymbolicLink(repository.resolve("link.txt"), dir.resolve("outside.txt"));
+        java.nio.file.Files.createSymbolicLink(
+                repository.resolve("link.txt"), dir.resolve("outside.txt"));
         final java.nio.file.Path file = repository.resolve("project.yml");
-        for (final String named : java.util.List.of("../outside.txt", dir.resolve("outside.txt").toString(), "link.txt")) {
-            java.nio.file.Files.writeString(file, MINIMAL.replace("base_image: \"ubuntu:24.04\"",
-                    "base_image: \"ubuntu:24.04\"\n  snippet_file: \"" + named + "\""));
-            org.assertj.core.api.Assertions.assertThatThrownBy(() -> ProjectReader.read(file)).as(named)
-                    .isInstanceOf(ProjectException.class).hasMessageContaining("snippet_file");
+        for (final String named :
+                java.util.List.of(
+                        "../outside.txt", dir.resolve("outside.txt").toString(), "link.txt")) {
+            java.nio.file.Files.writeString(
+                    file,
+                    MINIMAL.replace(
+                            "base_image: \"ubuntu:24.04\"",
+                            "base_image: \"ubuntu:24.04\"\n  snippet_file: \"" + named + "\""));
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> ProjectReader.read(file))
+                    .as(named)
+                    .isInstanceOf(ProjectException.class)
+                    .hasMessageContaining("snippet_file");
         }
-        java.nio.file.Files.writeString(file, MINIMAL.replace("base_image: \"ubuntu:24.04\"",
-                "base_image: \"ubuntu:24.04\"\n  snippet_file: \"snippet.txt\""));
+        java.nio.file.Files.writeString(
+                file,
+                MINIMAL.replace(
+                        "base_image: \"ubuntu:24.04\"",
+                        "base_image: \"ubuntu:24.04\"\n  snippet_file: \"snippet.txt\""));
         assertThat(ProjectReader.read(file).imageSnippet()).isEqualTo("RUN echo inside");
     }
 }

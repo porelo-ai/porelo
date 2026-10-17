@@ -2,8 +2,8 @@ package org.fuin.porelo.app;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.ArrayList;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -14,14 +14,14 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Stopping and resuming a task, decided once for every caller.
- * <p>
- * The CLI renders what these return and the daemon serializes it, the way both already share
+ *
+ * <p>The CLI renders what these return and the daemon serializes it, the way both already share
  * {@link TaskInventory}. The CLI and the interface have to reach identical behavior through the
  * same calls, and these two operations are where a second implementation would hurt most: they
- * refuse things. A refusal that exists in one caller and not the other is a task
- * removed with work in it.
- * <p>
- * Nothing here prints. What happened is returned, including the parts that read as failures, so
+ * refuse things. A refusal that exists in one caller and not the other is a task removed with work
+ * in it.
+ *
+ * <p>Nothing here prints. What happened is returned, including the parts that read as failures, so
  * that a caller with no terminal can act on them.
  */
 public final class TaskControl {
@@ -55,10 +55,10 @@ public final class TaskControl {
 
         /**
          * Removal refused: the task is running.
-         * <p>
-         * Stopping ends an agent's session and removing destroys its work. Somebody who asked for
-         * the second did not ask for the first, and until these were two verbs they could not say
-         * so - {@code stop --purge} did both whatever the task was doing.
+         *
+         * <p>Stopping ends an agent's session and removing destroys its work. Somebody who asked
+         * for the second did not ask for the first, and until these were two verbs they could not
+         * say so - {@code stop --purge} did both whatever the task was doing.
          */
         STILL_RUNNING,
 
@@ -79,24 +79,26 @@ public final class TaskControl {
 
         /**
          * The task was started before this machine restarted, so it cannot be started again.
-         * <p>
-         * Its state directory is under {@code $XDG_RUNTIME_DIR}, which the system clears when the
-         * user's last session ends - and the container bind-mounts the broker socket from inside
-         * it. podman refuses to start a container whose mount source is gone, with a message
-         * about {@code crun} and a path, which says nothing about what happened or what to do.
-         * The workspace is still in the container and can be copied out.
+         *
+         * <p>Its state directory is under {@code $XDG_RUNTIME_DIR}, which the system clears when
+         * the user's last session ends - and the container bind-mounts the broker socket from
+         * inside it. podman refuses to start a container whose mount source is gone, with a message
+         * about {@code crun} and a path, which says nothing about what happened or what to do. The
+         * workspace is still in the container and can be copied out.
          */
         PREDATES_RESTART,
 
         /**
-         * A reboot emptied its runtime directory, its state was saved, and bringing it back needs its two tokens
-         * from the vault, which is locked. Unlocking it and starting again brings it back.
+         * A reboot emptied its runtime directory, its state was saved, and bringing it back needs
+         * its two tokens from the vault, which is locked. Unlocking it and starting again brings it
+         * back.
          */
         NEEDS_VAULT,
 
         /**
-         * A reboot emptied its runtime directory, and its tokens were never kept - the vault was locked or absent
-         * when it started - so the container's credentials cannot be matched again.
+         * A reboot emptied its runtime directory, and its tokens were never kept - the vault was
+         * locked or absent when it started - so the container's credentials cannot be matched
+         * again.
          */
         TOKENS_NOT_KEPT
     }
@@ -112,17 +114,26 @@ public final class TaskControl {
      * @param surviving Helpers that were still alive afterwards, as pid and command.
      * @param state The task's state directory, or {@code null} once it was removed.
      * @param detail Why a rescue could not happen, or {@code null}. Three cases with three
-     *        different fixes: a task with no gate ref, one that pushes straight to its upstream,
-     *        and a push that did not arrive.
+     *     different fixes: a task with no gate ref, one that pushes straight to its upstream, and a
+     *     push that did not arrive.
      * @param discarded How many paths the container had that its image did not - what the agent
-     *        installed inside it - counted only when it was removed, because that is when they
-     *        stopped existing. Zero otherwise.
+     *     installed inside it - counted only when it was removed, because that is when they stopped
+     *     existing. Zero otherwise.
      */
-    public record Stopped(Outcome outcome, @Nullable String work, @Nullable String rescuedRef,
-            boolean removed, int helpers, List<String> surviving, @Nullable Path state,
-            @Nullable String detail, long discarded) {
+    public record Stopped(
+            Outcome outcome,
+            @Nullable String work,
+            @Nullable String rescuedRef,
+            boolean removed,
+            int helpers,
+            List<String> surviving,
+            @Nullable Path state,
+            @Nullable String detail,
+            long discarded) {
 
-        /** @return Whether anything is left running that should not be. */
+        /**
+         * @return Whether anything is left running that should not be.
+         */
         public boolean clean() {
             return surviving.isEmpty();
         }
@@ -138,8 +149,14 @@ public final class TaskControl {
      * @param state The task's state directory, or {@code null} when it has none.
      * @param problems What could not be started, empty when everything did.
      */
-    public record Resumed(Outcome outcome, int started, int recorded,
-            @Nullable String imageDrift, @Nullable Path state, List<String> problems, boolean restored,
+    public record Resumed(
+            Outcome outcome,
+            int started,
+            int recorded,
+            @Nullable String imageDrift,
+            @Nullable Path state,
+            List<String> problems,
+            boolean restored,
             String refreshed) {
 
         /**
@@ -153,8 +170,14 @@ public final class TaskControl {
          * @param problems What went wrong.
          * @param restored Whether what a restart took was restored.
          */
-        public Resumed(Outcome outcome, int started, int recorded, @Nullable String imageDrift,
-                @Nullable Path state, List<String> problems, boolean restored) {
+        public Resumed(
+                Outcome outcome,
+                int started,
+                int recorded,
+                @Nullable String imageDrift,
+                @Nullable Path state,
+                List<String> problems,
+                boolean restored) {
             this(outcome, started, recorded, imageDrift, state, problems, restored, "");
         }
 
@@ -168,8 +191,13 @@ public final class TaskControl {
          * @param state The task's state directory, or {@code null}.
          * @param problems What went wrong.
          */
-        public Resumed(Outcome outcome, int started, int recorded, @Nullable String imageDrift,
-                @Nullable Path state, List<String> problems) {
+        public Resumed(
+                Outcome outcome,
+                int started,
+                int recorded,
+                @Nullable String imageDrift,
+                @Nullable Path state,
+                List<String> problems) {
             this(outcome, started, recorded, imageDrift, state, problems, false);
         }
     }
@@ -197,8 +225,8 @@ public final class TaskControl {
 
     /**
      * Removes a task: its container, its state, and the workspace inside it.
-     * <p>
-     * Refuses a running task rather than stopping it as a side effect. Stopping ends an agent's
+     *
+     * <p>Refuses a running task rather than stopping it as a side effect. Stopping ends an agent's
      * session and removing destroys its work; somebody who typed one of those did not ask for the
      * other, and the two used to be the same command with a flag.
      *
@@ -211,9 +239,10 @@ public final class TaskControl {
         // Not when rescuing: pushing what the workspace holds needs the container up, so refusing
         // a running one here would make --rescue impossible to use.
         if (ContainerName.isTask(container) && !force && !rescue) {
-            final boolean running = context.podman().poreloTasks().stream()
-                    .filter(task -> task.name().equals(container))
-                    .anyMatch(ContainerSummary::running);
+            final boolean running =
+                    context.podman().poreloTasks().stream()
+                            .filter(task -> task.name().equals(container))
+                            .anyMatch(ContainerSummary::running);
             if (running) {
                 // What it holds is asked FIRST, and the order is the whole point. Rescuing needs
                 // the container up, so a caller told "it is running" would stop it, be told "it
@@ -221,11 +250,19 @@ public final class TaskControl {
                 // question while the answer can still be acted on.
                 final String work = heldBy(container).phrase();
                 if (work != null) {
-                    return new Stopped(Outcome.HOLDS_WORK, work, null, false, 0, List.of(),
-                            context.paths().tasks().containerState(container), null, 0);
+                    return new Stopped(
+                            Outcome.HOLDS_WORK,
+                            work,
+                            null,
+                            false,
+                            0,
+                            List.of(),
+                            context.paths().tasks().containerState(container),
+                            null,
+                            0);
                 }
-                return new Stopped(Outcome.STILL_RUNNING, null, null, false, 0, List.of(), null,
-                        null, 0);
+                return new Stopped(
+                        Outcome.STILL_RUNNING, null, null, false, 0, List.of(), null, null, 0);
             }
         }
         return stop(container, true, rescue, force);
@@ -248,16 +285,17 @@ public final class TaskControl {
         try {
             return stopRecorded(container, purge, rescue, force);
         } catch (org.fuin.porelo.runtime.NotATaskException ex) {
-            // Named like a task, no record of it: one never made here, or removed already. Not a failure - the same
+            // Named like a task, no record of it: one never made here, or removed already. Not a
+            // failure - the same
             // answer as for a name of no task at all, and nothing done to a container of that name.
             return new Stopped(Outcome.NOT_A_TASK, null, null, false, 0, List.of(), null, null, 0);
         }
     }
 
     /**
-     * Has an online task's gate forget its ref once the task is removed: it was passed on as it was pushed, and a new
-     * task of the same name would otherwise have its plain push refused with "fetch first". Never fatal: the next
-     * start of that name forgets it too.
+     * Has an online task's gate forget its ref once the task is removed: it was passed on as it was
+     * pushed, and a new task of the same name would otherwise have its plain push refused with
+     * "fetch first". Never fatal: the next start of that name forgets it too.
      *
      * @param task The removed task, as podman listed it.
      */
@@ -266,13 +304,19 @@ public final class TaskControl {
             return;
         }
         try {
-            final org.fuin.porelo.core.project.Project project = GateSupport.byName(context, task.project());
+            final org.fuin.porelo.core.project.Project project =
+                    GateSupport.byName(context, task.project());
             if (project.securityClass() != org.fuin.porelo.core.project.SecurityClass.ONLINE) {
                 return;
             }
-            final org.fuin.porelo.core.project.Repository repository = GateSupport.repository(project,
-                    task.repository() == null || task.repository().isBlank() ? null : task.repository());
-            final String name = org.fuin.porelo.runtime.ContainerName.taskIn(project.name(), task.name());
+            final org.fuin.porelo.core.project.Repository repository =
+                    GateSupport.repository(
+                            project,
+                            task.repository() == null || task.repository().isBlank()
+                                    ? null
+                                    : task.repository());
+            final String name =
+                    org.fuin.porelo.runtime.ContainerName.taskIn(project.name(), task.name());
             if (name != null) {
                 GateSupport.gate(context, project, repository, null, null).forget(name);
             }
@@ -292,47 +336,82 @@ public final class TaskControl {
     private Stopped stopRecorded(String container, boolean purge, boolean rescue, boolean force) {
 
         final Path state = context.paths().tasks().containerState(container);
-        final java.util.Optional<ContainerSummary> summary = context.podman().poreloTasks().stream()
-                .filter(task -> task.name().equals(container)).findFirst();
+        final java.util.Optional<ContainerSummary> summary =
+                context.podman().poreloTasks().stream()
+                        .filter(task -> task.name().equals(container))
+                        .findFirst();
         final boolean known = summary.isPresent() || Files.isDirectory(state);
         final boolean running = summary.map(ContainerSummary::running).orElse(false);
 
-        // After a reboot the runtime directory is gone, and the note saved from it is what knows what the task held:
-        // without it every such task answered NOTHING_KNOWS, and a guard that must always be forced is none.
-        final UnhandedWork.Held held = running ? heldBy(container)
-                : UnhandedWork.read(Files.isDirectory(state) ? state : context.paths().tasks().taskRecord(container));
+        // After a reboot the runtime directory is gone, and the note saved from it is what knows
+        // what the task held:
+        // without it every such task answered NOTHING_KNOWS, and a guard that must always be forced
+        // is none.
+        final UnhandedWork.Held held =
+                running
+                        ? heldBy(container)
+                        : UnhandedWork.read(
+                                Files.isDirectory(state)
+                                        ? state
+                                        : context.paths().tasks().taskRecord(container));
         final String work = held.phrase();
 
         // "nobody looked" rather than "held nothing": only the first is a reason to refuse.
         if (purge && summary.isPresent() && !running && !held.readable() && !force) {
-            return new Stopped(Outcome.NOTHING_KNOWS, null, null, false, 0, List.of(), state,
-                    null, 0);
+            return new Stopped(
+                    Outcome.NOTHING_KNOWS, null, null, false, 0, List.of(), state, null, 0);
         }
         if (work != null && purge && !rescue && !force) {
-            return new Stopped(Outcome.HOLDS_WORK, work, null, false, 0, List.of(), state, null,
-                    0);
+            return new Stopped(Outcome.HOLDS_WORK, work, null, false, 0, List.of(), state, null, 0);
         }
         if (purge && rescue && running && !held.readable() && !force) {
-            // Nothing said it holds work because nobody could ask: removing it now would be removing it unrescued.
-            return new Stopped(Outcome.RESCUE_FAILED, null, null, false, 0, List.of(), state,
-                    "what the workspace holds could not be asked, so nothing was removed", 0);
+            // Nothing said it holds work because nobody could ask: removing it now would be
+            // removing it unrescued.
+            return new Stopped(
+                    Outcome.RESCUE_FAILED,
+                    null,
+                    null,
+                    false,
+                    0,
+                    List.of(),
+                    state,
+                    "what the workspace holds could not be asked, so nothing was removed",
+                    0);
         }
         String rescued = null;
         if (work != null && rescue) {
             if (!running) {
-                return new Stopped(Outcome.RESCUE_NEEDS_IT_RUNNING, work, null, false, 0,
-                        List.of(), state, null, 0);
+                return new Stopped(
+                        Outcome.RESCUE_NEEDS_IT_RUNNING,
+                        work,
+                        null,
+                        false,
+                        0,
+                        List.of(),
+                        state,
+                        null,
+                        0);
             }
             final Rescue attempt = rescue(container);
             if (attempt.ref() == null) {
-                return new Stopped(Outcome.RESCUE_FAILED, work, null, false, 0, List.of(), state,
-                        attempt.problem(), 0);
+                return new Stopped(
+                        Outcome.RESCUE_FAILED,
+                        work,
+                        null,
+                        false,
+                        0,
+                        List.of(),
+                        state,
+                        attempt.problem(),
+                        0);
             }
             rescued = attempt.ref();
         }
 
-        // The session an attached agent was keeping, read while there is still a container to ask - so
-        // starting the task again continues the conversation. A removal has no next start to continue.
+        // The session an attached agent was keeping, read while there is still a container to ask -
+        // so
+        // starting the task again continues the conversation. A removal has no next start to
+        // continue.
         if (running && !purge) {
             new TaskSession(context).rememberAttached(container);
         }
@@ -352,7 +431,8 @@ public final class TaskControl {
             context.podman().stop(container);
             // Written on the way down, while the answer is still knowable. Whoever removes this
             // task later cannot ask the container itself.
-            // A census that failed leaves no note, and no older one: a note of nothing held lets the next
+            // A census that failed leaves no note, and no older one: a note of nothing held lets
+            // the next
             // removal go without --force, and nobody looked.
             if (running) {
                 if (held.readable()) {
@@ -367,8 +447,8 @@ public final class TaskControl {
         TaskLifecycle.stopHelpers(state);
 
         if (!known) {
-            return new Stopped(Outcome.NOTHING_TO_STOP, null, null, false, 0, List.of(), null,
-                    null, 0);
+            return new Stopped(
+                    Outcome.NOTHING_TO_STOP, null, null, false, 0, List.of(), null, null, 0);
         }
 
         // Waited for first: termination is asynchronous, so checking straight away reports live
@@ -383,17 +463,22 @@ public final class TaskControl {
                 Thread.currentThread().interrupt();
             }
         }
-        final List<String> surviving = helpers.stream().filter(ProcessHandle::isAlive)
-                .map(alive -> alive.pid() + " " + alive.info().command().orElse("?")).toList();
+        final List<String> surviving =
+                helpers.stream()
+                        .filter(ProcessHandle::isAlive)
+                        .map(alive -> alive.pid() + " " + alive.info().command().orElse("?"))
+                        .toList();
 
         if (purge) {
-            // Read before the records that say it go: the project a task belongs to is not in its name, where both
+            // Read before the records that say it go: the project a task belongs to is not in its
+            // name, where both
             // halves may hold hyphens.
             final String project = projectOf(container);
             deleteTree(state);
             new TaskSession(context).forget(container);
             new TaskState(context).forget(container);
-            // A vault that is locked keeps them until the next task started prunes them: a removal is not refused
+            // A vault that is locked keeps them until the next task started prunes them: a removal
+            // is not refused
             // for want of a passphrase.
             new TaskSecrets(context).forget(container);
             // Out of its project's conversations: its account there ends with it.
@@ -407,20 +492,28 @@ public final class TaskControl {
                         "Removed the task but could not delete its mailbox: " + container, e);
             }
         }
-        return new Stopped(Outcome.STOPPED, work, rescued, purge, helpers.size(), surviving,
-                purge || !Files.isDirectory(state) ? null : state, null, discarded);
+        return new Stopped(
+                Outcome.STOPPED,
+                work,
+                rescued,
+                purge,
+                helpers.size(),
+                surviving,
+                purge || !Files.isDirectory(state) ? null : state,
+                null,
+                discarded);
     }
 
     /**
      * Describes what the agent has done and not handed back, or {@code null} when there is none.
-     * <p>
-     * Only answerable while the container runs, which is why it is asked before anything is
+     *
+     * <p>Only answerable while the container runs, which is why it is asked before anything is
      * stopped.
-     * <p>
-     * Public because the end of an attached run asks it too, and for the same reason: a workspace
-     * lives in the container's own writable layer, so removing the container destroys it. Asking
-     * here and not there was the difference between {@code task stop --purge}, which refuses, and
-     * walking out of a shell, which did not.
+     *
+     * <p>Public because the end of an attached run asks it too, and for the same reason: a
+     * workspace lives in the container's own writable layer, so removing the container destroys it.
+     * Asking here and not there was the difference between {@code task stop --purge}, which
+     * refuses, and walking out of a shell, which did not.
      *
      * @param container Container name.
      * @return What is held, or {@code null}.
@@ -431,65 +524,81 @@ public final class TaskControl {
 
     /**
      * Pushes what the agent never handed back, under a ref of its own.
-     * <p>
-     * Rescued work is not work an agent offered up, so it lands beside the reviewed ref rather
-     * than in it. Only a gated task can be rescued: one that pushes straight to a real upstream
-     * has no place to put unreviewed work.
+     *
+     * <p>Rescued work is not work an agent offered up, so it lands beside the reviewed ref rather
+     * than in it. Only a gated task can be rescued: one that pushes straight to a real upstream has
+     * no place to put unreviewed work.
      *
      * @param container Container name.
      * @return The ref it landed on, or {@code null} when it did not.
      */
     private Rescue rescue(String container) {
 
-        final CommandResult reference = context.podman().ask(container, Map.of(),
-                List.of("sh", "-c", "printf '%s' \"$PORELO_TASK_REF\""));
+        final CommandResult reference =
+                context.podman()
+                        .ask(
+                                container,
+                                Map.of(),
+                                List.of("sh", "-c", "printf '%s' \"$PORELO_TASK_REF\""));
         if (!reference.successful()) {
-            return new Rescue(null, "the task has no gate ref, so there is nowhere to rescue it to");
+            return new Rescue(
+                    null, "the task has no gate ref, so there is nowhere to rescue it to");
         }
         final String taskRef = reference.trimmedOutput();
         if (!taskRef.startsWith("refs/porelo/incoming/")) {
-            return new Rescue(null, "this task pushes straight to its upstream, so unreviewed work"
-                    + " cannot be rescued without publishing it");
+            return new Rescue(
+                    null,
+                    "this task pushes straight to its upstream, so unreviewed work"
+                            + " cannot be rescued without publishing it");
         }
         final String rescueRef = taskRef + org.fuin.porelo.gate.GitGate.RESCUED;
-        final CommandResult pushed = context.podman().ask(container,
-                Map.of("PORELO_TASK_REF", rescueRef), TaskWorkspace.pushCommand());
+        final CommandResult pushed =
+                context.podman()
+                        .ask(
+                                container,
+                                Map.of("PORELO_TASK_REF", rescueRef),
+                                TaskWorkspace.pushCommand());
         // The output is checked as well as the exit code: this answer decides whether a container
         // holding the only copy of something is removed, so "it did not fail" is not enough.
         if (!pushed.successful() || pushed.trimmedOutput().contains("nothing to push")) {
-            return new Rescue(null, "could not push the work: " + (pushed.trimmedOutput().isEmpty()
-                    ? pushed.standardError().strip() : pushed.trimmedOutput()));
+            return new Rescue(
+                    null,
+                    "could not push the work: "
+                            + (pushed.trimmedOutput().isEmpty()
+                                    ? pushed.standardError().strip()
+                                    : pushed.trimmedOutput()));
         }
         return new Rescue(rescueRef, null);
     }
 
     /** An attempted rescue: the ref it landed on, or why it did not. */
-    private record Rescue(@Nullable String ref, @Nullable String problem) {
-    }
+    private record Rescue(@Nullable String ref, @Nullable String problem) {}
 
     private void deleteTree(Path directory) {
         try (java.util.stream.Stream<Path> paths = Files.walk(directory)) {
-            paths.sorted(java.util.Comparator.reverseOrder()).forEach(path -> {
-                try {
-                    Files.deleteIfExists(path);
-                } catch (java.io.IOException ex) {
-                    // Best effort: what is left is a directory the runtime clears at logout.
-                }
-            });
+            paths.sorted(java.util.Comparator.reverseOrder())
+                    .forEach(
+                            path -> {
+                                try {
+                                    Files.deleteIfExists(path);
+                                } catch (java.io.IOException ex) {
+                                    // Best effort: what is left is a directory the runtime clears
+                                    // at logout.
+                                }
+                            });
         } catch (java.io.IOException ex) {
             // Same.
         }
     }
 
-
     /**
      * Starts a stopped task again, with the workspace it already has.
-     * <p>
-     * The container is started rather than rebuilt, so the agent's work, its branch and its
+     *
+     * <p>The container is started rather than rebuilt, so the agent's work, its branch and its
      * uncommitted changes are all still there. What has to be started again is everything that
-     * lives on the host - the credential proxy, the git gate, the clearance watcher - none of
-     * which can be reconstructed from the container, which is why each was written down when the
-     * task first ran.
+     * lives on the host - the credential proxy, the git gate, the clearance watcher - none of which
+     * can be reconstructed from the container, which is why each was written down when the task
+     * first ran.
      *
      * @param container Container name.
      * @return What happened.
@@ -515,14 +624,14 @@ public final class TaskControl {
 
     /**
      * Gives a task a changeable caption, beside the name that identifies it.
-     * <p>
-     * <strong>Nothing about the identity moves.</strong> The container keeps its name, the gate
+     *
+     * <p><strong>Nothing about the identity moves.</strong> The container keeps its name, the gate
      * keeps its ref, the workspace and the logs stay where they are. A rename would have to move
-     * all four - including a ref that may have unreviewed pushes behind it - which is why what
-     * was asked for is a caption and not a rename.
-     * <p>
-     * Written into the task's own profile, so it survives a resume and outlives the container, and
-     * so it is exactly as durable as the mode and the prompt beside it.
+     * all four - including a ref that may have unreviewed pushes behind it - which is why what was
+     * asked for is a caption and not a rename.
+     *
+     * <p>Written into the task's own profile, so it survives a resume and outlives the container,
+     * and so it is exactly as durable as the mode and the prompt beside it.
      *
      * @param container Container name.
      * @param caption The caption, or {@code null} / blank to remove one.
@@ -558,9 +667,15 @@ public final class TaskControl {
         if (!ContainerName.isTask(container)) {
             return new Resumed(Outcome.NOT_A_TASK, 0, 0, null, null, List.of());
         }
-        // One resume of a task at a time, across the daemon and 'task attach': both passed the "is it running" check,
-        // both started the helpers, and the second set overwrote the first's pid files and was left running.
-        final Path lock = context.paths().tasks().containerState(container).resolveSibling(container + ".resume.lock");
+        // One resume of a task at a time, across the daemon and 'task attach': both passed the "is
+        // it running" check,
+        // both started the helpers, and the second set overwrote the first's pid files and was left
+        // running.
+        final Path lock =
+                context.paths()
+                        .tasks()
+                        .containerState(container)
+                        .resolveSibling(container + ".resume.lock");
         try {
             return FileLocks.holding(lock, () -> resumeHeld(container));
         } catch (final java.io.IOException ex) {
@@ -585,58 +700,94 @@ public final class TaskControl {
         // has already gone: doing it twice is not an error, it is simply already done.
         if (context.podman().poreloTasks().stream()
                 .anyMatch(task -> task.name().equals(container) && task.running())) {
-            return new Resumed(Outcome.ALREADY_RUNNING, 0, recorded.helpers().size(), null, logs,
-                    List.of());
+            return new Resumed(
+                    Outcome.ALREADY_RUNNING, 0, recorded.helpers().size(), null, logs, List.of());
         }
 
         boolean restored = false;
         if (!Files.isDirectory(state)) {
-            // The whole directory is gone, which happens when the machine restarts. A task whose state was saved
-            // is brought back from it; one started before that was kept still cannot be - answered before
-            // podman is asked, so the operator gets a sentence about what happened rather than crun's about a path.
+            // The whole directory is gone, which happens when the machine restarts. A task whose
+            // state was saved
+            // is brought back from it; one started before that was kept still cannot be - answered
+            // before
+            // podman is asked, so the operator gets a sentence about what happened rather than
+            // crun's about a path.
             final TaskState saved = new TaskState(context);
             if (!saved.saved(container)) {
                 return new Resumed(Outcome.PREDATES_RESTART, 0, 0, null, null, List.of());
             }
-            final TaskHelpers savedHelpers = TaskHelpers.readFrom(context.paths().tasks().taskRecord(container));
-            final boolean gated = savedHelpers.helpers().stream().anyMatch(helper -> "gate".equals(helper.name()));
-            final boolean proxied = savedHelpers.helpers().stream().anyMatch(helper -> "vault".equals(helper.name()));
+            final TaskHelpers savedHelpers =
+                    TaskHelpers.readFrom(context.paths().tasks().taskRecord(container));
+            final boolean gated =
+                    savedHelpers.helpers().stream()
+                            .anyMatch(helper -> "gate".equals(helper.name()));
+            final boolean proxied =
+                    savedHelpers.helpers().stream()
+                            .anyMatch(helper -> "vault".equals(helper.name()));
             TaskSecrets.Tokens tokens = new TaskSecrets.Tokens(null, null);
             if (gated || proxied) {
-                final java.util.Optional<TaskSecrets.Tokens> kept = new TaskSecrets(context).read(container);
+                final java.util.Optional<TaskSecrets.Tokens> kept =
+                        new TaskSecrets(context).read(container);
                 if (kept.isEmpty()) {
-                    return new Resumed(Outcome.NEEDS_VAULT, 0, savedHelpers.helpers().size(), null, null, List.of());
+                    return new Resumed(
+                            Outcome.NEEDS_VAULT,
+                            0,
+                            savedHelpers.helpers().size(),
+                            null,
+                            null,
+                            List.of());
                 }
                 tokens = kept.get();
                 if (gated && tokens.gate() == null || proxied && tokens.provider() == null) {
-                    return new Resumed(Outcome.TOKENS_NOT_KEPT, 0, savedHelpers.helpers().size(), null, null,
+                    return new Resumed(
+                            Outcome.TOKENS_NOT_KEPT,
+                            0,
+                            savedHelpers.helpers().size(),
+                            null,
+                            null,
                             List.of());
                 }
             }
             try {
                 saved.restore(container);
-                // A mount whose source is gone fails the container's start: the screen's directory was in the
+                // A mount whose source is gone fails the container's start: the screen's directory
+                // was in the
                 // runtime directory the restart emptied.
                 ScreenFile.prepare(state);
                 if (tokens.provider() != null) {
                     final Path file = state.resolve(TaskSecrets.PROVIDER_FILE);
-                    Files.writeString(file, tokens.provider(), java.nio.charset.StandardCharsets.UTF_8);
-                    Files.setPosixFilePermissions(file,
+                    Files.writeString(
+                            file, tokens.provider(), java.nio.charset.StandardCharsets.UTF_8);
+                    Files.setPosixFilePermissions(
+                            file,
                             java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));
                 }
-                // The other credentials' tokens too: the container still holds them in its environment.
+                // The other credentials' tokens too: the container still holds them in its
+                // environment.
                 if (!tokens.routes().isEmpty()) {
-                    final Path routes = Files.createDirectories(state.resolve(TaskSecrets.ROUTES_DIRECTORY));
-                    Files.setPosixFilePermissions(routes, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
-                    for (final java.util.Map.Entry<String, String> route : tokens.routes().entrySet()) {
+                    final Path routes =
+                            Files.createDirectories(state.resolve(TaskSecrets.ROUTES_DIRECTORY));
+                    Files.setPosixFilePermissions(
+                            routes,
+                            java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+                    for (final java.util.Map.Entry<String, String> route :
+                            tokens.routes().entrySet()) {
                         final Path file = routes.resolve(route.getKey() + ".token");
-                        Files.writeString(file, route.getValue(), java.nio.charset.StandardCharsets.UTF_8);
-                        Files.setPosixFilePermissions(file,
-                                java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));
+                        Files.writeString(
+                                file, route.getValue(), java.nio.charset.StandardCharsets.UTF_8);
+                        Files.setPosixFilePermissions(
+                                file,
+                                java.nio.file.attribute.PosixFilePermissions.fromString(
+                                        "rw-------"));
                     }
                 }
             } catch (IOException ex) {
-                return new Resumed(Outcome.HELPERS_INCOMPLETE, 0, savedHelpers.helpers().size(), null, null,
+                return new Resumed(
+                        Outcome.HELPERS_INCOMPLETE,
+                        0,
+                        savedHelpers.helpers().size(),
+                        null,
+                        null,
                         List.of("could not put back what the restart took: " + ex.getMessage()));
             }
             recorded = withGateToken(TaskHelpers.readFrom(state), tokens.gate());
@@ -666,25 +817,39 @@ public final class TaskControl {
         final long pid = context.podman().pidOf(container).orElse(0L);
         if (pid <= 0) {
             problems.add("the container did not come up; see " + state);
-            return new Resumed(Outcome.HELPERS_INCOMPLETE, started, recorded.helpers().size(),
-                    drift, logs, List.copyOf(problems));
+            return new Resumed(
+                    Outcome.HELPERS_INCOMPLETE,
+                    started,
+                    recorded.helpers().size(),
+                    drift,
+                    logs,
+                    List.copyOf(problems));
         }
 
         started += start(recorded, TaskHelpers.AFTER, pid, state, problems);
-        // What the source gained while the task was down reaches its gate now, and its agent hears of it; before, only
+        // What the source gained while the task was down reaches its gate now, and its agent hears
+        // of it; before, only
         // a new task's start brought it in.
         String brought = "";
         if (recorded.helpers().stream().anyMatch(helper -> "gate".equals(helper.name()))) {
             final TaskRefresh.Result refreshed = new TaskRefresh(context).refresh(container);
             if (refreshed.outcome() == TaskRefresh.Outcome.FAILED) {
-                problems.add("its repository could not be brought up to its source: " + refreshed.detail());
+                problems.add(
+                        "its repository could not be brought up to its source: "
+                                + refreshed.detail());
             } else if (refreshed.outcome() == TaskRefresh.Outcome.MOVED) {
                 brought = TaskRefresh.said(refreshed);
             }
         }
-        return new Resumed(started == recorded.helpers().size()
-                ? Outcome.RESUMED : Outcome.HELPERS_INCOMPLETE,
-                started, recorded.helpers().size(), drift, logs, List.copyOf(problems), restored, brought);
+        return new Resumed(
+                started == recorded.helpers().size() ? Outcome.RESUMED : Outcome.HELPERS_INCOMPLETE,
+                started,
+                recorded.helpers().size(),
+                drift,
+                logs,
+                List.copyOf(problems),
+                restored,
+                brought);
     }
 
     /**
@@ -701,10 +866,15 @@ public final class TaskControl {
         final List<TaskHelpers.Helper> helpers = new ArrayList<>();
         for (final TaskHelpers.Helper helper : recorded.helpers()) {
             if ("gate".equals(helper.name())) {
-                final java.util.Map<String, String> environment = new java.util.LinkedHashMap<>(helper.environment());
+                final java.util.Map<String, String> environment =
+                        new java.util.LinkedHashMap<>(helper.environment());
                 environment.put(TaskState.GATE_TOKEN, token);
-                helpers.add(new TaskHelpers.Helper(helper.name(), helper.command(), java.util.Map.copyOf(environment),
-                        helper.phase()));
+                helpers.add(
+                        new TaskHelpers.Helper(
+                                helper.name(),
+                                helper.command(),
+                                java.util.Map.copyOf(environment),
+                                helper.phase()));
             } else {
                 helpers.add(helper);
             }
@@ -714,9 +884,10 @@ public final class TaskControl {
 
     /**
      * Replaces the container pid a helper was started with, which belongs to the previous run.
-     * <p>
-     * The watcher takes it as {@code --pid}; the relay enters the container's network namespace with
-     * {@code nsenter --target}. A relay resumed with the old pid entered a namespace that no longer existed.
+     *
+     * <p>The watcher takes it as {@code --pid}; the relay enters the container's network namespace
+     * with {@code nsenter --target}. A relay resumed with the old pid entered a namespace that no
+     * longer existed.
      *
      * @param command The recorded command.
      * @param option The option the pid follows.
@@ -757,8 +928,8 @@ public final class TaskControl {
      * @param problems Collects what could not be started, for a caller with no terminal.
      * @return How many started.
      */
-    private int start(TaskHelpers recorded, String phase, long pid, Path state,
-            List<String> problems) {
+    private int start(
+            TaskHelpers recorded, String phase, long pid, Path state, List<String> problems) {
 
         int started = 0;
         for (final TaskHelpers.Helper helper : recorded.helpers()) {
@@ -784,13 +955,21 @@ public final class TaskControl {
                 command = reusingToken(command);
             }
             try {
-                // A scope of its own, as at the first start: a task resumed through the daemon must not
+                // A scope of its own, as at the first start: a task resumed through the daemon must
+                // not
                 // hand its helpers to the daemon's control group.
-                final ProcessBuilder builder = new ProcessBuilder(org.fuin.porelo.core.process.Scope.around("porelo " + state.getFileName() + " " + helper.name(),
-                        command))
-                        .redirectErrorStream(true)
-                        .redirectOutput(ProcessBuilder.Redirect
-                                .appendTo(state.resolve(helper.name() + ".log").toFile()));
+                final ProcessBuilder builder =
+                        new ProcessBuilder(
+                                        org.fuin.porelo.core.process.Scope.around(
+                                                "porelo "
+                                                        + state.getFileName()
+                                                        + " "
+                                                        + helper.name(),
+                                                command))
+                                .redirectErrorStream(true)
+                                .redirectOutput(
+                                        ProcessBuilder.Redirect.appendTo(
+                                                state.resolve(helper.name() + ".log").toFile()));
                 builder.environment().putAll(helper.environment());
                 builder.start();
                 started++;
@@ -803,18 +982,19 @@ public final class TaskControl {
 
     /**
      * Waits for the helpers that must be up before the container to write their pid files.
-     * <p>
-     * Starting the container while the proxy is still binding its socket is the same failure as
+     *
+     * <p>Starting the container while the proxy is still binding its socket is the same failure as
      * starting it too early: the mount catches whatever is at the path at that moment.
      *
      * @param recorded What the task wrote down.
      * @param state The task's state directory.
      */
     private void awaitHelpers(TaskHelpers recorded, Path state) {
-        final List<Path> expected = recorded.helpers().stream()
-                .filter(helper -> TaskHelpers.BEFORE.equals(helper.phase()))
-                .map(helper -> state.resolve(helper.name() + ".pid"))
-                .toList();
+        final List<Path> expected =
+                recorded.helpers().stream()
+                        .filter(helper -> TaskHelpers.BEFORE.equals(helper.phase()))
+                        .map(helper -> state.resolve(helper.name() + ".pid"))
+                        .toList();
         for (int attempt = 0; attempt < 50; attempt++) {
             if (expected.stream().allMatch(Files::isRegularFile)) {
                 return;
@@ -830,31 +1010,39 @@ public final class TaskControl {
 
     /**
      * Returns whether the project's image has been rebuilt since this task was created.
-     * <p>
-     * The task deliberately keeps the image it has - everything installed in the container since
+     *
+     * <p>The task deliberately keeps the image it has - everything installed in the container since
      * it started would be lost otherwise, which is the opposite of what resuming is for. The
-     * operator is told rather than upgraded, because only they know whether the difference
-     * matters.
+     * operator is told rather than upgraded, because only they know whether the difference matters.
      *
      * @param container Container name.
      * @return The image name when it has drifted, otherwise {@code null}.
      */
     public @Nullable String imageDrift(String container) {
-        return context.podman().imageOf(container).flatMap(image ->
-                context.podman().imageId(image[0])
-                        .filter(now -> !now.equals(image[1]))
-                        .map(now -> image[0])).orElse(null);
+        return context.podman()
+                .imageOf(container)
+                .flatMap(
+                        image ->
+                                context.podman()
+                                        .imageId(image[0])
+                                        .filter(now -> !now.equals(image[1]))
+                                        .map(now -> image[0]))
+                .orElse(null);
     }
 
     /**
-     * Returns the project a task was started for, as its own records say, or {@code null} when none is left.
+     * Returns the project a task was started for, as its own records say, or {@code null} when none
+     * is left.
      *
      * @param container The task.
      * @return The project's name, or {@code null}.
      */
-    @org.jspecify.annotations.Nullable String projectOf(String container) {
-        for (final java.nio.file.Path record : List.of(context.paths().tasks().containerState(container),
-                context.paths().tasks().taskRecord(container))) {
+    @org.jspecify.annotations.Nullable
+    String projectOf(String container) {
+        for (final java.nio.file.Path record :
+                List.of(
+                        context.paths().tasks().containerState(container),
+                        context.paths().tasks().taskRecord(container))) {
             final java.nio.file.Path file = record.resolve("sidecar.json");
             try {
                 if (java.nio.file.Files.isRegularFile(file)) {
@@ -869,12 +1057,12 @@ public final class TaskControl {
 
     /**
      * Keeps a removed task's clearance journal, under a name no later task will read.
-     * <p>
-     * A container name no longer carries a timestamp, so the next task of the same project and name
-     * gets the same one - and a watcher reads its journal back so that a resumed task is not asked
-     * twice. Left in place, the journal handed every decision of a removed task to a new one: measured,
-     * when a grant from an earlier run left an address open that the new task never asked for. Renamed
-     * rather than deleted, because it is an audit record.
+     *
+     * <p>A container name no longer carries a timestamp, so the next task of the same project and
+     * name gets the same one - and a watcher reads its journal back so that a resumed task is not
+     * asked twice. Left in place, the journal handed every decision of a removed task to a new one:
+     * measured, when a grant from an earlier run left an address open that the new task never asked
+     * for. Renamed rather than deleted, because it is an audit record.
      *
      * @param container The removed task's container.
      */
@@ -884,7 +1072,10 @@ public final class TaskControl {
             return;
         }
         try {
-            Files.move(journal, journal.resolveSibling(container + ".removed-" + System.currentTimeMillis() + ".jsonl"));
+            Files.move(
+                    journal,
+                    journal.resolveSibling(
+                            container + ".removed-" + System.currentTimeMillis() + ".jsonl"));
         } catch (java.io.IOException ex) {
             // Kept where it is: the next task of this name then starts with its decisions, which is
             // what happened before this existed - worse, but nothing is lost.

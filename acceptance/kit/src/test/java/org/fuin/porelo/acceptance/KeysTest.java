@@ -9,14 +9,13 @@ import java.io.IOException;
 import java.util.HexFormat;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests the keys a scenario can press, as the bytes an {@code xterm-256color} sends for them.
- */
+/** Tests the keys a scenario can press, as the bytes an {@code xterm-256color} sends for them. */
 class KeysTest {
 
     @Test
     void eachKeyIsTheBytesXtermSendsForIt() {
-        // As measured on 2026-10-09 with a program logging every byte it received behind the task's tmux.
+        // As measured on 2026-10-09 with a program logging every byte it received behind the task's
+        // tmux.
         assertThat(hex("Esc")).isEqualTo("1b");
         assertThat(hex("PageUp")).isEqualTo("1b5b357e");
         assertThat(hex("PageDown")).isEqualTo("1b5b367e");
@@ -32,14 +31,17 @@ class KeysTest {
 
     @Test
     void aKeyTheTableDoesNotHaveIsRefusedNamingTheOnesItHas() {
-        assertThatThrownBy(() -> Keys.bytes("Ctrl+Alt+Del")).isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Ctrl+Alt+Del").hasMessageContaining("PageUp");
+        assertThatThrownBy(() -> Keys.bytes("Ctrl+Alt+Del"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Ctrl+Alt+Del")
+                .hasMessageContaining("PageUp");
     }
 
     @Test
     void aKeyIsWrittenRawWithNoLineEnd() throws IOException {
         final ByteArrayOutputStream sent = new ByteArrayOutputStream();
-        final Terminal terminal = new Terminal(new ByteArrayInputStream(new byte[0]), sent, () -> { });
+        final Terminal terminal =
+                new Terminal(new ByteArrayInputStream(new byte[0]), sent, () -> {});
 
         terminal.press(Keys.bytes("Esc"));
 

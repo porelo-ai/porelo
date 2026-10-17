@@ -11,10 +11,10 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Tests for {@link NetlinkSocket}, against the real kernel.
- * <p>
- * A bind is made to fail the way the kernel fails it: a second socket asking for a port another socket of this process
- * already holds is refused with {@code EADDRINUSE}. Nothing is simulated, so what is counted afterwards is what the
- * kernel still holds open.
+ *
+ * <p>A bind is made to fail the way the kernel fails it: a second socket asking for a port another
+ * socket of this process already holds is refused with {@code EADDRINUSE}. Nothing is simulated, so
+ * what is counted afterwards is what the kernel still holds open.
  */
 class NetlinkSocketTest {
 
@@ -37,13 +37,16 @@ class NetlinkSocketTest {
                     .isInstanceOf(NetlinkException.class)
                     .hasMessageContaining("bind(AF_NETLINK) failed");
 
-            assertThat(openDescriptors()).as("descriptors still open after the refused bind").isEqualTo(before);
+            assertThat(openDescriptors())
+                    .as("descriptors still open after the refused bind")
+                    .isEqualTo(before);
         }
     }
 
     @Test
     void bindsToAPortTheKernelChoosesByDefault() {
-        try (NetlinkSocket first = new NetlinkSocket(); NetlinkSocket second = new NetlinkSocket()) {
+        try (NetlinkSocket first = new NetlinkSocket();
+                NetlinkSocket second = new NetlinkSocket()) {
             assertThat(first).isNotNull();
             assertThat(second).isNotNull();
         }

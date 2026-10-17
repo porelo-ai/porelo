@@ -11,9 +11,10 @@ import org.fuin.porelo.machines.Spec;
 import org.fuin.porelo.machines.Ssh;
 
 /**
- * The command line for what only this repository does with a machine: {@code leg}, which builds this tree on a
- * rented machine and runs its acceptance suite there, and {@code deploy}, which installs a handover on a machine
- * somebody keeps. Everything else - the sweep, renting, the pinned JDK - is {@code org.fuin.porelo.machines.Main}.
+ * The command line for what only this repository does with a machine: {@code leg}, which builds
+ * this tree on a rented machine and runs its acceptance suite there, and {@code deploy}, which
+ * installs a handover on a machine somebody keeps. Everything else - the sweep, renting, the pinned
+ * JDK - is {@code org.fuin.porelo.machines.Main}.
  */
 public final class Main {
 
@@ -34,8 +35,16 @@ public final class Main {
      */
     public static void main(String[] args) {
         try {
-            System.exit(run(args, COMPLAIN, () -> Hetzner.with(token(System.getenv(API_TOKEN)),
-                    runId(System.getenv("GITHUB_RUN_ID"), System.getenv("PORELO_CI_LEG")))));
+            System.exit(
+                    run(
+                            args,
+                            COMPLAIN,
+                            () ->
+                                    Hetzner.with(
+                                            token(System.getenv(API_TOKEN)),
+                                            runId(
+                                                    System.getenv("GITHUB_RUN_ID"),
+                                                    System.getenv("PORELO_CI_LEG")))));
         } catch (IOException | IllegalStateException | IllegalArgumentException ex) {
             // The refusals made on purpose; anything else keeps its stack trace.
             COMPLAIN.accept(ex.getMessage());
@@ -43,7 +52,8 @@ public final class Main {
         }
     }
 
-    static int run(String[] args, Consumer<String> complain, Supplier<Hetzner> open) throws IOException {
+    static int run(String[] args, Consumer<String> complain, Supplier<Hetzner> open)
+            throws IOException {
         if (args.length > 0 && "leg".equals(args[0])) {
             return leg(args, complain, open);
         }
@@ -51,7 +61,8 @@ public final class Main {
             return deploy(args, complain);
         }
         complain.accept(args.length == 0 ? "no command" : "unknown command '" + args[0] + "'");
-        System.err.println("""
+        System.err.println(
+                """
             Usage: leg      --os <ubuntu|fedora> --repo <dir> [--key <file>] [--keep]
                             [--fetch <dir>] [--acceptance] [--type <t,t...>] [--accounts <n>]
                    deploy   --vm <user@host> --key <file> [--repo <dir>] [--skip-build]
@@ -85,26 +96,35 @@ public final class Main {
             }
         }
         if (vm == null || !vm.contains("@") || key == null) {
-            complain.accept("deploy needs --vm <user@host> and --key <file>, or PORELO_VM and PORELO_VM_KEY");
+            complain.accept(
+                    "deploy needs --vm <user@host> and --key <file>, or PORELO_VM and PORELO_VM_KEY");
             return 2;
         }
         final Path root = Path.of(repo).toAbsolutePath().normalize();
         final String user = vm.substring(0, vm.indexOf('@'));
         final String host = vm.substring(vm.indexOf('@') + 1);
         try (Ssh ssh = Ssh.to(host, user, new Credential.InFile(Path.of(key)))) {
-            final Deploy.Remote remote = new Deploy.Remote() {
-                @Override
-                public Ssh.Output run(String command) throws IOException {
-                    return ssh.run(command);
-                }
+            final Deploy.Remote remote =
+                    new Deploy.Remote() {
+                        @Override
+                        public Ssh.Output run(String command) throws IOException {
+                            return ssh.run(command);
+                        }
 
-                @Override
-                public void upload(Path local, String target) throws IOException {
-                    ssh.upload(local, target);
-                }
-            };
-            return Deploy.deploy(vm, root, run == null || run.isBlank() ? null : run, skipBuild, scope, remote,
-                    number -> build(root, number), System.out);
+                        @Override
+                        public void upload(Path local, String target) throws IOException {
+                            ssh.upload(local, target);
+                        }
+                    };
+            return Deploy.deploy(
+                    vm,
+                    root,
+                    run == null || run.isBlank() ? null : run,
+                    skipBuild,
+                    scope,
+                    remote,
+                    number -> build(root, number),
+                    System.out);
         }
     }
 
@@ -117,10 +137,21 @@ public final class Main {
      * @throws IOException If it could not be started.
      */
     private static int build(Path root, String run) throws IOException {
-        // -s settings.xml as in CI: the build tooling's snapshots come from there, not from a person's own settings.
-        final Process maven = new ProcessBuilder(root.resolve("mvnw").toString(), "-B", "-s", "settings.xml",
-                "-Pnative,dist", "verify",
-                "-DskipTests", "-Dporelo.snapshot.run=" + run).directory(root.toFile()).inheritIO().start();
+        // -s settings.xml as in CI: the build tooling's snapshots come from there, not from a
+        // person's own settings.
+        final Process maven =
+                new ProcessBuilder(
+                                root.resolve("mvnw").toString(),
+                                "-B",
+                                "-s",
+                                "settings.xml",
+                                "-Pnative,dist",
+                                "verify",
+                                "-DskipTests",
+                                "-Dporelo.snapshot.run=" + run)
+                        .directory(root.toFile())
+                        .inheritIO()
+                        .start();
         try {
             return maven.waitFor();
         } catch (InterruptedException ex) {
@@ -139,7 +170,8 @@ public final class Main {
      * @return An exit code.
      * @throws IOException If the leg fails.
      */
-    private static int leg(String[] args, Consumer<String> complain, Supplier<Hetzner> open) throws IOException {
+    private static int leg(String[] args, Consumer<String> complain, Supplier<Hetzner> open)
+            throws IOException {
         String os = null;
         String key = null;
         String repo = null;
@@ -178,10 +210,16 @@ public final class Main {
             return 2;
         }
         try (Hetzner hetzner = open.get()) {
-            Leg.run(hetzner, os, types == null ? Spec.DEFAULT_TYPES : Spec.order(types),
+            Leg.run(
+                    hetzner,
+                    os,
+                    types == null ? Spec.DEFAULT_TYPES : Spec.order(types),
                     Credential.of(System.getenv(SSH_KEY), key == null ? null : Path.of(key)),
-                    archiveOf(Path.of(repo)), keep, into == null ? null : Path.of(into),
-                    acceptance ? Path.of(repo) : null, accounts);
+                    archiveOf(Path.of(repo)),
+                    keep,
+                    into == null ? null : Path.of(into),
+                    acceptance ? Path.of(repo) : null,
+                    accounts);
         }
         return 0;
     }
@@ -210,8 +248,12 @@ public final class Main {
      */
     private static Path archiveOf(Path root) throws IOException {
         final Path archive = Files.createTempFile("porelo-tree", ".tar");
-        final Process tar = new ProcessBuilder("git", "archive", "--format=tar", "HEAD").directory(root.toFile())
-                .redirectOutput(archive.toFile()).redirectError(ProcessBuilder.Redirect.INHERIT).start();
+        final Process tar =
+                new ProcessBuilder("git", "archive", "--format=tar", "HEAD")
+                        .directory(root.toFile())
+                        .redirectOutput(archive.toFile())
+                        .redirectError(ProcessBuilder.Redirect.INHERIT)
+                        .start();
         try {
             if (tar.waitFor() != 0) {
                 throw new IOException("could not archive the working tree at " + root);
@@ -223,27 +265,34 @@ public final class Main {
         return archive;
     }
 
-    /** A {@code ::error::} line in a workflow, a plain one elsewhere; a test passes its own sink. */
-    private static final Consumer<String> COMPLAIN = message -> System.err.println(
-            System.getenv("GITHUB_ACTIONS") == null ? "porelo: " + message : "::error::" + message);
+    /**
+     * A {@code ::error::} line in a workflow, a plain one elsewhere; a test passes its own sink.
+     */
+    private static final Consumer<String> COMPLAIN =
+            message ->
+                    System.err.println(
+                            System.getenv("GITHUB_ACTIONS") == null
+                                    ? "porelo: " + message
+                                    : "::error::" + message);
 
     /**
-     * Returns the API token, or refuses when there is none. Taken as a parameter, never read here, so a test can
-     * say what happens when it is absent.
+     * Returns the API token, or refuses when there is none. Taken as a parameter, never read here,
+     * so a test can say what happens when it is absent.
      *
      * @param fromEnvironment What the environment holds, or {@code null}.
      * @return The token.
      */
     static String token(String fromEnvironment) {
         if (fromEnvironment == null || fromEnvironment.isBlank()) {
-            throw new IllegalStateException("No API token: set " + API_TOKEN + " in the environment.");
+            throw new IllegalStateException(
+                    "No API token: set " + API_TOKEN + " in the environment.");
         }
         return fromEnvironment;
     }
 
     /**
-     * Returns what identifies this run: the workflow run in CI, a timestamp locally, with the leg in both, so a
-     * machine on the shared account can be told apart and attributed.
+     * Returns what identifies this run: the workflow run in CI, a timestamp locally, with the leg
+     * in both, so a machine on the shared account can be told apart and attributed.
      *
      * @param run The workflow run, or {@code null} outside CI.
      * @param leg Which leg of the matrix, or {@code null}.

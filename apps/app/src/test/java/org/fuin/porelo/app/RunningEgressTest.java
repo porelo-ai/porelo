@@ -27,11 +27,15 @@ class RunningEgressTest {
 
     private PoreloContext context(Path dir) {
         root = dir;
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
         return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
     }
 
@@ -43,19 +47,27 @@ class RunningEgressTest {
         runner.answering("ps", container + "\tUp 4 minutes\t1788500000\t0\n");
         final Path state = root.resolve("run/porelo").resolve(container);
         Files.createDirectories(state);
-        new Sidecar(Sidecar.VERSION, "uc", securityClass, state.resolve("r.nft").toString(),
-                state.resolve("dns.conf").toString(), "/usr/bin/porelo", state.toString())
+        new Sidecar(
+                        Sidecar.VERSION,
+                        "uc",
+                        securityClass,
+                        state.resolve("r.nft").toString(),
+                        state.resolve("dns.conf").toString(),
+                        "/usr/bin/porelo",
+                        state.toString())
                 .writeTo(state.resolve("sidecar.json"));
-        Files.writeString(state.resolve(DnsPolicy.SERVERS_FILE),
-                "# written by porelo\nserver=/declared.test/192.0.2.53\n", StandardCharsets.UTF_8);
+        Files.writeString(
+                state.resolve(DnsPolicy.SERVERS_FILE),
+                "# written by porelo\nserver=/declared.test/192.0.2.53\n",
+                StandardCharsets.UTF_8);
         // A live process stands in for the resolver: the record is verified before it is signalled.
         org.fuin.porelo.wire.HelperPid.record(state.resolve("dnsmasq.pid"));
         return state;
     }
 
     private RunningEgress.Effect widen(PoreloContext context, String... names) {
-        return new RunningEgress(context).widen("porelo-uc-shell-1", List.of(names),
-                RunningEgress.Scope.RUN, false);
+        return new RunningEgress(context)
+                .widen("porelo-uc-shell-1", List.of(names), RunningEgress.Scope.RUN, false);
     }
 
     @Test
@@ -86,8 +98,7 @@ class RunningEgressTest {
 
         widen(context, "docs.example.test");
 
-        assertThat(Files.readString(state.resolve(DnsPolicy.SERVERS_FILE)))
-                .contains("/192.0.2.53");
+        assertThat(Files.readString(state.resolve(DnsPolicy.SERVERS_FILE))).contains("/192.0.2.53");
     }
 
     @Test
@@ -97,8 +108,14 @@ class RunningEgressTest {
         // nobody will read.
         final PoreloContext context = context(dir);
 
-        assertThat(new RunningEgress(context).widen("porelo-uc-shell-1",
-                List.of("docs.example.test"), RunningEgress.Scope.RUN, false).outcome())
+        assertThat(
+                        new RunningEgress(context)
+                                .widen(
+                                        "porelo-uc-shell-1",
+                                        List.of("docs.example.test"),
+                                        RunningEgress.Scope.RUN,
+                                        false)
+                                .outcome())
                 .isEqualTo(RunningEgress.Outcome.NOT_RUNNING);
     }
 
@@ -128,8 +145,13 @@ class RunningEgressTest {
         final PoreloContext context = context(dir);
         final Path state = task("porelo-uc-shell-1", "guarded");
 
-        final RunningEgress.Effect effect = new RunningEgress(context).widen("porelo-uc-shell-1",
-                List.of("docs.example.test"), RunningEgress.Scope.RUN, true);
+        final RunningEgress.Effect effect =
+                new RunningEgress(context)
+                        .widen(
+                                "porelo-uc-shell-1",
+                                List.of("docs.example.test"),
+                                RunningEgress.Scope.RUN,
+                                true);
 
         assertThat(effect.outcome()).isEqualTo(RunningEgress.Outcome.PREVIEWED);
         assertThat(effect.opens()).containsExactly("docs.example.test");
@@ -161,13 +183,19 @@ class RunningEgressTest {
         task("porelo-uc-shell-1", "guarded");
         final Path projectFile = project(dir);
 
-        final RunningEgress.Effect effect = new RunningEgress(context).widen("porelo-uc-shell-1",
-                List.of("docs.example.test"), RunningEgress.Scope.RUN_AND_PROJECT, false);
+        final RunningEgress.Effect effect =
+                new RunningEgress(context)
+                        .widen(
+                                "porelo-uc-shell-1",
+                                List.of("docs.example.test"),
+                                RunningEgress.Scope.RUN_AND_PROJECT,
+                                false);
 
         assertThat(effect.outcome()).isEqualTo(RunningEgress.Outcome.WIDENED);
         assertThat(effect.persisted()).isTrue();
         assertThat(Files.readString(projectFile)).contains("docs.example.test");
-        // What the command prints: with --task nobody named the project, so the file comes from here.
+        // What the command prints: with --task nobody named the project, so the file comes from
+        // here.
         assertThat(effect.file()).as("the file that was written").isNotNull();
         assertThat(Path.of(effect.file())).isEqualTo(projectFile);
     }
@@ -180,8 +208,13 @@ class RunningEgressTest {
         final PoreloContext context = context(dir);
         final Path state = task("porelo-uc-shell-1", "guarded");
 
-        final RunningEgress.Effect effect = new RunningEgress(context).widen("porelo-uc-shell-1",
-                List.of("docs.example.test"), RunningEgress.Scope.RUN_AND_PROJECT, false);
+        final RunningEgress.Effect effect =
+                new RunningEgress(context)
+                        .widen(
+                                "porelo-uc-shell-1",
+                                List.of("docs.example.test"),
+                                RunningEgress.Scope.RUN_AND_PROJECT,
+                                false);
 
         assertThat(effect.outcome()).isEqualTo(RunningEgress.Outcome.NO_PROJECT_FILE);
         assertThat(effect.persisted()).isFalse();
@@ -192,13 +225,16 @@ class RunningEgressTest {
     /** A project file, and the registry entry that lets the daemon find it by project name. */
     private Path project(Path dir) throws IOException {
         final Path file = dir.resolve("project.yml");
-        Files.writeString(file, """
+        Files.writeString(
+                file,
+                """
                 project:
                   name: "uc"
                   security_class: "guarded"
                 image:
                   base_image: "ubuntu:24.04"
-                """, StandardCharsets.UTF_8);
+                """,
+                StandardCharsets.UTF_8);
         final Path entry = dir.resolve("data/porelo/projects/uc");
         Files.createDirectories(entry.getParent());
         Files.writeString(entry, file + "\n", StandardCharsets.UTF_8);
@@ -206,8 +242,8 @@ class RunningEgressTest {
     }
 
     private RunningEgress.Withdrawal narrow(PoreloContext context, String... names) {
-        return new RunningEgress(context).narrow("porelo-uc-shell-1", List.of(names),
-                RunningEgress.Scope.RUN, false);
+        return new RunningEgress(context)
+                .narrow("porelo-uc-shell-1", List.of(names), RunningEgress.Scope.RUN, false);
     }
 
     @Test
@@ -225,7 +261,8 @@ class RunningEgressTest {
         assertThat(taken.closes()).containsExactly("example.test");
         assertThat(Files.readString(state.resolve(DnsPolicy.SERVERS_FILE)))
                 .doesNotContain("server=/example.test/")
-                .as("a name nobody withdrew is untouched").contains("server=/declared.test/");
+                .as("a name nobody withdrew is untouched")
+                .contains("server=/declared.test/");
         assertThat(org.fuin.porelo.wire.GrantedNames.all(state)).doesNotContain("example.test");
         assertThat(runner.lines()).anyMatch(line -> line.contains("kill -HUP " + RESOLVER));
     }
@@ -249,16 +286,15 @@ class RunningEgressTest {
         final RunningEgress.Withdrawal taken = narrow(context, "example.test");
 
         assertThat(taken.addresses()).isEqualTo(2);
-        assertThat(runner.lines()).anyMatch(line -> line.contains("delete element")
-                && line.contains("203.0.113.7"));
-        assertThat(runner.lines()).anyMatch(line -> line.contains("delete element")
-                && line.contains("203.0.113.8"));
+        assertThat(runner.lines())
+                .anyMatch(line -> line.contains("delete element") && line.contains("203.0.113.7"));
+        assertThat(runner.lines())
+                .anyMatch(line -> line.contains("delete element") && line.contains("203.0.113.8"));
         assertThat(runner.lines()).noneMatch(line -> line.contains("198.51.100.1"));
     }
 
     @Test
-    void withdrawingAParentLeavesASubdomainGrantedSeparately(@TempDir Path dir)
-            throws IOException {
+    void withdrawingAParentLeavesASubdomainGrantedSeparately(@TempDir Path dir) throws IOException {
 
         // A grant for example.test COVERS api.example.test when deciding what to let through -
         // that is what GrantedNames.covers does. A withdrawal must not inherit that: api was
@@ -271,8 +307,12 @@ class RunningEgressTest {
         // granted, GrantedNames.covers answers for api.example.test and widening it is a no-op -
         // which this test discovered by failing on correct code.
         widen(context, "api.example.test");
-        new RunningEgress(context).widen("porelo-uc-shell-1", List.of("example.test"),
-                RunningEgress.Scope.RUN, false);
+        new RunningEgress(context)
+                .widen(
+                        "porelo-uc-shell-1",
+                        List.of("example.test"),
+                        RunningEgress.Scope.RUN,
+                        false);
         org.fuin.porelo.wire.GrantedAddresses.add(state, "example.test", "203.0.113.7");
         org.fuin.porelo.wire.GrantedAddresses.add(state, "api.example.test", "203.0.113.9");
         runner.answering("inspect", "4242\n");
@@ -280,12 +320,14 @@ class RunningEgressTest {
         final RunningEgress.Withdrawal taken = narrow(context, "example.test");
 
         assertThat(taken.addresses()).as("only the parent's own address").isEqualTo(1);
-        assertThat(runner.lines()).anyMatch(line -> line.contains("delete element")
-                && line.contains("203.0.113.7"));
-        assertThat(runner.lines()).as("the subdomain's address stays")
+        assertThat(runner.lines())
+                .anyMatch(line -> line.contains("delete element") && line.contains("203.0.113.7"));
+        assertThat(runner.lines())
+                .as("the subdomain's address stays")
                 .noneMatch(line -> line.contains("203.0.113.9"));
         assertThat(org.fuin.porelo.wire.GrantedNames.all(state))
-                .as("and the subdomain is still granted").contains("api.example.test");
+                .as("and the subdomain is still granted")
+                .contains("api.example.test");
     }
 
     @Test
@@ -310,14 +352,20 @@ class RunningEgressTest {
         widen(context, "example.test");
         org.fuin.porelo.wire.GrantedAddresses.add(state, "example.test", "203.0.113.7");
 
-        final RunningEgress.Withdrawal taken = new RunningEgress(context).narrow(
-                "porelo-uc-shell-1", List.of("example.test"), RunningEgress.Scope.RUN, true);
+        final RunningEgress.Withdrawal taken =
+                new RunningEgress(context)
+                        .narrow(
+                                "porelo-uc-shell-1",
+                                List.of("example.test"),
+                                RunningEgress.Scope.RUN,
+                                true);
 
         assertThat(taken.outcome()).isEqualTo(RunningEgress.Outcome.PREVIEWED);
         assertThat(taken.closes()).containsExactly("example.test");
         assertThat(taken.addresses()).as("what it would remove").isEqualTo(1);
         assertThat(Files.readString(state.resolve(DnsPolicy.SERVERS_FILE)))
-                .as("still resolving").contains("server=/example.test/");
+                .as("still resolving")
+                .contains("server=/example.test/");
         assertThat(org.fuin.porelo.wire.GrantedNames.all(state)).contains("example.test");
         assertThat(runner.lines()).noneMatch(line -> line.contains("delete element"));
     }
@@ -353,14 +401,17 @@ class RunningEgressTest {
         // servers file, so a success reported here would be one the resolver does not honour.
         final PoreloContext context = context(dir);
         final Path state = task("porelo-uc-shell-1", "guarded");
-        Files.writeString(state.resolve("dns.conf"), "address=/#/\naddress=/telemetry.example/\n",
+        Files.writeString(
+                state.resolve("dns.conf"),
+                "address=/#/\naddress=/telemetry.example/\n",
                 StandardCharsets.UTF_8);
         final String servers = Files.readString(state.resolve(DnsPolicy.SERVERS_FILE));
 
         final RunningEgress.Effect effect = widen(context, "eu.telemetry.example");
 
         assertThat(effect.outcome()).isEqualTo(RunningEgress.Outcome.REFUSED_NAME);
-        assertThat(effect.detail()).contains("eu.telemetry.example is refused for this task, under telemetry.example");
+        assertThat(effect.detail())
+                .contains("eu.telemetry.example is refused for this task, under telemetry.example");
         assertThat(Files.readString(state.resolve(DnsPolicy.SERVERS_FILE))).isEqualTo(servers);
         assertThat(runner.lines()).noneMatch(line -> line.startsWith("kill"));
     }

@@ -10,32 +10,39 @@ import org.fuin.porelo.wire.Json;
 
 /**
  * What a transport says about itself.
- * <p>
- * Asked rather than configured: an adapter is a package that arrives without Porelo being rebuilt, so
- * anything Porelo needs to know about it has to come from the adapter. Everything here is a claim,
- * and the two the host acts on are checked against what actually happens - a transport that says it
- * polls and fetches nothing has fetched nothing, and one that says it attests an owner and does not
- * write the file has its messages held.
+ *
+ * <p>Asked rather than configured: an adapter is a package that arrives without Porelo being
+ * rebuilt, so anything Porelo needs to know about it has to come from the adapter. Everything here
+ * is a claim, and the two the host acts on are checked against what actually happens - a transport
+ * that says it polls and fetches nothing has fetched nothing, and one that says it attests an owner
+ * and does not write the file has its messages held.
  *
  * @param scheme The part before the colon in a peer's address.
  * @param polls Whether {@code poll} is worth calling at all.
  * @param attests What it proves about a message it hands over. Empty for one that carries bytes.
- * @param confirms How far it can confirm a message: {@code handover}, {@code receipt} or {@code read}.
+ * @param confirms How far it can confirm a message: {@code handover}, {@code receipt} or {@code
+ *     read}.
  * @param lifecycle The lifecycle verbs it offers - {@code setup}, {@code enroll}, {@code retire},
- *        {@code join} - empty for a transport that keeps no conversation of its own.
+ *     {@code join} - empty for a transport that keeps no conversation of its own.
  * @param takes The options it takes beyond the ones every transport does - {@code machine} for this
- *        machine's name on its lifecycle verbs. An option it does not list is never passed: an unknown one
- *        is its 64.
+ *     machine's name on its lifecycle verbs. An option it does not list is never passed: an unknown
+ *     one is its 64.
  */
-public record TransportDescription(String scheme, boolean polls, List<String> attests, String confirms,
-        List<String> lifecycle, List<String> takes) {
+public record TransportDescription(
+        String scheme,
+        boolean polls,
+        List<String> attests,
+        String confirms,
+        List<String> lifecycle,
+        List<String> takes) {
 
     /** What is assumed of a transport that cannot be asked: the least, so nothing is granted. */
     public static final TransportDescription UNKNOWN =
             new TransportDescription("", false, List.of(), "", List.of(), List.of());
 
     /**
-     * Constructor for a transport with no lifecycle, the shape before transports kept a conversation.
+     * Constructor for a transport with no lifecycle, the shape before transports kept a
+     * conversation.
      *
      * @param scheme The part before the colon in a peer's address.
      * @param polls Whether {@code poll} is worth calling at all.
@@ -54,7 +61,11 @@ public record TransportDescription(String scheme, boolean polls, List<String> at
      * @param confirms How far it can confirm a message.
      * @param lifecycle The lifecycle verbs it offers.
      */
-    public TransportDescription(String scheme, boolean polls, List<String> attests, String confirms,
+    public TransportDescription(
+            String scheme,
+            boolean polls,
+            List<String> attests,
+            String confirms,
             List<String> lifecycle) {
         this(scheme, polls, attests, confirms, lifecycle, List.of());
     }
@@ -65,13 +76,15 @@ public record TransportDescription(String scheme, boolean polls, List<String> at
      * @param runner How commands are run.
      * @param adapter The transport's executable.
      * @return What it said, or {@link #UNKNOWN} when it could not be asked or did not answer with
-     *         an object. Refusing to guess: a transport whose description cannot be read is not
-     *         polled and attests nothing.
+     *     an object. Refusing to guess: a transport whose description cannot be read is not polled
+     *     and attests nothing.
      */
     public static TransportDescription of(final CommandRunner runner, final Path adapter) {
         final CommandResult result;
         try {
-            result = runner.run(HelperEnvironment.chosen(Command.of(adapter.toString(), "describe")));
+            result =
+                    runner.run(
+                            HelperEnvironment.chosen(Command.of(adapter.toString(), "describe")));
         } catch (final RuntimeException ex) {
             return UNKNOWN;
         }
@@ -80,27 +93,42 @@ public record TransportDescription(String scheme, boolean polls, List<String> at
         }
         try {
             if (Json.parse(result.standardOutput()) instanceof Map<?, ?> said) {
-                final List<String> attests = said.get("attests") instanceof List<?> listed
-                        ? listed.stream().map(String::valueOf).toList() : List.of();
-                final List<String> lifecycle = said.get("lifecycle") instanceof List<?> verbs
-                        ? verbs.stream().map(String::valueOf).toList() : List.of();
-                final List<String> takes = new java.util.ArrayList<>(said.get("takes") instanceof List<?> options
-                        ? options.stream().map(String::valueOf).toList() : List.of());
-                // Announced as its own field: it shows a person a line of Porelo's, passed as --shown.
+                final List<String> attests =
+                        said.get("attests") instanceof List<?> listed
+                                ? listed.stream().map(String::valueOf).toList()
+                                : List.of();
+                final List<String> lifecycle =
+                        said.get("lifecycle") instanceof List<?> verbs
+                                ? verbs.stream().map(String::valueOf).toList()
+                                : List.of();
+                final List<String> takes =
+                        new java.util.ArrayList<>(
+                                said.get("takes") instanceof List<?> options
+                                        ? options.stream().map(String::valueOf).toList()
+                                        : List.of());
+                // Announced as its own field: it shows a person a line of Porelo's, passed as
+                // --shown.
                 if (Boolean.TRUE.equals(said.get(TransportSend.SHOWN))) {
                     takes.add(TransportSend.SHOWN);
                 }
                 // And a person's words in the room, and a task's direct chats.
-                for (final String flag : List.of(TransportConversations.PERSONS, TransportConversations.DIRECT,
-                        TransportSend.MENTION, TransportConversations.WAITS)) {
+                for (final String flag :
+                        List.of(
+                                TransportConversations.PERSONS,
+                                TransportConversations.DIRECT,
+                                TransportSend.MENTION,
+                                TransportConversations.WAITS)) {
                     if (Boolean.TRUE.equals(said.get(flag))) {
                         takes.add(flag);
                     }
                 }
                 return new TransportDescription(
                         said.get("scheme") instanceof String scheme ? scheme : "",
-                        Boolean.TRUE.equals(said.get("poll")), attests,
-                        said.get("confirms") instanceof String confirms ? confirms : "", lifecycle, takes);
+                        Boolean.TRUE.equals(said.get("poll")),
+                        attests,
+                        said.get("confirms") instanceof String confirms ? confirms : "",
+                        lifecycle,
+                        takes);
             }
         } catch (final RuntimeException ex) {
             return UNKNOWN;
@@ -118,8 +146,8 @@ public record TransportDescription(String scheme, boolean polls, List<String> at
     }
 
     /**
-     * Says whether this transport keeps a conversation of its own - a room - that Porelo sets up and enrolls
-     * tasks into.
+     * Says whether this transport keeps a conversation of its own - a room - that Porelo sets up
+     * and enrolls tasks into.
      *
      * @return {@code true} when it offers {@code setup}.
      */

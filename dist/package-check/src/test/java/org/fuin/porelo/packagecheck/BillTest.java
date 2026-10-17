@@ -11,15 +11,23 @@ class BillTest {
 
     private final Reports out = new Reports();
 
-    private final Bill bill = new Bill("the porelo deb", "porelo-dist-deb", "0.1.0-SNAPSHOT", Main.SHIPS, Main.NEVER);
+    private final Bill bill =
+            new Bill("the porelo deb", "porelo-dist-deb", "0.1.0-SNAPSHOT", Main.SHIPS, Main.NEVER);
 
     @Test
     void passesABillThatNamesWhatShipsNestedOnesIncluded() {
-        bill.check(bom("porelo-dist-deb", "0.1.0-SNAPSHOT", """
-                {"name":"porelo-app","components":[{"name":"porelo-core"},{"name":"picocli"}]},{"name":"porelod"}"""), PATH, out.report);
+        bill.check(
+                bom(
+                        "porelo-dist-deb",
+                        "0.1.0-SNAPSHOT",
+                        """
+                {"name":"porelo-app","components":[{"name":"porelo-core"},{"name":"picocli"}]},{"name":"porelod"}"""),
+                PATH,
+                out.report);
 
         assertThat(out.report.failures()).as(out.text()).isZero();
-        assertThat(out.text()).contains("PASS  the porelo deb ships a bill for itself (4 components)");
+        assertThat(out.text())
+                .contains("PASS  the porelo deb ships a bill for itself (4 components)");
     }
 
     @Test
@@ -31,18 +39,32 @@ class BillTest {
 
     @Test
     void namesWhatShipsAndIsMissing() {
-        bill.check(bom("porelo-dist-deb", "0.1.0-SNAPSHOT", """
-                {"name":"porelo-app"},{"name":"porelod"}"""), PATH, out.report);
+        bill.check(
+                bom(
+                        "porelo-dist-deb",
+                        "0.1.0-SNAPSHOT",
+                        """
+                {"name":"porelo-app"},{"name":"porelod"}"""),
+                PATH,
+                out.report);
 
-        assertThat(out.text()).contains("FAIL  the porelo deb ships a bill that is missing what ships: picocli, porelo-core");
+        assertThat(out.text())
+                .contains(
+                        "FAIL  the porelo deb ships a bill that is missing what ships: picocli, porelo-core");
     }
 
     @Test
     void namesWhatOnlyBuildsOrTestsThePackage() {
         // The aggregate bill this replaced named cucumber and sshj from the acceptance kit.
-        bill.check(bom("porelo-dist-deb", "0.1.0-SNAPSHOT", """
+        bill.check(
+                bom(
+                        "porelo-dist-deb",
+                        "0.1.0-SNAPSHOT",
+                        """
                 {"name":"porelo-app"},{"name":"porelod"},{"name":"porelo-core"},{"name":"picocli"},{"name":"sshj"},
-                {"name":"x","components":[{"name":"cucumber-core"}]}"""), PATH, out.report);
+                {"name":"x","components":[{"name":"cucumber-core"}]}"""),
+                PATH,
+                out.report);
 
         assertThat(out.text()).contains("names what does not ship: cucumber-core, sshj");
     }
@@ -81,7 +103,8 @@ class BillTest {
     @Test
     void readsASnapshotPackageVersionAsTheMavenOne() {
         assertThat(Bill.mavenVersion("0.1.0~snapshot.69")).isEqualTo("0.1.0-SNAPSHOT");
-        assertThat(Bill.mavenVersion("0.1.0~snapshot.0+local.20260928T044029")).isEqualTo("0.1.0-SNAPSHOT");
+        assertThat(Bill.mavenVersion("0.1.0~snapshot.0+local.20260928T044029"))
+                .isEqualTo("0.1.0-SNAPSHOT");
         assertThat(Bill.mavenVersion("0.1.0~SNAPSHOT")).isEqualTo("0.1.0-SNAPSHOT");
         assertThat(Bill.mavenVersion("0.1.0")).isEqualTo("0.1.0");
     }
@@ -91,5 +114,4 @@ class BillTest {
                 {"bomFormat":"CycloneDX","metadata":{"component":{"name":"%s","version":"%s"}},"components":[%s]}"""
                 .formatted(subject, version, components);
     }
-
 }

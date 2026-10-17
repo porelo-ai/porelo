@@ -11,9 +11,7 @@ import org.fuin.porelo.testing.FakeCommandRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/**
- * Test for {@link TransportSend}, whose whole contract is three exit codes.
- */
+/** Test for {@link TransportSend}, whose whole contract is three exit codes. */
 class TransportSendTest {
 
     private final FakeCommandRunner runner = new FakeCommandRunner();
@@ -49,8 +47,11 @@ class TransportSendTest {
 
         assertThat(result.sent()).containsExactly("m-1.json");
         assertThat(mailbox.sent().resolve("m-1.json")).exists();
-        assertThat(mailbox.sent().resolve("m-1.json.sig")).as("the evidence travels with it").exists();
-        assertThat(mailbox.sent().resolve("m-1.json.receipt.json")).hasContent("{\"delivered\":true}");
+        assertThat(mailbox.sent().resolve("m-1.json.sig"))
+                .as("the evidence travels with it")
+                .exists();
+        assertThat(mailbox.sent().resolve("m-1.json.receipt.json"))
+                .hasContent("{\"delivered\":true}");
         assertThat(mailbox.queueActive("local")).isEmptyDirectory();
     }
 
@@ -60,14 +61,16 @@ class TransportSendTest {
         final TransportDirectory transports = withAdapter(dir);
         runner.failing("send", TransportSend.TEMPORARY, "the mailbox is not writable yet");
 
-        final TransportSend.Result first = new TransportSend(runner, transports).send(mailbox, "local");
+        final TransportSend.Result first =
+                new TransportSend(runner, transports).send(mailbox, "local");
 
         assertThat(first.deferred()).containsExactly("m-1.json");
         assertThat(mailbox.queueDeferred("local").resolve("m-1.json")).exists();
 
         // The next pass finds it again, and this time the far side is there.
         final FakeCommandRunner later = new FakeCommandRunner().answering("send", "{}");
-        final TransportSend.Result second = new TransportSend(later, transports).send(mailbox, "local");
+        final TransportSend.Result second =
+                new TransportSend(later, transports).send(mailbox, "local");
 
         assertThat(second.sent()).containsExactly("m-1.json");
         assertThat(mailbox.queueDeferred("local")).isEmptyDirectory();
@@ -81,7 +84,8 @@ class TransportSendTest {
         final TransportSend.Result result =
                 new TransportSend(runner, withAdapter(dir)).send(mailbox, "local");
 
-        assertThat(result.refused()).singleElement()
+        assertThat(result.refused())
+                .singleElement()
                 .satisfies(held -> assertThat(held.reason()).contains("no such destination"));
         assertThat(mailbox.hold().resolve("m-1.json")).exists();
         assertThat(mailbox.queueActive("local")).isEmptyDirectory();
@@ -98,8 +102,9 @@ class TransportSendTest {
             throws IOException {
         final Mailbox mailbox = queued(dir);
 
-        final TransportSend.Result result = new TransportSend(runner,
-                new TransportDirectory(List.of(dir.resolve("none")))).send(mailbox, "local");
+        final TransportSend.Result result =
+                new TransportSend(runner, new TransportDirectory(List.of(dir.resolve("none"))))
+                        .send(mailbox, "local");
 
         assertThat(result.deferred()).containsExactly("m-1.json");
         assertThat(result.refused()).isEmpty();
@@ -108,10 +113,11 @@ class TransportSendTest {
     }
 
     @Test
-    void a_transport_that_shows_a_line_to_a_person_is_given_one_and_one_that_does_not_is_not(@TempDir final Path dir)
-            throws IOException {
+    void a_transport_that_shows_a_line_to_a_person_is_given_one_and_one_that_does_not_is_not(
+            @TempDir final Path dir) throws IOException {
 
-        // A person reading the room saw the message as JSON: the line they read is Porelo's, made here from the
+        // A person reading the room saw the message as JSON: the line they read is Porelo's, made
+        // here from the
         // checked message alone, and passed only to a transport that says it takes it.
         final Mailbox mailbox = queued(dir);
         runner.answering("describe", "{\"scheme\":\"local\",\"shown\":true}");
@@ -119,93 +125,149 @@ class TransportSendTest {
 
         new TransportSend(runner, withAdapter(dir)).send(mailbox, "local");
 
-        assertThat(runner.lines()).filteredOn(line -> line.contains(" send ")).singleElement(
-                org.assertj.core.api.InstanceOfAssertFactories.STRING).contains("--shown ");
-        assertThat(mailbox.queueActive("local")).as("nothing of it is left behind").isEmptyDirectory();
+        assertThat(runner.lines())
+                .filteredOn(line -> line.contains(" send "))
+                .singleElement(org.assertj.core.api.InstanceOfAssertFactories.STRING)
+                .contains("--shown ");
+        assertThat(mailbox.queueActive("local"))
+                .as("nothing of it is left behind")
+                .isEmptyDirectory();
 
         final Mailbox other = queued(dir.resolve("other"));
-        final FakeCommandRunner plain = new FakeCommandRunner().answering("describe", "{\"scheme\":\"local\"}")
-                .answering("send", "{}");
+        final FakeCommandRunner plain =
+                new FakeCommandRunner()
+                        .answering("describe", "{\"scheme\":\"local\"}")
+                        .answering("send", "{}");
         new TransportSend(plain, withAdapter(dir.resolve("other"))).send(other, "local");
-        assertThat(plain.lines()).filteredOn(line -> line.contains(" send ")).singleElement(
-                org.assertj.core.api.InstanceOfAssertFactories.STRING).doesNotContain("--shown");
+        assertThat(plain.lines())
+                .filteredOn(line -> line.contains(" send "))
+                .singleElement(org.assertj.core.api.InstanceOfAssertFactories.STRING)
+                .doesNotContain("--shown");
     }
 
     @Test
     void the_line_a_person_reads_is_the_text_and_nothing_else() {
 
-        // The operator in walk 10, 2026-10-04: "porelo-…-writer to alice:" in front of a direct answer "makes no
+        // The operator in walk 10, 2026-10-04: "porelo-…-writer to alice:" in front of a direct
+        // answer "makes no
         // sense". The account that posts it says who wrote it, and a mention says whom it is for.
-        assertThat(TransportSend.shown("""
+        assertThat(
+                        TransportSend.shown(
+                                """
                 {"messageId":"m-1","contextId":"c-1","parts":[{"text":"Hello alice."},{"text":"Second."},
                  {"mediaType":"image/png","data":"iVBOR"}],"metadata":{"kind":"question","from":"alice","to":"alice"}}
-                """, "porelo-p-foo")).isEqualTo("Hello alice.\n\nSecond.\n\n[image/png]");
+                """,
+                                "porelo-p-foo"))
+                .isEqualTo("Hello alice.\n\nSecond.\n\n[image/png]");
     }
 
     @Test
-    void anAnswerToAPersonsRoomMessageGoesIntoTheRoomMentioningThemAndADirectOneIntoTheirChat(@TempDir final Path dir)
-            throws IOException {
+    void anAnswerToAPersonsRoomMessageGoesIntoTheRoomMentioningThemAndADirectOneIntoTheirChat(
+            @TempDir final Path dir) throws IOException {
 
-        // The operator in walk 10, 2026-10-04: in the room "with the correct @", and "a private answer only when he
+        // The operator in walk 10, 2026-10-04: in the room "with the correct @", and "a private
+        // answer only when he
         // was written to privately".
         final Mailbox mailbox = queued(dir);
-        Files.writeString(mailbox.queueActive("local").resolve("m-1.json"),
+        Files.writeString(
+                mailbox.queueActive("local").resolve("m-1.json"),
                 "{\"messageId\":\"m-1\",\"metadata\":{\"to\":\"alice\",\"via\":\"room\"}}");
         Files.writeString(mailbox.queueActive("local").resolve("m-1.json.to"), "@alice:localhost");
-        Files.writeString(mailbox.queueActive("local").resolve("m-2.json"),
+        Files.writeString(
+                mailbox.queueActive("local").resolve("m-2.json"),
                 "{\"messageId\":\"m-2\",\"metadata\":{\"to\":\"alice\",\"via\":\"direct\"}}");
-        Files.writeString(mailbox.queueActive("local").resolve("m-2.json.sig"), "-----BEGIN SSH SIGNATURE-----");
+        Files.writeString(
+                mailbox.queueActive("local").resolve("m-2.json.sig"),
+                "-----BEGIN SSH SIGNATURE-----");
         Files.writeString(mailbox.queueActive("local").resolve("m-2.json.to"), "@alice:localhost");
         runner.answering("describe", "{\"scheme\":\"local\",\"mention\":true}");
         runner.answering("send", "{}");
 
-        new TransportSend(runner, withAdapter(dir), (transport, container) -> new TransportSend.Acting(
-                java.util.Map.of("TOKEN", "t"), "!room:localhost")).send(mailbox, "local");
+        new TransportSend(
+                        runner,
+                        withAdapter(dir),
+                        (transport, container) ->
+                                new TransportSend.Acting(
+                                        java.util.Map.of("TOKEN", "t"), "!room:localhost"))
+                .send(mailbox, "local");
 
-        final java.util.List<String> sends = runner.invocations().stream().map(command -> command.arguments())
-                .filter(arguments -> arguments.contains("send")).map(arguments -> String.join(" ", arguments)).toList();
-        assertThat(sends).anySatisfy(line -> assertThat(line).contains("m-1.json.sig --to !room:localhost")
-                .contains("--mention @alice:localhost"));
-        assertThat(sends).anySatisfy(line -> assertThat(line).contains("m-2.json.sig --to @alice:localhost")
-                .doesNotContain("--mention"));
+        final java.util.List<String> sends =
+                runner.invocations().stream()
+                        .map(command -> command.arguments())
+                        .filter(arguments -> arguments.contains("send"))
+                        .map(arguments -> String.join(" ", arguments))
+                        .toList();
+        assertThat(sends)
+                .anySatisfy(
+                        line ->
+                                assertThat(line)
+                                        .contains("m-1.json.sig --to !room:localhost")
+                                        .contains("--mention @alice:localhost"));
+        assertThat(sends)
+                .anySatisfy(
+                        line ->
+                                assertThat(line)
+                                        .contains("m-2.json.sig --to @alice:localhost")
+                                        .doesNotContain("--mention"));
     }
 
     @Test
-    void aMessageToATaskInTheRoomMentionsItsAccountWhereTheTransportTakesAMention(@TempDir final Path dir)
-            throws IOException {
+    void aMessageToATaskInTheRoomMentionsItsAccountWhereTheTransportTakesAMention(
+            @TempDir final Path dir) throws IOException {
         final Mailbox mailbox = queued(dir);
-        Files.writeString(mailbox.queueActive("local").resolve("m-1.json"),
+        Files.writeString(
+                mailbox.queueActive("local").resolve("m-1.json"),
                 "{\"messageId\":\"m-1\",\"metadata\":{\"to\":\"review\"}}");
         Files.writeString(mailbox.queueActive("local").resolve("m-1.json.to"), "");
         runner.answering("describe", "{\"scheme\":\"local\",\"shown\":true,\"mention\":true}");
         runner.answering("send", "{}");
 
-        new TransportSend(runner, withAdapter(dir), (transport, container) -> new TransportSend.Acting(
-                java.util.Map.of("TOKEN", "t"), "!room:localhost",
-                java.util.Map.of("review", "@porelo-p-review:localhost"))).send(mailbox, "local");
+        new TransportSend(
+                        runner,
+                        withAdapter(dir),
+                        (transport, container) ->
+                                new TransportSend.Acting(
+                                        java.util.Map.of("TOKEN", "t"),
+                                        "!room:localhost",
+                                        java.util.Map.of("review", "@porelo-p-review:localhost")))
+                .send(mailbox, "local");
 
-        assertThat(runner.only(" send ").arguments()).containsSubsequence("--mention", "@porelo-p-review:localhost");
+        assertThat(runner.only(" send ").arguments())
+                .containsSubsequence("--mention", "@porelo-p-review:localhost");
     }
 
     @Test
-    void aMessageToAPersonGoesToThemAndOneToTheRoomToTheRoom(@TempDir final Path dir) throws IOException {
+    void aMessageToAPersonGoesToThemAndOneToTheRoomToTheRoom(@TempDir final Path dir)
+            throws IOException {
 
-        // A direct chat (2026-10-04): the room is what the task acts in, and a person is a destination of
+        // A direct chat (2026-10-04): the room is what the task acts in, and a person is a
+        // destination of
         // their own, which the host queued from the project's peer; an empty one is the room's.
         final Mailbox mailbox = queued(dir);
-        Files.writeString(mailbox.queueActive("local").resolve("m-1.json"),
+        Files.writeString(
+                mailbox.queueActive("local").resolve("m-1.json"),
                 "{\"messageId\":\"m-1\",\"metadata\":{\"via\":\"direct\"}}");
         Files.writeString(mailbox.queueActive("local").resolve("m-1.json.to"), "@alice:localhost");
-        Files.writeString(mailbox.queueActive("local").resolve("m-2.json"), "{\"messageId\":\"m-2\"}");
-        Files.writeString(mailbox.queueActive("local").resolve("m-2.json.sig"), "-----BEGIN SSH SIGNATURE-----");
+        Files.writeString(
+                mailbox.queueActive("local").resolve("m-2.json"), "{\"messageId\":\"m-2\"}");
+        Files.writeString(
+                mailbox.queueActive("local").resolve("m-2.json.sig"),
+                "-----BEGIN SSH SIGNATURE-----");
         Files.writeString(mailbox.queueActive("local").resolve("m-2.json.to"), "");
         runner.answering("send", "{}");
 
-        new TransportSend(runner, withAdapter(dir), (transport, container) -> new TransportSend.Acting(
-                java.util.Map.of("TOKEN", "t"), "!room:localhost")).send(mailbox, "local");
+        new TransportSend(
+                        runner,
+                        withAdapter(dir),
+                        (transport, container) ->
+                                new TransportSend.Acting(
+                                        java.util.Map.of("TOKEN", "t"), "!room:localhost"))
+                .send(mailbox, "local");
 
-        assertThat(runner.invocations()).filteredOn(command -> command.arguments().contains("send"))
-                .extracting(command -> command.arguments().get(command.arguments().indexOf("--to") + 1))
+        assertThat(runner.invocations())
+                .filteredOn(command -> command.arguments().contains("send"))
+                .extracting(
+                        command -> command.arguments().get(command.arguments().indexOf("--to") + 1))
                 .containsExactlyInAnyOrder("@alice:localhost", "!room:localhost");
     }
 }

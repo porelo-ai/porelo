@@ -1,6 +1,4 @@
-/**
- * The per-project model read from {@code project.yml}.
- */
+/** The per-project model read from {@code project.yml}. */
 @NullMarked
 package org.fuin.porelo.core.project;
 

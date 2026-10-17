@@ -11,13 +11,13 @@ import java.util.stream.Stream;
 
 /**
  * Lets a person send a held message on its way, or refuse it for good.
- * <p>
- * <strong>Released or refused, never edited.</strong> What the record shows a task said has to be
- * what the task said; a person who may rewrite it on the way out turns the record into a record of
- * what somebody was willing to admit to. Somebody who disagrees with a message refuses it and says
- * so, which is a thing the sender can read and act on.
- * <p>
- * A released message goes back where the filter left it, so the next pass treats it exactly like
+ *
+ * <p><strong>Released or refused, never edited.</strong> What the record shows a task said has to
+ * be what the task said; a person who may rewrite it on the way out turns the record into a record
+ * of what somebody was willing to admit to. Somebody who disagrees with a message refuses it and
+ * says so, which is a thing the sender can read and act on.
+ *
+ * <p>A released message goes back where the filter left it, so the next pass treats it exactly like
  * any other accepted message - one path out, not two.
  */
 public final class MessageRelease {
@@ -31,13 +31,16 @@ public final class MessageRelease {
      * @return This.
      */
     /**
-     * Says which of its project's conversations the task has an account in, so a message to a peer reached through
-     * one it is not in is not released: it would be queued, run without the task's account and held again.
+     * Says which of its project's conversations the task has an account in, so a message to a peer
+     * reached through one it is not in is not released: it would be queued, run without the task's
+     * account and held again.
      *
-     * @param schemes The transports the task is enrolled in, or {@code null} when that is not known.
+     * @param schemes The transports the task is enrolled in, or {@code null} when that is not
+     *     known.
      * @return This, for chaining.
      */
-    public MessageRelease enrolledIn(final java.util.@org.jspecify.annotations.Nullable Set<String> schemes) {
+    public MessageRelease enrolledIn(
+            final java.util.@org.jspecify.annotations.Nullable Set<String> schemes) {
         this.enrolled = schemes;
         return this;
     }
@@ -51,15 +54,21 @@ public final class MessageRelease {
      * @param container The task.
      * @return Their schemes.
      */
-    public static java.util.Set<String> enrolled(final PoreloContext context, final String container) {
+    public static java.util.Set<String> enrolled(
+            final PoreloContext context, final String container) {
         final java.util.Set<String> schemes = new java.util.LinkedHashSet<>();
-        final String project = ProjectNames.of(container, ProjectNames.labels(context),
-                new ProjectInventory(context).projects().stream().map(ProjectInventory.Summary::name).toList());
+        final String project =
+                ProjectNames.of(
+                        container,
+                        ProjectNames.labels(context),
+                        new ProjectInventory(context)
+                                .projects().stream().map(ProjectInventory.Summary::name).toList());
         if (project == null) {
             return schemes;
         }
         final TransportConversations conversations =
-                new TransportConversations(context, context.paths().messaging().transportDirectory());
+                new TransportConversations(
+                        context, context.paths().messaging().transportDirectory());
         for (final String scheme : peersOf(context, container).conversations()) {
             try {
                 if (conversations.acting(scheme, project, container) != null) {
@@ -103,8 +112,8 @@ public final class MessageRelease {
         DELIVERED_DESPITE_FILTER,
 
         /**
-         * It is known and cannot be sent: a person refused it for good, the filter could not check it,
-         * or it has no one this project may address. {@code detail} says which.
+         * It is known and cannot be sent: a person refused it for good, the filter could not check
+         * it, or it has no one this project may address. {@code detail} says which.
          */
         NOT_DELIVERABLE
     }
@@ -147,13 +156,14 @@ public final class MessageRelease {
 
     /**
      * Decides about one message a person read: a held one, or one the filter refused.
-     * <p>
-     * <strong>A message the filter refused can be delivered after all</strong>, at the operator's word:
-     * a person who read it in full decides. It goes from {@code rejected/} straight to its transport,
-     * never through {@code accepted/}, so "the filter passed it" keeps one meaning, and the record says
-     * it was delivered despite the filter. Refusing it keeps it refused, recorded as a person's decision.
-     * <strong>What a person refused for good, and what the filter could not check at all, is never
-     * sent</strong>: the first was final, the second is bytes nobody here could read.
+     *
+     * <p><strong>A message the filter refused can be delivered after all</strong>, at the
+     * operator's word: a person who read it in full decides. It goes from {@code rejected/}
+     * straight to its transport, never through {@code accepted/}, so "the filter passed it" keeps
+     * one meaning, and the record says it was delivered despite the filter. Refusing it keeps it
+     * refused, recorded as a person's decision. <strong>What a person refused for good, and what
+     * the filter could not check at all, is never sent</strong>: the first was final, the second is
+     * bytes nobody here could read.
      *
      * @param mailbox The task's mailbox.
      * @param id The message id, or the file name.
@@ -162,72 +172,116 @@ public final class MessageRelease {
      * @return What happened.
      * @throws IOException Reading or moving failed.
      */
-    public Result decide(final Mailbox mailbox, final String id, final boolean refuse,
-            final org.fuin.porelo.core.project.Mail mail) throws IOException {
+    public Result decide(
+            final Mailbox mailbox,
+            final String id,
+            final boolean refuse,
+            final org.fuin.porelo.core.project.Mail mail)
+            throws IOException {
         // Under the pass's lock: a release moved a file a pass was moving at the same time.
-        return FileLocks.holding(mailbox.root().resolve(MessagePass.PASS_LOCK), () -> decideHeld(mailbox, id, refuse,
-                mail));
+        return FileLocks.holding(
+                mailbox.root().resolve(MessagePass.PASS_LOCK),
+                () -> decideHeld(mailbox, id, refuse, mail));
     }
 
-    private Result decideHeld(final Mailbox mailbox, final String id, final boolean refuse,
-            final org.fuin.porelo.core.project.Mail mail) throws IOException {
+    private Result decideHeld(
+            final Mailbox mailbox,
+            final String id,
+            final boolean refuse,
+            final org.fuin.porelo.core.project.Mail mail)
+            throws IOException {
         final List<MessageLookup.Found> known = MessageLookup.find(mailbox, id);
         if (known.size() != 1) {
-            return new Result(known.isEmpty() ? Outcome.NO_SUCH_MESSAGE : Outcome.AMBIGUOUS, "", "");
+            return new Result(
+                    known.isEmpty() ? Outcome.NO_SUCH_MESSAGE : Outcome.AMBIGUOUS, "", "");
         }
         final MessageLookup.Found one = known.get(0);
         final String file = one.file().getFileName().toString();
         return switch (one.standing()) {
             case HELD -> {
                 final String outside = refuse ? null : outside(mailbox, one.file(), mail);
-                yield outside == null ? held(mailbox, one.file(), refuse)
-                        : new Result(Outcome.NOT_DELIVERABLE, file, MessageFile.id(one.file()), outside);
+                yield outside == null
+                        ? held(mailbox, one.file(), refuse)
+                        : new Result(
+                                Outcome.NOT_DELIVERABLE, file, MessageFile.id(one.file()), outside);
             }
-            case REFUSED_BY_FILTER -> refuse ? refusedAgain(mailbox, one.file())
-                    : despite(mailbox, one.file(), mail);
-            case REFUSED_BY_PERSON -> new Result(Outcome.NOT_DELIVERABLE, file, MessageFile.id(one.file()),
-                    "a person refused it for good, and the sender was told");
-            case UNCHECKED -> new Result(Outcome.NOT_DELIVERABLE, file, "",
-                    "the filter could not check it at all, so nothing here can say what a peer would read");
+            case REFUSED_BY_FILTER ->
+                    refuse ? refusedAgain(mailbox, one.file()) : despite(mailbox, one.file(), mail);
+            case REFUSED_BY_PERSON ->
+                    new Result(
+                            Outcome.NOT_DELIVERABLE,
+                            file,
+                            MessageFile.id(one.file()),
+                            "a person refused it for good, and the sender was told");
+            case UNCHECKED ->
+                    new Result(
+                            Outcome.NOT_DELIVERABLE,
+                            file,
+                            "",
+                            "the filter could not check it at all, so nothing here can say what a peer would read");
         };
     }
 
     private Result refusedAgain(final Mailbox mailbox, final Path refused) throws IOException {
         // It stays where it is; what changes is that a person has now decided, and that is final.
         final String id = MessageFile.id(refused);
-        new MessageRecord(mailbox).append(MessageRecord.REFUSED, refused.getFileName().toString(), id,
-                "a person refused it after reading it");
+        new MessageRecord(mailbox)
+                .append(
+                        MessageRecord.REFUSED,
+                        refused.getFileName().toString(),
+                        id,
+                        "a person refused it after reading it");
         if (reason != null) {
-            // The filter told the sender when it refused; a person who says why is worth telling again.
-            new HostBounce().write(mailbox, refused, refusedBy("a person read it and refused it too"), true);
+            // The filter told the sender when it refused; a person who says why is worth telling
+            // again.
+            new HostBounce()
+                    .write(
+                            mailbox,
+                            refused,
+                            refusedBy("a person read it and refused it too"),
+                            true);
         }
         return new Result(Outcome.REFUSED, refused.getFileName().toString(), id);
     }
 
-    private Result despite(final Mailbox mailbox, final Path refused, final org.fuin.porelo.core.project.Mail mail)
+    private Result despite(
+            final Mailbox mailbox, final Path refused, final org.fuin.porelo.core.project.Mail mail)
             throws IOException {
         final String name = refused.getFileName().toString();
         final String id = MessageFile.id(refused);
         final String to = addressee(refused);
         final org.fuin.porelo.core.project.Mail.Peer peer = to.isEmpty() ? null : mail.peer(to);
         if (peer == null) {
-            return new Result(Outcome.NOT_DELIVERABLE, name, id, to.isEmpty()
-                    ? "it addresses nobody this host can send to" : "this project may not address '" + to + "'");
+            return new Result(
+                    Outcome.NOT_DELIVERABLE,
+                    name,
+                    id,
+                    to.isEmpty()
+                            ? "it addresses nobody this host can send to"
+                            : "this project may not address '" + to + "'");
         }
         final Path signature = mailbox.rejected().resolve(name + ".sig");
         if (!Files.isRegularFile(signature)) {
-            // Not signed again here: the host's signature is over the bytes it took in, and signing now
+            // Not signed again here: the host's signature is over the bytes it took in, and signing
+            // now
             // would put its name on a decision a person made.
             return new Result(Outcome.NOT_DELIVERABLE, name, id, "its signature is not beside it");
         }
         final Path active = mailbox.queueActive(peer.transport());
         Files.createDirectories(active);
-        Files.writeString(active.resolve(name + MessageDispatch.DESTINATION_SUFFIX), peer.destination(),
+        Files.writeString(
+                active.resolve(name + MessageDispatch.DESTINATION_SUFFIX),
+                peer.destination(),
                 java.nio.charset.StandardCharsets.UTF_8);
         Files.move(signature, active.resolve(name + ".sig"), StandardCopyOption.REPLACE_EXISTING);
         Files.move(refused, active.resolve(name), StandardCopyOption.REPLACE_EXISTING);
-        new MessageRecord(mailbox).append(MessageRecord.OVERRIDDEN, name, id, peer.name(),
-                "the filter refused it and a person delivered it after reading it");
+        new MessageRecord(mailbox)
+                .append(
+                        MessageRecord.OVERRIDDEN,
+                        name,
+                        id,
+                        peer.name(),
+                        "the filter refused it and a person delivered it after reading it");
         return new Result(Outcome.DELIVERED_DESPITE_FILTER, name, id);
     }
 
@@ -238,21 +292,25 @@ public final class MessageRelease {
      * @param container The task's container.
      * @return The project's peers, or none when the task names no project.
      */
-    public static org.fuin.porelo.core.project.Mail peersOf(final PoreloContext context, final String container) {
-        // With the project's own tasks, as a pass sees them: a message to one of them is deliverable.
+    public static org.fuin.porelo.core.project.Mail peersOf(
+            final PoreloContext context, final String container) {
+        // With the project's own tasks, as a pass sees them: a message to one of them is
+        // deliverable.
         return new MessageWatch(context, java.time.Duration.ZERO).peersOf(container);
     }
 
     /** A released message's detail when it goes in, to this task, rather than out. */
-    public static final String INWARD = "it goes to this task at the next pass, which checks it as it checks every"
-            + " arrival - one held for its signature is held again unless its sender's key is trusted";
+    public static final String INWARD =
+            "it goes to this task at the next pass, which checks it as it checks every"
+                    + " arrival - one held for its signature is held again unless its sender's key is trusted";
 
     /**
      * Returns which way a held message was going, from the last time the record held it.
      *
      * @param mailbox The task's mailbox.
      * @param name The message's file name.
-     * @return {@link MessageRecord#IN}, {@link MessageRecord#OUT}, or "" when the record does not say.
+     * @return {@link MessageRecord#IN}, {@link MessageRecord#OUT}, or "" when the record does not
+     *     say.
      * @throws IOException Reading failed.
      */
     static String direction(final Mailbox mailbox, final String name) throws IOException {
@@ -266,8 +324,9 @@ public final class MessageRelease {
     }
 
     private static String addressee(final Path message) throws IOException {
-        final Object parsed = org.fuin.porelo.wire.Json.parse(
-                Files.readString(message, java.nio.charset.StandardCharsets.UTF_8));
+        final Object parsed =
+                org.fuin.porelo.wire.Json.parse(
+                        Files.readString(message, java.nio.charset.StandardCharsets.UTF_8));
         if (parsed instanceof java.util.Map<?, ?> document
                 && document.get("metadata") instanceof java.util.Map<?, ?> metadata
                 && metadata.get("to") instanceof String to) {
@@ -276,9 +335,11 @@ public final class MessageRelease {
         return "";
     }
 
-    private @org.jspecify.annotations.Nullable String outside(final Mailbox mailbox, final Path held,
-            final org.fuin.porelo.core.project.Mail mail) throws IOException {
-        if (enrolled == null || MessageRecord.IN.equals(direction(mailbox, held.getFileName().toString()))) {
+    private @org.jspecify.annotations.Nullable String outside(
+            final Mailbox mailbox, final Path held, final org.fuin.porelo.core.project.Mail mail)
+            throws IOException {
+        if (enrolled == null
+                || MessageRecord.IN.equals(direction(mailbox, held.getFileName().toString()))) {
             return null;
         }
         final String to = addressee(held);
@@ -286,21 +347,29 @@ public final class MessageRelease {
         if (peer == null || !peer.conversation() || enrolled.contains(peer.transport())) {
             return null;
         }
-        return "this task is not in the project's " + peer.transport() + " conversation, so nothing would carry it;"
+        return "this task is not in the project's "
+                + peer.transport()
+                + " conversation, so nothing would carry it;"
                 + " start it again to take it in, then release it";
     }
 
-    private Result held(final Mailbox mailbox, final Path held, final boolean refuse) throws IOException {
+    private Result held(final Mailbox mailbox, final Path held, final boolean refuse)
+            throws IOException {
         final String name = held.getFileName().toString();
         final String messageId = MessageFile.id(held);
         final Path signature = mailbox.hold().resolve(name + ".sig");
         if (!refuse && MessageRecord.IN.equals(direction(mailbox, name))) {
-            // Held on its way IN: released, it goes to this task, never out - it was turning outgoing and held
+            // Held on its way IN: released, it goes to this task, never out - it was turning
+            // outgoing and held
             // again as "this project may not address" its own task (found on 2026-09-30). Back
-            // into inbound, so the next pass delivers it and checks it as it checks every arrival: a message
+            // into inbound, so the next pass delivers it and checks it as it checks every arrival:
+            // a message
             // held for its signature is held again unless its sender's key is trusted.
             if (Files.isRegularFile(signature)) {
-                Files.move(signature, mailbox.inbound().resolve(name + ".sig"), StandardCopyOption.REPLACE_EXISTING);
+                Files.move(
+                        signature,
+                        mailbox.inbound().resolve(name + ".sig"),
+                        StandardCopyOption.REPLACE_EXISTING);
             }
             Files.move(held, mailbox.inbound().resolve(name), StandardCopyOption.REPLACE_EXISTING);
             return new Result(Outcome.RELEASED, name, messageId, INWARD);
@@ -316,21 +385,26 @@ public final class MessageRelease {
         if (Files.isRegularFile(signature)) {
             // The signature travels with it. It was made over these exact bytes on the way in, and
             // re-signing on release would put the host's name on a decision a person made.
-            Files.move(signature, target.resolve(name + ".sig"),
-                    StandardCopyOption.REPLACE_EXISTING);
+            Files.move(
+                    signature, target.resolve(name + ".sig"), StandardCopyOption.REPLACE_EXISTING);
         }
         if (!refuse) {
-            // A person released this message: the next pass sends it whatever the peer's mode or hold says -
+            // A person released this message: the next pass sends it whatever the peer's mode or
+            // hold says -
             // asking that mode again held it again, for ever (found on 2026-09-30). A peer set to
             // refuse still refuses: that is a decision about the peer, and it is final.
-            Files.writeString(target.resolve(name + MessageDispatch.RELEASED_SUFFIX), "",
+            Files.writeString(
+                    target.resolve(name + MessageDispatch.RELEASED_SUFFIX),
+                    "",
                     java.nio.charset.StandardCharsets.UTF_8);
         }
         Files.move(held, target.resolve(name), StandardCopyOption.REPLACE_EXISTING);
         if (refuse) {
-            // Recorded, so the refusal stays a person's and final: in 'rejected/' it lies beside what
+            // Recorded, so the refusal stays a person's and final: in 'rejected/' it lies beside
+            // what
             // the filter refused, which a person may still deliver.
-            new MessageRecord(mailbox).append(MessageRecord.REFUSED, name, messageId, "a person refused to send it");
+            new MessageRecord(mailbox)
+                    .append(MessageRecord.REFUSED, name, messageId, "a person refused to send it");
         }
         return new Result(refuse ? Outcome.REFUSED : Outcome.RELEASED, name, messageId);
     }
@@ -349,16 +423,17 @@ public final class MessageRelease {
         try (Stream<Path> entries = Files.list(mailbox.hold())) {
             return entries.filter(Files::isRegularFile)
                     .filter(path -> path.getFileName().toString().endsWith(".json"))
-                    .sorted(Comparator.comparing(path -> path.getFileName().toString())).toList();
+                    .sorted(Comparator.comparing(path -> path.getFileName().toString()))
+                    .toList();
         }
     }
 
     /**
      * Finds held messages by id or file name - in {@code hold/} and nowhere else.
-     * <p>
-     * Nowhere else on purpose: {@code rejected/} and the filter's {@code error/} keep refused originals
-     * in clear text, secrets included, and a name that resolved there would let a release send a
-     * refused message out, or a read show it through a forwarded socket.
+     *
+     * <p>Nowhere else on purpose: {@code rejected/} and the filter's {@code error/} keep refused
+     * originals in clear text, secrets included, and a name that resolved there would let a release
+     * send a refused message out, or a read show it through a forwarded socket.
      *
      * @param mailbox The task's mailbox.
      * @param id The message id or file name.

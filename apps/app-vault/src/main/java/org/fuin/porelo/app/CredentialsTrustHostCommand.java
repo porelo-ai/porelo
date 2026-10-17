@@ -12,32 +12,37 @@ import picocli.CommandLine.Spec;
 
 /**
  * Shows what a host offers, and records the one key a person confirms.
- * <p>
- * <strong>Two commands in one on purpose.</strong> Without a fingerprint it shows what the host
+ *
+ * <p><strong>Two commands in one on purpose.</strong> Without a fingerprint it shows what the host
  * offers and records nothing - which is the half somebody needs in front of them while they check
  * it against what they were told. With one it records that key and only if the host still offers
- * it, which is what stops a key that arrived between being shown and being confirmed from being
- * the one that is written.
- * <p>
- * Accepting on first use would be easier and is what this refuses to do: it is also exactly what
+ * it, which is what stops a key that arrived between being shown and being confirmed from being the
+ * one that is written.
+ *
+ * <p>Accepting on first use would be easier and is what this refuses to do: it is also exactly what
  * an interception looks like.
  */
-@Command(name = "trust-host",
+@Command(
+        name = "trust-host",
         mixinStandardHelpOptions = true,
         description = "Shows the keys a host offers, and records the one you confirm.")
 public class CredentialsTrustHostCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
-    @Parameters(index = "0", paramLabel = "<host>[:<port>]",
-            description = "The host, as it appears in the address - 'github.com', or 'forge.example.org:7999'"
-                    + " for one whose ssh is on a port other than 22.")
+    @Parameters(
+            index = "0",
+            paramLabel = "<host>[:<port>]",
+            description =
+                    "The host, as it appears in the address - 'github.com', or 'forge.example.org:7999'"
+                            + " for one whose ssh is on a port other than 22.")
     private String host;
 
-    @Option(names = "--fingerprint", paramLabel = "<SHA256:...>",
+    @Option(
+            names = "--fingerprint",
+            paramLabel = "<SHA256:...>",
             description = "The key you confirmed. Without this, nothing is recorded.")
     private @Nullable String fingerprint;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -50,7 +55,8 @@ public class CredentialsTrustHostCommand implements Callable<Integer>, PoreloFac
     public Integer call() {
         final PrintWriter out = spec.commandLine().getOut();
         final PrintWriter err = spec.commandLine().getErr();
-        // On its own port, and from here on named as every hint names it: a key on 22 is another service's.
+        // On its own port, and from here on named as every hint names it: a key on 22 is another
+        // service's.
         try {
             host = HostKeys.Address.of(host).name();
         } catch (final IllegalArgumentException ex) {
@@ -62,8 +68,11 @@ public class CredentialsTrustHostCommand implements Callable<Integer>, PoreloFac
         if (fingerprint == null) {
             final List<HostKeys.Offered> offered = HostKeys.offeredBy(context, host);
             if (offered.isEmpty()) {
-                err.println("porelo: " + host + " offered nothing - it may be unreachable from"
-                        + " here, or not be an ssh host at all.");
+                err.println(
+                        "porelo: "
+                                + host
+                                + " offered nothing - it may be unreachable from"
+                                + " here, or not be an ssh host at all.");
                 err.flush();
                 return 70;
             }
@@ -93,8 +102,11 @@ public class CredentialsTrustHostCommand implements Callable<Integer>, PoreloFac
         }
         if (recorded == null) {
             err.println("porelo: " + host + " offers no key with that fingerprint right now.");
-            err.println("       Nothing was recorded. Look again with 'porelo credentials"
-                    + " trust-host " + host + "'.");
+            err.println(
+                    "       Nothing was recorded. Look again with 'porelo credentials"
+                            + " trust-host "
+                            + host
+                            + "'.");
             err.flush();
             return 70;
         }

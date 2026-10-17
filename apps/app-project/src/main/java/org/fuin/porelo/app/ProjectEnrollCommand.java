@@ -19,36 +19,42 @@ import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
 
 /**
- * Puts this machine forward to take part in a project: its message key's public half, as a change to the
- * project's {@code machine-signers}, waiting in the project's gate for a person's review.
- * <p>
- * <strong>No secret leaves the machine, and no key is copied by hand.</strong> The change is made from the
- * configuration this machine follows and verified, and put up for review as {@code enroll-<machine>}; a
- * person reads it - the review ranks a signer list first - and merges it signed with
- * {@code porelo gate approve enroll-<machine> --signed}. Every machine that follows the project then reads
- * the signer at its next reconciliation. {@code --remove} is the same path backwards.
- * <p>
- * <strong>The trust anchor stays a person's step:</strong> this prints the fingerprint of the key this
- * machine pinned for the project's configuration, beside this machine's own, for the comparison a person
- * makes; nothing here reads a key from the repository it verifies.
+ * Puts this machine forward to take part in a project: its message key's public half, as a change
+ * to the project's {@code machine-signers}, waiting in the project's gate for a person's review.
+ *
+ * <p><strong>No secret leaves the machine, and no key is copied by hand.</strong> The change is
+ * made from the configuration this machine follows and verified, and put up for review as {@code
+ * enroll-<machine>}; a person reads it - the review ranks a signer list first - and merges it
+ * signed with {@code porelo gate approve enroll-<machine> --signed}. Every machine that follows the
+ * project then reads the signer at its next reconciliation. {@code --remove} is the same path
+ * backwards.
+ *
+ * <p><strong>The trust anchor stays a person's step:</strong> this prints the fingerprint of the
+ * key this machine pinned for the project's configuration, beside this machine's own, for the
+ * comparison a person makes; nothing here reads a key from the repository it verifies.
  */
-@Command(name = "enroll",
+@Command(
+        name = "enroll",
         mixinStandardHelpOptions = true,
         description = "Puts this machine's message key up for review as a signer of a project.")
 public class ProjectEnrollCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
-    @Parameters(index = "0", paramLabel = "<project>", description = "A project this machine follows, verified.")
+    @Parameters(
+            index = "0",
+            paramLabel = "<project>",
+            description = "A project this machine follows, verified.")
     private String projectName;
 
     @Option(names = "--remove", description = "Put this machine's removal up for review instead.")
     private boolean remove;
 
-    @Option(names = "--as", paramLabel = "<principal>",
+    @Option(
+            names = "--as",
+            paramLabel = "<principal>",
             description = "The name this machine signs messages as. Default: porelo@<host name>.")
     private @org.jspecify.annotations.Nullable String principal;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -63,69 +69,121 @@ public class ProjectEnrollCommand implements Callable<Integer>, PoreloFactory.Co
         final PrintWriter err = spec.commandLine().getErr();
         final FollowedProjects.Followed followed;
         try {
-            followed = new FollowedProjects(context.paths().projects().followed()).require(projectName);
+            followed =
+                    new FollowedProjects(context.paths().projects().followed())
+                            .require(projectName);
         } catch (IOException | RuntimeException ex) {
-            err.println("porelo: this machine does not follow '" + projectName + "'; enroll takes part in a project"
-                    + " whose configuration it follows and verifies: 'porelo project follow' first");
+            err.println(
+                    "porelo: this machine does not follow '"
+                            + projectName
+                            + "'; enroll takes part in a project"
+                            + " whose configuration it follows and verifies: 'porelo project follow' first");
             err.flush();
             return 64;
         }
         if (followed.unverified() || followed.commit().isBlank()) {
-            err.println("porelo: '" + projectName + "' is followed " + (followed.unverified() ? "unverified"
-                    : "without a configuration in force") + ", so nothing here says what the project's configuration"
-                    + " is; follow it with --signed-by first");
+            err.println(
+                    "porelo: '"
+                            + projectName
+                            + "' is followed "
+                            + (followed.unverified()
+                                    ? "unverified"
+                                    : "without a configuration in force")
+                            + ", so nothing here says what the project's configuration"
+                            + " is; follow it with --signed-by first");
             err.flush();
             return 64;
         }
         final Project project = GateSupport.byName(context, projectName);
         final String machine = principal != null ? principal : "porelo@" + hostName();
-        final SigningKey key = HostKey.loadOrCreate(context.paths().messaging().messageKey(), machine);
+        final SigningKey key =
+                HostKey.loadOrCreate(context.paths().messaging().messageKey(), machine);
         final String line = HostKey.allowedSignersLine(key, machine);
         final String ref = "enroll-" + machine.replaceAll("[^A-Za-z0-9.-]", "-");
 
-        final org.fuin.porelo.gate.GitGate gate = GateSupport.gate(context, project, GateSupport.repository(project, null),
-                null, null);
+        final org.fuin.porelo.gate.GitGate gate =
+                GateSupport.gate(
+                        context, project, GateSupport.repository(project, null), null, null);
         gate.initialize();
         final Path mirror = GateSupport.mirror(context, project);
         final Path scratch = Files.createTempDirectory("porelo-enroll-");
         try {
             final String work = scratch.resolve("work").toString();
             git(null, "init", "--quiet", work);
-            final Path noHooks = Files.createDirectories(scratch.resolve("work/.git/porelo-no-hooks"));
+            final Path noHooks =
+                    Files.createDirectories(scratch.resolve("work/.git/porelo-no-hooks"));
             git(work, "config", "core.hooksPath", noHooks.toString());
-            // From the configuration in force, which is what every machine following the project has.
-            git(work, "fetch", "--quiet", context.paths().projects().followedClone(projectName).toString(), followed.commit());
+            // From the configuration in force, which is what every machine following the project
+            // has.
+            git(
+                    work,
+                    "fetch",
+                    "--quiet",
+                    context.paths().projects().followedClone(projectName).toString(),
+                    followed.commit());
             git(work, "checkout", "--quiet", "-B", ref, "FETCH_HEAD");
             final Path signers = scratch.resolve("work").resolve(KnownPeers.SIGNERS);
-            final List<String> lines = new ArrayList<>(Files.isRegularFile(signers)
-                    ? Files.readAllLines(signers, StandardCharsets.UTF_8) : List.of());
+            final List<String> lines =
+                    new ArrayList<>(
+                            Files.isRegularFile(signers)
+                                    ? Files.readAllLines(signers, StandardCharsets.UTF_8)
+                                    : List.of());
             final List<String> before = List.copyOf(lines);
             lines.removeIf(each -> each.startsWith(machine + " "));
             if (!remove) {
                 lines.add(line);
             }
             if (lines.equals(before)) {
-                out.println(remove ? "not enrolled " + machine + " is not a signer of " + projectName
-                        : "enrolled  " + machine + " is a signer of " + projectName + " already");
+                out.println(
+                        remove
+                                ? "not enrolled " + machine + " is not a signer of " + projectName
+                                : "enrolled  "
+                                        + machine
+                                        + " is a signer of "
+                                        + projectName
+                                        + " already");
                 out.flush();
                 return 0;
             }
             Files.write(signers, lines, StandardCharsets.UTF_8);
             git(work, "add", KnownPeers.SIGNERS);
-            git(work, "commit", "--quiet", "-m", (remove ? "Remove " : "Enroll ") + machine + " as a signer of "
-                    + projectName);
+            git(
+                    work,
+                    "commit",
+                    "--quiet",
+                    "-m",
+                    (remove ? "Remove " : "Enroll ") + machine + " as a signer of " + projectName);
             // Replaces an earlier enrolment of this machine that nobody has decided about yet.
-            git(work, "push", "--quiet", "--force", mirror.toString(), "HEAD:" + org.fuin.porelo.gate.GitGate.INCOMING + ref);
+            git(
+                    work,
+                    "push",
+                    "--quiet",
+                    "--force",
+                    mirror.toString(),
+                    "HEAD:" + org.fuin.porelo.gate.GitGate.INCOMING + ref);
         } finally {
             try (java.util.stream.Stream<Path> walk = Files.walk(scratch)) {
-                walk.sorted(java.util.Comparator.reverseOrder()).forEach(path -> path.toFile().delete());
+                walk.sorted(java.util.Comparator.reverseOrder())
+                        .forEach(path -> path.toFile().delete());
             }
         }
 
-        out.println((remove ? "removal   " : "enrolment ") + ref + " waits for a person in " + projectName + "'s gate");
-        out.println("this machine " + machine + "  " + SignedBy.fingerprintOf(line.substring(line.indexOf(' ') + 1)));
+        out.println(
+                (remove ? "removal   " : "enrolment ")
+                        + ref
+                        + " waits for a person in "
+                        + projectName
+                        + "'s gate");
+        out.println(
+                "this machine "
+                        + machine
+                        + "  "
+                        + SignedBy.fingerprintOf(line.substring(line.indexOf(' ') + 1)));
         for (final String pinned : pinned(projectName)) {
-            out.println("project   configuration signed by  " + pinned + "  (compare it with the one you were given)");
+            out.println(
+                    "project   configuration signed by  "
+                            + pinned
+                            + "  (compare it with the one you were given)");
         }
         out.println("review    porelo gate review " + ref + " -p " + projectName);
         out.println("merge     porelo gate approve " + ref + " -p " + projectName + " --signed");
@@ -158,16 +216,31 @@ public class ProjectEnrollCommand implements Callable<Integer>, PoreloFactory.Co
         return fingerprints;
     }
 
-    private CommandResult git(@org.jspecify.annotations.Nullable String directory, String... arguments) {
+    private CommandResult git(
+            @org.jspecify.annotations.Nullable String directory, String... arguments) {
         final List<String> command = new ArrayList<>(List.of("git"));
         if (directory != null) {
             command.addAll(List.of("-C", directory));
         }
         command.addAll(List.of(arguments));
         final String machine = principal != null ? principal : "porelo@" + hostName();
-        return context.runner().runOrFail(new org.fuin.porelo.core.process.Command(command, null, Map.of("GIT_AUTHOR_NAME", "Porelo",
-                "GIT_AUTHOR_EMAIL", machine, "GIT_COMMITTER_NAME", "Porelo", "GIT_COMMITTER_EMAIL", machine,
-                "GIT_TERMINAL_PROMPT", "0"), null));
+        return context.runner()
+                .runOrFail(
+                        new org.fuin.porelo.core.process.Command(
+                                command,
+                                null,
+                                Map.of(
+                                        "GIT_AUTHOR_NAME",
+                                        "Porelo",
+                                        "GIT_AUTHOR_EMAIL",
+                                        machine,
+                                        "GIT_COMMITTER_NAME",
+                                        "Porelo",
+                                        "GIT_COMMITTER_EMAIL",
+                                        machine,
+                                        "GIT_TERMINAL_PROMPT",
+                                        "0"),
+                                null));
     }
 
     private static String hostName() {

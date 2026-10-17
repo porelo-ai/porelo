@@ -6,40 +6,45 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * How Porelo's vault proxy stands in for the provider an agent talks to.
- * <p>
- * <strong>This is a resolved pair, not a declaration.</strong> It is built by
- * {@link #of(ProviderDefinition, AgentProvider)} from the provider's half - upstream, header,
- * prefix, path - and the agent's half - which dialect it speaks and what shape of endpoint it can
- * address. Neither side states the other's facts, which is what stops the same provider being
- * described once per agent that reaches it.
- * <p>
- * The agent is handed a phantom token, not the real credential. Something has to accept that
- * token and reissue the request upstream with the real one, and this record is what tells the
- * proxy how: where to forward, and which header the credential belongs in.
- * <p>
- * <strong>The header depends on the credential type.</strong> An OAuth token goes in
- * {@code Authorization: Bearer …} and an API key in a provider-specific header - for Anthropic,
- * {@code x-api-key} with no prefix. Sending one as the other fails as an authentication error,
- * which is indistinguishable from a bad key, so both are declared per type with
- * {@link AgentDefinition#DEFAULT_TOKEN_KEY} as the fallback.
+ *
+ * <p><strong>This is a resolved pair, not a declaration.</strong> It is built by {@link
+ * #of(ProviderDefinition, AgentProvider)} from the provider's half - upstream, header, prefix, path
+ * - and the agent's half - which dialect it speaks and what shape of endpoint it can address.
+ * Neither side states the other's facts, which is what stops the same provider being described once
+ * per agent that reaches it.
+ *
+ * <p>The agent is handed a phantom token, not the real credential. Something has to accept that
+ * token and reissue the request upstream with the real one, and this record is what tells the proxy
+ * how: where to forward, and which header the credential belongs in.
+ *
+ * <p><strong>The header depends on the credential type.</strong> An OAuth token goes in {@code
+ * Authorization: Bearer …} and an API key in a provider-specific header - for Anthropic, {@code
+ * x-api-key} with no prefix. Sending one as the other fails as an authentication error, which is
+ * indistinguishable from a bad key, so both are declared per type with {@link
+ * AgentDefinition#DEFAULT_TOKEN_KEY} as the fallback.
  *
  * @param upstream Real API endpoint the proxy forwards to.
- * @param socketEnvironment Variable naming the unix socket the agent should use, or {@code null}
- *        if the agent cannot be pointed at one.
+ * @param socketEnvironment Variable naming the unix socket the agent should use, or {@code null} if
+ *     the agent cannot be pointed at one.
  * @param authHeader Credential type to header name.
  * @param authPrefix Credential type to the string placed before the credential.
  * @param endpoint What the agent is able to address the proxy as.
  * @param endpointPath Path appended to the endpoint the agent is given, because the dialect it
- *        speaks is served under it. Empty when the provider serves it at the root.
+ *     speaks is served under it. Empty when the provider serves it at the root.
  */
-public record ProviderRoute(String upstream, @Nullable String socketEnvironment,
-        Map<String, String> authHeader, Map<String, String> authPrefix,
-        Map<String, String> unbrokerable, Endpoint endpoint, String endpointPath,
+public record ProviderRoute(
+        String upstream,
+        @Nullable String socketEnvironment,
+        Map<String, String> authHeader,
+        Map<String, String> authPrefix,
+        Map<String, String> unbrokerable,
+        Endpoint endpoint,
+        String endpointPath,
         Map<String, String> authQuery) {
 
     /**
-     * Constructor for a route whose keys all travel in a header, the shape every caller built before a key
-     * could go in the URL.
+     * Constructor for a route whose keys all travel in a header, the shape every caller built
+     * before a key could go in the URL.
      *
      * @param upstream Base URL.
      * @param socketEnvironment Variable naming the socket, or {@code null}.
@@ -49,16 +54,29 @@ public record ProviderRoute(String upstream, @Nullable String socketEnvironment,
      * @param endpoint How the agent reaches the broker.
      * @param endpointPath Path the dialect is served under.
      */
-    public ProviderRoute(String upstream, @Nullable String socketEnvironment, Map<String, String> authHeader,
-            Map<String, String> authPrefix, Map<String, String> unbrokerable, Endpoint endpoint,
+    public ProviderRoute(
+            String upstream,
+            @Nullable String socketEnvironment,
+            Map<String, String> authHeader,
+            Map<String, String> authPrefix,
+            Map<String, String> unbrokerable,
+            Endpoint endpoint,
             String endpointPath) {
-        this(upstream, socketEnvironment, authHeader, authPrefix, unbrokerable, endpoint, endpointPath, Map.of());
+        this(
+                upstream,
+                socketEnvironment,
+                authHeader,
+                authPrefix,
+                unbrokerable,
+                endpoint,
+                endpointPath,
+                Map.of());
     }
 
     /**
      * Returns the route an agent takes to a provider.
-     * <p>
-     * The only place the two halves meet. Everything the proxy needs to forward a request comes
+     *
+     * <p>The only place the two halves meet. Everything the proxy needs to forward a request comes
      * from the provider; everything about how the agent is told where to send it comes from the
      * agent.
      *
@@ -68,15 +86,21 @@ public record ProviderRoute(String upstream, @Nullable String socketEnvironment,
      * @throws AgentException If the provider does not serve a dialect the agent speaks.
      */
     public static ProviderRoute of(ProviderDefinition provider, AgentProvider agent) {
-        return new ProviderRoute(provider.upstream(), agent.socketEnvironment(),
-                provider.authHeader(), provider.authPrefix(), provider.unbrokerable(),
-                agent.endpoint(), provider.pathFor(agent.dialect()), provider.authQuery());
+        return new ProviderRoute(
+                provider.upstream(),
+                agent.socketEnvironment(),
+                provider.authHeader(),
+                provider.authPrefix(),
+                provider.unbrokerable(),
+                agent.endpoint(),
+                provider.pathFor(agent.dialect()),
+                provider.authQuery());
     }
 
     /**
      * What an agent can be pointed at.
-     * <p>
-     * Declared by the agent because it is a property of the agent, not of the provider: the same
+     *
+     * <p>Declared by the agent because it is a property of the agent, not of the provider: the same
      * provider is reached over a socket by one agent and only as a URL by another. Porelo decides
      * how to satisfy it, and the two are satisfied very differently - a socket is a file the
      * container mounts, while a URL needs something listening in the container's own network
@@ -105,8 +129,13 @@ public record ProviderRoute(String upstream, @Nullable String socketEnvironment,
             return switch (declared.toLowerCase(java.util.Locale.ROOT)) {
                 case "socket" -> SOCKET;
                 case "url" -> URL;
-                default -> throw new AgentException(origin + ": 'proxy.endpoint' must be 'socket'"
-                        + " or 'url', not '" + declared + "'");
+                default ->
+                        throw new AgentException(
+                                origin
+                                        + ": 'proxy.endpoint' must be 'socket'"
+                                        + " or 'url', not '"
+                                        + declared
+                                        + "'");
             };
         }
     }
@@ -119,8 +148,11 @@ public record ProviderRoute(String upstream, @Nullable String socketEnvironment,
      * @param authHeader Header to use, by credential kind.
      * @param authPrefix Value prefix, by credential kind.
      */
-    public ProviderRoute(String upstream, @Nullable String socketEnvironment,
-            Map<String, String> authHeader, Map<String, String> authPrefix) {
+    public ProviderRoute(
+            String upstream,
+            @Nullable String socketEnvironment,
+            Map<String, String> authHeader,
+            Map<String, String> authPrefix) {
         this(upstream, socketEnvironment, authHeader, authPrefix, Map.of(), Endpoint.SOCKET, "");
     }
 
@@ -133,10 +165,19 @@ public record ProviderRoute(String upstream, @Nullable String socketEnvironment,
      * @param authPrefix Value prefix, by credential kind.
      * @param unbrokerable Why a credential kind cannot be brokered.
      */
-    public ProviderRoute(String upstream, @Nullable String socketEnvironment,
-            Map<String, String> authHeader, Map<String, String> authPrefix,
+    public ProviderRoute(
+            String upstream,
+            @Nullable String socketEnvironment,
+            Map<String, String> authHeader,
+            Map<String, String> authPrefix,
             Map<String, String> unbrokerable) {
-        this(upstream, socketEnvironment, authHeader, authPrefix, unbrokerable, Endpoint.SOCKET,
+        this(
+                upstream,
+                socketEnvironment,
+                authHeader,
+                authPrefix,
+                unbrokerable,
+                Endpoint.SOCKET,
                 "");
     }
 
@@ -168,8 +209,8 @@ public record ProviderRoute(String upstream, @Nullable String socketEnvironment,
             if (uri.getHost() == null || !"https".equals(uri.getScheme())) {
                 // Plain HTTP upstream would send the real credential in the clear, and a URI
                 // without a host cannot produce the deny rule that stops the agent going direct.
-                throw new AgentException("Upstream '" + upstream
-                        + "' must be an https URL naming a host");
+                throw new AgentException(
+                        "Upstream '" + upstream + "' must be an https URL naming a host");
             }
         } catch (IllegalArgumentException ex) {
             throw new AgentException("Upstream '" + upstream + "' is not a URL");
@@ -193,8 +234,8 @@ public record ProviderRoute(String upstream, @Nullable String socketEnvironment,
 
     /**
      * Returns the host the agent must not be allowed to reach directly.
-     * <p>
-     * Whenever a phantom token is issued, this host is withheld from the firewall. An agent that
+     *
+     * <p>Whenever a phantom token is issued, this host is withheld from the firewall. An agent that
      * ignores the redirect - Claude Code compiles in its own base URL - then gets a dropped
      * connection and an audit entry instead of quietly sending the phantom token to the provider.
      *
@@ -211,7 +252,8 @@ public record ProviderRoute(String upstream, @Nullable String socketEnvironment,
      * @return Header name, {@code Authorization} when the definition names none.
      */
     public String authHeaderFor(String credentialType) {
-        return authHeader.getOrDefault(credentialType,
+        return authHeader.getOrDefault(
+                credentialType,
                 authHeader.getOrDefault(AgentDefinition.DEFAULT_TOKEN_KEY, "Authorization"));
     }
 
@@ -222,17 +264,19 @@ public record ProviderRoute(String upstream, @Nullable String socketEnvironment,
      * @return Prefix, empty when the definition names none.
      */
     public String authPrefixFor(String credentialType) {
-        return authPrefix.getOrDefault(credentialType,
-                authPrefix.getOrDefault(AgentDefinition.DEFAULT_TOKEN_KEY, ""));
+        return authPrefix.getOrDefault(
+                credentialType, authPrefix.getOrDefault(AgentDefinition.DEFAULT_TOKEN_KEY, ""));
     }
 
     /**
-     * Returns the query parameter the credential of a type travels in, or {@code null} for a header.
+     * Returns the query parameter the credential of a type travels in, or {@code null} for a
+     * header.
      *
      * @param credentialType Credential type, for example {@code api-key}.
      * @return The parameter's name, or {@code null}.
      */
     public @Nullable String authQueryFor(String credentialType) {
-        return authQuery.getOrDefault(credentialType, authQuery.get(AgentDefinition.DEFAULT_TOKEN_KEY));
+        return authQuery.getOrDefault(
+                credentialType, authQuery.get(AgentDefinition.DEFAULT_TOKEN_KEY));
     }
 }

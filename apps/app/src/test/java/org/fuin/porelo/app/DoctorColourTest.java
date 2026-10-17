@@ -12,8 +12,8 @@ import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 
 /**
- * Tests for the colours of {@code porelo doctor}: a failure red, a warning yellow, what is fine green, the words unchanged,
- * and no escape code where nobody sees colour.
+ * Tests for the colours of {@code porelo doctor}: a failure red, a warning yellow, what is fine
+ * green, the words unchanged, and no escape code where nobody sees colour.
  */
 class DoctorColourTest {
 
@@ -22,9 +22,15 @@ class DoctorColourTest {
     private static final String GREEN = "\u001b[32m";
 
     private static String doctor(final Path dir, final String... arguments) {
-        final PoreloContext context = new PoreloContext(new FakeCommandRunner(),
-                new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin"), dir.resolve("libexec-hooks"),
-                        dir.resolve("agents")), command -> 0);
+        final PoreloContext context =
+                new PoreloContext(
+                        new FakeCommandRunner(),
+                        new PoreloPaths(
+                                XdgPaths.of(name -> null, dir),
+                                dir.resolve("bin"),
+                                dir.resolve("libexec-hooks"),
+                                dir.resolve("agents")),
+                        command -> 0);
         final StringWriter out = new StringWriter();
         final CommandLine cmd = PoreloCli.commandLine(context);
         cmd.setOut(new PrintWriter(out));
@@ -42,13 +48,18 @@ class DoctorColourTest {
         assertThat(DoctorCommand.colours("auto", false, null)).as("a pipe or a file").isFalse();
         assertThat(DoctorCommand.colours("auto", true, "1")).as("NO_COLOR").isFalse();
         assertThat(DoctorCommand.colours("auto", true, "")).as("NO_COLOR set, if empty").isFalse();
-        assertThat(DoctorCommand.colours("always", false, "1")).as("asked for on the command").isTrue();
-        assertThat(DoctorCommand.colours("never", true, null)).as("refused on the command").isFalse();
+        assertThat(DoctorCommand.colours("always", false, "1"))
+                .as("asked for on the command")
+                .isTrue();
+        assertThat(DoctorCommand.colours("never", true, null))
+                .as("refused on the command")
+                .isFalse();
     }
 
     @Test
     void aFailureIsRedAWarningYellowAndWhatIsFineGreen() {
-        assertThat(DoctorCommand.painted("hooks", Probe.State.MISSING, true)).isEqualTo(RED + "hooks\u001b[0m");
+        assertThat(DoctorCommand.painted("hooks", Probe.State.MISSING, true))
+                .isEqualTo(RED + "hooks\u001b[0m");
         assertThat(DoctorCommand.painted("dns", Probe.State.DEGRADED, true)).startsWith(YELLOW);
         assertThat(DoctorCommand.painted("dns", Probe.State.UNKNOWN, true)).startsWith(YELLOW);
         assertThat(DoctorCommand.painted("podman", Probe.State.OK, true)).startsWith(GREEN);
@@ -57,7 +68,8 @@ class DoctorColourTest {
 
     @Test
     void theWordsStayTheSameWithColourOrWithout(@TempDir final Path dir) {
-        // On a machine without hooks something is MISSING: the line keeps its word, and only gains the codes.
+        // On a machine without hooks something is MISSING: the line keeps its word, and only gains
+        // the codes.
         final String plain = doctor(dir, "--color=never");
         final String coloured = doctor(dir, "--color=always");
 

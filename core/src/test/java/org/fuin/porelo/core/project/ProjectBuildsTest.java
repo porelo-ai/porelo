@@ -8,7 +8,8 @@ import org.junit.jupiter.api.Test;
 
 class ProjectBuildsTest {
 
-    private static final String ONLINE = """
+    private static final String ONLINE =
+            """
             project:
               name: "uc"
               security_class: "%s"
@@ -18,16 +19,21 @@ class ProjectBuildsTest {
             """;
 
     private static Project read(final String securityClass, final String builds) {
-        return ProjectReader.read(new StringReader(ONLINE.formatted(securityClass) + builds), "test.yml");
+        return ProjectReader.read(
+                new StringReader(ONLINE.formatted(securityClass) + builds), "test.yml");
     }
 
     @Test
     void anOnlineProjectNamesItsForgeAndTheVaultEntryItsBuildsAreReadWith() {
-        final Builds builds = read("online", """
+        final Builds builds =
+                read(
+                                "online",
+                                """
                 builds:
                   forge: "github"
                   credential: "github-actions"
-                """).builds();
+                """)
+                        .builds();
 
         assertThat(builds).isEqualTo(new Builds("github", "github-actions", "", Builds.FAILURE));
     }
@@ -40,35 +46,65 @@ class ProjectBuildsTest {
     @Test
     void guardedAndOfflineRefuseItBeforeATaskStarts() {
         for (final String securityClass : new String[] {"guarded", "offline"}) {
-            assertThatThrownBy(() -> read(securityClass, "builds:\n  forge: \"github\"\n  credential: \"x\"\n"))
-                    .as(securityClass).isInstanceOf(ProjectException.class)
+            assertThatThrownBy(
+                            () ->
+                                    read(
+                                            securityClass,
+                                            "builds:\n  forge: \"github\"\n  credential: \"x\"\n"))
+                    .as(securityClass)
+                    .isInstanceOf(ProjectException.class)
                     .hasMessageContaining("online projects only");
         }
     }
 
     @Test
     void takesEveryLogWhenAskedAndNothingElse() {
-        assertThat(read("online", "builds:\n  forge: \"github\"\n  credential: \"x\"\n  logs: \"all\"\n").builds()
-                .logs()).isEqualTo(Builds.ALL);
-        assertThatThrownBy(() -> read("online", "builds:\n  forge: \"github\"\n  credential: \"x\"\n  logs: \"some\"\n"))
-                .isInstanceOf(ProjectException.class).hasMessageContaining("'failure' or 'all'");
+        assertThat(
+                        read(
+                                        "online",
+                                        "builds:\n  forge: \"github\"\n  credential: \"x\"\n  logs: \"all\"\n")
+                                .builds()
+                                .logs())
+                .isEqualTo(Builds.ALL);
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        "online",
+                                        "builds:\n  forge: \"github\"\n  credential: \"x\"\n  logs: \"some\"\n"))
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("'failure' or 'all'");
     }
 
     @Test
     void refusesAForgeThatIsNoReadersNameAnApiThatIsNotHttpsAndNoCredential() {
-        assertThatThrownBy(() -> read("online", "builds:\n  forge: \"../bin/sh\"\n  credential: \"x\"\n"))
-                .isInstanceOf(ProjectException.class).hasMessageContaining("must name a build reader");
-        assertThatThrownBy(() -> read("online",
-                "builds:\n  forge: \"github\"\n  credential: \"x\"\n  api: \"http://forge.example\"\n"))
-                .isInstanceOf(ProjectException.class).hasMessageContaining("https://");
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        "online",
+                                        "builds:\n  forge: \"../bin/sh\"\n  credential: \"x\"\n"))
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("must name a build reader");
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        "online",
+                                        "builds:\n  forge: \"github\"\n  credential: \"x\"\n  api: \"http://forge.example\"\n"))
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("https://");
         assertThatThrownBy(() -> read("online", "builds:\n  forge: \"github\"\n"))
-                .isInstanceOf(ProjectException.class).hasMessageContaining("vault entry");
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("vault entry");
     }
 
     @Test
     void everyKeyOfTheSectionIsOneTheSchemaDeclares() {
-        assertThat(ProjectReader.unknownKeys(new StringReader(ONLINE.formatted("online")
-                + "builds:\n  forge: \"github\"\n  credential: \"x\"\n  api: \"https://ghe.example/api/v3\"\n"
-                + "  logs: \"all\"\n"), "test.yml")).isEmpty();
+        assertThat(
+                        ProjectReader.unknownKeys(
+                                new StringReader(
+                                        ONLINE.formatted("online")
+                                                + "builds:\n  forge: \"github\"\n  credential: \"x\"\n  api: \"https://ghe.example/api/v3\"\n"
+                                                + "  logs: \"all\"\n"),
+                                "test.yml"))
+                .isEmpty();
     }
 }

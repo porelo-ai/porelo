@@ -11,11 +11,11 @@ import org.fuin.porelo.gate.GitGate;
 import org.fuin.porelo.runtime.ContainerSummary;
 
 /**
- * Brings a task's repository at the gate up to its source - the checkout it was started in, or its remote - and tells
- * its agent what moved.
- * <p>
- * Otherwise only a new task's start brought the source in: a running task, or one started again, kept what the gate
- * held when it was first started, and nothing told its agent there was more.
+ * Brings a task's repository at the gate up to its source - the checkout it was started in, or its
+ * remote - and tells its agent what moved.
+ *
+ * <p>Otherwise only a new task's start brought the source in: a running task, or one started again,
+ * kept what the gate held when it was first started, and nothing told its agent there was more.
  */
 public final class TaskRefresh {
 
@@ -28,7 +28,10 @@ public final class TaskRefresh {
         /** The gate already held what the source holds. */
         UNCHANGED,
 
-        /** The task has no gate to refresh: one started without a workspace, or whose project is gone. */
+        /**
+         * The task has no gate to refresh: one started without a workspace, or whose project is
+         * gone.
+         */
         NOT_GATED,
 
         /** No task of that name. */
@@ -72,11 +75,25 @@ public final class TaskRefresh {
      * @return For example {@code moved main -> 1a2b3c4d5e6f; its agent was told}.
      */
     public static String said(final Result result) {
-        return "moved " + result.moved().entrySet().stream().map(each -> each.getKey() + " -> "
-                + each.getValue().substring(0, Math.min(12, each.getValue().length())))
-                .collect(java.util.stream.Collectors.joining(", "))
-                + (result.told() ? "; its agent was told, and 'git fetch porelo' brings it" : "; its agent was not told: "
-                        + (result.detail().isEmpty() ? "it has no mailbox" : result.detail()));
+        return "moved "
+                + result.moved().entrySet().stream()
+                        .map(
+                                each ->
+                                        each.getKey()
+                                                + " -> "
+                                                + each.getValue()
+                                                        .substring(
+                                                                0,
+                                                                Math.min(
+                                                                        12,
+                                                                        each.getValue().length())))
+                        .collect(java.util.stream.Collectors.joining(", "))
+                + (result.told()
+                        ? "; its agent was told, and 'git fetch porelo' brings it"
+                        : "; its agent was not told: "
+                                + (result.detail().isEmpty()
+                                        ? "it has no mailbox"
+                                        : result.detail()));
     }
 
     /**
@@ -96,14 +113,31 @@ public final class TaskRefresh {
      */
     public Result refresh(final String container) {
         final List<ContainerSummary> tasks = context.podman().poreloTasks();
-        // By its container's name, or by the task's own as 'porelo approve' takes it, when only one task has it.
-        final List<ContainerSummary> named = tasks.stream().filter(each -> each.name().equals(container)).toList();
-        final List<ContainerSummary> found = !named.isEmpty() ? named : tasks.stream()
-                .filter(each -> each.project() != null && each.name().equals("porelo-" + each.project() + "-" + container))
-                .toList();
+        // By its container's name, or by the task's own as 'porelo approve' takes it, when only one
+        // task has it.
+        final List<ContainerSummary> named =
+                tasks.stream().filter(each -> each.name().equals(container)).toList();
+        final List<ContainerSummary> found =
+                !named.isEmpty()
+                        ? named
+                        : tasks.stream()
+                                .filter(
+                                        each ->
+                                                each.project() != null
+                                                        && each.name()
+                                                                .equals(
+                                                                        "porelo-"
+                                                                                + each.project()
+                                                                                + "-"
+                                                                                + container))
+                                .toList();
         final ContainerSummary summary = found.size() == 1 ? found.getFirst() : null;
         if (summary == null) {
-            return new Result(Outcome.NO_SUCH_TASK, Map.of(), "no task '" + container + "' on this machine", false);
+            return new Result(
+                    Outcome.NO_SUCH_TASK,
+                    Map.of(),
+                    "no task '" + container + "' on this machine",
+                    false);
         }
         if (summary.project() == null) {
             return new Result(Outcome.NOT_GATED, Map.of(), container + " names no project", false);
@@ -111,18 +145,32 @@ public final class TaskRefresh {
         final GitGate gate;
         try {
             final Project project = GateSupport.byName(context, summary.project());
-            final Repository repository = summary.repository() == null || summary.repository().isBlank()
-                    ? project.ownRepository() : project.repository(summary.repository());
+            final Repository repository =
+                    summary.repository() == null || summary.repository().isBlank()
+                            ? project.ownRepository()
+                            : project.repository(summary.repository());
             if (repository == null) {
-                return new Result(Outcome.NOT_GATED, Map.of(), "'" + summary.project() + "' no longer names the"
-                        + " repository '" + summary.repository() + "'", false);
+                return new Result(
+                        Outcome.NOT_GATED,
+                        Map.of(),
+                        "'"
+                                + summary.project()
+                                + "' no longer names the"
+                                + " repository '"
+                                + summary.repository()
+                                + "'",
+                        false);
             }
             gate = GateSupport.gate(context, project, repository, null, null);
         } catch (ProjectException ex) {
             return new Result(Outcome.FAILED, Map.of(), String.valueOf(ex.getMessage()), false);
         }
         if (!Files.isDirectory(gate.mirror())) {
-            return new Result(Outcome.NOT_GATED, Map.of(), "no gate has been made for this task's repository", false);
+            return new Result(
+                    Outcome.NOT_GATED,
+                    Map.of(),
+                    "no gate has been made for this task's repository",
+                    false);
         }
         final Map<String, String> before = gate.branches();
         final String failed = gate.refresh();
@@ -130,11 +178,13 @@ public final class TaskRefresh {
             return new Result(Outcome.FAILED, Map.of(), failed, false);
         }
         final Map<String, String> moved = new LinkedHashMap<>();
-        gate.branches().forEach((branch, commit) -> {
-            if (!commit.equals(before.get(branch))) {
-                moved.put(branch, commit);
-            }
-        });
+        gate.branches()
+                .forEach(
+                        (branch, commit) -> {
+                            if (!commit.equals(before.get(branch))) {
+                                moved.put(branch, commit);
+                            }
+                        });
         if (moved.isEmpty()) {
             return new Result(Outcome.UNCHANGED, Map.of(), "", false);
         }
@@ -146,7 +196,10 @@ public final class TaskRefresh {
                 new AgentWake(context).announce(mailbox, summary.name(), null);
                 told = true;
             } catch (java.io.IOException ex) {
-                return new Result(Outcome.MOVED, Map.copyOf(moved), "its agent could not be told: " + ex.getMessage(),
+                return new Result(
+                        Outcome.MOVED,
+                        Map.copyOf(moved),
+                        "its agent could not be told: " + ex.getMessage(),
                         false);
             }
         }

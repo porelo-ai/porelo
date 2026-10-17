@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.junit.jupiter.api.Test;
@@ -12,8 +11,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Tests for telling an absent image from one built before the project changed under it.
- * <p>
- * The two that must never be reported as stale are the point: an image that does not say what it
+ *
+ * <p>The two that must never be reported as stale are the point: an image that does not say what it
  * was built from, and one whose project file has gone. Both would send somebody rebuilding for
  * minutes to fix something nothing knows to be wrong, and a rebuild that turns out to have been
  * unnecessary is how people learn to ignore the word.
@@ -23,23 +22,30 @@ class ProjectReadinessTest {
     private final FakeCommandRunner runner = new FakeCommandRunner();
 
     private PoreloContext context(Path dir) {
-        final XdgPaths xdg = XdgPaths.of(name -> switch (name) {
-            case "XDG_DATA_HOME" -> dir.resolve("data").toString();
-            case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
-            default -> null;
-        }, dir);
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
         return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), command -> 0);
     }
 
     private Path projectFile(Path dir, String baseImage) throws Exception {
         final Path file = dir.resolve("project.yml");
-        Files.writeString(file, """
+        Files.writeString(
+                file,
+                """
                 project:
                   name: "demo"
                   security_class: "guarded"
                 image:
                   base_image: "%s"
-                """.formatted(baseImage));
+                """
+                        .formatted(baseImage));
         return file;
     }
 
@@ -120,7 +126,9 @@ class ProjectReadinessTest {
         // Egress, limits and the upstream change what a task may do, not what it is built from.
         // Counting them would call an image stale after an edit that could not have changed it.
         final Path file = dir.resolve("project.yml");
-        Files.writeString(file, """
+        Files.writeString(
+                file,
+                """
                 project:
                   name: "demo"
                   security_class: "guarded"
@@ -142,7 +150,9 @@ class ProjectReadinessTest {
         // built as surely as a new base image does. Leaving it out would report an image as
         // current after exactly the edit somebody made to change it.
         final Path file = dir.resolve("project.yml");
-        Files.writeString(file, """
+        Files.writeString(
+                file,
+                """
                 project:
                   name: "demo"
                   security_class: "guarded"
@@ -170,7 +180,6 @@ class ProjectReadinessTest {
     @Test
     void theRecipeIsShortEnoughToShowAndLongEnoughToTellApart(@TempDir Path dir) throws Exception {
 
-        assertThat(recipeOf(projectFile(dir, "ubuntu:24.04")))
-                .hasSize(16).matches("[0-9a-f]+");
+        assertThat(recipeOf(projectFile(dir, "ubuntu:24.04"))).hasSize(16).matches("[0-9a-f]+");
     }
 }

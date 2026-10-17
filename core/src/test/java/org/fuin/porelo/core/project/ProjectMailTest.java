@@ -6,12 +6,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.io.StringReader;
 import org.junit.jupiter.api.Test;
 
-/**
- * What a project says about the peers its tasks may address.
- */
+/** What a project says about the peers its tasks may address. */
 class ProjectMailTest {
 
-    private static final String HEAD = """
+    private static final String HEAD =
+            """
             project:
               name: "p"
               security_class: "guarded"
@@ -30,7 +29,10 @@ class ProjectMailTest {
 
     @Test
     void reads_a_peer_with_its_transport_and_trust() {
-        final Project project = read(HEAD + """
+        final Project project =
+                read(
+                        HEAD
+                                + """
                 mail:
                   peers:
                     reviewer:
@@ -52,7 +54,10 @@ class ProjectMailTest {
      */
     @Test
     void a_peer_whose_trust_is_left_out_is_external() {
-        final Project project = read(HEAD + """
+        final Project project =
+                read(
+                        HEAD
+                                + """
                 mail:
                   peers:
                     ops:
@@ -64,37 +69,58 @@ class ProjectMailTest {
 
     @Test
     void refuses_an_address_without_a_transport() {
-        assertThatThrownBy(() -> read(HEAD + """
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        HEAD
+                                                + """
                 mail:
                   peers:
                     ops:
                       address: "ops@example.org"
-                """)).isInstanceOf(ProjectException.class).hasMessageContaining("<transport>:");
+                """))
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("<transport>:");
     }
 
     @Test
     void refuses_a_trust_level_nobody_defined() {
-        assertThatThrownBy(() -> read(HEAD + """
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        HEAD
+                                                + """
                 mail:
                   peers:
                     ops:
                       address: "mail:ops@example.org"
                       trust: "probably"
-                """)).isInstanceOf(ProjectException.class).hasMessageContaining("probably");
+                """))
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("probably");
     }
 
     @Test
     void refuses_a_peer_that_is_not_a_mapping() {
-        assertThatThrownBy(() -> read(HEAD + """
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        HEAD
+                                                + """
                 mail:
                   peers:
                     ops: "mail:ops@example.org"
-                """)).isInstanceOf(ProjectException.class).hasMessageContaining("mail.peers.ops");
+                """))
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("mail.peers.ops");
     }
 
     @Test
     void a_peer_can_be_reached_through_the_projects_own_conversation() {
-        final Project project = read(HEAD + """
+        final Project project =
+                read(
+                        HEAD
+                                + """
                 mail:
                   transports:
                     matrix:
@@ -110,8 +136,12 @@ class ProjectMailTest {
         assertThat(project.mail().conversations()).containsExactly("matrix");
         // Handed to the transport as written: Porelo reads none of it.
         assertThat(project.mail().transports()).containsOnlyKeys("matrix");
-        assertThat(project.mail().transports().get("matrix")).asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.map(Object.class, Object.class))
-                .containsEntry("homeserver", "https://matrix.example.org").containsEntry("tls_verify", true);
+        assertThat(project.mail().transports().get("matrix"))
+                .asInstanceOf(
+                        org.assertj.core.api.InstanceOfAssertFactories.map(
+                                Object.class, Object.class))
+                .containsEntry("homeserver", "https://matrix.example.org")
+                .containsEntry("tls_verify", true);
     }
 
     @Test
@@ -124,21 +154,36 @@ class ProjectMailTest {
     void a_setting_in_the_wrong_place_is_refused_and_named_where_it_belongs() {
         // Found: under 'mail:', one section too low, followed without a word and never read.
         assertThatThrownBy(() -> read(HEAD + "mail:\n  upstream: \"git@example.org:p.git\"\n"))
-                .hasMessageContaining("'mail.upstream' is not a setting; it belongs under 'project:'");
-        assertThatThrownBy(() -> read(HEAD.replace("security_class", "securty_class")
-                + "  security_class: \"guarded\"\n"))
-                .hasMessageContaining("'project.securty_class' is not a setting; did you mean 'security_class'?");
-        assertThatThrownBy(() -> read(HEAD + "mail:\n  peers:\n    r: { address: \"matrix:\", trusted: vouched }\n"))
-                .hasMessageContaining("'mail.peers.r.trusted' is not a setting; did you mean 'trust'?");
+                .hasMessageContaining(
+                        "'mail.upstream' is not a setting; it belongs under 'project:'");
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        HEAD.replace("security_class", "securty_class")
+                                                + "  security_class: \"guarded\"\n"))
+                .hasMessageContaining(
+                        "'project.securty_class' is not a setting; did you mean 'security_class'?");
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        HEAD
+                                                + "mail:\n  peers:\n    r: { address: \"matrix:\", trusted: vouched }\n"))
+                .hasMessageContaining(
+                        "'mail.peers.r.trusted' is not a setting; did you mean 'trust'?");
         // Unknown and near nothing: a later Porelo's, accepted and warned about.
         assertThat(read(HEAD + "gate:\n  on: true\n").name()).isEqualTo("p");
-        assertThat(ProjectReader.unknownKeys(new StringReader(HEAD + "gate:\n  on: true\n"), "test"))
+        assertThat(
+                        ProjectReader.unknownKeys(
+                                new StringReader(HEAD + "gate:\n  on: true\n"), "test"))
                 .containsExactly("gate");
     }
 
     @Test
     void what_is_the_projects_own_or_a_transports_is_not_checked() {
-        final Project project = read(HEAD + """
+        final Project project =
+                read(
+                        HEAD
+                                + """
                 credentials:
                   anything-at-all: somewhere
                 repositories:
@@ -153,9 +198,13 @@ class ProjectMailTest {
     @org.junit.jupiter.api.Test
     void aConfiguredTransportIsTheProjectsConversationWithoutAPeerNamingIt() throws Exception {
 
-        // Naming the transport is the decision; a project with 'matrix: {}' and no peer at 'matrix:' had no
+        // Naming the transport is the decision; a project with 'matrix: {}' and no peer at
+        // 'matrix:' had no
         // conversation, and nothing said so - its tasks could not reach each other.
-        final Project project = ProjectReader.read(new java.io.StringReader("""
+        final Project project =
+                ProjectReader.read(
+                        new java.io.StringReader(
+                                """
                 project:
                   name: "talking"
                   security_class: "guarded"
@@ -164,50 +213,75 @@ class ProjectMailTest {
                 mail:
                   transports:
                     matrix: {}
-                """), "test");
+                """),
+                        "test");
 
         assertThat(project.mail().conversations()).containsExactly("matrix");
     }
 
     @org.junit.jupiter.api.Test
     void theOutgoingFilterRefusesUnlessTheProjectSaysItOnlyReports() throws Exception {
-        assertThat(read("""
+        assertThat(
+                        read("""
                 project: { name: "p", security_class: "guarded" }
                 image: { base_image: "ubuntu:24.04" }
                 mail: { transports: { matrix: {} } }
-                """).mail().outgoingReported()).isFalse();
-        assertThat(read("""
+                """)
+                                .mail()
+                                .outgoingReported())
+                .isFalse();
+        assertThat(
+                        read("""
                 project: { name: "p", security_class: "guarded" }
                 image: { base_image: "ubuntu:24.04" }
                 mail: { outgoing_filter: reporting }
-                """).mail().outgoingReported()).isTrue();
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> read("""
+                """)
+                                .mail()
+                                .outgoingReported())
+                .isTrue();
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                read(
+                                        """
                 project: { name: "p", security_class: "guarded" }
                 image: { base_image: "ubuntu:24.04" }
                 mail: { outgoing_filter: off }
-                """)).hasMessageContaining("outgoing_filter").hasMessageContaining("blocking");
+                """))
+                .hasMessageContaining("outgoing_filter")
+                .hasMessageContaining("blocking");
     }
 
     @org.junit.jupiter.api.Test
     void aTransportIsNamedAsAPeersTransportIsSoItNeverBecomesAPathOfItsOwn() {
 
-        // A transport's name becomes a directory of this machine's state, and clearing a project deletes files under
+        // A transport's name becomes a directory of this machine's state, and clearing a project
+        // deletes files under
         // it: '../../x' reached outside it.
         for (final String scheme : java.util.List.of("../../x", "/home/op/x", "Matrix", "a b")) {
-            org.assertj.core.api.Assertions.assertThatThrownBy(() -> read("""
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                            () ->
+                                    read(
+                                            """
                     project: { name: "p", security_class: "guarded" }
                     image: { base_image: "ubuntu:24.04" }
                     mail: { transports: { "%s": {} } }
-                    """.formatted(scheme))).as(scheme).hasMessageContaining("mail.transports");
+                    """
+                                                    .formatted(scheme)))
+                    .as(scheme)
+                    .hasMessageContaining("mail.transports");
         }
     }
 
     @Test
     void aFileThatSetsNoRuleSendsWhatTheFilterPassesAndRefusesStrangers() {
 
-        // The operator in walk 10, 2026-10-04: "If the check finds no problem, a message is always delivered at once.
+        // The operator in walk 10, 2026-10-04: "If the check finds no problem, a message is always
+        // delivered at once.
         // A release is only needed when the filter flags something".
-        final Project project = read(HEAD + """
+        final Project project =
+                read(
+                        HEAD
+                                + """
                 mail:
                   peers:
                     reader: { address: "matrix:" }
@@ -215,15 +289,18 @@ class ProjectMailTest {
                 """);
 
         assertThat(project.mail().modeFor("porelo-p-2"))
-                .as("a task of the project, which the file never lists").isEqualTo(Mail.ALLOW);
+                .as("a task of the project, which the file never lists")
+                .isEqualTo(Mail.ALLOW);
         assertThat(project.mail().modeFor("ops")).isEqualTo(Mail.DENY);
-        assertThat(project.mail().modeFor("reader"))
-                .as("the room too").isEqualTo(Mail.ALLOW);
+        assertThat(project.mail().modeFor("reader")).as("the room too").isEqualTo(Mail.ALLOW);
     }
 
     @Test
     void theFilesRulesAndAPeersOwnModeWinOverTheDefaults() {
-        final Project project = read(HEAD + """
+        final Project project =
+                read(
+                        HEAD
+                                + """
                 mail:
                   rules:
                     project: prompt
@@ -240,29 +317,50 @@ class ProjectMailTest {
 
     @Test
     void anyRuleCanBeWrittenWhateverUnreadWorkMayLeaveSays() {
-        assertThat(read(HEAD + """
+        assertThat(
+                        read(HEAD
+                                        + """
                 mail:
                   rules: { room: allow, others: "off" }
-                """).mail().rules().others()).isEqualTo(Mail.OFF);
+                """)
+                                .mail()
+                                .rules()
+                                .others())
+                .isEqualTo(Mail.OFF);
     }
 
     @Test
     void aModeNobodyDefinedIsRefused() {
-        assertThatThrownBy(() -> read(HEAD + """
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        HEAD
+                                                + """
                 mail:
                   rules: { others: maybe }
-                """)).isInstanceOf(ProjectException.class).hasMessageContaining("maybe");
-        assertThatThrownBy(() -> read(HEAD + """
+                """))
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("maybe");
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        HEAD
+                                                + """
                 mail:
                   rules: [allow]
-                """)).isInstanceOf(ProjectException.class).hasMessageContaining("'mail.rules'");
+                """))
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("'mail.rules'");
     }
 
     @Test
     void aProjectWithAConversationHasItsPeopleAsAPeerNobodyWrote() {
 
         // The MVP's rule: reaching the people in the room needs no step from anyone (2026-10-04).
-        final Project project = read(HEAD + """
+        final Project project =
+                read(
+                        HEAD
+                                + """
                 mail:
                   transports:
                     matrix: {}
@@ -272,14 +370,18 @@ class ProjectMailTest {
         assertThat(people).isNotNull();
         assertThat(people.address()).isEqualTo("matrix:");
         assertThat(people.trust()).isEqualTo(Mail.Peer.EXTERNAL);
-        assertThat(project.mail().modeFor(Mail.PEOPLE))
-                .as("the room's rule").isEqualTo(Mail.ALLOW);
-        assertThat(read(HEAD).mail().peer(Mail.PEOPLE)).as("no conversation, nobody to reach").isNull();
+        assertThat(project.mail().modeFor(Mail.PEOPLE)).as("the room's rule").isEqualTo(Mail.ALLOW);
+        assertThat(read(HEAD).mail().peer(Mail.PEOPLE))
+                .as("no conversation, nobody to reach")
+                .isNull();
     }
 
     @Test
     void aPeerTheFileCallsPeopleWins() {
-        final Project project = read(HEAD + """
+        final Project project =
+                read(
+                        HEAD
+                                + """
                 mail:
                   transports:
                     matrix: {}
@@ -287,6 +389,8 @@ class ProjectMailTest {
                     people: { address: "mail:team@example.org" }
                 """);
 
-        assertThat(project.mail().peer(Mail.PEOPLE)).extracting(Mail.Peer::address).isEqualTo("mail:team@example.org");
+        assertThat(project.mail().peer(Mail.PEOPLE))
+                .extracting(Mail.Peer::address)
+                .isEqualTo("mail:team@example.org");
     }
 }

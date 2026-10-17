@@ -13,12 +13,12 @@ import org.yaml.snakeyaml.constructor.SafeConstructor;
 
 /**
  * Reads a {@code project.yml} into a {@link Project}.
- * <p>
- * The YAML is loaded as plain maps with {@link SafeConstructor} and mapped by hand. Binding
+ *
+ * <p>The YAML is loaded as plain maps with {@link SafeConstructor} and mapped by hand. Binding
  * straight onto the record would need reflection metadata in a native image and would let the file
  * name any class on the classpath; neither is worth the few lines it saves.
- * <p>
- * This reader never writes. Editing a project file is a separate, patch-only operation, so that
+ *
+ * <p>This reader never writes. Editing a project file is a separate, patch-only operation, so that
  * comments and formatting survive - see constraint C4.
  */
 public final class ProjectReader {
@@ -36,8 +36,10 @@ public final class ProjectReader {
      */
     public static Project read(Path file) {
         if (!Files.isRegularFile(file)) {
-            throw new ProjectException("No project file at " + file
-                    + ". Run 'porelo task run' in a terminal and it will offer to write one.");
+            throw new ProjectException(
+                    "No project file at "
+                            + file
+                            + ". Run 'porelo task run' in a terminal and it will offer to write one.");
         }
         try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
             // Absolute, because the message is read somewhere else than it was typed: "project.yml
@@ -60,8 +62,9 @@ public final class ProjectReader {
     }
 
     /**
-     * Returns every key a project file may hold, each described - what it means, its type, the values it takes, its
-     * default and whether it is required - for an editor a person new to Porelo can fill.
+     * Returns every key a project file may hold, each described - what it means, its type, the
+     * values it takes, its default and whether it is required - for an editor a person new to
+     * Porelo can fill.
      *
      * @return The keys, in the order a first project file is written in.
      */
@@ -70,8 +73,9 @@ public final class ProjectReader {
     }
 
     /**
-     * Returns the places where a project file holds what is not Porelo's to know: the project's own names
-     * ({@code credentials}, {@code repositories}) and each transport's settings ({@code mail.transports.<scheme>}).
+     * Returns the places where a project file holds what is not Porelo's to know: the project's own
+     * names ({@code credentials}, {@code repositories}) and each transport's settings ({@code
+     * mail.transports.<scheme>}).
      *
      * @return Their paths.
      */
@@ -80,15 +84,18 @@ public final class ProjectReader {
     }
 
     /**
-     * Returns the keys a project file holds that this Porelo does not know and that are no provable mistake -
-     * a later Porelo's, most likely - to be warned about. What is certainly a mistake is refused by
-     * {@link #read(Reader, String)}.
+     * Returns the keys a project file holds that this Porelo does not know and that are no provable
+     * mistake - a later Porelo's, most likely - to be warned about. What is certainly a mistake is
+     * refused by {@link #read(Reader, String)}.
      *
      * @param file The project file.
-     * @return Where each such key is, as {@code section.key}; empty when there is none or the file cannot be read.
+     * @return Where each such key is, as {@code section.key}; empty when there is none or the file
+     *     cannot be read.
      */
     public static java.util.List<String> unknownKeys(java.nio.file.Path file) {
-        try (Reader reader = java.nio.file.Files.newBufferedReader(file, java.nio.charset.StandardCharsets.UTF_8)) {
+        try (Reader reader =
+                java.nio.file.Files.newBufferedReader(
+                        file, java.nio.charset.StandardCharsets.UTF_8)) {
             return unknownKeys(reader, file.toString());
         } catch (java.io.IOException | RuntimeException ex) {
             return java.util.List.of();
@@ -96,7 +103,8 @@ public final class ProjectReader {
     }
 
     /**
-     * Returns the keys a project file holds that this Porelo does not know and that are no provable mistake.
+     * Returns the keys a project file holds that this Porelo does not know and that are no provable
+     * mistake.
      *
      * @param reader The file's content.
      * @param origin Name used in error messages.
@@ -106,7 +114,9 @@ public final class ProjectReader {
         final LoaderOptions options = new LoaderOptions();
         options.setAllowDuplicateKeys(false);
         final Object loaded = new Yaml(new SafeConstructor(options)).load(reader);
-        return loaded instanceof Map<?, ?> root ? ProjectSchema.check(root, origin) : java.util.List.of();
+        return loaded instanceof Map<?, ?> root
+                ? ProjectSchema.check(root, origin)
+                : java.util.List.of();
     }
 
     /**
@@ -132,7 +142,8 @@ public final class ProjectReader {
             throw new ProjectException(origin + " is empty or is not a YAML mapping");
         }
 
-        // Before anything is read from it: a setting in the wrong place, or misspelt, is no setting at all, and
+        // Before anything is read from it: a setting in the wrong place, or misspelt, is no setting
+        // at all, and
         // the file looked applied (found on 2026-09-30, with a key one section too low).
         ProjectSchema.check(root, origin);
 
@@ -146,21 +157,29 @@ public final class ProjectReader {
                 SecurityClass.parse(required(project, "security_class", origin, "project")),
                 image(required(image, "base_image", origin, "image")),
                 snippet(image, origin),
-                text(project.get("upstream")).isEmpty() ? null : address(text(project.get("upstream"))),
+                text(project.get("upstream")).isEmpty()
+                        ? null
+                        : address(text(project.get("upstream"))),
                 limits(root, origin),
                 egress(root, origin),
                 packageSources(image, origin),
                 mail(root, origin),
                 repositories(root, origin),
                 credentials(root, origin),
-                builds(root, origin, SecurityClass.parse(required(project, "security_class", origin, "project"))));
+                builds(
+                        root,
+                        origin,
+                        SecurityClass.parse(
+                                required(project, "security_class", origin, "project"))));
     }
 
     /**
-     * Returns the keys a project file names under {@code project.signers}, each as its type and key.
-     * <p>
-     * Read on its own, because a followed project's keys are read from a commit before anything else in the
-     * file is taken: whether the commit may change them is decided by the keys in force before it.
+     * Returns the keys a project file names under {@code project.signers}, each as its type and
+     * key.
+     *
+     * <p>Read on its own, because a followed project's keys are read from a commit before anything
+     * else in the file is taken: whether the commit may change them is decided by the keys in force
+     * before it.
      *
      * @param text The file's content.
      * @param origin Name used in error messages.
@@ -177,10 +196,12 @@ public final class ProjectReader {
             throw new ProjectException("Cannot parse " + origin + ": " + ex.getMessage(), ex);
         }
         return loaded instanceof Map<?, ?> root && root.get("project") instanceof Map<?, ?> project
-                ? signers(project, origin) : null;
+                ? signers(project, origin)
+                : null;
     }
 
-    private static java.util.@Nullable List<String> signers(final Map<?, ?> project, final String origin) {
+    private static java.util.@Nullable List<String> signers(
+            final Map<?, ?> project, final String origin) {
         final Object value = project.get("signers");
         if (value == null) {
             return null;
@@ -193,14 +214,18 @@ public final class ProjectReader {
             final String[] fields = text(entries.get(i)).strip().split("\\s+");
             String key = null;
             for (int f = 0; f + 1 < fields.length && key == null; f++) {
-                if (fields[f].matches("ssh-(ed25519|rsa)|ecdsa-sha2-nistp(256|384|521)|sk-[a-z0-9@.-]+")
+                if (fields[f].matches(
+                                "ssh-(ed25519|rsa)|ecdsa-sha2-nistp(256|384|521)|sk-[a-z0-9@.-]+")
                         && fields[f + 1].matches("[A-Za-z0-9+/]+={0,2}")) {
                     key = fields[f] + " " + fields[f + 1];
                 }
             }
             if (key == null) {
-                throw new ProjectException(origin + ": 'project.signers' entry " + (i + 1)
-                        + " is not a public key; write it as ssh-keygen prints it, such as 'ssh-ed25519 AAAA...'");
+                throw new ProjectException(
+                        origin
+                                + ": 'project.signers' entry "
+                                + (i + 1)
+                                + " is not a public key; write it as ssh-keygen prints it, such as 'ssh-ed25519 AAAA...'");
             }
             if (!keys.contains(key)) {
                 keys.add(key);
@@ -210,7 +235,8 @@ public final class ProjectReader {
     }
 
     /**
-     * Reads the optional {@code credentials} section: a vault entry's name to the destination it is for.
+     * Reads the optional {@code credentials} section: a vault entry's name to the destination it is
+     * for.
      *
      * @param root The file's root mapping.
      * @param origin Where it came from, for messages.
@@ -224,8 +250,8 @@ public final class ProjectReader {
      * @param securityClass The project's class.
      * @return What it declared, or {@code null} when it declared nothing.
      */
-    private static @Nullable Builds builds(Map<?, ?> root,
-            String origin, SecurityClass securityClass) {
+    private static @Nullable Builds builds(
+            Map<?, ?> root, String origin, SecurityClass securityClass) {
         final Object value = root.get("builds");
         if (value == null) {
             return null;
@@ -234,11 +260,16 @@ public final class ProjectReader {
             throw new ProjectException(origin + ": 'builds' must be a mapping");
         }
         if (securityClass != SecurityClass.ONLINE) {
-            throw new ProjectException(origin + ": 'builds' is for online projects only - in guarded the forge"
-                    + " builds nothing until a person approves the work at the gate, and offline has no build");
+            throw new ProjectException(
+                    origin
+                            + ": 'builds' is for online projects only - in guarded the forge"
+                            + " builds nothing until a person approves the work at the gate, and offline has no build");
         }
         try {
-            return new Builds(text(builds.get("forge")), text(builds.get("credential")), text(builds.get("api")),
+            return new Builds(
+                    text(builds.get("forge")),
+                    text(builds.get("credential")),
+                    text(builds.get("api")),
                     text(builds.get("logs")).isEmpty() ? Builds.FAILURE : text(builds.get("logs")));
         } catch (ProjectException ex) {
             throw new ProjectException(origin + ": " + ex.getMessage());
@@ -251,21 +282,25 @@ public final class ProjectReader {
             return Map.of();
         }
         if (!(value instanceof Map<?, ?> named)) {
-            throw new ProjectException(origin + ": 'credentials' must be a mapping of a vault entry's name to its"
-                    + " destination, for example 'search: brave-search'");
+            throw new ProjectException(
+                    origin
+                            + ": 'credentials' must be a mapping of a vault entry's name to its"
+                            + " destination, for example 'search: brave-search'");
         }
         final Map<String, String> credentials = new java.util.LinkedHashMap<>();
-        named.forEach((entry, destination) -> credentials.put(String.valueOf(entry), String.valueOf(destination)));
+        named.forEach(
+                (entry, destination) ->
+                        credentials.put(String.valueOf(entry), String.valueOf(destination)));
         return credentials;
     }
 
     /**
      * Reads the optional {@code repositories} section, which names the work repositories.
-     * <p>
-     * Absent means the project has only its own, which is what a project still being planned looks
-     * like. A mapping rather than a list because the name is the key a person types at
-     * {@code porelo task start}, and a list of mappings each carrying its own {@code name} would
-     * let two entries claim the same one without YAML noticing.
+     *
+     * <p>Absent means the project has only its own, which is what a project still being planned
+     * looks like. A mapping rather than a list because the name is the key a person types at {@code
+     * porelo task start}, and a list of mappings each carrying its own {@code name} would let two
+     * entries claim the same one without YAML noticing.
      *
      * @param root The whole document.
      * @param origin Name used in error messages.
@@ -277,8 +312,8 @@ public final class ProjectReader {
             return java.util.List.of();
         }
         if (!(value instanceof Map<?, ?> declared)) {
-            throw new ProjectException(origin
-                    + ": 'repositories' must be a mapping of name to repository");
+            throw new ProjectException(
+                    origin + ": 'repositories' must be a mapping of name to repository");
         }
         final java.util.List<Repository> read = new java.util.ArrayList<>();
         for (final Map.Entry<?, ?> entry : declared.entrySet()) {
@@ -290,15 +325,19 @@ public final class ProjectReader {
                 continue;
             }
             if (!(entry.getValue() instanceof Map<?, ?> repository)) {
-                throw new ProjectException(origin + ": 'repositories." + name
-                        + "' must be a mapping with 'upstream'");
+                throw new ProjectException(
+                        origin + ": 'repositories." + name + "' must be a mapping with 'upstream'");
             }
-            read.add(new Repository(name,
-                    text(repository.get("upstream")).isEmpty() ? null
-                            : text(repository.get("upstream")),
-                    text(repository.get("description")),
-                    egress(repository, origin, "repositories." + name + "."),
-                    declaredLimits(repository, origin, name), issues(repository, origin, name)));
+            read.add(
+                    new Repository(
+                            name,
+                            text(repository.get("upstream")).isEmpty()
+                                    ? null
+                                    : text(repository.get("upstream")),
+                            text(repository.get("description")),
+                            egress(repository, origin, "repositories." + name + "."),
+                            declaredLimits(repository, origin, name),
+                            issues(repository, origin, name)));
         }
         // A prefix tells whose an issue is at a glance only while one repository owns it.
         final Map<String, String> owner = new java.util.LinkedHashMap<>();
@@ -306,8 +345,15 @@ public final class ProjectReader {
             for (final String prefix : repository.issues()) {
                 final String other = owner.putIfAbsent(prefix, repository.name());
                 if (other != null) {
-                    throw new ProjectException(origin + ": the issue prefix '" + prefix + "' is named by both '"
-                            + other + "' and '" + repository.name() + "'; a prefix belongs to one repository");
+                    throw new ProjectException(
+                            origin
+                                    + ": the issue prefix '"
+                                    + prefix
+                                    + "' is named by both '"
+                                    + other
+                                    + "' and '"
+                                    + repository.name()
+                                    + "'; a prefix belongs to one repository");
                 }
             }
         }
@@ -320,12 +366,22 @@ public final class ProjectReader {
             return java.util.List.of();
         }
         if (!(value instanceof java.util.List<?> listed)) {
-            throw new ProjectException(origin + ": 'repositories." + name + ".issues' is a list of issue prefixes,"
-                    + " such as [\"B\", \"P\"]");
+            throw new ProjectException(
+                    origin
+                            + ": 'repositories."
+                            + name
+                            + ".issues' is a list of issue prefixes,"
+                            + " such as [\"B\", \"P\"]");
         }
         try {
-            return new Repository(name, null, "", Egress.none(), Limits.Declared.none(),
-                    listed.stream().map(String::valueOf).toList()).issues();
+            return new Repository(
+                            name,
+                            null,
+                            "",
+                            Egress.none(),
+                            Limits.Declared.none(),
+                            listed.stream().map(String::valueOf).toList())
+                    .issues();
         } catch (final ProjectException ex) {
             throw new ProjectException(origin + ": " + ex.getMessage(), ex);
         }
@@ -333,10 +389,10 @@ public final class ProjectReader {
 
     /**
      * Reads the optional {@code image.package_sources} list.
-     * <p>
-     * Where apt fetches from while the image is built. A project that names none gets
-     * {@link Project#DEFAULT_PACKAGE_SOURCES} at the point of use; {@code null} here means the
-     * project named none, which is not the same as naming the default.
+     *
+     * <p>Where apt fetches from while the image is built. A project that names none gets {@link
+     * Project#DEFAULT_PACKAGE_SOURCES} at the point of use; {@code null} here means the project
+     * named none, which is not the same as naming the default.
      *
      * @param image The image section.
      * @param origin Name used in error messages.
@@ -368,8 +424,8 @@ public final class ProjectReader {
             return Mail.Peer.DEFAULT_PER_DAY;
         }
         if (!(value instanceof Number number)) {
-            throw new ProjectException(origin + ": 'mail.peers." + name
-                    + ".per_day' is a number of messages a day");
+            throw new ProjectException(
+                    origin + ": 'mail.peers." + name + ".per_day' is a number of messages a day");
         }
         return number.intValue();
     }
@@ -403,22 +459,31 @@ public final class ProjectReader {
         for (final Map.Entry<?, ?> entry : declared.entrySet()) {
             final String name = String.valueOf(entry.getKey());
             if (!(entry.getValue() instanceof Map<?, ?> peer)) {
-                throw new ProjectException(origin + ": 'mail.peers." + name
-                        + "' must be a mapping with 'address' and 'trust'");
+                throw new ProjectException(
+                        origin
+                                + ": 'mail.peers."
+                                + name
+                                + "' must be a mapping with 'address' and 'trust'");
             }
-            read.add(new Mail.Peer(name, text(peer.get("address")),
-                    // Vouched is the narrower promise - it skips the check on the way in - so an
-                    // omitted trust level is the wider one rather than the convenient one.
-                    text(peer.get("trust")).isEmpty() ? Mail.Peer.EXTERNAL
-                            : text(peer.get("trust")),
-                    perDay(peer, name, origin),
-                    text(peer.get("mode")).isEmpty() ? null : text(peer.get("mode"))));
+            read.add(
+                    new Mail.Peer(
+                            name,
+                            text(peer.get("address")),
+                            // Vouched is the narrower promise - it skips the check on the way in -
+                            // so an
+                            // omitted trust level is the wider one rather than the convenient one.
+                            text(peer.get("trust")).isEmpty()
+                                    ? Mail.Peer.EXTERNAL
+                                    : text(peer.get("trust")),
+                            perDay(peer, name, origin),
+                            text(peer.get("mode")).isEmpty() ? null : text(peer.get("mode"))));
         }
         return new Mail(java.util.List.copyOf(read), transports, reported, rules);
     }
 
     /**
-     * Reads the optional {@code mail.rules}: a mode for the project's own tasks, its conversation and everyone else.
+     * Reads the optional {@code mail.rules}: a mode for the project's own tasks, its conversation
+     * and everyone else.
      *
      * @param mail The mail section.
      * @param origin Name used in error messages.
@@ -430,17 +495,23 @@ public final class ProjectReader {
             return Mail.Rules.UNSAID;
         }
         if (!(value instanceof Map<?, ?> rules)) {
-            throw new ProjectException(origin + ": 'mail." + Mail.RULES + "' must be a mapping, for example"
-                    + " 'project: allow', 'room: prompt', 'others: deny'");
+            throw new ProjectException(
+                    origin
+                            + ": 'mail."
+                            + Mail.RULES
+                            + "' must be a mapping, for example"
+                            + " 'project: allow', 'room: prompt', 'others: deny'");
         }
         try {
-            return new Mail.Rules(mode(rules.get("project")), mode(rules.get("room")), mode(rules.get("others")));
+            return new Mail.Rules(
+                    mode(rules.get("project")), mode(rules.get("room")), mode(rules.get("others")));
         } catch (ProjectException ex) {
             throw new ProjectException(origin + ": " + ex.getMessage(), ex);
         }
     }
 
-    private static @org.jspecify.annotations.Nullable String mode(@org.jspecify.annotations.Nullable Object value) {
+    private static @org.jspecify.annotations.Nullable String mode(
+            @org.jspecify.annotations.Nullable Object value) {
         return text(value).isEmpty() ? null : text(value);
     }
 
@@ -459,8 +530,13 @@ public final class ProjectReader {
         if ("reporting".equals(said)) {
             return true;
         }
-        throw new ProjectException(origin + ": 'mail." + Mail.OUTGOING_FILTER + "' is '" + said
-                + "'; expected blocking (the default) or reporting");
+        throw new ProjectException(
+                origin
+                        + ": 'mail."
+                        + Mail.OUTGOING_FILTER
+                        + "' is '"
+                        + said
+                        + "'; expected blocking (the default) or reporting");
     }
 
     /**
@@ -476,20 +552,28 @@ public final class ProjectReader {
             return Map.of();
         }
         if (!(value instanceof Map<?, ?> named)) {
-            throw new ProjectException(origin + ": 'mail.transports' must be a mapping of a transport to its"
-                    + " settings");
+            throw new ProjectException(
+                    origin
+                            + ": 'mail.transports' must be a mapping of a transport to its"
+                            + " settings");
         }
         final Map<String, Object> transports = new java.util.LinkedHashMap<>();
         for (final Map.Entry<?, ?> entry : named.entrySet()) {
             if (!(entry.getValue() instanceof Map<?, ?>)) {
-                throw new ProjectException(origin + ": 'mail.transports." + entry.getKey() + "' must be a mapping");
+                throw new ProjectException(
+                        origin + ": 'mail.transports." + entry.getKey() + "' must be a mapping");
             }
             final String scheme = String.valueOf(entry.getKey());
-            // Named as a peer's transport is: it becomes a directory of this machine's state, and clearing a project
+            // Named as a peer's transport is: it becomes a directory of this machine's state, and
+            // clearing a project
             // deletes files under it - '../../x' reached outside it.
             if (!scheme.matches("[a-z0-9][a-z0-9-]*")) {
-                throw new ProjectException(origin + ": 'mail.transports." + scheme + "' is not a transport's name;"
-                        + " expected lower-case letters, digits and hyphens");
+                throw new ProjectException(
+                        origin
+                                + ": 'mail.transports."
+                                + scheme
+                                + "' is not a transport's name;"
+                                + " expected lower-case letters, digits and hyphens");
             }
             transports.put(scheme, entry.getValue());
         }
@@ -509,15 +593,15 @@ public final class ProjectReader {
 
     /**
      * Reads an {@code egress} block, at the top level or under a repository.
-     * <p>
-     * The same reader for both, so the two cannot come to mean different things - and so that a
+     *
+     * <p>The same reader for both, so the two cannot come to mean different things - and so that a
      * bad set name under a repository is refused with the same message and the same rule as one at
      * the top.
      *
      * @param root The mapping the block sits in.
      * @param origin Name used in error messages.
-     * @param path What to put before the key in an error message, so a reader is told which
-     *        {@code egress} block was wrong.
+     * @param path What to put before the key in an error message, so a reader is told which {@code
+     *     egress} block was wrong.
      * @return What was declared, empty when nothing was.
      */
     private static Egress egress(Map<?, ?> root, String origin, String path) {
@@ -528,15 +612,16 @@ public final class ProjectReader {
         if (!(value instanceof Map<?, ?> egress)) {
             throw new ProjectException(origin + ": '" + path + "egress' must be a mapping");
         }
-        return new Egress(strings(egress.get("sets"), path + "egress.sets", origin),
+        return new Egress(
+                strings(egress.get("sets"), path + "egress.sets", origin),
                 strings(egress.get("domains"), path + "egress.domains", origin),
                 strings(egress.get("refused"), path + "egress.refused", origin));
     }
 
     /**
      * Reads a repository's optional {@code limits} block.
-     * <p>
-     * <strong>Absent keys stay absent.</strong> Unlike the project's limits, which fall back to
+     *
+     * <p><strong>Absent keys stay absent.</strong> Unlike the project's limits, which fall back to
      * {@link Limits#defaults()} key by key, a key nobody wrote here has to remain unwritten - it
      * means "the project's", and resolving it to a default at this point would quietly undo a
      * project that had deliberately raised one.
@@ -546,43 +631,51 @@ public final class ProjectReader {
      * @param name The repository's name, for error messages.
      * @return What it declared, all absent when it declared nothing.
      */
-    private static Limits.Declared declaredLimits(Map<?, ?> repository, String origin,
-            String name) {
+    private static Limits.Declared declaredLimits(
+            Map<?, ?> repository, String origin, String name) {
         final Object value = repository.get("limits");
         if (value == null) {
             return Limits.Declared.none();
         }
         if (!(value instanceof Map<?, ?> limits)) {
-            throw new ProjectException(origin + ": 'repositories." + name
-                    + ".limits' must be a mapping");
+            throw new ProjectException(
+                    origin + ": 'repositories." + name + ".limits' must be a mapping");
         }
         final Object pids = limits.get("pids");
         if (pids != null && !(pids instanceof Number)) {
-            throw new ProjectException(origin + ": 'repositories." + name
-                    + ".limits.pids' must be a number, not '" + pids + "'");
+            throw new ProjectException(
+                    origin
+                            + ": 'repositories."
+                            + name
+                            + ".limits.pids' must be a number, not '"
+                            + pids
+                            + "'");
         }
         return new Limits.Declared(
                 limits.get("memory") == null ? null : text(limits.get("memory")),
                 limits.get("cpus") == null ? null : text(limits.get("cpus")),
                 pids == null ? null : ((Number) pids).intValue(),
-                limits.get("hand_in") == null ? null
-                        : Limits.bytes(text(limits.get("hand_in")), origin + ": 'repositories." + name
-                                + ".limits.hand_in'"));
+                limits.get("hand_in") == null
+                        ? null
+                        : Limits.bytes(
+                                text(limits.get("hand_in")),
+                                origin + ": 'repositories." + name + ".limits.hand_in'"));
     }
 
     /**
      * Reads a list of strings, refusing anything that is not one.
-     * <p>
-     * A scalar is refused rather than wrapped: {@code sets: maven} is a plausible typo for
-     * {@code sets: [maven]}, and accepting both would make the file's meaning depend on a detail
-     * of YAML rather than on what it says.
+     *
+     * <p>A scalar is refused rather than wrapped: {@code sets: maven} is a plausible typo for
+     * {@code sets: [maven]}, and accepting both would make the file's meaning depend on a detail of
+     * YAML rather than on what it says.
      *
      * @param value Raw value, may be {@code null}.
      * @param key Key path used in error messages.
      * @param origin Name used in error messages.
      * @return The entries, empty when the key is absent.
      */
-    private static java.util.List<String> strings(@org.jspecify.annotations.Nullable Object value, String key, String origin) {
+    private static java.util.List<String> strings(
+            @org.jspecify.annotations.Nullable Object value, String key, String origin) {
         if (value == null) {
             return java.util.List.of();
         }
@@ -592,8 +685,8 @@ public final class ProjectReader {
         final java.util.List<String> found = new java.util.ArrayList<>();
         for (final Object entry : list) {
             if (!(entry instanceof String text) || text.isBlank()) {
-                throw new ProjectException(origin + ": '" + key + "' has an entry that is not a"
-                        + " name: " + entry);
+                throw new ProjectException(
+                        origin + ": '" + key + "' has an entry that is not a" + " name: " + entry);
             }
             found.add(text.strip());
         }
@@ -625,23 +718,28 @@ public final class ProjectReader {
         final String memory = text(limits.get("memory"));
         final String cpus = text(limits.get("cpus"));
         final Object pids = limits.get("pids");
-        final long handIn = limits.get("hand_in") == null ? Limits.DEFAULT_HAND_IN
-                : Limits.bytes(text(limits.get("hand_in")), origin + ": 'limits.hand_in'");
+        final long handIn =
+                limits.get("hand_in") == null
+                        ? Limits.DEFAULT_HAND_IN
+                        : Limits.bytes(text(limits.get("hand_in")), origin + ": 'limits.hand_in'");
         try {
             return new Limits(
                     // 'none' is how a project opts out on purpose, which reads differently from
                     // having forgotten to set one.
-                    memory.isEmpty() ? Limits.DEFAULT_MEMORY : "none".equals(memory) ? null : memory,
+                    memory.isEmpty()
+                            ? Limits.DEFAULT_MEMORY
+                            : "none".equals(memory) ? null : memory,
                     cpus.isEmpty() || "none".equals(cpus) ? null : cpus,
                     pids == null ? Limits.DEFAULT_PIDS : Integer.parseInt(String.valueOf(pids)),
                     handIn);
         } catch (NumberFormatException ex) {
-            throw new ProjectException(origin + ": 'limits.pids' must be a number, not '"
-                    + pids + "'");
+            throw new ProjectException(
+                    origin + ": 'limits.pids' must be a number, not '" + pids + "'");
         }
     }
 
-    private static String required(Map<?, ?> section, String key, String origin, String sectionName) {
+    private static String required(
+            Map<?, ?> section, String key, String origin, String sectionName) {
         final Object value = section.get(key);
         if (value == null) {
             throw new ProjectException(origin + ": '" + sectionName + "." + key + "' is required");
@@ -651,8 +749,8 @@ public final class ProjectReader {
 
     /**
      * Reads the operator's own image lines, either inline or from a file beside the project.
-     * <p>
-     * Both forms exist because both are wanted: a couple of packages read better inline, and a
+     *
+     * <p>Both forms exist because both are wanted: a couple of packages read better inline, and a
      * long snippet reads better in a file its own syntax highlighting understands.
      */
     @Nullable
@@ -660,8 +758,8 @@ public final class ProjectReader {
         final Object inline = image.get("snippet");
         final Object file = image.get("snippet_file");
         if (inline != null && file != null) {
-            throw new ProjectException(origin
-                    + ": 'image.snippet' and 'image.snippet_file' are mutually exclusive");
+            throw new ProjectException(
+                    origin + ": 'image.snippet' and 'image.snippet_file' are mutually exclusive");
         }
         if (inline != null) {
             return String.valueOf(inline);
@@ -669,13 +767,17 @@ public final class ProjectReader {
         if (file == null) {
             return null;
         }
-        // From the repository and nowhere else: resolved as written, an absolute path, '../' or a link read any file
-        // the person can - a key included - into the image the agent runs in, or into an error on their screen.
+        // From the repository and nowhere else: resolved as written, an absolute path, '../' or a
+        // link read any file
+        // the person can - a key included - into the image the agent runs in, or into an error on
+        // their screen.
         final Path base = Path.of(origin).toAbsolutePath().getParent();
         final String named = String.valueOf(file);
         if (base == null || Path.of(named).isAbsolute()) {
-            throw new ProjectException(origin + ": 'image.snippet_file' must name a file of the repository, not "
-                    + named);
+            throw new ProjectException(
+                    origin
+                            + ": 'image.snippet_file' must name a file of the repository, not "
+                            + named);
         }
         final Path path = base.resolve(named).normalize();
         if (!Files.isRegularFile(path)) {
@@ -683,8 +785,10 @@ public final class ProjectReader {
         }
         try {
             if (!path.toRealPath().startsWith(base.toRealPath())) {
-                throw new ProjectException(origin + ": 'image.snippet_file' must name a file of the repository, not "
-                        + named);
+                throw new ProjectException(
+                        origin
+                                + ": 'image.snippet_file' must name a file of the repository, not "
+                                + named);
             }
         } catch (IOException ex) {
             throw new ProjectException("Cannot read " + path, ex);

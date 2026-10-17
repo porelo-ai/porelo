@@ -12,17 +12,18 @@ import picocli.CommandLine.Spec;
 
 /**
  * Writes a person's own message into a task's conversation.
- * <p>
- * <strong>The text is read from standard input</strong>, the way {@code vault put} reads a secret: a
- * process list is world-readable, and nobody can promise what somebody will paste into a message to
- * an agent.
- * <p>
- * <strong>It goes out through the same pipeline as the agent's own messages</strong> - the outbox,
- * the filter, the queue - because a person is not a reason to skip the check that a message carries
- * nothing it should not. What differs is {@code role}, which says a person wrote it, so the reader
- * can tell.
+ *
+ * <p><strong>The text is read from standard input</strong>, the way {@code vault put} reads a
+ * secret: a process list is world-readable, and nobody can promise what somebody will paste into a
+ * message to an agent.
+ *
+ * <p><strong>It goes out through the same pipeline as the agent's own messages</strong> - the
+ * outbox, the filter, the queue - because a person is not a reason to skip the check that a message
+ * carries nothing it should not. What differs is {@code role}, which says a person wrote it, so the
+ * reader can tell.
  */
-@Command(name = "say",
+@Command(
+        name = "say",
         mixinStandardHelpOptions = true,
         description = "Writes a message into a conversation. The text is read from stdin.")
 public class TalkSayCommand implements Callable<Integer>, PoreloFactory.ContextAware {
@@ -33,16 +34,19 @@ public class TalkSayCommand implements Callable<Integer>, PoreloFactory.ContextA
     @Parameters(index = "1", paramLabel = "<peer>", description = "Who it is addressed to.")
     private String peer;
 
-    @Option(names = "--kind", paramLabel = "<kind>",
+    @Option(
+            names = "--kind",
+            paramLabel = "<kind>",
             description = "question, answer, status, review-request or handover. Default: question")
     private String kind = "question";
 
-    @Option(names = "--context", paramLabel = "<id>",
+    @Option(
+            names = "--context",
+            paramLabel = "<id>",
             description = "The conversation it belongs to. Default: a new one.")
     private @Nullable String contextId;
 
-    @Spec
-    private CommandSpec spec;
+    @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
 

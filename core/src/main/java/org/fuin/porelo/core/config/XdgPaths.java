@@ -8,8 +8,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * The XDG base directories Porelo uses.
- * <p>
- * Resolved from the environment on construction rather than read on every access, so that a
+ *
+ * <p>Resolved from the environment on construction rather than read on every access, so that a
  * process cannot see the layout change underneath it. Nothing here creates directories: a command
  * that needs one creates it, and a command that only reads must not have the side effect.
  *
@@ -33,10 +33,10 @@ public record XdgPaths(Path config, Path data, Path state, Path runtime, Path ho
 
     /**
      * Returns this account's home directory, from the environment first.
-     * <p>
-     * <strong>{@code $HOME} before {@code user.home}.</strong> Java reads {@code user.home} from
-     * the password database rather than from the environment, and a native image reads it once -
-     * so a command run with a different {@code HOME} still answered about the real account. Every
+     *
+     * <p><strong>{@code $HOME} before {@code user.home}.</strong> Java reads {@code user.home} from
+     * the password database rather than from the environment, and a native image reads it once - so
+     * a command run with a different {@code HOME} still answered about the real account. Every
      * other path here follows the environment, and one that did not made a listing of *this
      * machine's* ssh keys answer about somebody else's: measured 2026-09-19, where it listed the
      * operator's own keys while running against a throwaway home.
@@ -47,7 +47,8 @@ public record XdgPaths(Path config, Path data, Path state, Path runtime, Path ho
     public static Path home(final java.util.function.Function<String, String> environment) {
         final String said = environment.apply("HOME");
         return said == null || said.isBlank()
-                ? Path.of(System.getProperty("user.home")) : Path.of(said);
+                ? Path.of(System.getProperty("user.home"))
+                : Path.of(said);
     }
 
     /**
@@ -97,9 +98,7 @@ public record XdgPaths(Path config, Path data, Path state, Path runtime, Path ho
         }
     }
 
-    /**
-     * Reads a single environment variable.
-     */
+    /** Reads a single environment variable. */
     @FunctionalInterface
     public interface EnvironmentLookup {
 
@@ -109,7 +108,6 @@ public record XdgPaths(Path config, Path data, Path state, Path runtime, Path ho
          * @param name Variable name.
          * @return Value, or {@code null} if unset.
          */
-        @Nullable
-        String get(String name);
+        @Nullable String get(String name);
     }
 }

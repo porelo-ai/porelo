@@ -6,9 +6,7 @@ import java.nio.file.Path;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link XdgPaths}.
- */
+/** Tests for {@link XdgPaths}. */
 class XdgPathsTest {
 
     private static final Path HOME = Path.of("/home/tester");
@@ -30,9 +28,11 @@ class XdgPathsTest {
     @Test
     void usesTheEnvironmentWhenItIsSet() {
 
-        final XdgPaths paths = paths(Map.of(
-                "XDG_CONFIG_HOME", "/elsewhere/config",
-                "XDG_RUNTIME_DIR", "/run/user/4242"));
+        final XdgPaths paths =
+                paths(
+                        Map.of(
+                                "XDG_CONFIG_HOME", "/elsewhere/config",
+                                "XDG_RUNTIME_DIR", "/run/user/4242"));
 
         assertThat(paths.config()).isEqualTo(Path.of("/elsewhere/config/porelo"));
         assertThat(paths.runtime()).isEqualTo(Path.of("/run/user/4242/porelo"));
@@ -43,9 +43,11 @@ class XdgPathsTest {
 
         // The XDG specification says a relative value must be ignored rather than resolved
         // against the working directory.
-        final XdgPaths paths = paths(Map.of(
-                "XDG_CONFIG_HOME", "  ",
-                "XDG_DATA_HOME", "relative/path"));
+        final XdgPaths paths =
+                paths(
+                        Map.of(
+                                "XDG_CONFIG_HOME", "  ",
+                                "XDG_DATA_HOME", "relative/path"));
 
         assertThat(paths.config()).isEqualTo(Path.of("/home/tester/.config/porelo"));
         assertThat(paths.data()).isEqualTo(Path.of("/home/tester/.local/share/porelo"));

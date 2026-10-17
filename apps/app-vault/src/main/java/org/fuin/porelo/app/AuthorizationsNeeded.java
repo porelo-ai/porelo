@@ -14,15 +14,15 @@ import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The authorizations somebody has to grant before work can use them - a question for a person, not a
- * failure: a credential of a kind a person grants that was never granted, or whose grant has ended at the
- * service.
- * <p>
- * <strong>One file per credential, so every process that finds one can raise it</strong> - a start refused
- * for want of it, the broker of a running task that finds the grant ended - and the daemon streams them to
- * every interface, so a second person sees what the first was refused (decided on
- * 2026-09-29). <strong>Raised once per credential until a grant lands:</strong> a second refusal for the same
- * entry keeps the first question; a grant clears it.
+ * The authorizations somebody has to grant before work can use them - a question for a person, not
+ * a failure: a credential of a kind a person grants that was never granted, or whose grant has
+ * ended at the service.
+ *
+ * <p><strong>One file per credential, so every process that finds one can raise it</strong> - a
+ * start refused for want of it, the broker of a running task that finds the grant ended - and the
+ * daemon streams them to every interface, so a second person sees what the first was refused
+ * (decided on 2026-09-29). <strong>Raised once per credential until a grant lands:</strong> a
+ * second refusal for the same entry keeps the first question; a grant clears it.
  */
 public final class AuthorizationsNeeded {
 
@@ -32,8 +32,7 @@ public final class AuthorizationsNeeded {
     /** Granted once, and no longer valid at the service: revoked or expired. */
     public static final String ENDED = "ended";
 
-    private AuthorizationsNeeded() {
-    }
+    private AuthorizationsNeeded() {}
 
     /**
      * Raises the question for a credential, unless it is open already for the same reason.
@@ -44,7 +43,8 @@ public final class AuthorizationsNeeded {
      * @param project That task's project, or "".
      * @param state {@link #NEVER} or {@link #ENDED}.
      */
-    public static void raise(PoreloContext context, String credential, String task, String project, String state) {
+    public static void raise(
+            PoreloContext context, String credential, String task, String project, String state) {
         final Path file = file(context, credential);
         final Map<String, String> open = read(file);
         if (open != null && state.equals(open.get("state"))) {
@@ -60,10 +60,14 @@ public final class AuthorizationsNeeded {
             Files.createDirectories(file.getParent());
             final Path staged = file.resolveSibling(file.getFileName() + ".tmp");
             Files.writeString(staged, Json.write(question), StandardCharsets.UTF_8);
-            Files.move(staged, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+            Files.move(
+                    staged,
+                    file,
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING,
                     java.nio.file.StandardCopyOption.ATOMIC_MOVE);
         } catch (IOException ex) {
-            // The refusal itself is said where it happened; only the question for others is missing.
+            // The refusal itself is said where it happened; only the question for others is
+            // missing.
         }
     }
 
@@ -94,12 +98,15 @@ public final class AuthorizationsNeeded {
         }
         final List<Map<String, String>> open = new ArrayList<>();
         try (Stream<Path> files = Files.list(directory)) {
-            files.filter(path -> path.getFileName().toString().endsWith(".json")).sorted().forEach(path -> {
-                final Map<String, String> question = read(path);
-                if (question != null) {
-                    open.add(question);
-                }
-            });
+            files.filter(path -> path.getFileName().toString().endsWith(".json"))
+                    .sorted()
+                    .forEach(
+                            path -> {
+                                final Map<String, String> question = read(path);
+                                if (question != null) {
+                                    open.add(question);
+                                }
+                            });
         } catch (IOException ex) {
             return List.of();
         }
@@ -111,9 +118,11 @@ public final class AuthorizationsNeeded {
             return null;
         }
         try {
-            if (Json.parse(Files.readString(file, StandardCharsets.UTF_8)) instanceof Map<?, ?> read) {
+            if (Json.parse(Files.readString(file, StandardCharsets.UTF_8))
+                    instanceof Map<?, ?> read) {
                 final Map<String, String> question = new LinkedHashMap<>();
-                read.forEach((key, value) -> question.put(String.valueOf(key), String.valueOf(value)));
+                read.forEach(
+                        (key, value) -> question.put(String.valueOf(key), String.valueOf(value)));
                 return question;
             }
         } catch (IOException | RuntimeException ex) {

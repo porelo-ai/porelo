@@ -8,17 +8,25 @@ import org.junit.jupiter.api.Test;
 
 /**
  * What a settled clearance event carries.
- * <p>
- * Written because a field was declared on the wire and not sent: the interface description names
+ *
+ * <p>Written because a field was declared on the wire and not sent: the interface description names
  * {@code at}, {@code prefix} and {@code deadline} on a prompt, and an event that omits one leaves a
  * client reading nothing where the contract promised something. Nothing else here would notice.
  */
 class DecisionTest {
 
     private static Decision decision() {
-        return new Decision(Instant.parse("2026-09-11T05:00:00Z"), "demo", "porelo-demo-shell-1",
-                "tcp/1.2.3.4/443", "1.2.3.4", 443, "tcp", "example.org:443 (1.2.3.4)",
-                Verdict.ALLOW, Decision.PROMPT);
+        return new Decision(
+                Instant.parse("2026-09-11T05:00:00Z"),
+                "demo",
+                "porelo-demo-shell-1",
+                "tcp/1.2.3.4/443",
+                "1.2.3.4",
+                443,
+                "tcp",
+                "example.org:443 (1.2.3.4)",
+                Verdict.ALLOW,
+                Decision.PROMPT);
     }
 
     @Test
@@ -38,7 +46,8 @@ class DecisionTest {
 
         // The names the interface description declares on Prompt. A settled event is the same
         // destination arriving again, so it has to answer to the same fields.
-        assertThat(decision().event()).containsKeys("key", "destination", "protocol", "port",
-                "at", "deadline", "verdict");
+        assertThat(decision().event())
+                .containsKeys(
+                        "key", "destination", "protocol", "port", "at", "deadline", "verdict");
     }
 }

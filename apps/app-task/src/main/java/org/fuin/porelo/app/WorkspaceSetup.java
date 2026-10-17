@@ -7,11 +7,11 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * The repository the agent works in, and where it came from.
- * <p>
- * Split out of {@code TaskRunCommand} with the other wirings. A workspace is a clone the container
- * makes from Porelo's own mirror, never a directory from the host: what the agent writes stays
- * inside the container until it is pushed through the gate, which is the property the whole review
- * step rests on.
+ *
+ * <p>Split out of {@code TaskRunCommand} with the other wirings. A workspace is a clone the
+ * container makes from Porelo's own mirror, never a directory from the host: what the agent writes
+ * stays inside the container until it is pushed through the gate, which is the property the whole
+ * review step rests on.
  */
 final class WorkspaceSetup {
 
@@ -43,13 +43,19 @@ final class WorkspaceSetup {
      * @param upstream Value of {@code --upstream}, or {@code null}.
      * @param repository Which repository of the project, or {@code null} for its own.
      */
-    /** Why the start must not go on, when the gate holds what an earlier task of this name left; or {@code null}. */
+    /**
+     * Why the start must not go on, when the gate holds what an earlier task of this name left; or
+     * {@code null}.
+     */
     private @Nullable String refusal;
 
     /** The earlier work of this task's name that waits at the gate, when that is the refusal. */
     private org.fuin.porelo.gate.GitGate.@Nullable Waiting earlierWork;
 
-    /** The next name under which no earlier work waits and no container is, when earlier work is the refusal. */
+    /**
+     * The next name under which no earlier work waits and no container is, when earlier work is the
+     * refusal.
+     */
     private @Nullable String freeName;
 
     /**
@@ -74,7 +80,10 @@ final class WorkspaceSetup {
         return refusal;
     }
 
-    WorkspaceSetup(PoreloContext context, String task, @Nullable String upstream,
+    WorkspaceSetup(
+            PoreloContext context,
+            String task,
+            @Nullable String upstream,
             @Nullable String repository) {
         this.context = context;
         this.task = task;
@@ -85,41 +94,54 @@ final class WorkspaceSetup {
     /**
      * Opens the git gate for this task, unless the caller asked for none.
      *
-     * @param wanted Whether this run has a gate at all: a dry run and {@code --no-gate}
-     *        both mean no workspace, and neither is this class's decision to read.
+     * @param wanted Whether this run has a gate at all: a dry run and {@code --no-gate} both mean
+     *     no workspace, and neither is this class's decision to read.
      * @return The workspace, or {@code null} when running without a gate.
      */
-    @Nullable TaskWorkspace openWorkspace(Project project, boolean wanted, PrintWriter out,
-            PrintWriter err) {
+    @Nullable TaskWorkspace openWorkspace(
+            Project project, boolean wanted, PrintWriter out, PrintWriter err) {
         refusal = null;
         if (!wanted) {
             return null;
         }
         try {
             final Repository chosen = GateSupport.repository(project, repository);
-            if (project.securityClass() == org.fuin.porelo.core.project.SecurityClass.OFFLINE && upstream != null) {
-                // The host would clone the mirror from it over the network; an offline project never connects.
-                err.println("porelo: '" + project.name() + "' is offline, so it takes no --upstream: nothing connects"
-                        + " out for it, not even the host. Bring the repository in as a file with 'porelo gate"
-                        + " restore', or start from a checkout of it on this machine.");
+            if (project.securityClass() == org.fuin.porelo.core.project.SecurityClass.OFFLINE
+                    && upstream != null) {
+                // The host would clone the mirror from it over the network; an offline project
+                // never connects.
+                err.println(
+                        "porelo: '"
+                                + project.name()
+                                + "' is offline, so it takes no --upstream: nothing connects"
+                                + " out for it, not even the host. Bring the repository in as a file with 'porelo gate"
+                                + " restore', or start from a checkout of it on this machine.");
                 err.flush();
                 return null;
             }
             if (project.securityClass() == org.fuin.porelo.core.project.SecurityClass.ONLINE
-                    && chosen.upstream() == null && upstream == null) {
-                // Online passes every push on at once, which needs somewhere to pass it to. Its gate is the same as a
-                // guarded task's: the agent's remote is the gate, and only the host reaches the upstream.
-                err.println("porelo: an online project needs an upstream for '" + chosen.name()
-                        + "': its gate passes every push on to it");
+                    && chosen.upstream() == null
+                    && upstream == null) {
+                // Online passes every push on at once, which needs somewhere to pass it to. Its
+                // gate is the same as a
+                // guarded task's: the agent's remote is the gate, and only the host reaches the
+                // upstream.
+                err.println(
+                        "porelo: an online project needs an upstream for '"
+                                + chosen.name()
+                                + "': its gate passes every push on to it");
                 err.flush();
                 return null;
             }
             final org.fuin.porelo.gate.GitGate gate =
-                    GateSupport.gate(context, project, chosen, upstream, seed(project, chosen, out));
+                    GateSupport.gate(
+                            context, project, chosen, upstream, seed(project, chosen, out));
             gate.initialize();
             if (project.securityClass() == org.fuin.porelo.core.project.SecurityClass.ONLINE) {
-                // What an earlier task of this name left went on to the upstream long ago; here it would only make the
-                // new task's plain push "fetch first", and an agent that followed git's hint pull it into its own.
+                // What an earlier task of this name left went on to the upstream long ago; here it
+                // would only make the
+                // new task's plain push "fetch first", and an agent that followed git's hint pull
+                // it into its own.
                 gate.forget(task);
             } else {
                 final String earlier = gate.waiting(task);
@@ -129,18 +151,26 @@ final class WorkspaceSetup {
                     for (int n = 2; n < 100 && freeName == null; n++) {
                         final String candidate = task + "-" + n;
                         if (gate.waiting(candidate) == null
-                                && !containers.contains(org.fuin.porelo.runtime.ContainerName.of(project, candidate))) {
+                                && !containers.contains(
+                                        org.fuin.porelo.runtime.ContainerName.of(
+                                                project, candidate))) {
                             freeName = candidate;
                         }
                     }
-                    // Its work waits for a person, and a new task of the same name would push onto it.
-                    refusal = "work of an earlier task called " + task + " waits at the gate (" + earlier
-                            + "): approve or reject it first, with 'porelo gate approve' or 'porelo gate reject', or"
-                            + " start under another name";
+                    // Its work waits for a person, and a new task of the same name would push onto
+                    // it.
+                    refusal =
+                            "work of an earlier task called "
+                                    + task
+                                    + " waits at the gate ("
+                                    + earlier
+                                    + "): approve or reject it first, with 'porelo gate approve' or 'porelo gate reject', or"
+                                    + " start under another name";
                     return null;
                 }
             }
-            final TaskWorkspace opened = TaskWorkspace.gated(chosen, gate, TaskWorkspace.containerVisibleHost());
+            final TaskWorkspace opened =
+                    TaskWorkspace.gated(chosen, gate, TaskWorkspace.containerVisibleHost());
             if (!opened.refreshed().isEmpty()) {
                 err.println("porelo: " + opened.refreshed());
                 err.flush();
@@ -152,16 +182,26 @@ final class WorkspaceSetup {
             err.println("porelo: no git gate for this task: " + ex.getMessage());
             final String said = String.valueOf(ex.getMessage());
             if (HostKeys.refusedTheHost(said)) {
-                // Answered as the question it is, as a follow answers it: git's own words name no way on, and a person
+                // Answered as the question it is, as a follow answers it: git's own words name no
+                // way on, and a person
                 // new to Porelo met them on the first task in 'default' (2026-10-01).
-                final String host = HostKeys.nameOf(String.valueOf(GateSupport.repository(project, repository)
-                        .upstream()));
-                err.println("porelo: " + (HostKeys.changed(said)
-                        ? host + " answered with a different key from the one this machine remembers - nothing was"
-                                + " fetched; find out why before trusting it again"
-                        : "this machine has never met " + host + ", so it stopped rather than deciding for you. See"
-                                + " what it offers with 'porelo credentials trust-host " + host + "', confirm one"
-                                + " against what its owner publishes, and start again."));
+                final String host =
+                        HostKeys.nameOf(
+                                String.valueOf(
+                                        GateSupport.repository(project, repository).upstream()));
+                err.println(
+                        "porelo: "
+                                + (HostKeys.changed(said)
+                                        ? host
+                                                + " answered with a different key from the one this machine remembers - nothing was"
+                                                + " fetched; find out why before trusting it again"
+                                        : "this machine has never met "
+                                                + host
+                                                + ", so it stopped rather than deciding for you. See"
+                                                + " what it offers with 'porelo credentials trust-host "
+                                                + host
+                                                + "', confirm one"
+                                                + " against what its owner publishes, and start again."));
             }
             err.flush();
             return null;
@@ -170,14 +210,14 @@ final class WorkspaceSetup {
 
     /**
      * Returns the repository an empty mirror should be seeded from.
-     * <p>
-     * Only reached when neither {@code --upstream} nor the project names one. Standing in a
+     *
+     * <p>Only reached when neither {@code --upstream} nor the project names one. Standing in a
      * checkout is taken as meaning that checkout, so the common case needs no flag. It is printed
      * rather than assumed silently, and only committed history is copied - a bare clone has no
      * working tree.
      *
-     * <strong>Only for the project's own repository.</strong> The checkout somebody is standing in
-     * is the project's own - that is where {@code project.yml} is - so seeding a repository the
+     * <p><strong>Only for the project's own repository.</strong> The checkout somebody is standing
+     * in is the project's own - that is where {@code project.yml} is - so seeding a repository the
      * project merely names from it would fill that repository's mirror with somebody else's
      * history. A named repository with no upstream simply starts empty, which is what it is.
      *
@@ -191,7 +231,8 @@ final class WorkspaceSetup {
         if (!chosen.name().equals(project.name())) {
             return null;
         }
-        if (upstream != null || chosen.hasUpstream()
+        if (upstream != null
+                || chosen.hasUpstream()
                 || java.nio.file.Files.isDirectory(
                         GateSupport.mirror(context, project, chosen).resolve("objects"))) {
             // A mirror that exists is never re-seeded, so saying it would be seeded is a lie.
@@ -218,24 +259,30 @@ final class WorkspaceSetup {
     }
 
     /**
-     * Returns the checkout a command runs in when it is the project's own repository, the one its project file is in.
-     * <p>
-     * Any checkout it ran in was taken: through the daemon that is its home, and a home kept in git gave the agent's
-     * mirror its whole history.
+     * Returns the checkout a command runs in when it is the project's own repository, the one its
+     * project file is in.
+     *
+     * <p>Any checkout it ran in was taken: through the daemon that is its home, and a home kept in
+     * git gave the agent's mirror its whole history.
      *
      * @param project The project's name.
      * @param here Where the command runs.
      * @return The checkout's top level, or {@code null} when it is not the project's own.
      */
-    static java.nio.file.@org.jspecify.annotations.Nullable Path ownCheckout(String project, java.nio.file.Path here) {
+    static java.nio.file.@org.jspecify.annotations.Nullable Path ownCheckout(
+            String project, java.nio.file.Path here) {
         final java.nio.file.Path local =
-                org.fuin.porelo.gate.LocalRepository.topLevel(new org.fuin.porelo.core.process.ProcessCommandRunner(), here);
+                org.fuin.porelo.gate.LocalRepository.topLevel(
+                        new org.fuin.porelo.core.process.ProcessCommandRunner(), here);
         if (local == null) {
             return null;
         }
         try {
-            return org.fuin.porelo.core.project.ProjectReader.read(local.resolve("project.yml")).name().equals(project)
-                    ? local : null;
+            return org.fuin.porelo.core.project.ProjectReader.read(local.resolve("project.yml"))
+                            .name()
+                            .equals(project)
+                    ? local
+                    : null;
         } catch (final RuntimeException ex) {
             return null;
         }
@@ -251,17 +298,30 @@ final class WorkspaceSetup {
      * @param out Where progress is reported.
      * @param err Where a failure is reported.
      */
-    void prepareWorkspace(TaskRunner runner, TaskWorkspace workspace,
-            String container, java.util.Map<String, String> environment, PrintWriter out, PrintWriter err) {
+    void prepareWorkspace(
+            TaskRunner runner,
+            TaskWorkspace workspace,
+            String container,
+            java.util.Map<String, String> environment,
+            PrintWriter out,
+            PrintWriter err) {
 
         final java.nio.file.Path log =
                 context.paths().tasks().containerState(container).resolve("workspace.log");
-        final int code = runner.execute(container, environment, workspace.cloneCommand(),
-                log, java.time.Duration.ofMinutes(5));
+        final int code =
+                runner.execute(
+                        container,
+                        environment,
+                        workspace.cloneCommand(),
+                        log,
+                        java.time.Duration.ofMinutes(5));
         String problem = null;
         String said = "";
         try {
-            said = java.nio.file.Files.isRegularFile(log) ? java.nio.file.Files.readString(log) : "";
+            said =
+                    java.nio.file.Files.isRegularFile(log)
+                            ? java.nio.file.Files.readString(log)
+                            : "";
             problem = TaskWorkspace.fetchProblem(said);
         } catch (java.io.IOException ex) {
             // Unread, nothing is said about the fetch; the outcome below still is.

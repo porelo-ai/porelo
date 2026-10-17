@@ -7,9 +7,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
-/**
- * Tests for {@link Teardown}.
- */
+/** Tests for {@link Teardown}. */
 class TeardownTest {
 
     @Test
@@ -45,25 +43,29 @@ class TeardownTest {
         final CountDownLatch release = new CountDownLatch(1);
         final AtomicInteger finished = new AtomicInteger();
 
-        final Teardown teardown = Teardown.arm(() -> {
-            started.countDown();
-            try {
-                release.await(5, TimeUnit.SECONDS);
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            }
-            finished.incrementAndGet();
-        });
+        final Teardown teardown =
+                Teardown.arm(
+                        () -> {
+                            started.countDown();
+                            try {
+                                release.await(5, TimeUnit.SECONDS);
+                            } catch (InterruptedException ex) {
+                                Thread.currentThread().interrupt();
+                            }
+                            finished.incrementAndGet();
+                        });
 
         final Thread first = new Thread(teardown::run);
         first.start();
         assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
 
         final AtomicInteger sawFinished = new AtomicInteger(-1);
-        final Thread second = new Thread(() -> {
-            teardown.run();
-            sawFinished.set(finished.get());
-        });
+        final Thread second =
+                new Thread(
+                        () -> {
+                            teardown.run();
+                            sawFinished.set(finished.get());
+                        });
         second.start();
 
         // The second caller is blocked, not done: nothing has finished yet.

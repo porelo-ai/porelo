@@ -1,6 +1,4 @@
-/**
- * Asking the operator whether a blocked connection should be allowed.
- */
+/** Asking the operator whether a blocked connection should be allowed. */
 @NullMarked
 package org.fuin.porelo.clearance;
 
