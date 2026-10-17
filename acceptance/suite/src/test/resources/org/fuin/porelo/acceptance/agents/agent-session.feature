@@ -14,15 +14,15 @@ Feature: A task that comes back continues the conversation it was having
 
     Scenario: an unattended run started again continues its session, and a removed task starts fresh
         Given a project called "cont" of class "guarded" with a file in it
-        When a task called "talk" nobody is watching is started in "cont" for the "stub" agent and ends within 600 seconds
+        When a task called "talk" nobody is watching is started in "cont" for the "stub" agent and ends within 120 seconds
         Then porelo says task "talk" of "cont" last said "stub: finished"
         And porelo says task "talk" of "cont" has a session to continue
         When a script runs "porelo task stop porelo-cont-talk"
-        And a task called "talk" nobody is watching is started in "cont" for the "stub" agent and ends within 600 seconds
+        And a task called "talk" nobody is watching is started in "cont" for the "stub" agent and ends within 120 seconds
         Then porelo says task "talk" of "cont" last said "stub: continued, remembering hello"
         # Removing the task forgets its session: a new task of the same name has nothing to continue.
         When a script runs "porelo task remove porelo-cont-talk --force"
-        And a task called "talk" nobody is watching is started in "cont" for the "stub" agent and ends within 600 seconds
+        And a task called "talk" nobody is watching is started in "cont" for the "stub" agent and ends within 120 seconds
         Then porelo says task "talk" of "cont" last said "stub: finished"
         And a script runs "porelo task remove porelo-cont-talk --force"
 

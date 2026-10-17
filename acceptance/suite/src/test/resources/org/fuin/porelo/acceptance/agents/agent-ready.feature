@@ -47,10 +47,10 @@ Feature: An agent reaches work without being asked anything
 
     Scenario: an unattended run of an agent that asks nothing ends within its bound
         Given a project called "unwatched" of class "guarded" with a file in it
-        When a task nobody is watching is started in "unwatched" for the "stub" agent and ends within 600 seconds
+        When a task nobody is watching is started in "unwatched" for the "stub" agent and ends within 120 seconds
         Then it exits zero
 
     Scenario: an unattended run served by a provider the scenario names ends within its bound
         Given a project called "through" of class "guarded" with a file in it
-        When a task nobody is watching is started in "through" for the "stub" agent through "anthropic" and ends within 600 seconds
+        When a task nobody is watching is started in "through" for the "stub" agent through "anthropic" and ends within 120 seconds
         Then it exits zero

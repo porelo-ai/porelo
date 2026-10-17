@@ -27,6 +27,20 @@ public class ReadySteps {
     /** How long an agent that declares no bound of its own may take to reach work. */
     static final Duration DEFAULT_BOUND = Duration.ofSeconds(120);
 
+    /**
+     * The most an agent may declare for reaching work, counted from its session existing: about
+     * four times the slowest measured. Measured on 2026-10-17 at most 31.0 s (Claude Code, on a
+     * rented two-CPU machine) and 36.1 s (the stub, on a rented eight-CPU one); 300 s let five
+     * stuck scenarios fill a 30-minute step. A bound that grew is refused here, not waited out.
+     */
+    static final Duration READY_CAP = Duration.ofSeconds(120);
+
+    /**
+     * The most an unattended run may be given to end: about four times the slowest measured, 28.1 s
+     * (Claude Code, two CPUs) and 32.2 s (the stub, eight CPUs), both on 2026-10-17.
+     */
+    static final int UNATTENDED_CAP = 120;
+
     private final World world;
 
     /**
@@ -326,10 +340,28 @@ public class ReadySteps {
      * @return The command.
      */
     static String boundedCommand(String project, String agent, int seconds) {
+        return bounded(TaskSteps.startCommand(project, agent), checked(seconds));
+    }
+
+    /**
+     * Refuses a bound an unattended run may not be given.
+     *
+     * @param seconds The bound.
+     * @return The same bound.
+     */
+    static int checked(int seconds) {
         if (seconds < 1) {
             throw new IllegalArgumentException("A bound is at least one second, not " + seconds);
         }
-        return bounded(TaskSteps.startCommand(project, agent), seconds);
+        if (seconds > UNATTENDED_CAP) {
+            throw new IllegalArgumentException(
+                    "An unattended run may be given at most "
+                            + UNATTENDED_CAP
+                            + " s, not "
+                            + seconds
+                            + ": about four times the slowest run measured");
+        }
+        return seconds;
     }
 
     /**
@@ -344,6 +376,7 @@ public class ReadySteps {
      * @return The bounded command.
      */
     static String bounded(String command, int seconds) {
+        checked(seconds);
         return "timeout -k 10 " + seconds + " " + command;
     }
 
@@ -387,6 +420,14 @@ public class ReadySteps {
                 definition.get("readyWithinSeconds") instanceof Number seconds
                         ? Duration.ofSeconds(seconds.longValue())
                         : DEFAULT_BOUND;
+        if (bound.compareTo(READY_CAP) > 0) {
+            throw new AssertionError(
+                    "The agent declares "
+                            + bound.toSeconds()
+                            + " s to reach work, above the kit's cap of "
+                            + READY_CAP.toSeconds()
+                            + " s: about four times the slowest agent measured");
+        }
         return Optional.of(new Ready(String.valueOf(text), bound));
     }
 }

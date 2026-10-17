@@ -112,4 +112,31 @@ class ReadyStepsTest {
         assertThatThrownBy(() -> TaskSteps.aName("open router; rm"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    // A bound that grew lets a stuck run hold its leg: 300 s let five stuck scenarios fill a
+    // 30-minute step. So a bound above the cap is refused at once, by name.
+    @Test
+    void refusesAReadyBoundAboveTheCap() {
+        assertThatThrownBy(
+                        () ->
+                                ReadySteps.ready(
+                                        "{\"definition\":{\"readyMarker\":\"at work\","
+                                                + "\"readyWithinSeconds\":300}}"))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("120");
+    }
+
+    @Test
+    void refusesAnUnattendedBoundAboveTheCap() {
+        assertThatThrownBy(() -> ReadySteps.boundedCommand("live", "pi", 600))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("120");
+    }
+
+    // A named run that does not end on the stop held the step until the kit's own limit.
+    @Test
+    void aNamedUnattendedRunIsKilledTenSecondsAfterItsBound() {
+        assertThat(WaitingSteps.namedCommand("talk", "recall", "pi", 120))
+                .startsWith("timeout -k 10 120 porelo task start 'talk' ");
+    }
 }

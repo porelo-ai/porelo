@@ -126,20 +126,28 @@ public class WaitingSteps {
             "a task called {string} nobody is watching is started in {string} for the {string} agent and ends within {int} seconds")
     public void aNamedUnattendedTask(String task, String project, String agent, int seconds)
             throws IOException {
-        final Ssh.Output output =
-                world.run(
-                        "timeout "
-                                + seconds
-                                + " "
-                                + TaskSteps.startCommand(project, agent)
-                                        .replaceFirst(
-                                                "^porelo task start ",
-                                                "porelo task start "
-                                                        + Shell.quote(TaskSteps.aName(task))
-                                                        + " "));
+        final Ssh.Output output = world.run(namedCommand(task, project, agent, seconds));
         world.output(output);
         final String why = ReadySteps.whyNotEnded(output.status(), seconds);
         assertThat(why).as("%s; it said:%n%s", why, world.redact(output.all())).isNull();
+    }
+
+    /**
+     * Builds the command that starts a named unattended task under a bound.
+     *
+     * @param task The task's name.
+     * @param project Project directory in the operator's home.
+     * @param agent Which agent to run.
+     * @param seconds The bound.
+     * @return The command.
+     */
+    static String namedCommand(String task, String project, String agent, int seconds) {
+        return ReadySteps.bounded(
+                TaskSteps.startCommand(project, agent)
+                        .replaceFirst(
+                                "^porelo task start ",
+                                "porelo task start " + Shell.quote(TaskSteps.aName(task)) + " "),
+                seconds);
     }
 
     /**

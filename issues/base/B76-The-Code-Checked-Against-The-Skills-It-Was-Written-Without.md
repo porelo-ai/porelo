@@ -1,7 +1,7 @@
 # B76 — The Code Checked Against The Skills It Was Written Without
 
 **Status:** Implementing.
-**Size:** L - no open findings, every module read and `apps/*` and `daemon` read again whole; left: one rule for the kit's bounds.
+**Size:** L - no open findings, every module read and `apps/*` and `daemon` read again whole, and the kit's bounds capped.
 
 **What must be true.** Every Java module has been read against the skills that apply to it, and
 each finding is either fixed with a test that was watched to fail, or declined with the reason
@@ -993,6 +993,12 @@ In order, credentials and threads first, one commit per module:
      the cap; the named run's command carries `-k 10`.
    - The agent repositories then change their manifests' `ready_within_seconds` and their features' N in their own
      commits, against the kit released with this.
+   - **Built, 2026-10-17.** Both caps are 120 s (`ReadySteps.READY_CAP`, `UNATTENDED_CAP`), each written beside its
+     measurements: at most 31.0 s to the ready screen and 28.1 s unattended for Claude Code on a rented `cpx12` (two
+     CPUs), 36.1 s and 32.2 s for the stub on a rented `ccx33`; Pi and Oh My Pi at most 19.6 and 16.3 s on the VM. A
+     declared bound above the cap fails the step naming it, and so does an N above it; the named run is killed ten
+     seconds after its bound. Seen red first in `ReadyStepsTest`. porelo's own features go from 600 s to 120 s; the
+     agent repositories moved theirs to 120 s on 2026-10-17.
 
 Every fix keeps the rule above: a test watched to fail with the fix undone.
 

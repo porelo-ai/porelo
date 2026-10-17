@@ -1,0 +1,2 @@
+title: The kit refuses an agent's ready bound or an unattended run's bound above 120 seconds, naming the cap, and kills a named unattended run ten seconds after its bound
+type: changed

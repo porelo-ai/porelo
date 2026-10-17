@@ -34,5 +34,5 @@ Feature: Porelo shows an agent waiting for a person, read by the agent's own dec
 
     Scenario: what a finished unattended run said last is shown without opening its log
         Given a project called "ran" of class "guarded" with a file in it
-        When a task called "run" nobody is watching is started in "ran" for the "stub" agent and ends within 600 seconds
+        When a task called "run" nobody is watching is started in "ran" for the "stub" agent and ends within 120 seconds
         Then porelo says task "run" of "ran" last said "stub: finished"

@@ -74,11 +74,11 @@ Feature: After the machine restarts, a task goes on with the conversation it was
         When I run "porelo task attach porelo-recall-attended"
         Then the screen of task "attended" of "recall" shows "remembering compass"
         # The run nobody watches continues at its next start, and knows the word only its first run was given.
-        When a task called "talk" nobody is watching is started in "recall" for the "stub" agent and ends within 600 seconds
+        When a task called "talk" nobody is watching is started in "recall" for the "stub" agent and ends within 120 seconds
         Then its output contains "session   continuing "
         And porelo says task "talk" of "recall" last said "stub: continued, remembering lantern"
         # The agent that names no session begins fresh, and nothing claims a continuation.
-        When a task called "fresh" nobody is watching is started in "recall" for the "stub-sessionless" agent and ends within 600 seconds
+        When a task called "fresh" nobody is watching is started in "recall" for the "stub-sessionless" agent and ends within 120 seconds
         Then its output contains "session   a fresh one - this agent does not say how to continue one"
         And its output does not contain "continuing"
         And porelo says task "fresh" of "recall" last said "stub: finished"
