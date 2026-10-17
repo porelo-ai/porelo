@@ -210,6 +210,12 @@ public final class InstalledBuildReader implements AutoCloseable {
         try {
             return bounded(asked.process(), () -> asked.client().call(method, parameters), CALL_SECONDS);
         } catch (VarlinkException ex) {
+            if (ex.getErrorName() == null) {
+                // The connection failed, not the question: the reader is gone or going. Its process is ended and
+                // waited for here, so the next question finds it ended and starts it again - looking at it
+                // straight away found a crashed reader still alive on a busy machine, and asked it again.
+                ended(asked.process());
+            }
             final BuildRefused.Reason reason = BuildRefused.Reason.of(ex.getErrorName());
             final Map<String, Object> said = ex.getParameters() == null ? Map.of() : ex.getParameters();
             if (reason != null) {
@@ -282,6 +288,16 @@ public final class InstalledBuildReader implements AutoCloseable {
             throw new BuildReaderException("Interrupted while asking " + executable, ex);
         } finally {
             runner.shutdownNow();
+        }
+    }
+
+    /** Ends a reader's process and waits for it, so that it reads as ended at once. */
+    private static void ended(final Process process) {
+        process.destroyForcibly();
+        try {
+            process.waitFor(5, TimeUnit.SECONDS);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
         }
     }
 
