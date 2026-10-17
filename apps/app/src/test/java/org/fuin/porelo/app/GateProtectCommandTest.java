@@ -201,4 +201,39 @@ class GateProtectCommandTest {
         assertThat(hook).as("their hook stays").exists();
         assertThat(Files.readString(hook)).isEqualTo(theirs);
     }
+
+    @Test
+    void protectingAgainKeepsSomebodyElsesHookTheCheckWasAppendedTo(@TempDir Path root) throws Exception {
+
+        // Their hook carries the check's marker once it is appended to, and the second protect took it for its own
+        // and wrote its two lines over the whole file.
+        final String theirs = "#!/bin/sh\necho theirs\n";
+        final Path work = repository(root);
+        final Path hook = work.resolve(".git").resolve("hooks").resolve("pre-push");
+        Files.createDirectories(hook.getParent());
+        Files.writeString(hook, GateProtectCommand.appended(theirs));
+
+        assertThat(run(root, "gate", "protect", "--repo", work.toString())).isZero();
+
+        assertThat(Files.readString(hook)).as("their lines are still there, the check once")
+                .isEqualTo(GateProtectCommand.appended(theirs));
+    }
+
+    @Test
+    void removingTheCheckFromAHookWhoseLastLineEndIsGoneKeepsTheirLines(@TempDir Path root) throws Exception {
+
+        // An editor that drops the file's last line end left the appended block unrecognized, and the marker in it
+        // made the removal take the whole file for its own and delete it.
+        final String theirs = "#!/bin/sh\necho theirs\n";
+        final String appended = GateProtectCommand.appended(theirs);
+        final Path work = repository(root);
+        final Path hook = work.resolve(".git").resolve("hooks").resolve("pre-push");
+        Files.createDirectories(hook.getParent());
+        Files.writeString(hook, appended.substring(0, appended.length() - 1));
+
+        assertThat(run(root, "gate", "protect", "--repo", work.toString(), "--remove")).isZero();
+
+        assertThat(hook).as("their hook stays").exists();
+        assertThat(Files.readString(hook)).isEqualTo(theirs);
+    }
 }

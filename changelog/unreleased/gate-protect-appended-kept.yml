@@ -1,0 +1,2 @@
+title: porelo gate protect run again keeps a pre-push hook of your own the check was appended to, where it wrote its two lines over the whole file
+type: fixed

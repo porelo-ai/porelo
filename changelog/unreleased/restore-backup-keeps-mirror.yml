@@ -1,0 +1,2 @@
+title: The daemon's RestoreBackup moves the mirror aside and puts it back when the bundle does not restore, where a bundle that was no bundle left no mirror at all
+type: fixed

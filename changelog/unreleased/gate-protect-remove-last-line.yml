@@ -1,0 +1,2 @@
+title: porelo gate protect --remove takes only its lines out of your own hook when the file has lost its last line end, where it deleted the whole hook
+type: fixed

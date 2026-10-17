@@ -93,6 +93,8 @@ The readings listed below were made before versions were recorded; which they us
     porelod, again     security-audit, java-code-review, concurrency-review,
                        test-quality at 2026.906.3, graal at 2026.910.3                 00db32ee
     porelo-app-vault   security-audit, java-code-review, concurrency-review,
+                       test-quality, at 2026.906.3                                     808dc051
+    porelo-app-gate    security-audit, java-code-review, concurrency-review,
                        test-quality, at 2026.906.3                                     (this commit)
 
 "The commit below" is the one that also lets a leg's image cache report never fail the leg.
@@ -621,6 +623,51 @@ Read and left as they are:
 - **A device name or a credential name is printed as the account gave it**; the input is the account's own.
 - `AgentLogin` has Javadoc above the wrong member and a comment that says `BROWSER` is not set while the code sets it;
   style only, left.
+
+### `porelo-app-gate` (`apps/app-gate`)
+
+Read on 2026-10-17 whole - all of it is new under this path since `ac40a26` - with the daemon's `GateMethods`, against
+security-audit, java-code-review, concurrency-review and test-quality, each at 2026.906.3. Fixed, each with a test seen
+failing without its fix:
+
+- **Protecting a repository again wrote over a hook of the person's own.** Once the check was appended to their
+  pre-push hook, the file carried the check's marker, and the next `gate protect` took it for Porelo's and replaced
+  it with its two lines. A hook the check was appended to is left as it is.
+- **Removing the check could delete the person's whole hook.** When the file had lost its last line end, the appended
+  block was not recognized, and the marker in it made `--remove` delete the file. The block is recognized at the
+  file's end too, and a hook holding an appended block is never deleted.
+- **A restore over the daemon could leave no mirror at all.** `RestoreBackup` deleted the mirror before it knew the
+  bundle was usable: forced over unreviewed work with a file that was no bundle, it failed and left nothing - and
+  without force, a mirror with nothing waiting lost its branches. The mirror is moved aside, put back when the
+  restore fails, and removed only once the bundle has restored, as `gate restore` already moved it.
+- **The pre-push check let a push through unchecked when the far side held a commit this clone lacked.** A force
+  push, or one made without fetching, gives the hook a range git cannot count; the check answered "nothing an agent
+  wrote". It then counts what no tracking ref of that remote holds, as for a first push.
+- **`gate review` compared with `main` by default**, while the daemon's `Review` and the contract use the mirror's
+  `HEAD`. On a repository whose branch is not `main` the patch was the last commit's alone and the log the whole
+  history, so a person approved commits the review never showed. The default is `HEAD`.
+
+Fixed without a test, since it only reads wrong: the pre-push check prints an agent's subject and address with their
+terminal controls written out, as `gate review` does; the push is refused either way.
+
+Read and left as they are:
+
+- **`gate approve` exits 0 when every branch it offered was taken**, which needs `nextFreeBranch` to keep naming
+  taken branches through its fallback; nothing reaches that without a seam over the gate, and nothing was forwarded.
+- **`gate checkout --approve` exits 64 after a wrong name is typed at "which one?"** while its sentence is the one for
+  nothing waiting. Changing it changes an exit code, so it is not built.
+- **`against`, `branch` and `name` from the socket reach git** after `--end-of-options`, in a refspec git checks
+  itself, or through `rev-parse --verify`, which takes no option; `name` must be a pending push.
+- **`PendingBundle` writes the whole bundle before comparing it with its limit.** It goes into an owner-only
+  directory of its own and is bounded by the project's own mirror; only the reply is limited.
+- **A checkout's branch is read, then pushed into**: a person moving it between is their own act, and the push
+  refuses what does not fast-forward.
+- **`gate serve` takes its token from the environment and prints it abbreviated**; an address other than loopback is
+  the documented fallback.
+- **`gate check` exits 0 when the agents cannot be asked.** It is an accident-catcher, says so loudly, and its class
+  says it is not a control.
+- **Each command is one process and the daemon builds a gate per call**, so the area holds no shared state; the
+  gate's own locking is the gate module's.
 
 ## Plan
 

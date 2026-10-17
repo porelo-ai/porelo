@@ -144,6 +144,22 @@ class GateCheckCommandTest {
     }
 
     @Test
+    void aPushOverACommitThisCloneNeverHadIsStillChecked(@TempDir Path root) throws Exception {
+
+        // A force push, or one made without fetching, hands the hook a far side's commit this clone lacks: git could
+        // not count the range, the check found nothing, and the agent's commits left unasked.
+        final Path work = repository(root);
+        commit(work, "theirs.txt", AGENT, "the agent's");
+        final String head = git(work, "rev-parse", "HEAD");
+
+        final var found = GateCheckCommand.offenders(runner, work,
+                List.of(hookLine(head, "1234567890123456789012345678901234567890")), Set.of(AGENT), null);
+
+        assertThat(found).as("what no remote ref here holds is checked").extracting(GateCheckCommand.Offender::subject)
+                .containsExactly("the agent's");
+    }
+
+    @Test
     void anOrdinaryPushCountsOnlyWhatIsNewSinceTheFarSide(@TempDir Path root) throws Exception {
 
         final Path work = repository(root);

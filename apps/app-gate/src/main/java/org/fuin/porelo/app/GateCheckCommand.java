@@ -115,7 +115,13 @@ public class GateCheckCommand implements Callable<Integer>, PoreloFactory.Contex
         } else {
             arguments.add(remoteSha + ".." + localSha);
         }
-        final var result = runner.run(git(directory, arguments));
+        var result = runner.run(git(directory, arguments));
+        if (!result.successful() && !ABSENT.equals(remoteSha)) {
+            // The far side's commit is not here - a force push, or one made without fetching - so the range cannot
+            // be counted: what no tracking ref of that remote holds is what is new to it, as for a first push.
+            result = runner.run(git(directory, List.of("rev-list", localSha, "--not",
+                    remote == null || remote.isBlank() ? "--remotes" : "--remotes=" + remote)));
+        }
         return result.successful()
                 ? result.standardOutput().lines().map(String::strip)
                         .filter(line -> !line.isEmpty()).toList()
@@ -219,8 +225,9 @@ public class GateCheckCommand implements Callable<Integer>, PoreloFactory.Contex
 
         err.println("porelo: this push carries " + found.size()
                 + " commit(s) an agent wrote, which nobody approved at the gate:");
+        // Terminal controls written out: an agent's subject must not rewrite the lines of this refusal.
         found.forEach(offender -> err.println("  " + offender.commit() + "  "
-                + offender.subject() + "  (" + offender.author() + ")"));
+                + TalkReadCommand.shown(offender.subject()) + "  (" + TalkReadCommand.shown(offender.author()) + ")"));
         err.println();
         err.println("  The gate exists so somebody reads this before it leaves:");
         err.println("    porelo gate pending                 what is waiting");

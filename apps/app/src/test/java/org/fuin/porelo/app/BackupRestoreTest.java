@@ -96,6 +96,63 @@ class BackupRestoreTest {
     }
 
     @Test
+    void aBundleThatCannotBeRestoredLeavesTheMirrorAsItWas(@TempDir Path dir) throws Exception {
+
+        // The mirror was deleted before the bundle was known to be usable: forced over unreviewed work with a file
+        // that is no bundle, the restore failed and left no mirror - the work it was told to give up, and the rest.
+        final Path file = project(dir);
+        final org.fuin.porelo.gate.GitGate gate = gateFor(dir, file);
+        gate.initialize();
+        final Path work = dir.resolve("work");
+        git(dir, "init", "--quiet", "--initial-branch=main", work.toString());
+        Files.writeString(work.resolve("a.txt"), "a\n");
+        git(work, "add", ".");
+        git(work, "commit", "--quiet", "-m", "a");
+        git(work, "push", "--quiet", gate.mirror().toString(), "main", "main:refs/porelo/incoming/review-me");
+
+        final Path bundle = dir.resolve("backup.bundle");
+        Files.writeString(bundle, "not a bundle");
+
+        final BackupRestore.Result result = BackupRestore.restore(context(dir), "demo", bundle, false, true);
+
+        assertThat(result.outcome()).isEqualTo(BackupRestore.Outcome.FAILED);
+        assertThat(gate.mirror().resolve("objects")).as("the mirror is still there").isDirectory();
+        assertThat(gate.pending()).as("with what was waiting in it").containsExactly("review-me");
+        assertThat(gate.resolves("main")).as("and its branches").isTrue();
+        try (var beside = Files.list(gate.mirror().getParent())) {
+            assertThat(beside.map(path -> path.getFileName().toString()).toList())
+                    .as("nothing left beside it").containsExactly("demo.git");
+        }
+    }
+
+    @Test
+    void aBundleThatRestoresReplacesTheMirrorAndLeavesNothingBesideIt(@TempDir Path dir) throws Exception {
+
+        final Path file = project(dir);
+        final org.fuin.porelo.gate.GitGate gate = gateFor(dir, file);
+        gate.initialize();
+        final Path work = dir.resolve("work");
+        git(dir, "init", "--quiet", "--initial-branch=main", work.toString());
+        Files.writeString(work.resolve("a.txt"), "a\n");
+        git(work, "add", ".");
+        git(work, "commit", "--quiet", "-m", "a");
+        git(work, "push", "--quiet", gate.mirror().toString(), "main");
+        final Path bundle = dir.resolve("backup.bundle");
+        gate.backup(bundle);
+        git(work, "push", "--quiet", gate.mirror().toString(), "main:refs/porelo/incoming/after-the-backup");
+
+        final BackupRestore.Result result = BackupRestore.restore(context(dir), "demo", bundle, false, true);
+
+        assertThat(result.outcome()).isEqualTo(BackupRestore.Outcome.RESTORED);
+        assertThat(gate.pending()).as("forced: what came after the backup is gone").isEmpty();
+        assertThat(gate.resolves("main")).isTrue();
+        try (var beside = Files.list(gate.mirror().getParent())) {
+            assertThat(beside.map(path -> path.getFileName().toString()).toList())
+                    .as("the old mirror is not kept beside it").containsExactly("demo.git");
+        }
+    }
+
+    @Test
     void anUnknownProjectIsRefusedRatherThanGuessed(@TempDir Path dir) throws Exception {
 
         final Path bundle = dir.resolve("backup.bundle");

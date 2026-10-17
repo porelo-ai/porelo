@@ -138,18 +138,31 @@ public final class BackupRestore {
             return new Result(Outcome.PREVIEWED, mirror.toString(), unreviewed, "");
         }
 
+        // restore() refuses to write over a mirror, which is right: it is the last guard before something
+        // irreversible. Moving it aside is the deliberate act, taken only after the refusal above has been answered,
+        // and it is removed only once the bundle has restored: a bundle that does not leaves it as it was.
+        Path aside = null;
         try {
             if (Files.isDirectory(mirror.resolve("objects"))) {
-                // restore() refuses to write over a mirror, which is right: it is the last guard
-                // before something irreversible. Moving it aside is the deliberate act, taken
-                // only after the refusal above has been answered.
-                gate.deleteMirror();
+                aside = GateRestoreCommand.aside(mirror, java.time.LocalDate.now());
+                Files.move(mirror, aside);
             }
             gate.restore(bundle);
-            return new Result(Outcome.RESTORED, mirror.toString(), unreviewed, "");
-        } catch (RuntimeException ex) {
-            return new Result(Outcome.FAILED, mirror.toString(), unreviewed,
-                    String.valueOf(ex.getMessage()));
+        } catch (RuntimeException | java.io.IOException ex) {
+            String detail = String.valueOf(ex.getMessage());
+            if (aside != null) {
+                gate.deleteMirror();
+                try {
+                    Files.move(aside, mirror);
+                } catch (java.io.IOException back) {
+                    detail += "; the mirror as it was is at " + aside;
+                }
+            }
+            return new Result(Outcome.FAILED, mirror.toString(), unreviewed, detail);
         }
+        if (aside != null) {
+            new GitGate(context.runner(), aside, gate.mode(), null).deleteMirror();
+        }
+        return new Result(Outcome.RESTORED, mirror.toString(), unreviewed, "");
     }
 }

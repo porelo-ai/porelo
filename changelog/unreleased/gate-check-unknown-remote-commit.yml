@@ -1,0 +1,2 @@
+title: The pre-push check counts a push over a commit the clone never had as a first push, where it let the agent's commits through unchecked
+type: fixed

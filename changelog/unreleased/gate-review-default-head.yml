@@ -1,0 +1,2 @@
+title: porelo gate review compares with the mirror's HEAD by default, where it compared with main and showed only the last commit of work on a repository whose branch is not main
+type: fixed

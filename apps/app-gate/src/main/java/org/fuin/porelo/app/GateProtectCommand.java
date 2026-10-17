@@ -97,7 +97,8 @@ public class GateProtectCommand implements Callable<Integer>, PoreloFactory.Cont
                     // Appended to somebody else's hook: only the lines it added go, the rest is theirs.
                     Files.writeString(hookFile, without, StandardCharsets.UTF_8);
                     out.println("removed   the check from " + hookFile + "; the rest of it is left as it was");
-                } else if (present != null && present.contains("porelo-gate-protect")) {
+                } else if (present != null && present.contains("porelo-gate-protect")
+                        && !present.contains(BEGIN_APPENDED)) {
                     Files.delete(hookFile);
                     out.println("removed   " + hookFile);
                 } else {
@@ -116,6 +117,13 @@ public class GateProtectCommand implements Callable<Integer>, PoreloFactory.Cont
 
         try {
             Files.createDirectories(hookFile.getParent());
+            if (Files.isRegularFile(hookFile) && Files.readString(hookFile, StandardCharsets.UTF_8)
+                    .contains(BEGIN_APPENDED)) {
+                // Somebody else's hook the check was appended to: it carries the marker, and is still theirs.
+                out.println("appended  the check is in " + hookFile + " already; the rest of it is left as it was");
+                out.flush();
+                return 0;
+            }
             if (Files.isRegularFile(hookFile) && !Files.readString(hookFile, StandardCharsets.UTF_8)
                     .contains("porelo-gate-protect")) {
                 if (appendOffer(hookFile, Offer.atTerminal() ? new Offer(Offer.Asker.terminal(), false, false, err)
@@ -187,11 +195,16 @@ public class GateProtectCommand implements Callable<Integer>, PoreloFactory.Cont
      */
     static @org.jspecify.annotations.Nullable String withoutAppended(final String hook) {
         final int begin = hook.indexOf(BEGIN_APPENDED + "\n");
-        final int end = hook.indexOf(END_APPENDED + "\n");
-        if (begin < 0 || end < begin) {
+        final int end = begin < 0 ? -1 : hook.indexOf(END_APPENDED, begin);
+        if (begin < 0 || end < 0) {
             return null;
         }
-        return hook.substring(0, begin) + hook.substring(end + END_APPENDED.length() + 1);
+        // Its own line end, or the file's end where an editor dropped the last one.
+        final int after = end + END_APPENDED.length();
+        if (after < hook.length() && hook.charAt(after) != '\n') {
+            return null;
+        }
+        return hook.substring(0, begin) + hook.substring(Math.min(after + 1, hook.length()));
     }
 
     /**
