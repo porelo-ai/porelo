@@ -1,7 +1,7 @@
 # B76 — The Code Checked Against The Skills It Was Written Without
 
 **Status:** Implementing.
-**Size:** L - no open findings, and three modules added on 2026-10-08 that were never read.
+**Size:** L - no open findings, and every module read; left are the two points under *To be checked*.
 
 **What must be true.** Every Java module has been read against the skills that apply to it, and
 each finding is either fixed with a test that was watched to fail, or declined with the reason
@@ -87,7 +87,9 @@ The readings listed below were made before versions were recorded; which they us
                        test-quality, at 2026.906.3                                     2026-10-17, its fixes
     porelo-build-stub  the same four, at 2026.906.3                                    (this commit)
     porelo-dist-       test-quality, security-audit, java-code-review,
-    package-check      at 2026.906.3                                                   (this commit)
+    package-check      at 2026.906.3                                                   2026-10-17, its fix
+    porelo-acceptance- test-quality, security-audit, java-code-review,
+    legs               at 2026.906.3                                                   (this commit)
 
 "The commit below" is the one that also lets a leg's image cache report never fail the leg.
 
@@ -510,9 +512,32 @@ Read and left as they are:
 - **The containers mount `target/` with `:Z`**, which relabels those directories for SELinux. They hold only what the
   build made.
 
+### `porelo-acceptance-legs` (`acceptance/legs`)
+
+Read on 2026-10-17 against test-quality, security-audit and java-code-review, each at 2026.906.3. `Streamed` and
+`CpuSteal` are from the same day and were read with it. Fixed, with a test seen failing without its fix:
+
+- **The restart grant was root for anything.** The acceptance accounts were let run `systemd-run`, `systemctl` and
+  `reboot` as root with any arguments, beside a comment saying a suite that can reboot cannot do anything else as root -
+  but `systemd-run` and `systemctl` run whatever they are given. The grant now names the two commands the suite asks,
+  each with its arguments: `systemd-run --on-active=1s /sbin/reboot` and `reboot`; `visudo` still checks it on the
+  machine, and the same lines parse there.
+
+Read and left as they are:
+
+- **The failsafe reports are parsed with the JDK's default XML reader**, which would follow a document type. They are
+  failsafe's own files, written here; a document type can only stand at their top, which failsafe writes.
+- **The binaries come back as a tar from the rented machine** and are unpacked here. GNU tar strips `../` and leading
+  `/`, the machine is one this run made from this tree, and every name is checked on arrival.
+- **The tree's tar is left in the temporary directory** by `Main.archiveOf`. A runner is thrown away after the job; on a
+  developer's machine it is one file per leg.
+- **An account install stops at its first failure (`set -e`) and leaves its unpacked package** in a `mktemp`
+  directory. The deploy says where it stopped.
+
 ## Plan
 
-Every finding listed above is fixed or declined (2026-10-16); what is left is the modules nobody has read. Since `ac40a26` three modules came into this tree that nobody read against the skills:
+Every finding listed above is fixed or declined (2026-10-16), and the modules added since `ac40a26` are read (2026-10-17),
+each with its row in *Done so far*. What was left was those modules:
 `builds/api` and `builds/stub` (the build interface, about 1100 lines), `dist/package-check` (about 1000) and
 `acceptance/legs` (about 1500), all added on 2026-10-08. `apps/*` and `daemon` have changed by many thousand
 lines since their reading; they are read again only where a finding below touches them.

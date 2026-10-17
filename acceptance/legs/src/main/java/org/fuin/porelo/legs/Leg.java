@@ -158,15 +158,12 @@ public final class Leg {
             // command returns 0, the machine is unreachable within six seconds and answers again
             // after about forty.
             //
-            // Three programs and nothing else. This is a machine that exists for one run and is
-            // deleted after it, but the grant is still written narrowly: a suite that can reboot
-            // its machine is not a suite that can do anything else as root.
+            // Two commands, each with its arguments, and nothing else. This is a machine that exists for one run and is
+            // deleted after it, but the grant is still written narrowly: a suite that can reboot its machine is not a
+            // suite that can do anything else as root. Three programs with any arguments were, since 'systemd-run'
+            // and 'systemctl' run whatever they are given.
             step("letting the acceptance user restart the machine");
-            run(lease.ssh(), "printf '%s ALL=(root) NOPASSWD: /usr/bin/systemd-run,"
-                    + " /usr/bin/systemctl, /sbin/reboot\\n' " + String.join(" ", users)
-                    + " > /etc/sudoers.d/90-porelo-acceptance-reboot"
-                    + " && chmod 0440 /etc/sudoers.d/90-porelo-acceptance-reboot"
-                    + " && visudo -c -f /etc/sudoers.d/90-porelo-acceptance-reboot");
+            run(lease.ssh(), grantRestart(users));
 
             try (Ssh build = Ssh.to(lease.address(), USER, credential)) {
             step("sending the working tree");
@@ -256,6 +253,32 @@ public final class Leg {
                 System.out.println("-- kept, so it can be looked at; it is billing until swept");
             }
         }
+    }
+
+    /** Where the restart grant goes. */
+    static final String RESTART_GRANT = "/etc/sudoers.d/90-porelo-acceptance-reboot";
+
+    /**
+     * The sudoers lines that let the acceptance accounts restart the machine, one per account.
+     *
+     * @param users The accounts.
+     * @return The lines.
+     */
+    static List<String> restartGrant(List<String> users) {
+        // What the suite asks and nothing more: 'systemd-run' or 'systemctl' with any arguments runs anything as root.
+        return users.stream().map(user -> user + " ALL=(root) NOPASSWD: /usr/bin/systemd-run --on-active\\=1s"
+                + " /sbin/reboot, /sbin/reboot").toList();
+    }
+
+    /**
+     * Writes {@link #restartGrant} as root and has {@code visudo} check it.
+     *
+     * @param users The accounts.
+     * @return The command.
+     */
+    static String grantRestart(List<String> users) {
+        return "printf '%s\\n' " + String.join(" ", restartGrant(users).stream().map(AgentLeg::quote).toList())
+                + " > " + RESTART_GRANT + " && chmod 0440 " + RESTART_GRANT + " && visudo -c -f " + RESTART_GRANT;
     }
 
     /**
@@ -492,13 +515,6 @@ public final class Leg {
     }
 
     /**
-     * Runs one step, and stops the leg where it failed rather than carrying on.
-     *
-     * @param ssh The connection to run it on.
-     * @param command What to run.
-     * @throws IOException If it failed.
-     */
-    /**
      * Stops the leg when rootless podman's pause process already exists.
      * <p>
      * Then the namespace is already made, and a podman call under the unit would pass whatever the
@@ -584,6 +600,13 @@ public final class Leg {
         }
     }
 
+    /**
+     * Runs one step, and stops the leg where it failed rather than carrying on.
+     *
+     * @param ssh The connection to run it on.
+     * @param command What to run.
+     * @throws IOException If it failed.
+     */
     private static void run(Ssh ssh, String command) throws IOException {
         final Ssh.Output out = ssh.run(command);
         System.out.print(out.all());

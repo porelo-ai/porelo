@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -134,5 +135,16 @@ class LegTest {
         })).contains("could not be read").contains("Not connected");
         org.assertj.core.api.Assertions.assertThat(Leg.reported(() -> "  manifests answered by the cache: 4\n"))
                 .contains("4");
+    }
+
+    @Test
+    void theAcceptanceAccountsMayRestartTheMachineAndDoNothingElseAsRoot() {
+
+        // 'systemd-run' and 'systemctl' with any arguments run anything as root, which the grant's own comment said it
+        // did not allow: the suite asks for exactly a delayed reboot, and a reboot when that fails.
+        assertThat(Leg.restartGrant(List.of("build", "accept2"))).containsExactly(
+                "build ALL=(root) NOPASSWD: /usr/bin/systemd-run --on-active\\=1s /sbin/reboot, /sbin/reboot",
+                "accept2 ALL=(root) NOPASSWD: /usr/bin/systemd-run --on-active\\=1s /sbin/reboot, /sbin/reboot");
+        assertThat(Leg.grantRestart(List.of("build"))).endsWith("visudo -c -f " + Leg.RESTART_GRANT);
     }
 }
