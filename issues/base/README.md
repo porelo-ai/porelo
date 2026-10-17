@@ -98,6 +98,8 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b179"></a>[B179](B179-A-Code-Beside-Why-A-Release-Cannot-Go.md) | - | - | A code beside `detail` when a release is answered `NOT_DELIVERABLE`, so a client can say what to do per case. |
+| <a id="b201"></a>[B201](B201-A-Start-Now-Built-Or-Removed.md) | - | - | `task start --now` is accepted and does nothing: built or removed, after finding what it was meant for. |
+| <a id="b202"></a>[B202](B202-Credential-Names-In-A-Project-File-Checked.md) | - | - | A credential's name in a project file is checked when read, since it becomes a token file's and a variable's name; what an existing file does is decided. |
 
 ## Estimated
 
