@@ -135,8 +135,11 @@ tmux delivered nothing.
   `KeysTest` was seen red against an empty table first.
 - `task/task-keys.feature`: one scenario, one task, each key in turn. The program behind tmux is
   `head -c <n> | od -An -tx1`, started after a READY mark built at run time, and the scenario waits for the hex it
-  prints. Focus events are asked for first, as an agent's interface asks. Shift+PageUp and Shift+PageDown are left
-  out: they scroll tmux's history and reach no program outside the alternate screen.
+  prints. Shift+PageUp and Shift+PageDown are left out: they scroll tmux's history and reach no program outside the
+  alternate screen. **Run on the ubuntu VM, 2026-10-17: every key arrived as measured** - Esc, PageUp, Ctrl+Right,
+  Alt+x, and Shift+Enter in both forms, xterm's arriving in the CSI u form. **Focus in and out did not**, though the
+  program asked for them; measured passing on 2026-10-09 with a script as the outside terminal, so it is the kit's
+  ssh terminal, not tmux. Focus does no harm when it is lost, so it is left out of the scenario, not chased.
 - **Pi measured** on the ubuntu VM (step 1), 2026-10-17: Pi 0.85.0 in a task's image, in a tmux session started with
   `/etc/porelo/tmux.conf` and `TERM=tmux-256color`, read through tmux's own flags. Pi runs **without the alternate
   screen and asks for no mouse** (`alternate_on 0`, `mouse_any_flag 0`), as Claude Code does. **PageUp reaches Pi and
