@@ -194,9 +194,23 @@ Feature: The commands a machine answers about itself
             hop -N -o ExitOnForwardFailure=yes -L "$dir/forwarded.sock:$sock" localhost </dev/null >"$dir/forward.log" 2>&1 &
             forward=$!
             for i in $(seq 100); do [ -S "$dir/forwarded.sock" ] && break; sleep 0.1; done
-            printf '%s\0' '{"method":"org.fuin.porelo.Tasks1.List"}' \
-                | timeout 30 porelo daemon connect --socket "$dir/forwarded.sock" | tr '\0' '\n' | head -1 \
-                | grep -q '"tasks"' && echo "the forwarded socket answered the listing"
+            # The local end exists before ssh can carry a connection through it: on a leg running two accounts at
+            # once, the first one was reset. Asked again, but never past a daemon that went away and came back -
+            # that would be a crash this hides.
+            before=$(systemctl --user show -p MainPID --value porelo-acceptance-porelod)
+            for i in $(seq 5); do
+                printf '%s\0' '{"method":"org.fuin.porelo.Tasks1.List"}' \
+                    | timeout 30 porelo daemon connect --socket "$dir/forwarded.sock" 2>>"$dir/forward.log" \
+                    | tr '\0' '\n' | head -1 | grep -q '"tasks"' && { answered=yes; break; }
+                sleep 2
+            done
+            after=$(systemctl --user show -p MainPID --value porelo-acceptance-porelod)
+            if [ "${answered:-}" = yes ] && [ "$before" = "$after" ]; then
+                echo "the forwarded socket answered the listing"
+            else
+                echo "daemon $before then $after"; cat "$dir/forward.log"
+                journalctl --user -u porelo-acceptance-porelod -n 20 --no-pager
+            fi
             """
         Then its output contains "the watch over ssh saw the task start"
         And its output contains "the watch over ssh saw it go"
