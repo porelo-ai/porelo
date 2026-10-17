@@ -26,9 +26,9 @@ class VaultUnlockCommandTest {
     @Test
     void noBoundIsTheDefaultAndStaysTheDefault() {
 
-        // Today's behaviour is unchanged unless somebody asks for a limit. A bound that crept in
-        // as a default would start asking people for a passphrase they never used to be asked
-        // for, which is a change of behaviour wearing the clothes of a new feature.
+        // Today's behaviour is unchanged unless somebody asks for a limit. A bound that crept in as
+        // a default would start asking people for a passphrase they never used to be asked for,
+        // which is a change of behaviour wearing the clothes of a new feature.
         assertThat(VaultUnlockCommand.duration(null)).isNull();
         assertThat(VaultUnlockCommand.duration("")).isNull();
         assertThat(VaultUnlockCommand.duration("   ")).isNull();

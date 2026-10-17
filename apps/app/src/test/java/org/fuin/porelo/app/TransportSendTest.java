@@ -117,8 +117,8 @@ class TransportSendTest {
             @TempDir final Path dir) throws IOException {
 
         // A person reading the room saw the message as JSON: the line they read is Porelo's, made
-        // here from the
-        // checked message alone, and passed only to a transport that says it takes it.
+        // here from the checked message alone, and passed only to a transport that says it takes
+        // it.
         final Mailbox mailbox = queued(dir);
         runner.answering("describe", "{\"scheme\":\"local\",\"shown\":true}");
         runner.answering("send", "{}");
@@ -149,8 +149,8 @@ class TransportSendTest {
     void the_line_a_person_reads_is_the_text_and_nothing_else() {
 
         // The operator in walk 10, 2026-10-04: "porelo-…-writer to alice:" in front of a direct
-        // answer "makes no
-        // sense". The account that posts it says who wrote it, and a mention says whom it is for.
+        // answer "makes no sense". The account that posts it says who wrote it, and a mention says
+        // whom it is for.
         assertThat(
                         TransportSend.shown(
                                 """
@@ -166,8 +166,7 @@ class TransportSendTest {
             @TempDir final Path dir) throws IOException {
 
         // The operator in walk 10, 2026-10-04: in the room "with the correct @", and "a private
-        // answer only when he
-        // was written to privately".
+        // answer only when he was written to privately".
         final Mailbox mailbox = queued(dir);
         Files.writeString(
                 mailbox.queueActive("local").resolve("m-1.json"),
@@ -241,8 +240,8 @@ class TransportSendTest {
             throws IOException {
 
         // A direct chat (2026-10-04): the room is what the task acts in, and a person is a
-        // destination of
-        // their own, which the host queued from the project's peer; an empty one is the room's.
+        // destination of their own, which the host queued from the project's peer; an empty one is
+        // the room's.
         final Mailbox mailbox = queued(dir);
         Files.writeString(
                 mailbox.queueActive("local").resolve("m-1.json"),

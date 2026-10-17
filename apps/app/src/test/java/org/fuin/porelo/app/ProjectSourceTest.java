@@ -167,8 +167,7 @@ class ProjectSourceTest {
         followed(context, "acme", "a1b2c3", "project:\n  name: \"acme\"\n");
 
         // What a refusal prints. 'default' first, which every machine has; then followed, because
-        // that is the list
-        // somebody should be choosing from.
+        // that is the list somebody should be choosing from.
         assertThat(ProjectSource.names(context))
                 .containsExactly(DefaultProject.NAME, "acme", "solo");
     }
@@ -178,17 +177,17 @@ class ProjectSourceTest {
         final PoreloContext context = context(dir);
         Files.delete(recorded(context, dir, "solo"));
 
-        // The registry remembers where a task last read one; the file can be deleted afterwards
-        // and nothing here would know. Answering with a path that is not there would make the
-        // failure happen somewhere further in.
+        // The registry remembers where a task last read one; the file can be deleted afterwards and
+        // nothing here would know. Answering with a path that is not there would make the failure
+        // happen somewhere further in.
         assertThat(ProjectSource.resolve(context, "solo").outcome())
                 .isEqualTo(ProjectSource.Outcome.UNKNOWN);
     }
 
     @Test
     void whetherAProjectIsStuckIsDerivedFromItsOutcome(@TempDir final Path dir) {
-        // Derived, never stored: two fields that must agree are two fields that can disagree, and
-        // a stored one would rot the first time an outcome was added.
+        // Derived, never stored: two fields that must agree are two fields that can disagree, and a
+        // stored one would rot the first time an outcome was added.
         assertThat(
                         new FollowedProjects.Followed("a", "u", "", "", "UNKNOWN_KEY", "")
                                 .needsAPerson())

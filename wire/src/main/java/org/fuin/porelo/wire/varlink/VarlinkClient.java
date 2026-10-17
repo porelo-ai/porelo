@@ -69,11 +69,11 @@ public class VarlinkClient implements AutoCloseable {
             while (true) {
                 final Map<String, Object> reply = connection.receive();
                 if (reply == null) {
-                    // The peer closed mid-stream. Returning here would be indistinguishable from
-                    // a stream that ended properly - a client would stop watching and go on
-                    // showing what it last saw, which for a fleet view or a clearance prompt is
-                    // worse than an error. A finished stream arrives as a reply without
-                    // 'continues'; a socket that simply ends did not finish.
+                    // The peer closed mid-stream. Returning here would be indistinguishable from a
+                    // stream that ended properly - a client would stop watching and go on showing
+                    // what it last saw, which for a fleet view or a clearance prompt is worse than
+                    // an error. A finished stream arrives as a reply without 'continues'; a socket
+                    // that simply ends did not finish.
                     throw new VarlinkException(
                             "The service closed the stream of " + method + " before it ended");
                 }
@@ -82,8 +82,8 @@ public class VarlinkClient implements AutoCloseable {
                     return;
                 }
                 if (!Boolean.TRUE.equals(reply.get("continues"))) {
-                    // The last reply in a stream omits 'continues'. Treating its absence as
-                    // "keep waiting" is how a client hangs at the end of a perfectly good stream.
+                    // The last reply in a stream omits 'continues'. Treating its absence as "keep
+                    // waiting" is how a client hangs at the end of a perfectly good stream.
                     return;
                 }
             }

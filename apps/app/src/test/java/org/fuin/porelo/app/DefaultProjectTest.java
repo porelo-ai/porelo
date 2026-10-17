@@ -134,8 +134,7 @@ class DefaultProjectTest {
     void aCheckoutClonedWithATokenGoesIntoDefaultWithoutIt() throws Exception {
 
         // Cloning with a token leaves it in the origin. Kept as it was, it was written into what
-        // 'default' lists and
-        // printed in what the start said: a secret in a file and in scrollback.
+        // 'default' lists and printed in what the start said: a secret in a file and in scrollback.
         final PoreloContext context = context();
         final Path checkout = Files.createDirectories(dir.resolve("app"));
         git(checkout, "init", "-q");
@@ -187,8 +186,7 @@ class DefaultProjectTest {
         assertThat(choice.project()).isEqualTo(DefaultProject.NAME);
         assertThat(choice.repository()).isEqualTo("app");
         // The checkout is the source both ways: its history goes in, its work comes back to it; its
-        // remote is the
-        // person's own to pull and push, and is kept only to be shown.
+        // remote is the person's own to pull and push, and is kept only to be shown.
         assertThat(new DefaultProject(context).entries())
                 .singleElement()
                 .satisfies(
@@ -320,9 +318,8 @@ class DefaultProjectTest {
     void twoWritersAtOnceLoseNoRepositoryAndNeitherFails() throws Exception {
 
         // Measured on the VM: two processes wrote default's project file through one staged name,
-        // and the second found
-        // it gone - "the project file of 'default' cannot be written: .project.yml.new ->
-        // project.yml".
+        // and the second found it gone - "the project file of 'default' cannot be written:
+        // .project.yml.new -> project.yml".
         final java.util.concurrent.ExecutorService pool =
                 java.util.concurrent.Executors.newFixedThreadPool(4);
         try {

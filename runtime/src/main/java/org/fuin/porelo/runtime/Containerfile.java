@@ -171,8 +171,8 @@ public final class Containerfile {
 
         lines.add("");
         lines.add("LABEL org.fuin.porelo.project=\"" + project.name() + "\"");
-        // What this image was built from, so an image built before the project file changed can
-        // be told from one that is simply absent. Without it "prepared" says only that something
+        // What this image was built from, so an image built before the project file changed can be
+        // told from one that is simply absent. Without it "prepared" says only that something
         // exists, and "this will not be what you expect" is discoverable only by starting work.
         lines.add("LABEL org.fuin.porelo.recipe=\"" + fingerprint(project) + "\"");
         lines.add(
@@ -378,8 +378,8 @@ public final class Containerfile {
                                         + " && chmod 0700 "
                                         + HAND_IN_INCOMING));
 
-        // Everything above is the base image and the packages every task needs. Everything below
-        // is the agent's. This ARG is the seam between them: podman invalidates its cache from the
+        // Everything above is the base image and the packages every task needs. Everything below is
+        // the agent's. This ARG is the seam between them: podman invalidates its cache from the
         // line whose text changed, so passing a different value here rebuilds the agent's layers
         // and keeps the package layer - which is the difference between a rebuild that takes
         // seconds and one that downloads a distribution again.
@@ -403,16 +403,16 @@ public final class Containerfile {
         lines.add("# not findable, which reads as a broken install rather than a missing PATH.");
         lines.add("ENV PATH=/home/agent/.local/bin:/usr/local/bin:/usr/bin:/bin");
         lines.add("");
-        // Measured on the Ubuntu VM, 2026-09-12: without this LANG is unset and LC_CTYPE is
-        // POSIX, because neither the base image nor 'podman exec' sets one. An agent's terminal
-        // interface then loses every character outside ASCII - its banner, its prompt markers and
-        // its spinner all arrive as underscores - and the shell echoes what somebody types as
-        // octal escapes. C.UTF-8 costs nothing: it is built into glibc and musl, so no locale has
-        // to be generated and no package added.
+        // Measured on the Ubuntu VM, 2026-09-12: without this LANG is unset and LC_CTYPE is POSIX,
+        // because neither the base image nor 'podman exec' sets one. An agent's terminal interface
+        // then loses every character outside ASCII - its banner, its prompt markers and its spinner
+        // all arrive as underscores - and the shell echoes what somebody types as octal escapes.
+        // C.UTF-8 costs nothing: it is built into glibc and musl, so no locale has to be generated
+        // and no package added.
         //
-        // LANG rather than LC_ALL on purpose. LANG is the fallback every LC_* category uses when
-        // it is not set itself, so this makes UTF-8 the default without taking away the ability
-        // to set a category. LC_ALL would override anything the project or the agent chose.
+        // LANG rather than LC_ALL on purpose. LANG is the fallback every LC_* category uses when it
+        // is not set itself, so this makes UTF-8 the default without taking away the ability to set
+        // a category. LC_ALL would override anything the project or the agent chose.
         lines.add("# Without a UTF-8 locale an agent's interface arrives as underscores.");
         lines.add("ENV LANG=C.UTF-8");
 

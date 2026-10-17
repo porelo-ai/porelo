@@ -66,8 +66,8 @@ class ProjectRegistryTest {
     void twoStartsAtOnceCannotCorruptEachOther(@TempDir Path dir) throws Exception {
 
         // The defect this shape exists to remove: one document meant read-modify-write, and the
-        // first version wrote through a shared temporary file, so two writers could interleave
-        // into the bytes that were then moved into place.
+        // first version wrote through a shared temporary file, so two writers could interleave into
+        // the bytes that were then moved into place.
         final Path registry = dir.resolve("projects");
         final int writers = 24;
         final java.util.concurrent.CountDownLatch go = new java.util.concurrent.CountDownLatch(1);

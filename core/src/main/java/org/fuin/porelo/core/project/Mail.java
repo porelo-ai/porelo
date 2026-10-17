@@ -233,12 +233,12 @@ public record Mail(
             return EXTERNAL.equals(trust);
         }
 
-        // A peer name has to be able to hold an OpenSSH principal, because that is what a peer
-        // is identified by when its message arrives: 'porelo talk key' prints 'porelo@<host>' and a
-        // project that could not name that would be unable to address the machine that produced
-        // it. Measured on the VM, where the obvious path produced an identity nobody could
-        // address. It reaches no file name and no argument list, only 'metadata.to' and a key in
-        // the moderation file, so the dot and the at sign cost nothing.
+        // A peer name has to be able to hold an OpenSSH principal, because that is what a peer is
+        // identified by when its message arrives: 'porelo talk key' prints 'porelo@<host>' and a
+        // project that could not name that would be unable to address the machine that produced it.
+        // Measured on the VM, where the obvious path produced an identity nobody could address. It
+        // reaches no file name and no argument list, only 'metadata.to' and a key in the moderation
+        // file, so the dot and the at sign cost nothing.
         private static final Pattern NAME = Pattern.compile("[a-zA-Z0-9][a-zA-Z0-9_.@-]*");
 
         // The transport's name reaches a file name and an argument list, so it is as narrow as a
@@ -246,8 +246,8 @@ public record Mail(
         private static final Pattern ADDRESS = Pattern.compile("([a-z0-9][a-z0-9-]*):(.+)");
 
         // "<transport>:" with nothing after the colon: the project's own conversation on a
-        // transport that
-        // makes one - its room, say - which nobody can name before the transport has made it.
+        // transport that makes one - its room, say - which nobody can name before the transport has
+        // made it.
         private static final Pattern CONVERSATION = Pattern.compile("[a-z0-9][a-z0-9-]*:");
 
         /**

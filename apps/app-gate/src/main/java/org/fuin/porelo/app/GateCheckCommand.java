@@ -61,8 +61,8 @@ public class GateCheckCommand implements Callable<Integer>, PoreloFactory.Contex
     @Option(names = "--quiet", description = "Says nothing when there is nothing to say.")
     private boolean quiet;
 
-    // git passes the remote's name and URL to a pre-push hook as arguments. The name is what
-    // makes "new to the far side" answerable: without it the check falls back to every remote.
+    // git passes the remote's name and URL to a pre-push hook as arguments. The name is what makes
+    // "new to the far side" answerable: without it the check falls back to every remote.
     @picocli.CommandLine.Parameters(
             index = "0..*",
             arity = "0..2",
@@ -108,13 +108,12 @@ public class GateCheckCommand implements Callable<Integer>, PoreloFactory.Contex
         }
         final List<String> arguments = new ArrayList<>(List.of("rev-list"));
         if (ABSENT.equals(remoteSha)) {
-            // A branch the far side does not have, so there is no base to subtract. The first
-            // form written here was "--not --all", and measured it answers zero commits every
-            // time: the ref being pushed is itself one of --all, so it cancels itself out. That
-            // is the worst kind of wrong - it installs, it runs, it never fires. What is new to
-            // the far side is what no tracking ref of that remote already has, and where there
-            // are no tracking refs that is the whole branch, which is both conservative and
-            // literally true.
+            // A branch the far side does not have, so there is no base to subtract. The first form
+            // written here was "--not --all", and measured it answers zero commits every time: the
+            // ref being pushed is itself one of --all, so it cancels itself out. That is the worst
+            // kind of wrong - it installs, it runs, it never fires. What is new to the far side is
+            // what no tracking ref of that remote already has, and where there are no tracking refs
+            // that is the whole branch, which is both conservative and literally true.
             arguments.add(localSha);
             arguments.add("--not");
             arguments.add(remote == null || remote.isBlank() ? "--remotes" : "--remotes=" + remote);
@@ -124,9 +123,8 @@ public class GateCheckCommand implements Callable<Integer>, PoreloFactory.Contex
         var result = runner.run(git(directory, arguments));
         if (!result.successful() && !ABSENT.equals(remoteSha)) {
             // The far side's commit is not here - a force push, or one made without fetching - so
-            // the range cannot
-            // be counted: what no tracking ref of that remote holds is what is new to it, as for a
-            // first push.
+            // the range cannot be counted: what no tracking ref of that remote holds is what is new
+            // to it, as for a first push.
             result =
                     runner.run(
                             git(
@@ -180,8 +178,8 @@ public class GateCheckCommand implements Callable<Integer>, PoreloFactory.Contex
             }
             for (final String commit : commits(runner, directory, fields[1], fields[3], remote)) {
                 if (!seen.add(commit)) {
-                    // Two refs pushed together share history. Naming a commit twice would make
-                    // "3 commits" mean something no count of the repository could confirm.
+                    // Two refs pushed together share history. Naming a commit twice would make "3
+                    // commits" mean something no count of the repository could confirm.
                     continue;
                 }
                 final var shown =

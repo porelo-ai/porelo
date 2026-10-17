@@ -365,8 +365,8 @@ public class VaultProxy implements AutoCloseable, Runnable {
                                     handle(open);
                                 } catch (IOException ex) {
                                     // A client that goes away mid-request is not this proxy's
-                                    // problem to solve,
-                                    // and must not take the accept loop down with it.
+                                    // problem to solve, and must not take the accept loop down with
+                                    // it.
                                     return;
                                 }
                             });
@@ -392,8 +392,8 @@ public class VaultProxy implements AutoCloseable, Runnable {
                             + " "
                             + Query.redacted(head.target())
                             + " -> 401 token not accepted");
-            // Deliberately the provider's own vocabulary: an agent that gets this should behave
-            // as it would for any rejected credential rather than treat it as a transport fault.
+            // Deliberately the provider's own vocabulary: an agent that gets this should behave as
+            // it would for any rejected credential rather than treat it as a transport fault.
             out.write(
                     HttpHead.response(
                             401,
@@ -475,9 +475,9 @@ public class VaultProxy implements AutoCloseable, Runnable {
             return;
         }
         if (reading == Reading.MINTS) {
-            // Refused here rather than upstream: forwarding it would attach the real credential
-            // to a request whose answer is a new one, and the provider may rotate what Porelo
-            // holds as a side effect of a question nobody wanted asked.
+            // Refused here rather than upstream: forwarding it would attach the real credential to
+            // a request whose answer is a new one, and the provider may rotate what Porelo holds as
+            // a side effect of a question nobody wanted asked.
             log.accept(
                     head.method()
                             + " "
@@ -680,8 +680,7 @@ public class VaultProxy implements AutoCloseable, Runnable {
      */
     private String presented(HttpHead head) {
         // The route's own header first: a key in a header nobody else uses - x-goog-api-key - is
-        // still
-        // this task's token, and refusing it said "not this task's token", which was false.
+        // still this task's token, and refusing it said "not this task's token", which was false.
         final String declared = head.value(authHeader.toLowerCase(Locale.ROOT));
         if (declared != null && !declared.isBlank()) {
             return declared.contains(" ")
@@ -718,8 +717,8 @@ public class VaultProxy implements AutoCloseable, Runnable {
         }
         final long length = head.contentLength();
         if (length == HttpHead.MALFORMED) {
-            // Present and unusable. Treating it as absent forwards a request whose body the
-            // caller declared and this did not send.
+            // Present and unusable. Treating it as absent forwards a request whose body the caller
+            // declared and this did not send.
             throw new IOException("The request declares a Content-Length that is not a length");
         }
         if (length <= 0) {
@@ -737,9 +736,8 @@ public class VaultProxy implements AutoCloseable, Runnable {
         // parameter never travels; the real key goes back in only where this route says.
         final String target = Query.without(head.target(), queryParameters());
         // A path on the upstream and nothing else: appended as it came, '@other:<port>/x' made the
-        // upstream's host the
-        // user part and '.attacker.example/x' extended it, and the real key went to a host the
-        // agent chose.
+        // upstream's host the user part and '.attacker.example/x' extended it, and the real key
+        // went to a host the agent chose.
         if (!target.startsWith("/")) {
             throw new IllegalArgumentException("a request target that is not a path");
         }
@@ -779,9 +777,8 @@ public class VaultProxy implements AutoCloseable, Runnable {
             }
             request.header(head.names().get(i), head.values().get(i));
         }
-        // The scan reads text, so the answer is asked for uncompressed. An agent's own
-        // 'gzip, deflate, br' got every answer compressed, and every one was withheld as
-        // unreadable.
+        // The scan reads text, so the answer is asked for uncompressed. An agent's own 'gzip,
+        // deflate, br' got every answer compressed, and every one was withheld as unreadable.
         request.header("Accept-Encoding", "identity");
         if (route.authQuery() == null) {
             request.header(route.authHeader(), route.authPrefix() + real);
@@ -837,12 +834,10 @@ public class VaultProxy implements AutoCloseable, Runnable {
         final byte[] buffer = new byte[PEEK];
         int filled = 0;
         // Waits for the first bytes and then takes only what has already arrived. It waited for all
-        // PEEK of them: an
-        // MCP server that sends one small event and then waits - a notification, a progress event -
-        // reached the agent
-        // only once 8 KiB had piled up or the server closed (measured: 3 s held for a 3 s pause).
-        // Whatever comes after
-        // is scanned chunk by chunk below, so a credential later in the answer still never crosses.
+        // PEEK of them: an MCP server that sends one small event and then waits - a notification, a
+        // progress event - reached the agent only once 8 KiB had piled up or the server closed
+        // (measured: 3 s held for a 3 s pause). Whatever comes after is scanned chunk by chunk
+        // below, so a credential later in the answer still never crosses.
         while (filled < PEEK) {
             final int read = body.read(buffer, filled, PEEK - filled);
             if (read < 0) {
@@ -924,11 +919,11 @@ public class VaultProxy implements AutoCloseable, Runnable {
             return;
         }
         if (scan.sees(first, first.length)) {
-            // The one exchange whose answer is itself a credential. Measured with a stub
-            // provider: the container received access_token and refresh_token verbatim, which
-            // is the single thing the phantom token exists to prevent. What the provider did
-            // upstream cannot be undone from here - it may already have rotated - so this stops
-            // the answer rather than the act, and says so plainly.
+            // The one exchange whose answer is itself a credential. Measured with a stub provider:
+            // the container received access_token and refresh_token verbatim, which is the single
+            // thing the phantom token exists to prevent. What the provider did upstream cannot be
+            // undone from here - it may already have rotated - so this stops the answer rather than
+            // the act, and says so plainly.
             upstreamBody.close();
             log.accept("answer withheld: it carried a credential");
             out.write(
@@ -976,14 +971,14 @@ public class VaultProxy implements AutoCloseable, Runnable {
                     continue;
                 }
                 if (scan.sees(buffer, read)) {
-                    // The headers have already gone, so there is no status left to answer with:
-                    // the only thing that still withholds the credential is to stop writing and
-                    // drop the connection. The agent sees a truncated answer, which is what a
-                    // failure looks like, and the credential does not cross.
+                    // The headers have already gone, so there is no status left to answer with: the
+                    // only thing that still withholds the credential is to stop writing and drop
+                    // the connection. The agent sees a truncated answer, which is what a failure
+                    // looks like, and the credential does not cross.
                     //
-                    // Scanning only the first few thousand bytes and streaming the rest unread
-                    // was the earlier shape, and a credential after that point reached the
-                    // container. A partial check on a stream is not a check.
+                    // Scanning only the first few thousand bytes and streaming the rest unread was
+                    // the earlier shape, and a credential after that point reached the container. A
+                    // partial check on a stream is not a check.
                     log.accept("answer cut off: it carried a credential after the first bytes");
                     out.flush();
                     throw new IOException(

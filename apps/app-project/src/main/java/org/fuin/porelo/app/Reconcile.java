@@ -221,9 +221,8 @@ public final class Reconcile {
     public Result run(final FollowedProjects.Followed followed) {
         final Path clone = context.paths().projects().followedClone(followed.name());
         // One at a time per project, across the daemon's watch and a follow at the terminal:
-        // unlocked, the watch
-        // checked descent against the commit it had read, and reset the clone back under one a
-        // follow had applied.
+        // unlocked, the watch checked descent against the commit it had read, and reset the clone
+        // back under one a follow had applied.
         try {
             return FileLocks.holding(
                     clone.resolveSibling(clone.getFileName() + ".lock"),
@@ -335,8 +334,8 @@ public final class Reconcile {
             final boolean lent;
             final boolean vaultShut;
             // The key is lent for the length of the fetch and taken back, so a private repository
-            // is reachable by what the vault holds rather than by what the account happens to
-            // have lying in ~/.ssh.
+            // is reachable by what the vault holds rather than by what the account happens to have
+            // lying in ~/.ssh.
             try (FollowCredential credential =
                     FollowCredential.open(context, followed.url(), followed.name())) {
                 lent = credential.lent();
@@ -366,10 +365,10 @@ public final class Reconcile {
                 //
                 // A shut vault is its own outcome rather than a sentence appended to this one.
                 // Reported as unreachable it was true and misleading: nothing is wrong with the
-                // network or the URL, and the one thing that helps is unlocking.
-                // A vault that EXISTS and is shut. A machine with no vault at all has no
-                // credential locked away, so nothing about it explains a failed fetch - saying
-                // "unlock your vault" there would send somebody to a vault they have not made.
+                // network or the URL, and the one thing that helps is unlocking. A vault that
+                // EXISTS and is shut. A machine with no vault at all has no credential locked away,
+                // so nothing about it explains a failed fetch - saying "unlock your vault" there
+                // would send somebody to a vault they have not made.
                 final String said = fetched.standardError().strip();
                 if (HostKeys.refusedTheHost(said)) {
                     // Asked before anything about credentials: git failing on the host's key says
@@ -410,8 +409,8 @@ public final class Reconcile {
                 }
                 if (!lent && FollowCredential.needsACredential(followed.url())) {
                     // The vault is open or absent and holds nothing for this host, and the URL is
-                    // one only a credential opens. Saying "unreachable" here sent people to look
-                    // at their network for a credential they had never stored.
+                    // one only a credential opens. Saying "unreachable" here sent people to look at
+                    // their network for a credential they had never stored.
                     return new Result(
                             Outcome.NO_CREDENTIAL,
                             followed.commit(),
@@ -452,8 +451,8 @@ public final class Reconcile {
                 verdict = gate.verify(clone, "FETCH_HEAD", followed.name());
             }
             if (followed.unverified()) {
-                // Followed without an anchor, on purpose. Nothing is checked, and the state says
-                // so everywhere this project is shown - the refusal is skipped, not the reporting.
+                // Followed without an anchor, on purpose. Nothing is checked, and the state says so
+                // everywhere this project is shown - the refusal is skipped, not the reporting.
                 return applied(
                         runner,
                         clone,
@@ -461,9 +460,9 @@ public final class Reconcile {
                         verdict.commit().isEmpty() ? headOf(runner, clone) : verdict.commit());
             }
             if (!verdict.mayApply()) {
-                // The gate already tells these apart; collapsing them into one refusal was
-                // throwing away the only thing that says which of them happened - and the commit
-                // that was turned away with it.
+                // The gate already tells these apart; collapsing them into one refusal was throwing
+                // away the only thing that says which of them happened - and the commit that was
+                // turned away with it.
                 return new Result(
                         switch (verdict.outcome()) {
                             case NOT_SIGNED -> Outcome.NOT_SIGNED;
@@ -510,8 +509,7 @@ public final class Reconcile {
                 return applied;
             }
             // The keys are taken with the file that names them, never before: a commit that is not
-            // applied
-            // pins nothing.
+            // applied pins nothing.
             final String pinned =
                     handed != null && handed.changed()
                             ? handover.pin(followed.name(), handed.keys())
@@ -619,9 +617,9 @@ public final class Reconcile {
         try {
             // Read before the reset, because afterwards there is nothing left to see. The rule is
             // stated rather than discovered: the repository wins for what it covers, and a local
-            // edit to something reconciled is replaced - but the machine says it replaced it
-            // rather than doing it quietly. A file the repository does not cover is untracked, and
-            // 'reset --hard' does not touch it.
+            // edit to something reconciled is replaced - but the machine says it replaced it rather
+            // than doing it quietly. A file the repository does not cover is untracked, and 'reset
+            // --hard' does not touch it.
             final List<String> replaced = locallyChanged(runner, clone);
 
             // The file is judged as the commit holds it, before the working tree moves: the clone's
@@ -657,13 +655,13 @@ public final class Reconcile {
                                     + "'. Follow it under its own"
                                     + " name, or change the name in the file.");
                 }
-                // The rest of what a project file has to survive on THIS machine: an egress set
-                // it does not have. Checked here because here is where the file arrives - the
+                // The rest of what a project file has to survive on THIS machine: an egress set it
+                // does not have. Checked here because here is where the file arrives - the
                 // alternative was a call that checked before anything was written, which is a
                 // second place the same question could be answered differently.
                 //
-                // Every other check is the reader's: the name's shape, the security class, the
-                // base image, and an online project without an upstream.
+                // Every other check is the reader's: the name's shape, the security class, the base
+                // image, and an online project without an upstream.
                 for (final org.fuin.porelo.core.project.Repository repository :
                         read.allRepositories()) {
                     context.paths()
@@ -673,8 +671,8 @@ public final class Reconcile {
                 }
             } catch (final ProjectException ex) {
                 // Accepted and still not a project. Its own outcome, because "somebody committed
-                // something broken" is a different problem from "somebody signed nothing", and
-                // only one of them is about trust.
+                // something broken" is a different problem from "somebody signed nothing", and only
+                // one of them is about trust.
                 return new Result(
                         Outcome.UNUSABLE,
                         followed.commit(),
@@ -842,8 +840,8 @@ public final class Reconcile {
         // 'unverified' is carried, not defaulted. It was dropped here: a follow written with the
         // flag was rewritten by this method one line later, so a project taken WITHOUT an anchor
         // reported itself as one whose signature had been checked - the single field that tells a
-        // person that whoever can push there decides what this machine runs. Found through
-        // the interface, whose dialog shows it on every project.
+        // person that whoever can push there decides what this machine runs. Found through the
+        // interface, whose dialog shows it on every project.
         return new FollowedProjects.Followed(
                 followed.name(),
                 followed.url(),

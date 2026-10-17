@@ -394,8 +394,8 @@ public final class TaskLaunch {
     public @Nullable Existing startExisting(PrintWriter out, PrintWriter err) {
 
         if (request.dryRun()) {
-            // A dry run must touch nothing, and asking the runtime what exists is touching it.
-            // The launch says what it would do; the listing's startAction says which case applies.
+            // A dry run must touch nothing, and asking the runtime what exists is touching it. The
+            // launch says what it would do; the listing's startAction says which case applies.
             return null;
         }
         if (context.hooks().registration()
@@ -430,10 +430,10 @@ public final class TaskLaunch {
             return new Existing(container, project.name(), 64);
         }
         // A task's repository was fixed when it was created and cannot change, so a caller that
-        // names a different one believes something false about work it is about to resume -
-        // and would then look for that work where it is not. Ignoring it silently is the one
-        // answer that leaves them believing it; the recorded one wins either way, so this says so
-        // rather than acting on either.
+        // names a different one believes something false about work it is about to resume - and
+        // would then look for that work where it is not. Ignoring it silently is the one answer
+        // that leaves them believing it; the recorded one wins either way, so this says so rather
+        // than acting on either.
         final String named = request.repository();
         final String recorded = summary.get().repository();
         if (named != null
@@ -461,13 +461,10 @@ public final class TaskLaunch {
         }
 
         // Into the project's conversations again: a task that existed before its project named a
-        // transport, or before
-        // a machine took part in it, was never enrolled, and starting it again left it outside -
-        // its messages were
-        // queued to a transport that had no account for it. Enrolling keeps what exists, so it is
-        // harmless each time;
-        // what it cannot do is said, and the task comes back all the same, its workspace being in
-        // it.
+        // transport, or before a machine took part in it, was never enrolled, and starting it again
+        // left it outside - its messages were queued to a transport that had no account for it.
+        // Enrolling keeps what exists, so it is harmless each time; what it cannot do is said, and
+        // the task comes back all the same, its workspace being in it.
         final String outside = new TaskConversations(context).enroll(project, container);
         if (outside != null) {
             err.println("porelo: " + outside);
@@ -476,8 +473,7 @@ public final class TaskLaunch {
             err.flush();
         }
         // A task made before its box opened to its agent, or before agents were told about it, gets
-        // both now; and its
-        // guide as this version writes it, where its container mounts one.
+        // both now; and its guide as this version writes it, where its container mounts one.
         try {
             informed(project, container, false);
         } catch (final java.io.IOException ex) {
@@ -487,8 +483,8 @@ public final class TaskLaunch {
                     "       it starts again; its agent may not reach its mailbox or know about it");
             err.flush();
         }
-        // Its workspace, its branch and its uncommitted changes are all in that container. What
-        // has to be started again is everything that lives on the host, which is what resume does.
+        // Its workspace, its branch and its uncommitted changes are all in that container. What has
+        // to be started again is everything that lives on the host, which is what resume does.
         final TaskControl.Resumed resumed = new TaskControl(context).resume(container);
         return new Existing(
                 container,
@@ -806,10 +802,10 @@ public final class TaskLaunch {
             }
 
             // If this machine FOLLOWS a project of that name, the file it verified wins - and the
-            // one in the directory is not consulted at all, not preferred and not merged.
-            // Following checks a signature against a key pinned out of band; reading anything
-            // else afterwards throws that check away, and two sources is how a machine comes to
-            // run something nobody chose.
+            // one in the directory is not consulted at all, not preferred and not merged. Following
+            // checks a signature against a key pinned out of band; reading anything else afterwards
+            // throws that check away, and two sources is how a machine comes to run something
+            // nobody chose.
             final ProjectSource.Found found = ProjectSource.resolve(context, project.name());
             if (found.outcome() == ProjectSource.Outcome.FOLLOWED) {
                 if (found.file() == null) {
@@ -840,14 +836,14 @@ public final class TaskLaunch {
                                         : " (followed, unverified - whoever can push there decides what tasks here may reach)"));
             }
 
-            // Where this project's file is, for an interface that has no filesystem on this
-            // machine to find it in. Recorded on every start rather than by a registration step
-            // nobody would run.
+            // Where this project's file is, for an interface that has no filesystem on this machine
+            // to find it in. Recorded on every start rather than by a registration step nobody
+            // would run.
             new ProjectRegistry(context.paths().projects().projectRegistry())
                     .remember(project.name(), projectFile.toAbsolutePath());
         } catch (ProjectException ex) {
-            // A bad project file is the user's problem to fix, not a defect: report it as one
-            // line, not as a stack trace.
+            // A bad project file is the user's problem to fix, not a defect: report it as one line,
+            // not as a stack trace.
             err.println("porelo: " + ex.getMessage());
             err.flush();
             return 2;
@@ -858,8 +854,8 @@ public final class TaskLaunch {
                 org.fuin.porelo.runtime.ContainerName.refusal(project.name(), request.task());
         if (badName.isPresent()) {
             // Before the plan, the dry run and anything written. podman refuses such a name only
-            // when the container is created, after the image is built and the policy, resolver
-            // and sidecar are on disk - and those stayed behind, named for a task that never was.
+            // when the container is created, after the image is built and the policy, resolver and
+            // sidecar are on disk - and those stayed behind, named for a task that never was.
             err.println("porelo: " + badName.get());
             err.flush();
             return 64;
@@ -867,8 +863,8 @@ public final class TaskLaunch {
 
         // After the task name and before the image, the plan and the dry run. Which repository the
         // work is for is the first thing about a task, and finding out later means finding out
-        // somewhere else; the name is checked first only because a caller who got both wrong
-        // should hear about what they typed before what they left out.
+        // somewhere else; the name is checked first only because a caller who got both wrong should
+        // hear about what they typed before what they left out.
         final org.fuin.porelo.core.project.Repository repository;
         try {
             repository = chosenRepository(project);
@@ -904,13 +900,13 @@ public final class TaskLaunch {
         }
 
         if (request.dryRun()) {
-            // What the project itself opens. The agent and provider are not chosen yet, so this
-            // is a preview of the file rather than the full report a real run prints.
+            // What the project itself opens. The agent and provider are not chosen yet, so this is
+            // a preview of the file rather than the full report a real run prints.
             EgressReport.reportReachable(project, projectOrigins, java.util.Map.of(), out);
             if ((request.repository() == null || request.repository().isBlank())
                     && !project.repositories().isEmpty()) {
-                // Said, because otherwise a project-level plan reads as a task's. A repository
-                // adds to this, so what a task actually reaches is this or more - never less.
+                // Said, because otherwise a project-level plan reads as a task's. A repository adds
+                // to this, so what a task actually reaches is this or more - never less.
                 out.println(
                         "note      this is what every repository of '"
                                 + project.name()
@@ -923,10 +919,10 @@ public final class TaskLaunch {
         final java.util.Optional<String> tooOld = context.podman().unsupportedVersion();
         if (tooOld.isPresent()) {
             // Refused rather than run with less than the guarantees Porelo describes. podman 4 has
-            // no pasta, so the git gate cannot bind loopback and the endpoint a task pushes to
-            // sits on the operator's network. Ubuntu 24.04 LTS ships 4.9.3 and never will ship
-            // anything newer - podman is in universe, and a stable release does not change major
-            // versions - so this is a real refusal, and the way out is a newer distribution.
+            // no pasta, so the git gate cannot bind loopback and the endpoint a task pushes to sits
+            // on the operator's network. Ubuntu 24.04 LTS ships 4.9.3 and never will ship anything
+            // newer - podman is in universe, and a stable release does not change major versions -
+            // so this is a real refusal, and the way out is a newer distribution.
             err.println("porelo: " + tooOld.get());
             err.flush();
             return 69;
@@ -956,10 +952,10 @@ public final class TaskLaunch {
                 return 69;
             }
 
-            // Both modes that asked for the agent itself. UNATTENDED because nobody is watching,
-            // so a warning is written into an empty room and the failure is found later by
-            // somebody who did not start it. AGENT because the person asked for the agent's
-            // session: landing them in an agent that cannot authenticate is the refusal below
+            // Both modes that asked for the agent itself. UNATTENDED because nobody is watching, so
+            // a warning is written into an empty room and the failure is found later by somebody
+            // who did not start it. AGENT because the person asked for the agent's session: landing
+            // them in an agent that cannot authenticate is the refusal below
             // - "the person who asked for an agent finds a bare prompt with nothing explaining
             // why" - one step later, after an image and a container have been built for it.
             //
@@ -969,17 +965,14 @@ public final class TaskLaunch {
             //
             // Refused here, before the gate, the image and the container: a refusal that left a
             // workspace and a held container behind would be the warning again with a different
-            // exit code.
-            // Every other credential the project names, resolved before anything is made: a
-            // destination
-            // nobody declared is a mistake in the project file, not something to find inside the
-            // task.
+            // exit code. Every other credential the project names, resolved before anything is
+            // made: a destination nobody declared is a mistake in the project file, not something
+            // to find inside the task.
             final java.util.Map<String, Destination> extras = new java.util.LinkedHashMap<>();
             // A repository at a host this machine never met: refused here, as CanStart answers it.
-            // It went ahead
-            // before, ssh refused the workspace's fetch, and the task ran without a gate.
-            // The address the gate will use: '--upstream' when given, which the project file does
-            // not name.
+            // It went ahead before, ssh refused the workspace's fetch, and the task ran without a
+            // gate. The address the gate will use: '--upstream' when given, which the project file
+            // does not name.
             final String unmet =
                     StartCheck.unknownHost(
                             context,
@@ -1006,9 +999,8 @@ public final class TaskLaunch {
                 return 69;
             }
             // The upstream read as the gate's clone will read it, before anything is made: a
-            // refused key surfaced from the
-            // clone as "no git gate for this task", after the task was half made (found on
-            // 2026-10-13).
+            // refused key surfaced from the clone as "no git gate for this task", after the task
+            // was half made (found on 2026-10-13).
             if (!request.noGate() && !request.dryRun()) {
                 UpstreamProbe.Finding finding = upstreamFinding(project);
                 if (finding != null && finding.refuses()) {
@@ -1065,9 +1057,8 @@ public final class TaskLaunch {
                 declaredOrAdded.put(added.getKey(), added.getValue());
             }
             // A shut vault is opened here, at a terminal, as 'porelo vault unlock' would: the
-            // broker spends its tokens for
-            // the task's life. Only where this start reads it; without a terminal the refusals
-            // below stay as they were.
+            // broker spends its tokens for the task's life. Only where this start reads it; without
+            // a terminal the refusals below stay as they were.
             context.openIfShut(
                     !declaredOrAdded.isEmpty() || wiring().unavailableFor(select(agents)) != null,
                     true,
@@ -1118,9 +1109,8 @@ public final class TaskLaunch {
             this.extras = java.util.Map.copyOf(extras);
 
             // A credential that has to be bought is tried once before anything exists: an
-            // authorization
-            // server that refuses or cannot be reached makes it as missing as a key the vault
-            // lacks.
+            // authorization server that refuses or cannot be reached makes it as missing as a key
+            // the vault lacks.
             final java.util.Set<String> held = new java.util.LinkedHashSet<>(extras.keySet());
             final org.fuin.porelo.agent.api.InstalledAgent agentHere = select(agents);
             if (agentHere != null) {
@@ -1235,17 +1225,14 @@ public final class TaskLaunch {
                 return 65;
             }
             // No shell offered in its place: a shell without a gate has an empty workspace and
-            // fixes nothing about what
-            // stopped the gate, which is said above.
+            // fixes nothing about what stopped the gate, which is said above.
             if (gated
                     && workspace == null
                     && request.mode() != org.fuin.porelo.wire.TaskMode.SHELL) {
                 // An agent's work leaves through the gate. Started without one, it has an empty
-                // workspace and
-                // nowhere to hand back what it does - which is how a task in 'default' whose origin
-                // was over ssh
-                // started, worked on nothing and said exit 0. A shell, which a person drives, still
-                // starts.
+                // workspace and nowhere to hand back what it does - which is how a task in
+                // 'default' whose origin was over ssh started, worked on nothing and said exit 0. A
+                // shell, which a person drives, still starts.
                 err.println(
                         "porelo: nothing was created; the agent would work in an empty workspace with nowhere to"
                                 + " hand its work back. Fix what is said above, or '--attach shell' starts a shell without"
@@ -1266,8 +1253,7 @@ public final class TaskLaunch {
             final org.fuin.porelo.agent.api.InstalledAgent selected = select(agents);
 
             // Before anything exists: a model the agent has no flag for would be dropped on the way
-            // in,
-            // attended or not, and the agent would answer on its own default without a word.
+            // in, attended or not, and the agent would answer on its own default without a word.
             if (request.model() != null
                     && selected != null
                     && selected.definition().headless().modelFlag() == null) {
@@ -1282,11 +1268,9 @@ public final class TaskLaunch {
             }
 
             // Into the project's conversations before anything exists, and after every other
-            // refusal: a task whose
-            // messages reach nobody is refused here, as a credential nobody can reach is - and
-            // enrolled earlier, a start
-            // refused afterwards for something else left its account at the transport with nothing
-            // to retire it.
+            // refusal: a task whose messages reach nobody is refused here, as a credential nobody
+            // can reach is - and enrolled earlier, a start refused afterwards for something else
+            // left its account at the transport with nothing to retire it.
             final String unreachable = new TaskConversations(context).enroll(project, container);
             if (unreachable != null) {
                 err.println("porelo: " + unreachable);
@@ -1295,9 +1279,9 @@ public final class TaskLaunch {
                 return 69;
             }
 
-            // The state directory has to exist before anything writes into it. start() also
-            // creates it, but the credential proxy needs it first: it writes its socket, its
-            // token and its pid there, and it has to be listening before the container exists.
+            // The state directory has to exist before anything writes into it. start() also creates
+            // it, but the credential proxy needs it first: it writes its socket, its token and its
+            // pid there, and it has to be listening before the container exists.
             final java.nio.file.Path state = context.paths().tasks().containerState(container);
             java.nio.file.Files.createDirectories(state);
 
@@ -1317,8 +1301,8 @@ public final class TaskLaunch {
             java.util.Map<String, String> environmentCache = new java.util.LinkedHashMap<>();
 
             // An agent that can only address a URL still gets the broker on its socket: only the
-            // listening end moves into the container's namespace, and that is a relay started
-            // after the container exists.
+            // listening end moves into the container's namespace, and that is a relay started after
+            // the container exists.
             final SelectedProvider serving = credentials().provider(selected);
             servingName = serving == null ? null : serving.name();
             // Every destination carries where it came from, so the report at the end of this can
@@ -1363,10 +1347,10 @@ public final class TaskLaunch {
             if (plumbing != null) {
                 environmentCache.putAll(plumbing.environment());
                 wiring = wiring.withVaultSocket(plumbing.socket());
-                // Left reachable. Withholding it stopped every agent that checks the provider is
-                // up before it starts, and what it kept in was the phantom token: random,
-                // task-scoped, and worth nothing to the provider. The real credential is what
-                // must not get out, and it never enters the container at all.
+                // Left reachable. Withholding it stopped every agent that checks the provider is up
+                // before it starts, and what it kept in was the phantom token: random, task-scoped,
+                // and worth nothing to the provider. The real credential is what must not get out,
+                // and it never enters the container at all.
                 out.println(
                         "provider  "
                                 + plumbing.upstreamHost()
@@ -1376,8 +1360,7 @@ public final class TaskLaunch {
             }
 
             // The issue prefixes the task's repository owns, so its agent names and cites issues as
-            // the repository
-            // does; empty where the repository names none.
+            // the repository does; empty where the repository names none.
             environmentCache.put(ISSUE_PREFIXES, String.join(",", repository.issues()));
             if (workspace != null) {
                 environmentCache.putAll(workspace.environment(project, request.task()));
@@ -1389,8 +1372,8 @@ public final class TaskLaunch {
             runner.refusing(java.util.List.copyOf(refusals.keySet()));
 
             // The port is decided before this, so the firewall rule can name it; the gate itself
-            // starts afterwards, because its log lives in the state directory that start()
-            // creates. Starting it first silently failed to spawn at all.
+            // starts afterwards, because its log lives in the state directory that start() creates.
+            // Starting it first silently failed to spawn at all.
             runner.start(
                     project,
                     repository,
@@ -1433,14 +1416,13 @@ public final class TaskLaunch {
                             out,
                             err);
             writeResumeRecord(container, err);
-            // What only this moment knows: which agent, how somebody is meant to be involved,
-            // what it was asked to do, and which ref its work goes to. None of it can be
-            // recovered from a running container afterwards.
+            // What only this moment knows: which agent, how somebody is meant to be involved, what
+            // it was asked to do, and which ref its work goes to. None of it can be recovered from
+            // a running container afterwards.
             writeProfile(container, selected, environmentCache.get("PORELO_TASK_REF"), err);
             // What brings it back after a reboot: its description and records saved where a reboot
-            // does not
-            // reach, and its two tokens in the vault. A task that cannot keep them runs, and says
-            // so.
+            // does not reach, and its two tokens in the vault. A task that cannot keep them runs,
+            // and says so.
             new TaskState(context).save(container);
             final String unkept =
                     new TaskSecrets(context)
@@ -1453,10 +1435,10 @@ public final class TaskLaunch {
                 out.println("reboot    " + unkept);
             }
 
-            // The task is up. What happens next - run the agent to completion, attach a
-            // terminal, or simply say so - is the caller's, and it happens inside this scope
-            // on purpose: the installed agents are a resource this owns, and the paths that
-            // follow a start use them.
+            // The task is up. What happens next - run the agent to completion, attach a terminal,
+            // or simply say so - is the caller's, and it happens inside this scope on purpose: the
+            // installed agents are a resource this owns, and the paths that follow a start use
+            // them.
             return after.started(
                     new Running(
                             runner,
@@ -1522,9 +1504,8 @@ public final class TaskLaunch {
         }
         final Path log = context.paths().tasks().containerState(container).resolve("task.log");
         // Continuing is what starting a task that has a session does - not a verb of its own - and
-        // only
-        // where the agent says how to name one: nothing is guessed, and a fresh session says it is
-        // one.
+        // only where the agent says how to name one: nothing is guessed, and a fresh session says
+        // it is one.
         final TaskSession sessions = new TaskSession(context);
         final String continuing =
                 sessions.toContinue(container, selected.definition()).orElse(null);
@@ -1552,9 +1533,9 @@ public final class TaskLaunch {
                     log,
                     java.time.Duration.ofMinutes(request.minutes()));
         } catch (org.fuin.porelo.runtime.ContainerException ex) {
-            // Whatever the agent managed to say before it was killed is the most useful thing
-            // there is at this point. Throwing here would discard it, which is the opposite of
-            // what someone diagnosing a stuck run needs.
+            // Whatever the agent managed to say before it was killed is the most useful thing there
+            // is at this point. Throwing here would discard it, which is the opposite of what
+            // someone diagnosing a stuck run needs.
             err.println("porelo: " + ex.getMessage());
             err.flush();
             return 124;
@@ -1667,8 +1648,7 @@ public final class TaskLaunch {
     private Project project(PrintWriter out, PrintWriter err) {
         final Project project = ProjectReader.read(request.projectFile());
         // A key this Porelo does not know and that is no provable mistake - a later version's, most
-        // likely - is
-        // taken and said, so nobody believes it applied.
+        // likely - is taken and said, so nobody believes it applied.
         for (final String unknown : ProjectReader.unknownKeys(request.projectFile())) {
             err.println(
                     "warning   project.yml: '"
@@ -1909,8 +1889,8 @@ public final class TaskLaunch {
                                 + " without being asked");
             }
         } catch (java.io.IOException | RuntimeException ex) {
-            // Not fatal: the agent still runs, it just asks the questions this would have
-            // answered. Saying so beats a task that looks wired up and then stops for input.
+            // Not fatal: the agent still runs, it just asks the questions this would have answered.
+            // Saying so beats a task that looks wired up and then stops for input.
             err.println("porelo: could not prepare the agent's files: " + ex.getMessage());
             err.flush();
         }
@@ -1978,10 +1958,10 @@ public final class TaskLaunch {
             return true;
         }
 
-        // Without the hooks the container comes up with no firewall at all. Saying so is the
-        // only safe outcome: starting it anyway is the failure Porelo exists to prevent. The
-        // binaries being present is not enough - podman has to be told to run them, and a
-        // later drop-in can point it somewhere else.
+        // Without the hooks the container comes up with no firewall at all. Saying so is the only
+        // safe outcome: starting it anyway is the failure Porelo exists to prevent. The binaries
+        // being present is not enough - podman has to be told to run them, and a later drop-in can
+        // point it somewhere else.
         err.println(
                 switch (hooks) {
                     case MISSING ->
@@ -2295,10 +2275,10 @@ public final class TaskLaunch {
                 // more rather than something else.
                 return project.ownRepository();
             }
-            // Ready to paste, because the first run of all is the one that cannot know the
-            // answer: the wizard writes the project file moments earlier, and being told what
-            // there is to choose from without being told how to say it would make the
-            // improvement into an obstacle.
+            // Ready to paste, because the first run of all is the one that cannot know the answer:
+            // the wizard writes the project file moments earlier, and being told what there is to
+            // choose from without being told how to say it would make the improvement into an
+            // obstacle.
             throw new ProjectException(
                     "say which repository this task is for."
                             + System.lineSeparator()
@@ -2307,8 +2287,8 @@ public final class TaskLaunch {
                             + "' works in: "
                             + String.join(", ", project.workRepositoryNames())
                             // No task name in it: an unnamed task is named after the repository it
-                            // gets, and the
-                            // placeholder it carries until then is nothing a person chose.
+                            // gets, and the placeholder it carries until then is nothing a person
+                            // chose.
                             + System.lineSeparator()
                             + "       porelo task start --repository "
                             + project.workRepositoryNames().get(0));
@@ -2387,9 +2367,8 @@ public final class TaskLaunch {
             return cleanUpOrFail(runner, container, code, out);
         } catch (final RuntimeException ex) {
             // Said, never in its place: what failed while cleaning up replaced the refusal that
-            // caused the clean-up,
-            // and a start refused for its agent answered over the socket that its container was no
-            // task Porelo made.
+            // caused the clean-up, and a start refused for its agent answered over the socket that
+            // its container was no task Porelo made.
             out.println("porelo: cleaning up after it failed: " + ex.getMessage());
             out.flush();
             return code;
@@ -2415,31 +2394,29 @@ public final class TaskLaunch {
             out.println("          discard with 'porelo task remove " + container + "'");
             out.flush();
         } else if (!request.keep()) {
-            // The same question 'task remove' asks before it removes anything. A workspace
-            // is in the container's own writable layer, so this remove destroys it - and asking
-            // there but not here was the difference between refusing to discard unreviewed work
-            // and discarding it because somebody typed 'exit'. Only answerable while the
-            // container runs, which it still is: the shell was an exec beside 'sleep infinity'.
+            // The same question 'task remove' asks before it removes anything. A workspace is in
+            // the container's own writable layer, so this remove destroys it - and asking there but
+            // not here was the difference between refusing to discard unreviewed work and
+            // discarding it because somebody typed 'exit'. Only answerable while the container
+            // runs, which it still is: the shell was an exec beside 'sleep infinity'.
             final String held =
                     exists && context.podman().pidOf(container).orElse(0L) > 0
                             ? new TaskControl(context).heldBy(container).phrase()
                             : null;
             if (held == null) {
                 // The ordinary ending, as 'task remove' ends a task: the container, and its account
-                // in the project's
-                // conversations, its tokens and its mailbox with it. Removed with the container
-                // alone, the account
-                // stayed at the transport, and a prune later forgot the only credential that could
-                // retire it.
+                // in the project's conversations, its tokens and its mailbox with it. Removed with
+                // the container alone, the account stayed at the transport, and a prune later
+                // forgot the only credential that could retire it.
                 if (exists) {
                     new TaskControl(context).remove(container, false, true);
                 } else {
                     runner.remove(container);
                 }
             } else {
-                // Stopped rather than left up, for the reason the failed branch is: a task
-                // nobody is watching that still holds a firewall, a gate and a credential proxy
-                // is not kept, it is abandoned.
+                // Stopped rather than left up, for the reason the failed branch is: a task nobody
+                // is watching that still holds a firewall, a gate and a credential proxy is not
+                // kept, it is abandoned.
                 new TaskControl(context).stop(container);
                 out.println(
                         "kept      "

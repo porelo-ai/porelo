@@ -31,8 +31,7 @@ class LegTreePathsTest {
     @Test
     void everyBinaryTheLegNamesIsAnImageAModuleItBuildsMakes() throws IOException {
         // The install copied app/target/porelo after the grouping moved the module to apps/app: the
-        // build passed,
-        // and both legs failed one step later, on rented machines only.
+        // build passed, and both legs failed one step later, on rented machines only.
         final List<String> binaries = binaries();
         assertThat(binaries).as(Leg.BINARIES).isNotEmpty().contains("apps/app/target/porelo");
         for (final String binary : binaries) {
@@ -56,8 +55,7 @@ class LegTreePathsTest {
     @Test
     void everyBinaryThePackagesAreMadeOfComesBackFromTheLeg() throws IOException {
         // Publish packages what the leg sent home: a path the packaging reads that the leg does not
-        // fetch is a
-        // package built from nothing.
+        // fetch is a package built from nothing.
         final Set<String> packaged = new LinkedHashSet<>();
         try (Stream<Path> poms = Files.walk(ROOT.resolve("dist"))) {
             for (final Path pom : poms.filter(path -> path.endsWith("pom.xml")).toList()) {
@@ -121,8 +119,8 @@ class LegTreePathsTest {
     @Test
     void theDeployLooksForTheDebWhereAModuleOfThisTreeBuildsIt() {
         // The deploy kept reading dist-deb/target after the grouping moved the module to
-        // dist/dist-deb: every
-        // account install said "no porelo deb", with the packages built one directory over.
+        // dist/dist-deb: every account install said "no porelo deb", with the packages built one
+        // directory over.
         final Path module = ROOT.resolve(Deploy.PACKAGES).getParent();
         assertThat(module.resolve("pom.xml"))
                 .as("the module that leaves " + Deploy.PACKAGES)

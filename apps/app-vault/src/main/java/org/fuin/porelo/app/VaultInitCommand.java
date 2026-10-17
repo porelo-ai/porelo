@@ -90,8 +90,8 @@ public class VaultInitCommand implements Callable<Integer>, PoreloFactory.Contex
                                 .require();
                 if (!Arrays.equals(chosen, again)) {
                     // Typed twice because there is nothing to compare it against afterwards, and
-                    // because this format is not migrated: a mistyped passphrase means creating
-                    // the vault again from nothing.
+                    // because this format is not migrated: a mistyped passphrase means creating the
+                    // vault again from nothing.
                     err.println("porelo: the two did not match - no vault was created");
                     err.flush();
                     return 70;
@@ -110,9 +110,9 @@ public class VaultInitCommand implements Callable<Integer>, PoreloFactory.Contex
 
             // Cached here, because the passphrase was just typed and just proved: it is the one
             // this command wrote the vault with, so there is nothing to verify it against and
-            // nothing to get wrong. Without this, the very next 'vault put' answered "No
-            // passphrase available, tried: kernel-keyring, prompt" - which reads as a broken
-            // install rather than as "type it again", and is exactly what a wizard does next.
+            // nothing to get wrong. Without this, the very next 'vault put' answered "No passphrase
+            // available, tried: kernel-keyring, prompt" - which reads as a broken install rather
+            // than as "type it again", and is exactly what a wizard does next.
             final boolean cached = cache(chosen, err);
             out.println(
                     cached

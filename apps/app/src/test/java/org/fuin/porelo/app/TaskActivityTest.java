@@ -97,8 +97,8 @@ class TaskActivityTest {
     @Test
     void saysItsWorkWaitsAtTheGateOfTheRepositoryItWorksOn(@TempDir Path dir) throws IOException {
 
-        // A task on a repository other than its project's own - every task of 'default' - pushes
-        // to that repository's mirror; asking the project's mirror said nothing of its waited.
+        // A task on a repository other than its project's own - every task of 'default' - pushes to
+        // that repository's mirror; asking the project's mirror said nothing of its waited.
         final PoreloContext context = context(dir);
         Files.createDirectories(dir.resolve("data/porelo/mirrors/default/app.git"));
         runner.answering("for-each-ref", "refs/porelo/incoming/app\n");
@@ -125,8 +125,8 @@ class TaskActivityTest {
     @Test
     void saysWhenNothingIsEnforcingItsEgress(@TempDir Path dir) throws IOException {
 
-        // The most consequential state a task can be in - nothing asks and nothing is refused -
-        // and until it was recorded nothing an interface listed could mark it.
+        // The most consequential state a task can be in - nothing asks and nothing is refused - and
+        // until it was recorded nothing an interface listed could mark it.
         final PoreloContext context = context(dir);
         final Path state = task("porelo-uc-shell-1", "Up 4 minutes", "1788500000", "0");
         new TaskProfile(
@@ -168,8 +168,8 @@ class TaskActivityTest {
     void saysNothingRatherThanTheYearOneForAContainerThatNeverStarted(@TempDir Path dir)
             throws IOException {
 
-        // Measured on a real machine: a container created and never started answers
-        // -62135596800, Go's zero time, which podman renders as "Exited (0) 292 years ago".
+        // Measured on a real machine: a container created and never started answers -62135596800,
+        // Go's zero time, which podman renders as "Exited (0) 292 years ago".
         final PoreloContext context = context(dir);
         task("porelo-uc-shell-1", "Exited (0) 292 years ago", "1788460208", "-62135596800");
 
@@ -257,8 +257,8 @@ class TaskActivityTest {
     void aTaskFromAnOlderPoreloStillDescribesItself(@TempDir Path dir) throws IOException {
 
         // No profile file at all. Every added field is absent, and nothing throws: an interface
-        // that could not list a running task because it predates a release is worse than one
-        // that shows less about it.
+        // that could not list a running task because it predates a release is worse than one that
+        // shows less about it.
         final PoreloContext context = context(dir);
         task("porelo-uc-shell-1", "Up 4 minutes", "1788500000", "0");
 

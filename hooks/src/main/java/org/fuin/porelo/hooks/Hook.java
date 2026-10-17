@@ -70,10 +70,8 @@ public abstract class Hook {
             }
 
             // The container the runtime runs is the one Porelo created for this sidecar, or nothing
-            // is done: any
-            // container can carry the annotation and name a real task's sidecar, and a foreign
-            // one's poststop would
-            // otherwise reap that task's helpers (2026-10-04).
+            // is done: any container can carry the annotation and name a real task's sidecar, and a
+            // foreign one's poststop would otherwise reap that task's helpers (2026-10-04).
             final Path sidecarFile = Path.of(sidecarPath);
             final Path stateDirectory = sidecarFile.getParent();
             final String recorded =
@@ -97,9 +95,8 @@ public abstract class Hook {
 
         } catch (Throwable ex) {
             // Everything, at this process boundary: an Error - a class that did not initialise, a
-            // stack that
-            // overflowed - otherwise left no line in the log and refused even a hook that only
-            // reports.
+            // stack that overflowed - otherwise left no line in the log and refused even a hook
+            // that only reports.
             final String message = ex.getMessage() == null ? ex.toString() : ex.getMessage();
             err.println("porelo " + name + " (" + stage + "): " + message);
             // Also into the log: the runtime reports only an exit code, so without this a refused

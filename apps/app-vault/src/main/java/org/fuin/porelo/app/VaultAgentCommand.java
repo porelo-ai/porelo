@@ -84,9 +84,8 @@ public class VaultAgentCommand implements Callable<Integer> {
         final PrintWriter err = spec.commandLine().getErr();
 
         // Before the key is read: this process holds its seed for as long as it serves, and a core
-        // dump of it, or a
-        // debugger of the same user attached, is a copy of the key. Process-wide, and kept for its
-        // life.
+        // dump of it, or a debugger of the same user attached, is a copy of the key. Process-wide,
+        // and kept for its life.
         org.fuin.porelo.core.hardening.ProcessHardening.disableDumping();
         final org.fuin.porelo.vault.AgentKey key;
         try {
@@ -145,8 +144,8 @@ public class VaultAgentCommand implements Callable<Integer> {
         return VaultFile.Opener.passphrase(
                 new org.fuin.porelo.vault.PassphraseTiers(
                                 // The keyring first here, unlike 'vault unlock': this runs per
-                                // task, and the whole
-                                // point of the cache is that it answers without asking anyone.
+                                // task, and the whole point of the cache is that it answers without
+                                // asking anyone.
                                 org.fuin.porelo.vault.KernelKeyring.source(
                                         paths.vault().vaultKeyringKey()),
                                 new org.fuin.porelo.vault.SystemdCredential(

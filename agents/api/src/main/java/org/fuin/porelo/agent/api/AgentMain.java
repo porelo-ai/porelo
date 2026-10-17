@@ -68,8 +68,8 @@ public final class AgentMain {
                         return 2;
                     }
                     try (AgentServer server = new AgentServer(agent, Path.of(arguments[1]))) {
-                        // Printed so a caller waiting for readiness has something to wait for
-                        // other than a sleep.
+                        // Printed so a caller waiting for readiness has something to wait for other
+                        // than a sleep.
                         out.println("ready " + server.socketPath());
                         out.flush();
                         server.serve();

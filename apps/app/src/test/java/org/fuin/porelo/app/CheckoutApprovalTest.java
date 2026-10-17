@@ -147,9 +147,8 @@ class CheckoutApprovalTest {
             throws Exception {
 
         // A script reads the exit: the sentence said no work of that name waits, and the exit said
-        // the question was
-        // ambiguous (64), which a caller takes as "name one" and asks again with the same wrong
-        // name.
+        // the question was ambiguous (64), which a caller takes as "name one" and asks again with
+        // the same wrong name.
         agentPushes("writer", "one");
         agentPushes("review", "two");
 

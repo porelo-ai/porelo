@@ -80,10 +80,9 @@ public class TalkPassCommand implements Callable<Integer>, PoreloFactory.Context
                         context.paths().messaging().messageFilter(),
                         context.paths().messaging().transportDirectory());
         // As the daemon's pass does it: the project's conversation first, the task's siblings as
-        // its peers, and
-        // sending as the task - so a pass by hand and one by the timer cannot disagree.
-        // Read first, so a project whose file is gone stops here and is named, rather than passing
-        // with no peers.
+        // its peers, and sending as the task - so a pass by hand and one by the timer cannot
+        // disagree. Read first, so a project whose file is gone stops here and is named, rather
+        // than passing with no peers.
         GateSupport.byName(context, project);
         final MessageWatch watch = new MessageWatch(context, java.time.Duration.ZERO);
         watch.conversations(pass, java.util.List.of(mailbox.root()))

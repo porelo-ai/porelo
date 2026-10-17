@@ -175,10 +175,8 @@ public final class RunningEgress {
 
         final Path state = context.paths().tasks().containerState(container);
         // Refused rather than done: the resolver answers a refused name NXDOMAIN whatever the
-        // servers
-        // file allows - measured, a widening appended and signalled changed nothing - so reporting
-        // it
-        // as opened would be a success that is not one.
+        // servers file allows - measured, a widening appended and signalled changed nothing - so
+        // reporting it as opened would be a success that is not one.
         for (final String name : names) {
             if (!name.isBlank() && !HOST_NAME.matcher(name.strip()).matches()) {
                 // Written into the resolver's servers file as it came, a '/' or a '#' names other
@@ -323,9 +321,9 @@ public final class RunningEgress {
             return Withdrawal.refused(Outcome.NOT_RUNNING, "no running task called " + container);
         }
 
-        // No class refusal here, and deliberately: an offline project has granted nothing, so
-        // this answers NO_CHANGE by itself. Taking a grant away can never widen anything, which
-        // is the only thing a class exists to prevent.
+        // No class refusal here, and deliberately: an offline project has granted nothing, so this
+        // answers NO_CHANGE by itself. Taking a grant away can never widen anything, which is the
+        // only thing a class exists to prevent.
         final Path state = context.paths().tasks().containerState(container);
         final List<String> granted = GrantedNames.all(state);
         final List<String> wanted = new ArrayList<>();
@@ -511,8 +509,8 @@ public final class RunningEgress {
                         .apply(
                                 Path.of(file),
                                 // The repository this task works on, so a grant taken back is taken
-                                // back where it
-                                // was given rather than out of every repository of the project.
+                                // back where it was given rather than out of every repository of
+                                // the project.
                                 task.repository(),
                                 new EgressControl.Change(List.of(), List.of(), List.of(), names),
                                 false);
@@ -564,8 +562,8 @@ public final class RunningEgress {
                         .apply(
                                 Path.of(file),
                                 // Remembered against the repository the task works on. Allowing one
-                                // connection
-                                // must not widen the five other repositories of the same project.
+                                // connection must not widen the five other repositories of the same
+                                // project.
                                 task.repository(),
                                 new EgressControl.Change(List.of(), List.of(), names, List.of()),
                                 false);

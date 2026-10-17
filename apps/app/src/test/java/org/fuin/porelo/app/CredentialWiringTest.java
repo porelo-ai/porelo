@@ -22,9 +22,9 @@ class CredentialWiringTest {
     @Test
     void aLockedVaultSaysSoRatherThanClaimingTheCredentialIsMissing() {
 
-        // The bug this replaced: a locked vault reads as an empty set, so the credential sitting
-        // in it was reported absent. That sent somebody to store a credential they already had,
-        // and it is the one confusion the interface asked never to be shown.
+        // The bug this replaced: a locked vault reads as an empty set, so the credential sitting in
+        // it was reported absent. That sent somebody to store a credential they already had, and it
+        // is the one confusion the interface asked never to be shown.
         assertThat(CredentialWiring.credentialUnavailable(Optional.empty(), "anthropic"))
                 .contains("locked")
                 .contains("porelo vault unlock")
@@ -34,8 +34,8 @@ class CredentialWiringTest {
     @Test
     void anUnlockedVaultWithoutThisCredentialNamesTheOneItWouldNeed() {
 
-        // The name, not the category: 'anthropic is not in the vault' is something somebody can
-        // act on, 'a credential is missing' is not.
+        // The name, not the category: 'anthropic is not in the vault' is something somebody can act
+        // on, 'a credential is missing' is not.
         assertThat(CredentialWiring.credentialUnavailable(Optional.of(HOLDING), "openai"))
                 .contains("holds no credential")
                 .contains("openai")
@@ -52,8 +52,8 @@ class CredentialWiringTest {
     @Test
     void anUnlockedButEmptyVaultReportsTheCredentialAbsentRatherThanTheVaultLocked() {
 
-        // The case the fix turns on. Both are "nothing to authenticate with", and only one of
-        // them is fixed by unlocking - so an empty vault must not borrow the locked wording.
+        // The case the fix turns on. Both are "nothing to authenticate with", and only one of them
+        // is fixed by unlocking - so an empty vault must not borrow the locked wording.
         assertThat(CredentialWiring.credentialUnavailable(Optional.of(Map.of()), "anthropic"))
                 .contains("holds no credential")
                 .doesNotContain("locked");
@@ -65,8 +65,8 @@ class CredentialWiringTest {
         // The defect this pins: only UNATTENDED refused, so 'porelo task start' - whose --attach
         // defaults to 'agent' - warned "the vault is locked" and then built an image, a container
         // and a workspace, landing somebody in an agent that fails on its first request. The
-        // refusal for a missing agent two checks later already argues this exact case: a person
-        // who asked for an agent must not be handed something that is not one.
+        // refusal for a missing agent two checks later already argues this exact case: a person who
+        // asked for an agent must not be handed something that is not one.
         assertThat(TaskLaunch.refusesWithoutCredential(org.fuin.porelo.wire.TaskMode.AGENT))
                 .as("--attach agent asked for the agent itself")
                 .isTrue();

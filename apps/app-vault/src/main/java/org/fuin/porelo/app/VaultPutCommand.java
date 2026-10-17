@@ -307,10 +307,9 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
             final boolean wantsKey =
                     credential.kind() == org.fuin.porelo.core.credential.Credential.Kind.SSH_KEY;
             final boolean isKey = "ssh-key".equals(type);
-            // Said now rather than at a start days later, which refuses it as unusable.
-            // A private key is always recognised, so one stated as nothing is no key; a token is
-            // not, so no kind stated
-            // is no sign of a misfit there.
+            // Said now rather than at a start days later, which refuses it as unusable. A private
+            // key is always recognised, so one stated as nothing is no key; a token is not, so no
+            // kind stated is no sign of a misfit there.
             if (misfit == null && wantsKey != isKey && (type != null || wantsKey)) {
                 misfit =
                         credential.match()
@@ -344,8 +343,8 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
      */
     private void warnIfNothingWillUseIt(PrintWriter out, PrintWriter err) {
         // A declaration that reads this entry asks for it by that name: warning that nothing would
-        // find it was untrue
-        // right after 'credentials declare ... --vault <name>' (found on 2026-10-13).
+        // find it was untrue right after 'credentials declare ... --vault <name>' (found on
+        // 2026-10-13).
         java.util.List<org.fuin.porelo.core.credential.Credential> declared;
         try {
             declared = context.credentialRegistry().all();
@@ -365,8 +364,8 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
         }
         if (GitCredentialNames.isOne(name)) {
             // Not a provider's name and not meant to be: these are read by the git commands this
-            // machine runs. Warning that "no provider is declared" for one sent people looking
-            // for a mistake they had not made.
+            // machine runs. Warning that "no provider is declared" for one sent people looking for
+            // a mistake they had not made.
             return;
         }
         final var provider = context.providers().get(name);
@@ -456,8 +455,8 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
         if (line.strip().startsWith("-----BEGIN")) {
             // A key file is many lines, and this read one. '< ~/.ssh/id_ed25519' therefore stored
             // the armour line alone, warned that it "contains spaces", and failed days later when
-            // something tried to sign with it. The whole file is read when the first line says
-            // that is what this is.
+            // something tried to sign with it. The whole file is read when the first line says that
+            // is what this is.
             final StringBuilder whole = new StringBuilder(line).append('\n');
             String next = piped.readLine();
             while (next != null) {
@@ -511,14 +510,14 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
             }
         }
         if (org.fuin.porelo.vault.OpenSshPrivateKey.looksLikeAnyPrivateKey(value)) {
-            // What a person has is the file they use every day. An Ed25519 key is kept as the
-            // seed inside it, which is what every entry written until now holds; anything else is
-            // kept as the file, because there is nothing smaller that is still the key.
+            // What a person has is the file they use every day. An Ed25519 key is kept as the seed
+            // inside it, which is what every entry written until now holds; anything else is kept
+            // as the file, because there is nothing smaller that is still the key.
             //
-            // It is READ BACK before it is stored. A value that goes in and cannot come out is
-            // what happened to an RSA key this morning: stored whole, called present and ready by
-            // every check, and undecodable at the first fetch - where the machine blamed the
-            // vault for being empty.
+            // It is READ BACK before it is stored. A value that goes in and cannot come out is what
+            // happened to an RSA key this morning: stored whole, called present and ready by every
+            // check, and undecodable at the first fetch - where the machine blamed the vault for
+            // being empty.
             try {
                 value = converted(value, out, err);
                 if (value == null) {

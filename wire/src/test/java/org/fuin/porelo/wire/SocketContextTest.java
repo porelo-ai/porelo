@@ -30,8 +30,7 @@ class SocketContextTest {
     @Test
     void takesAnEmptyMountPointForNoSelinux() {
         // WSL2's kernel has SELinux built in and leaves /sys/fs/selinux as an empty directory
-        // without running it:
-        // doctor called the policy missing on a machine that needs none.
+        // without running it: doctor called the policy missing on a machine that needs none.
         assertThat(SocketContext.selinuxPresent(dir)).isFalse();
     }
 

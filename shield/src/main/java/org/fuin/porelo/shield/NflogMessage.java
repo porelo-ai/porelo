@@ -83,9 +83,8 @@ public final class NflogMessage {
         String prefix = "";
         byte[] payload = null;
         // The packet's own time where the kernel gave one: the kernel sends logged packets in
-        // batches, and the time a
-        // batch was read made a SYN and its retry look like two drops at the same instant (found on
-        // 2026-10-13).
+        // batches, and the time a batch was read made a SYN and its retry look like two drops at
+        // the same instant (found on 2026-10-13).
         Instant stamped = at;
 
         int offset = start;
@@ -191,8 +190,7 @@ public final class NflogMessage {
         try {
             final InetAddress parsed = InetAddress.getByAddress(address);
             // getHostAddress must not trigger a reverse lookup; getByAddress never sets a host
-            // name,
-            // so it does not.
+            // name, so it does not.
             return parsed instanceof Inet4Address || parsed instanceof Inet6Address
                     ? parsed.getHostAddress()
                     : null;

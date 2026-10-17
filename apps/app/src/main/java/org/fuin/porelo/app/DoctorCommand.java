@@ -228,8 +228,7 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
         final java.nio.file.Path signers = context.paths().projects().configurationSigners();
         if (!java.nio.file.Files.isRegularFile(signers) && followsNothing()) {
             // Nothing followed, nothing to verify: a machine that only works in 'default' needs no
-            // key, and a
-            // newcomer read DEGRADED here before the guide had said a word about keys.
+            // key, and a newcomer read DEGRADED here before the guide had said a word about keys.
             return Probe.ok(
                     name, "none needed yet - no project is followed; work in 'default' needs none");
         }
@@ -385,8 +384,8 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
                             + " "
                             + (project.repositories().isEmpty()
                                     // Not "1". An unreadable file is not a project with one
-                                    // repository, and
-                                    // saying so would be the very thing this line exists to stop.
+                                    // repository, and saying so would be the very thing this line
+                                    // exists to stop.
                                     ? "(file unreadable)"
                                     : project.repositories().size()
                                             + " repositor"

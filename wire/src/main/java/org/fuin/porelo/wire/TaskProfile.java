@@ -165,8 +165,8 @@ public record TaskProfile(
         document.put("provider", provider == null ? "" : provider);
         final Path file = stateDirectory.resolve(FILE);
         Files.writeString(file, Json.write(document), StandardCharsets.UTF_8);
-        // A prompt is the operator's own words and may name anything they were working on; the
-        // same permissions as the other files here.
+        // A prompt is the operator's own words and may name anything they were working on; the same
+        // permissions as the other files here.
         Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("rw-------"));
     }
 
@@ -199,16 +199,14 @@ public record TaskProfile(
                             : String.valueOf(document.get("startedAt")),
                     text(document, "clearance"),
                     // A profile from before labels existed has no key at all, and reads as
-                    // unlabeled - which is the same state as a label somebody cleared, on
-                    // purpose.
+                    // unlabeled - which is the same state as a label somebody cleared, on purpose.
                     text(document, "label"),
                     // A task started before the provider was recorded reads as brokered to none,
-                    // which is
-                    // what an interface shows for "not known" as well.
+                    // which is what an interface shows for "not known" as well.
                     text(document, "provider"));
         } catch (IOException | RuntimeException ex) {
-            // A half-written file from a start that was killed. A task nobody can describe is
-            // still a task somebody may need to stop.
+            // A half-written file from a start that was killed. A task nobody can describe is still
+            // a task somebody may need to stop.
             return null;
         }
     }

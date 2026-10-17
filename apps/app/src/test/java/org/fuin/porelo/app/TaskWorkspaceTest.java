@@ -175,10 +175,10 @@ class TaskWorkspaceTest {
     @Test
     void sendsABarePushToTheGateRatherThanIntoTheMirror(@TempDir Path root) throws IOException {
 
-        // Checking out from a remote-tracking branch makes the branch track porelo/main, so a
-        // bare 'git push' landed on refs/heads/main in the mirror - reporting success while
-        // nothing ever appeared for review. A push that silently misses the gate is the failure
-        // this product exists to prevent, and it was one obvious command away.
+        // Checking out from a remote-tracking branch makes the branch track porelo/main, so a bare
+        // 'git push' landed on refs/heads/main in the mirror - reporting success while nothing ever
+        // appeared for review. A push that silently misses the gate is the failure this product
+        // exists to prevent, and it was one obvious command away.
         final Path mirror = seededMirror(root, "main");
         final Path workspace = Files.createDirectories(root.resolve("workspace"));
         runCloneScript(workspace, mirror, "refs/porelo/incoming/shell");
@@ -216,10 +216,10 @@ class TaskWorkspaceTest {
     @Test
     void keepsTheBarePushUnambiguousWhenTheAgentAddsARemote(@TempDir Path root) throws IOException {
 
-        // What pushDefault is actually for, measured rather than assumed: with one remote git
-        // falls back to it and the default is redundant, but an agent that adds the real
-        // upstream as a second remote makes a bare push ambiguous - git 2.53 answers with a bare
-        // "git push <Name>" usage line and sends nothing. The default keeps it going to the gate.
+        // What pushDefault is actually for, measured rather than assumed: with one remote git falls
+        // back to it and the default is redundant, but an agent that adds the real upstream as a
+        // second remote makes a bare push ambiguous - git 2.53 answers with a bare "git push
+        // <Name>" usage line and sends nothing. The default keeps it going to the gate.
         final Path mirror = seededMirror(root, "main");
         final Path elsewhere = root.resolve("elsewhere.git");
         git(
@@ -247,8 +247,8 @@ class TaskWorkspaceTest {
     }
 
     private void runCloneScript(Path workspace, Path mirror) {
-        // The only substitution is the mount point: the container has /workspace and this
-        // machine has a temporary directory. Everything else is the script that really runs.
+        // The only substitution is the mount point: the container has /workspace and this machine
+        // has a temporary directory. Everything else is the script that really runs.
         final String script =
                 TaskWorkspace.cloneScript()
                         .replace("cd " + TaskWorkspace.MOUNT + ";", "cd " + workspace + ";");
@@ -263,9 +263,9 @@ class TaskWorkspaceTest {
     @Test
     void checksOutWhatItFetched(@TempDir Path root) throws IOException {
 
-        // It used to fetch and stop, so every task began in a directory holding nothing but
-        // .git - an agent asked to change a project could not see one file of it. Reported from
-        // a machine where 'ls -alF' in the workspace showed exactly that.
+        // It used to fetch and stop, so every task began in a directory holding nothing but .git -
+        // an agent asked to change a project could not see one file of it. Reported from a machine
+        // where 'ls -alF' in the workspace showed exactly that.
         final Path mirror = seededMirror(root, "main");
         final Path workspace = Files.createDirectories(root.resolve("workspace"));
 
@@ -367,8 +367,8 @@ class TaskWorkspaceTest {
     @Test
     void readsTheHostFromAnSshRemote() {
 
-        // Not a URL, and the common shape for a git remote. The firewall and the resolver both
-        // need the host, so getting this wrong means an online task cannot reach its upstream.
+        // Not a URL, and the common shape for a git remote. The firewall and the resolver both need
+        // the host, so getting this wrong means an online task cannot reach its upstream.
         assertThat(TaskRunCommand.upstreamHost("git@github.com:you/repo.git"))
                 .isEqualTo("github.com");
     }
@@ -421,9 +421,9 @@ class TaskWorkspaceTest {
     @Test
     void acceptsWhateverAddressTheRulesetWasOpenedFor() {
 
-        // Under slirp4netns a container reaches the host at its LAN address, and porelo asks
-        // podman rather than assuming. Comparing against the constant instead reported the gate
-        // as firewalled off on every such machine while the push worked - measured on Ubuntu.
+        // Under slirp4netns a container reaches the host at its LAN address, and porelo asks podman
+        // rather than assuming. Comparing against the constant instead reported the gate as
+        // firewalled off on every such machine while the push worked - measured on Ubuntu.
         final String hosts = "192.0.2.10\thost.containers.internal\n";
 
         assertThat(TaskWorkspace.verify(hosts, "192.0.2.10")).isNull();

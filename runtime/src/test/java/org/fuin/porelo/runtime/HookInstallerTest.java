@@ -100,8 +100,8 @@ class HookInstallerTest {
 
         installer(root).install();
 
-        // podman's own default hooks_dir is a root-owned system path, so a rootless install has
-        // to add one or the hooks never fire at all.
+        // podman's own default hooks_dir is a root-owned system path, so a rootless install has to
+        // add one or the hooks never fire at all.
         assertThat(Files.readString(root.resolve("containers/containers.conf.d/50-porelo.conf")))
                 .contains("[engine]")
                 .contains("hooks_dir = [\"" + root.resolve("containers/oci/hooks.d") + "\"]");
@@ -124,8 +124,8 @@ class HookInstallerTest {
         final List<Path> removed = installer(root).uninstall();
 
         // Named rather than counted, and both directories among them: the drop-in does not live
-        // beside the hooks, so a count with one directory beside it reported the one file
-        // somebody is most likely to go looking for by hand in the wrong place.
+        // beside the hooks, so a count with one directory beside it reported the one file somebody
+        // is most likely to go looking for by hand in the wrong place.
         assertThat(removed).containsExactlyInAnyOrderElementsOf(written);
         assertThat(removed)
                 .anySatisfy(
@@ -188,9 +188,8 @@ class HookInstallerTest {
 
         // The case nobody was catching: a package replaces the binaries and never touches these
         // files, and nothing runs 'porelo setup' for the operator. Every check asked only whether
-        // the files were THERE, so a descriptor from an older release reported ACTIVE while
-        // podman went on running what it said - and a container with no firewall looks entirely
-        // normal.
+        // the files were THERE, so a descriptor from an older release reported ACTIVE while podman
+        // went on running what it said - and a container with no firewall looks entirely normal.
         final HookInstaller installer = installer(root);
         binaries(root);
         installer.install();
@@ -223,8 +222,8 @@ class HookInstallerTest {
     @Test
     void namesEveryFileThatWouldBeRewritten(@TempDir Path root) throws IOException {
 
-        // 'run setup again' after an upgrade that changed nothing visible reads like
-        // superstition until the message can say which files differ.
+        // 'run setup again' after an upgrade that changed nothing visible reads like superstition
+        // until the message can say which files differ.
         final HookInstaller installer = installer(root);
         binaries(root);
         installer.install();

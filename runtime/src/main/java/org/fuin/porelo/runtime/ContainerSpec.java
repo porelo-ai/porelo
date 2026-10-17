@@ -246,18 +246,15 @@ public class ContainerSpec {
         resolvers.forEach(
                 address -> {
                     // Without this the agent uses the host's resolver, the firewall sees only
-                    // addresses,
-                    // and a name the operator would have recognized reaches the prompt as a bare
-                    // IP.
+                    // addresses, and a name the operator would have recognized reaches the prompt
+                    // as a bare IP.
                     arguments.add("--dns");
                     arguments.add(address);
                 });
         if (!resolvers.isEmpty()) {
             // '.' is podman's "no search domain". Without it the host's search line was copied in:
-            // the task learned
-            // the internal domains of the place it ran in, and every name it asked was asked once
-            // per domain too
-            // (found on 2026-10-13).
+            // the task learned the internal domains of the place it ran in, and every name it asked
+            // was asked once per domain too (found on 2026-10-13).
             arguments.add("--dns-search=.");
         }
 
@@ -277,8 +274,7 @@ public class ContainerSpec {
                 (host, mountPoint) -> {
                     arguments.add("--volume");
                     // 'Z' relabels for SELinux. Without it the mount is unreadable on an enforcing
-                    // host,
-                    // which is the platform the hooks were verified on.
+                    // host, which is the platform the hooks were verified on.
                     arguments.add(host + ":" + mountPoint + ":Z");
                 });
 

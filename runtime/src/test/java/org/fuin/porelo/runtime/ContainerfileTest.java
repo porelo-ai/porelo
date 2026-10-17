@@ -34,8 +34,7 @@ class ContainerfileTest {
     void everyTaskImageGetsPython3WhereItCanAndNoImageFailsForWantOfIt() {
 
         // An agent that evaluates Python warned at every start in 'default': its image had no
-        // Python, and a person
-        // cannot change 'default'.
+        // Python, and a person cannot change 'default'.
         final String rendered =
                 Containerfile.render(
                         new Project("default", "", SecurityClass.GUARDED, "ubuntu:24.04", null));
@@ -68,8 +67,8 @@ class ContainerfileTest {
                         Egress.none(),
                         List.of("http://mirror.example.test/ubuntu/"));
 
-        // The URIs line itself, not the whole file: the comment above it names the default's
-        // hosts as measurements, and a naive doesNotContain trips over its own documentation.
+        // The URIs line itself, not the whole file: the comment above it names the default's hosts
+        // as measurements, and a naive doesNotContain trips over its own documentation.
         assertThat(Containerfile.render(project))
                 .contains("URIs: http://mirror.example.test/ubuntu/|")
                 .doesNotContain("URIs: http://azure.archive.ubuntu.com");
@@ -103,8 +102,8 @@ class ContainerfileTest {
 
         // An agent's download must run as the agent, or the binary lands in root's home and the
         // agent cannot execute it. Root fragments must run before the switch, or they cannot
-        // install packages. Getting this backwards produces an image that builds and then fails
-        // at run time.
+        // install packages. Getting this backwards produces an image that builds and then fails at
+        // run time.
         final Project project = new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", null);
         final String rendered =
                 Containerfile.render(
@@ -142,8 +141,8 @@ class ContainerfileTest {
     void everyImageCanFetchAndVerifyADownload() {
 
         // Every pinned agent install needs curl, cloning the workspace needs git, and an online
-        // project pushes over ssh; a base image cannot be assumed to have any of them. Without
-        // this the failure is a confusing "not found" inside someone else's layer.
+        // project pushes over ssh; a base image cannot be assumed to have any of them. Without this
+        // the failure is a confusing "not found" inside someone else's layer.
         assertThat(
                         Containerfile.render(
                                 new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", null)))
@@ -182,8 +181,7 @@ class ContainerfileTest {
     void refusesABaseImageWithPorelosRootAndMakesTheHandInDirectoriesBeforeAnythingElseCan() {
 
         // Checked before the project's own image lines run, which could create /porelo themselves:
-        // what is
-        // refused is the base image, and what comes after is Porelo's.
+        // what is refused is the base image, and what comes after is Porelo's.
         final Project project =
                 new Project(
                         "uc", "Ultimate Container", SecurityClass.GUARDED, "ubuntu:24.04", null);
@@ -218,11 +216,9 @@ class ContainerfileTest {
     void aSessionFeelsLikeTheTerminalOutside() {
 
         // Measured 2026-10-09 with tmux 3.4 behind 'podman exec -it', against the same path without
-        // tmux: Esc arrived
-        // 501 ms late, Shift+Enter and focus events not at all, and truecolour, the clipboard (OSC
-        // 52), links and the
-        // title were dropped on the way out. The wheel reached an agent in the alternate screen as
-        // nothing it asked for.
+        // tmux: Esc arrived 501 ms late, Shift+Enter and focus events not at all, and truecolour,
+        // the clipboard (OSC 52), links and the title were dropped on the way out. The wheel
+        // reached an agent in the alternate screen as nothing it asked for.
         final Project project = new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", null);
 
         assertThat(Containerfile.render(project))
@@ -238,8 +234,8 @@ class ContainerfileTest {
                 .contains(
                         "bind -n S-PPage if -F \"#{alternate_on}\" \"send-keys S-PPage\" \"copy-mode -eu\"")
                 // Scrolled back with Shift+PageUp, Shift+PageDown did nothing: it was bound neither
-                // outside copy mode
-                // nor in it, so the way back down was a key a plain terminal does not need.
+                // outside copy mode nor in it, so the way back down was a key a plain terminal does
+                // not need.
                 .contains(
                         "bind -n S-NPage if -F \"#{pane_in_mode}\" \"send-keys -X page-down\" \"send-keys S-NPage\"");
     }
@@ -248,8 +244,7 @@ class ContainerfileTest {
     void aPersonsOwnSettingsComeAfterPorelosAndWhatPoreloDependsOnAfterThem() {
 
         // A person's file may change any key, the mouse or the colours, and nothing Porelo states
-        // about a session: how
-        // much it remembers, and the terminal the agent is told it has.
+        // about a session: how much it remembers, and the terminal the agent is told it has.
         final String rendered =
                 Containerfile.render(
                         new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", null));
@@ -266,14 +261,14 @@ class ContainerfileTest {
     @Test
     void everyImageCarriesAUtf8Locale() {
 
-        // Measured on the Ubuntu VM, 2026-09-12, and reported before that: the
-        // base image sets no LANG and 'podman exec' passes none, so LC_CTYPE was POSIX and an
-        // agent's terminal interface arrived with every non-ASCII character replaced - its
-        // banner, its prompt markers and its spinner all underscores. In the same container the
-        // shell echoed typed characters as octal escapes.
+        // Measured on the Ubuntu VM, 2026-09-12, and reported before that: the base image sets no
+        // LANG and 'podman exec' passes none, so LC_CTYPE was POSIX and an agent's terminal
+        // interface arrived with every non-ASCII character replaced - its banner, its prompt
+        // markers and its spinner all underscores. In the same container the shell echoed typed
+        // characters as octal escapes.
         //
-        // LANG, not LC_ALL: LANG is what every LC_* category falls back to, so this sets a
-        // default without taking away the ability to override one category.
+        // LANG, not LC_ALL: LANG is what every LC_* category falls back to, so this sets a default
+        // without taking away the ability to override one category.
         final Project project = new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", null);
 
         assertThat(Containerfile.render(project))
@@ -285,9 +280,9 @@ class ContainerfileTest {
     void changingWhatPoreloPutsInEveryImageMakesExistingOnesStale() {
 
         // The defect this pins: the fingerprint covered the project's answers and not Porelo's own
-        // half of the recipe, so a release that changed what every image contains produced no
-        // drift anywhere. Adding a UTF-8 locale fixed nothing on a machine that already had an
-        // image built - the label said the recipe was unchanged, and it was not.
+        // half of the recipe, so a release that changed what every image contains produced no drift
+        // anywhere. Adding a UTF-8 locale fixed nothing on a machine that already had an image
+        // built - the label said the recipe was unchanged, and it was not.
         //
         // Asserted through a property rather than a literal digest: a test that named the hash
         // would have to be edited by whoever broke it, which is the one person it has to survive.
@@ -302,8 +297,8 @@ class ContainerfileTest {
         assertThat(recipe).contains(Containerfile.fingerprint(project));
         assertThat(rendered).contains("ENV LANG=C.UTF-8");
 
-        // The body is in the digest: a project whose base image and snippet are identical but
-        // whose rendered recipe differs must not share a fingerprint.
+        // The body is in the digest: a project whose base image and snippet are identical but whose
+        // rendered recipe differs must not share a fingerprint.
         final Project other =
                 new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", "RUN echo different");
         assertThat(Containerfile.fingerprint(other))
@@ -314,9 +309,9 @@ class ContainerfileTest {
     @Test
     void theAgentsLayersAreStillNotInTheFingerprint() {
 
-        // Unchanged rule, restated as a test because the fingerprint now hashes a rendering and
-        // it would be easy to hash the wrong one: which agent runs is chosen per task, so an
-        // image is not stale because somebody picked a different agent.
+        // Unchanged rule, restated as a test because the fingerprint now hashes a rendering and it
+        // would be easy to hash the wrong one: which agent runs is chosen per task, so an image is
+        // not stale because somebody picked a different agent.
         final Project project = new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", null);
         final String withoutLayers = Containerfile.fingerprint(project);
 

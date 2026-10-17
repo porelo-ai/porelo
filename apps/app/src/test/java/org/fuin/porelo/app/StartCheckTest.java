@@ -51,8 +51,8 @@ class StartCheckTest {
     @Test
     void answersWithoutAProjectFileWhenNoneIsGiven(@TempDir Path dir) {
 
-        // The start dialog asks before a project is necessarily chosen, so the project is
-        // optional and its absence is not the same as a missing file.
+        // The start dialog asks before a project is necessarily chosen, so the project is optional
+        // and its absence is not the same as a missing file.
         assertThat(StartCheck.check(context(dir), null, null, null, null).outcome())
                 .isEqualTo(StartCheck.Outcome.NO_AGENT);
     }
@@ -76,8 +76,8 @@ class StartCheckTest {
     @Test
     void namesTheAgentThatIsNotInstalled(@TempDir Path dir) {
 
-        // The name somebody typed, back to them. "No agent is installed" when they asked for one
-        // by name sends them looking at the machine rather than at what they typed.
+        // The name somebody typed, back to them. "No agent is installed" when they asked for one by
+        // name sends them looking at the machine rather than at what they typed.
         final StartCheck.Result result =
                 StartCheck.check(context(dir), null, "not-installed", null, null);
 
@@ -144,8 +144,7 @@ class StartCheckTest {
     void theRepositoryIsAskedLastSoARefusalNeverHidesTheOthers(@TempDir Path dir) throws Exception {
 
         // The point a question from the interface exposed: an interface asking "can work start in
-        // this
-        // project at all" must not be told to choose a repository and learn nothing about a
+        // this project at all" must not be told to choose a repository and learn nothing about a
         // missing agent. There is no agent on this machine, so that is the answer - even though no
         // repository was named either.
         assertThat(
@@ -236,8 +235,8 @@ class StartCheckTest {
     @Test
     void aRunWithNoGateIsNotAskedWhichRepository(@TempDir Path dir) throws Exception {
 
-        // It gets an empty directory and can commit nowhere, so it works on no repository and
-        // there is nothing for it to name.
+        // It gets an empty directory and can commit nowhere, so it works on no repository and there
+        // is nothing for it to name.
         assertThat(StartCheck.withRepository(READY, threeRepositories(dir), null, false))
                 .isEqualTo(READY);
     }
@@ -245,8 +244,8 @@ class StartCheckTest {
     @Test
     void aNamedRepositoryChangesNothingAboutTheAnswer(@TempDir Path dir) throws Exception {
 
-        // Proves the refusals above are about the repository and not about the fixture: with a
-        // good name, what everything else answered comes back untouched.
+        // Proves the refusals above are about the repository and not about the fixture: with a good
+        // name, what everything else answered comes back untouched.
         assertThat(StartCheck.withRepository(READY, threeRepositories(dir), "backend", true))
                 .isEqualTo(READY);
     }
@@ -272,8 +271,8 @@ class StartCheckTest {
     void anUndeclaredDestinationIsItsOwnOutcomeAndSaysWhoNamedIt(@TempDir Path dir)
             throws Exception {
 
-        // Measured: the launch blamed the project for what the run had named, and an
-        // interface could not tell the refusal from any other failed launch.
+        // Measured: the launch blamed the project for what the run had named, and an interface
+        // could not tell the refusal from any other failed launch.
         final Path empty = threeRepositories(dir);
         final StartCheck.Result fromRun =
                 StartCheck.withCredentials(
@@ -427,8 +426,7 @@ class StartCheckTest {
             throws Exception {
 
         // The start went ahead, ssh refused the workspace's fetch, and the task ran without a gate;
-        // the only trace
-        // was a line of prose in its output (found on 2026-10-02).
+        // the only trace was a line of prose in its output (found on 2026-10-02).
         final PoreloContext context = context(dir);
 
         final StartCheck.Result result =
@@ -461,8 +459,7 @@ class StartCheckTest {
             throws Exception {
 
         // Asked only once all else was ready, it hid behind a locked vault, and a person unlocked
-        // first only to be
-        // asked about the host next (found on 2026-10-02).
+        // first only to be asked about the host next (found on 2026-10-02).
         final StartCheck.Result locked =
                 new StartCheck.Result(
                         StartCheck.Outcome.VAULT_LOCKED, "an-agent", "a-provider", "key", "locked");
@@ -476,10 +473,8 @@ class StartCheckTest {
             throws Exception {
 
         // A line for '[forge.example.org.evil]:22' counted for forge.example.org, a port-22 line
-        // for an upstream on
-        // another port, and 'forge:org/repo.git' was not taken for ssh at all - each fell back to a
-        // start without a
-        // gate.
+        // for an upstream on another port, and 'forge:org/repo.git' was not taken for ssh at all -
+        // each fell back to a start without a gate.
         final PoreloContext context = context(dir);
         final Path known = FollowCredential.knownHostsFile(context);
         Files.createDirectories(known.getParent());
@@ -501,8 +496,7 @@ class StartCheckTest {
     void aHostOnItsOwnPortIsNamedWithItSoTheHintCanBeTypedBack(@TempDir Path dir) throws Exception {
 
         // The hint named the bare host, trust-host asked port 22 and wrote the bare name, and the
-        // start still said it
-        // had never met the forge on 7999 (found on 2026-10-13).
+        // start still said it had never met the forge on 7999 (found on 2026-10-13).
         final PoreloContext context = context(dir);
         final String upstream = "ssh://git@forge.example.org:7999/project/backend.git";
 
@@ -534,8 +528,8 @@ class StartCheckTest {
             @TempDir Path dir) throws Exception {
 
         // The refused key surfaced from the gate's clone as "no git gate for this task", after the
-        // task was half made,
-        // and a shell was offered that fixed nothing about it (found on 2026-10-13).
+        // task was half made, and a shell was offered that fixed nothing about it (found on
+        // 2026-10-13).
         final FakeCommandRunner runner =
                 new FakeCommandRunner()
                         .failing(

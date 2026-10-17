@@ -189,8 +189,8 @@ final class CliErrors {
                 // about the parser - a missing parameter, a value of the wrong kind - so it is
                 // passed through with the prefix the rest of this product uses.
                 err.println("porelo: " + lower(ex.getMessage()));
-                // And when the command knows what it would have taken, it says so here rather
-                // than sending somebody to another command to read a name back.
+                // And when the command knows what it would have taken, it says so here rather than
+                // sending somebody to another command to read a name back.
                 if (command.getCommand() instanceof Suggests suggests) {
                     Suggests.offer(err, suggests);
                 }
@@ -229,8 +229,8 @@ final class CliErrors {
                     "porelo: "
                             + (message == null || message.isBlank()
                                     // Some exceptions carry only a type. Naming it is better than
-                                    // an empty line
-                                    // that says something went wrong without saying anything.
+                                    // an empty line that says something went wrong without saying
+                                    // anything.
                                     ? ex.getClass().getSimpleName()
                                     : lower(message)));
             final Path written = record(paths, parsed, ex);
@@ -350,8 +350,8 @@ final class CliErrors {
         if (message == null || message.isEmpty() || !Character.isUpperCase(message.charAt(0))) {
             return String.valueOf(message);
         }
-        // Only a leading capital, and only when the word is not an acronym or a name - "URL"
-        // and "SELinux" must survive.
+        // Only a leading capital, and only when the word is not an acronym or a name - "URL" and
+        // "SELinux" must survive.
         final String firstWord = message.split("\\s", 2)[0];
         return firstWord.equals(firstWord.toUpperCase(Locale.ROOT)) && firstWord.length() > 1
                 ? message

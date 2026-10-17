@@ -115,8 +115,7 @@ class ClearingTest {
             throws IOException {
 
         // A project cleared before, or by hand, left its conversation's files behind, and 'porelo
-        // clear' said there
-        // was nothing to clear.
+        // clear' said there was nothing to clear.
         final PoreloContext context = context(dir);
         final Path transport =
                 Files.createDirectories(
@@ -143,9 +142,8 @@ class ClearingTest {
             @TempDir final Path dir) throws Exception {
 
         // The account was cleared project by project and stopped at the first that held work: the
-        // ones before it were
-        // gone, and the listing a person confirmed had stopped there too. With git itself: the gate
-        // asks it.
+        // ones before it were gone, and the listing a person confirmed had stopped there too. With
+        // git itself: the gate asks it.
         context(dir);
         final PoreloContext context =
                 new PoreloContext(

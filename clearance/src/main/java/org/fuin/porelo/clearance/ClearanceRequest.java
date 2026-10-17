@@ -29,8 +29,7 @@ public record ClearanceRequest(
     public String body() {
         // Both readings, once, where the operator answers: a reach nobody declared is either an
         // ordinary missing declaration or an agent following somebody else's instructions, and
-        // nothing
-        // here can tell which. Saying only the first would teach "allow" as the reflex.
+        // nothing here can tell which. Saying only the first would teach "allow" as the reflex.
         return "The agent tried to reach "
                 + shown()
                 + " over "

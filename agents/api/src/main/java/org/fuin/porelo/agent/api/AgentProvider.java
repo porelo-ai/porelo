@@ -46,8 +46,8 @@ public record AgentProvider(
         if (endpoint == ProviderRoute.Endpoint.SOCKET
                 && socketEnvironment == null
                 && baseUrlEnvironment == null) {
-            // An agent that can be pointed at a socket but names no variable for it cannot
-            // actually be pointed anywhere, and would fail by talking straight to the provider.
+            // An agent that can be pointed at a socket but names no variable for it cannot actually
+            // be pointed anywhere, and would fail by talking straight to the provider.
             throw new AgentException(
                     "An agent addressing a socket must name the variable" + " carrying it");
         }

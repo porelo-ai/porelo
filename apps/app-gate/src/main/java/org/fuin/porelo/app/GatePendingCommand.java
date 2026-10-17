@@ -81,8 +81,7 @@ public class GatePendingCommand implements Callable<Integer>, PoreloFactory.Cont
         try {
             if (projectName == null || projectName.isBlank()) {
                 // Nothing named: what waits anywhere on this machine. A person new to Porelo asks
-                // exactly this, and
-                // was answered "missing required option '--project'".
+                // exactly this, and was answered "missing required option '--project'".
                 final java.util.List<String> rows = new java.util.ArrayList<>();
                 for (final String name : ProjectSource.names(context)) {
                     rows.addAll(waiting(GateSupport.byName(context, name), true));
@@ -93,9 +92,8 @@ public class GatePendingCommand implements Callable<Integer>, PoreloFactory.Cont
             if ((repository == null || repository.isBlank())
                     && DefaultProject.NAME.equals(project.name())) {
                 // 'default' has no repository of its own - only the ones worked on without a
-                // project - so the
-                // question is about all of them. Its placeholder answered "nothing pending" while
-                // work waited.
+                // project - so the question is about all of them. Its placeholder answered "nothing
+                // pending" while work waited.
                 return table(
                         waiting(project, false),
                         false,

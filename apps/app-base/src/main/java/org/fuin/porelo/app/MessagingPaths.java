@@ -124,8 +124,7 @@ public record MessagingPaths(PoreloPaths paths) {
      */
     public Path allowedSigners() {
         // Named for what it holds, the message keys of other machines, as a project's own file is
-        // (the operator,
-        // 2026-10-04); the format is still OpenSSH's allowed_signers.
+        // (the operator, 2026-10-04); the format is still OpenSSH's allowed_signers.
         return paths.xdg().config().resolve("machine-signers");
     }
 }

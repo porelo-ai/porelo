@@ -41,16 +41,13 @@ public record Keyslot(
     public static final java.util.Set<String> STORAGE =
             java.util.Set.of(
                     // Any process running as that user can ask for it: a Secret Service keyring
-                    // that
-                    // unlocks at login, or Windows DPAPI. The common case on a desktop, and worth
-                    // less
-                    // than it sounds.
+                    // that unlocks at login, or Windows DPAPI. The common case on a desktop, and
+                    // worth less than it sounds.
                     "USER_SCOPED",
                     // Only this application can ask: iOS, Android, macOS with code signing.
                     "APPLICATION_SCOPED",
                     // Not stored at all: derived at unlock time from a token's hmac-secret, so
-                    // releasing
-                    // it needs a physical touch that same-user code cannot supply.
+                    // releasing it needs a physical touch that same-user code cannot supply.
                     "FIDO2",
                     // Not stored at all: sealed behind a PIN in a TPM2 object.
                     "TPM2");

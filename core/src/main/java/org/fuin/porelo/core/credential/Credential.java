@@ -165,8 +165,7 @@ public record Credential(
      */
     public boolean covers(final String normalised) {
         // At a boundary, not as a plain prefix: 'https://github.com' covered
-        // 'https://github.com.evil.example', and
-        // '/org' '/org-evil'.
+        // 'https://github.com.evil.example', and '/org' '/org-evil'.
         if (!normalised.startsWith(match)) {
             return false;
         }

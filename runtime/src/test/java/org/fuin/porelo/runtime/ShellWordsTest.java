@@ -17,8 +17,8 @@ class ShellWordsTest {
     @Test
     void keepsAnArgumentWithASpaceAsOneArgument() {
 
-        // The reason this class exists. Joined with a space and left unquoted, the shell would
-        // hand the agent two arguments where the manifest declared one.
+        // The reason this class exists. Joined with a space and left unquoted, the shell would hand
+        // the agent two arguments where the manifest declared one.
         assertThat(ShellWords.quote(List.of("agent", "--flag", "two words")))
                 .isEqualTo("'agent' '--flag' 'two words'");
     }
@@ -39,8 +39,8 @@ class ShellWordsTest {
     @Test
     void doesNotLetAWordExpandOrSubstitute() {
 
-        // Inside single quotes a shell interprets nothing, which is the whole point: an argument
-        // is passed as written rather than as whatever the container's environment makes of it.
+        // Inside single quotes a shell interprets nothing, which is the whole point: an argument is
+        // passed as written rather than as whatever the container's environment makes of it.
         assertThat(ShellWords.quote(List.of("echo", "$HOME", "`id`", "*")))
                 .isEqualTo("'echo' '$HOME' '`id`' '*'");
     }

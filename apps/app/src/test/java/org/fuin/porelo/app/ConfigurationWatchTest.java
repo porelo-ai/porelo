@@ -17,8 +17,8 @@ class ConfigurationWatchTest {
     @Test
     void aFollowThatWaitedForTheVaultIsFetchedOnceTheVaultOpensAndNoOtherIs() throws Exception {
 
-        // A person opened the vault, and its follow said vault_locked for minutes, until
-        // the next round - the walk stood still with the vault open.
+        // A person opened the vault, and its follow said vault_locked for minutes, until the next
+        // round - the walk stood still with the vault open.
         final XdgPaths xdg =
                 XdgPaths.of(
                         name ->

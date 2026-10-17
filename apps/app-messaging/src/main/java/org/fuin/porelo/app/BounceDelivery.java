@@ -39,10 +39,9 @@ public final class BounceDelivery {
         for (final Path answer : answers(mailbox.feedback())) {
             final String name = answer.getFileName().toString();
             // Through tmp and a rename, so the agent never lists half an answer - the same
-            // discipline every other hop in the mailbox keeps.
-            // The host keeps its own copy, where the agent cannot reach it: whether a message the
-            // filter answered
-            // may leave is read from here, never from the agent's box, which the agent can empty.
+            // discipline every other hop in the mailbox keeps. The host keeps its own copy, where
+            // the agent cannot reach it: whether a message the filter answered may leave is read
+            // from here, never from the agent's box, which the agent can empty.
             Files.createDirectories(MessageLookup.answers(mailbox));
             Files.copy(
                     answer,

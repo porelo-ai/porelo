@@ -21,9 +21,8 @@ class LegBuildScriptTest {
     @Test
     void everyModuleTheLegBuildsIsInTheReactor() throws IOException {
         // The grouping moved app under apps/, and the list a released tool held still named app:
-        // every leg stopped
-        // at "Could not find the selected project in the reactor: app", on rented machines only,
-        // after the push.
+        // every leg stopped at "Could not find the selected project in the reactor: app", on rented
+        // machines only, after the push.
         final List<String> reactor = reactor(ROOT, "");
         final List<String> modules = modules();
 

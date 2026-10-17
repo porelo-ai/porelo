@@ -138,8 +138,7 @@ public class AgentServer implements AutoCloseable {
                     }
                     if (!replies.streaming()) {
                         // Answering a non-streaming FormatLog with one line would look like it
-                        // worked and
-                        // then deliver nothing.
+                        // worked and then deliver nothing.
                         throw new AgentException("FormatLog requires more=true");
                     }
                     final List<String> formatted = new ArrayList<>();

@@ -54,8 +54,7 @@ class NftHookTest {
             final String stage, @TempDir final Path dir) throws Exception {
 
         // Every stage but createRuntime was a successful nothing - also none at all - so a
-        // descriptor without the
-        // stage, or with another, started the container with no ruleset.
+        // descriptor without the stage, or with another, started the container with no ruleset.
         assertThat(stage.isEmpty() ? execute(dir) : execute(dir, stage)).isEqualTo(1);
     }
 
@@ -64,9 +63,8 @@ class NftHookTest {
             throws Exception {
 
         // The runtime gives the hook 30 seconds and then kills it, which leaves no line saying why;
-        // the hook's own
-        // limit is the one that has to hold first. The stand-in keeps its output open as a hung nft
-        // does.
+        // the hook's own limit is the one that has to hold first. The stand-in keeps its output
+        // open as a hung nft does.
         Files.writeString(dir.resolve("ruleset.nft"), "table inet porelo {}\n");
         final Path sidecar = dir.resolve("sidecar.json");
         new Sidecar(

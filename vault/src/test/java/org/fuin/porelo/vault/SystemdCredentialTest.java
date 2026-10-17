@@ -64,8 +64,8 @@ class SystemdCredentialTest {
     void skipsSilentlyOnAHostWithoutSystemd() {
 
         // systemd-creds not existing is not a misconfiguration, and must not stop the tiers below
-        // it from being tried. Simulated rather than run for real: this host has systemd-creds,
-        // so the real runner would exercise the decrypt-failure path instead.
+        // it from being tried. Simulated rather than run for real: this host has systemd-creds, so
+        // the real runner would exercise the decrypt-failure path instead.
         final org.fuin.porelo.core.process.CommandRunner absent =
                 command -> {
                     throw new org.fuin.porelo.core.process.CommandException(

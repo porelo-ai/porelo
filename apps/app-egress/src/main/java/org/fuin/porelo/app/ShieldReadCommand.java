@@ -70,9 +70,8 @@ public class ShieldReadCommand implements Callable<Integer> {
                     event -> {
                         if (!all && !event.worthAsking()) {
                             // Router solicitations and multicast listener reports are dropped by
-                            // the
-                            // default-deny chain too. Passing them on would bury the events that
-                            // matter.
+                            // the default-deny chain too. Passing them on would bury the events
+                            // that matter.
                             return;
                         }
                         if (!all && !fold.isNew(event)) {

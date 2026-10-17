@@ -86,8 +86,8 @@ public final class RunningClearance {
             return false;
         }
         try {
-            // Verified first: the record has to still name the watcher. An id alone is reused,
-            // and 'kill' does not ask whether the process it is given is the one that was meant.
+            // Verified first: the record has to still name the watcher. An id alone is reused, and
+            // 'kill' does not ask whether the process it is given is the one that was meant.
             final java.util.Optional<ProcessHandle> watcher =
                     org.fuin.porelo.wire.HelperPid.verified(pidFile);
             Files.deleteIfExists(pidFile);
@@ -135,8 +135,8 @@ public final class RunningClearance {
         }
         final TaskProfile profile = TaskProfile.readFrom(state);
         if (profile == null) {
-            // Changing it without a profile would mean inventing the rest of one, which would
-            // claim a mode and a start time nobody recorded.
+            // Changing it without a profile would mean inventing the rest of one, which would claim
+            // a mode and a start time nobody recorded.
             return new Result(
                     Outcome.NOT_RECORDED, "", "", "started by a Porelo that recorded no profile");
         }
@@ -146,8 +146,8 @@ public final class RunningClearance {
         }
         final org.fuin.porelo.wire.Sidecar sidecar = sidecarOf(context, container);
         if (sidecar == null) {
-            // Without it the watcher cannot be told which project and task a prompt is about, and
-            // a prompt that names neither is one nobody can act on.
+            // Without it the watcher cannot be told which project and task a prompt is about, and a
+            // prompt that names neither is one nobody can act on.
             return new Result(
                     Outcome.NOT_RECORDED, was, "", "no sidecar recorded for " + container);
         }

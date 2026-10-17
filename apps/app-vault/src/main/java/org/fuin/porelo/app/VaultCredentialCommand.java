@@ -87,8 +87,8 @@ public class VaultCredentialCommand implements Callable<Integer>, PoreloFactory.
         if (!"get".equals(operation)) {
             return 0;
         }
-        // Read git's request even though every field is already known: git waits for the helper
-        // to consume it, and a helper that answers without reading can deadlock on a full pipe.
+        // Read git's request even though every field is already known: git waits for the helper to
+        // consume it, and a helper that answers without reading can deadlock on a full pipe.
         try (BufferedReader asked =
                 new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8))) {
             String line = asked.readLine();
@@ -100,8 +100,8 @@ public class VaultCredentialCommand implements Callable<Integer>, PoreloFactory.
         final String secret = read(err);
         if (secret == null) {
             // Answering nothing makes git ask its next helper or fail with its own message, which
-            // is better than this inventing one - but the reason goes to standard error, where
-            // git shows it.
+            // is better than this inventing one - but the reason goes to standard error, where git
+            // shows it.
             return 0;
         }
         out.println("username=" + username);

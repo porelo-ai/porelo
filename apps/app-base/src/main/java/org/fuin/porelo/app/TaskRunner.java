@@ -237,8 +237,7 @@ public class TaskRunner {
         Files.createDirectories(state);
 
         // No class opens a port to the upstream: an online task's remote is its gate, like a
-        // guarded one's, and only
-        // the host reaches the upstream.
+        // guarded one's, and only the host reaches the upstream.
         final Path ruleset = state.resolve("ruleset.nft");
         Files.writeString(
                 ruleset,
@@ -246,8 +245,8 @@ public class TaskRunner {
                 StandardCharsets.UTF_8);
         out.println("policy    " + ruleset);
 
-        // Written before the container is created, like the ruleset: the supervisor hook reads
-        // it while the container is coming up.
+        // Written before the container is created, like the ruleset: the supervisor hook reads it
+        // while the container is coming up.
         final Path dnsConfig = state.resolve("dns.conf");
         final org.fuin.porelo.shield.DnsPolicy dns = dnsPolicyFor(project, allowedDomains);
         dns.writeTo(dnsConfig);
@@ -271,8 +270,7 @@ public class TaskRunner {
         out.println("sidecar   " + sidecarFile);
 
         // One build of a project at a time: the daemon and a terminal starting it at once wrote one
-        // Containerfile
-        // over the other and tagged one image with either's.
+        // Containerfile over the other and tagged one image with either's.
         final Path context = paths.tasks().buildContext(project.name());
         final String image;
         try {
@@ -289,26 +287,22 @@ public class TaskRunner {
                 new ContainerSpec(container, image)
                         .command("sleep", "infinity")
                         // The repository's, over the project's, key by key. A repository that says
-                        // nothing
-                        // gets the project's unchanged.
+                        // nothing gets the project's unchanged.
                         .limits(project.limitsFor(repository))
                         .resolver(org.fuin.porelo.shield.DnsPolicy.LISTEN_ADDRESS)
                         .annotation(Sidecar.ANNOTATION, sidecarFile.toString())
                         // The same two facts as in the sidecar, on the container itself. The
-                        // sidecar is
-                        // in the runtime directory and goes when the session does; these outlive a
-                        // reboot, which is exactly as long as the thing they describe.
+                        // sidecar is in the runtime directory and goes when the session does; these
+                        // outlive a reboot, which is exactly as long as the thing they describe.
                         .label(Sidecar.PROJECT_LABEL, project.name())
                         .label(Sidecar.CLASS_LABEL, project.securityClass().name().toLowerCase())
                         // Which repository the agent has open. A task works on exactly one, fixed
-                        // when the
-                        // task is created, so it belongs on the container rather than being worked
-                        // out
-                        // again later from something that may have changed underneath it.
+                        // when the task is created, so it belongs on the container rather than
+                        // being worked out again later from something that may have changed
+                        // underneath it.
                         .label(Sidecar.REPOSITORY_LABEL, repository.name())
                         // What this task's configuration was verified at, so the question survives
-                        // the
-                        // project moving on. "" for a project nothing verified.
+                        // the project moving on. "" for a project nothing verified.
                         .label(Sidecar.COMMIT_LABEL, commit);
         final org.fuin.porelo.core.project.Limits limits = project.limitsFor(repository);
         // Fixed when the task starts, like the others: what the daemon refuses above and what a
@@ -336,8 +330,8 @@ public class TaskRunner {
         environment.forEach(specification::environment);
         if (wiring.vaultSocket() != null) {
             // The credential proxy. Mounted rather than reached over the network on purpose: it
-            // needs no firewall rule, and the provider's own host is withheld from the ruleset
-            // so this is the only route to a working credential.
+            // needs no firewall rule, and the provider's own host is withheld from the ruleset so
+            // this is the only route to a working credential.
             specification.volume(wiring.vaultSocket(), TaskWiring.VAULT_MOUNT);
         }
         if (wiring.mailbox() != null) {
@@ -356,9 +350,8 @@ public class TaskRunner {
             specification.volume(guide.directory(), TaskGuide.MOUNT);
         }
         // The id podman gives back is what makes it Porelo's task, never its name: recorded before
-        // it first starts, so
-        // every act on it after this, and its hooks, go to this container and no other of the same
-        // name.
+        // it first starts, so every act on it after this, and its hooks, go to this container and
+        // no other of the same name.
         Sidecar.recordId(state, podman.create(specification));
         out.println("container " + container);
 
@@ -466,13 +459,12 @@ public class TaskRunner {
         final org.fuin.porelo.shield.DnsPolicy policy =
                 new org.fuin.porelo.shield.DnsPolicy(project.securityClass());
         // Refused first in the reading, though the order does not decide it: dnsmasq takes the
-        // longest
-        // match, so a refused name wins over any allowance of it or of its parent.
+        // longest match, so a refused name wins over any allowance of it or of its parent.
         refused.forEach(policy::refuse);
-        // Every allowed domain, not just the upstream. Resolving a name and being allowed to
-        // reach it are the same decision: a domain that resolves but is then dropped produces a
-        // clearance prompt for a host the definition already declared, which is a prompt about
-        // nothing. The prompt is for what an agent reached for that nobody declared.
+        // Every allowed domain, not just the upstream. Resolving a name and being allowed to reach
+        // it are the same decision: a domain that resolves but is then dropped produces a clearance
+        // prompt for a host the definition already declared, which is a prompt about nothing. The
+        // prompt is for what an agent reached for that nobody declared.
         allowedDomains.forEach(policy::autoAllow);
         // The upstream resolvers the host itself uses. Anything the policy does not allow is
         // NXDOMAIN before it ever reaches them.
@@ -519,8 +511,8 @@ public class TaskRunner {
             ruleset.localV4("127.0.0.0/8");
             // The resolver runs INSIDE this namespace, so its own upstream queries are subject to
             // this ruleset. Without these rules dnsmasq answers every query with REFUSED and the
-            // container looks like it has no network at all - which is what happened the first
-            // time this was wired up.
+            // container looks like it has no network at all - which is what happened the first time
+            // this was wired up.
             upstreamResolvers.forEach(ruleset::resolver);
         }
         return ruleset.render();
@@ -579,8 +571,8 @@ public class TaskRunner {
         try {
             Files.writeString(temporary, file.content(), StandardCharsets.UTF_8);
             // Three calls rather than one shell script. The script concatenated the path into
-            // quoted text three times, so a path containing a quote became commands; these pass
-            // it as an argument, where it can only ever be a path.
+            // quoted text three times, so a path containing a quote became commands; these pass it
+            // as an argument, where it can only ever be a path.
             runOrFail(
                     podman.makeParentArguments(container, file.path()),
                     null,

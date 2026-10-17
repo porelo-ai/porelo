@@ -206,8 +206,7 @@ class PoreloDaemonTest {
                                         Map.of("project", PROJECT, "task", "porelo-uc-shell"));
 
                         // The existing task was reached - here it predates a restart, so it is
-                        // refused
-                        // with that reason - and no second one was begun beside it.
+                        // refused with that reason - and no second one was begun beside it.
                         assertThat(reply).containsEntry("container", "porelo-uc-shell");
                         @SuppressWarnings("unchecked")
                         final List<String> output = (List<String>) reply.get("output");
@@ -402,8 +401,8 @@ class PoreloDaemonTest {
     @Test
     void refusesABadTaskNameBeforeAnythingIsBuiltOrWritten(@TempDir Path dir) throws Exception {
 
-        // Reported from the interface: 'Foo Bar' built an image and wrote a policy, a resolver
-        // and a sidecar before podman refused the container name, and all three stayed behind.
+        // Reported from the interface: 'Foo Bar' built an image and wrote a policy, a resolver and
+        // a sidecar before podman refused the container name, and all three stayed behind.
         final PoreloContext context = hooked(dir);
         final Path project = projectFile(dir);
         runner.answering("podman version", "5.8.1");
@@ -517,8 +516,8 @@ class PoreloDaemonTest {
     void saysWhatStartingEachTaskWouldDo(@TempDir Path dir) throws Exception {
 
         // Answered per task in the listing rather than by a call per row: an interface drawing
-        // forty tiles would otherwise ask forty times for something the listing already knew.
-        // A listed task exists by definition, so CREATE cannot appear here.
+        // forty tiles would otherwise ask forty times for something the listing already knew. A
+        // listed task exists by definition, so CREATE cannot appear here.
         runner.answering(
                 "ps",
                 "porelo-uc-shell\tUp 4 minutes\t1700000000\t0\tuc\tguarded\n"
@@ -556,8 +555,7 @@ class PoreloDaemonTest {
                                 .containsEntry("startDetail", "");
 
                         // Stopped before the machine restarted: refused before anybody presses
-                        // Start,
-                        // with the way to keep the work.
+                        // Start, with the way to keep the work.
                         assertThat(tasks.get(2))
                                 .containsEntry("startAction", "PREDATES_RESTART")
                                 .containsEntry("task", "old");
@@ -620,9 +618,9 @@ class PoreloDaemonTest {
     @Test
     void refusesOverTheSocketExactlyAsTheCliDoes(@TempDir Path dir) throws Exception {
 
-        // The reason this shares TaskControl with the CLI rather than reimplementing it: a
-        // refusal that exists in one caller and not the other is a task removed, over this
-        // socket, with work that existed nowhere else.
+        // The reason this shares TaskControl with the CLI rather than reimplementing it: a refusal
+        // that exists in one caller and not the other is a task removed, over this socket, with
+        // work that existed nowhere else.
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
         runner.answering("git status --porcelain", "3 2");
 
@@ -636,9 +634,8 @@ class PoreloDaemonTest {
                                         Map.of("task", "porelo-uc-shell-1"));
 
                         // What it holds is asked before it is refused for running, so that rescue
-                        // is
-                        // still possible - the container has to be up for work to be pushed out of
-                        // it.
+                        // is still possible - the container has to be up for work to be pushed out
+                        // of it.
                         assertThat(reply)
                                 .containsEntry("outcome", "HOLDS_WORK")
                                 .containsEntry("work", "2 commits and 3 changed files");
@@ -690,8 +687,8 @@ class PoreloDaemonTest {
     void redrawsWhenTheWorkChangesWithoutTheContainerChanging(@TempDir Path dir) throws Exception {
 
         // The one transition that matters and the runtime cannot see: a task that starts waiting
-        // for an answer is still "Up 4 minutes". A watcher comparing only the container would
-        // never redraw it.
+        // for an answer is still "Up 4 minutes". A watcher comparing only the container would never
+        // redraw it.
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\t1788500000\t0\n");
         final Path state = dir.resolve("run/porelo/porelo-uc-shell-1");
         Files.createDirectories(state);
@@ -855,8 +852,7 @@ class PoreloDaemonTest {
                         assertThat(String.valueOf(set.get("domains")))
                                 .contains("repo.maven.apache.org");
                         // Where they come from, in search order: an operator's own file of the same
-                        // name
-                        // wins over a packaged one, and that is worth being able to show.
+                        // name wins over a packaged one, and that is worth being able to show.
                         assertThat((List<?>) answer.get("locations")).isNotEmpty();
                     }
                 });
@@ -1028,8 +1024,7 @@ class PoreloDaemonTest {
     void listsOnlyDefaultOnAMachineThatHasRunNothing(@TempDir Path dir) throws Exception {
 
         // Not an error: a fresh machine is a normal state. It has 'default' and nothing else, and
-        // an interface shows
-        // that project first, empty, as the place work starts without a project.
+        // an interface shows that project first, empty, as the place work starts without a project.
         serving(
                 dir,
                 socket -> {
@@ -1085,8 +1080,8 @@ class PoreloDaemonTest {
     void tellsHoldingNothingApartFromNobodyHavingLooked(@TempDir Path dir) throws Exception {
 
         // The whole reason readable exists. An empty answer that means "nothing to lose" and one
-        // that means "nobody could look" are the two sentences Credentials and Providers were
-        // both caught by, and this would have been the third.
+        // that means "nobody could look" are the two sentences Credentials and Providers were both
+        // caught by, and this would have been the third.
         final Path held = dir.resolve("run/porelo/porelo-uc-held-1");
         Files.createDirectories(held);
         org.fuin.porelo.app.UnhandedWork.note(
@@ -1140,8 +1135,8 @@ class PoreloDaemonTest {
     void neverServesTheTasksOwnTokenAsALog(@TempDir Path dir) throws Exception {
 
         // Logs and Tail used to apply separate rules, so a listing could name a file the reader
-        // refused - or worse, drift the other way. The state directory holds the live phantom
-        // token beside the logs, which is why the shared rule is an allow-list.
+        // refused - or worse, drift the other way. The state directory holds the live phantom token
+        // beside the logs, which is why the shared rule is an allow-list.
         final Path state = dir.resolve("run/porelo/porelo-uc-shell-1");
         Files.createDirectories(state);
         Files.writeString(state.resolve("vault.token"), "porelo_pt_the_real_thing\n");
@@ -1188,8 +1183,8 @@ class PoreloDaemonTest {
     @Test
     void listsTheLogsATaskActuallyHas(@TempDir Path dir) throws Exception {
 
-        // Which files exist depends on what the task started, so a client that held a list of
-        // names would open an empty viewer for one that was never going to be there.
+        // Which files exist depends on what the task started, so a client that held a list of names
+        // would open an empty viewer for one that was never going to be there.
         final Path state = dir.resolve("run/porelo/porelo-uc-shell-1");
         Files.createDirectories(state);
         Files.writeString(state.resolve("gate.log"), "a line\n");
@@ -1429,8 +1424,8 @@ class PoreloDaemonTest {
     void aTailIsNotThrownByABrokenCharacterOrALongLine(@TempDir Path dir) throws Exception {
 
         // The position was counted by re-encoding decoded text: one byte that was not UTF-8 put it
-        // past the end, and
-        // the log was sent again every 200 ms. A line longer than a read was never passed at all.
+        // past the end, and the log was sent again every 200 ms. A line longer than a read was
+        // never passed at all.
         final Path state = dir.resolve("run/porelo/porelo-uc-shell-1");
         Files.createDirectories(state);
         final Path log = state.resolve("gate.log");
@@ -1551,8 +1546,7 @@ class PoreloDaemonTest {
             throws Exception {
 
         // A URL or a host reaches git and ssh-keyscan as an argument; one that starts with a dash
-        // is an option there,
-        // and '--upload-pack=...' is a command git runs.
+        // is an option there, and '--upload-pack=...' is a command git runs.
         serving(
                 dir,
                 socket -> {
@@ -1676,10 +1670,8 @@ class PoreloDaemonTest {
                         waitFor(() -> replies.size() == 1);
 
                         // The age moves on its own: 'Up 3 seconds' becomes 'Up 4 seconds' a second
-                        // later.
-                        // Measured against a real task, this made the watch fire every second and
-                        // tell a
-                        // fleet view to redraw because a clock had moved.
+                        // later. Measured against a real task, this made the watch fire every
+                        // second and tell a fleet view to redraw because a clock had moved.
                         runner.answering("ps", "porelo-uc-shell-1\tUp 9 minutes\n");
                         Thread.sleep(PoreloDaemon.WATCH_INTERVAL.multipliedBy(4));
                         assertThat(replies)
@@ -1711,8 +1703,8 @@ class PoreloDaemonTest {
     void carriesAPromptFromATaskAndTheAnswerBack(@TempDir Path dir) throws Exception {
 
         // The one socket an interface talks to. Driven against a real watcher-side service on a
-        // real socket, because what is being checked is that two processes meet - and a prompt
-        // that never arrives, or an answer that goes nowhere, both leave the task blocked.
+        // real socket, because what is being checked is that two processes meet - and a prompt that
+        // never arrives, or an answer that goes nowhere, both leave the task blocked.
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
         final Path state = dir.resolve("run/porelo/porelo-uc-shell-1");
         Files.createDirectories(state);
@@ -1750,8 +1742,7 @@ class PoreloDaemonTest {
                                                     });
 
                             // Wait until the daemon has subscribed, then report a blocked
-                            // destination the
-                            // way the reader hook does.
+                            // destination the way the reader hook does.
                             waitFor(() -> watcher.subscriberCount() > 0);
                             try (VarlinkClient hook =
                                     new VarlinkClient(state.resolve("clearance.sock"))) {
@@ -1774,10 +1765,8 @@ class PoreloDaemonTest {
                                     .containsEntry("task", "porelo-uc-shell-1");
 
                             // Nobody answered, and that arrives too. Without it an interface cannot
-                            // tell a
-                            // question that ran out from one still waiting, and this one will never
-                            // be
-                            // asked again.
+                            // tell a question that ran out from one still waiting, and this one
+                            // will never be asked again.
                             waitFor(() -> prompts.size() > 1);
                             assertThat(prompts.get(1))
                                     .containsEntry("destination", "pypi.org")
@@ -1877,8 +1866,7 @@ class PoreloDaemonTest {
     void authorizingIsAStreamAndNamesWhatItNeeds(@TempDir Path dir) throws Exception {
 
         // A consent flow answered once would leave the interface polling for its end, and polling
-        // one is
-        // the shape that produces two grants for one question.
+        // one is the shape that produces two grants for one question.
         serving(
                 dir,
                 socket -> {
@@ -1907,8 +1895,7 @@ class PoreloDaemonTest {
             throws Exception {
 
         // A browser elsewhere redirects to this machine's loopback; the interface has to know which
-        // port to
-        // forward before it opens the link, and learns how it ended on the same stream.
+        // port to forward before it opens the link, and learns how it ended on the same stream.
         org.junit.jupiter.api.Assumptions.assumeTrue(
                 org.fuin.porelo.vault.KernelKeyring.available(), "libkeyutils is not installed");
         final int port;
@@ -2049,8 +2036,7 @@ class PoreloDaemonTest {
             @TempDir Path dir) throws Exception {
 
         // What an interface needs to make a project from a repository and bind this machine to it:
-        // only public
-        // halves, and the editor's rules from the machine itself.
+        // only public halves, and the editor's rules from the machine itself.
         serving(
                 dir,
                 socket -> {
@@ -2224,8 +2210,8 @@ class PoreloDaemonTest {
     void aLockedVaultIsReportedAsUnreadable(@TempDir Path dir) throws Exception {
 
         // The other half of the same distinction: nothing is in the keyring, so the daemon cannot
-        // read it and has no terminal to ask at. "We cannot tell you until you unlock it" and
-        // "it is not there" are different sentences, and only one of them is somebody's problem.
+        // read it and has no terminal to ask at. "We cannot tell you until you unlock it" and "it
+        // is not there" are different sentences, and only one of them is somebody's problem.
         final PoreloContext context = context(dir);
         Files.createDirectories(context.vault().path().getParent());
         context.vault()
@@ -2252,8 +2238,8 @@ class PoreloDaemonTest {
     void panicListsWhatItWouldStopAndStopsNothing(@TempDir Path dir) throws Exception {
 
         // The half somebody presses first, and the half that must not act. A preview that stopped
-        // anything would be the worst possible surprise in the one command reached for when
-        // nobody knows what is wrong.
+        // anything would be the worst possible surprise in the one command reached for when nobody
+        // knows what is wrong.
         runner.answering(
                 "ps",
                 "porelo-uc-shell-1\tUp 4 minutes\n"
@@ -2283,8 +2269,8 @@ class PoreloDaemonTest {
     @Test
     void panicStopsEveryRunningTaskAndRemovesNothing(@TempDir Path dir) throws Exception {
 
-        // It stops; it never removes. An operator who believed this cleaned up would go looking
-        // for work that is still exactly where it was, which is why nothing here may run 'rm'.
+        // It stops; it never removes. An operator who believed this cleaned up would go looking for
+        // work that is still exactly where it was, which is why nothing here may run 'rm'.
         runner.answering(
                 "ps", "porelo-uc-shell-1\tUp 4 minutes\n" + "porelo-uc-other-2\tUp 9 minutes\n");
 
@@ -2313,8 +2299,8 @@ class PoreloDaemonTest {
     void lockSaysWhatItDidAndWhatItCouldNotReach(@TempDir Path dir) throws Exception {
 
         // A running task's proxy read the credential when it started and holds it in its own
-        // memory, where locking cannot reach. Reporting "locked" without saying so would claim
-        // more than happened.
+        // memory, where locking cannot reach. Reporting "locked" without saying so would claim more
+        // than happened.
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
 
         serving(
@@ -2326,9 +2312,8 @@ class PoreloDaemonTest {
 
                         assertThat(reply).containsKeys("keyring", "wasCached", "holding");
                         // Compared as a number, not by type: the reader turns every JSON number
-                        // into a
-                        // Double by design, so the wire's "1" arrives as 1.0 for every int in this
-                        // contract.
+                        // into a Double by design, so the wire's "1" arrives as 1.0 for every int
+                        // in this contract.
                         assertThat(((Number) reply.get("holding")).longValue()).isEqualTo(1L);
                         // Nothing was ever cached for this temporary vault, so locking it changed
                         // nothing
@@ -2433,10 +2418,10 @@ class PoreloDaemonTest {
     @Test
     void aCredentialStoredUnderAnAgentsOwnNameIsStillFound() {
 
-        // A vault written before credentials were keyed by provider. The key stays the agent's,
-        // so upgrading does not stop anybody authenticating - and an interface that recomputed
-        // this from the provider list alone would report a missing credential for exactly the
-        // vault that has one.
+        // A vault written before credentials were keyed by provider. The key stays the agent's, so
+        // upgrading does not stop anybody authenticating - and an interface that recomputed this
+        // from the provider list alone would report a missing credential for exactly the vault that
+        // has one.
         final Map<String, Object> row =
                 PoreloDaemon.provider(anthropic(), Map.of("claude", entry("oauth")), "claude");
 
@@ -2490,9 +2475,9 @@ class PoreloDaemonTest {
     @Test
     void anOmittedNameIsNotTheSameAsAnEmptyOne() {
 
-        // "no agent named" means "the only one installed"; an empty name is a name nothing
-        // matches. Reading both as "" would turn the first into a refusal on a machine with
-        // exactly one agent - the commonest machine there is.
+        // "no agent named" means "the only one installed"; an empty name is a name nothing matches.
+        // Reading both as "" would turn the first into a refusal on a machine with exactly one
+        // agent - the commonest machine there is.
         assertThat(PoreloDaemon.absent(Map.of(), "agent")).isNull();
         assertThat(PoreloDaemon.absent(Map.of("agent", ""), "agent")).isNull();
         assertThat(PoreloDaemon.absent(Map.of("agent", "   "), "agent")).isNull();
@@ -2502,8 +2487,8 @@ class PoreloDaemonTest {
     @Test
     void backupsAreEmptyForAProjectNobodyHasBackedUp(@TempDir Path dir) throws Exception {
 
-        // An ordinary answer rather than an error: it is also what a project backed up by an
-        // older Porelo looks like, and neither deserves a fault on screen.
+        // An ordinary answer rather than an error: it is also what a project backed up by an older
+        // Porelo looks like, and neither deserves a fault on screen.
         serving(
                 dir,
                 socket -> {
@@ -2627,8 +2612,7 @@ class PoreloDaemonTest {
             throws Exception {
 
         // Backups lists a second repository's bundles under that repository; DeleteBackup takes the
-        // project and the
-        // path Backups gave, and has to find the record where the listing found it.
+        // project and the path Backups gave, and has to find the record where the listing found it.
         record(
                 dir,
                 Files.writeString(
@@ -2698,9 +2682,8 @@ class PoreloDaemonTest {
             throws Exception {
 
         // The interface rejects through the daemon: a push somebody made upstream by hand was
-        // discarded there and
-        // recorded as discarded, the opposite of what happened, and the pending list never said it
-        // was upstream.
+        // discarded there and recorded as discarded, the opposite of what happened, and the pending
+        // list never said it was upstream.
         final Path origin = dir.resolve("origin.git");
         git(dir, "init", "-q", "--bare", "-b", "main", origin.toString());
         record(
@@ -2923,8 +2906,8 @@ class PoreloDaemonTest {
     @Test
     void importingWithNoAgentInstalledSaysSoRatherThanFailing(@TempDir Path dir) throws Exception {
 
-        // A machine with no agents is an ordinary state, not a fault. Reporting it as FAILED
-        // would send somebody looking for a broken daemon.
+        // A machine with no agents is an ordinary state, not a fault. Reporting it as FAILED would
+        // send somebody looking for a broken daemon.
         serving(
                 dir,
                 socket -> {
@@ -2975,10 +2958,8 @@ class PoreloDaemonTest {
                                 .as("a vacuous pass here would prove nothing")
                                 .isNotEmpty();
                         // A vault that does not exist is readable and empty. Reporting it
-                        // unreadable
-                        // would send somebody to unlock a store that is not there - the one
-                        // instruction
-                        // that cannot help them.
+                        // unreadable would send somebody to unlock a store that is not there - the
+                        // one instruction that cannot help them.
                         assertThat(reply).containsEntry("readable", true);
                     }
                 });
@@ -2987,8 +2968,8 @@ class PoreloDaemonTest {
     @Test
     void providersNameTheKeyAndTheCommandThatStoresOne(@TempDir Path dir) throws Exception {
 
-        // storeCommand is the whole answer to "where do I type it", and it is rendered verbatim.
-        // A wrong key name makes that advice useless in the way that is hardest to notice: the
+        // storeCommand is the whole answer to "where do I type it", and it is rendered verbatim. A
+        // wrong key name makes that advice useless in the way that is hardest to notice: the
         // command succeeds and stores the credential where nothing will look for it.
         declareProvider(dir);
         serving(
@@ -3152,8 +3133,8 @@ class PoreloDaemonTest {
     void anArtifactThatIsUnverifiableOnPurposeKeepsItsReason() {
 
         // Three renderable states rather than one blank field: verified, nothing to fetch, and
-        // unverifiable for a stated reason. The last is a decision somebody made, not a fault,
-        // and it reads as a fault without the reason beside it.
+        // unverifiable for a stated reason. The last is a decision somebody made, not a fault, and
+        // it reads as a fault without the reason beside it.
         final Map<String, Object> row =
                 PoreloDaemon.artifact(
                         new org.fuin.porelo.agent.api.InstallArtifact(
@@ -3175,9 +3156,9 @@ class PoreloDaemonTest {
     void canStartAnswersRatherThanThrowingWhenNothingCanRun(@TempDir Path dir) throws Exception {
 
         // The whole point of the method: a refusal is an ANSWER a client branches on, not an
-        // exception and not an exit code with prose after it. one criterion is that a
-        // missing credential is reported before anything is built or started, and reporting it
-        // as a thrown error would put the client back to reading text.
+        // exception and not an exit code with prose after it. one criterion is that a missing
+        // credential is reported before anything is built or started, and reporting it as a thrown
+        // error would put the client back to reading text.
         serving(
                 dir,
                 socket -> {
@@ -3203,10 +3184,8 @@ class PoreloDaemonTest {
                 socket -> {
                     try (VarlinkClient client = new VarlinkClient(socket)) {
                         // An answer, not an error. Asking whether work can start is a question a
-                        // client is
-                        // entitled to ask about a project that turns out not to exist, and throwing
-                        // would
-                        // hand it an exception for asking.
+                        // client is entitled to ask about a project that turns out not to exist,
+                        // and throwing would hand it an exception for asking.
                         final Map<String, Object> reply =
                                 client.call(
                                         PoreloDaemon.INTERFACE + ".CanStart",
@@ -3222,8 +3201,8 @@ class PoreloDaemonTest {
     void labellingSomethingThatIsNotATaskAnswersRatherThanThrows(@TempDir Path dir)
             throws Exception {
 
-        // An outcome a client branches on, like every other refusal here. A thrown error would
-        // put the interface back to reading text to find out what happened.
+        // An outcome a client branches on, like every other refusal here. A thrown error would put
+        // the interface back to reading text to find out what happened.
         serving(
                 dir,
                 socket -> {
@@ -3249,8 +3228,7 @@ class PoreloDaemonTest {
             throws Exception {
 
         // The contract says "Default: the upstream's default branch"; the daemon showed the push's
-        // last commit alone,
-        // and a client saw half of the work.
+        // last commit alone, and a client saw half of the work.
         final PoreloContext context = context(dir);
         final org.fuin.porelo.core.process.ProcessCommandRunner git =
                 new org.fuin.porelo.core.process.ProcessCommandRunner();
@@ -3335,8 +3313,8 @@ class PoreloDaemonTest {
             throws Exception {
 
         // A task's name came back: its upstream still holds porelo/t from earlier work. Approve
-        // answered Failed with
-        // git's "! [rejected] (non-fast-forward)"; an interface could only show the text.
+        // answered Failed with git's "! [rejected] (non-fast-forward)"; an interface could only
+        // show the text.
         final PoreloContext context = context(dir);
         final org.fuin.porelo.core.process.ProcessCommandRunner git =
                 new org.fuin.porelo.core.process.ProcessCommandRunner();
@@ -3444,12 +3422,10 @@ class PoreloDaemonTest {
             throws Exception {
 
         // A guarded task's name came back while its earlier work still waits at the gate: Start
-        // answered the general
-        // start failure with the daemon's words, and an interface could not offer that work or
-        // another name. With the
-        // records checked, as the real daemon checks them: without, it passed here while the daemon
-        // answered that the
-        // task was no task Porelo made.
+        // answered the general start failure with the daemon's words, and an interface could not
+        // offer that work or another name. With the records checked, as the real daemon checks
+        // them: without, it passed here while the daemon answered that the task was no task Porelo
+        // made.
         final PoreloContext hooked = hooked(dir);
         final PoreloContext context =
                 new PoreloContext(runner, hooked.paths(), arguments -> 0, name -> null, true);
@@ -3567,9 +3543,8 @@ class PoreloDaemonTest {
     void aStartGivenAnUpstreamAsksAboutThatUpstreamsHost(@TempDir Path dir) throws Exception {
 
         // The gate fetches from the upstream a start is given, not from the project file's: the
-        // host a person is asked
-        // to trust is that one, as at the command line, and the project file's own host is not the
-        // start's question.
+        // host a person is asked to trust is that one, as at the command line, and the project
+        // file's own host is not the start's question.
         record(
                 dir,
                 Files.writeString(
@@ -3625,11 +3600,9 @@ class PoreloDaemonTest {
     void aStartRefusedBeforeAnythingExistsAnswersItsOwnRefusal(@TempDir Path dir) throws Exception {
 
         // Refused for its agent before anything was made, the start cleaned up by asking podman
-        // about a container that
-        // never existed; with the records checked that threw "is no task Porelo made", which
-        // replaced the refusal: over
-        // the socket it arrived as Failed, on the command line as exit 70. Seen on the Ubuntu VM,
-        // 2026-10-09.
+        // about a container that never existed; with the records checked that threw "is no task
+        // Porelo made", which replaced the refusal: over the socket it arrived as Failed, on the
+        // command line as exit 70. Seen on the Ubuntu VM, 2026-10-09.
         final PoreloContext hooked = hooked(dir);
         final PoreloContext context =
                 new PoreloContext(runner, hooked.paths(), arguments -> 0, name -> null, true);
@@ -3727,9 +3700,9 @@ class PoreloDaemonTest {
     @Test
     void theSocketIsOwnerOnly(@TempDir Path dir) throws Exception {
 
-        // The whole access-control story: no listener on any interface, and the filesystem
-        // refusing every other account on this machine. A check written in Java could be
-        // forgotten; a mode the kernel enforces cannot.
+        // The whole access-control story: no listener on any interface, and the filesystem refusing
+        // every other account on this machine. A check written in Java could be forgotten; a mode
+        // the kernel enforces cannot.
         serving(
                 dir,
                 socket -> {
@@ -3797,10 +3770,9 @@ class PoreloDaemonTest {
     void aSecondDaemonTakesOverTheSocketRatherThanFailing(@TempDir Path dir) throws IOException {
 
         // Restarting is the common case - an upgrade, a crash - and a stale socket file from the
-        // previous one must not be what stops it coming back.
-        // A server that closes cleanly removes its file, so a stale one is made the way a crash
-        // leaves it: bound, and
-        // closed without anybody removing the path.
+        // previous one must not be what stops it coming back. A server that closes cleanly removes
+        // its file, so a stale one is made the way a crash leaves it: bound, and closed without
+        // anybody removing the path.
         final Path socket = dir.resolve("porelod.sock");
         try (java.nio.channels.ServerSocketChannel crashed =
                 java.nio.channels.ServerSocketChannel.open(java.net.StandardProtocolFamily.UNIX)) {

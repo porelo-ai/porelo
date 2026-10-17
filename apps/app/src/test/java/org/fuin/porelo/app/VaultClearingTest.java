@@ -69,8 +69,7 @@ class VaultClearingTest {
     @AfterEach
     void forgetWhatTheKeyringHolds() {
         // Every test's own description, from its own temporary vault: a passphrase left behind
-        // outlives the test in
-        // the developer's account.
+        // outlives the test in the developer's account.
         if (used != null && KernelKeyring.available()) {
             new KernelKeyring(used.paths().vault().vaultKeyringKey()).forget();
             VaultShare.forget(used.paths());

@@ -13,9 +13,8 @@ class LayoutTest {
     @Test
     void everyPlaceTheCheckReadsIsAModuleOfThisTree() {
         // Kept in a released tool, the check still looked in dist-deb/ and dist-rpm/ after the
-        // modules moved under
-        // dist/, found no package and failed only on the way to publishing. In the tree, a
-        // regrouping meets this.
+        // modules moved under dist/, found no package and failed only on the way to publishing. In
+        // the tree, a regrouping meets this.
         final Path root = Path.of("").toAbsolutePath().getParent().getParent();
         assertThat(root.resolve("dist/package-check")).isDirectory();
         final List<String> places =

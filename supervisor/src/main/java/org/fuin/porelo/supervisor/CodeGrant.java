@@ -337,8 +337,7 @@ public final class CodeGrant {
             out.write(payload);
         } finally {
             // Handed over only once the page is sent: the wait stops the listener, and a browser
-            // cut off
-            // mid-answer shows the person an error for an authorization that worked.
+            // cut off mid-answer shows the person an error for an authorization that worked.
             if (theAnswer) {
                 answer.complete(query);
             }

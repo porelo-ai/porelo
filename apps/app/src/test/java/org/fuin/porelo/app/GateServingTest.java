@@ -28,8 +28,7 @@ class GateServingTest {
     @Test
     void anOnlineTasksGatePassesItsPushOnAndAGuardedOnesKeepsIt() {
         // Checked on the command itself: read back from a start's record, it was there only where a
-        // 'porelo' could be
-        // started, and a runner without one recorded no gate at all.
+        // 'porelo' could be started, and a runner without one recorded no gate at all.
         final Path state = Path.of("/run/user/1000/porelo/porelo-uc-shell");
 
         assertThat(GateWiring.serving(project("online"), "127.0.0.1", 9418, state, "shell", "uc"))

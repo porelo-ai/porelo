@@ -123,9 +123,8 @@ final class WorkspaceSetup {
                     && chosen.upstream() == null
                     && upstream == null) {
                 // Online passes every push on at once, which needs somewhere to pass it to. Its
-                // gate is the same as a
-                // guarded task's: the agent's remote is the gate, and only the host reaches the
-                // upstream.
+                // gate is the same as a guarded task's: the agent's remote is the gate, and only
+                // the host reaches the upstream.
                 err.println(
                         "porelo: an online project needs an upstream for '"
                                 + chosen.name()
@@ -139,9 +138,8 @@ final class WorkspaceSetup {
             gate.initialize();
             if (project.securityClass() == org.fuin.porelo.core.project.SecurityClass.ONLINE) {
                 // What an earlier task of this name left went on to the upstream long ago; here it
-                // would only make the
-                // new task's plain push "fetch first", and an agent that followed git's hint pull
-                // it into its own.
+                // would only make the new task's plain push "fetch first", and an agent that
+                // followed git's hint pull it into its own.
                 gate.forget(task);
             } else {
                 final String earlier = gate.waiting(task);
@@ -177,14 +175,14 @@ final class WorkspaceSetup {
             }
             return opened;
         } catch (RuntimeException ex) {
-            // A task with no workspace is still a useful task - a shell in a hardened box - so
-            // this reports and continues rather than refusing to start.
+            // A task with no workspace is still a useful task - a shell in a hardened box - so this
+            // reports and continues rather than refusing to start.
             err.println("porelo: no git gate for this task: " + ex.getMessage());
             final String said = String.valueOf(ex.getMessage());
             if (HostKeys.refusedTheHost(said)) {
                 // Answered as the question it is, as a follow answers it: git's own words name no
-                // way on, and a person
-                // new to Porelo met them on the first task in 'default' (2026-10-01).
+                // way on, and a person new to Porelo met them on the first task in 'default'
+                // (2026-10-01).
                 final String host =
                         HostKeys.nameOf(
                                 String.valueOf(
@@ -238,13 +236,13 @@ final class WorkspaceSetup {
             // A mirror that exists is never re-seeded, so saying it would be seeded is a lie.
             return null;
         }
-        // A followed project's own repository is seeded from the clone this machine verified.
-        // That clone IS its history, and nothing should fetch it twice from the forge - nor,
-        // now that a project is named rather than pointed at, can "the checkout you are standing
-        // in" mean anything: the command runs wherever somebody happened to be.
+        // A followed project's own repository is seeded from the clone this machine verified. That
+        // clone IS its history, and nothing should fetch it twice from the forge - nor, now that a
+        // project is named rather than pointed at, can "the checkout you are standing in" mean
+        // anything: the command runs wherever somebody happened to be.
         //
-        // Found by a rented machine: '/workspace' came up empty, because the old rule looked for
-        // a git repository in the working directory and there was none.
+        // Found by a rented machine: '/workspace' came up empty, because the old rule looked for a
+        // git repository in the working directory and there was none.
         final java.nio.file.Path clone = context.paths().projects().followedClone(project.name());
         if (java.nio.file.Files.isDirectory(clone.resolve(".git"))) {
             out.println("seed      " + clone + " (the followed clone)");

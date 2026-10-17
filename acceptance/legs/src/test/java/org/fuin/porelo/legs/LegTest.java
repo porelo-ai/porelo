@@ -16,9 +16,9 @@ class LegTest {
 
     @Test
     void refusesARunThatProducedNoResultsAtAll(@TempDir Path reports) {
-        // A suite that selects nothing passes, and a page with no acceptance section looks
-        // exactly like one where the step was never added. This repository sat in that state
-        // for several merges and nothing said so.
+        // A suite that selects nothing passes, and a page with no acceptance section looks exactly
+        // like one where the step was never added. This repository sat in that state for several
+        // merges and nothing said so.
         assertThatThrownBy(() -> Leg.proved(reports))
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("ran no scenarios");
@@ -145,8 +145,8 @@ class LegTest {
     void theAcceptanceAccountsMayRestartTheMachineAndDoNothingElseAsRoot() {
 
         // 'systemd-run' and 'systemctl' with any arguments run anything as root, which the grant's
-        // own comment said it
-        // did not allow: the suite asks for exactly a delayed reboot, and a reboot when that fails.
+        // own comment said it did not allow: the suite asks for exactly a delayed reboot, and a
+        // reboot when that fails.
         assertThat(Leg.restartGrant(List.of("build", "accept2")))
                 .containsExactly(
                         "build ALL=(root) NOPASSWD: /usr/bin/systemd-run --on-active\\=1s /sbin/reboot, /sbin/reboot",

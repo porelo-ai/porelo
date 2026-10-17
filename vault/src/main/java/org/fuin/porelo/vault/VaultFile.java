@@ -410,8 +410,8 @@ public class VaultFile {
                     Arrays.copyOfRange(file, opened.header().contentAt(), file.length);
             return parse(new String(cipher.doFinal(cipherText), StandardCharsets.UTF_8));
         } catch (GeneralSecurityException ex) {
-            // The slot's own tag already proved the key, so a failure here is the file having
-            // been altered rather than a wrong credential - and the message says so.
+            // The slot's own tag already proved the key, so a failure here is the file having been
+            // altered rather than a wrong credential - and the message says so.
             throw new VaultException(
                     "Cannot decrypt "
                             + file
@@ -801,9 +801,9 @@ public class VaultFile {
         } finally {
             Arrays.fill(master, (byte) 0);
             // No test covers this line and none can from outside: the buffer is local and gone by
-            // the time anything could look at it. Kept because it is the same discipline as the
-            // key beside it, and noted so it is not deleted as dead on the grounds that nothing
-            // failed when it was.
+            // the time anything could look at it. Kept because it is the same discipline as the key
+            // beside it, and noted so it is not deleted as dead on the grounds that nothing failed
+            // when it was.
             Arrays.fill(plaintext, (byte) 0);
         }
 
@@ -878,11 +878,11 @@ public class VaultFile {
                 Files.deleteIfExists(temporary);
                 throw ex;
             }
-            // The rename itself has to reach the disk too. force() above makes the CONTENT
-            // durable; on a filesystem that needs the directory synced, a crash between the move
-            // and the next flush can leave the old name pointing at nothing - which for a vault
-            // is the file that holds every credential. Forcing the directory is what makes
-            // "atomic replacement" true rather than usually true.
+            // The rename itself has to reach the disk too. force() above makes the CONTENT durable;
+            // on a filesystem that needs the directory synced, a crash between the move and the
+            // next flush can leave the old name pointing at nothing - which for a vault is the file
+            // that holds every credential. Forcing the directory is what makes "atomic replacement"
+            // true rather than usually true.
             try (FileChannel parent =
                     FileChannel.open(directory, java.nio.file.StandardOpenOption.READ)) {
                 parent.force(true);

@@ -119,9 +119,9 @@ class UnhandedWorkTest {
     @Test
     void readsBackANoteAnOlderPoreloWrote(@TempDir Path state) throws IOException {
 
-        // The old format recorded the sentence. Parsed rather than discarded: it is our own
-        // wording in one of three shapes, and answering "nobody looked" about a task that was
-        // measured would destroy work this exists to protect.
+        // The old format recorded the sentence. Parsed rather than discarded: it is our own wording
+        // in one of three shapes, and answering "nobody looked" about a task that was measured
+        // would destroy work this exists to protect.
         wrote(state, "2 commits and 3 changed files");
         assertThat(UnhandedWork.read(state))
                 .satisfies(
@@ -155,8 +155,8 @@ class UnhandedWorkTest {
     @Test
     void refusesANoteFromALaterPorelo(@TempDir Path state) throws IOException {
 
-        // A misread answer here decides whether work is destroyed, so an unknown version is
-        // "nobody looked" rather than a guess - the same rule the sidecar follows.
+        // A misread answer here decides whether work is destroyed, so an unknown version is "nobody
+        // looked" rather than a guess - the same rule the sidecar follows.
         wrote(state, "{\"version\":99,\"changedFiles\":0,\"unpushedCommits\":0}");
         assertThat(UnhandedWork.read(state).readable()).isFalse();
     }
@@ -173,8 +173,8 @@ class UnhandedWorkTest {
     @Test
     void answersUnknownWhenTheContainerSaidSomethingUnusable() {
 
-        // Two numbers or nothing. A container that answered something else is not a container
-        // that answered "nothing".
+        // Two numbers or nothing. A container that answered something else is not a container that
+        // answered "nothing".
         assertThat(UnhandedWork.census("3 2").readable()).isTrue();
         assertThat(UnhandedWork.census("").readable()).isFalse();
         assertThat(UnhandedWork.census("lots").readable()).isFalse();

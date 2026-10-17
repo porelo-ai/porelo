@@ -74,8 +74,7 @@ public class ProvidersCommand implements Callable<Integer>, PoreloFactory.Contex
                             + " first.");
         }
         // Said, because the provider's name is where its key is kept: a file of a person's own that
-        // names a packaged
-        // provider takes it over, and with it where the stored key goes.
+        // names a packaged provider takes it over, and with it where the stored key goes.
         context.paths()
                 .agents()
                 .providerDirectory()

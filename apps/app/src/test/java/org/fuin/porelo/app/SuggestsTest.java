@@ -43,8 +43,8 @@ class SuggestsTest {
     @Test
     void saysSoWhenThereAreNone() {
 
-        // Printing nothing would read as a command with nothing to add, when what it means is
-        // that there is nothing on this machine to name - usually the answer somebody needed.
+        // Printing nothing would read as a command with nothing to add, when what it means is that
+        // there is nothing on this machine to name - usually the answer somebody needed.
         Suggests.offer(err, offering(List.of()));
         err.flush();
 

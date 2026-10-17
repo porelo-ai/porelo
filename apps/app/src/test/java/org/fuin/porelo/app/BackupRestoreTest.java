@@ -125,9 +125,8 @@ class BackupRestoreTest {
     void aBundleThatCannotBeRestoredLeavesTheMirrorAsItWas(@TempDir Path dir) throws Exception {
 
         // The mirror was deleted before the bundle was known to be usable: forced over unreviewed
-        // work with a file
-        // that is no bundle, the restore failed and left no mirror - the work it was told to give
-        // up, and the rest.
+        // work with a file that is no bundle, the restore failed and left no mirror - the work it
+        // was told to give up, and the rest.
         final Path file = project(dir);
         final org.fuin.porelo.gate.GitGate gate = gateFor(dir, file);
         gate.initialize();

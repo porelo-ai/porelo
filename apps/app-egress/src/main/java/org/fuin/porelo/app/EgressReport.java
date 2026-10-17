@@ -156,8 +156,8 @@ final class EgressReport {
                                             host, "agent " + selected.definition().name()));
         }
         // The provider's own host, which the agent no longer restates. It has to be here or the
-        // firewall denies it: measured, one agent contacts the provider before it starts and
-        // quits when it cannot, whatever the credential is.
+        // firewall denies it: measured, one agent contacts the provider before it starts and quits
+        // when it cannot, whatever the credential is.
         if (serving != null) {
             for (final String host : serving.definition().domains()) {
                 if (!domains.contains(host)) {
@@ -174,8 +174,8 @@ final class EgressReport {
                     origins.putIfAbsent(host, origin);
                 });
         // Unmodifiable, not copied into a hash map: this is read in the order the sources were
-        // consulted - the agent's own hosts, then its provider's, then the project's - and a
-        // report whose order changes between runs is one nobody can diff against yesterday's.
+        // consulted - the agent's own hosts, then its provider's, then the project's - and a report
+        // whose order changes between runs is one nobody can diff against yesterday's.
         return new Reachable(
                 java.util.List.copyOf(domains), java.util.Collections.unmodifiableMap(origins));
     }

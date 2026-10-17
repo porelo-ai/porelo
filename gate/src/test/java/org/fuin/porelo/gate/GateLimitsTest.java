@@ -57,8 +57,7 @@ class GateLimitsTest {
     @Test
     void aGateServesAFewRequestsAtOnceAndAnswersTheNextAtOnceWith503() throws Exception {
         // Every request started a git on the host with no limit: an agent holding its gate's token
-        // could take the
-        // machine's processes and memory from every other task.
+        // could take the machine's processes and memory from every other task.
         final CountDownLatch entered = new CountDownLatch(GitHttpServer.AT_ONCE);
         final CountDownLatch release = new CountDownLatch(1);
         final GitHttpServer.GitProcess blocking =

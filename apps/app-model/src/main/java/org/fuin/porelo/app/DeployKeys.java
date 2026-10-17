@@ -125,8 +125,8 @@ public final class DeployKeys {
             throws Refused {
         final Repository chosen = GateSupport.repository(project, repository);
         // The project's own repository, its file naming no upstream - a guarded or offline
-        // project's planning - is
-        // still fetched from where this machine follows it, and that is the key it needs.
+        // project's planning - is still fetched from where this machine follows it, and that is the
+        // key it needs.
         final String upstream =
                 chosen.upstream() != null
                         ? chosen.upstream()
@@ -197,8 +197,7 @@ public final class DeployKeys {
         final String entry = entry(projectName, repositoryName);
         final String machine = "porelo@" + hostName();
         // What it would be declared as, before any key is made: an upstream nothing authenticates
-        // to - a path on
-        // this machine - is refused with nothing left behind in the vault.
+        // to - a path on this machine - is refused with nothing left behind in the vault.
         final Credential declared;
         try {
             declared =

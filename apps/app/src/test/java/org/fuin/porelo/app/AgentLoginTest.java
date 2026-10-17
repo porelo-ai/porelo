@@ -41,9 +41,9 @@ class AgentLoginTest {
     @Test
     void sweepsALoginContainerAnEarlierRunLeftBehind(@TempDir Path dir) {
 
-        // Reported from a machine carrying one thirteen hours old, outliving an interrupted
-        // login. A login container is never reused - the name carries the millisecond it was
-        // made - so one still there is litter, and a teardown cannot cover a kill.
+        // Reported from a machine carrying one thirteen hours old, outliving an interrupted login.
+        // A login container is never reused - the name carries the millisecond it was made - so one
+        // still there is litter, and a teardown cannot cover a kill.
         runner.answering("ps", "porelo-login-1788886971400\nporelo-uc-shell-1\n");
 
         AgentLogin.login(context(dir), null, false, false, new PrintWriter(out, true));
@@ -81,10 +81,10 @@ class AgentLoginTest {
     @Test
     void theLoginImageCarriesSomethingForTheAgentToOpenAUrlWith() {
 
-        // Without it the login stops dead: an agent asked to authenticate tries to open a
-        // browser, a container has none and no display, and the attempt neither succeeds nor
-        // reports anything - leaving somebody at a prompt that never continues, inside a
-        // container they did not know how to leave. That is what happened the first time.
+        // Without it the login stops dead: an agent asked to authenticate tries to open a browser,
+        // a container has none and no display, and the attempt neither succeeds nor reports
+        // anything - leaving somebody at a prompt that never continues, inside a container they did
+        // not know how to leave. That is what happened the first time.
         final String rendered =
                 org.fuin.porelo.runtime.Containerfile.render(
                         AgentLogin.loginProject(),
@@ -96,12 +96,11 @@ class AgentLoginTest {
                 .contains("/usr/local/bin/xdg-open")
                 .contains("sensible-browser")
                 .contains("www-browser");
-        // BROWSER is set again, and both reversals happened for measured reasons rather than
-        // taste. With it set, Claude Code redirects to a port on localhost instead of printing a
-        // code; that port is unreachable from the operator's computer unless the
-        // container shares this machine's network, which the login container does - so the
-        // redirect lands somewhere an ssh forward can reach. That was chosen over
-        // copying a code between two windows.
+        // BROWSER is set again, and both reversals happened for measured reasons rather than taste.
+        // With it set, Claude Code redirects to a port on localhost instead of printing a code;
+        // that port is unreachable from the operator's computer unless the container shares this
+        // machine's network, which the login container does - so the redirect lands somewhere an
+        // ssh forward can reach. That was chosen over copying a code between two windows.
         assertThat(rendered).contains("ENV BROWSER=");
     }
 
@@ -109,8 +108,8 @@ class AgentLoginTest {
     void theLoginImageIsOfflineAndNamedForWhatItIs() {
 
         // It is never registered as a project and never runs a task. Offline because none of
-        // Porelo's networking applies to it: the container is run without the annotation that
-        // makes the hooks fire, so an egress class would describe something that is not there.
+        // Porelo's networking applies to it: the container is run without the annotation that makes
+        // the hooks fire, so an egress class would describe something that is not there.
         assertThat(AgentLogin.loginProject().securityClass()).isEqualTo(SecurityClass.OFFLINE);
         assertThat(AgentLogin.loginProject().name()).isEqualTo("porelo-login");
     }
@@ -155,8 +154,8 @@ class AgentLoginTest {
         // found nothing, said "it may have been cancelled", and was believed, because nobody had
         // run one end to end.
         //
-        // Measured against podman rather than read: with the trailing "/." the contents land in
-        // the target, without it the directory does.
+        // Measured against podman rather than read: with the trailing "/." the contents land in the
+        // target, without it the directory does.
         assertThat(AgentLogin.contentsOf("~/.claude")).isEqualTo("/home/agent/.claude/.");
         assertThat(AgentLogin.contentsOf("/etc/agent")).isEqualTo("/etc/agent/.");
         // And the plain form is still what names the directory itself, for anything that wants it.

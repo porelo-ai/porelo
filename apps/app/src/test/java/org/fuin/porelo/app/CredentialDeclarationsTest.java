@@ -113,8 +113,8 @@ class CredentialDeclarationsTest {
     void aFileThatCannotBeReadIsRefusedRatherThanWrittenOver(@TempDir final Path dir)
             throws IOException {
 
-        // A lookup reads such a file as no declarations; a declaration that wrote it back from
-        // that kept only itself, and a typo made by hand lost every record in the file.
+        // A lookup reads such a file as no declarations; a declaration that wrote it back from that
+        // kept only itself, and a typo made by hand lost every record in the file.
         final PoreloContext context = context(dir);
         final Path file = context.paths().vault().credentialRegistry();
         Files.createDirectories(file.getParent());
@@ -186,8 +186,8 @@ class CredentialDeclarationsTest {
     void aKeyInTheUsersOwnDirectoryIsUsedWhereItIs(@TempDir final Path dir) throws IOException {
 
         // The case the operator named: somebody on their own computer has a key in ~/.ssh and no
-        // wish to keep a second copy in a vault. It is READY, and it is not protected - both
-        // facts, neither of them a refusal.
+        // wish to keep a second copy in a vault. It is READY, and it is not protected - both facts,
+        // neither of them a refusal.
         final PoreloContext context = context(dir);
         final Path key = dir.resolve("id_ed25519");
         Files.writeString(key, "-----BEGIN OPENSSH PRIVATE KEY-----\n", StandardCharsets.UTF_8);
@@ -296,10 +296,10 @@ class CredentialDeclarationsTest {
     void namesARecordNobodyNamed_whicheverWayItWasDeclared(@TempDir final Path dir)
             throws IOException {
 
-        // Fixed over the socket and not at the terminal, so 'credentials declare --vault ""'
-        // still wrote an empty name and still offered 'porelo vault put' with nothing after it.
-        // Found by running a PUBLISHED snapshot rather than by a test - so the naming lives in
-        // one place now, and this measures that place.
+        // Fixed over the socket and not at the terminal, so 'credentials declare --vault ""' still
+        // wrote an empty name and still offered 'porelo vault put' with nothing after it. Found by
+        // running a PUBLISHED snapshot rather than by a test - so the naming lives in one place
+        // now, and this measures that place.
         final PoreloContext context = context(dir);
 
         final Credential named =
@@ -345,10 +345,10 @@ class CredentialDeclarationsTest {
     @Test
     void refusesAKindThatCannotOpenThatDestination(@TempDir final Path dir) {
 
-        // git over https never asks an ssh agent anything, and an ssh destination never asks for
-        // a password - so these records could only ever fail, at the moment somebody is trying to
-        // get work done. Two of them were accepted onto a machine before this. The machine judges
-        // it, because an interface has no business working out which combinations are possible.
+        // git over https never asks an ssh agent anything, and an ssh destination never asks for a
+        // password - so these records could only ever fail, at the moment somebody is trying to get
+        // work done. Two of them were accepted onto a machine before this. The machine judges it,
+        // because an interface has no business working out which combinations are possible.
         final CredentialDeclarations declarations = new CredentialDeclarations(context(dir));
 
         org.assertj.core.api.Assertions.assertThatThrownBy(

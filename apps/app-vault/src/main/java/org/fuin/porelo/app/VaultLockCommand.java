@@ -53,12 +53,10 @@ public class VaultLockCommand implements Callable<Integer>, PoreloFactory.Contex
         }
 
         // Both ways in, not only the passphrase: a device's share held here opens the vault as
-        // well, and
-        // forgetting the passphrase must not silently keep a device's way in. Measured: with a
-        // share held,
-        // 'lock' said "locked" while every command still opened the vault.
-        // A keyring that did not answer is asked again before that is said: it most often answers
-        // the second time.
+        // well, and forgetting the passphrase must not silently keep a device's way in. Measured:
+        // with a share held, 'lock' said "locked" while every command still opened the vault. A
+        // keyring that did not answer is asked again before that is said: it most often answers the
+        // second time.
         final KernelKeyring.Forgotten passphrase =
                 forgetRetried(
                         () ->
@@ -89,9 +87,9 @@ public class VaultLockCommand implements Callable<Integer>, PoreloFactory.Contex
                         ? "locked    the next command asks for the passphrase again"
                         : "nothing was cached");
 
-        // Said only when it is true, and it changes what locking means: a running task's proxy
-        // read its credential when it started and holds it in its own memory, where this cannot
-        // reach. Stopping the task is what ends that.
+        // Said only when it is true, and it changes what locking means: a running task's proxy read
+        // its credential when it started and holds it in its own memory, where this cannot reach.
+        // Stopping the task is what ends that.
         final long running =
                 context.podman().poreloTasks().stream().filter(ContainerSummary::running).count();
         if (running > 0) {

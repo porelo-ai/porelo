@@ -123,9 +123,8 @@ public final class ProjectFileCheck {
             }
         }
         // A transport's own section is the transport's to judge: Porelo's schema leaves it open,
-        // and the
-        // transport otherwise refuses it only when setup runs, at the first task start - after the
-        // commit.
+        // and the transport otherwise refuses it only when setup runs, at the first task start -
+        // after the commit.
         final TransportLifecycle transports =
                 new TransportLifecycle(context, context.paths().messaging().transportDirectory());
         project.mail()

@@ -31,8 +31,8 @@ class GateRejectCommandTest {
             throws Exception {
 
         // The mark was measured and recorded and never read: 'gate pending' showed the push as
-        // waiting, and 'gate
-        // reject' discarded work the upstream already had, recording the opposite of what happened.
+        // waiting, and 'gate reject' discarded work the upstream already had, recording the
+        // opposite of what happened.
         final XdgPaths xdg =
                 XdgPaths.of(
                         name ->

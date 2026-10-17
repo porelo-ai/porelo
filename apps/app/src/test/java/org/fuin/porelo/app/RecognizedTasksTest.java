@@ -55,8 +55,8 @@ class RecognizedTasksTest {
             throws IOException {
 
         // A task removed, then stopped or removed again by a client that still showed it: the
-        // daemon answered Failed
-        // and the command wrote a stack trace, where the outcome promises NOT_A_TASK.
+        // daemon answered Failed and the command wrote a stack trace, where the outcome promises
+        // NOT_A_TASK.
         final FakeCommandRunner runner = new FakeCommandRunner();
         final XdgPaths xdg =
                 XdgPaths.of(
@@ -85,8 +85,7 @@ class RecognizedTasksTest {
     void aTaskARebootStoppedIsStillRecognizedByItsSavedRecord() throws IOException {
 
         // A reboot empties the runtime directory, where the id was first written: found by the
-        // suite on 2026-10-04,
-        // a restarted task was no task any more.
+        // suite on 2026-10-04, a restarted task was no task any more.
         final XdgPaths xdg =
                 XdgPaths.of(
                         name ->

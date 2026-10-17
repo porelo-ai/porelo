@@ -22,8 +22,7 @@ class StreamedTest {
     void aLineReachesTheLogBeforeTheCommandEnds() throws Exception {
 
         // The build's output reached the job's log only when the build ended: 29 minutes of nothing
-        // after
-        // '-- building --', and nobody could tell a slow build from a hung one (2026-10-17).
+        // after '-- building --', and nobody could tell a slow build from a hung one (2026-10-17).
         final PipedInputStream out = new PipedInputStream();
         final PipedInputStream err = new PipedInputStream();
         final PipedOutputStream toOut = new PipedOutputStream(out);

@@ -295,8 +295,8 @@ public class Podman {
                 return Optional.empty();
             }
         } catch (NumberFormatException ex) {
-            // A version that cannot be read is not a version that can be trusted to be new
-            // enough, and saying which one was found is what makes that reviewable.
+            // A version that cannot be read is not a version that can be trusted to be new enough,
+            // and saying which one was found is what makes that reviewable.
             return Optional.of(
                     "podman reports '"
                             + reported
@@ -467,8 +467,8 @@ public class Podman {
         if (rebuild == Rebuild.EVERYTHING) {
             arguments.add("--no-cache");
         } else if (rebuild == Rebuild.AGENT) {
-            // A value podman has not seen before. The clock is enough: this only has to differ
-            // from whatever the last build used, and nothing in the image reads it.
+            // A value podman has not seen before. The clock is enough: this only has to differ from
+            // whatever the last build used, and nothing in the image reads it.
             arguments.add("--build-arg");
             arguments.add(Containerfile.LAYER_EPOCH + "=" + java.time.Instant.now().toEpochMilli());
         }
@@ -506,10 +506,9 @@ public class Podman {
      */
     public void start(String container) {
         // In a scope of its own: 'podman start' leaves the container's monitor (conmon), its
-        // network
-        // and whatever the hooks start in the caller's control group, and a monitor that dies takes
-        // the
-        // container with it - measured, when the caller was the daemon and the daemon was stopped.
+        // network and whatever the hooks start in the caller's control group, and a monitor that
+        // dies takes the container with it - measured, when the caller was the daemon and the
+        // daemon was stopped.
         final Command start = withNetworkConfiguration(podman("start", target(container)));
         runner.runOrFail(
                 new Command(
@@ -578,8 +577,8 @@ public class Podman {
     public long addedPaths(String container) {
         final CommandResult result = runner.run(podman("diff", target(container)));
         if (!result.successful()) {
-            // Not an error: this is a nicety on the way to removing something, and a container
-            // that is already gone answers nothing.
+            // Not an error: this is a nicety on the way to removing something, and a container that
+            // is already gone answers nothing.
             return 0;
         }
         return result.standardOutput().lines().filter(line -> line.startsWith("A ")).count();
@@ -597,8 +596,7 @@ public class Podman {
             target = target(container);
         } catch (final NotATaskException ex) {
             // A task Porelo has no record of does not exist as one: thrown, it replaced the refusal
-            // of a start that made
-            // nothing and asked here while cleaning up.
+            // of a start that made nothing and asked here while cleaning up.
             return Optional.empty();
         }
         final CommandResult result =
@@ -705,9 +703,8 @@ public class Podman {
                 .lines()
                 .map(String::strip)
                 // podman names an image it built here 'localhost/porelo/<project>'. Kept only when
-                // it began 'porelo/', not
-                // one was found: every project read as never prepared, and an unfollow never named
-                // its image.
+                // it began 'porelo/', not one was found: every project read as never prepared, and
+                // an unfollow never named its image.
                 .map(name -> name.startsWith(LOCAL) ? name.substring(LOCAL.length()) : name)
                 .filter(name -> name.startsWith("porelo/"))
                 .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
@@ -807,14 +804,13 @@ public class Podman {
      * @return Summaries, running or not, in the runtime's own order.
      */
     public List<ContainerSummary> poreloTasks() {
-        // A tab rather than a space: the state is a phrase ("Up 4 minutes"), so anything the
-        // state itself can contain cannot be the separator.
-        // Each label asked for by name. '{{.Labels}}' renders Go's own map formatting -
-        // 'map[a:b c:d]', space separated, colon separated - not the 'k=v,k=v' this first
-        // assumed. Measured against podman 5.7.0 after every task listed no project: the parser
-        // and the test agreed with each other and with nothing else. 'index' answers the one
-        // value, and empty when the container carries no such label, so there is no format to
-        // get wrong.
+        // A tab rather than a space: the state is a phrase ("Up 4 minutes"), so anything the state
+        // itself can contain cannot be the separator. Each label asked for by name. '{{.Labels}}'
+        // renders Go's own map formatting - 'map[a:b c:d]', space separated, colon separated - not
+        // the 'k=v,k=v' this first assumed. Measured against podman 5.7.0 after every task listed
+        // no project: the parser and the test agreed with each other and with nothing else. 'index'
+        // answers the one value, and empty when the container carries no such label, so there is no
+        // format to get wrong.
         return runner.runOrFail(
                         podman(
                                 "ps",
@@ -954,10 +950,10 @@ public class Podman {
         // NO --interactive, and that is load-bearing rather than an omission. Measured on
         // 2026-09-12: pi and omp block at startup when stdin is an open pipe - omp sat in
         // 'readPipedInput' past 150 s, pi produced nothing for 180 s - and both run normally with
-        // stdin closed. Without '-i' podman attaches nothing to the container's stdin, so the
-        // agent sees it closed. Adding the flag here would hang an unattended run forever, and it
-        // would look like a task that is WORKING, because the agent's own "still starting" lines
-        // keep the log growing. A test asserts this flag stays absent.
+        // stdin closed. Without '-i' podman attaches nothing to the container's stdin, so the agent
+        // sees it closed. Adding the flag here would hang an unattended run forever, and it would
+        // look like a task that is WORKING, because the agent's own "still starting" lines keep the
+        // log growing. A test asserts this flag stays absent.
         final List<String> arguments = executeArguments(container, environment, command);
 
         try {
@@ -993,10 +989,10 @@ public class Podman {
      * @return Arguments.
      */
     public List<String> writeFileArguments(String container, String path) {
-        // 'tee', so the path is an ARGUMENT rather than text in a script. This was one 'sh -c'
-        // with the path concatenated into single quotes three times over, and a path containing a
-        // quote ended the quoting and turned the rest into commands - executed in the container as
-        // the agent user. The path comes from the agent's own answer, which makes that a command
+        // 'tee', so the path is an ARGUMENT rather than text in a script. This was one 'sh -c' with
+        // the path concatenated into single quotes three times over, and a path containing a quote
+        // ended the quoting and turned the rest into commands - executed in the container as the
+        // agent user. The path comes from the agent's own answer, which makes that a command
         // injection across an API boundary rather than a formatting slip.
         //
         // Nothing here needs a shell: the content arrives on standard input and tee writes it,
@@ -1441,10 +1437,10 @@ public class Podman {
         // before it began.
         script.append("rm -f ").append(Containerfile.SESSION_ENDED).append("; ");
         if (command != null) {
-            // The agent starts at the top of the terminal, not wherever the launch report left
-            // the cursor. Starting a task prints two dozen lines - the token, the gate, every
-            // reachable host - and the agent then drew its own full-screen interface into the
-            // middle of them, which reads as two programs sharing one screen.
+            // The agent starts at the top of the terminal, not wherever the launch report left the
+            // cursor. Starting a task prints two dozen lines - the token, the gate, every reachable
+            // host - and the agent then drew its own full-screen interface into the middle of them,
+            // which reads as two programs sharing one screen.
             //
             // ESC[H puts the cursor home and ESC[2J erases the screen. ESC[3J - which erases the
             // SCROLLBACK, and which is what 'clear' sends on a modern terminfo - is deliberately
@@ -1466,18 +1462,16 @@ public class Podman {
             // Mouse reporting goes too: an agent that enabled it and did not turn it off leaves a
             // shell where clicking types escape sequences.
             //
-            // Then the screen is cleared. Resetting the modes is not enough on its own: leaving
-            // the alternate screen restores the cursor position saved when it was ENTERED, and an
-            // agent that never entered it - as the stub does not - restores a stale one. The
-            // result reads as a hung session: the last output at the bottom, the cursor at the
-            // top, and a shell that is running and does not look like it.
+            // Then the screen is cleared. Resetting the modes is not enough on its own: leaving the
+            // alternate screen restores the cursor position saved when it was ENTERED, and an agent
+            // that never entered it - as the stub does not - restores a stale one. The result reads
+            // as a hung session: the last output at the bottom, the cursor at the top, and a shell
+            // that is running and does not look like it.
             //
             // Erased rather than the cursor moved, because what is on the screen belongs to the
-            // agent
-            // that just ended - and erased as at the start, the screen only: 'clear' on a current
-            // terminfo erases the scrollback too, where the conversation is kept for anyone who
-            // wants
-            // to read back (2026-10-01).
+            // agent that just ended - and erased as at the start, the screen only: 'clear' on a
+            // current terminfo erases the scrollback too, where the conversation is kept for anyone
+            // who wants to read back (2026-10-01).
             script.append(
                     "printf '\\033[?1049l\\033[?25h\\033[0m\\033[r\\033[?7h"
                             + "\\033[?1000l\\033[?1002l\\033[?1003l\\033[?1006l'; stty sane; ");
@@ -1485,18 +1479,17 @@ public class Podman {
         }
         if (label != null) {
             // A container hostname says nothing about which task it is, and an operator with
-            // several open shells has no other way to tell them apart.
-            // Quoted as a word, not put between quotes as it came: a quote in it would end the
-            // string.
+            // several open shells has no other way to tell them apart. Quoted as a word, not put
+            // between quotes as it came: a quote in it would end the string.
             script.append("export PORELO_PROMPT=")
                     .append(ShellWords.quote(List.of(label)))
                     .append("; ");
             script.append("export PROMPT_COMMAND=\"PS1='porelo[\\$PORELO_PROMPT] \\w\\$ '\"; ");
         }
-        // NOT 'exec', and that is the whole mechanism. 'exec' replaces this process with the
-        // shell, so nothing can run after the shell returns - and something has to, because the
-        // shell returning is the only unambiguous evidence that the person finished rather than
-        // detached. As a child it returns here, and the next statement says so.
+        // NOT 'exec', and that is the whole mechanism. 'exec' replaces this process with the shell,
+        // so nothing can run after the shell returns - and something has to, because the shell
+        // returning is the only unambiguous evidence that the person finished rather than detached.
+        // As a child it returns here, and the next statement says so.
         script.append(shell).append(" -l; : > ").append(Containerfile.SESSION_ENDED);
         return script.toString();
     }

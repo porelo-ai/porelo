@@ -58,8 +58,8 @@ class CredentialScanTest {
     @Test
     void aNameSplitAcrossTwoReadsIsStillOneName() {
 
-        // A stream arrives in whatever pieces the network gives, and a field name is not obliged
-        // to fall inside one of them.
+        // A stream arrives in whatever pieces the network gives, and a field name is not obliged to
+        // fall inside one of them.
         final CredentialScan scan = new CredentialScan();
         final byte[] head = "{\"acce".getBytes(StandardCharsets.UTF_8);
         final byte[] rest = "ss_token\":\"real\"}".getBytes(StandardCharsets.UTF_8);
@@ -85,8 +85,8 @@ class CredentialScanTest {
     @Test
     void aNameWaitsForItsColonAcrossAnyAmountOfWhitespace() {
 
-        // JSON puts no limit on the space between a member name and its colon, and the carried
-        // tail is finite - so a long enough run pushes the name out of the window before the colon
+        // JSON puts no limit on the space between a member name and its colon, and the carried tail
+        // is finite - so a long enough run pushes the name out of the window before the colon
         // arrives and neither half matches. Measured through the proxy before this was fixed: the
         // credential reached the container. The wait is now a flag, which no length defeats.
         final CredentialScan scan = new CredentialScan();
@@ -120,8 +120,8 @@ class CredentialScanTest {
         assertThat(feed(waiting, "\u00A0 and then some prose")).as("the wait ends").isFalse();
         assertThat(feed(waiting, ":\"not a member\"")).as("and does not resume").isFalse();
 
-        // And the same bytes in one chunk are judged the same way, which is the point of having
-        // one set rather than two: where the chunk boundary falls must not decide the answer.
+        // And the same bytes in one chunk are judged the same way, which is the point of having one
+        // set rather than two: where the chunk boundary falls must not decide the answer.
         assertThat(sees("{\"access_token\"\u00A0 and then some prose:\"not a member\"")).isFalse();
     }
 

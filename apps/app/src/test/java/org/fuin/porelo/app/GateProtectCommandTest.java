@@ -81,11 +81,11 @@ class GateProtectCommandTest {
     @Test
     void saysSoWhenGitWillNotLookAtTheHookItJustWrote(@TempDir Path root) throws Exception {
 
-        // Measured: with core.hooksPath set elsewhere the repository's own hooks directory is
-        // never read, and a push goes through with no output at all. This is the dangerous one -
-        // it is often a team-wide setting somebody configured long ago for shared hooks, and a
-        // command that wrote the file and reported success would leave somebody believing they
-        // were protected when nothing would ever fire.
+        // Measured: with core.hooksPath set elsewhere the repository's own hooks directory is never
+        // read, and a push goes through with no output at all. This is the dangerous one - it is
+        // often a team-wide setting somebody configured long ago for shared hooks, and a command
+        // that wrote the file and reported success would leave somebody believing they were
+        // protected when nothing would ever fire.
         final Path work = repository(root);
         final Path elsewhere = root.resolve("shared-hooks");
         Files.createDirectories(elsewhere);
@@ -144,8 +144,8 @@ class GateProtectCommandTest {
     @Test
     void installingTwiceIsNotAnError(@TempDir Path root) throws Exception {
 
-        // Somebody re-running it after an upgrade must get the newer hook, not a refusal that
-        // reads as though somebody else's file were in the way.
+        // Somebody re-running it after an upgrade must get the newer hook, not a refusal that reads
+        // as though somebody else's file were in the way.
         final Path work = repository(root);
         run(root, "gate", "protect", "--repo", work.toString());
 
@@ -232,8 +232,7 @@ class GateProtectCommandTest {
             throws Exception {
 
         // Their hook carries the check's marker once it is appended to, and the second protect took
-        // it for its own
-        // and wrote its two lines over the whole file.
+        // it for its own and wrote its two lines over the whole file.
         final String theirs = "#!/bin/sh\necho theirs\n";
         final Path work = repository(root);
         final Path hook = work.resolve(".git").resolve("hooks").resolve("pre-push");
@@ -252,8 +251,7 @@ class GateProtectCommandTest {
             throws Exception {
 
         // An editor that drops the file's last line end left the appended block unrecognized, and
-        // the marker in it
-        // made the removal take the whole file for its own and delete it.
+        // the marker in it made the removal take the whole file for its own and delete it.
         final String theirs = "#!/bin/sh\necho theirs\n";
         final String appended = GateProtectCommand.appended(theirs);
         final Path work = repository(root);

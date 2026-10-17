@@ -48,8 +48,7 @@ final class OwnRepository {
      */
     static String worksIn(Project project) {
         // The default project's name, which this layer below the model cannot ask for by its
-        // constant. Its own
-        // repository is never a place to work, even while it names no other.
+        // constant. Its own repository is never a place to work, even while it names no other.
         final boolean isDefault = "default".equals(project.name());
         final java.util.List<String> names =
                 project.workRepositoryNames().stream()

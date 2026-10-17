@@ -106,8 +106,8 @@ public class TaskRemoveCommand implements Callable<Integer>, PoreloFactory.Conte
         TaskControl.Stopped result = new TaskControl(context).remove(container, rescue, force);
         if (!noInput && (yes || Offer.atTerminal())) {
             // What a refusal would name is offered instead, and the removal tried again after it:
-            // at most once per kind
-            // of refusal, so a remedy that did not help ends in that refusal rather than in a loop.
+            // at most once per kind of refusal, so a remedy that did not help ends in that refusal
+            // rather than in a loop.
             final Offer offer = new Offer(Offer.Asker.terminal(), noInput, yes, err);
             final java.util.Set<TaskControl.Outcome> offered =
                     java.util.EnumSet.noneOf(TaskControl.Outcome.class);
@@ -218,9 +218,9 @@ public class TaskRemoveCommand implements Callable<Integer>, PoreloFactory.Conte
         }
         out.println("removed   " + container);
         if (result.discarded() > 0) {
-            // The other half of what a removal costs. The workspace has the gate to arrive in;
-            // what the agent installed in the container has nowhere at all, and nothing else
-            // records that it existed.
+            // The other half of what a removal costs. The workspace has the gate to arrive in; what
+            // the agent installed in the container has nowhere at all, and nothing else records
+            // that it existed.
             out.println(
                     "discarded "
                             + result.discarded()

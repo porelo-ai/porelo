@@ -14,8 +14,8 @@ class TalkPeersCommandTest {
     void aProjectWithAConversationSaysItsTasksReachEachOther() {
 
         // It listed only the written peers, and "no peers - this project's tasks address nobody"
-        // when there were
-        // none, while its tasks reached each other by name through the conversation.
+        // when there were none, while its tasks reached each other by name through the
+        // conversation.
         assertThat(TalkPeersCommand.tasks(new Mail(List.of(), Map.of("matrix", Map.of()))))
                 .contains("each other")
                 .contains("matrix");

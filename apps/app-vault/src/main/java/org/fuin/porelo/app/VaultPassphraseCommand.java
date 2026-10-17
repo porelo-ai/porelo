@@ -126,8 +126,8 @@ public class VaultPassphraseCommand implements Callable<Integer>, PoreloFactory.
             vault.rekey(current, fresh);
             out.println("re-encrypted " + vault.path());
 
-            // The cached one is now the WRONG one, so it goes. Not a courtesy: leaving it turns
-            // the next command into a failure that reads like a damaged vault.
+            // The cached one is now the WRONG one, so it goes. Not a courtesy: leaving it turns the
+            // next command into a failure that reads like a damaged vault.
             if (KernelKeyring.available()) {
                 final KernelKeyring.Forgotten forgotten =
                         VaultLockCommand.forgetRetried(
@@ -136,8 +136,7 @@ public class VaultPassphraseCommand implements Callable<Integer>, PoreloFactory.
                                                 .forget());
                 if (forgotten == KernelKeyring.Forgotten.CLEARED) {
                     // Kept where the old one was: the person just typed it twice, and 'vault
-                    // unlock' would only ask it a
-                    // third time.
+                    // unlock' would only ask it a third time.
                     final char[] kept = fresh;
                     out.println(
                             afterRekey(
@@ -156,8 +155,8 @@ public class VaultPassphraseCommand implements Callable<Integer>, PoreloFactory.
                                     },
                                     kept));
                 } else if (forgotten == KernelKeyring.Forgotten.UNKNOWN) {
-                    // The cached passphrase is now the wrong one. Silence here would leave the
-                    // next command failing in a way that reads like a damaged vault.
+                    // The cached passphrase is now the wrong one. Silence here would leave the next
+                    // command failing in a way that reads like a damaged vault.
                     out.println(
                             "could not drop the cached passphrase, and it is now the OLD one;"
                                     + " run 'porelo vault lock' until it succeeds");
@@ -166,8 +165,8 @@ public class VaultPassphraseCommand implements Callable<Integer>, PoreloFactory.
 
             // Said every time it is true, for the same reason 'vault lock' says it: a proxy read
             // its credential when its task started and holds it in its own memory, where this
-            // cannot reach. An operator changing a passphrase because one leaked has to know
-            // that stopping those tasks is the part that ends it.
+            // cannot reach. An operator changing a passphrase because one leaked has to know that
+            // stopping those tasks is the part that ends it.
             final long running =
                     context.podman().poreloTasks().stream()
                             .filter(ContainerSummary::running)

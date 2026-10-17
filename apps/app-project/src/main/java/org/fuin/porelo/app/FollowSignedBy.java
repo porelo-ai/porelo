@@ -341,8 +341,8 @@ public final class FollowSignedBy {
     private static void refuseBoth(final @Nullable String signedBy, final boolean unverified)
             throws Refused {
         if (signedBy != null && unverified) {
-            // Both is not a stricter setting, it is two different instructions. Refused rather
-            // than one of them silently winning.
+            // Both is not a stricter setting, it is two different instructions. Refused rather than
+            // one of them silently winning.
             throw new Refused("--unverified and --signed-by say opposite things. Pick one.");
         }
     }
@@ -362,9 +362,8 @@ public final class FollowSignedBy {
         if (result.outcome() == Reconcile.Outcome.UNKNOWN_KEY
                 || result.outcome() == Reconcile.Outcome.NO_ANCHOR) {
             // Read from the commit itself, not from the gate: with no key pinned on this machine at
-            // all the gate
-            // answers NO_ANCHOR without verifying anything, so it names no signer - measured in a
-            // fresh account.
+            // all the gate answers NO_ANCHOR without verifying anything, so it names no signer -
+            // measured in a fresh account.
             final String key = found.key();
             if (key == null) {
                 return null;

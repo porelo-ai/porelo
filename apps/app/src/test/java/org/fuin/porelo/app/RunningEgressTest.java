@@ -91,8 +91,8 @@ class RunningEgressTest {
     @Test
     void takesTheUpstreamThisTaskAlreadyUses(@TempDir Path dir) throws IOException {
 
-        // Not the host's resolvers as they are now: a task keeps the upstreams it was started
-        // with, and the host's may have changed since.
+        // Not the host's resolvers as they are now: a task keeps the upstreams it was started with,
+        // and the host's may have changed since.
         final PoreloContext context = context(dir);
         final Path state = task("porelo-uc-shell-1", "guarded");
 
@@ -296,11 +296,10 @@ class RunningEgressTest {
     @Test
     void withdrawingAParentLeavesASubdomainGrantedSeparately(@TempDir Path dir) throws IOException {
 
-        // A grant for example.test COVERS api.example.test when deciding what to let through -
-        // that is what GrantedNames.covers does. A withdrawal must not inherit that: api was
-        // granted in its own right here, is still granted, and its address must stay in the
-        // firewall. Matching by suffix would take it out and the container would lose a host
-        // nobody withdrew.
+        // A grant for example.test COVERS api.example.test when deciding what to let through - that
+        // is what GrantedNames.covers does. A withdrawal must not inherit that: api was granted in
+        // its own right here, is still granted, and its address must stay in the firewall. Matching
+        // by suffix would take it out and the container would lose a host nobody withdrew.
         final PoreloContext context = context(dir);
         final Path state = task("porelo-uc-shell-1", "guarded");
         // The subdomain FIRST. The other order is not a scenario at all: once example.test is
@@ -333,8 +332,8 @@ class RunningEgressTest {
     @Test
     void aNameNobodyGrantedIsNotAnError(@TempDir Path dir) throws IOException {
 
-        // Asking to close what was never open is the outcome asked for. Two withdrawals of the
-        // same name land here as well.
+        // Asking to close what was never open is the outcome asked for. Two withdrawals of the same
+        // name land here as well.
         final PoreloContext context = context(dir);
         task("porelo-uc-shell-1", "guarded");
 
@@ -380,8 +379,8 @@ class RunningEgressTest {
     @Test
     void aGrantedNameWithNoRecordedAddressIsStillClosed(@TempDir Path dir) throws IOException {
 
-        // A real state, not an edge case: the name was granted and the container never reached
-        // it, so nothing was ever put in the firewall. The name must still stop resolving, and
+        // A real state, not an edge case: the name was granted and the container never reached it,
+        // so nothing was ever put in the firewall. The name must still stop resolving, and
         // 'addresses: 0' beside a non-empty 'closes' is the honest report of that.
         final PoreloContext context = context(dir);
         final Path state = task("porelo-uc-shell-1", "guarded");
@@ -399,8 +398,7 @@ class RunningEgressTest {
     void aNameThatIsNoHostNameWritesNothingTheResolverReads(@TempDir Path dir) throws IOException {
         // Written into the servers file as it came, 'example.test/#' became
         // 'server=/example.test/#/...', and dnsmasq forwards every name under '#': one widening
-        // took
-        // away the task's whole list. A line break wrote a line of its own.
+        // took away the task's whole list. A line break wrote a line of its own.
         final PoreloContext context = context(dir);
         final Path state = task("porelo-uc-shell-1", "guarded");
         final String servers = Files.readString(state.resolve(DnsPolicy.SERVERS_FILE));

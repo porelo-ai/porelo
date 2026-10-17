@@ -121,9 +121,9 @@ public final class SignedBy {
         boolean inside = false;
         for (final String line : commit.split("\n", -1)) {
             final String stripped = line.startsWith(" ") ? line.substring(1) : line;
-            // 'contains', not 'startsWith': the first line of the header is
-            // "gpgsig -----BEGIN SSH SIGNATURE-----", and the armor only begins after the key's
-            // own name. Found by the test rather than by reading the format.
+            // 'contains', not 'startsWith': the first line of the header is "gpgsig -----BEGIN SSH
+            // SIGNATURE-----", and the armor only begins after the key's own name. Found by the
+            // test rather than by reading the format.
             if (stripped.contains("-----BEGIN SSH SIGNATURE-----")) {
                 inside = true;
                 continue;

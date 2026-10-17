@@ -78,8 +78,7 @@ final class SignerHandover {
         Set<String> last;
         if (inForce.isEmpty()) {
             // The first commit taken: only it, against the key the person named. Older history may
-            // be signed by
-            // keys long retired, and none of it is what is applied.
+            // be signed by keys long retired, and none of it is what is applied.
             commits = List.of(tip);
             last = new LinkedHashSet<>(pinned);
         } else {
@@ -99,8 +98,7 @@ final class SignerHandover {
                 named = at(clone, commit);
             } catch (final ProjectException ex) {
                 // A list that cannot be read is no list: what the commit means is left to the
-                // reader, which
-                // refuses the file when it is the one applied.
+                // reader, which refuses the file when it is the one applied.
                 continue;
             }
             if (named == null || new LinkedHashSet<>(named).equals(last)) {
@@ -231,8 +229,7 @@ final class SignerHandover {
 
     private List<String> between(final Path clone, final String older, final String newer) {
         // First parent: the line of commits the project's main moved along, each one as it was
-        // taken -
-        // a merge counts as the commit that brought the change.
+        // taken - a merge counts as the commit that brought the change.
         final CommandResult listed =
                 runner.run(
                         Command.of(

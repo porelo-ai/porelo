@@ -103,35 +103,34 @@ public final class AgentDefinitionReader {
                 strings(install.get("as_agent")),
                 packaged(install.get("packaged"), origin),
                 optional(root, "config_dir"),
-                // How this agent logs in, as arguments to its own binary. Null when the section
-                // is absent, which is most agents: one whose credential is an API key has nothing
-                // to log in to, and Porelo must not guess a verb - hardcoding one agent's would be
+                // How this agent logs in, as arguments to its own binary. Null when the section is
+                // absent, which is most agents: one whose credential is an API key has nothing to
+                // log in to, and Porelo must not guess a verb - hardcoding one agent's would be
                 // wrong for every other.
                 //
                 // An EMPTY list is not the same as absent. An agent whose login is "just run me"
-                // declares the section with no arguments, and reading that as "cannot log in"
-                // would refuse the commonest shape there is.
+                // declares the section with no arguments, and reading that as "cannot log in" would
+                // refuse the commonest shape there is.
                 root.get("login") == null
                         ? null
                         : strings(optionalSection(root, "login").get("arguments")),
-                // Where that login is described. Optional even when the section is there: an
-                // agent may have a login and no page about it, and a missing link is better than
-                // one somebody invented.
+                // Where that login is described. Optional even when the section is there: an agent
+                // may have a login and no page about it, and a missing link is better than one
+                // somebody invented.
                 root.get("login") == null
                         ? null
                         : optional(optionalSection(root, "login"), "documentation"),
                 // What this agent needs to be told so that it stops asking permission for things
-                // the container already prevents. Declared because the flag is the agent's own
-                // and Porelo must not guess it - but never conditional: inside a task the answer
-                // is always yes, which is what the box is for. An agent that needs nothing says
+                // the container already prevents. Declared because the flag is the agent's own and
+                // Porelo must not guess it - but never conditional: inside a task the answer is
+                // always yes, which is what the box is for. An agent that needs nothing says
                 // nothing and gets nothing added.
                 strings(optionalSection(root, "sandboxed").get("arguments")),
                 ready(session, origin),
                 waiting(session, origin),
                 sessionIds(session, origin),
                 // How it takes standing instructions from a file: the agent's own flag, which
-                // Porelo must not guess.
-                // Absent is the common case, and gets nothing added.
+                // Porelo must not guess. Absent is the common case, and gets nothing added.
                 strings(optionalSection(root, "instructions").get("arguments")),
                 // What its screen shows at rest, so a message that names it may wake it; absent, it
                 // is never typed into.
@@ -342,10 +341,10 @@ public final class AgentDefinitionReader {
         }
         final String dialect = optional(provider, "dialect");
         if (dialect == null) {
-            // A block with only 'token_env' describes an agent that takes its credential
-            // directly and is not brokered at all - a real case, not a mistake. But a block
-            // that says how to point the agent somewhere and then omits the dialect is a
-            // mistake, and a silent one, so it is named.
+            // A block with only 'token_env' describes an agent that takes its credential directly
+            // and is not brokered at all - a real case, not a mistake. But a block that says how to
+            // point the agent somewhere and then omits the dialect is a mistake, and a silent one,
+            // so it is named.
             for (final String key : List.of("endpoint", "socket_env", "base_url_env", "default")) {
                 if (provider.get(key) != null) {
                     throw new AgentException(

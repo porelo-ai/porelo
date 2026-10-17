@@ -76,8 +76,7 @@ public class GateReviewCommand implements Callable<Integer>, PoreloFactory.Conte
                             null);
             gate.initialize();
             // What matters before what is merely large: the instruction, the files dangerous by
-            // kind,
-            // and the patch in that same order, reformatting and generated files last.
+            // kind, and the patch in that same order, reformatting and generated files last.
             final ReviewRanking.Review review = gate.rankedReview(name, against);
             out.print(
                     ReviewText.render(

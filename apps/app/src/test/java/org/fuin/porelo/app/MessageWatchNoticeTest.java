@@ -90,8 +90,8 @@ class MessageWatchNoticeTest {
     void a_message_that_lands_moves_while_a_conversation_step_runs(@TempDir final Path dir)
             throws Exception {
         // Every pass asked each conversation's transport first, under the one lock a notice waited
-        // for too: a written
-        // message took 4-8 s to be taken, and a file a long-poll handed in 5-20 s to be delivered.
+        // for too: a written message took 4-8 s to be taken, and a file a long-poll handed in 5-20
+        // s to be delivered.
         final PoreloContext context = context(dir);
         final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox("porelo-p-t"));
         mailbox.create();
@@ -157,10 +157,9 @@ class MessageWatchNoticeTest {
     void a_move_asked_while_another_waits_its_turn_is_merged_into_it(@TempDir final Path dir)
             throws Exception {
         // A notice and a long-poll's answer close together each ran a move, the second one waiting
-        // for the first
-        // ("after waiting 116-200 ms for the move before it") only to find nothing left. The one
-        // that waits now takes
-        // both: it starts after the second was asked, so it sees what that one would have moved.
+        // for the first ("after waiting 116-200 ms for the move before it") only to find nothing
+        // left. The one that waits now takes both: it starts after the second was asked, so it sees
+        // what that one would have moved.
         final PoreloContext context = context(dir);
         final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox("porelo-p-t"));
         mailbox.create();
@@ -214,9 +213,8 @@ class MessageWatchNoticeTest {
     @Test
     void closing_waits_for_the_notices_to_stop(@TempDir final Path dir) throws Exception {
         // It closed and returned while the notice thread was still settling and then moving: the
-        // caller deleted the
-        // mail directories under it. Seen as a test whose temp directory could not be deleted, 1
-        // run in 6 on the VM.
+        // caller deleted the mail directories under it. Seen as a test whose temp directory could
+        // not be deleted, 1 run in 6 on the VM.
         final PoreloContext context = context(dir);
         final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox("porelo-p-t"));
         mailbox.create();
@@ -263,8 +261,7 @@ class MessageWatchNoticeTest {
     void a_persons_message_written_on_the_host_is_noticed(@TempDir final Path dir)
             throws IOException {
         // 'porelo talk say' writes into person/, which was not watched: such a message went with
-        // the next pass of any
-        // other cause, up to the timed one a minute on.
+        // the next pass of any other cause, up to the timed one a minute on.
         final PoreloContext context = context(dir);
         final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox("porelo-p-t"));
         mailbox.create();

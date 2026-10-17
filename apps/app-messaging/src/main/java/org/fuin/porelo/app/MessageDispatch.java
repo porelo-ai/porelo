@@ -90,9 +90,8 @@ public final class MessageDispatch {
                                 addressed.isEmpty()
                                         ? "it addresses nobody: metadata.to is missing or empty"
                                         // Fan-out is a copy per peer and a receipt per copy.
-                                        // Refusing it plainly is
-                                        // better than delivering to the first name and saying
-                                        // nothing about the rest.
+                                        // Refusing it plainly is better than delivering to the
+                                        // first name and saying nothing about the rest.
                                         : "it addresses "
                                                 + addressed.size()
                                                 + " peers, and sending to more than one is not built"));
@@ -106,8 +105,8 @@ public final class MessageDispatch {
                                 name, "this project may not address '" + addressed.get(0) + "'"));
                 continue;
             }
-            // Last, and after the peer is known to exist: a person's decision is about a peer,
-            // and "held" is a different answer from "this project may not address that name".
+            // Last, and after the peer is known to exist: a person's decision is about a peer, and
+            // "held" is a different answer from "this project may not address that name".
             final Path released = mailbox.accepted().resolve(name + RELEASED_SUFFIX);
             final String waiting =
                     Files.isRegularFile(released) && !moderation.refuses(addressed.get(0))
@@ -119,9 +118,8 @@ public final class MessageDispatch {
                 continue;
             }
             // And what the filter flagged, though it let it through because it only reports: only
-            // that waits for a
-            // person, whatever the peer's mode (the operator in walk 10, 2026-10-04). Held until a
-            // person releases it.
+            // that waits for a person, whatever the peer's mode (the operator in walk 10,
+            // 2026-10-04). Held until a person releases it.
             final String flagged =
                     Files.isRegularFile(released)
                             ? ""

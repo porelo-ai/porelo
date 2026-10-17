@@ -20,8 +20,8 @@ public record TaskPaths(PoreloPaths paths) {
      * @return State directory.
      */
     public Path containerState(String container) {
-        // Under the runtime directory, so the kernel removes it when the session ends and no
-        // stale sidecar can be picked up by a later run.
+        // Under the runtime directory, so the kernel removes it when the session ends and no stale
+        // sidecar can be picked up by a later run.
         return paths.xdg().runtime().resolve(container);
     }
 

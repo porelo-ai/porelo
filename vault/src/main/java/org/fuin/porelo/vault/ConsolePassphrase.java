@@ -37,8 +37,8 @@ public class ConsolePassphrase implements PassphraseSource {
             return shown;
         }
         // Raw mode was not available - no stty, or a terminal that will not have it. Reading
-        // without any feedback is worse than nothing to look at, but it is better than refusing
-        // to read at all.
+        // without any feedback is worse than nothing to look at, but it is better than refusing to
+        // read at all.
         final char[] typed = console.readPassword("%s", promptText);
         return typed == null || typed.length == 0 ? Optional.empty() : Optional.of(typed);
     }

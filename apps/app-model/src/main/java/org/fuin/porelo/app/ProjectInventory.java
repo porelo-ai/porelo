@@ -276,8 +276,8 @@ public final class ProjectInventory {
             map.put("preparedState", readiness.name());
             // Three fields, not one. A bare number would have to be shown as though it were
             // current, and the only thing worse than a stale answer is a stale answer that looks
-            // fresh - so the age travels with it, and the reason says whether there is a number
-            // at all.
+            // fresh - so the age travels with it, and the reason says whether there is a number at
+            // all.
             map.put("behind", behind.behind());
             map.put(
                     "behindMeasured",
@@ -285,12 +285,11 @@ public final class ProjectInventory {
             map.put("behindReason", behind.reason().name());
             map.put("behindDetail", behind.detail() == null ? "" : behind.detail());
             // The repositories themselves, not a count and not just names: a client offering the
-            // choice at task start needs the names, and a project view needs each one's own
-            // mirror, pending count and distance. A number would send it back to read the file.
+            // choice at task start needs the names, and a project view needs each one's own mirror,
+            // pending count and distance. A number would send it back to read the file.
             map.put("repositories", repositories.stream().map(RepositorySummary::asMap).toList());
             // What project.yml names under 'credentials:', read from the file this row is for:
-            // names and
-            // destinations, never a value.
+            // names and destinations, never a value.
             Map<String, String> credentials = Map.of();
             if (file != null) {
                 try {
@@ -344,8 +343,8 @@ public final class ProjectInventory {
                     .all()
                     .forEach(one -> followed.put(one.name(), one));
         } catch (final java.io.IOException ex) {
-            // A listing is not the place to fail over the follow record. Every project then
-            // answers "not followed", which reads as what it is rather than as an error here.
+            // A listing is not the place to fail over the follow record. Every project then answers
+            // "not followed", which reads as what it is rather than as an error here.
             followed.clear();
         }
 
@@ -354,9 +353,9 @@ public final class ProjectInventory {
         final Map<String, Summary> found = new LinkedHashMap<>();
 
         // Always there, even with no repository in it: it is where work goes that no followed
-        // project names.
-        // Counted for every project, not only one with a mirror of its own: the work of every other
-        // repository - all of 'default''s - waits in a mirror below the project's name.
+        // project names. Counted for every project, not only one with a mirror of its own: the work
+        // of every other repository - all of 'default''s - waits in a mirror below the project's
+        // name.
         found.put(
                 DefaultProject.NAME,
                 new Summary(
@@ -421,9 +420,9 @@ public final class ProjectInventory {
         // Asked once for every project rather than once per project: 'podman image exists' is a
         // subprocess, and this list is re-read after every task start and every approval.
         final java.util.Set<String> images = context.podman().poreloImages();
-        // Read, never measured: measuring reaches the network, and this list is re-read after
-        // every task start and every approval. What is read here was measured on a timer and
-        // carries the moment it was taken.
+        // Read, never measured: measuring reaches the network, and this list is re-read after every
+        // task start and every approval. What is read here was measured on a timer and carries the
+        // moment it was taken.
         final UpstreamRecords upstream =
                 new UpstreamRecords(context.paths().projects().upstreamRecords());
         final Map<String, List<String>> signers =
@@ -557,8 +556,8 @@ public final class ProjectInventory {
         for (final org.fuin.porelo.core.project.Repository repository : project.allRepositories()) {
             if (DefaultProject.is(project.name()) && repository.name().equals(project.name())) {
                 // 'default' has no repository of its own: every model has one, and there it would
-                // be a phantom with
-                // nowhere to send work, offered as if it were a place to start one.
+                // be a phantom with nowhere to send work, offered as if it were a place to start
+                // one.
                 continue;
             }
             final Path mirror = GateSupport.mirror(context, project, repository);
@@ -739,9 +738,8 @@ public final class ProjectInventory {
         // Reported wherever the project is, because it is a state rather than an error: without an
         // anchor, whoever may push to that repository decides what tasks here may reach.
         map.put("unverified", followed.unverified());
-        // Derived from the outcome rather than stored, so the two cannot come to disagree - and
-        // so an interface does not have to keep a list of which outcomes are stuck in step with
-        // ours.
+        // Derived from the outcome rather than stored, so the two cannot come to disagree - and so
+        // an interface does not have to keep a list of which outcomes are stuck in step with ours.
         map.put("needsAPerson", followed.needsAPerson());
         return map;
     }

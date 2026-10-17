@@ -44,8 +44,7 @@ final class ProjectMethods {
                 (parameters, replies) -> {
                     if (!replies.streaming()) {
                         // Same shape as Watch: asked without 'more' it answers once, so one method
-                        // serves
-                        // a client that streams and one that cannot.
+                        // serves a client that streams and one that cannot.
                         replies.last(
                                 Map.of(
                                         "projects",
@@ -66,12 +65,10 @@ final class ProjectMethods {
                                                 .map(summary -> projectRow(context, summary))
                                                 .toList();
                         // The whole answer, unlike Watch, which has to strip an age first. Nothing
-                        // here is
-                        // derived from a clock: the counts are counts, and 'behindMeasured' moves
-                        // only when
-                        // the timer that measures it runs - which is a change worth pushing,
-                        // because the
-                        // age an interface draws beside the number resets with it.
+                        // here is derived from a clock: the counts are counts, and 'behindMeasured'
+                        // moves only when the timer that measures it runs - which is a change worth
+                        // pushing, because the age an interface draws beside the number resets with
+                        // it.
                         if (!projects.equals(previous)) {
                             replies.more(Map.of("projects", projects));
                             previous = projects;
@@ -84,10 +81,8 @@ final class ProjectMethods {
                 "Projects",
                 (parameters, replies) -> {
                     // The path in each answer is the one thing a client cannot work out: over a
-                    // forwarded
-                    // socket there is no filesystem on this side to look in, and every gate method
-                    // takes
-                    // one.
+                    // forwarded socket there is no filesystem on this side to look in, and every
+                    // gate method takes one.
                     replies.last(
                             Map.of(
                                     "projects",
@@ -185,9 +180,8 @@ final class ProjectMethods {
                                         ""));
                     } catch (java.io.IOException | RuntimeException ex) {
                         // The record is left alone when the file could not go: forgetting it would
-                        // hide a
-                        // bundle that is still on disk, which is worse than an entry somebody
-                        // retries.
+                        // hide a bundle that is still on disk, which is worse than an entry
+                        // somebody retries.
                         replies.last(
                                 Map.of(
                                         "outcome",
@@ -266,8 +260,8 @@ final class ProjectMethods {
                                                     .toList()));
                 });
 
-        // Following a project's repository. A repository URL is not a secret, so it may travel
-        // over this socket where a credential may not.
+        // Following a project's repository. A repository URL is not a secret, so it may travel over
+        // this socket where a credential may not.
         server.method(
                 "Following",
                 (parameters, replies) -> {
@@ -371,10 +365,8 @@ final class ProjectMethods {
                     }
                     if (flag(parameters, "dryRun")) {
                         // Records nothing, not even the named key: the whole point is the question
-                        // asked
-                        // BEFORE a project exists here. READY where a real follow would have
-                        // applied, and
-                        // otherwise the same named reason it would have given.
+                        // asked BEFORE a project exists here. READY where a real follow would have
+                        // applied, and otherwise the same named reason it would have given.
                         final org.fuin.porelo.app.Reconcile.Result would;
                         final java.util.List<String> wouldPin;
                         try {
@@ -423,11 +415,9 @@ final class ProjectMethods {
                                         "needsAPerson",
                                         would.needsAPerson(),
                                         // What to type to store the credential this machine would
-                                        // need. Named by
-                                        // the machine, because which entry a follow reads is the
-                                        // machine's
-                                        // knowledge and a client must never guess it - nor ever
-                                        // carry the secret.
+                                        // need. Named by the machine, because which entry a follow
+                                        // reads is the machine's knowledge and a client must never
+                                        // guess it - nor ever carry the secret.
                                         "storeCommand",
                                         would.outcome()
                                                         == org.fuin.porelo.app.Reconcile.Outcome
@@ -444,8 +434,7 @@ final class ProjectMethods {
                     final org.fuin.porelo.app.FollowSignedBy.Answer answer;
                     try {
                         // Once, now: somebody who asked for this wants to know whether it works,
-                        // and a
-                        // refusal at the next tick is one nobody connects to what they did.
+                        // and a refusal at the next tick is one nobody connects to what they did.
                         answer =
                                 signers.isEmpty()
                                         ? following.follow(
@@ -466,10 +455,9 @@ final class ProjectMethods {
                     }
                     final org.fuin.porelo.app.Reconcile.Result result = answer.result();
                     // When the host's key is what stopped it, what it offered goes with the
-                    // refusal:
-                    // a person cannot confirm a fingerprint they have not been shown, and asking
-                    // them to
-                    // run a command to see it would be making them fetch what we already have.
+                    // refusal: a person cannot confirm a fingerprint they have not been shown, and
+                    // asking them to run a command to see it would be making them fetch what we
+                    // already have.
                     final boolean aboutTheHost =
                             result.outcome()
                                             == org.fuin.porelo.app.Reconcile.Outcome
@@ -478,11 +466,9 @@ final class ProjectMethods {
                                             == org.fuin.porelo.app.Reconcile.Outcome
                                                     .HOST_KEY_CHANGED;
                     // The host is answered rather than left to be read off the address again: a
-                    // client
-                    // that re-parsed it would have to know about 'user@host:path', a port, and an
-                    // alias
-                    // in somebody's ssh config - three readings of one thing, two of them ours
-                    // already.
+                    // client that re-parsed it would have to know about 'user@host:path', a port,
+                    // and an alias in somebody's ssh config - three readings of one thing, two of
+                    // them ours already.
                     final String host =
                             aboutTheHost ? org.fuin.porelo.app.HostKeys.nameOf(url) : "";
                     final java.util.List<Map<String, Object>> offered =
@@ -518,8 +504,8 @@ final class ProjectMethods {
                                                             .storeCommand(url)
                                                     : "",
                                             // Whether anything was written. False for a first
-                                            // follow that was refused:
-                                            // the machine is exactly as it was.
+                                            // follow that was refused: the machine is exactly as it
+                                            // was.
                                             "recorded",
                                             answer.recorded()));
                     // Every key this call pinned, by fingerprint, so the interface can tell them in
@@ -538,8 +524,8 @@ final class ProjectMethods {
                 "HostKeys",
                 (parameters, replies) -> {
                     // What a host offers, so a person can compare it with what they were told.
-                    // Shown,
-                    // never recorded: recording is TrustHostKey, and it takes the fingerprint back.
+                    // Shown, never recorded: recording is TrustHostKey, and it takes the
+                    // fingerprint back.
                     final String host = hostName(parameters);
                     replies.last(
                             Map.of(
@@ -557,11 +543,9 @@ final class ProjectMethods {
                 "TrustHostKey",
                 (parameters, replies) -> {
                     // The fingerprint comes from the person: they were shown what the host offered
-                    // and
-                    // compared it with what they were told out of band. Asking the host again here
-                    // is not
-                    // a second opinion - it stops a key that arrived in between from being the one
-                    // written down.
+                    // and compared it with what they were told out of band. Asking the host again
+                    // here is not a second opinion - it stops a key that arrived in between from
+                    // being the one written down.
                     final String host = hostName(parameters);
                     final org.fuin.porelo.app.HostKeys.Offered recorded;
                     try {
@@ -668,8 +652,7 @@ final class ProjectMethods {
                                         .asMap()));
 
         // Everything of a project, or of the account, in one step: the same code as 'porelo clear',
-        // so the terminal and
-        // an interface clear the same things and answer them in the same words.
+        // so the terminal and an interface clear the same things and answer them in the same words.
         server.method(
                 "Clear",
                 (parameters, replies) -> {
@@ -704,8 +687,7 @@ final class ProjectMethods {
                         // A project whose file cannot be read has no keys this machine can name.
                     }
                     // The same refusal 'projects delete' gives, through the same code: a mirror may
-                    // hold
-                    // work nobody reviewed, and this must not be the quiet way to destroy it.
+                    // hold work nobody reviewed, and this must not be the quiet way to destroy it.
                     final org.fuin.porelo.app.ProjectDeletion.Result deleted =
                             new org.fuin.porelo.app.ProjectDeletion(context)
                                     .delete(
@@ -713,13 +695,10 @@ final class ProjectMethods {
                                             flag(parameters, "dryRun"),
                                             flag(parameters, "force"));
                     // 'NoSuchProject' for a name this machine does not LIST - not for one it lists
-                    // but
-                    // does not follow. Those are projects from before following, and answering the
-                    // error
-                    // here left an interface offering to clear one and with nothing to show for it,
-                    // while
-                    // force would have swept it blind. Found through the interface; it was hit
-                    // the same wall on a test machine the same hour.
+                    // but does not follow. Those are projects from before following, and answering
+                    // the error here left an interface offering to clear one and with nothing to
+                    // show for it, while force would have swept it blind. Found through the
+                    // interface; it was hit the same wall on a test machine the same hour.
                     if (deleted.outcome() == org.fuin.porelo.app.ProjectDeletion.Outcome.BUILT_IN) {
                         throw new VarlinkException(
                                 INTERFACE + ".Failed",
@@ -746,8 +725,7 @@ final class ProjectMethods {
                                     != org.fuin.porelo.app.ProjectDeletion.Outcome.PREVIEWED) {
                         projects.unfollow(name, context.paths().projects().configurationSigners());
                         // This machine's deploy keys for it go from the vault; what they were is
-                        // answered, so whoever
-                        // registered them at the forge removes them there.
+                        // answered, so whoever registered them at the forge removes them there.
                         if (known != null) {
                             org.fuin.porelo.app.DeployKeys.forget(context, known)
                                     .forEach(key -> keys.add(key.asMap()));
@@ -766,11 +744,9 @@ final class ProjectMethods {
                                     "running",
                                     deleted.running(),
                                     // What goes and what is deliberately left alone, filled for a
-                                    // refusal too, so
-                                    // the cost stands beside the reason. The call this replaced
-                                    // answered both, and
-                                    // a removal that cannot say what it takes is weaker than the
-                                    // one it replaced.
+                                    // refusal too, so the cost stands beside the reason. The call
+                                    // this replaced answered both, and a removal that cannot say
+                                    // what it takes is weaker than the one it replaced.
                                     "removes",
                                     deleted.removes().stream()
                                             .map(
@@ -784,10 +760,9 @@ final class ProjectMethods {
                                     "keeps",
                                     deleted.keeps(),
                                     // Whether this account was following it at all. A client
-                                    // drawing the
-                                    // confirmation says "stop following and remove" or just
-                                    // "remove" from this,
-                                    // rather than guessing from the project it asked about.
+                                    // drawing the confirmation says "stop following and remove" or
+                                    // just "remove" from this, rather than guessing from the
+                                    // project it asked about.
                                     "following",
                                     following,
                                     "detail",
@@ -795,8 +770,7 @@ final class ProjectMethods {
                 });
 
         // A machine's own keys, for an interface that registers them at a forge or writes them into
-        // a project:
-        // only the public halves ever leave this machine (decided on 2026-09-30).
+        // a project: only the public halves ever leave this machine (decided on 2026-09-30).
         server.method(
                 "DeployKey",
                 (parameters, replies) -> {
@@ -816,8 +790,8 @@ final class ProjectMethods {
                     }
                     try {
                         // A project this machine does not follow yet - a private one, whose key
-                        // must be at the forge before
-                        // it can be fetched at all - takes the upstream from the caller.
+                        // must be at the forge before it can be fetched at all - takes the upstream
+                        // from the caller.
                         final org.fuin.porelo.app.DeployKeys.Key key =
                                 project == null
                                         ? org.fuin.porelo.app.DeployKeys.make(

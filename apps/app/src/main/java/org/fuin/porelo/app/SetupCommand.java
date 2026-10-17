@@ -70,8 +70,8 @@ public class SetupCommand implements Callable<Integer>, PoreloFactory.ContextAwa
 
         if (uninstall) {
             // One line per file, the same shape as installing. The count-and-one-directory form
-            // this replaced named the hooks directory for all of them, and the drop-in is not in
-            // it - so the one file somebody is most likely to go looking for by hand was the one
+            // this replaced named the hooks directory for all of them, and the drop-in is not in it
+            // - so the one file somebody is most likely to go looking for by hand was the one
             // reported in the wrong place.
             final java.util.List<java.nio.file.Path> removed = installer.uninstall();
             removed.forEach(file -> out.println("removed   " + file));
@@ -173,9 +173,8 @@ public class SetupCommand implements Callable<Integer>, PoreloFactory.ContextAwa
         }
         if (!terminal.getAsBoolean()) {
             // The one step nothing may do for a person. Said rather than attempted: without a
-            // terminal the
-            // prompt fails as "no passphrase available", which reads as a fault of Porelo's and is
-            // a missing -t.
+            // terminal the prompt fails as "no passphrase available", which reads as a fault of
+            // Porelo's and is a missing -t.
             out.println(
                     "vault     none yet; it needs a passphrase typed at a terminal - run 'porelo setup' or"
                             + " 'porelo vault init' in one (over ssh: 'ssh -t')");

@@ -225,8 +225,7 @@ public final class InstalledBuildReader implements AutoCloseable {
     private Map<String, Object> call(final String method, final Map<String, Object> parameters) {
         if (!running.process().isAlive()) {
             // Killed for not answering in time, or gone by itself: the watch asks again later, and
-            // one that cannot
-            // answer now must not leave every later question unanswered.
+            // one that cannot answer now must not leave every later question unanswered.
             closeQuietly(running.client());
             running = start();
         }
@@ -237,11 +236,9 @@ public final class InstalledBuildReader implements AutoCloseable {
         } catch (VarlinkException ex) {
             if (ex.getErrorName() == null) {
                 // The connection failed, not the question: the reader is gone or going. Its process
-                // is ended and
-                // waited for here, so the next question finds it ended and starts it again -
-                // looking at it
-                // straight away found a crashed reader still alive on a busy machine, and asked it
-                // again.
+                // is ended and waited for here, so the next question finds it ended and starts it
+                // again - looking at it straight away found a crashed reader still alive on a busy
+                // machine, and asked it again.
                 ended(asked.process());
             }
             final BuildRefused.Reason reason = BuildRefused.Reason.of(ex.getErrorName());

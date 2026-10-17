@@ -30,8 +30,8 @@ class GateReviewCommandTest {
             @TempDir Path dir) throws Exception {
 
         // Without --against it compared with 'main', which a repository on 'trunk' does not have:
-        // the patch was the
-        // last commit's alone, and a person approved commits the review never showed.
+        // the patch was the last commit's alone, and a person approved commits the review never
+        // showed.
         final XdgPaths xdg =
                 XdgPaths.of(
                         name ->

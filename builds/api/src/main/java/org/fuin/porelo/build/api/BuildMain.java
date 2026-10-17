@@ -57,8 +57,7 @@ public final class BuildMain {
                     }
                     try (BuildServer server = new BuildServer(reader, Path.of(arguments[1]))) {
                         // What Porelo waits for: the socket file appears before bind() returns, so
-                        // waiting for the
-                        // file could connect to a socket nobody listens on.
+                        // waiting for the file could connect to a socket nobody listens on.
                         out.println("ready " + server.socketPath());
                         out.flush();
                         server.serve();

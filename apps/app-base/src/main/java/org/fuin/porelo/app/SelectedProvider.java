@@ -128,8 +128,8 @@ public record SelectedProvider(ProviderDefinition definition, ProviderRoute rout
             @Nullable String requested) {
 
         if (agent.provider() == null) {
-            // Not an error: the agent takes its credential directly and there is nothing to
-            // stand in for.
+            // Not an error: the agent takes its credential directly and there is nothing to stand
+            // in for.
             return new Choice(null, null, null, "'" + agent.name() + "' is not brokered");
         }
         final String wanted = requested != null ? requested : agent.provider().defaultProvider();
@@ -153,8 +153,8 @@ public record SelectedProvider(ProviderDefinition definition, ProviderRoute rout
                     "No provider '" + wanted + "' is declared. Found: " + names(declared));
         }
         if (!agent.provider().canDrive(provider)) {
-            // Named rather than attempted: the request would otherwise go out in a wire format
-            // the provider does not serve and come back as a confusing model error.
+            // Named rather than attempted: the request would otherwise go out in a wire format the
+            // provider does not serve and come back as a confusing model error.
             return new Choice(
                     null,
                     Refusal.WRONG_DIALECT,

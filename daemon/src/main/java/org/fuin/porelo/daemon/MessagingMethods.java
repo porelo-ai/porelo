@@ -49,8 +49,8 @@ final class MessagingMethods {
                             org.fuin.porelo.app.Moderation.of(context, project);
                     final java.util.List<Map<String, Object>> peers = new java.util.ArrayList<>();
                     // With the project's other tasks, as the pass delivers to them: the contract
-                    // says whom this task may
-                    // address, and listing only the file's peers hid the tasks it reaches by name.
+                    // says whom this task may address, and listing only the file's peers hid the
+                    // tasks it reaches by name.
                     final org.fuin.porelo.core.project.Mail mail =
                             org.fuin.porelo.app.MessageRelease.peersOf(
                                     context, text(parameters, "task"));
@@ -85,8 +85,7 @@ final class MessagingMethods {
                     }
                     // Every mailbox on the machine, from the records themselves: what happened to a
                     // message is written down as it happens, so following the record is following
-                    // the
-                    // conversation without a second copy of it that could disagree.
+                    // the conversation without a second copy of it that could disagree.
                     final Map<String, Integer> seen = new java.util.HashMap<>();
                     boolean first = true;
                     try {
@@ -156,8 +155,8 @@ final class MessagingMethods {
                                             empty(parameters, "context"),
                                             text(parameters, "text"));
                     // Written, not sent: the next pass puts it through the filter like any other
-                    // message,
-                    // and saying "sent" here would promise something this step does not do.
+                    // message, and saying "sent" here would promise something this step does not
+                    // do.
                     replies.last(Map.of("message", written, "outcome", "WRITTEN"));
                 });
 
@@ -204,8 +203,7 @@ final class MessagingMethods {
                 "Held",
                 (parameters, replies) -> {
                     // One task's mailbox when one is named - an unknown name is NoSuchTask, as
-                    // everywhere -
-                    // or every mailbox on the machine.
+                    // everywhere - or every mailbox on the machine.
                     final java.util.List<org.fuin.porelo.app.Mailbox> mailboxes =
                             empty(parameters, "task") == null
                                     ? new org.fuin.porelo.app.Mailboxes(context.paths()).all()
@@ -260,11 +258,9 @@ final class MessagingMethods {
                 });
 
         // A person grants an authorization once, in a browser somewhere else. The stream says
-        // "needed" with the
-        // link, then how it ended: no client polls a consent flow, so no question gets two grants.
-        // A person joins a project's conversation with an account made for them. Answered once: the
-        // login is
-        // in this reply and nowhere else, never kept.
+        // "needed" with the link, then how it ended: no client polls a consent flow, so no question
+        // gets two grants. A person joins a project's conversation with an account made for them.
+        // Answered once: the login is in this reply and nowhere else, never kept.
         server.method(
                 "SetUpMessages",
                 (parameters, replies) -> {

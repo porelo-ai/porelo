@@ -62,8 +62,8 @@ public class CompleteCommand implements Callable<Integer>, PoreloFactory.Context
             // No candidates rather than a failure, see the class comment.
         }
         out.flush();
-        // Always zero. A non-zero exit reaches the shell as a beep or an error in some setups,
-        // and "there is nothing to complete" is an ordinary answer rather than a failure.
+        // Always zero. A non-zero exit reaches the shell as a beep or an error in some setups, and
+        // "there is nothing to complete" is an ordinary answer rather than a failure.
         return 0;
     }
 
@@ -83,8 +83,8 @@ public class CompleteCommand implements Callable<Integer>, PoreloFactory.Context
         }
 
         final String partial = typed.getLast();
-        // Everything but the program name and the partial word. Those in between say which
-        // command we are in.
+        // Everything but the program name and the partial word. Those in between say which command
+        // we are in.
         final List<String> path = typed.subList(1, typed.size() - 1);
 
         CommandLine current = root;
@@ -100,8 +100,8 @@ public class CompleteCommand implements Callable<Integer>, PoreloFactory.Context
         final Set<String> candidates = new LinkedHashSet<>();
         if (partial.startsWith("-")) {
             // Only the long forms. Offering '-p' beside '--project-file' doubles the list to say
-            // the same thing twice, and the short one is what somebody types when they already
-            // know it.
+            // the same thing twice, and the short one is what somebody types when they already know
+            // it.
             for (final var option : current.getCommandSpec().options()) {
                 if (!option.hidden()) {
                     for (final String name : option.names()) {
@@ -112,8 +112,8 @@ public class CompleteCommand implements Callable<Integer>, PoreloFactory.Context
                 }
             }
         } else if (!current.getSubcommands().isEmpty()) {
-            // The declared name, not the map key: picocli keys aliases into the same map, so
-            // taking the keys would offer 'task' and 'tasks' as if they were two commands.
+            // The declared name, not the map key: picocli keys aliases into the same map, so taking
+            // the keys would offer 'task' and 'tasks' as if they were two commands.
             current.getSubcommands()
                     .values()
                     .forEach(

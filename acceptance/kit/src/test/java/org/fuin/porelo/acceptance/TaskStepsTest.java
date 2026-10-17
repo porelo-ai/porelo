@@ -15,8 +15,8 @@ class TaskStepsTest {
 
     @Test
     void namesTheProjectAndStandsNowhere() {
-        // A project is named, not pointed at: which directory the step runs in means nothing, and
-        // a scenario that cd'd somewhere would be describing a rule that no longer exists.
+        // A project is named, not pointed at: which directory the step runs in means nothing, and a
+        // scenario that cd'd somewhere would be describing a rule that no longer exists.
         assertThat(TaskSteps.startCommand("nocred", "omp")).startsWith("porelo task start ");
         assertThat(TaskSteps.startCommand("nocred", "omp")).doesNotContain("cd ");
         assertThat(TaskSteps.startCommand("nocred", "omp")).contains("--project 'nocred'");

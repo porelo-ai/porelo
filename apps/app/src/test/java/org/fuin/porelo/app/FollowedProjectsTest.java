@@ -113,8 +113,8 @@ class FollowedProjectsTest {
     void aPassesResultIsWrittenOnlyOntoTheRecordItReadSoAnUnfollowMeanwhileStays(
             @org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws java.io.IOException {
         // The daemon's pass reads every record, fetches for seconds, and writes what it found.
-        // Written unconditionally,
-        // it brought back a project unfollowed while it fetched (found on 2026-10-01).
+        // Written unconditionally, it brought back a project unfollowed while it fetched (found on
+        // 2026-10-01).
         final FollowedProjects projects = new FollowedProjects(dir);
         final FollowedProjects.Followed read = projects.follow("p", "git@example.org:p.git", true);
         final FollowedProjects.Followed found =
@@ -138,8 +138,7 @@ class FollowedProjectsTest {
             @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws Exception {
 
         // A file lock does not wait for another thread of the same process, it throws: a follow
-        // over the socket
-        // that met the follow pass answered "null", or the pass dropped its record.
+        // over the socket that met the follow pass answered "null", or the pass dropped its record.
         final FollowedProjects projects = new FollowedProjects(dir);
         final var pool = java.util.concurrent.Executors.newFixedThreadPool(8);
         try {
@@ -170,8 +169,7 @@ class FollowedProjectsTest {
     void anAddressGitWouldTakeForAnOptionOrACommandIsNotFollowed(@TempDir final Path dir) {
 
         // The project file refused such a value, a follow over the socket did not:
-        // '--upload-pack=<command>' reached
-        // 'git fetch' as an option.
+        // '--upload-pack=<command>' reached 'git fetch' as an option.
         final FollowedProjects projects = new FollowedProjects(dir);
         for (final String url :
                 java.util.List.of("--upload-pack=touch /tmp/owned", "ext::sh -c id", "fd::3")) {

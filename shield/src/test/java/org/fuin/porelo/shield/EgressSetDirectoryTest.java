@@ -101,8 +101,8 @@ class EgressSetDirectoryTest {
     @Test
     void refusesAnUnknownSetRatherThanGrantingNothing() {
 
-        // A typo must not look like a working declaration. Silently granting nothing would send
-        // the operator to debug the build instead of the project file.
+        // A typo must not look like a working declaration. Silently granting nothing would send the
+        // operator to debug the build instead of the project file.
         assertThatThrownBy(() -> new EgressSetDirectory(List.of(SHIPPED)).resolve(List.of("mvn")))
                 .isInstanceOf(EgressSetException.class)
                 .hasMessageContaining("Unknown egress set 'mvn'")
@@ -151,8 +151,7 @@ class EgressSetDirectoryTest {
     void aSetNamingSomethingThatIsNotAHostNameIsRefused(final String domain) {
 
         // Project domains were checked and set domains were not: '#' became 'server=/#/...', and
-        // every name resolved
-        // and opened its ports with nobody asked.
+        // every name resolved and opened its ports with nobody asked.
         org.assertj.core.api.Assertions.assertThatThrownBy(
                         () ->
                                 EgressSetDirectory.read(

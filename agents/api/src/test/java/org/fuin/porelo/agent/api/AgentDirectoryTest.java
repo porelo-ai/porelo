@@ -85,8 +85,8 @@ class AgentDirectoryTest {
     @Test
     void keepsTheOrderTheCopiesWereFoundIn() throws IOException {
 
-        // The order is the only thing that explains why one wins, so it is not the map's to
-        // discard - Map.copyOf would.
+        // The order is the only thing that explains why one wins, so it is not the map's to discard
+        // - Map.copyOf would.
         agent(own, "alpha");
         agent(own, "beta");
         final Path hiddenAlpha = agent(packaged, "alpha");

@@ -27,8 +27,8 @@ public class TaskStopCommand implements Callable<Integer>, PoreloFactory.Context
 
     @Override
     public java.util.List<String> candidates() {
-        // Both, unlike attach: stopping a stopped task is answered "nothing to stop" rather
-        // than refused, and hiding it as a candidate would make that answer unreachable.
+        // Both, unlike attach: stopping a stopped task is answered "nothing to stop" rather than
+        // refused, and hiding it as a candidate would make that answer unreachable.
         return TaskCandidates.all(context);
     }
 

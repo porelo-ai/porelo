@@ -41,11 +41,9 @@ public final class KnownPeers {
                                 context.paths().messaging().allowedSigners(),
                                 context.paths().messaging().sharedKeys()));
         // Then the signers each followed project names beside its project.yml - how an enrolled
-        // machine's key
-        // reaches every other machine of the project, through a commit a person reviewed and
-        // signed. Only a
-        // configuration that was verified and is in force: an unverified one is anybody's who can
-        // push there.
+        // machine's key reaches every other machine of the project, through a commit a person
+        // reviewed and signed. Only a configuration that was verified and is in force: an
+        // unverified one is anybody's who can push there.
         final List<String> named =
                 new ArrayList<>(peers.stream().map(MessageDelivery.Peer::name).toList());
         for (final FollowedProjects.Followed followed :

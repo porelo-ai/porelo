@@ -152,8 +152,7 @@ class ConfigurationGateTest {
     void aKeyPinnedForOneProjectDoesNotSignForAnother(@TempDir final Path dir) throws IOException {
 
         // Every project was checked against one file, and any principal in it was accepted: a key
-        // pinned for a public
-        // project verified a commit served for another one.
+        // pinned for a public project verified a commit served for another one.
         final Path theirs = key(dir, "alpha");
         final Path ours = key(dir, "beta");
         final Path signers = pin(dir, "alpha", theirs);

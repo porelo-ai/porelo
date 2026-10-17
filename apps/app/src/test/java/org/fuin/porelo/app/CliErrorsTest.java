@@ -41,8 +41,8 @@ class CliErrorsTest {
     @Test
     void aRealTypoIsAnsweredWithTheNearestCommandAnywhereInTheTree() {
 
-        // Searched across the whole tree, which is what the built-in suggestion cannot do:
-        // 'improt' is nowhere near any top-level name, and is one edit from 'vault import'.
+        // Searched across the whole tree, which is what the built-in suggestion cannot do: 'improt'
+        // is nowhere near any top-level name, and is one edit from 'vault import'.
         assertThat(run("improt")).contains("did you mean 'porelo vault import'?");
         assertThat(run("doktor")).contains("did you mean 'porelo doctor'?");
     }
@@ -66,19 +66,19 @@ class CliErrorsTest {
     @Test
     void aVeryShortWordIsNotGuessedAt() {
 
-        // At one or two characters almost everything is within two edits of almost everything,
-        // and the suggestion would be noise dressed as help. 'ga' is two edits from 'gate',
-        // which is exactly the false confidence the length guard exists to refuse - a shorter
-        // example would pass whether the guard were there or not.
+        // At one or two characters almost everything is within two edits of almost everything, and
+        // the suggestion would be noise dressed as help. 'ga' is two edits from 'gate', which is
+        // exactly the false confidence the length guard exists to refuse - a shorter example would
+        // pass whether the guard were there or not.
         assertThat(run("ga")).doesNotContain("did you mean");
     }
 
     @Test
     void aNameFromElsewhereIsFoundEvenWhenYouAreAlreadyInsideASubcommand() {
 
-        // The search has to start at the top rather than where somebody is standing. Typing
-        // 'porelo vault doctor' is a real mistake, and 'doctor' exists - one level up. Searching
-        // only the current command finds nothing and falls back to listing.
+        // The search has to start at the top rather than where somebody is standing. Typing 'porelo
+        // vault doctor' is a real mistake, and 'doctor' exists - one level up. Searching only the
+        // current command finds nothing and falls back to listing.
         assertThat(run("vault", "doctor"))
                 .contains("'porelo vault' has no command called 'doctor'")
                 .contains("it is 'porelo doctor'");
@@ -105,8 +105,8 @@ class CliErrorsTest {
     @Test
     void nothingSaysUnmatchedArgumentAtIndex() {
 
-        // The phrasing this replaced. It described where the parser was, which is a fact about
-        // the parser rather than about what somebody typed.
+        // The phrasing this replaced. It described where the parser was, which is a fact about the
+        // parser rather than about what somebody typed.
         assertThat(run("unlock")).doesNotContain("Unmatched argument").doesNotContain("index 0");
     }
 
@@ -127,9 +127,9 @@ class CliErrorsTest {
     void turnsAnUnhandledFailureIntoOneLine(
             @org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
 
-        // Reported: 'task resume' answered sixteen frames of picocli. The frames say where in
-        // this code it happened, which is of no use to the person being told, and they bury the
-        // one line that was.
+        // Reported: 'task resume' answered sixteen frames of picocli. The frames say where in this
+        // code it happened, which is of no use to the person being told, and they bury the one line
+        // that was.
         final StringWriter err = new StringWriter();
         final CommandLine command = new CommandLine(new PoreloCli());
         command.setErr(new PrintWriter(err));
@@ -147,8 +147,8 @@ class CliErrorsTest {
                 .as("the terminal gets the sentence, not the frames")
                 .doesNotContain("at org.fuin");
 
-        // Kept rather than offered behind a flag: the failure nobody can reproduce is exactly
-        // the one worth having a trace for.
+        // Kept rather than offered behind a flag: the failure nobody can reproduce is exactly the
+        // one worth having a trace for.
         final java.nio.file.Path log = pathsIn(dir).failureLog();
         assertThat(log).exists();
         assertThat(java.nio.file.Files.readString(log))
@@ -161,8 +161,8 @@ class CliErrorsTest {
     void namesTheFailureWhenItCarriesNoMessage(
             @org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
 
-        // Some exceptions carry only a type. Naming it beats an empty line that says something
-        // went wrong without saying anything.
+        // Some exceptions carry only a type. Naming it beats an empty line that says something went
+        // wrong without saying anything.
         final StringWriter err = new StringWriter();
         final CommandLine command = new CommandLine(new PoreloCli());
         command.setErr(new PrintWriter(err));
@@ -177,9 +177,9 @@ class CliErrorsTest {
     void keepsArgumentsOutOfTheLog(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir)
             throws Exception {
 
-        // An argument can carry a credential - '--upstream https://user:token@host' is the
-        // obvious one - and a log is exactly where that must not end up. The command's name says
-        // which command failed, which is what a trace beside it needs.
+        // An argument can carry a credential - '--upstream https://user:token@host' is the obvious
+        // one - and a log is exactly where that must not end up. The command's name says which
+        // command failed, which is what a trace beside it needs.
         final CommandLine command = PoreloCli.commandLine(PoreloContext.real());
         command.setErr(new PrintWriter(new StringWriter()));
         final CommandLine.ParseResult parsed =

@@ -45,8 +45,7 @@ class TrustedCertificatesTest {
             throws Exception {
 
         // Measuring with a provider on the machine itself needed it over https; an organisation
-        // inspecting TLS
-        // needs the same: an authority of its own.
+        // inspecting TLS needs the same: an authority of its own.
         keytool(
                 dir,
                 "-genkeypair",
@@ -132,8 +131,7 @@ class TrustedCertificatesTest {
     void theFileIsWhereTheDocumentationSaysInTheAccountsConfiguration() {
 
         // A proxy looked in ~/.config/porelo/porelo/ and trusted nothing more: the test above built
-        // its
-        // own path and never asked this one.
+        // its own path and never asked this one.
         assertThat(
                         TrustedCertificates.file(
                                 org.fuin.porelo.core.config.XdgPaths.of(

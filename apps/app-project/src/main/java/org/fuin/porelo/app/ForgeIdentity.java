@@ -130,8 +130,8 @@ public final class ForgeIdentity {
                                                     || line.contains("publickey"))
                             .findFirst()
                             .orElse(null);
-            // Anything else - an unreachable host, a host key that changed - is not an answer
-            // about the credential and must not be reported as one.
+            // Anything else - an unreachable host, a host key that changed - is not an answer about
+            // the credential and must not be reported as one.
             return denied == null ? null : new Answer(denied, true);
         } catch (final RuntimeException ex) {
             return null;

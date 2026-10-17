@@ -82,8 +82,8 @@ public final class RsaKey implements AgentKey {
             signature.update(data);
             final ByteArrayOutputStream out = new ByteArrayOutputStream();
             // The blob names what was used, not what the key is. A client that asked for
-            // rsa-sha2-512 and is told "ssh-rsa" treats the answer as SHA-1 and fails at the
-            // forge rather than here.
+            // rsa-sha2-512 and is told "ssh-rsa" treats the answer as SHA-1 and fails at the forge
+            // rather than here.
             SshWire.writeString(out, algorithm);
             SshWire.writeString(out, signature.sign());
             return out.toByteArray();

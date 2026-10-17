@@ -162,9 +162,9 @@ public final class Leg {
             throws IOException {
         final List<String> users = accounts(accounts);
         // root, so this run's key can be given to the build user. The image carries whatever key
-        // built it, which is not the key a workflow holds - and a leg that assumed otherwise
-        // waited five minutes for an ssh that was never going to be accepted. It passed locally
-        // for the worst reason: the same key had built the image.
+        // built it, which is not the key a workflow holds - and a leg that assumed otherwise waited
+        // five minutes for an ssh that was never going to be accepted. It passed locally for the
+        // worst reason: the same key had built the image.
         final Spec spec =
                 new Spec(
                         "porelo-leg-" + os + "-" + hetzner.runId(),
@@ -194,24 +194,21 @@ public final class Leg {
                             + USER
                             + "/.ssh/authorized_keys");
 
-            // Restarting is part of what the suite tests, and without this it cannot:
-            // the acceptance user is created with 'useradd' and nothing else, so it had no sudo
-            // at all. 'sudo systemd-run --on-active=1s /sbin/reboot' answered "I'm sorry build.
-            // I'm afraid I can't do that", the restart step swallowed that, and sixty seconds
-            // later the run failed with "The machine never went down" - on both legs, taking 24
-            // unrelated scenarios with it because the connection was already closed.
+            // Restarting is part of what the suite tests, and without this it cannot: the
+            // acceptance user is created with 'useradd' and nothing else, so it had no sudo at all.
+            // 'sudo systemd-run --on-active=1s /sbin/reboot' answered "I'm sorry build. I'm afraid
+            // I can't do that", the restart step swallowed that, and sixty seconds later the run
+            // failed with "The machine never went down" - on both legs, taking 24 unrelated
+            // scenarios with it because the connection was already closed.
             //
-            // Measured on a rented ubuntu machine: with this file in place the
-            // command returns 0, the machine is unreachable within six seconds and answers again
-            // after about forty.
+            // Measured on a rented ubuntu machine: with this file in place the command returns 0,
+            // the machine is unreachable within six seconds and answers again after about forty.
             //
             // Two commands, each with its arguments, and nothing else. This is a machine that
-            // exists for one run and is
-            // deleted after it, but the grant is still written narrowly: a suite that can reboot
-            // its machine is not a
-            // suite that can do anything else as root. Three programs with any arguments were,
-            // since 'systemd-run'
-            // and 'systemctl' run whatever they are given.
+            // exists for one run and is deleted after it, but the grant is still written narrowly:
+            // a suite that can reboot its machine is not a suite that can do anything else as root.
+            // Three programs with any arguments were, since 'systemd-run' and 'systemctl' run
+            // whatever they are given.
             step("letting the acceptance user restart the machine");
             run(lease.ssh(), grantRestart(users));
 
@@ -229,15 +226,12 @@ public final class Leg {
                                 + " -f /tmp/tree.tar && rm -f /tmp/tree.tar");
 
                 // Before anything here runs podman, because that is the only moment the fault
-                // shows.
-                // With NoNewPrivileges=yes the unit could not set up rootless podman's user
-                // namespace
-                // after a boot, and every daemon started any other way - by hand here, by a
-                // scenario, or
-                // after somebody had run podman at a terminal - sailed past it. The unit's own
-                // [Service] properties are applied to one podman call that has to make that
-                // namespace,
-                // and a pause process that already exists would prove nothing, so it is refused.
+                // shows. With NoNewPrivileges=yes the unit could not set up rootless podman's user
+                // namespace after a boot, and every daemon started any other way - by hand here, by
+                // a scenario, or after somebody had run podman at a terminal - sailed past it. The
+                // unit's own [Service] properties are applied to one podman call that has to make
+                // that namespace, and a pause process that already exists would prove nothing, so
+                // it is refused.
                 step("rootless podman under the daemon unit's own properties, first after boot");
                 refuseAnExistingPauseProcess(build);
                 final Ssh.Output unit = build.run("cat " + REPO + "/systemd/porelod.service");
@@ -256,8 +250,8 @@ public final class Leg {
 
                 step("building");
                 // How much of the CPU the host gave to others during the build: a build that took
-                // five times its usual
-                // time with its threads busy could not be told from a slow host without it.
+                // five times its usual time with its threads busy could not be told from a slow
+                // host without it.
                 final CpuSteal beforeBuild = CpuSteal.parse(build.run(CpuSteal.READ).out());
                 streamed(
                         build,
@@ -275,24 +269,19 @@ public final class Leg {
                 // rather than a shortcut - and it is the shape a task actually runs in: rootless.
                 //
                 // Every copy matters. An earlier version of this driver left out the providers and
-                // the
-                // binary, and the leg failed with "No provider 'anthropic' is declared" - which
-                // reads
-                // like a broken machine and was a broken transcription. The agent is the one this
-                // build
-                // made, found rather than named; the daemon is started by the scenarios that ask
-                // it.
+                // the binary, and the leg failed with "No provider 'anthropic' is declared" - which
+                // reads like a broken machine and was a broken transcription. The agent is the one
+                // this build made, found rather than named; the daemon is started by the scenarios
+                // that ask it.
                 step("installing as a package would");
                 // Where the build put each binary is the tree's to say: ci/leg-install.sh and
-                // ci/leg-binaries, which
-                // the tree's own build checks against its modules.
+                // ci/leg-binaries, which the tree's own build checks against its modules.
                 streamed(build, install(), "installing");
 
                 step("what porelo thinks of this machine");
                 // The podman version too: it decides whether this leg is really covering podman 4
-                // or
-                // has quietly become a second Fedora. Not fatal - doctor reports, and stopping here
-                // would hide the run below.
+                // or has quietly become a second Fedora. Not fatal - doctor reports, and stopping
+                // here would hide the run below.
                 System.out.println(
                         build.run(
                                         "podman --version; cd "
@@ -324,9 +313,8 @@ public final class Leg {
                     step("what a person does at a terminal");
                     acceptance(suite, lease.address(), credential, users);
                     // Said after the scenarios, from the cache's own log: what every account's
-                    // pulls were answered with.
-                    // Without it a log cannot show that the images came from the machine and not
-                    // from Docker Hub.
+                    // pulls were answered with. Without it a log cannot show that the images came
+                    // from the machine and not from Docker Hub.
                     step("what the image cache served");
                     System.out.print(
                             reported(
@@ -423,8 +411,8 @@ public final class Leg {
                         "-Dcucumber.filter.tags=" + MACHINE_WIDE_EXCLUDED));
         step("what touches the whole machine, alone");
         // A report of its own: the second pass wrote over the first's, and the step times read from
-        // it afterwards - how
-        // long an agent took to its ready screen - were the restart pass's alone.
+        // it afterwards - how long an agent took to its ready screen - were the restart pass's
+        // alone.
         suite(
                 repository,
                 address,
@@ -466,35 +454,27 @@ public final class Leg {
         final ProcessBuilder maven =
                 new ProcessBuilder(command)
                         // EVERY scenario, including @slow. Excluding them was reasonable - each
-                        // builds a
-                        // task image and that is minutes - and its consequence was not: the eleven
-                        // they
-                        // hide ran NOWHERE, in CI or anywhere else, and every green build reported
-                        // them as
-                        // "skipped" rather than as never run.
+                        // builds a task image and that is minutes - and its consequence was not:
+                        // the eleven they hide ran NOWHERE, in CI or anywhere else, and every green
+                        // build reported them as "skipped" rather than as never run.
                         //
-                        // What that cost, found when they were run for the first time: one
-                        // scenario had been describing pre-cut behaviour since the lifecycle cut
-                        // (keeping
+                        // What that cost, found when they were run for the first time: one scenario
+                        // had been describing pre-cut behaviour since the lifecycle cut (keeping
                         // became the default, so the removal it asserted had nothing to refuse),
-                        // one file
-                        // could not run twice on the same machine, and all eleven silently depended
-                        // on
-                        // exactly one agent being installed - true of a CI leg and of nothing else.
-                        // Three faults that no amount of unit testing could see, in scenarios that
-                        // were
-                        // written to catch exactly this and were never allowed to.
+                        // one file could not run twice on the same machine, and all eleven silently
+                        // depended on exactly one agent being installed - true of a CI leg and of
+                        // nothing else. Three faults that no amount of unit testing could see, in
+                        // scenarios that were written to catch exactly this and were never allowed
+                        // to.
                         //
-                        // So they run every time. Measured against the
-                        // libvirt VM with images already built, the eleven add 56s; a leg builds
-                        // its
-                        // images from nothing, so expect minutes rather than seconds here.
+                        // So they run every time. Measured against the libvirt VM with images
+                        // already built, the eleven add 56s; a leg builds its images from nothing,
+                        // so expect minutes rather than seconds here.
                         //
                         // No filter property at all rather than one that excludes nothing: a tag
                         // expression that is always true is a place for an exclusion to grow back.
                         // With several accounts, the two passes together are every scenario: the
-                        // one
-                        // filter there splits the suite, and excludes nothing from the whole.
+                        // one filter there splits the suite, and excludes nothing from the whole.
                         .directory(repository.toFile())
                         .inheritIO();
         maven.environment().put("PORELO_ACCEPTANCE_KEY", credential.material());

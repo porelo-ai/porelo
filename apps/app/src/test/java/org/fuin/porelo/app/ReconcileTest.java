@@ -245,8 +245,8 @@ class ReconcileTest {
     void a_fingerprint_named_on_a_machine_with_nothing_pinned_pins_the_key_that_signed_it(
             @TempDir final Path dir) throws Exception {
         // Measured in a fresh account: with no key pinned at all the gate verifies nothing and
-        // names no signer, so
-        // a fingerprint was matched against nothing and the follow stayed NO_ANCHOR.
+        // names no signer, so a fingerprint was matched against nothing and the follow stayed
+        // NO_ANCHOR.
         final PoreloContext context = context(dir);
         final Path key = key(dir, "operator");
         final Path repo = published(dir, key, "demo");
@@ -664,11 +664,11 @@ class ReconcileTest {
     }
 
     // ---------------------------------------------------------------- what a reconciliation may
-    // touch, and what it may not. What a reconciliation may
-    // release a held message or disturb a task is not reconciliation, it is remote control of
-    // somebody's machine by whoever can commit. Asserted rather than assumed - the property holds
-    // because Reconcile only ever moves the followed clone, and that is exactly the kind of thing
-    // that stays true until somebody adds one line.
+    // touch, and what it may not. What a reconciliation may release a held message or disturb a
+    // task is not reconciliation, it is remote control of somebody's machine by whoever can commit.
+    // Asserted rather than assumed - the property holds because Reconcile only ever moves the
+    // followed clone, and that is exactly the kind of thing that stays true until somebody adds one
+    // line.
 
     @Test
     void what_a_person_held_survives_a_reconciliation(@TempDir final Path dir) throws IOException {
@@ -806,8 +806,8 @@ class ReconcileTest {
         pin(context, "demo", key(dir, "operator"));
 
         // There is no vault here at all, so nothing is locked away and nothing about one explains
-        // the failed fetch. Saying "unlock your vault" would send somebody to a vault they have
-        // not made.
+        // the failed fetch. Saying "unlock your vault" would send somebody to a vault they have not
+        // made.
         final Reconcile.Result result =
                 new Reconcile(context)
                         .run(
@@ -857,8 +857,8 @@ class ReconcileTest {
                                 new FollowedProjects.Followed(
                                         "demo", repo.toString(), "", "", "", "", "", "", true));
 
-        // Unverified means nobody checked WHO wrote it - not that anything goes. A file that is
-        // not a project would fail at the first task start, which is somewhere else and later.
+        // Unverified means nobody checked WHO wrote it - not that anything goes. A file that is not
+        // a project would fail at the first task start, which is somewhere else and later.
         assertThat(result.outcome()).isEqualTo(Reconcile.Outcome.UNUSABLE);
     }
 
@@ -870,8 +870,8 @@ class ReconcileTest {
         final Path signed = published(dir, key, "demo");
 
         final Reconcile.Result verified = new Reconcile(context).run(followed(signed));
-        // A second repository of its own, because a project file that calls itself something
-        // other than the name it is followed under is refused.
+        // A second repository of its own, because a project file that calls itself something other
+        // than the name it is followed under is refused.
         final Path other = dir.resolve("published-two");
         Files.createDirectories(other);
         git(other, "init", "-q", "-b", "main", ".");
@@ -1002,8 +1002,8 @@ class ReconcileTest {
             throws IOException {
 
         // Asked before anything is written. A follow that cannot apply used to leave a project
-        // behind that was followed with nothing in force - one was met, with no verb
-        // to take it away.
+        // behind that was followed with nothing in force - one was met, with no verb to take it
+        // away.
         final PoreloContext context = context(dir);
         final Path key = key(dir, "operator");
         pin(context, "demo", key);
@@ -1022,10 +1022,10 @@ class ReconcileTest {
             throws IOException {
 
         final PoreloContext context = context(dir);
-        // Nothing pinned and nothing signed. What it answers matters less than that it answers
-        // the SAME as the follow: a check that disagreed with the thing it stands in for would
-        // send somebody to follow a project that then refuses, or stop them following one that
-        // would have worked.
+        // Nothing pinned and nothing signed. What it answers matters less than that it answers the
+        // SAME as the follow: a check that disagreed with the thing it stands in for would send
+        // somebody to follow a project that then refuses, or stop them following one that would
+        // have worked.
         final Path repo = published(dir, null, "demo");
 
         final Reconcile.Result would = new Reconcile(context).check(followed(repo));
@@ -1043,10 +1043,10 @@ class ReconcileTest {
     void a_repository_only_a_key_opens_says_the_key_is_missing_not_the_network(
             @TempDir final Path dir) {
 
-        // The refusal the operator was given was "unlock your vault", for a vault that held
-        // nothing this path would have used - because the follow never asked the vault for
-        // anything. With no key stored, an ssh URL that cannot be fetched is a missing
-        // credential, and the answer names the entry and the command that fills it.
+        // The refusal the operator was given was "unlock your vault", for a vault that held nothing
+        // this path would have used - because the follow never asked the vault for anything. With
+        // no key stored, an ssh URL that cannot be fetched is a missing credential, and the answer
+        // names the entry and the command that fills it.
         final PoreloContext context = context(dir);
 
         final Reconcile.Result result =
@@ -1061,8 +1061,8 @@ class ReconcileTest {
                                         ""));
 
         assertThat(result.outcome()).isEqualTo(Reconcile.Outcome.NO_CREDENTIAL);
-        // Named by host, so a company forge and a public one are two credentials rather than
-        // one key offered to whatever host a project file happens to name.
+        // Named by host, so a company forge and a public one are two credentials rather than one
+        // key offered to whatever host a project file happens to name.
         assertThat(result.detail()).contains("porelo vault put git.ssh.nowhere.invalid");
         assertThat(result.needsAPerson()).isTrue();
     }
@@ -1071,8 +1071,8 @@ class ReconcileTest {
     void a_local_repository_that_cannot_be_fetched_is_not_blamed_on_a_missing_key(
             @TempDir final Path dir) {
 
-        // The other half of the same rule. A path is not opened by an ssh key, so sending
-        // somebody to store one would waste their time on a URL that is simply wrong.
+        // The other half of the same rule. A path is not opened by an ssh key, so sending somebody
+        // to store one would waste their time on a URL that is simply wrong.
         final PoreloContext context = context(dir);
 
         final Reconcile.Result result =
@@ -1089,8 +1089,7 @@ class ReconcileTest {
             throws Exception {
 
         // The key was pinned before anything was checked and stayed when the follow failed -
-        // "nothing was recorded",
-        // the answer said, while the key stayed trusted on this machine.
+        // "nothing was recorded", the answer said, while the key stayed trusted on this machine.
         final PoreloContext context = context(dir);
         final Path repo = published(dir, key(dir, "operator"), "demo");
         final String other = Files.readString(Path.of(key(dir, "other") + ".pub")).strip();

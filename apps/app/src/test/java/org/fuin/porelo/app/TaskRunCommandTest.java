@@ -64,10 +64,10 @@ class TaskRunCommandTest {
         // A machine Porelo will run on. Without this the fake answers nothing to 'podman version',
         // which is indistinguishable from a podman too old to support - and every run refuses.
         runner.answering("podman version", "5.8.1");
-        // No session here ever writes the marker, so the question "did the shell end" has to
-        // answer yes for the teardown to run at all. Without this the fake answers every command
-        // with success anyway - which happens to be the right answer here, and is pinned rather
-        // than relied on.
+        // No session here ever writes the marker, so the question "did the shell end" has to answer
+        // yes for the teardown to run at all. Without this the fake answers every command with
+        // success anyway - which happens to be the right answer here, and is pinned rather than
+        // relied on.
         runner.answering("test -f", "");
         final XdgPaths xdg =
                 XdgPaths.of(
@@ -102,10 +102,9 @@ class TaskRunCommandTest {
                     execCalls.add(arguments);
                     if (execDies) {
                         // Stands in for the session dying under the command. A signal cannot be
-                        // sent in
-                        // a unit test, but it lands on the same branch: the line recording a clean
-                        // exit
-                        // is never reached, so the teardown runs with the value it was armed with.
+                        // sent in a unit test, but it lands on the same branch: the line recording
+                        // a clean exit is never reached, so the teardown runs with the value it was
+                        // armed with.
                         throw new IllegalStateException("the session died");
                     }
                     return execExit;
@@ -146,8 +145,7 @@ class TaskRunCommandTest {
             all.add("uc");
         }
         // Named 'shell' unless a test names it: an unnamed start takes its repository's name, which
-        // is measured on
-        // its own below, and every other test here is about something else.
+        // is measured on its own below, and every other test here is about something else.
         if (all.size() > 1
                 && "task".equals(all.get(0))
                 && "start".equals(all.get(1))
@@ -212,8 +210,8 @@ class TaskRunCommandTest {
     void aDryRunNeedsNoRepositoryBecauseItStartsNothing(@TempDir Path dir) throws IOException {
 
         // The refusal protects against starting a task on a guessed repository; a dry run starts
-        // nothing. What it reports without one is the project-level plan - the project's own
-        // block, which is true of every repository because a repository only ever ADDS to it.
+        // nothing. What it reports without one is the project-level plan - the project's own block,
+        // which is true of every repository because a repository only ever ADDS to it.
         final CommandLine cmd = PoreloCli.commandLine(context(dir, true));
         cmd.setOut(new PrintWriter(out));
         cmd.setErr(new PrintWriter(err));
@@ -256,8 +254,8 @@ class TaskRunCommandTest {
     private String projectFile(Path dir, String content) throws IOException {
         final Path file = dir.resolve("project.yml");
         Files.writeString(file, content);
-        // Read out of the text rather than through the reader: one of these fixtures is a file
-        // the reader refuses on purpose, and it still has to be a project this machine can name.
+        // Read out of the text rather than through the reader: one of these fixtures is a file the
+        // reader refuses on purpose, and it still has to be a project this machine can name.
         final java.util.regex.Matcher named =
                 java.util.regex.Pattern.compile("(?m)^\\s+name:\\s*\"?([a-z0-9-]+)\"?")
                         .matcher(content);
@@ -291,26 +289,26 @@ class TaskRunCommandTest {
     @Test
     void refusesToRunWhenTheHookBinariesAreNotInstalled(@TempDir Path dir) throws IOException {
 
-        // A container started without its firewall looks completely normal, which is why this
-        // must stop rather than warn. Writing descriptors would not help: they would name
-        // binaries that are not there, which is a broken installation rather than a missing step.
+        // A container started without its firewall looks completely normal, which is why this must
+        // stop rather than warn. Writing descriptors would not help: they would name binaries that
+        // are not there, which is a broken installation rather than a missing step.
         final int code =
                 execute(context(dir, false), "task", "start", "-p", projectFile(dir, MINIMAL));
 
         assertThat(code).isEqualTo(69);
         assertThat(err.toString()).contains("binaries that are not installed");
-        // Asking podman its version comes first and reads nothing else; what must not happen is
-        // a container existing without the hooks that give it a firewall.
+        // Asking podman its version comes first and reads nothing else; what must not happen is a
+        // container existing without the hooks that give it a firewall.
         assertThat(runner.lines()).allMatch(line -> line.startsWith("podman version"));
     }
 
     @Test
     void registersTheHooksItselfRatherThanAskingForACommand(@TempDir Path dir) throws IOException {
 
-        // Being told to run 'porelo setup' is a thing people forget, which is how a machine ends
-        // up with an installation nobody completed. The binaries are there and the descriptors
-        // are not, which is the state after 'apt install' - the package deliberately does not
-        // write them, because podman reads them per user and root does not know whose.
+        // Being told to run 'porelo setup' is a thing people forget, which is how a machine ends up
+        // with an installation nobody completed. The binaries are there and the descriptors are
+        // not, which is the state after 'apt install' - the package deliberately does not write
+        // them, because podman reads them per user and root does not know whose.
         hookBinaries(dir);
 
         final int code =
@@ -457,9 +455,8 @@ class TaskRunCommandTest {
     void aNewGuardedTaskIsRefusedWhileWorkOfAnEarlierOneOfItsNameWaitsAtTheGate(@TempDir Path dir)
             throws IOException {
         // A removed task's work waited at the gate; a new task of the same name was refused its
-        // plain push with
-        // "fetch first", and an agent that followed git's hint would have pulled that work into its
-        // own.
+        // plain push with "fetch first", and an agent that followed git's hint would have pulled
+        // that work into its own.
         final String file = leftByARemovedTask(dir, "guarded");
 
         final int exit =
@@ -515,11 +512,9 @@ class TaskRunCommandTest {
             @TempDir Path dir) throws IOException {
 
         // Its remote was the upstream, over ssh, with an ssh-agent socket that answered the forge
-        // with the real key:
-        // the agent could push wherever that key reached. Now its gate passes its own branch on,
-        // from the host.
-        // A repository on this machine: the host fills the gate from it, which no container could
-        // reach.
+        // with the real key: the agent could push wherever that key reached. Now its gate passes
+        // its own branch on, from the host. A repository on this machine: the host fills the gate
+        // from it, which no container could reach.
         final Path upstream = dir.resolve("upstream.git");
         for (final String[] command :
                 new String[][] {
@@ -630,8 +625,8 @@ class TaskRunCommandTest {
                 "--shell",
                 "/bin/sh");
 
-        // Through the task's ONE session, not beside it. A plain exec ran the agent as a child
-        // of this terminal: closing the window took it with it, and attaching from anywhere else
+        // Through the task's ONE session, not beside it. A plain exec ran the agent as a child of
+        // this terminal: closing the window took it with it, and attaching from anywhere else
         // created a second, empty session and showed a bare shell in the workspace.
         assertThat(execCalls).hasSize(1);
         assertThat(execCalls.getFirst())
@@ -648,10 +643,9 @@ class TaskRunCommandTest {
                         "-A",
                         "-s",
                         "porelo");
-        // One argument, because tmux joins several into one string with spaces and would take
-        // the script apart at its quoting.
-        // The shell is a child, not an exec: the marker that says the work ended is written
-        // after it returns, and 'exec' would leave nothing to write it.
+        // One argument, because tmux joins several into one string with spaces and would take the
+        // script apart at its quoting. The shell is a child, not an exec: the marker that says the
+        // work ended is written after it returns, and 'exec' would leave nothing to write it.
         assertThat(execCalls.getFirst().getLast())
                 .contains("/bin/sh -l; : > ")
                 .doesNotContain("exec /bin/sh");
@@ -687,9 +681,9 @@ class TaskRunCommandTest {
     @Test
     void aTestContextReadsNoEnvironmentAtAll() {
 
-        // The seam that keeps the test above honest. A context built the three-argument way -
-        // which is how every test builds one - must read nothing from this process, or a suite
-        // passes on a developer's machine and asserts something else where there is no terminal.
+        // The seam that keeps the test above honest. A context built the three-argument way - which
+        // is how every test builds one - must read nothing from this process, or a suite passes on
+        // a developer's machine and asserts something else where there is no terminal.
         assertThat(
                         new PoreloContext(runner, PoreloPaths.current(), arguments -> 0)
                                 .environment()
@@ -703,8 +697,8 @@ class TaskRunCommandTest {
 
         // It used to attach a plain shell and record the mode as AGENT, so a task said it was
         // something it was not - and the person who asked for an agent got a bare prompt with
-        // nothing explaining why. CanStart already answered NO_AGENT for this, so the check and
-        // the launch disagreed about the same machine.
+        // nothing explaining why. CanStart already answered NO_AGENT for this, so the check and the
+        // launch disagreed about the same machine.
         final int code =
                 execute(context(dir, true), "task", "start", "-p", projectFile(dir, MINIMAL));
 
@@ -716,8 +710,8 @@ class TaskRunCommandTest {
     @Test
     void aShellTaskNeedsNoAgentAtAll(@TempDir Path dir) throws IOException {
 
-        // Working inside the container by hand is exactly what a shell task is for, so refusing
-        // it for want of an agent would take away the case the refusal above points people at.
+        // Working inside the container by hand is exactly what a shell task is for, so refusing it
+        // for want of an agent would take away the case the refusal above points people at.
         final int code =
                 execute(
                         context(dir, true),
@@ -735,8 +729,8 @@ class TaskRunCommandTest {
     @Test
     void aPromptWithNoAgentIsRefusedRatherThanReportedAsDone(@TempDir Path dir) throws IOException {
 
-        // The difference between "started" and "ran". A prompt asks for work to be performed, and
-        // a run that answers success without an agent having done anything leaves somebody waiting
+        // The difference between "started" and "ran". A prompt asks for work to be performed, and a
+        // run that answers success without an agent having done anything leaves somebody waiting
         // for output that was never going to come.
         final int code =
                 execute(
@@ -782,10 +776,10 @@ class TaskRunCommandTest {
 
         // --keep has to be decided before the run, and the run worth looking at is the one that
         // went wrong, which is known only afterwards. So a failure is held rather than swept up.
-        // Built BEFORE the broad answers below: the fake takes the first key
-        // that matches, and 'exec' would otherwise swallow the session check
-        // the fixture registers - reading a container with no session as one
-        // somebody had detached from, so nothing would ever be torn down.
+        // Built BEFORE the broad answers below: the fake takes the first key that matches, and
+        // 'exec' would otherwise swallow the session check the fixture registers - reading a
+        // container with no session as one somebody had detached from, so nothing would ever be
+        // torn down.
         final PoreloContext prepared = context(dir, true);
         runner.answering("container inspect", "c0ffee\n");
         runner.failing("start", 125, "hook failed");
@@ -803,9 +797,9 @@ class TaskRunCommandTest {
 
         assertThat(code).isEqualTo(70);
         assertThat(runner.lines()).noneMatch(line -> line.contains("rm --force"));
-        // The advice has to name commands the CLI still has. It named 'task resume' and
-        // 'task stop --purge' - both removed at the lifecycle cut - so somebody following a
-        // failure report was sent to two commands that refuse.
+        // The advice has to name commands the CLI still has. It named 'task resume' and 'task stop
+        // --purge' - both removed at the lifecycle cut - so somebody following a failure report was
+        // sent to two commands that refuse.
         assertThat(out.toString())
                 .contains("kept")
                 .contains("it failed, so nothing was removed")
@@ -964,10 +958,10 @@ class TaskRunCommandTest {
     @Test
     void removesTheContainerWhenTheShellsLastCommandFailed(@TempDir Path dir) throws IOException {
 
-        // A shell exits with its last command's status, which says nothing about the task.
-        // Reported from a machine where a typo at the prompt - 'bash: /exit: No such file or
-        // directory' - made leaving the session print "it failed, so nothing was removed" and
-        // keep the container, its firewall and its resolver running.
+        // A shell exits with its last command's status, which says nothing about the task. Reported
+        // from a machine where a typo at the prompt - 'bash: /exit: No such file or directory' -
+        // made leaving the session print "it failed, so nothing was removed" and keep the
+        // container, its firewall and its resolver running.
         execExit = 127;
         // Without this the container does not exist as far as the fake runtime is concerned, the
         // keep branch is unreachable, and the test would pass however the verdict is computed.
@@ -993,16 +987,15 @@ class TaskRunCommandTest {
     @Test
     void doesNotDiscardWorkThatNeverReachedTheGate(@TempDir Path dir) throws IOException {
 
-        // A workspace is in the container's own writable layer, so removing the container
-        // destroys it. 'task stop --purge' refuses to do that and offers --rescue; walking out
-        // of a shell did it without asking, which is the same destruction by a different route.
-        // idOf and pidOf both run 'container inspect' and the fake takes the first match in
-        // insertion order, so the more specific key goes first - otherwise the pid query answers
-        // 'c0ffee', parses as no pid, and the work check never runs.
-        // Built BEFORE the broad answers below: the fake takes the first key
-        // that matches, and 'exec' would otherwise swallow the session check
-        // the fixture registers - reading a container with no session as one
-        // somebody had detached from, so nothing would ever be torn down.
+        // A workspace is in the container's own writable layer, so removing the container destroys
+        // it. 'task stop --purge' refuses to do that and offers --rescue; walking out of a shell
+        // did it without asking, which is the same destruction by a different route. idOf and pidOf
+        // both run 'container inspect' and the fake takes the first match in insertion order, so
+        // the more specific key goes first - otherwise the pid query answers 'c0ffee', parses as no
+        // pid, and the work check never runs. Built BEFORE the broad answers below: the fake takes
+        // the first key that matches, and 'exec' would otherwise swallow the session check the
+        // fixture registers - reading a container with no session as one somebody had detached
+        // from, so nothing would ever be torn down.
         final PoreloContext prepared = context(dir, true);
         runner.answering("{{.State.Pid}}", "4711\n");
         runner.answering("container inspect", "c0ffee\n");
@@ -1031,13 +1024,12 @@ class TaskRunCommandTest {
     @Test
     void removesATaskThatHandedEverythingBack(@TempDir Path dir) throws IOException {
 
-        // The negative case, and the common one: nothing uncommitted and nothing unpushed, so
-        // there is nothing to protect and the container goes. Keeping it would bring back the
-        // pile of dead containers this is meant to avoid.
-        // Built BEFORE the broad answers below: the fake takes the first key
-        // that matches, and 'exec' would otherwise swallow the session check
-        // the fixture registers - reading a container with no session as one
-        // somebody had detached from, so nothing would ever be torn down.
+        // The negative case, and the common one: nothing uncommitted and nothing unpushed, so there
+        // is nothing to protect and the container goes. Keeping it would bring back the pile of
+        // dead containers this is meant to avoid. Built BEFORE the broad answers below: the fake
+        // takes the first key that matches, and 'exec' would otherwise swallow the session check
+        // the fixture registers - reading a container with no session as one somebody had detached
+        // from, so nothing would ever be torn down.
         final PoreloContext prepared = context(dir, true);
         runner.answering("{{.State.Pid}}", "4711\n");
         runner.answering("container inspect", "c0ffee\n");
@@ -1083,8 +1075,8 @@ class TaskRunCommandTest {
     @Test
     void labelsTheContainerWithItsProjectAndClass(@TempDir Path dir) throws IOException {
 
-        // So a listing can still say what a task belongs to after a reboot. The sidecar holding
-        // the same facts is in $XDG_RUNTIME_DIR and does not survive one.
+        // So a listing can still say what a task belongs to after a reboot. The sidecar holding the
+        // same facts is in $XDG_RUNTIME_DIR and does not survive one.
         execute(
                 context(dir, true),
                 "task",
@@ -1122,9 +1114,9 @@ class TaskRunCommandTest {
     @Test
     void labelsTheContainerWithTheRepositoryTheTaskWorksOn(@TempDir Path dir) throws IOException {
 
-        // A task works on exactly one repository and that is fixed when it is created, so a
-        // listing has to be able to say which one after a reboot - and bringing a stopped task
-        // back has to carry it over. The sidecar cannot answer: it predates repositories.
+        // A task works on exactly one repository and that is fixed when it is created, so a listing
+        // has to be able to say which one after a reboot - and bringing a stopped task back has to
+        // carry it over. The sidecar cannot answer: it predates repositories.
         execute(
                 context(dir, true),
                 "task",
@@ -1259,8 +1251,8 @@ class TaskRunCommandTest {
     @Test
     void noticesTheVaultCopyHasFallenBehind() {
 
-        // An agent that refreshes its own token leaves the imported copy behind, and the task
-        // then fails as an authentication error with no hint that a refresh would fix it.
+        // An agent that refreshes its own token leaves the imported copy behind, and the task then
+        // fails as an authentication error with no hint that a refresh would fix it.
         assertThat(
                         CredentialChoice.staleCredential(
                                 new org.fuin.porelo.vault.VaultEntry("old-token", "oauth"),
@@ -1271,8 +1263,8 @@ class TaskRunCommandTest {
     @Test
     void saysNothingWhenTheCopyIsCurrentOrDeliberatelyDifferent() {
 
-        // Three negatives, and the middle one matters most: storing a different kind on purpose
-        // is not staleness, and warning about it every run would teach the operator to ignore it.
+        // Three negatives, and the middle one matters most: storing a different kind on purpose is
+        // not staleness, and warning about it every run would teach the operator to ignore it.
         assertThat(
                         CredentialChoice.staleCredential(
                                 new org.fuin.porelo.vault.VaultEntry("same", "oauth"),
@@ -1298,9 +1290,9 @@ class TaskRunCommandTest {
 
         // The dangerous half of running in a session. Leaving the window ends the command this
         // terminal was attached to, exactly as finishing does - and until the session could be
-        // asked, both read as "the work is over". Tearing down on a detach would stop the gate,
-        // the credential broker and the clearance watcher under a running agent, which is the
-        // state the contract warns about: a container that is up with no helpers.
+        // asked, both read as "the work is over". Tearing down on a detach would stop the gate, the
+        // credential broker and the clearance watcher under a running agent, which is the state the
+        // contract warns about: a container that is up with no helpers.
         final PoreloContext prepared = context(dir, true);
         // No marker: the shell never returned, so nobody finished.
         runner.failing("test -f", 1, "");
@@ -1452,9 +1444,8 @@ class TaskRunCommandTest {
     void aTaskNamedByItsContainerKeepsTheCredentialsItsRunNamed() {
 
         // A start given the container's name goes on as the task's own name, and the run's
-        // credentials were dropped
-        // on the way: the task started without them, and a destination nobody declared was never
-        // refused.
+        // credentials were dropped on the way: the task started without them, and a destination
+        // nobody declared was never refused.
         final TaskLaunch.Request asked =
                 new TaskLaunch.Request(
                         "porelo-uc-t",
@@ -1485,8 +1476,8 @@ class TaskRunCommandTest {
             throws IOException {
 
         // What the agent wrote is the task's, which anything it read can steer: an escape sequence
-        // printed raw
-        // rewrites what the person reads, sets their window's title or writes their clipboard.
+        // printed raw rewrites what the person reads, sets their window's title or writes their
+        // clipboard.
         final Path log =
                 Files.writeString(
                         dir.resolve("task.log"),

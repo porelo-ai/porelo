@@ -95,8 +95,8 @@ class MessageIntakeTest {
             throws IOException {
 
         // Renamed onward, the file stayed the agent's inode: through a hard link it kept in its
-        // outbox it could change
-        // a message after it was signed, after the filter and after a person read it.
+        // outbox it could change a message after it was signed, after the filter and after a person
+        // read it.
         final Mailbox mailbox = mailbox(dir);
         final Path message = mailbox.outboxNew().resolve("m-1.json");
         Files.writeString(message, "{\"messageId\":\"m-1\",\"role\":\"ROLE_AGENT\"}");
@@ -146,8 +146,7 @@ class MessageIntakeTest {
             @TempDir final Path dir) throws IOException {
 
         // The box is the task's: replaced by a link, its outbox led the host to read, sign and
-        // delete files anywhere
-        // its account can.
+        // delete files anywhere its account can.
         final Mailbox mailbox = mailbox(dir);
         final Path elsewhere = Files.createDirectories(dir.resolve("elsewhere"));
         Files.writeString(elsewhere.resolve("precious.json"), "{\"messageId\":\"p\"}");

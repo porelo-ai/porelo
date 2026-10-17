@@ -109,8 +109,7 @@ final class UpstreamRecords {
                         distance.measured() == null ? "" : distance.measured().toString(),
                         distance.detail() == null ? "" : distance.detail().replace('\t', ' '),
                         // Comma-separated in a tab-separated line: a ref name cannot contain
-                        // either, so
-                        // neither separator can be produced by the content.
+                        // either, so neither separator can be produced by the content.
                         String.join(",", distance.alreadyUpstream()))
                 + "\n";
     }

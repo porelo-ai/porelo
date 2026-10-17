@@ -13,9 +13,9 @@ class GitHubReportTest {
 
     @Test
     void keepsAnAnnotationOnOneLine() {
-        // A workflow command ends at the first newline; what follows prints as ordinary output
-        // and the annotation arrives as half a message. Found by making a scenario fail on
-        // purpose, which the happy path never shows.
+        // A workflow command ends at the first newline; what follows prints as ordinary output and
+        // the annotation arrives as half a message. Found by making a scenario fail on purpose,
+        // which the happy path never shows.
         final String line =
                 GitHubReport.annotation(
                         "src/test/resources/a.feature", 4, "a scenario", "first line\nsecond line");
@@ -35,8 +35,8 @@ class GitHubReportTest {
 
     @Test
     void capsAMessageThatWouldArriveTruncatedAnyway() {
-        // Measured at over a kilobyte for one 'doctor' assertion; GitHub truncates somewhere
-        // nobody chose, so the cut is made here and says where the rest is.
+        // Measured at over a kilobyte for one 'doctor' assertion; GitHub truncates somewhere nobody
+        // chose, so the cut is made here and says where the rest is.
         final String line = GitHubReport.annotation("f.feature", 1, "s", "x".repeat(2000));
         assertThat(line).endsWith(" ... (see the run log)");
         assertThat(line.length()).isLessThan(1100);
@@ -44,8 +44,8 @@ class GitHubReportTest {
 
     @Test
     void pointsAtTheFileInTheRepositoryRatherThanOnTheClasspath() {
-        // The default is a single-module repository, which is what an agent is. This
-        // repository's suite sets porelo.acceptance.features to its own path.
+        // The default is a single-module repository, which is what an agent is. This repository's
+        // suite sets porelo.acceptance.features to its own path.
         assertThat(GitHubReport.feature("classpath:org/fuin/porelo/acceptance/x.feature"))
                 .isEqualTo("src/test/resources/org/fuin/porelo/acceptance/x.feature");
     }
@@ -62,8 +62,8 @@ class GitHubReportTest {
 
     @Test
     void reportsAGreenRunToo() {
-        // The whole point of the change: a run with nothing wrong still has to appear, or the
-        // page cannot tell 'passed' from 'never ran'.
+        // The whole point of the change: a run with nothing wrong still has to appear, or the page
+        // cannot tell 'passed' from 'never ran'.
         final String summary =
                 GitHubReport.summary(
                         oneFeature(new GitHubReport.Case("two and two", Status.PASSED, 14)));
@@ -88,8 +88,8 @@ class GitHubReportTest {
     void collapsesAnOutlineIntoOneRowThatSaysHowManyPassed() {
         // Ten examples are one sentence somebody wrote. Ten identical rows is a summary nobody
         // reads to the end, so the row carries the ratio instead. This is the case where the
-        // outline's name has no <placeholders> and Cucumber reports one name for every example;
-        // the test below is what happens when it does not.
+        // outline's name has no <placeholders> and Cucumber reports one name for every example; the
+        // test below is what happens when it does not.
         final String summary =
                 GitHubReport.summary(
                         oneFeature(
@@ -119,9 +119,9 @@ class GitHubReportTest {
 
     @Test
     void doesNotCountASkippedScenarioAsAPassedOne() {
-        // It said "5 of 5 passed" for a run where four never ran. The absence that causes this -
-        // no credential secret, so the credential half skips - is a supported state that a fork
-        // hits every time, which makes it the version of the summary most likely to be read.
+        // It said "5 of 5 passed" for a run where four never ran. The absence that causes this - no
+        // credential secret, so the credential half skips - is a supported state that a fork hits
+        // every time, which makes it the version of the summary most likely to be read.
         final String summary =
                 GitHubReport.summary(
                         oneFeature(

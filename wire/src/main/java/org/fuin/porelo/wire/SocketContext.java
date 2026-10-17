@@ -124,8 +124,7 @@ public final class SocketContext implements Closeable {
      */
     static boolean selinuxPresent(Path selinuxfs) {
         // The directory alone is no answer: a kernel with SELinux built in but not running keeps it
-        // as an empty
-        // mount point. 'enforce' is there only when selinuxfs is mounted.
+        // as an empty mount point. 'enforce' is there only when selinuxfs is mounted.
         return Files.isRegularFile(selinuxfs.resolve("enforce"));
     }
 

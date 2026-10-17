@@ -90,9 +90,8 @@ class MessageRecordTest {
             @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws Exception {
 
         // The daemon's pass and a 'talk pass' or 'talk release' wrote at once: both read the same
-        // last hash, two
-        // lines shared a 'previous', and 'talk verify' said the record had been changed when nobody
-        // had.
+        // last hash, two lines shared a 'previous', and 'talk verify' said the record had been
+        // changed when nobody had.
         final Mailbox mailbox = new Mailbox(dir.resolve("porelo-p-t"));
         mailbox.create();
         final java.util.concurrent.CountDownLatch go = new java.util.concurrent.CountDownLatch(1);

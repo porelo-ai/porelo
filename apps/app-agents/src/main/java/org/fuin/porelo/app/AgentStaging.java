@@ -90,8 +90,8 @@ final class AgentStaging {
                     paths.tasks().buildContext(project.name()).resolve(tree.stagingName());
             try {
                 if (upToDate(source, staged)) {
-                    // Staged by an earlier run of the same package. Unpacking hundreds of
-                    // megabytes again on every task would be the slowest thing a task run does.
+                    // Staged by an earlier run of the same package. Unpacking hundreds of megabytes
+                    // again on every task would be the slowest thing a task run does.
                     out.println("packaged  " + tree.target() + ", already staged");
                 } else if (tree.archive()) {
                     unpack(runner, source, staged);

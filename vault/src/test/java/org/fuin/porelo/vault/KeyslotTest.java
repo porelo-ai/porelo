@@ -186,9 +186,8 @@ class KeyslotTest {
     void recording_a_devices_use_never_loses_a_credential_stored_meanwhile(@TempDir final Path dir)
             throws Exception {
         // 'used', 'enroll' and 'revoke' read the vault, changed it and wrote it back without the
-        // lock 'update' holds:
-        // a device unlocking while a credential was stored wrote back what it had read, and the
-        // credential was gone.
+        // lock 'update' holds: a device unlocking while a credential was stored wrote back what it
+        // had read, and the credential was gone.
         final VaultFile vault = vault(dir);
         final byte[] share = share(1);
         final Keyslot device =

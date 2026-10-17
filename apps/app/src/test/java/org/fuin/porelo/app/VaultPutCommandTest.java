@@ -162,8 +162,7 @@ class VaultPutCommandTest {
     @org.junit.jupiter.api.Test
     void asksForAGrantsClientSecretByNameAndTakesNoneForAPublicClient() {
         // "Value for 'github-copilot':" - nobody could tell that it meant the client secret, nor
-        // that
-        // Copilot's public client has none (2026-10-09).
+        // that Copilot's public client has none (2026-10-09).
         assertThat(VaultPutCommand.prompt("github-copilot", "oauth-device"))
                 .isEqualTo(
                         "Client secret for 'github-copilot' (none for a public client: press Enter): ");
@@ -194,8 +193,7 @@ class VaultPutCommandTest {
     void anEntryADeclarationReadsIsSaidToBeUsedThere() {
 
         // Right after 'credentials declare ssh://forge.example.org --kind ssh-key --vault
-        // forge-work', storing the key
-        // warned that nothing would find it (found on 2026-10-13).
+        // forge-work', storing the key warned that nothing would find it (found on 2026-10-13).
         final VaultPutCommand.Use use =
                 VaultPutCommand.useOf(
                         "forge-work",
@@ -267,8 +265,7 @@ class VaultPutCommandTest {
                 "root writes a read-only file, so the overwrite cannot be made to fail");
 
         // The private key converted for the vault lies in plain text in a directory of its own:
-        // overwriting it is the
-        // part that may fail, and removing it is what must happen either way.
+        // overwriting it is the part that may fail, and removing it is what must happen either way.
         final java.nio.file.Path directory =
                 java.nio.file.Files.createDirectory(dir.resolve("porelo-key-1"));
         final java.nio.file.Path key =

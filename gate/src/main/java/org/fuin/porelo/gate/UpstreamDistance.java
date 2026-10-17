@@ -129,9 +129,9 @@ public final class UpstreamDistance {
             CommandRunner runner, Path mirror, GateMode mode, GitCredentials credentials) {
 
         if (!mode.canForward()) {
-            // An offline project's whole promise is that nothing leaves. Contacting the upstream
-            // to see how far behind it is would break that promise to answer a question nobody
-            // can act on: an offline project is never going to catch up.
+            // An offline project's whole promise is that nothing leaves. Contacting the upstream to
+            // see how far behind it is would break that promise to answer a question nobody can act
+            // on: an offline project is never going to catch up.
             return new Distance(0, null, Reason.OFFLINE, null);
         }
         if (!Files.isDirectory(mirror.resolve("objects"))) {

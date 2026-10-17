@@ -193,11 +193,11 @@ public final class GitHubReport implements ConcurrentEventListener {
         int notRun = 0;
         int total = 0;
         for (final Map.Entry<String, List<Case>> entry : byFeature.entrySet()) {
-            // Grouped by the name Cucumber reports, which folds an outline's examples into one
-            // row - ten identical rows is a summary nobody reads to the end. It folds only while
-            // the outline's *name* carries no <placeholders>: with them every example gets a
-            // distinct name and lands on its own row. Every outline in this repository is
-            // placeholder-free, so they fold here; a repository using the kit may see otherwise.
+            // Grouped by the name Cucumber reports, which folds an outline's examples into one row
+            // - ten identical rows is a summary nobody reads to the end. It folds only while the
+            // outline's *name* carries no <placeholders>: with them every example gets a distinct
+            // name and lands on its own row. Every outline in this repository is placeholder-free,
+            // so they fold here; a repository using the kit may see otherwise.
             final Map<String, List<Case>> grouped = new LinkedHashMap<>();
             for (final Case each : entry.getValue()) {
                 grouped.computeIfAbsent(each.name(), key -> new ArrayList<>()).add(each);
@@ -237,11 +237,10 @@ public final class GitHubReport implements ConcurrentEventListener {
         // Skipped is neither passed nor failed, and counting it as passed is the summary saying
         // something untrue: a suite whose credential half never ran because a secret was absent
         // reported every scenario green. That absence is a supported state - a fork has no secret
-        // and the run is meant to degrade rather than go red - so it is the state most likely to
-        // be read, and it has to say what it proved and not more.
-        // Undefined, pending and ambiguous are not passed either: a renamed kit step made every
-        // scenario of an agent
-        // repository undefined, and the summary said all of them passed.
+        // and the run is meant to degrade rather than go red - so it is the state most likely to be
+        // read, and it has to say what it proved and not more. Undefined, pending and ambiguous are
+        // not passed either: a renamed kit step made every scenario of an agent repository
+        // undefined, and the summary said all of them passed.
         summary.append("\n**")
                 .append(total - failed - skipped - notRun)
                 .append(" of ")

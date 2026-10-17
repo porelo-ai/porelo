@@ -129,9 +129,9 @@ class TaskLabelTest {
     @Test
     void changesNothingAboutTheIdentity(@TempDir Path dir) throws IOException {
 
-        // The whole reason this is a caption and not a rename. Everything that identifies the
-        // task has to read exactly as before: the container name, the ref its work goes to, and
-        // where its state lives.
+        // The whole reason this is a caption and not a rename. Everything that identifies the task
+        // has to read exactly as before: the container name, the ref its work goes to, and where
+        // its state lives.
         final PoreloContext context = context(dir);
         final Path state = task(dir, "porelo-uc-shell-1");
         final TaskProfile before = TaskProfile.readFrom(state);
@@ -165,8 +165,8 @@ class TaskLabelTest {
     @Test
     void aTaskWithNoProfileSaysSoRatherThanInventingOne(@TempDir Path dir) throws IOException {
 
-        // Writing one here would claim a mode and a start time nobody recorded. An operator
-        // cannot fix this by typing it differently, so it must not read like a typo.
+        // Writing one here would claim a mode and a start time nobody recorded. An operator cannot
+        // fix this by typing it differently, so it must not read like a typo.
         final PoreloContext context = context(dir);
         Files.createDirectories(dir.resolve("run/porelo/porelo-uc-shell-1"));
 
@@ -206,8 +206,8 @@ class TaskLabelTest {
     @Test
     void aTaskNobodyLabelledReportsAnEmptyStringNotNull(@TempDir Path dir) throws IOException {
 
-        // Every task by default. "" and never the four characters "null", which would render as
-        // a caption somebody had chosen.
+        // Every task by default. "" and never the four characters "null", which would render as a
+        // caption somebody had chosen.
         final PoreloContext context = context(dir);
         task(dir, "porelo-uc-shell-1");
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
@@ -220,9 +220,9 @@ class TaskLabelTest {
     @Test
     void aTaskSaysWhetherItsOwnWorkIsWaitingAtTheGate(@TempDir Path dir) throws IOException {
 
-        // Whether anything of this task is waiting for review cannot be joined from
-        // the outside: Task.name is a CONTAINER name and PendingPush.name is a TASK name, and
-        // several containers over time share one ref - so the answer has to come from here.
+        // Whether anything of this task is waiting for review cannot be joined from the outside:
+        // Task.name is a CONTAINER name and PendingPush.name is a TASK name, and several containers
+        // over time share one ref - so the answer has to come from here.
         final PoreloContext context = context(dir);
         final Path state = dir.resolve("run/porelo/porelo-uc-shell-1");
         Files.createDirectories(state);
@@ -325,8 +325,8 @@ class TaskLabelTest {
     @Test
     void theMirrorIsAskedOncePerProjectHoweverManyTasks(@TempDir Path dir) throws IOException {
 
-        // A listing is read on every change. A git call per task would make it cost what a
-        // listing must not - the same reason 'prepared' asks podman once for the whole list.
+        // A listing is read on every change. A git call per task would make it cost what a listing
+        // must not - the same reason 'prepared' asks podman once for the whole list.
         final PoreloContext context = context(dir);
         for (final String container :
                 java.util.List.of("porelo-uc-a-1", "porelo-uc-b-2", "porelo-uc-c-3")) {

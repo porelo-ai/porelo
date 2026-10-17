@@ -81,9 +81,9 @@ class NodeIdentityTest {
     void twoNodesUnderDifferentUsersAreDifferentIdentities(@TempDir Path dir) {
 
         // A node is an OS user with a daemon, not a machine, and the file lives under the data
-        // directory - which is already per user. Deriving this from the machine instead would
-        // give two accounts on one host the same answer, which is precisely the case a hostname
-        // already gets wrong.
+        // directory - which is already per user. Deriving this from the machine instead would give
+        // two accounts on one host the same answer, which is precisely the case a hostname already
+        // gets wrong.
         assertThat(NodeIdentity.of(dir.resolve("alice").resolve("node-id")))
                 .isNotEqualTo(NodeIdentity.of(dir.resolve("bob").resolve("node-id")));
     }
@@ -92,8 +92,8 @@ class NodeIdentityTest {
     void anEmptyFileIsReplacedRatherThanReadAsAnIdentity(@TempDir Path dir) throws Exception {
 
         // A run interrupted between creating the file and writing it leaves nothing in it. Read
-        // back as an identity, two nodes would both answer "" and a client would call them the
-        // same node - the exact failure this exists to prevent.
+        // back as an identity, two nodes would both answer "" and a client would call them the same
+        // node - the exact failure this exists to prevent.
         final Path file = dir.resolve("node-id");
         Files.createDirectories(dir);
         Files.writeString(file, "   \n");

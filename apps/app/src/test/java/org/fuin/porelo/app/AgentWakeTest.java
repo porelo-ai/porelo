@@ -142,8 +142,7 @@ class AgentWakeTest {
     void anAgentThatCannotSayWhenAQuestionIsOpenIsNeverTypedIntoEvenAtRest() {
 
         // The pi agent shows nothing that tells a question it put from its rest, so a line typed
-        // into
-        // it could land as the answer to a question nobody can see is open.
+        // into it could land as the answer to a question nobody can see is open.
         final AgentDefinition restOnly =
                 AgentDefinitionReader.read(
                         new StringReader(
@@ -248,8 +247,7 @@ class AgentWakeTest {
     void aMessageThatFoundTheAgentAtWorkIsAnnouncedOnceItRestsAndOnlyOnce() throws IOException {
 
         // 2026-10-04: a word that arrived while the agent worked was never announced, and it went
-        // to rest
-        // with mail it was never told of.
+        // to rest with mail it was never told of.
         final Mailbox mailbox = new Mailbox(dir.resolve("mail").resolve("porelo-p-writer"));
         mailbox.create();
         Files.writeString(

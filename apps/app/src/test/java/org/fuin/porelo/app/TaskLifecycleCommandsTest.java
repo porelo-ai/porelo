@@ -145,8 +145,7 @@ class TaskLifecycleCommandsTest {
             throws IOException {
 
         // A run nobody watches must not start again on its own after a reboot, and the conversation
-        // its next
-        // start continues must not be lost on the way.
+        // its next start continues must not be lost on the way.
         final PoreloContext context = context(dir);
         runner.answering(
                 "ps", "porelo-uc-talk\tExited (143)\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
@@ -248,8 +247,7 @@ class TaskLifecycleCommandsTest {
             @TempDir Path dir) {
 
         // 'porelo task start t1' in the home directory said no project was named and the directory
-        // was in no checkout,
-        // while 'porelo tasks' listed t1: only '-p' brought it back.
+        // was in no checkout, while 'porelo tasks' listed t1: only '-p' brought it back.
         final PoreloContext context = context(dir);
         runner.answering(
                 "ps", "porelo-uc-work\tExited (143)\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
@@ -280,10 +278,10 @@ class TaskLifecycleCommandsTest {
     @Test
     void stillNamesTheProjectAfterTheRuntimeDirectoryIsGone(@TempDir Path dir) {
 
-        // The reported case. The sidecar holding project and class lives in $XDG_RUNTIME_DIR,
-        // which the system destroys when the user's last session ends, while podman's own store
-        // survives - so after a reboot every task that outlived it listed "-" for both. No
-        // stateOf() here on purpose: that is what a rebooted machine looks like.
+        // The reported case. The sidecar holding project and class lives in $XDG_RUNTIME_DIR, which
+        // the system destroys when the user's last session ends, while podman's own store survives
+        // - so after a reboot every task that outlived it listed "-" for both. No stateOf() here on
+        // purpose: that is what a rebooted machine looks like.
         final PoreloContext context = context(dir);
         runner.answering(
                 "ps", "porelo-uc-shell-1\tExited (143)\t1700000000\t1700000100\tuc\tguarded\n");
@@ -318,8 +316,8 @@ class TaskLifecycleCommandsTest {
     void namesTheTasksWhenNoneWasGiven(@TempDir Path dir) {
 
         // Asked for after a verb answered "Missing required parameter: TASK" on a machine where
-        // Porelo knew exactly which containers it could have been given. The name is
-        // not the hard part of the job; finding it is.
+        // Porelo knew exactly which containers it could have been given. The name is not the hard
+        // part of the job; finding it is.
         final PoreloContext context = context(dir);
         runner.answering(
                 "ps",
@@ -328,9 +326,9 @@ class TaskLifecycleCommandsTest {
 
         assertThat(execute(context, "task", "remove")).isNotZero();
 
-        // Both, unlike the verb this replaced: removing a running task is a refusal that names
-        // its own way out, and leaving it off the list would hide that the command applies to it
-        // at all. Offering nothing is worse than offering something that answers.
+        // Both, unlike the verb this replaced: removing a running task is a refusal that names its
+        // own way out, and leaving it off the list would hide that the command applies to it at
+        // all. Offering nothing is worse than offering something that answers.
         assertThat(err.toString()).contains("porelo-uc-shell-1").contains("porelo-uc-build-2");
     }
 
@@ -371,8 +369,8 @@ class TaskLifecycleCommandsTest {
     void saysWhatARunningTaskHoldsWithoutTryingToDestroyIt(@TempDir Path dir) throws IOException {
 
         // The whole reason this command exists: uncommitted work used to be reachable only by
-        // running 'task stop --purge' and reading the refusal, which is a destructive command
-        // used as a query.
+        // running 'task stop --purge' and reading the refusal, which is a destructive command used
+        // as a query.
         final PoreloContext context = context(dir);
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\t1700000000\t0\tuc\tguarded\n");
         stateOf("porelo-uc-shell-1");
@@ -399,10 +397,10 @@ class TaskLifecycleCommandsTest {
     @Test
     void paintsNothingWhenTheOutputIsNotATerminal(@TempDir Path dir) throws IOException {
 
-        // The colour marks work that exists nowhere else, and it must reach a person's terminal
-        // and nowhere else: escapes in a pipe, a log or a fixture are noise, and this output is
-        // read by scripts too. picocli's Ansi.AUTO decides, which is why it is used rather than
-        // escapes written by hand.
+        // The colour marks work that exists nowhere else, and it must reach a person's terminal and
+        // nowhere else: escapes in a pipe, a log or a fixture are noise, and this output is read by
+        // scripts too. picocli's Ansi.AUTO decides, which is why it is used rather than escapes
+        // written by hand.
         final PoreloContext context = context(dir);
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\t1700000000\t0\t\n");
         stateOf("porelo-uc-shell-1");
@@ -416,9 +414,9 @@ class TaskLifecycleCommandsTest {
     @Test
     void doesNotCallAStoppedTasksWorkspaceEmpty(@TempDir Path dir) throws IOException {
 
-        // The workspace is inside the container, so once it is stopped nothing can read it. That
-        // is not the same as holding nothing, and reporting "nothing" would read as nothing to
-        // lose - about a task whose workspace may be full of work.
+        // The workspace is inside the container, so once it is stopped nothing can read it. That is
+        // not the same as holding nothing, and reporting "nothing" would read as nothing to lose -
+        // about a task whose workspace may be full of work.
         final PoreloContext context = context(dir);
         runner.answering(
                 "ps", "porelo-uc-shell-1\tExited (143)\t1700000000\t1700000100\tuc\tguarded\n");
@@ -442,11 +440,11 @@ class TaskLifecycleCommandsTest {
     @Test
     void saysATaskPredatesARestartRatherThanLettingPodmanExplain(@TempDir Path dir) {
 
-        // Reported: 'task resume' on a task from before a reboot answered sixteen frames of
-        // picocli wrapping crun's "cannot stat .../vault.sock". The state directory is under
-        // $XDG_RUNTIME_DIR, which the system clears on restart, and the container bind-mounts
-        // the broker socket out of it - so podman cannot start it and no helper can be started
-        // that would bring the socket back. No state directory is exactly that situation.
+        // Reported: 'task resume' on a task from before a reboot answered sixteen frames of picocli
+        // wrapping crun's "cannot stat .../vault.sock". The state directory is under
+        // $XDG_RUNTIME_DIR, which the system clears on restart, and the container bind-mounts the
+        // broker socket out of it - so podman cannot start it and no helper can be started that
+        // would bring the socket back. No state directory is exactly that situation.
         final PoreloContext context = context(dir);
         runner.answering("container inspect", "c0ffee\n");
         runner.answering("ps", "porelo-uc-shell-1\tExited (143)\t1700000000\t1700000100\t\n");
@@ -466,8 +464,8 @@ class TaskLifecycleCommandsTest {
     @Test
     void listsTheLogsATaskHasRatherThanTheOnesItMightHave(@TempDir Path dir) throws IOException {
 
-        // Which files exist depends on what the task started: no gate means no gate.log. Listing
-        // a fixed set would send somebody to open one that was never going to be there.
+        // Which files exist depends on what the task started: no gate means no gate.log. Listing a
+        // fixed set would send somebody to open one that was never going to be there.
         final PoreloContext context = context(dir);
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\t1700000000\t0\t\n");
         final Path state = stateOf("porelo-uc-shell-1");
@@ -487,9 +485,9 @@ class TaskLifecycleCommandsTest {
     @Test
     void countsTheTwoLogsThatDoNotSayLogInTheirName(@TempDir Path dir) throws IOException {
 
-        // Reported: the list was short. 'events.jsonl' is what the firewall blocked - exactly
-        // what somebody debugging a task that started and did nothing needs - and 'reader.err'
-        // is where the reader hook's own failures go. A suffix rule hid both.
+        // Reported: the list was short. 'events.jsonl' is what the firewall blocked - exactly what
+        // somebody debugging a task that started and did nothing needs - and 'reader.err' is where
+        // the reader hook's own failures go. A suffix rule hid both.
         final PoreloContext context = context(dir);
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\t1700000000\t0\t\n");
         final Path state = stateOf("porelo-uc-shell-1");
@@ -504,9 +502,9 @@ class TaskLifecycleCommandsTest {
     @Test
     void neverOffersOrReadsTheTasksOwnToken(@TempDir Path dir) throws IOException {
 
-        // The state directory holds the live phantom token beside the logs, with the sockets,
-        // the pid files and the ruleset. This is why the rule is an allow-list: "everything that
-        // is not a secret" has to be right forever, including about files a later release adds.
+        // The state directory holds the live phantom token beside the logs, with the sockets, the
+        // pid files and the ruleset. This is why the rule is an allow-list: "everything that is not
+        // a secret" has to be right forever, including about files a later release adds.
         final PoreloContext context = context(dir);
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\t1700000000\t0\t\n");
         final Path state = stateOf("porelo-uc-shell-1");
@@ -528,9 +526,9 @@ class TaskLifecycleCommandsTest {
     @Test
     void saysWhatTheTwoLogsHoldWhoseNamesDoNotSay(@TempDir Path dir) throws IOException {
 
-        // 'events.jsonl' is the file to read when a task starts and then does nothing, and a
-        // person reading the list has no way to know that from the name. The sentence lives here
-        // rather than in a client: a table at the other end drifts the day a file is added.
+        // 'events.jsonl' is the file to read when a task starts and then does nothing, and a person
+        // reading the list has no way to know that from the name. The sentence lives here rather
+        // than in a client: a table at the other end drifts the day a file is added.
         final PoreloContext context = context(dir);
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\t1700000000\t0\t\t\n");
         final Path state = stateOf("porelo-uc-shell-1");
@@ -592,8 +590,8 @@ class TaskLifecycleCommandsTest {
     @Test
     void refusesANameThatIsNotOneOfThatTasksLogs(@TempDir Path dir) throws IOException {
 
-        // Checked against the set this task actually has, so there is no traversal to reason
-        // about: anything outside a known answer is simply not one.
+        // Checked against the set this task actually has, so there is no traversal to reason about:
+        // anything outside a known answer is simply not one.
         final PoreloContext context = context(dir);
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\t1700000000\t0\t\n");
         Files.writeString(stateOf("porelo-uc-shell-1").resolve("gate.log"), "a line\n");
@@ -661,8 +659,8 @@ class TaskLifecycleCommandsTest {
     @Test
     void saysWhyThereAreNoLogsRatherThanPrintingNothing(@TempDir Path dir) {
 
-        // A task whose state directory went with a restart looks exactly like one that never
-        // wrote anything, and an empty answer would let somebody read it as "nothing happened".
+        // A task whose state directory went with a restart looks exactly like one that never wrote
+        // anything, and an empty answer would let somebody read it as "nothing happened".
         final PoreloContext context = context(dir);
         runner.answering("ps", "porelo-uc-shell-1\tExited (143)\t1700000000\t1700000100\t\n");
 
@@ -674,9 +672,9 @@ class TaskLifecycleCommandsTest {
     @Test
     void aStoppedTaskStaysInsideItsColumn(@TempDir Path dir) throws IOException {
 
-        // The runtime's longest phrase is twice the width of the column, and it ran into the
-        // helper count: the row stopped being a table exactly when a task had been stopped,
-        // which is when an operator is reading this to find the name to resume.
+        // The runtime's longest phrase is twice the width of the column, and it ran into the helper
+        // count: the row stopped being a table exactly when a task had been stopped, which is when
+        // an operator is reading this to find the name to resume.
         final PoreloContext context = context(dir);
         runner.answering("ps", "porelo-uc-shell-1\tExited (143) Less than a second ago\n");
         stateOf("porelo-uc-shell-1");
@@ -700,8 +698,8 @@ class TaskLifecycleCommandsTest {
             throws IOException {
 
         // Made before Porelo recorded a container's id: it is not a task Porelo acts on, but saying
-        // "No tasks" hid that a
-        // stopped container with a task's record was there, and a prune removed its work unseen.
+        // "No tasks" hid that a stopped container with a task's record was there, and a prune
+        // removed its work unseen.
         runner.answering("ps", "porelo-uc-shell-1\tExited (0) 5 days ago\n");
         final PoreloContext context = context(dir).recognizingTasks();
         stateOf("porelo-uc-shell-1");
@@ -744,8 +742,8 @@ class TaskLifecycleCommandsTest {
     @Test
     void stoppingKeepsTheContainerSoTheTaskCanBeStartedAgain(@TempDir Path dir) throws IOException {
 
-        // Measured: removing it instead threw away the workspace and made resume impossible,
-        // while reporting that the task had been stopped.
+        // Measured: removing it instead threw away the workspace and made resume impossible, while
+        // reporting that the task had been stopped.
         final PoreloContext context = context(dir);
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
         stateOf("porelo-uc-shell-1");
@@ -819,9 +817,9 @@ class TaskLifecycleCommandsTest {
         assertThat(out.toString())
                 .contains("started   porelo-uc-shell-1")
                 .contains("helpers   2 of 2 started")
-                // Resume starts the task; it does not put anybody inside it. Somebody told to
-                // "go back in" who got their own prompt back read that as broken, so the next
-                // command is printed rather than assumed known.
+                // Resume starts the task; it does not put anybody inside it. Somebody told to "go
+                // back in" who got their own prompt back read that as broken, so the next command
+                // is printed rather than assumed known.
                 .contains("attach    porelo task attach porelo-uc-shell-1");
         assertThat(runner.lines()).anyMatch(line -> line.contains("start porelo-uc-shell-1"));
     }
@@ -982,9 +980,9 @@ class TaskLifecycleCommandsTest {
     void resumingATaskThatIsAlreadyUpStartsNothing(@TempDir Path dir) throws Exception {
 
         // Measured on a real container: two resumes of a running task left two 'shield watch'
-        // processes re-parented to init. Each helper of a given name writes the same pid file,
-        // so the second one leaves the first named by nothing, and 'task stop' then reported
-        // "4 of 4 stopped" while they went on running.
+        // processes re-parented to init. Each helper of a given name writes the same pid file, so
+        // the second one leaves the first named by nothing, and 'task stop' then reported "4 of 4
+        // stopped" while they went on running.
         final PoreloContext context = context(dir);
         runner.answering("container inspect", "4711");
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
@@ -1016,8 +1014,8 @@ class TaskLifecycleCommandsTest {
     @Test
     void aResumedProxyKeepsTheTokenTheContainerAlreadyHolds(@TempDir Path dir) throws Exception {
 
-        // The container's environment is fixed when it is created: a freshly minted token would
-        // be rejected by the proxy and would read as a bad credential.
+        // The container's environment is fixed when it is created: a freshly minted token would be
+        // rejected by the proxy and would read as a bad credential.
         final PoreloContext context = context(dir);
         runner.answering("container inspect", "4711");
         final Path state = stateOf("porelo-uc-shell-1");
@@ -1047,8 +1045,8 @@ class TaskLifecycleCommandsTest {
     @Test
     void removeRefusesWhenWorkWouldBeLost(@TempDir Path dir) throws IOException {
 
-        // The harm this exists for: removal is a cleanup command, and it used to destroy work
-        // that existed nowhere else without saying anything.
+        // The harm this exists for: removal is a cleanup command, and it used to destroy work that
+        // existed nowhere else without saying anything.
         final PoreloContext context = context(dir);
         runner.answering("ps", "porelo-uc-shell-1\tExited (0) 1 minute ago\n");
         UnhandedWork.note(stateOf("porelo-uc-shell-1"), new UnhandedWork.Held(true, 3, 2, null));
@@ -1065,8 +1063,8 @@ class TaskLifecycleCommandsTest {
     @Test
     void aStoppedTaskIsNotRemovedOnWhatNobodyCanSee(@TempDir Path dir) throws IOException {
 
-        // The same harm, one command later: nothing can look inside a stopped container, so
-        // before this the refusal simply did not apply and the work went quietly.
+        // The same harm, one command later: nothing can look inside a stopped container, so before
+        // this the refusal simply did not apply and the work went quietly.
         final PoreloContext context = context(dir);
         runner.answering("ps", "porelo-uc-shell-1\tExited (0) 2 minutes ago\n");
         stateOf("porelo-uc-shell-1");
@@ -1089,8 +1087,8 @@ class TaskLifecycleCommandsTest {
 
         assertThat(execute(context, "task", "stop", "porelo-uc-shell-1")).isZero();
 
-        // Through the reader rather than against the bytes: what matters is that a later
-        // removal gets the same two numbers back, not how they were spelled on disk.
+        // Through the reader rather than against the bytes: what matters is that a later removal
+        // gets the same two numbers back, not how they were spelled on disk.
         final UnhandedWork.Held read = UnhandedWork.read(state);
         assertThat(read.readable()).isTrue();
         assertThat(read.changedFiles()).isEqualTo(3);
@@ -1173,8 +1171,7 @@ class TaskLifecycleCommandsTest {
             throws IOException {
 
         // The census failed, so nothing said it held work: --rescue pushed nothing and removed the
-        // task, its
-        // workspace with it, unrescued and unforced.
+        // task, its workspace with it, unrescued and unforced.
         final PoreloContext context = context(dir);
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
         stateOf("porelo-uc-shell-1");
@@ -1190,9 +1187,8 @@ class TaskLifecycleCommandsTest {
             throws IOException {
 
         // A note of nothing held lets the next removal go without --force; written for a census
-        // that failed, it
-        // let 'task remove' destroy a workspace nobody had looked into. An older note must not
-        // stand in for it.
+        // that failed, it let 'task remove' destroy a workspace nobody had looked into. An older
+        // note must not stand in for it.
         final PoreloContext context = context(dir);
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
         final Path state = stateOf("porelo-uc-shell-1");
@@ -1233,8 +1229,8 @@ class TaskLifecycleCommandsTest {
     void saysWhatARemovalDestroysInsideTheContainer(@TempDir Path dir) throws IOException {
 
         // The workspace has the gate to arrive in; what the agent installed inside the container
-        // has nowhere at all, and nothing else records that it existed. Counted before the
-        // removal, because afterwards there is nothing left to ask.
+        // has nowhere at all, and nothing else records that it existed. Counted before the removal,
+        // because afterwards there is nothing left to ask.
         final PoreloContext context = context(dir);
         runner.answering("ps", "porelo-uc-shell-1\tExited (0) 3 minutes ago\n");
         runner.answering("diff", "C /etc\nA /opt/tool\nA /opt/tool/bin\nC /var\n");
@@ -1250,8 +1246,8 @@ class TaskLifecycleCommandsTest {
     @Test
     void rescuePushesTheWorkUnderItsOwnRef(@TempDir Path dir) throws IOException {
 
-        // Rescued work is not work an agent offered up, so it lands beside the reviewed ref
-        // rather than in it.
+        // Rescued work is not work an agent offered up, so it lands beside the reviewed ref rather
+        // than in it.
         final PoreloContext context = context(dir);
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
         runner.answering("PORELO_TASK_REF", "refs/porelo/incoming/shell");
@@ -1261,8 +1257,8 @@ class TaskLifecycleCommandsTest {
         assertThat(execute(context, "task", "remove", "porelo-uc-shell-1", "--rescue")).isZero();
 
         assertThat(out.toString()).contains("rescued   refs/porelo/incoming/shell-rescued");
-        // In the environment of the exec, not in its arguments: podman is told the name and
-        // copies the value out of the environment it was started with.
+        // In the environment of the exec, not in its arguments: podman is told the name and copies
+        // the value out of the environment it was started with.
         assertThat(runner.invocations())
                 .anyMatch(
                         command ->
@@ -1275,8 +1271,8 @@ class TaskLifecycleCommandsTest {
     @Test
     void aTaskThatPushesStraightToItsUpstreamCannotBeRescued(@TempDir Path dir) throws IOException {
 
-        // Rescuing it would publish unreviewed work, which is the one thing the gate exists
-        // to prevent.
+        // Rescuing it would publish unreviewed work, which is the one thing the gate exists to
+        // prevent.
         final PoreloContext context = context(dir);
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
         runner.answering("PORELO_TASK_REF", "refs/heads/shell");

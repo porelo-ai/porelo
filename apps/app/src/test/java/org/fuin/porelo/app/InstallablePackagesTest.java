@@ -77,8 +77,7 @@ class InstallablePackagesTest {
                         "porelo-message-transport-local",
                         "porelo-matrix-homeserver");
         // The homeserver a transport's conversation runs on, offered beside it: without it a new
-        // machine that chose
-        // Matrix had a first task start that failed for want of one.
+        // machine that chose Matrix had a first task start that failed for want of one.
         assertThat(found)
                 .extracting(InstallablePackages.Installable::kind)
                 .as("what a person chooses between, not how it was asked for")

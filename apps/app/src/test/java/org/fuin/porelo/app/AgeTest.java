@@ -44,16 +44,16 @@ class AgeTest {
     @Test
     void rendersAGenuineOldTimestampRatherThanHidingIt() {
 
-        // Go's zero time never reaches here - Podman.since() answers empty for anything at or
-        // below zero - so an old instant that did arrive is a real one and is stated as it is.
+        // Go's zero time never reaches here - Podman.since() answers empty for anything at or below
+        // zero - so an old instant that did arrive is a real one and is stated as it is.
         assertThat(at("2025-09-09T12:00:00Z")).isEqualTo("365d");
     }
 
     @Test
     void refusesAFutureTimestamp() {
 
-        // Clock skew between the host and what the runtime recorded. "-3m" in a column of ages
-        // is not information, it is a bug somebody has to explain.
+        // Clock skew between the host and what the runtime recorded. "-3m" in a column of ages is
+        // not information, it is a bug somebody has to explain.
         assertThat(at("2026-09-09T12:05:00Z")).isEmpty();
     }
 }

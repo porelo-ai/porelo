@@ -44,8 +44,7 @@ class ForgeIdentityTest {
     void askingAHostWhoWeAreNeverLearnsAHostKeyNobodyConfirmed() {
         // It asked with accept-new, into the known_hosts every fetch trusts: a check of a
         // credential, or the explanation of a refused fetch, trusted a host nobody had compared,
-        // and
-        // the fetch after it never asked whether the host was the right one.
+        // and the fetch after it never asked whether the host was the right one.
         runner.answering("BatchMode=yes", "", "Hi acme/demo! You've successfully authenticated.");
 
         final ForgeIdentity.Answer answer =

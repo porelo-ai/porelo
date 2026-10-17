@@ -138,8 +138,8 @@ public final class AgentLogin {
 
         // First, and before anything expensive. A login container is never reused - the name
         // carries the millisecond it was made - so one still on the machine is litter, and the
-        // teardown at the end cannot have covered every way a login ends: a kill leaves nothing
-        // a chance to run. The login *image* is the expensive part and is deliberately kept.
+        // teardown at the end cannot have covered every way a login ends: a kill leaves nothing a
+        // chance to run. The login *image* is the expensive part and is deliberately kept.
         sweepLeftoverLogins(context.podman(), out);
 
         try (var agents = context.agents()) {
@@ -180,11 +180,11 @@ public final class AgentLogin {
                                 + " afterwards");
             }
 
-            // Checked before anything is built: a second authorization is not free. Porelo does
-            // not touch this machine's copy - the container has its own home - but whether a
-            // second one invalidates the first is the provider's business, and somebody who
-            // already has a working credential here almost certainly wants to copy it rather
-            // than risk that. The same extractor 'vault import' uses answers the question.
+            // Checked before anything is built: a second authorization is not free. Porelo does not
+            // touch this machine's copy - the container has its own home - but whether a second one
+            // invalidates the first is the provider's business, and somebody who already has a
+            // working credential here almost certainly wants to copy it rather than risk that. The
+            // same extractor 'vault import' uses answers the question.
             if (!force) {
                 final Path onThisNode = VaultImportCommand.expand(configDirectory);
                 if (Files.isDirectory(onThisNode)
@@ -218,9 +218,8 @@ public final class AgentLogin {
             out.flush();
 
             // Asked before the login, never after it: a person who signed in and was then told the
-            // vault is locked had to
-            // sign in again. Without a terminal nothing is asked, and the end of the login refuses
-            // as before.
+            // vault is locked had to sign in again. Without a terminal nothing is asked, and the
+            // end of the login refuses as before.
             context.openIfShut(true, false, out);
             if (context.vault().exists() && context.opener().isEmpty()) {
                 return failed(
@@ -260,9 +259,9 @@ public final class AgentLogin {
         out.flush();
         final String image = project.imageName();
         try {
-            // On this terminal rather than through the runner, which collects the output and
-            // hands it over at the end. A build says a great deal while it works and none of it
-            // reached anybody: one line, then silence long enough to look like a hang.
+            // On this terminal rather than through the runner, which collects the output and hands
+            // it over at the end. A build says a great deal while it works and none of it reached
+            // anybody: one line, then silence long enough to look like a hang.
             final int built =
                     context.exec()
                             .applyAsInt(
@@ -287,13 +286,13 @@ public final class AgentLogin {
         Thread watcher = null;
         final java.util.concurrent.atomic.AtomicBoolean ended =
                 new java.util.concurrent.atomic.AtomicBoolean();
-        // The finally below covers every ending except the usual one: a login somebody gives up
-        // on is a Ctrl-C, and the signal reaches this process before the finally does. Reported
-        // as containers left behind after an abandoned login.
+        // The finally below covers every ending except the usual one: a login somebody gives up on
+        // is a Ctrl-C, and the signal reaches this process before the finally does. Reported as
+        // containers left behind after an abandoned login.
         try (Teardown teardown = Teardown.arm(() -> podman.remove(container))) {
             // The node's own network, so a login that redirects to a port on localhost reaches
-            // something. That is more access than a task ever gets, and it is why this container
-            // is removed rather than kept: it exists for the seconds a login takes.
+            // something. That is more access than a task ever gets, and it is why this container is
+            // removed rather than kept: it exists for the seconds a login takes.
             final List<String> arguments =
                     new ArrayList<>(
                             List.of(
@@ -333,12 +332,12 @@ public final class AgentLogin {
                             + " here and the forward carries it to your browser.");
             out.println();
             out.flush();
-            // WATCHED WHILE IT RUNS, not collected after it stops. The token is written the
-            // moment the login succeeds; everything after that - the agent's own session, how
-            // somebody leaves it, whether the terminal is closed on it - is none of this
-            // command's business and must not be able to lose it. The operator's point, and it
-            // covers a case the exit code never could: an ssh session that dies takes this
-            // process with it, and a credential collected only at the end dies with it too.
+            // WATCHED WHILE IT RUNS, not collected after it stops. The token is written the moment
+            // the login succeeds; everything after that - the agent's own session, how somebody
+            // leaves it, whether the terminal is closed on it - is none of this command's business
+            // and must not be able to lose it. The operator's point, and it covers a case the exit
+            // code never could: an ssh session that dies takes this process with it, and a
+            // credential collected only at the end dies with it too.
             final java.util.concurrent.atomic.AtomicReference<Credential> early =
                     new java.util.concurrent.atomic.AtomicReference<>();
             watched = Files.createTempDirectory("porelo-login-watch");
@@ -360,21 +359,19 @@ public final class AgentLogin {
 
             final int code = context.exec().applyAsInt(podman.arguments(arguments));
             // Let the watch finish before looking ourselves: a watch still asking the agent for the
-            // credential while
-            // this asks it too made the second call fail now and then ("Call to ...
-            // ExtractCredential failed", the
-            // suite, 2026-10-04), and a watch that found it a moment late is a login stored all the
-            // same.
+            // credential while this asks it too made the second call fail now and then ("Call to
+            // ... ExtractCredential failed", the suite, 2026-10-04), and a watch that found it a
+            // moment late is a login stored all the same.
             ended.set(true);
             settle(watcher);
 
-            // LOOK FIRST, then judge the exit code. An agent whose login is "just run me" does
-            // not stop when the login is done - it carries on into its own session, and a person
-            // who has finished logging in leaves that session however they like. Ctrl-C is a
-            // perfectly ordinary way out and gives 130, and treating that as "nothing was
-            // stored" threw away a login that had already happened: measured on 2026-09-19 with
-            // a real subscription, where the credential sat in the container and Porelo discarded
-            // it over an exit code that says nothing about whether the login worked.
+            // LOOK FIRST, then judge the exit code. An agent whose login is "just run me" does not
+            // stop when the login is done - it carries on into its own session, and a person who
+            // has finished logging in leaves that session however they like. Ctrl-C is a perfectly
+            // ordinary way out and gives 130, and treating that as "nothing was stored" threw away
+            // a login that had already happened: measured on 2026-09-19 with a real subscription,
+            // where the credential sat in the container and Porelo discarded it over an exit code
+            // that says nothing about whether the login worked.
             collected = Files.createTempDirectory("porelo-login");
             // Copied out rather than read in place: the extractor runs on this machine and knows
             // each agent's own file layout, so the credential is read by the same code 'vault
@@ -382,9 +379,8 @@ public final class AgentLogin {
             final java.util.Optional<Credential> credential;
             if (early.get() != null) {
                 // Ended by the watcher the moment the login wrote it: the container is gone, and
-                // what it held is
-                // what was found. Whatever the agent's full-screen view left on the terminal goes
-                // with it.
+                // what it held is what was found. Whatever the agent's full-screen view left on the
+                // terminal goes with it.
                 credential = java.util.Optional.of(early.get());
                 out.print(
                         "\033[?1049l\033[?25h\033[0m\033[r\033[?7h\033[?1000l\033[?1002l\033[?1003l\033[?1006l"
@@ -395,9 +391,9 @@ public final class AgentLogin {
                 credential = agent.extractCredential(collected);
             }
             if (credential.isEmpty()) {
-                // BOTH paths: what the agent declares and where that actually was looked for.
-                // "no credential in ~/.claude" reads as though this machine's home was searched,
-                // and an hour went into asking which of the two it meant.
+                // BOTH paths: what the agent declares and where that actually was looked for. "no
+                // credential in ~/.claude" reads as though this machine's home was searched, and an
+                // hour went into asking which of the two it meant.
                 final String where =
                         configDirectory
                                 + " ("
@@ -429,8 +425,8 @@ public final class AgentLogin {
                     SelectedProvider.choose(context.providers(), agent.definition(), null);
             final String key = selection == null ? agent.name() : selection.name();
 
-            // Whatever already opens the vault - a cached passphrase or a device's share - and
-            // only then a prompt. Storing a credential needs the vault open, not the passphrase.
+            // Whatever already opens the vault - a cached passphrase or a device's share - and only
+            // then a prompt. Storing a credential needs the vault open, not the passphrase.
             java.util.Optional<org.fuin.porelo.vault.VaultFile.Opener> way = context.opener();
             if (way.isEmpty()) {
                 way =
@@ -458,11 +454,9 @@ public final class AgentLogin {
             }
             if (watched != null) {
                 // So was every copy the watch made: the agent's whole config directory, its
-                // credential
-                // among them. Left in /tmp, one directory per login stayed behind with it (found on
-                // the
-                // test machine, 2026-10-04). The watch is let finish first, so it copies nothing in
-                // after.
+                // credential among them. Left in /tmp, one directory per login stayed behind with
+                // it (found on the test machine, 2026-10-04). The watch is let finish first, so it
+                // copies nothing in after.
                 ended.set(true);
                 if (watcher != null) {
                     settle(watcher);
@@ -596,16 +590,15 @@ public final class AgentLogin {
                     store(context, agent, credential.get(), way.get());
                 }
                 // And then the login is over, said once, by Porelo. Left running, the agent carried
-                // on into its
-                // own "Press Enter to continue" while Porelo said the person could leave it however
-                // they liked:
-                // two voices for one moment (2026-10-01). Nothing in the container is needed
-                // any more; a shut vault is asked for after it, where a prompt is possible.
+                // on into its own "Press Enter to continue" while Porelo said the person could
+                // leave it however they liked: two voices for one moment (2026-10-01). Nothing in
+                // the container is needed any more; a shut vault is asked for after it, where a
+                // prompt is possible.
                 podman.stop(container);
                 return;
             } catch (final RuntimeException ex) {
-                // The container may not be up yet, or the directory may not exist until the
-                // login writes it. Neither is worth reporting: this is a watch, not a check.
+                // The container may not be up yet, or the directory may not exist until the login
+                // writes it. Neither is worth reporting: this is a watch, not a check.
                 continue;
             }
         }
@@ -738,9 +731,9 @@ public final class AgentLogin {
         lines.add("    && ln -sf /usr/local/bin/xdg-open /usr/local/bin/sensible-browser \\");
         lines.add("    && ln -sf /usr/local/bin/xdg-open /usr/local/bin/www-browser");
         // Set again, deliberately. Unset, an agent stays on link-and-code and nothing has to be
-        // forwarded; set, it redirects to a port on this machine's own loopback - which the
-        // login container shares, so the operator's ssh forward reaches it. That was chosen
-        // the second: it is the one where nobody has to copy a code between two windows.
+        // forwarded; set, it redirects to a port on this machine's own loopback - which the login
+        // container shares, so the operator's ssh forward reaches it. That was chosen the second:
+        // it is the one where nobody has to copy a code between two windows.
         lines.add("ENV BROWSER=/usr/local/bin/xdg-open");
         return java.util.List.copyOf(lines);
     }
@@ -762,9 +755,8 @@ public final class AgentLogin {
                                     Files.deleteIfExists(path);
                                 } catch (java.io.IOException ignored) {
                                     // Best effort: what matters is that the vault has it, and a
-                                    // temporary
-                                    // directory that outlives this is a smaller problem than
-                                    // failing here.
+                                    // temporary directory that outlives this is a smaller problem
+                                    // than failing here.
                                 }
                             });
         } catch (java.io.IOException ignored) {

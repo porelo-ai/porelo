@@ -83,8 +83,8 @@ final class VersionOrder {
                 "build 10 does not sort above build 9 - the comparison is lexical");
 
         // A local build once had to claim a higher run to replace a published one, and then
-        // outranked
-        // every later CI build: the machine refused to upgrade for good, and rightly said nothing.
+        // outranked every later CI build: the machine refused to upgrade for good, and rightly said
+        // nothing.
         if (version.contains(LOCAL)) {
             report.pass("this package says it was built locally");
             report.check(

@@ -128,12 +128,12 @@ class DaemonConnectCommandTest {
     @Test
     void saysSoWhenNoDaemonIsListening(@TempDir Path dir) {
 
-        // On standard error, which ssh keeps separate: a client decoding varlink must not be
-        // handed prose on the channel it is decoding.
-        // A runtime directory of its own. With none, XDG_RUNTIME_DIR falls back to the real
-        // /run/user/<uid>, and this test then passed or failed depending on whether the machine
-        // happened to have a daemon socket lying there - a socket file outlives the process that
-        // made it, so an acceptance run hours earlier was enough to turn it red.
+        // On standard error, which ssh keeps separate: a client decoding varlink must not be handed
+        // prose on the channel it is decoding. A runtime directory of its own. With none,
+        // XDG_RUNTIME_DIR falls back to the real /run/user/<uid>, and this test then passed or
+        // failed depending on whether the machine happened to have a daemon socket lying there - a
+        // socket file outlives the process that made it, so an acceptance run hours earlier was
+        // enough to turn it red.
         final XdgPaths xdg =
                 XdgPaths.of(
                         name ->

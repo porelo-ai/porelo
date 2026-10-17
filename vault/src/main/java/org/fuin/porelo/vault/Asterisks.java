@@ -78,8 +78,8 @@ final class Asterisks {
                 break;
             }
             if (character == END_OF_TEXT) {
-                // Ctrl-C in raw mode is a byte rather than a signal, so it has to be honoured
-                // here or the prompt would be unquittable.
+                // Ctrl-C in raw mode is a byte rather than a signal, so it has to be honoured here
+                // or the prompt would be unquittable.
                 typed.setLength(0);
                 break;
             }

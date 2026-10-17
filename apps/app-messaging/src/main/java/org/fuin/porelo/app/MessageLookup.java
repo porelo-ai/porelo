@@ -166,8 +166,8 @@ final class MessageLookup {
             }
         }
         // A message whose id cannot be read is no exception: after the filter every accepted
-        // message has one, so
-        // an empty one means Porelo could not read it, and that holds too (2026-10-04).
+        // message has one, so an empty one means Porelo could not read it, and that holds too
+        // (2026-10-04).
         return answered
                 ? ""
                 : id.isEmpty()

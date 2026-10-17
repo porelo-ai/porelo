@@ -71,8 +71,7 @@ public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.Cont
         final VaultEntry grant;
         try {
             // Through the one view of grants: the credentials hide them, so a grant looked up there
-            // was never found,
-            // and every removal deleted it here without telling the service.
+            // was never found, and every removal deleted it here without telling the service.
             grant = context.readableGrants().map(grants -> grants.get(name)).orElse(null);
         } catch (VaultException ex) {
             err.println("porelo: " + ex.getMessage());
@@ -81,10 +80,8 @@ public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.Cont
         }
         if (grant != null && VaultAuthorizeCommand.HELD.equals(grant.type())) {
             // A token that never expires, granted to a public client: the service revokes it only
-            // for the
-            // application's owner, which this machine is not. Forgetting it here leaves it working
-            // there, so that is
-            // done only when the person says they know.
+            // for the application's owner, which this machine is not. Forgetting it here leaves it
+            // working there, so that is done only when the person says they know.
             final String where = revokedWhere(context.credentials().get(name));
             if (!withoutRevoking
                     && withoutRevokingAfterAll(
@@ -114,8 +111,8 @@ public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.Cont
             out.flush();
         } else if (grant != null && LoginCredentials.REFRESH.equals(grant.type())) {
             // What renews an agent's own sign-in. The service has no revocation Porelo knows of;
-            // the person ends the
-            // session there by signing out. Forgotten here with the token it renews.
+            // the person ends the session there by signing out. Forgotten here with the token it
+            // renews.
             out.println(
                     "forgotten what renewed this sign-in; signing out at the service ends the session there too");
             out.flush();

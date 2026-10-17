@@ -185,9 +185,8 @@ class TaskStateTest {
     void keepingATasksTokensPrunesGoneTasksOnlyAndNeverTheAccountsGrantsOrTransportSecrets()
             throws IOException {
 
-        // Found: every task start pruned every reserved name whose "owner" was no running
-        // container - and a grant or a transport's secrets are owned by no task, so they went every
-        // time.
+        // Found: every task start pruned every reserved name whose "owner" was no running container
+        // - and a grant or a transport's secrets are owned by no task, so they went every time.
         org.junit.jupiter.api.Assumptions.assumeTrue(
                 org.fuin.porelo.vault.KernelKeyring.available(), "libkeyutils is not installed");
         final PoreloContext context = context();
@@ -226,9 +225,8 @@ class TaskStateTest {
                             TaskSecrets.TRANSPORT_PREFIX + "matrix/account",
                             "anthropic")
                     // A route token is task/<container>/route/<name>: its owner was read up to the
-                    // last slash,
-                    // '<container>/route', which no task is called - so every start dropped every
-                    // other task's.
+                    // last slash, '<container>/route', which no task is called - so every start
+                    // dropped every other task's.
                     .as("another task's route token")
                     .containsKey(TaskSecrets.PREFIX + "porelo-p-other/route/forge")
                     .as("a task that is gone")
@@ -242,10 +240,9 @@ class TaskStateTest {
     void theTasksThatExistAreAskedWhileTheVaultIsHeldNotBefore() throws IOException {
 
         // Taken before the vault was opened, the list missed a task whose start ran beside this
-        // one: that start kept its
-        // tokens in between, this one pruned them as a gone task's, and it could not come back
-        // after a reboot. Asked
-        // under the vault's lock, every container whose tokens are in the file is in the list.
+        // one: that start kept its tokens in between, this one pruned them as a gone task's, and it
+        // could not come back after a reboot. Asked under the vault's lock, every container whose
+        // tokens are in the file is in the list.
         org.junit.jupiter.api.Assumptions.assumeTrue(
                 org.fuin.porelo.vault.KernelKeyring.available(), "libkeyutils is not installed");
         final PoreloContext context = context();

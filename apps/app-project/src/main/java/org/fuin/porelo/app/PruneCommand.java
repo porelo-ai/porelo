@@ -90,8 +90,8 @@ public class PruneCommand implements Callable<Integer>, PoreloFactory.ContextAwa
         }
         if (!yes && !result.removes().isEmpty()) {
             // What a second command with --yes would remove is asked here instead, no by default:
-            // removing is the
-            // one step a person decides, and the list they decide on is the one just shown.
+            // removing is the one step a person decides, and the list they decide on is the one
+            // just shown.
             if (!noInput && asker != Offer.Asker.NOBODY) {
                 out.flush();
                 if (new Offer(asker, false, false, new PrintWriter(out, true))

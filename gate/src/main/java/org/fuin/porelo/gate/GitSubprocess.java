@@ -106,8 +106,7 @@ public class GitSubprocess implements GitHttpServer.GitProcess {
                                 });
 
         // Read on a thread of its own, so the limit runs from the start: read here first, it began
-        // only once git
-        // had closed its output, and a git that hung held its request for ever.
+        // only once git had closed its output, and a git that hung held its request for ever.
         final java.util.concurrent.CompletableFuture<byte[]> output =
                 new java.util.concurrent.CompletableFuture<>();
         Thread.ofVirtual()

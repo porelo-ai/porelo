@@ -125,8 +125,8 @@ public class ShieldEgressCommand implements Callable<Integer>, PoreloFactory.Con
                             context, offer(err), "porelo shield egress --project <name>");
         }
         if (projectName == null) {
-            // Required for every path but one: a running task names its own project, and asking
-            // for it again would be asking somebody to repeat what the machine already knows.
+            // Required for every path but one: a running task names its own project, and asking for
+            // it again would be asking somebody to repeat what the machine already knows.
             err.println(
                     "porelo: say which project, with --project - or which running task, with"
                             + " --task.");
@@ -159,8 +159,8 @@ public class ShieldEgressCommand implements Callable<Integer>, PoreloFactory.Con
             return 2;
         }
         if (!addDomains.isEmpty() && !removeDomains.isEmpty()) {
-            // Refused rather than ordered. Opening and closing in one call would have to say
-            // which happened first, and whichever answer it gave would be somebody's surprise.
+            // Refused rather than ordered. Opening and closing in one call would have to say which
+            // happened first, and whichever answer it gave would be somebody's surprise.
             err.println(
                     "porelo: give --add-domain or --remove-domain for a running task, not both");
             err.flush();
@@ -272,9 +272,9 @@ public class ShieldEgressCommand implements Callable<Integer>, PoreloFactory.Con
             return 0;
         }
         out.printf("%-14s %d removed from the firewall%n", "addresses", taken.addresses());
-        // Said every time, because it is the difference between what this did and what somebody
-        // may believe it did. A transfer already running is not cut: the ruleset accepts
-        // established traffic without consulting the set again.
+        // Said every time, because it is the difference between what this did and what somebody may
+        // believe it did. A transfer already running is not cut: the ruleset accepts established
+        // traffic without consulting the set again.
         out.println(
                 "stopped        new connections only - anything already transferring runs to"
                         + " its end; stop the task to end that");
@@ -386,8 +386,8 @@ public class ShieldEgressCommand implements Callable<Integer>, PoreloFactory.Con
             return 0;
         }
         out.println("written        " + file);
-        // The change applies to the next task. A container's ruleset and resolver are built when
-        // it starts and are not reloaded under a running agent.
+        // The change applies to the next task. A container's ruleset and resolver are built when it
+        // starts and are not reloaded under a running agent.
         out.println("               applies to the next task, not to one already running");
         out.flush();
         return 0;

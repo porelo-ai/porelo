@@ -45,8 +45,7 @@ class PodmanFloorTest {
     @Test
     void theRpmRequiresPodmanFiveOrNewerWithFedorasEpoch() throws IOException {
         // Fedora's podman carries epoch 5: rpm reads a requirement without one as epoch 0, so plain
-        // '>= 5' let
-        // 5:4.9.3 through - measured with rpm 6.0.1 against a package of that version.
+        // '>= 5' let 5:4.9.3 through - measured with rpm 6.0.1 against a package of that version.
         assertThat(read("dist/dist-rpm/pom.xml"))
                 .contains("<require>podman &gt;= 5:5.0</require>")
                 .doesNotContain("<require>podman</require>");

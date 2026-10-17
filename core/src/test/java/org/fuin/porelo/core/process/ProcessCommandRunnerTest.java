@@ -84,9 +84,8 @@ class ProcessCommandRunnerTest {
     void aChildThatLeavesAGrandchildHoldingItsOutputDoesNotHoldTheCallerToo() {
 
         // Only the child was ended, and the output was then waited for without a limit: a
-        // grandchild that kept it
-        // open - a git helper under 'git fetch' against an upstream that feeds slowly - held the
-        // caller for ever.
+        // grandchild that kept it open - a git helper under 'git fetch' against an upstream that
+        // feeds slowly - held the caller for ever.
         final java.time.Instant started = java.time.Instant.now();
         new ProcessCommandRunner(java.time.Duration.ofSeconds(1))
                 .run(Command.of("sh", "-c", "sleep 8 & exit 0"));
@@ -105,8 +104,7 @@ class ProcessCommandRunnerTest {
     void aChildThatDoesNotReadItsInputStillSucceeds() {
 
         // The input was written before the limit ran, and a child that exited without reading it
-        // made a successful
-        // command fail with "Stream closed".
+        // made a successful command fail with "Stream closed".
         org.assertj.core.api.Assertions.assertThat(
                         new ProcessCommandRunner(java.time.Duration.ofSeconds(5))
                                 .run(Command.of("true").withInput("x".repeat(1024 * 1024)))

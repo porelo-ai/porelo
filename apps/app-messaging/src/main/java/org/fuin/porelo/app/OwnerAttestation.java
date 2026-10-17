@@ -70,9 +70,9 @@ public final class OwnerAttestation {
                     : "";
         }
         // Present, so read - whoever put it there and whatever was promised. Checking it can only
-        // ever hold a message, never admit one, so there is no way to gain trust by volunteering
-        // a file; and a message that was fetched in an earlier pass, or by something the host did
-        // not watch, is judged by the evidence lying beside it rather than by nobody.
+        // ever hold a message, never admit one, so there is no way to gain trust by volunteering a
+        // file; and a message that was fetched in an earlier pass, or by something the host did not
+        // watch, is judged by the evidence lying beside it rather than by nobody.
         final String said = Files.readString(attestation, StandardCharsets.UTF_8).strip();
         final String[] parts = said.split("\\s+");
         if (parts.length != 2 || parts[0].isBlank() || parts[1].isBlank()) {
@@ -80,8 +80,8 @@ public final class OwnerAttestation {
         }
         final Mail.Peer known = mail.peer(peer);
         if (known == null) {
-            // Attribution let it through because a key vouched for it; the project still has to
-            // say who that peer is before an owner can be compared with anything.
+            // Attribution let it through because a key vouched for it; the project still has to say
+            // who that peer is before an owner can be compared with anything.
             return "it is signed for '"
                     + peer
                     + "', which this project does not list, so there is"

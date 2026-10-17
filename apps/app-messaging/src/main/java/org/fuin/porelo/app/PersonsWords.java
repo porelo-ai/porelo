@@ -68,8 +68,8 @@ record PersonsWords(
                         .orElse(null);
         if (person == null) {
             // Only somebody let into the project's conversation: the room is how a person reaches
-            // its agents, and an
-            // account the transport admitted is not yet somebody the project let in.
+            // its agents, and an account the transport admitted is not yet somebody the project let
+            // in.
             return refused("it is from " + sender + ", who is not in the project's conversation");
         }
         final List<String> to = new ArrayList<>();
@@ -98,9 +98,8 @@ record PersonsWords(
         metadata.put("from", person);
         metadata.put("to", to);
         // Where it was said, so it is answered there: a room message in the room, a direct one in
-        // the direct chat
-        // (the operator in walk 10, 2026-10-04: "a private answer only when he was written to
-        // privately").
+        // the direct chat (the operator in walk 10, 2026-10-04: "a private answer only when he was
+        // written to privately").
         metadata.put("via", direct ? VIA_DIRECT : VIA_ROOM);
         if (direct) {
             metadata.put("direct", true);

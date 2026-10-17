@@ -88,9 +88,9 @@ class ProjectDeletionTest {
                 new ProjectDeletion(context).delete("uc", false, false);
 
         assertThat(result.outcome()).isEqualTo(ProjectDeletion.Outcome.HOLDS_WORK);
-        // Named by repository. A bare ref name was enough while a project was one repository;
-        // with several, the person deciding whether to destroy it has to know which one is at
-        // risk, and "shell" would be the answer for all of them.
+        // Named by repository. A bare ref name was enough while a project was one repository; with
+        // several, the person deciding whether to destroy it has to know which one is at risk, and
+        // "shell" would be the answer for all of them.
         assertThat(result.unreviewed()).containsExactly("uc/shell");
         assertThat(Files.isDirectory(dir.resolve("data/porelo/mirrors/uc.git")))
                 .as("the mirror is untouched")
@@ -142,8 +142,8 @@ class ProjectDeletionTest {
     @Test
     void forceProceedsAndStillNamesWhatItDestroyed(@TempDir Path dir) throws IOException {
 
-        // Saying it twice means the same here as for 'task stop --force'. What force must NOT do
-        // is hide what it took: the unreviewed refs stay in the answer, because they are what it
+        // Saying it twice means the same here as for 'task stop --force'. What force must NOT do is
+        // hide what it took: the unreviewed refs stay in the answer, because they are what it
         // destroyed.
         final PoreloContext context = context(dir);
         project("uc");

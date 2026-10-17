@@ -140,8 +140,7 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
             return null;
         } catch (GateException.BranchExists ex) {
             // The next free branch is offered at a terminal; the words the contract names, and that
-            // branch, otherwise.
-            // Never a force over the one that is taken.
+            // branch, otherwise. Never a force over the one that is taken.
             final String next = suggested(ex.branch());
             final String taken = instead(ex.branch(), String.valueOf(ex.at()), next, offer);
             if (taken != null) {

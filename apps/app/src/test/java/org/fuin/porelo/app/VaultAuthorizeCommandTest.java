@@ -73,9 +73,8 @@ class VaultAuthorizeCommandTest {
         Assumptions.assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
 
         // The daemon opens the vault with a device's share and has no terminal to ask a passphrase
-        // at: the person
-        // granted at the service, and keeping it asked for the passphrase alone, so the grant was
-        // lost.
+        // at: the person granted at the service, and keeping it asked for the passphrase alone, so
+        // the grant was lost.
         final PoreloContext context =
                 new PoreloContext(
                         new FakeCommandRunner(),

@@ -32,8 +32,8 @@ class DocumentedProjectFileTest {
         final Project project = ProjectReader.read(new StringReader(yaml), "project-file.md");
 
         // Every key the page shows is one the reader knows: a key read but not declared is reported
-        // as "not a
-        // setting" when a project file is checked, and missing from the schema an editor offers.
+        // as "not a setting" when a project file is checked, and missing from the schema an editor
+        // offers.
         assertThat(ProjectReader.unknownKeys(new StringReader(yaml), "project-file.md"))
                 .as("keys the documented example holds that the schema does not declare")
                 .isEmpty();

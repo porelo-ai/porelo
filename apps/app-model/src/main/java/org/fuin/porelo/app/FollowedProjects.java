@@ -193,8 +193,7 @@ public final class FollowedProjects {
         }
         if (url != null && !url.isBlank()) {
             // The project file's rule, here too: a follow over the socket took
-            // '--upload-pack=<command>', and it
-            // reached 'git fetch' as an option.
+            // '--upload-pack=<command>', and it reached 'git fetch' as an option.
             try {
                 org.fuin.porelo.core.project.Repository.refuseAsOption(url, "url");
             } catch (final org.fuin.porelo.core.project.ProjectException ex) {
@@ -344,8 +343,8 @@ public final class FollowedProjects {
         document.put("at", followed.at());
         document.put("outcome", followed.outcome());
         document.put("detail", followed.detail());
-        // Kept, because a refusal outlives the pass that found it: the project goes on running
-        // what it had, and a person coming back tomorrow still has to see what was turned away.
+        // Kept, because a refusal outlives the pass that found it: the project goes on running what
+        // it had, and a person coming back tomorrow still has to see what was turned away.
         document.put("refused", followed.refused());
         document.put("signer", followed.signer());
         document.put("unverified", followed.unverified());
@@ -462,8 +461,8 @@ public final class FollowedProjects {
             parsed = Json.parse(Files.readString(file, StandardCharsets.UTF_8));
         } catch (final RuntimeException ex) {
             // Not a record this wrote. Ignored rather than thrown: one unreadable file must not
-            // stop an account following everything else - which is what happened before a test
-            // put a file that was not JSON beside a good one.
+            // stop an account following everything else - which is what happened before a test put
+            // a file that was not JSON beside a good one.
             return null;
         }
         if (!(parsed instanceof Map<?, ?> document)) {

@@ -216,8 +216,7 @@ final class Deploy {
         }
 
         // The stub build reader, for the user only, as the suite's builds scenarios expect it: a
-        // tree from before
-        // build readers has none, and nothing is installed then.
+        // tree from before build readers has none, and nothing is installed then.
         if (Files.isExecutable(buildStub)) {
             say(out, "installing the stub build reader for " + user);
             final String buildStaging = staging(remote);
@@ -233,9 +232,8 @@ final class Deploy {
         }
 
         // The build readers a handover carries beside the packages - builds/github,
-        // builds/stub-forge - for the account
-        // alone, under the names Porelo finds them by; left out, each walk needed them put in by
-        // hand.
+        // builds/stub-forge - for the account alone, under the names Porelo finds them by; left
+        // out, each walk needed them put in by hand.
         if (scope == Scope.ACCOUNT && !installReaders(repository.resolve("builds"), remote, out)) {
             return 1;
         }
@@ -255,8 +253,7 @@ final class Deploy {
 
         if (scope == Scope.ACCOUNT) {
             // Measured, not assumed: each of the three is found by a different rule, and one of
-            // them
-            // naming the package is a test of something nobody meant to test.
+            // them naming the package is a test of something nobody meant to test.
             say(out, "what " + user + " now runs");
             if (!runsItsOwn(remote, out)) {
                 return 1;

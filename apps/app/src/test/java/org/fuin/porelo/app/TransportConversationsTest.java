@@ -219,9 +219,8 @@ class TransportConversationsTest {
         Assumptions.assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
 
         // 77 is the homeserver refusing - a rejected token, an account in no room that holds the
-        // event - and was
-        // recorded as marked, so the sender's receipt said its message was read when nobody had
-        // confirmed it.
+        // event - and was recorded as marked, so the sender's receipt said its message was read
+        // when nobody had confirmed it.
         final PoreloContext context = context();
         final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
         try {
@@ -415,8 +414,8 @@ class TransportConversationsTest {
     @Test
     void tasksOfOneProjectEnrolledAtOnceAreEachNamedInItsConversation() throws Exception {
         Assumptions.assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
-        // Two starts of one project's tasks at once each wrote the addresses as they had read
-        // them, and one task's address was lost: its own words in the room then came back to it.
+        // Two starts of one project's tasks at once each wrote the addresses as they had read them,
+        // and one task's address was lost: its own words in the room then came back to it.
         final int tasks = 8;
         final java.util.concurrent.CyclicBarrier together =
                 new java.util.concurrent.CyclicBarrier(tasks);
@@ -547,9 +546,8 @@ class TransportConversationsTest {
     void aTaskWhoseAccountCannotBeReadHereIsNotSentAsNobody() throws Exception {
 
         // Its conversation is there, its account is not readable - a locked vault, or a daemon that
-        // sees another one:
-        // send ran without it, and the message came back held with "PORELO_MATRIX_HOMESERVER is not
-        // set".
+        // sees another one: send ran without it, and the message came back held with
+        // "PORELO_MATRIX_HOMESERVER is not set".
         final PoreloContext context = context();
         final Path state =
                 Files.createDirectories(context.paths().xdg().state().resolve("transport/room"));
@@ -574,8 +572,8 @@ class TransportConversationsTest {
         Assumptions.assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
 
         // With them kept, a task started again after the transport had cleared ran no setup and
-        // stayed outside a
-        // conversation that was gone (measured by porelo-message-matrix, 2026-10-02).
+        // stayed outside a conversation that was gone (measured by porelo-message-matrix,
+        // 2026-10-02).
         final PoreloContext context = context();
         final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
         try {

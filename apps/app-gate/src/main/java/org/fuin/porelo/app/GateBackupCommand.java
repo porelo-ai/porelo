@@ -59,11 +59,10 @@ public class GateBackupCommand implements Callable<Integer>, PoreloFactory.Conte
             gate.backup(bundle);
             // Recorded here rather than inside the gate: the gate knows nothing about this
             // machine's directories, and a bundle written wherever an operator names it is
-            // otherwise forgotten the moment this command returns.
-            // Under the REPOSITORY'S key, not the project's. A bundle of one repository's mirror
-            // recorded against the project would be offered as the project's own - and restoring
-            // it would write one repository's history over another's, which is the only way this
-            // command can destroy something.
+            // otherwise forgotten the moment this command returns. Under the REPOSITORY'S key, not
+            // the project's. A bundle of one repository's mirror recorded against the project would
+            // be offered as the project's own - and restoring it would write one repository's
+            // history over another's, which is the only way this command can destroy something.
             new BackupRecords(context.paths().gate().backupRecords())
                     .add(
                             GateSupport.recordKey(project.name(), chosen.name()),

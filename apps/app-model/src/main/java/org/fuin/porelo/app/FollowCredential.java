@@ -192,11 +192,9 @@ public final class FollowCredential implements AutoCloseable {
             return new FollowCredential(Map.of(), null, null, false);
         }
         // Nothing lent still needs the destination's policy: an ssh origin reached with the
-        // developer's own agent
-        // key is checked against this machine's known hosts, strictly, or ssh refuses a host this
-        // machine vouched for.
-        // At a terminal a shut vault is opened here for this command; the daemon has none and waits
-        // as before.
+        // developer's own agent key is checked against this machine's known hosts, strictly, or ssh
+        // refuses a host this machine vouched for. At a terminal a shut vault is opened here for
+        // this command; the daemon has none and waits as before.
         context.openIfShut(true, false, STDERR);
         if (context.vault().exists() && context.opener().isEmpty()) {
             return nothingLent(context, url, true);
@@ -237,10 +235,9 @@ public final class FollowCredential implements AutoCloseable {
                     new FollowCredential(
                             Map.of(
                                     // Nothing is read and nothing is lent: the command inherits the
-                                    // account's own
-                                    // agent, and whoever added keys to it decides. The plainest
-                                    // answer to "use my
-                                    // own keys", and the one that keeps no copy anywhere.
+                                    // account's own agent, and whoever added keys to it decides.
+                                    // The plainest answer to "use my own keys", and the one that
+                                    // keeps no copy anywhere.
                                     "GIT_SSH_COMMAND", sshCommand(context, null)),
                             null,
                             null,
@@ -275,8 +272,8 @@ public final class FollowCredential implements AutoCloseable {
             return new FollowCredential(Map.of(), null, null, false);
         }
         if (credential.kind() == Credential.Kind.SSH_KEY) {
-            // A key in a variable is not a thing ssh can be pointed at, and writing it to a file
-            // to make one would be this creating the copy somebody asked it not to make.
+            // A key in a variable is not a thing ssh can be pointed at, and writing it to a file to
+            // make one would be this creating the copy somebody asked it not to make.
             return new FollowCredential(Map.of(), null, null, false);
         }
         return helper(context, credential, "--env", credential.id());
@@ -446,8 +443,7 @@ public final class FollowCredential implements AutoCloseable {
      */
     static String sshCommand(final PoreloContext context, final @Nullable String identityFile) {
         // Each path one shell word: git runs this through a shell, so a state directory with a
-        // space broke every
-        // fetch, and a key path with ';' ran as shell.
+        // space broke every fetch, and a key path with ';' ran as shell.
         return "ssh -o StrictHostKeyChecking=yes"
                 + " -o UserKnownHostsFile="
                 + word(knownHosts(context).toString())
@@ -499,10 +495,10 @@ public final class FollowCredential implements AutoCloseable {
 
     static Path socketFor(final PoreloContext context, final String label) {
         // In the runtime directory, because a unix socket path is short by nature and a state
-        // directory nested under a home directory runs out of room at 108 characters.
-        // One of its own per lend: under the label alone, a lend removed what another lent there a
-        // moment before - a
-        // follow by the daemon and one at the command line at once - and that one's fetch failed.
+        // directory nested under a home directory runs out of room at 108 characters. One of its
+        // own per lend: under the label alone, a lend removed what another lent there a moment
+        // before - a follow by the daemon and one at the command line at once - and that one's
+        // fetch failed.
         return context.paths()
                 .xdg()
                 .runtime()
@@ -528,8 +524,8 @@ public final class FollowCredential implements AutoCloseable {
         // state() is ALREADY '<XDG_STATE_HOME>/porelo', so resolving 'porelo' onto it wrote
         // '.../state/porelo/porelo/known_hosts' - a directory nothing creates, so ssh warned
         // "Failed to add the host to the list of known hosts" on every single fetch and learned
-        // nothing from one fetch to the next. Found by an interface that read the warning
-        // instead of skipping past it.
+        // nothing from one fetch to the next. Found by an interface that read the warning instead
+        // of skipping past it.
         final Path file = context.paths().xdg().state().resolve("known_hosts");
         try {
             Files.createDirectories(file.getParent());

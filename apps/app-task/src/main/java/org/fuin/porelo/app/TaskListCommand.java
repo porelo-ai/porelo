@@ -51,9 +51,8 @@ public class TaskListCommand implements Callable<Integer>, PoreloFactory.Context
         final List<TaskInventory.Task> tasks = new TaskInventory(context).tasks();
 
         // Named like a task and not listed: a container Porelo holds no id for. Said rather than
-        // left out, because
-        // "No tasks" over a stopped container that has a task's record lets its work be removed
-        // unseen.
+        // left out, because "No tasks" over a stopped container that has a task's record lets its
+        // work be removed unseen.
         final List<String> unlisted = new TaskInventory(context).unrecognized(tasks);
 
         if (tasks.isEmpty()) {
@@ -126,8 +125,8 @@ public class TaskListCommand implements Callable<Integer>, PoreloFactory.Context
      */
     private static String state(String state) {
         // 'Exited (143) Less than a second ago' and 'Exited (0) 2 minutes ago' both carry an age
-        // this table has no room for, and the exit code is the part worth keeping: it is how a
-        // task that was stopped is told apart from one that died.
+        // this table has no room for, and the exit code is the part worth keeping: it is how a task
+        // that was stopped is told apart from one that died.
         final int code = state.startsWith("Exited (") ? state.indexOf(')') : -1;
         final String shortened = code > 0 ? state.substring(0, code + 1) : state;
         return shortened.length() <= 18 ? shortened : shortened.substring(0, 17) + "…";

@@ -11,8 +11,8 @@ class VaultProxyHeaderTest {
     void dropsHttp2PseudoHeaders() {
 
         // Measured: the upstream connection is HTTP/2 and ':status' was being repeated verbatim
-        // into an HTTP/1.1 response. The agent rejected every reply as malformed while the
-        // requests themselves were succeeding with 200.
+        // into an HTTP/1.1 response. The agent rejected every reply as malformed while the requests
+        // themselves were succeeding with 200.
         assertThat(VaultProxy.forwardable(":status")).isFalse();
         assertThat(VaultProxy.forwardable(":authority")).isFalse();
     }
@@ -27,8 +27,8 @@ class VaultProxyHeaderTest {
     @Test
     void keepsWhatTheAgentNeeds() {
 
-        // The negative case: dropping too much loses the content type and the request id, which
-        // is what makes a provider error diagnosable at all.
+        // The negative case: dropping too much loses the content type and the request id, which is
+        // what makes a provider error diagnosable at all.
         assertThat(VaultProxy.forwardable("content-type")).isTrue();
         assertThat(VaultProxy.forwardable("request-id")).isTrue();
         assertThat(VaultProxy.forwardable("anthropic-organization-id")).isTrue();

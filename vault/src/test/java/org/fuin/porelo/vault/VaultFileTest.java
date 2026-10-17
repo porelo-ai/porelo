@@ -134,10 +134,10 @@ class VaultFileTest {
     @Test
     void doesNotSayWhetherItWasThePassphraseOrTheFile(@TempDir Path dir) throws IOException {
 
-        // Under keyslots the two ARE different events, and hiding that no longer buys anything:
-        // the passphrase is checked against its own slot's tag, so anybody holding the file can
-        // already tell a right passphrase from a wrong one without asking Porelo. What is left is
-        // an operator who needs to know whether to retype or to restore, so each says which.
+        // Under keyslots the two ARE different events, and hiding that no longer buys anything: the
+        // passphrase is checked against its own slot's tag, so anybody holding the file can already
+        // tell a right passphrase from a wrong one without asking Porelo. What is left is an
+        // operator who needs to know whether to retype or to restore, so each says which.
         final Path file = dir.resolve("vault.bin");
         final VaultFile vault = new VaultFile(file);
         vault.write(ENTRIES, PASSPHRASE);
@@ -185,11 +185,11 @@ class VaultFileTest {
     @Test
     void refusesImplausibleKeyDerivationParameters(@TempDir Path dir) throws IOException {
 
-        // The cost parameters are read from the file and must be used before the tag can be
-        // checked - deriving the key is what makes checking possible. So a single flipped byte in
-        // the iteration count turns 3 into 16777219, and the process hangs before it ever gets to
-        // notice the file was altered. This is a denial of service against anyone who can write
-        // the file, and bounding the values is the only defense.
+        // The cost parameters are read from the file and must be used before the tag can be checked
+        // - deriving the key is what makes checking possible. So a single flipped byte in the
+        // iteration count turns 3 into 16777219, and the process hangs before it ever gets to
+        // notice the file was altered. This is a denial of service against anyone who can write the
+        // file, and bounding the values is the only defense.
         final Path file = dir.resolve("vault.bin");
         new VaultFile(file).write(ENTRIES, PASSPHRASE);
 
@@ -223,8 +223,8 @@ class VaultFileTest {
         new VaultFile(first).write(ENTRIES, PASSPHRASE);
         new VaultFile(second).write(ENTRIES, PASSPHRASE);
 
-        // Identical content under an identical passphrase must not produce identical bytes:
-        // a reused GCM nonce is catastrophic, and equal files would reveal one had happened.
+        // Identical content under an identical passphrase must not produce identical bytes: a
+        // reused GCM nonce is catastrophic, and equal files would reveal one had happened.
         assertThat(Files.readAllBytes(first)).isNotEqualTo(Files.readAllBytes(second));
     }
 
@@ -315,8 +315,7 @@ class VaultFileTest {
     void anUpdateWaitsForAnotherProcessHoldingTheLock(@TempDir Path dir) throws Exception {
 
         // Threads of one process are kept apart by a lock in memory; only the file lock keeps two
-        // processes apart,
-        // and two `porelo` processes storing at once are the case it exists for.
+        // processes apart, and two `porelo` processes storing at once are the case it exists for.
         final Path file = dir.resolve("vault.bin");
         final VaultFile vault = new VaultFile(file);
         vault.write(ENTRIES, PASSPHRASE);
@@ -399,8 +398,7 @@ class VaultFileTest {
     void leavesTheOldVaultAndNoSecondCopyIfReplacingFails(@TempDir Path dir) throws IOException {
 
         // Fails where only the atomic replacement protects the vault: the new content is written
-        // and durable,
-        // and has not yet replaced the file.
+        // and durable, and has not yet replaced the file.
         final Path file = dir.resolve("vault.bin");
         new VaultFile(file).write(ENTRIES, PASSPHRASE);
         final VaultFile failing =
@@ -489,10 +487,10 @@ class VaultFileTest {
     @Test
     void rekeyReadsWithTheOldAndWritesWithTheNew(@TempDir Path dir) {
 
-        // The whole operation in one assertion: afterwards the old passphrase does not open it
-        // and the new one does. Until this existed the product could not change a passphrase at
-        // all, and the only way round was to store every credential again - which needs the
-        // values, which this file deliberately will not hand back.
+        // The whole operation in one assertion: afterwards the old passphrase does not open it and
+        // the new one does. Until this existed the product could not change a passphrase at all,
+        // and the only way round was to store every credential again - which needs the values,
+        // which this file deliberately will not hand back.
         final VaultFile vault = new VaultFile(dir.resolve("vault.bin"));
         vault.write(Map.of("anthropic", VaultEntry.of("sk-test-value")), "old one".toCharArray());
 
@@ -540,8 +538,8 @@ class VaultFileTest {
     void theSaltBelongsToTheVaultAndNotToEachWrite(@TempDir Path dir) throws Exception {
 
         // It used to be regenerated every time anything was stored, which cost a full Argon2id
-        // derivation - 64 MiB, three passes - per credential, bought nothing identifiable, and
-        // made it impossible to cache anything derived from the passphrase.
+        // derivation - 64 MiB, three passes - per credential, bought nothing identifiable, and made
+        // it impossible to cache anything derived from the passphrase.
         final VaultFile vault = new VaultFile(dir.resolve("vault.bin"));
         vault.write(Map.of("one", VaultEntry.of("a")), "pass".toCharArray());
         final byte[] first = saltOf(dir.resolve("vault.bin"));
@@ -556,8 +554,8 @@ class VaultFileTest {
     @Test
     void theNonceStillChangesOnEveryWrite(@TempDir Path dir) throws Exception {
 
-        // Uniqueness of the encryption comes from here, not from the salt. Reusing a nonce with
-        // one key is the failure that breaks AES-GCM outright, so keeping the salt must not have
+        // Uniqueness of the encryption comes from here, not from the salt. Reusing a nonce with one
+        // key is the failure that breaks AES-GCM outright, so keeping the salt must not have
         // quietly frozen this too.
         final VaultFile vault = new VaultFile(dir.resolve("vault.bin"));
         vault.write(Map.of("one", VaultEntry.of("a")), "pass".toCharArray());
@@ -602,8 +600,8 @@ class VaultFileTest {
 
         VaultFile.wipe(text);
 
-        // Emptying it would leave the characters in the backing array, which is the exposure
-        // rather than the length.
+        // Emptying it would leave the characters in the backing array, which is the exposure rather
+        // than the length.
         assertThat(text.toString()).isEqualTo("\0".repeat("sk-secret-value".length()));
     }
 

@@ -109,9 +109,8 @@ class ProjectTasksArePeersTest {
     @Test
     void aTaskOfAnotherProjectIsNotAPeer(@TempDir Path dir) {
 
-        // The bracket is the project. Two projects on one machine are two units of work, and a
-        // task that could address the other project's tasks by name would make the bracket
-        // mean nothing.
+        // The bracket is the project. Two projects on one machine are two units of work, and a task
+        // that could address the other project's tasks by name would make the bracket mean nothing.
         tasks("porelo-acme-api", "porelo-other-api");
 
         final Mail mail =
@@ -127,8 +126,7 @@ class ProjectTasksArePeersTest {
     void aStandaloneProjectsTasksAreNobodysPeers(@TempDir Path dir) {
 
         // No transport that keeps a conversation, so no messaging: the local transport is retired,
-        // and a
-        // project without a conversation works alone (decided on 2026-09-30).
+        // and a project without a conversation works alone (decided on 2026-09-30).
         tasks("porelo-acme-api", "porelo-acme-web");
 
         assertThat(

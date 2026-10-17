@@ -138,10 +138,10 @@ class VarlinkTest {
         // client would stop watching and go on showing what it last saw - which for a fleet view,
         // or a clearance prompt that expires, is worse than an error.
         //
-        // Written against a bare socket rather than VarlinkServer, because what is being modeled
-        // is a service that dies: one reply, then the connection ends mid-stream. Closing the
-        // server object would not do it - the accepted connection stays open and the client waits
-        // for ever, which is how the first version of this test hung.
+        // Written against a bare socket rather than VarlinkServer, because what is being modeled is
+        // a service that dies: one reply, then the connection ends mid-stream. Closing the server
+        // object would not do it - the accepted connection stays open and the client waits for
+        // ever, which is how the first version of this test hung.
         final Path socket = dir.resolve("dying.sock");
         try (java.nio.channels.ServerSocketChannel channel =
                 java.nio.channels.ServerSocketChannel.open(java.net.StandardProtocolFamily.UNIX)) {
@@ -267,8 +267,7 @@ class VarlinkTest {
     void aStreamThatWaitsForNewsEndsWhenItsClientHasGone(@TempDir Path dir) throws Exception {
 
         // It noticed only when it next sent: a client that reconnected left its old streams asking
-        // podman every half
-        // second for the daemon's life.
+        // podman every half second for the daemon's life.
         try (VarlinkServer server = server(dir)) {
             final java.util.concurrent.CountDownLatch ended =
                     new java.util.concurrent.CountDownLatch(1);
@@ -323,8 +322,7 @@ class VarlinkTest {
             throws Exception {
 
         // Asked whether it was still there, the connection kept whatever the client sent - without
-        // the limit a
-        // message has - so a stream polling for news grew without bound.
+        // the limit a message has - so a stream polling for news grew without bound.
         try (VarlinkServer server = server(dir)) {
             final java.util.concurrent.CountDownLatch ended =
                     new java.util.concurrent.CountDownLatch(1);
@@ -365,9 +363,8 @@ class VarlinkTest {
     void aClientThatHasSaidAllItWillSayStillHearsWhatIsOpenNow(@TempDir Path dir) throws Exception {
 
         // 'porelo daemon connect' ends its half when its input ends: the stream read that end as
-        // the client gone and
-        // ended before saying anything, so a refused start's question reached nobody who asked from
-        // a script.
+        // the client gone and ended before saying anything, so a refused start's question reached
+        // nobody who asked from a script.
         try (VarlinkServer server = server(dir)) {
             server.method(
                     "Watch",
@@ -411,9 +408,8 @@ class VarlinkTest {
     void aCallIsServedOnAThreadOfItsOwnAndNotOnAVirtualOne(@TempDir Path dir) throws Exception {
 
         // An agent that answered in a tenth of a second sometimes never answered at all, in the
-        // native binary under a
-        // suite's load: the one wait left on a virtual thread was this one, a blocking read of the
-        // call.
+        // native binary under a suite's load: the one wait left on a virtual thread was this one, a
+        // blocking read of the call.
         try (VarlinkServer server = server(dir)) {
             server.method(
                     "Where",

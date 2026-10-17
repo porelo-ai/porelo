@@ -140,8 +140,7 @@ public class VaultLoginCommand implements Callable<Integer>, PoreloFactory.Conte
             return 0;
         }
         // An agent with no login of its own takes a key: asked here by 'porelo vault put' itself,
-        // without echo, rather
-        // than sending the person to type it.
+        // without echo, rather than sending the person to type it.
         if (result.outcome() == AgentLogin.Outcome.UNSUPPORTED
                 && agentName != null
                 && Offer.atTerminal()) {

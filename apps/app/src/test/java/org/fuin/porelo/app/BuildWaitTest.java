@@ -17,8 +17,8 @@ class BuildWaitTest {
     void aWaitAfterARefusalEndsOnceTheVaultChangesNotAfterItsTenMinutes()
             throws InterruptedException {
 
-        // A person stored a new token, and the helper asked GitHub again only ten minutes
-        // after the refusal - and again ten minutes later after the next one.
+        // A person stored a new token, and the helper asked GitHub again only ten minutes after the
+        // refusal - and again ten minutes later after the next one.
         final List<Duration> slept = new ArrayList<>();
         final int[] looks = {0};
 

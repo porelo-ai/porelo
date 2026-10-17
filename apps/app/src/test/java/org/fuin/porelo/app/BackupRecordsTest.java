@@ -132,8 +132,8 @@ class BackupRecordsTest {
     @Test
     void forgettingARecordLeavesTheBundleAlone(@TempDir Path dir) throws Exception {
 
-        // Deleting the file is a separate act with a separate consequence, and it is not this
-        // one's to take.
+        // Deleting the file is a separate act with a separate consequence, and it is not this one's
+        // to take.
         final BackupRecords records = new BackupRecords(dir.resolve("records"));
         final Path file = bundle(dir, "one.bundle");
         records.add("demo", file, 1);

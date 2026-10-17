@@ -36,8 +36,7 @@ final class MachineMethods {
                 "Doctor",
                 (parameters, replies) -> {
                     // The same probes the CLI prints, through the same object, so a machine cannot
-                    // be
-                    // called ready here and unready there.
+                    // be called ready here and unready there.
                     final java.util.List<org.fuin.porelo.app.Probe> found =
                             org.fuin.porelo.app.DoctorCommand.probesFor(context);
                     replies.last(
@@ -66,11 +65,9 @@ final class MachineMethods {
                 "Node",
                 (parameters, replies) -> {
                     // Minted on first ask and kept. A client cannot work this out: a hostname has
-                    // many
-                    // spellings and a forwarded socket looks nothing like your own tunnel to the
-                    // same
-                    // place, so the same node can sit twice in a list of machines and deliver every
-                    // clearance question twice.
+                    // many spellings and a forwarded socket looks nothing like your own tunnel to
+                    // the same place, so the same node can sit twice in a list of machines and
+                    // deliver every clearance question twice.
                     replies.last(
                             Map.of(
                                     "id",

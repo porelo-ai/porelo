@@ -67,8 +67,8 @@ public class ClearCommand implements Callable<Integer>, PoreloFactory.ContextAwa
         Clearing.Result listed = new Clearing(context).account(listOnly, forced);
         int code = render(listed, listOnly, !dryRun && !yes && !asking, out);
         // What a refusal would send a person to do first is offered instead, each once: the running
-        // tasks that hold a
-        // token from the vault stopped, then what only --force clears, no by default.
+        // tasks that hold a token from the vault stopped, then what only --force clears, no by
+        // default.
         if (listed.refused() && asking) {
             final java.util.List<String> stopped = stopFirst(refusals(listed), offer);
             for (final String task : stopped) {

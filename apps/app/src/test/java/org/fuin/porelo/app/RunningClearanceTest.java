@@ -102,11 +102,11 @@ class RunningClearanceTest {
             throws Exception {
 
         // The second half is the one that would have been missed: a resume rebuilds helpers from
-        // resume.json, so leaving the watcher there would bring back the mode somebody just
-        // turned off - silently, and only after a restart.
+        // resume.json, so leaving the watcher there would bring back the mode somebody just turned
+        // off - silently, and only after a restart.
         final Path state = task(dir, "prompt");
-        // A real process, recorded as a helper records itself: a bare id is no longer enough to
-        // be signalled, because an id on its own names whatever holds it now.
+        // A real process, recorded as a helper records itself: a bare id is no longer enough to be
+        // signalled, because an id on its own names whatever holds it now.
         final Process watcher = new ProcessBuilder("sleep", "120").start();
         org.fuin.porelo.wire.HelperPid.record(state.resolve("watcher.pid"), watcher.toHandle());
         new TaskHelpers(
@@ -135,8 +135,8 @@ class RunningClearanceTest {
     void aPreviewChangesNothingAtAll(@TempDir Path dir) throws Exception {
 
         final Path state = task(dir, "prompt");
-        // A real process, recorded as a helper records itself: a bare id is no longer enough to
-        // be signalled, because an id on its own names whatever holds it now.
+        // A real process, recorded as a helper records itself: a bare id is no longer enough to be
+        // signalled, because an id on its own names whatever holds it now.
         final Process watcher = new ProcessBuilder("sleep", "120").start();
         org.fuin.porelo.wire.HelperPid.record(state.resolve("watcher.pid"), watcher.toHandle());
 
@@ -170,9 +170,9 @@ class RunningClearanceTest {
     @Test
     void theTaskNameIsReadWithTheProjectRatherThanBySplittingOnHyphens() {
 
-        // A project name may contain hyphens, so this is only answerable once the project is
-        // known. Splitting on the first hyphen would name the wrong task for every project whose
-        // name has one, and the prompt would then be about something that does not exist.
+        // A project name may contain hyphens, so this is only answerable once the project is known.
+        // Splitting on the first hyphen would name the wrong task for every project whose name has
+        // one, and the prompt would then be about something that does not exist.
         assertThat(RunningClearance.taskOf("porelo-my-app-review-1", "my-app")).isEqualTo("review");
         // A task name with a hyphen of its own: only the last one separates the run id, and
         // splitting on the first would name "code" for a task called "code-review".

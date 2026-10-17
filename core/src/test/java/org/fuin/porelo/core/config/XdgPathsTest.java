@@ -41,8 +41,8 @@ class XdgPathsTest {
     @Test
     void ignoresBlankAndRelativeValues() {
 
-        // The XDG specification says a relative value must be ignored rather than resolved
-        // against the working directory.
+        // The XDG specification says a relative value must be ignored rather than resolved against
+        // the working directory.
         final XdgPaths paths =
                 paths(
                         Map.of(

@@ -204,8 +204,8 @@ public final class MessageRead {
                     case UNCHECKED -> "the filter could not check it at all";
                 };
         // Held with no line of its own is intake's, which holds only this task's own messages; what
-        // the filter
-        // refused or could not check was on its way out, since the filter checks what a task sends.
+        // the filter refused or could not check was on its way out, since the filter checks what a
+        // task sends.
         if (standing != MessageLookup.Standing.HELD || !heldLine) {
             direction = MessageRecord.OUT;
         }

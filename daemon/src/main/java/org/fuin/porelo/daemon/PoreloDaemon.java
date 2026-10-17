@@ -106,20 +106,18 @@ public final class PoreloDaemon {
                         .describedBy(description())
                         .reporting(org.fuin.porelo.app.PoreloVersion.version());
         // One for the daemon's life: what it derives about waiting for a person is read at a pace
-        // that is
-        // cheap only when the same instance is asked again.
+        // that is cheap only when the same instance is asked again.
         final TaskInventory inventory = TaskInventory.deriving(context);
 
-        // Stop and Remove come from TaskControl, which is what 'porelo task stop' and
-        // 'porelo task remove' render. The refusals are the reason that matters: one that exists
-        // in the CLI and not here would be a task removed, over this socket, with work in it.
+        // Stop and Remove come from TaskControl, which is what 'porelo task stop' and 'porelo task
+        // remove' render. The refusals are the reason that matters: one that exists in the CLI and
+        // not here would be a task removed, over this socket, with work in it.
         final TaskControl control = new TaskControl(context);
 
-        // Streaming:
-        // A client that polls lags a prompt that expires, which is why these exist at all. Each
-        // ends when its client goes away: it asks between its waits whether the client is still
-        // there. Sending to a closed connection used to be the only sign, so a stream with no news
-        // ran for the daemon's life after its client had reconnected.
+        // Streaming: A client that polls lags a prompt that expires, which is why these exist at
+        // all. Each ends when its client goes away: it asks between its waits whether the client is
+        // still there. Sending to a closed connection used to be the only sign, so a stream with no
+        // news ran for the daemon's life after its client had reconnected.
 
         // Each area registers its own methods, from its own file.
         TaskMethods.register(server, context, inventory, control);
@@ -145,9 +143,8 @@ public final class PoreloDaemon {
      */
     public static String description() {
         // One interface on the wire, written in parts: each area's methods, types and errors in a
-        // file of its own,
-        // so a change to one area's contract is a change to its own file. The order is fixed here,
-        // not found.
+        // file of its own, so a change to one area's contract is a change to its own file. The
+        // order is fixed here, not found.
         final StringBuilder description = new StringBuilder();
         for (final String part : PARTS) {
             final String name = "/varlink/" + INTERFACE + "/" + part + ".varlink";
@@ -311,17 +308,16 @@ public final class PoreloDaemon {
                                                         final Map<String, Object> tagged =
                                                                 new LinkedHashMap<>(event);
                                                         // Which task it came from: one socket now
-                                                        // carries the prompts of every
-                                                        // task, and an answer has to go back to the
-                                                        // one that asked.
+                                                        // carries the prompts of every task, and an
+                                                        // answer has to go back to the one that
+                                                        // asked.
                                                         tagged.put("task", task.name());
                                                         // And what to answer with. The watcher keys
-                                                        // its pending decisions by
-                                                        // this and the event does not carry it, so
-                                                        // a client had to rebuild it
-                                                        // from the other fields - a separator away
-                                                        // from answering a prompt that
-                                                        // does not exist while the task stays
+                                                        // its pending decisions by this and the
+                                                        // event does not carry it, so a client had
+                                                        // to rebuild it from the other fields - a
+                                                        // separator away from answering a prompt
+                                                        // that does not exist while the task stays
                                                         // blocked.
                                                         tagged.put(
                                                                 "key",
@@ -338,11 +334,10 @@ public final class PoreloDaemon {
                                                                                 ? port.intValue()
                                                                                 : 0));
                                                         // Never waits: a client that stopped
-                                                        // reading must not block the
-                                                        // subscription, which is on the path of
-                                                        // every dropped packet. What does
-                                                        // not fit is counted and told to the
-                                                        // client.
+                                                        // reading must not block the subscription,
+                                                        // which is on the path of every dropped
+                                                        // packet. What does not fit is counted and
+                                                        // told to the client.
                                                         events.offer(tagged);
                                                         return !Thread.currentThread()
                                                                 .isInterrupted();
@@ -385,8 +380,8 @@ public final class PoreloDaemon {
         final int code = state.startsWith("Exited (") ? state.indexOf(')') : -1;
         final String settled = code > 0 ? state.substring(0, code + 1) : state.split(" ")[0];
         // Everything a client is sent, but the state's age: a list of chosen fields here left out
-        // every field added
-        // later - a handed-in file, a build's verdict - and an open Watch never sent them.
+        // every field added later - a handed-in file, a build's verdict - and an open Watch never
+        // sent them.
         final java.util.Map<String, Object> sent = new java.util.LinkedHashMap<>(task.asMap());
         sent.put("state", settled);
         return org.fuin.porelo.wire.Json.write(sent);
@@ -483,17 +478,15 @@ public final class PoreloDaemon {
                 final byte[] buffer = new byte[(int) Math.min(size - start, MAX_CHUNK)];
                 file.readFully(buffer);
                 // Counted in bytes, never by encoding decoded text again: a byte that is not UTF-8
-                // decodes to a
-                // character that encodes longer, and the position then lay past the end of the
-                // file.
+                // decodes to a character that encodes longer, and the position then lay past the
+                // end of the file.
                 int end = buffer.length - 1;
                 while (end >= 0 && buffer[end] != '\n') {
                     end--;
                 }
                 if (end < 0) {
                     // A partial last line is left for the next read - unless the whole read was
-                    // one, which no later
-                    // read could pass either: then it goes as it is.
+                    // one, which no later read could pass either: then it goes as it is.
                     if (buffer.length < MAX_CHUNK) {
                         return new Chunk(List.of(), start);
                     }
@@ -700,13 +693,13 @@ public final class PoreloDaemon {
                 flag(parameters, "noGate"),
                 flag(parameters, "dryRun"),
                 text(parameters, "clearance").isEmpty() ? "prompt" : text(parameters, "clearance"),
-                // Inverted: the contract asks whether to REMOVE, and the request records whether
-                // to keep. The default flipped with the verb - what a caller reaches for first
-                // used to destroy what it had just made.
+                // Inverted: the contract asks whether to REMOVE, and the request records whether to
+                // keep. The default flipped with the verb - what a caller reaches for first used to
+                // destroy what it had just made.
                 !flag(parameters, "rm"),
-                // The same vocabulary the CLI uses, taken from the caller rather than guessed at:
-                // a task started over the socket is as much a shell, a session or an unattended
-                // run as one started at the machine, and it has to say which afterwards.
+                // The same vocabulary the CLI uses, taken from the caller rather than guessed at: a
+                // task started over the socket is as much a shell, a session or an unattended run
+                // as one started at the machine, and it has to say which afterwards.
                 org.fuin.porelo.wire.TaskMode.parse(
                         text(parameters, "mode"),
                         empty(parameters, "prompt") == null
@@ -770,10 +763,10 @@ public final class PoreloDaemon {
                 try {
                     replies.more(Map.of("line", complete));
                 } catch (java.io.IOException ex) {
-                    // The client left mid-build. Measured: throwing here aborted the launch and
-                    // no container was ever created - a task canceled because whoever asked for
-                    // it closed a window. The start is not this connection's to cancel, so this
-                    // stops reporting and lets it finish; 'List' shows it afterwards.
+                    // The client left mid-build. Measured: throwing here aborted the launch and no
+                    // container was ever created - a task canceled because whoever asked for it
+                    // closed a window. The start is not this connection's to cancel, so this stops
+                    // reporting and lets it finish; 'List' shows it afterwards.
                     gone = true;
                 }
             }
@@ -823,10 +816,8 @@ public final class PoreloDaemon {
                 .orElseGet(
                         () -> {
                             // Not in the file: a credential found by the names a git URL implies.
-                            // It is
-                            // real and usable, and saying nothing about it would make an interface
-                            // show
-                            // "no credential" for a machine that has one.
+                            // It is real and usable, and saying nothing about it would make an
+                            // interface show "no credential" for a machine that has one.
                             final Map<String, Object> row = new java.util.LinkedHashMap<>();
                             row.put("id", credential.id());
                             row.put("kind", credential.kind().name());
@@ -836,12 +827,9 @@ public final class PoreloDaemon {
                             row.put("source", credential.source().name());
                             row.put("protected", credential.protectedHere());
                             // Asked, not assumed. This branch is for a record that is not in the
-                            // file -
-                            // one found by the names a git URL implies, or one being dry-run before
-                            // it
-                            // exists - and answering 'true' for both made a dry run say
-                            // MISSING_VALUE
-                            // and 'present: true' in the same breath.
+                            // file - one found by the names a git URL implies, or one being dry-run
+                            // before it exists - and answering 'true' for both made a dry run say
+                            // MISSING_VALUE and 'present: true' in the same breath.
                             row.put("present", declarations.holdsValue(credential));
                             row.put(
                                     "expires",
@@ -1054,8 +1042,8 @@ public final class PoreloDaemon {
         }
         final PoreloContext context = PoreloContext.real();
         final Path socket = context.paths().daemonSocket();
-        // Started here and not in serving(): this is the one thing the daemon does that reaches
-        // the network on its own, and nothing in a test should do that by existing.
+        // Started here and not in serving(): this is the one thing the daemon does that reaches the
+        // network on its own, and nothing in a test should do that by existing.
         final java.time.Duration every = org.fuin.porelo.app.UpstreamWatch.interval(System::getenv);
         // Messages move because this goes and looks: the daemon binds no network interface, so
         // nothing can be pushed to it. Started here for the same reason as the upstream watch -
@@ -1073,10 +1061,10 @@ public final class PoreloDaemon {
                         new org.fuin.porelo.app.ConfigurationWatch(context, following)) {
             // try-with-resources does not run for a signal, and a signal is how a daemon normally
             // ends - systemctl stop, a kill, a terminal closing. Without this the socket file
-            // outlived the process that bound it, and an interface met a name that answers
-            // nothing: it connects, is refused, and cannot tell that from a daemon still starting.
-            // SIGKILL still leaves it, and nothing can change that; the next start unlinks a
-            // socket it has proved nobody is listening on.
+            // outlived the process that bound it, and an interface met a name that answers nothing:
+            // it connects, is refused, and cannot tell that from a daemon still starting. SIGKILL
+            // still leaves it, and nothing can change that; the next start unlinks a socket it has
+            // proved nobody is listening on.
             Runtime.getRuntime().addShutdownHook(new Thread(server::close, "porelod-shutdown"));
             upstream.start();
             mail.start();
@@ -1086,8 +1074,7 @@ public final class PoreloDaemon {
             final boolean noticing = mail.startNotices();
             configuration.start();
             // An update replaces this binary and starts nothing: this notices, and has the
-            // account's own manager
-            // restart the daemon on the new one.
+            // account's own manager restart the daemon on the new one.
             SelfReplacement.ofThisProcess(context.runner()).start();
             System.out.println("porelod listening on " + socket);
             System.out.println(

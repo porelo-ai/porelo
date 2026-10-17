@@ -21,8 +21,7 @@ class AreaModulesTest {
     void everyAreaWithCommandsCarriesTheirReflectionMetadata() throws IOException {
 
         // Without picocli's processor a module builds and passes every test on the JVM, and only
-        // the native binary
-        // fails - at the first command of that area anybody runs.
+        // the native binary fails - at the first command of that area anybody runs.
         final Path root = Path.of("").toAbsolutePath().getParent();
         assertThat(withCommands(root))
                 .as("area modules with commands under %s", root)

@@ -77,8 +77,8 @@ public class CompletionCommand implements Callable<Integer>, Suggests {
 
         try (InputStream script = CompletionCommand.class.getResourceAsStream(resource)) {
             if (script == null) {
-                // Only reachable from a build that lost the resource, and it must not look like
-                // an empty script - a shell told to source nothing completes nothing, silently.
+                // Only reachable from a build that lost the resource, and it must not look like an
+                // empty script - a shell told to source nothing completes nothing, silently.
                 err.println("porelo: this build carries no " + name + " completion script");
                 err.flush();
                 return 70;

@@ -200,9 +200,9 @@ public record PoreloContext(
             return org.fuin.porelo.core.credential.CredentialRegistry.read(
                     paths.vault().credentialRegistry());
         } catch (final org.fuin.porelo.core.credential.CredentialException ex) {
-            // A registry that cannot be read must not stop a public repository being reached.
-            // What it would have said is said by whatever asked for a credential and did not get
-            // one, and 'doctor' reports the file itself.
+            // A registry that cannot be read must not stop a public repository being reached. What
+            // it would have said is said by whatever asked for a credential and did not get one,
+            // and 'doctor' reports the file itself.
             return new org.fuin.porelo.core.credential.CredentialRegistry(java.util.List.of());
         }
     }
@@ -298,8 +298,8 @@ public record PoreloContext(
                 if (unlock && org.fuin.porelo.vault.KernelKeyring.available()) {
                     try {
                         // Until reboot, as 'vault unlock' without --for: the broker spends the
-                        // tokens for the
-                        // task's life, and the daemon and later sessions find it there.
+                        // tokens for the task's life, and the daemon and later sessions find it
+                        // there.
                         new org.fuin.porelo.vault.KernelKeyring(paths.vault().vaultKeyringKey())
                                 .store(answer, null);
                     } catch (final org.fuin.porelo.vault.VaultException ex) {
@@ -431,8 +431,8 @@ public record PoreloContext(
             // A task's own tokens are not credentials: no listing and no choice may see them.
             return java.util.Optional.of(VaultNames.credentialsOnly(vault.read(opener.get())));
         } catch (org.fuin.porelo.vault.VaultException ex) {
-            // A wrong passphrase or a damaged file. Unreadable rather than empty: the operator
-            // has something to fix either way, and reporting it as empty hides it.
+            // A wrong passphrase or a damaged file. Unreadable rather than empty: the operator has
+            // something to fix either way, and reporting it as empty hides it.
             return java.util.Optional.empty();
         }
     }

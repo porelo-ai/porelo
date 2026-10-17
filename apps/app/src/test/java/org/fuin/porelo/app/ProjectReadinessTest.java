@@ -147,8 +147,8 @@ class ProjectReadinessTest {
     void changingTheImageSnippetChangesTheRecipe(@TempDir Path dir) throws Exception {
 
         // The snippet is lines a project adds to its own image, so an edit to it changes what was
-        // built as surely as a new base image does. Leaving it out would report an image as
-        // current after exactly the edit somebody made to change it.
+        // built as surely as a new base image does. Leaving it out would report an image as current
+        // after exactly the edit somebody made to change it.
         final Path file = dir.resolve("project.yml");
         Files.writeString(
                 file,

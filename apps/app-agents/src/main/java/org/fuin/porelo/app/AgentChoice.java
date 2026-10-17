@@ -71,8 +71,7 @@ public final class AgentChoice {
         if (agentName != null) {
             final InstalledAgent named = agents.find(agentName).orElse(null);
             // Installed but not started is not "not installed": the reason is what a person can act
-            // on, and leaving it
-            // out read as "Found: none" while the agent was there.
+            // on, and leaving it out read as "Found: none" while the agent was there.
             final String failed =
                     agents.failures()
                             .get(org.fuin.porelo.agent.api.AgentDirectory.PREFIX + agentName);

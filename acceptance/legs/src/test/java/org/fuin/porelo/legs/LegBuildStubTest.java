@@ -49,9 +49,8 @@ class LegBuildStubTest {
     void installsTheStubReaderThatArrivedWithoutItsExecuteBit() throws Exception {
 
         // An upload over SCP arrives as rw-r--r--: the check for an executable file found none,
-        // installed nothing and
-        // said nothing, and a fresh account's builds scenario failed on a reader that was never
-        // there.
+        // installed nothing and said nothing, and a fresh account's builds scenario failed on a
+        // reader that was never there.
         final Path home = Files.createDirectories(dir.resolve("home"));
         final Path binary = dir.resolve("porelo-build-stub");
         Files.writeString(binary, "#!/bin/sh\n");

@@ -154,9 +154,9 @@ public class TaskWorkspace {
      * @return Gate URL.
      */
     public String url(Project project) {
-        // The repository's name rather than the project's, because that is what the agent has
-        // open. With one repository the two are the same string, so nothing that reads a URL
-        // today sees a change.
+        // The repository's name rather than the project's, because that is what the agent has open.
+        // With one repository the two are the same string, so nothing that reads a URL today sees a
+        // change.
         return "http://"
                 + host
                 + ":"
@@ -189,9 +189,8 @@ public class TaskWorkspace {
         environment.put("GIT_CONFIG_VALUE_0", header);
         environment.put("PORELO_REMOTE_URL", url(project));
         // A push goes to a ref no branch points at, so nothing an operator is reading moves
-        // underneath them. An online
-        // task's gate passes it on as porelo/<task> at the upstream at once; a guarded one's keeps
-        // it for approval.
+        // underneath them. An online task's gate passes it on as porelo/<task> at the upstream at
+        // once; a guarded one's keeps it for approval.
         environment.put("PORELO_TASK_REF", GitGate.INCOMING + taskName);
         return Map.copyOf(environment);
     }
@@ -283,11 +282,9 @@ public class TaskWorkspace {
                 + "if [ ! -d .git ]; then git init -q -b main .; "
                 + "git remote add porelo \"$PORELO_REMOTE_URL\"; fi; "
                 // Within a limit, where the image has 'timeout': a remote that never answers - an
-                // ssh port
-                // dropped on the way - held the launch for its whole time, with nothing said. What
-                // became of
-                // it is printed for the launch to report; the task starts without the remote either
-                // way.
+                // ssh port dropped on the way - held the launch for its whole time, with nothing
+                // said. What became of it is printed for the launch to report; the task starts
+                // without the remote either way.
                 + "if command -v timeout >/dev/null 2>&1; then timeout "
                 + fetchSeconds
                 + " git fetch -q porelo; "
@@ -297,9 +294,9 @@ public class TaskWorkspace {
                 + FETCH_SAID
                 + " /'; }; "
                 + "if ! git rev-parse HEAD >/dev/null 2>&1; then "
-                // Which branch the mirror calls its own, asked rather than assumed: a
-                // repository seeded from a checkout on 'master' has no 'main' at all.
-                // Asks the remote again, so only after a fetch that reached it.
+                // Which branch the mirror calls its own, asked rather than assumed: a repository
+                // seeded from a checkout on 'master' has no 'main' at all. Asks the remote again,
+                // so only after a fetch that reached it.
                 + "  if [ -n \"${fetched:-}\" ]; then git remote set-head porelo -a >/dev/null 2>&1 || true; fi; "
                 + "  start=$(git symbolic-ref -q --short refs/remotes/porelo/HEAD"
                 + " 2>/dev/null || true); "
@@ -312,13 +309,12 @@ public class TaskWorkspace {
                 + "git config user.name \"${PORELO_GIT_NAME:-agent}\"; "
                 + "git config user.email \"${PORELO_GIT_EMAIL:-agent@localhost}\"; "
                 // So that a bare 'git push' goes where the work is meant to go. Without it the
-                // branch tracks porelo/main - checking out from a remote-tracking branch sets
-                // that up - and 'git push' lands in the mirror on refs/heads/main: it reports
-                // success, and nothing ever appears for review. A push that silently misses the
-                // gate is the failure this whole product exists to prevent, and it was one
-                // obvious command away.
-                // Said for the launch: a workspace with nothing in it after a fetch that failed has
-                // nothing to work on.
+                // branch tracks porelo/main - checking out from a remote-tracking branch sets that
+                // up - and 'git push' lands in the mirror on refs/heads/main: it reports success,
+                // and nothing ever appears for review. A push that silently misses the gate is the
+                // failure this whole product exists to prevent, and it was one obvious command
+                // away. Said for the launch: a workspace with nothing in it after a fetch that
+                // failed has nothing to work on.
                 + "if ! git rev-parse -q --verify HEAD >/dev/null 2>&1; then echo \""
                 + EMPTY
                 + "\"; fi; "
@@ -326,12 +322,10 @@ public class TaskWorkspace {
                 + "  git config remote.porelo.push \"HEAD:$PORELO_TASK_REF\"; "
                 + "  git config remote.pushDefault porelo; "
                 // The branch tracks where its push goes - the task's own ref - not the gate's
-                // branch, which moves only
-                // when work is approved: 'git status' said "ahead by 1" right after a push landed.
-                // At the gate the ref is mapped by a pattern that matches it alone, so a fetch
-                // before the
-                // first push finds nothing and does not fail; for a task on its remote,
-                // refs/heads/* maps it already.
+                // branch, which moves only when work is approved: 'git status' said "ahead by 1"
+                // right after a push landed. At the gate the ref is mapped by a pattern that
+                // matches it alone, so a fetch before the first push finds nothing and does not
+                // fail; for a task on its remote, refs/heads/* maps it already.
                 + "  case \"$PORELO_TASK_REF\" in refs/porelo/incoming/*) "
                 + "    tracked=\"refs/remotes/porelo/incoming/${PORELO_TASK_REF#refs/porelo/incoming/}\"; "
                 + "    spec=\"+$PORELO_TASK_REF*:$tracked*\"; "

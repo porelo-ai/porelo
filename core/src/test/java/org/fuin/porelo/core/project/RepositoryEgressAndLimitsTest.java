@@ -121,9 +121,9 @@ class RepositoryEgressAndLimitsTest {
         final Limits limits = project.limitsFor(project.repository("frontend"));
 
         assertThat(limits.memory()).isEqualTo("32g");
-        // And the two it said nothing about are the PROJECT'S, not the defaults. The project
-        // raised both away from 8g and 2048 precisely so a fallback to Limits.defaults() fails
-        // this rather than passing by coincidence.
+        // And the two it said nothing about are the PROJECT'S, not the defaults. The project raised
+        // both away from 8g and 2048 precisely so a fallback to Limits.defaults() fails this rather
+        // than passing by coincidence.
         assertThat(limits.cpus()).isEqualTo("4.0");
         assertThat(limits.pids()).isEqualTo(4096);
     }

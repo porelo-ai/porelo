@@ -103,8 +103,8 @@ public record HttpHead(String method, String target, List<String> names, List<St
             final long length = Long.parseLong(value.strip());
             if (length < 0) {
                 // A negative length is not "no body": it is a header that says something
-                // impossible, and answering it with an empty body forwards a request the caller
-                // did not make. Refused below, where -2 is told apart from absent.
+                // impossible, and answering it with an empty body forwards a request the caller did
+                // not make. Refused below, where -2 is told apart from absent.
                 return MALFORMED;
             }
             return length;
@@ -210,9 +210,9 @@ public record HttpHead(String method, String target, List<String> names, List<St
                 throw new IOException("Chunked body exceeds " + limit + " bytes");
             }
             body.write(readExactly(in, length));
-            // The CRLF after a chunk is part of the framing, not decoration: without checking it,
-            // a stream that ends mid-chunk or carries the wrong separator was read as a chunk
-            // that simply finished, and whatever came next became the following chunk's size.
+            // The CRLF after a chunk is part of the framing, not decoration: without checking it, a
+            // stream that ends mid-chunk or carries the wrong separator was read as a chunk that
+            // simply finished, and whatever came next became the following chunk's size.
             final String separator = line(in);
             if (separator == null || !separator.isEmpty()) {
                 throw new IOException("A chunk was not followed by the required blank line");

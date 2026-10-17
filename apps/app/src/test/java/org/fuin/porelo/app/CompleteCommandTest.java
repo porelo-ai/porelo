@@ -36,8 +36,8 @@ class CompleteCommandTest {
     @Test
     void anAliasIsNotOfferedBesideTheNameItIsAnAliasFor() {
 
-        // picocli keys aliases into the same subcommand map, so taking the keys would offer
-        // 'task' and 'tasks' as if they were two commands to choose between.
+        // picocli keys aliases into the same subcommand map, so taking the keys would offer 'task'
+        // and 'tasks' as if they were two commands to choose between.
         assertThat(completing("porelo", "")).contains("task").doesNotContain("tasks");
         assertThat(completing("porelo", "")).contains("project").doesNotContain("projects");
     }

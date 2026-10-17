@@ -89,10 +89,8 @@ final class GateMethods {
                     final GitGate gate = gate(parameters, context);
                     final String name = text(parameters, "name");
                     // As the contract says and 'porelo gate review' does: without a base, the
-                    // mirror's HEAD - its source's
-                    // default branch. Passing nothing showed the push's last commit alone, and a
-                    // review of several commits
-                    // looked like one.
+                    // mirror's HEAD - its source's default branch. Passing nothing showed the
+                    // push's last commit alone, and a review of several commits looked like one.
                     final String against =
                             text(parameters, "against").isEmpty()
                                     ? "HEAD"
@@ -175,9 +173,8 @@ final class GateMethods {
                 });
 
         // For work merged elsewhere: the interface takes it as a bundle, a person merges and signs
-        // it on their own
-        // computer and pushes it, and Landed clears it once the upstream holds it (decided,
-        // 2026-09-30). Nothing is signed or pushed here.
+        // it on their own computer and pushes it, and Landed clears it once the upstream holds it
+        // (decided, 2026-09-30). Nothing is signed or pushed here.
         server.method(
                 "PendingBundle",
                 (parameters, replies) -> {
@@ -189,8 +186,8 @@ final class GateMethods {
                     final java.nio.file.Path scratch;
                     try {
                         // In a directory of its own, owner-only: a file made and then deleted in
-                        // the shared /tmp freed its
-                        // name, and anyone could take it - or its '.lock' - before git wrote there.
+                        // the shared /tmp freed its name, and anyone could take it - or its '.lock'
+                        // - before git wrote there.
                         scratch =
                                 java.nio.file.Files.createTempDirectory("porelo-pending-")
                                         .resolve("pending.bundle");
@@ -263,8 +260,7 @@ final class GateMethods {
                     }
                     gate.reject(name, false, true);
                     // The task the work came from is told, reason or not: an agent whose work
-                    // silently vanished hands it
-                    // over again.
+                    // silently vanished hands it over again.
                     boolean told;
                     try {
                         told =

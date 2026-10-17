@@ -25,10 +25,10 @@ class HelperPidTest {
     @Test
     void anIdThatNowBelongsToSomethingElseIsNotSignalled(@TempDir Path dir) throws Exception {
 
-        // The defect this exists for: process ids are reused. A helper that exited leaves its
-        // file behind, and by the time something cleans up, that number can belong to an editor,
-        // an ssh agent or another task's helper - all owned by the same user, so the operating
-        // system permits the signal. Recording the start time is what tells them apart.
+        // The defect this exists for: process ids are reused. A helper that exited leaves its file
+        // behind, and by the time something cleans up, that number can belong to an editor, an ssh
+        // agent or another task's helper - all owned by the same user, so the operating system
+        // permits the signal. Recording the start time is what tells them apart.
         final Path file = dir.resolve("helper.pid");
         Files.writeString(file, ProcessHandle.current().pid() + " 1", StandardCharsets.UTF_8);
 

@@ -137,8 +137,8 @@ public final class MessageRecord {
             final String direction)
             throws IOException {
         // Read and written under one lock: the daemon's pass and a command at the terminal wrote at
-        // once, both read
-        // the same last hash, and the record then said it had been changed when nobody had.
+        // once, both read the same last hash, and the record then said it had been changed when
+        // nobody had.
         FileLocks.holding(
                 file.resolveSibling(".record.lock"),
                 () -> {
@@ -361,8 +361,7 @@ public final class MessageRecord {
                 material.append(field.length()).append(':').append(field);
             }
             // Only when there is one: a line written before directions were recorded keeps the hash
-            // it
-            // was written with, so the chain of an existing record still verifies.
+            // it was written with, so the chain of an existing record still verifies.
             if (!direction.isEmpty()) {
                 material.append(direction.length()).append(':').append(direction);
             }

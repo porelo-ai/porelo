@@ -254,8 +254,8 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     @Override
     public Integer call() {
         // A refusal the person answered with another way to start - another name, or a shell -
-        // starts again with it,
-        // at most a few times, so answers that each lead to another refusal end rather than loop.
+        // starts again with it, at most a few times, so answers that each lead to another refusal
+        // end rather than loop.
         int code = startOnce();
         for (int tries = 0; code == TaskLaunch.RETRY && tries < 3; tries++) {
             code = startOnce();
@@ -306,18 +306,16 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
         try {
             if (projectName == null) {
                 // No project named: the checkout stood in says which. A followed project naming its
-                // origin comes first;
-                // otherwise it is 'default', which every machine has. A named project never depends
-                // on the directory.
+                // origin comes first; otherwise it is 'default', which every machine has. A named
+                // project never depends on the directory.
                 final ContainerSummary existing =
                         spec.commandLine().getParseResult().hasMatchedPositional(0)
                                 ? existingOutsideACheckout()
                                 : null;
                 if (existing != null && existing.project() != null) {
                     // Outside a checkout, a name an existing task has is that task, by either of
-                    // its names, as for
-                    // every other task command: a stopped one is brought back without its project
-                    // named.
+                    // its names, as for every other task command: a stopped one is brought back
+                    // without its project named.
                     projectName = existing.project();
                     task = existing.name().substring(("porelo-" + projectName + "-").length());
                     spec.commandLine()
@@ -363,8 +361,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                     && repository != null
                     && !repository.isBlank()) {
                 // The task started from this checkout, when there is one, as every other task
-                // command takes it; a new
-                // one only when there is none.
+                // command takes it; a new one only when there is none.
                 final java.util.List<String> started =
                         TaskTarget.fromCheckout(context, Path.of("."));
                 final String prefix = "porelo-" + projectName + "-";
@@ -411,8 +408,8 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             return 2;
         }
 
-        // Starting the task is the domain's job; what this class adds is the terminal. The
-        // daemon builds the same request and gets the same behavior without running a CLI.
+        // Starting the task is the domain's job; what this class adds is the terminal. The daemon
+        // builds the same request and gets the same behavior without running a CLI.
         final TaskLaunch launch =
                 new TaskLaunch(
                                 context,
@@ -484,8 +481,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
 
                             if (prompt != null) {
                                 // The run itself belongs to the launch, which the daemon calls too;
-                                // what is left
-                                // here is showing it to a person.
+                                // what is left here is showing it to a person.
                                 final int code =
                                         launch.runAgent(
                                                 running.runner(),
@@ -496,8 +492,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                                 err);
                                 if (code == TaskLaunch.NO_AGENT) {
                                     // A refusal, not a failed run: there is no log to render and
-                                    // nothing to say
-                                    // beyond what was already said.
+                                    // nothing to say beyond what was already said.
                                     return code;
                                 }
                                 render(running.selected(), running.container(), out, err);
@@ -506,20 +501,18 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
 
                             if (detach) {
                                 // Everything below replaces this process, which makes the normal
-                                // path impossible
-                                // to drive from a script or a test. This is the seam for both.
+                                // path impossible to drive from a script or a test. This is the
+                                // seam for both.
                                 out.println("attached  no");
                                 out.flush();
                                 return 0;
                             }
 
                             // The same arguments the unattended path passes. An attached run is
-                            // still a run
-                            // inside the box, so an agent that would stop to ask permission is
-                            // turned off here
-                            // too - reported from the test machine, where an attached claude asked
-                            // to approve a
-                            // command the container had already made safe.
+                            // still a run inside the box, so an agent that would stop to ask
+                            // permission is turned off here too - reported from the test machine,
+                            // where an attached claude asked to approve a command the container had
+                            // already made safe.
                             final String startWith =
                                     "agent".equals(attach) && running.selected() != null
                                             ? org.fuin.porelo.runtime.ShellWords.quote(
@@ -550,42 +543,32 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                             out.flush();
 
                             // Waits rather than replacing this process, so there is still something
-                            // here to
-                            // remove the container when the shell ends.
+                            // here to remove the container when the shell ends.
                             //
                             // Through a Teardown rather than a plain finally, because the way this
-                            // ends most
-                            // often is not a return: Ctrl-C and a closed terminal signal the whole
-                            // process group,
-                            // which kills the gate, the broker and the watcher and leaves the
-                            // container running
-                            // without them. The status starts at "interrupted" so that a signal
-                            // takes the
-                            // keep-and-stop branch - work that never reached the gate is still in
-                            // there.
+                            // ends most often is not a return: Ctrl-C and a closed terminal signal
+                            // the whole process group, which kills the gate, the broker and the
+                            // watcher and leaves the container running without them. The status
+                            // starts at "interrupted" so that a signal takes the keep-and-stop
+                            // branch - work that never reached the gate is still in there.
                             final java.util.concurrent.atomic.AtomicInteger outcome =
                                     new java.util.concurrent.atomic.AtomicInteger(INTERRUPTED);
                             int left;
                             // Leaving the window is not finishing the work, and both end the
-                            // command this
-                            // terminal is attached to. The session's own shell is what tells them
-                            // apart: it
-                            // writes a marker when it returns, and the absence of one keeps the
-                            // task.
+                            // command this terminal is attached to. The session's own shell is what
+                            // tells them apart: it writes a marker when it returns, and the absence
+                            // of one keeps the task.
                             //
                             // Asking tmux whether the session survived was tried first. It does NOT
-                            // race - that
-                            // was assumed and then measured on 2026-09-12, five probes, "gone"
-                            // every time - but it
-                            // fails in the wrong direction: any container that cannot be asked
-                            // answers "no
-                            // session", which reads as "finished", which removes a task.
+                            // race - that was assumed and then measured on 2026-09-12, five probes,
+                            // "gone" every time - but it fails in the wrong direction: any
+                            // container that cannot be asked answers "no session", which reads as
+                            // "finished", which removes a task.
                             //
                             // Absent a marker the task is KEPT. Tearing down under a running agent
-                            // would stop the
-                            // gate, the broker and the clearance watcher, which is precisely the
-                            // state the
-                            // contract warns about: a container that is up with no helpers.
+                            // would stop the gate, the broker and the clearance watcher, which is
+                            // precisely the state the contract warns about: a container that is up
+                            // with no helpers.
                             try (Teardown teardown =
                                     Teardown.arm(
                                             () -> {
@@ -621,17 +604,13 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                                                                 + "/"
                                                                                 + task));
                                 // A shell exits with its last command's status, which is not a
-                                // verdict on the
-                                // task. Reported from a machine where a typo at the prompt - 'bash:
-                                // /exit: No
-                                // such file or directory' - made leaving the session print "it
-                                // failed, so
-                                // nothing was removed" and keep the container. Somebody who walks
-                                // out of a
-                                // shell has ended the task normally, whatever they last typed; only
-                                // a signal
-                                // means they did not get to finish, and that is what the starting
-                                // value is for.
+                                // verdict on the task. Reported from a machine where a typo at the
+                                // prompt - 'bash: /exit: No such file or directory' - made leaving
+                                // the session print "it failed, so nothing was removed" and keep
+                                // the container. Somebody who walks out of a shell has ended the
+                                // task normally, whatever they last typed; only a signal means they
+                                // did not get to finish, and that is what the starting value is
+                                // for.
                                 outcome.set(0);
                             }
                             return left;
@@ -720,9 +699,8 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             PrintWriter err) {
         out.println();
         // The agent's text with its terminal controls written out: anything it read can steer it,
-        // and an escape
-        // sequence printed raw rewrites what the person reads, or their window's title, or their
-        // clipboard.
+        // and an escape sequence printed raw rewrites what the person reads, or their window's
+        // title, or their clipboard.
         final java.util.function.Consumer<String> show =
                 line -> out.println(TalkReadCommand.shown(line));
         try {
@@ -738,8 +716,8 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                         });
                 if (shown[0] == 0 && java.nio.file.Files.size(log) > 0) {
                     // The formatter suppressed everything - which is right for a run that only
-                    // produced setup chatter, and unhelpful when that is all there was. Silence
-                    // is the one thing that tells a reader nothing, so fall back to the raw text.
+                    // produced setup chatter, and unhelpful when that is all there was. Silence is
+                    // the one thing that tells a reader nothing, so fall back to the raw text.
                     out.println("(nothing to render; showing the raw output)");
                     out.println();
                     java.nio.file.Files.readAllLines(log).forEach(show);
@@ -836,9 +814,8 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             }
             final java.io.StringWriter said = new java.io.StringWriter();
             // The whole command tree, as the person's own 'task start' would run - built from the
-            // root this
-            // command was reached through, since the command line itself is in the area above this
-            // one.
+            // root this command was reached through, since the command line itself is in the area
+            // above this one.
             final picocli.CommandLine start =
                     new picocli.CommandLine(
                                     spec.root().userObject().getClass(), new PoreloFactory(context))

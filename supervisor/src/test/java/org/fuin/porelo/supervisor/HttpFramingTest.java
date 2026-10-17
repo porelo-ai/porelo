@@ -24,8 +24,8 @@ class HttpFramingTest {
     @Test
     void aBodyShorterThanDeclaredIsRefused() throws IOException {
 
-        // 'readNBytes' returns what arrived. What arrived is not what was promised, and sending
-        // the difference on as if it were the whole request is the defect.
+        // 'readNBytes' returns what arrived. What arrived is not what was promised, and sending the
+        // difference on as if it were the whole request is the defect.
         assertThatThrownBy(() -> HttpHead.readExactly(bytes("only-9-by"), 20))
                 .isInstanceOf(IOException.class)
                 .hasMessageContaining("ended after 9 of 20");

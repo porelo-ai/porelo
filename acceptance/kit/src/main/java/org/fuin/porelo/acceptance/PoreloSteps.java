@@ -67,9 +67,8 @@ public class PoreloSteps {
             "a vault of this scenario's own that a restart keeps, unlocked with the passphrase {string}")
     public void aVaultARestartKeeps(String passphrase) throws IOException {
         // Named after nothing a scenario takes as its passphrase: the check that the passphrase was
-        // not echoed reads the
-        // whole terminal, and a path that held "acceptance" failed it for a scenario whose
-        // passphrase that is.
+        // not echoed reads the whole terminal, and a path that held "acceptance" failed it for a
+        // scenario whose passphrase that is.
         aVaultIn("mktemp -d \"$HOME/.porelo-kept-vault.XXXXXX\"", passphrase);
     }
 
@@ -128,11 +127,11 @@ public class PoreloSteps {
      */
     @Given("the vault is unlocked with the passphrase {string}")
     public void theVaultIsUnlocked(String passphrase) throws IOException {
-        // Typed at the prompt, which is what an operator does and what this kit exists to
-        // simulate. It also keeps the passphrase off every command line and out of every file:
+        // Typed at the prompt, which is what an operator does and what this kit exists to simulate.
+        // It also keeps the passphrase off every command line and out of every file:
         // '--passphrase-command "printf <value>"' - the obvious form - puts it in the argv of
-        // porelo AND of the command it spawns, and /proc/<pid>/cmdline is world-readable with
-        // /proc mounted without hidepid on both supported distributions.
+        // porelo AND of the command it spawns, and /proc/<pid>/cmdline is world-readable with /proc
+        // mounted without hidepid on both supported distributions.
         //
         // A feature file's passphrase is public by construction, so nothing here is at risk. The
         // reason to do it properly is that this is a published kit: the obvious step is the one
@@ -146,20 +145,19 @@ public class PoreloSteps {
             // which says more than a matched prefix would.
             //
             // Short on purpose, and this is the lesson rather than a detail. This waited for
-            // "cached in the kernel keyring"; the sentence was reworded to say WHERE the
-            // passphrase goes - "cached in this account's kernel keyring..." - and every agent
-            // repository's leg went red on an unlock that had worked, because a published kit
-            // runs against whatever porelo a machine has. A kit must not hold a sentence we may
-            // improve: it waits for the part that carries the meaning and would have to change
-            // for the wrong reason.
+            // "cached in the kernel keyring"; the sentence was reworded to say WHERE the passphrase
+            // goes - "cached in this account's kernel keyring..." - and every agent repository's
+            // leg went red on an unlock that had worked, because a published kit runs against
+            // whatever porelo a machine has. A kit must not hold a sentence we may improve: it
+            // waits for the part that carries the meaning and would have to change for the wrong
+            // reason.
             terminal.await("cached");
             // The whole point of the prompt: it must not appear on the screen it was typed at.
             assertThat(terminal.seen()).as("the passphrase was echoed").doesNotContain(passphrase);
         }
         // "cached" only says the command finished: the refusal says "nothing was cached", and this
-        // step
-        // passed on a wrong passphrase until 2026-09-27. Whether the vault opens is asked of the
-        // machine.
+        // step passed on a wrong passphrase until 2026-09-27. Whether the vault opens is asked of
+        // the machine.
         final Ssh.Output open = world.run("porelo vault list");
         assertThat(open.status())
                 .as("the vault did not open with that passphrase:%n%s", open.all())

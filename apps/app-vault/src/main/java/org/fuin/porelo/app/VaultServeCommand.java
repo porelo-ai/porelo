@@ -176,8 +176,8 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
             return 2;
         }
         // Before the first credential is read: this process holds them all, and a core dump of it,
-        // or a debugger of
-        // the same user attached, is a copy of each. Process-wide, and kept for its life.
+        // or a debugger of the same user attached, is a copy of each. Process-wide, and kept for
+        // its life.
         org.fuin.porelo.core.hardening.ProcessHardening.disableDumping();
         final Map<String, org.fuin.porelo.supervisor.TokenSource> purchases =
                 new java.util.LinkedHashMap<>();
@@ -186,8 +186,8 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
             final Map<String, org.fuin.porelo.vault.VaultEntry> entries = context.credentials();
             entries.forEach((key, entry) -> credentials.put(key, entry.value()));
             // A credential that has to be bought: the broker buys the token here, on the host, and
-            // keeps it
-            // in memory. What it holds is the client secret, which never leaves this process.
+            // keeps it in memory. What it holds is the client secret, which never leaves this
+            // process.
             for (final String name :
                     java.util.stream.Stream.concat(
                                     java.util.stream.Stream.of(credential),
@@ -200,8 +200,7 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
                             context.readableGrants().map(grants -> grants.get(name)).orElse(null);
                     if (held != null && VaultAuthorizeCommand.HELD.equals(held.type())) {
                         // A grant whose token never expires: attached as it is, as a key would be,
-                        // and never as the
-                        // entry's own value, which is the client's.
+                        // and never as the entry's own value, which is the client's.
                         credentials.put(name, held.value());
                         continue;
                     }
@@ -224,9 +223,8 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
                 }
                 if (entry != null && LoginCredentials.renewable(entry)) {
                     // An agent's own sign-in, made in a throwaway container and so Porelo's alone:
-                    // renewed here, on
-                    // the host, from the refresh token kept hidden beside it, when its access token
-                    // nears its end.
+                    // renewed here, on the host, from the refresh token kept hidden beside it, when
+                    // its access token nears its end.
                     final java.util.Optional<org.fuin.porelo.vault.VaultFile.Opener> opener =
                             context.opener();
                     final boolean refreshable =
@@ -298,8 +296,8 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
         }
 
         // What opening the vault used is garbage now - Argon2id's 64 MiB above all - and a helper
-        // that lives as long
-        // as its task kept it: 180 MB per task. Collected once, before the proxy serves.
+        // that lives as long as its task kept it: 180 MB per task. Collected once, before the proxy
+        // serves.
         System.gc();
         final java.util.function.Consumer<String> requests =
                 line -> {
@@ -381,9 +379,8 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
             java.util.function.BiConsumer<String, String> needed) {
 
         // The grant names the credential its token was scoped to, which is what picks the route. A
-        // credential
-        // that has to be bought is attached as the token bought with it, never as the secret it was
-        // bought with.
+        // credential that has to be bought is attached as the token bought with it, never as the
+        // secret it was bought with.
         return presented ->
                 broker.exchange(presented, Instant.now())
                         .<TokenExchange.Result>map(
@@ -436,9 +433,8 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
                                                 "the vault no longer holds a credential for this task");
                                     }
                                     // A token this broker issued that is no longer valid ran out of
-                                    // time; anything
-                                    // else was never ours. The agent cannot tell those apart, so
-                                    // the proxy does.
+                                    // time; anything else was never ours. The agent cannot tell
+                                    // those apart, so the proxy does.
                                     return broker.issued(presented)
                                             .filter(issued -> !issued.validAt(Instant.now()))
                                             .<TokenExchange.Result>map(

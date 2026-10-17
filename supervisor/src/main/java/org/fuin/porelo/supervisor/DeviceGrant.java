@@ -209,8 +209,8 @@ public final class DeviceGrant {
                                     + " granted without an access token");
                 }
                 // No expiry stated is kept as none, not as a guessed one: a token that never
-                // expires and has no
-                // refresh token is kept as it is, which a guessed expiry would refuse.
+                // expires and has no refresh token is kept as it is, which a guessed expiry would
+                // refuse.
                 return new Outcome(
                         "granted",
                         text(answer, "refresh_token"),

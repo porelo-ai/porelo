@@ -25,8 +25,8 @@ class ContainerFilePathTest {
         // It used to reach a shell command built by concatenating the path into single quotes,
         // where one quote ends the quoting and the remainder becomes commands - run inside the
         // container as the agent user. The shell is gone; a path with a quote in it was never a
-        // path anybody meant, so it stays refused at the boundary rather than only made harmless
-        // at the far end.
+        // path anybody meant, so it stays refused at the boundary rather than only made harmless at
+        // the far end.
         assertThatThrownBy(() -> new ContainerFile("/home/agent/'; id; '", "x", false))
                 .isInstanceOf(AgentException.class)
                 .hasMessageContaining("quotes");

@@ -263,8 +263,7 @@ public final class MessageRelease {
         final Path signature = mailbox.rejected().resolve(name + ".sig");
         if (!Files.isRegularFile(signature)) {
             // Not signed again here: the host's signature is over the bytes it took in, and signing
-            // now
-            // would put its name on a decision a person made.
+            // now would put its name on a decision a person made.
             return new Result(Outcome.NOT_DELIVERABLE, name, id, "its signature is not beside it");
         }
         final Path active = mailbox.queueActive(peer.transport());
@@ -360,11 +359,10 @@ public final class MessageRelease {
         final Path signature = mailbox.hold().resolve(name + ".sig");
         if (!refuse && MessageRecord.IN.equals(direction(mailbox, name))) {
             // Held on its way IN: released, it goes to this task, never out - it was turning
-            // outgoing and held
-            // again as "this project may not address" its own task (found on 2026-09-30). Back
-            // into inbound, so the next pass delivers it and checks it as it checks every arrival:
-            // a message
-            // held for its signature is held again unless its sender's key is trusted.
+            // outgoing and held again as "this project may not address" its own task (found on
+            // 2026-09-30). Back into inbound, so the next pass delivers it and checks it as it
+            // checks every arrival: a message held for its signature is held again unless its
+            // sender's key is trusted.
             if (Files.isRegularFile(signature)) {
                 Files.move(
                         signature,
@@ -377,9 +375,8 @@ public final class MessageRelease {
         final Path target = refuse ? mailbox.rejected() : mailbox.accepted();
         Files.createDirectories(target);
         if (refuse) {
-            // Written before the message moves: an answer that exists for a message still in
-            // 'hold' is a repeat at worst, and a message gone with no answer is a sender left
-            // waiting.
+            // Written before the message moves: an answer that exists for a message still in 'hold'
+            // is a repeat at worst, and a message gone with no answer is a sender left waiting.
             new HostBounce().write(mailbox, held, refusedBy("a person refused to send it"), true);
         }
         if (Files.isRegularFile(signature)) {
@@ -390,9 +387,8 @@ public final class MessageRelease {
         }
         if (!refuse) {
             // A person released this message: the next pass sends it whatever the peer's mode or
-            // hold says -
-            // asking that mode again held it again, for ever (found on 2026-09-30). A peer set to
-            // refuse still refuses: that is a decision about the peer, and it is final.
+            // hold says - asking that mode again held it again, for ever (found on 2026-09-30). A
+            // peer set to refuse still refuses: that is a decision about the peer, and it is final.
             Files.writeString(
                     target.resolve(name + MessageDispatch.RELEASED_SUFFIX),
                     "",
@@ -401,8 +397,7 @@ public final class MessageRelease {
         Files.move(held, target.resolve(name), StandardCopyOption.REPLACE_EXISTING);
         if (refuse) {
             // Recorded, so the refusal stays a person's and final: in 'rejected/' it lies beside
-            // what
-            // the filter refused, which a person may still deliver.
+            // what the filter refused, which a person may still deliver.
             new MessageRecord(mailbox)
                     .append(MessageRecord.REFUSED, name, messageId, "a person refused to send it");
         }

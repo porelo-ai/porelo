@@ -125,8 +125,8 @@ class VarlinkInteropTest {
                             INTERFACE + ".Stream",
                             "{}");
 
-            // Four replies, and varlinkctl returning rather than hanging is the part that says
-            // the 'continues' flag was written the way the protocol expects.
+            // Four replies, and varlinkctl returning rather than hanging is the part that says the
+            // 'continues' flag was written the way the protocol expects.
             final List<String> lines =
                     result.standardOutput().lines().filter(line -> line.contains("seq")).toList();
             assertThat(lines).hasSize(4);

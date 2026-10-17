@@ -22,8 +22,8 @@ class LocalRepositoryTest {
     @Test
     void answersNothingOutsideARepository() {
 
-        // The negative case: treating a failure as a path would seed the gate from whatever
-        // string git happened to print on stderr.
+        // The negative case: treating a failure as a path would seed the gate from whatever string
+        // git happened to print on stderr.
         assertThat(
                         LocalRepository.topLevel(
                                 new FakeCommandRunner()

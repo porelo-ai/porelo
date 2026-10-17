@@ -38,8 +38,8 @@ public class TaskAttachCommand implements Callable<Integer>, PoreloFactory.Conte
 
     @Override
     public java.util.List<String> candidates() {
-        // Only the running ones: attaching to a stopped task is refused with its own
-        // message pointing at resume, so offering it here would contradict that.
+        // Only the running ones: attaching to a stopped task is refused with its own message
+        // pointing at resume, so offering it here would contradict that.
         return TaskCandidates.running(context);
     }
 
@@ -80,8 +80,8 @@ public class TaskAttachCommand implements Callable<Integer>, PoreloFactory.Conte
     static java.util.List<String> sessionCommand() {
         // The configuration file is read explicitly rather than left to tmux's search: what a
         // session remembers is the answer to "what may re-entering claim", and inheriting it from
-        // whatever the image or a user's dotfile happened to say would make that answer unknown
-        // to the one process that has to state it.
+        // whatever the image or a user's dotfile happened to say would make that answer unknown to
+        // the one process that has to state it.
         return java.util.List.of(
                 "tmux",
                 "-f",
@@ -168,8 +168,8 @@ public class TaskAttachCommand implements Callable<Integer>, PoreloFactory.Conte
                         .filter(task -> task.name().equals(container))
                         .anyMatch(ContainerSummary::running);
         if (!running) {
-            // Named as the two different things it can be. "Not running" sends somebody to
-            // starting it again; "no such task" sends them to 'task list'.
+            // Named as the two different things it can be. "Not running" sends somebody to starting
+            // it again; "no such task" sends them to 'task list'.
             final boolean known =
                     context.podman().poreloTasks().stream()
                             .anyMatch(task -> task.name().equals(container));
@@ -182,8 +182,8 @@ public class TaskAttachCommand implements Callable<Integer>, PoreloFactory.Conte
             }
             // Somebody who typed 'attach' has said what they want, and being told to run 'resume'
             // and then 'attach' is being told to say it twice. The same argument the tmux command
-            // one level down already makes for itself: attach-or-create is one operation, so
-            // coming back is not a second code path exercised less often.
+            // one level down already makes for itself: attach-or-create is one operation, so coming
+            // back is not a second code path exercised less often.
             if (!offerToStart(out, System.console())) {
                 err.println(
                         "porelo: "
@@ -194,8 +194,8 @@ public class TaskAttachCommand implements Callable<Integer>, PoreloFactory.Conte
                 return 69;
             }
             // Not free, and not silent: this starts the gate, the credential broker and the
-            // clearance watcher, and re-applies the egress ruleset. The resume renders what it
-            // did, including whether the image has been rebuilt since.
+            // clearance watcher, and re-applies the egress ruleset. The resume renders what it did,
+            // including whether the image has been rebuilt since.
             final int resumed = TaskResumeCommand.resume(context, container, out, err, null);
             if (resumed != 0) {
                 return resumed;
@@ -203,15 +203,14 @@ public class TaskAttachCommand implements Callable<Integer>, PoreloFactory.Conte
         }
 
         // Replaces this process with the session, which is why the arguments are returned rather
-        // than run: what is on the far end of the ssh channel has to be the terminal itself.
-        // The terminal is resolved here rather than inside the builder: it costs a round trip
-        // into the container, and this is the one path where a person's own terminal is on the
-        // other end. One handle for both calls - context.podman() builds a new one each time, so
-        // asking through two of them would ask the container twice.
+        // than run: what is on the far end of the ssh channel has to be the terminal itself. The
+        // terminal is resolved here rather than inside the builder: it costs a round trip into the
+        // container, and this is the one path where a person's own terminal is on the other end.
+        // One handle for both calls - context.podman() builds a new one each time, so asking
+        // through two of them would ask the container twice.
         final org.fuin.porelo.runtime.Podman podman = context.podman();
         // An agent task whose session is gone starts its agent again, continuing where it can;
-        // otherwise
-        // the session that is there, or a shell.
+        // otherwise the session that is there, or a shell.
         final String agent = new TaskSession(context).attachedAgent(container, out);
         if (agent != null) {
             return context.exec()

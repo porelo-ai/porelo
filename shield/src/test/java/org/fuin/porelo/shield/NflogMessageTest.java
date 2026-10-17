@@ -60,8 +60,8 @@ class NflogMessageTest {
     @Test
     void readsSeveralMessagesFromOneDatagram() throws IOException {
 
-        // The kernel batches events. A parser that stopped after the first would silently lose
-        // most of them, and nothing downstream would notice.
+        // The kernel batches events. A parser that stopped after the first would silently lose most
+        // of them, and nothing downstream would notice.
         assertThat(
                         captured().stream()
                                 .map(datagram -> NflogMessage.parse(datagram, Instant.EPOCH).size())
@@ -123,8 +123,8 @@ class NflogMessageTest {
     void keepsTheAgentsConnectionsAndDropsTheNamespaceNoise() throws IOException {
 
         // A container namespace produces router solicitations and multicast listener reports that
-        // the default-deny chain drops too. An operator who learns to dismiss prompts is worse
-        // than no prompts at all.
+        // the default-deny chain drops too. An operator who learns to dismiss prompts is worse than
+        // no prompts at all.
         final List<BlockedConnection> worth =
                 parseAll().stream().filter(BlockedConnection::worthAsking).toList();
 
@@ -183,9 +183,8 @@ class NflogMessageTest {
     void stampsAPacketWithTheKernelsTimeWhereTheLogCarriesOne() throws IOException {
 
         // The kernel batches logged packets, and the time a batch was read made a SYN and its retry
-        // two drops at one
-        // instant (found on 2026-10-13). One captured message, with the kernel's timestamp
-        // attribute added.
+        // two drops at one instant (found on 2026-10-13). One captured message, with the kernel's
+        // timestamp attribute added.
         final byte[] first = captured().get(0);
         final java.nio.ByteBuffer original =
                 java.nio.ByteBuffer.wrap(first).order(java.nio.ByteOrder.nativeOrder());

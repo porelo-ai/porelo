@@ -107,8 +107,7 @@ public class VarlinkConnection implements AutoCloseable {
                 reading.flip();
                 pending.write(reading.array(), 0, reading.limit());
                 // The limit a message has: a client sending without end during a stream is broken
-                // or trying to make
-                // this process allocate, and is answered as gone.
+                // or trying to make this process allocate, and is answered as gone.
                 return pending.size() > MAX_MESSAGE;
             } finally {
                 channel.configureBlocking(true);

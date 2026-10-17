@@ -40,8 +40,7 @@ class OnlineSshKeyTest {
     void theKeyTheProjectDeclaredForItsUpstreamIsTheOneTheAgentSignsWith() throws IOException {
 
         // The machine held the project's deploy keys and no 'ssh.default', and the key was looked
-        // for by that fixed
-        // name: nothing could be lent, and nothing could be pushed.
+        // for by that fixed name: nothing could be lent, and nothing could be pushed.
         final PoreloContext context = context();
         new CredentialDeclarations(context)
                 .declare(

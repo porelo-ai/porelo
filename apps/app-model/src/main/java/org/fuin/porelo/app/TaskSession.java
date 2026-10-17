@@ -167,10 +167,8 @@ public final class TaskSession {
             return Optional.empty();
         }
         // From inside the file first, where the agent declares the record its id is in: a file
-        // named
-        // '<timestamp>_<id>.jsonl' is not an id such an agent takes back, and no rule for cutting
-        // the name
-        // needs guessing. Only when no record matches is the name the id.
+        // named '<timestamp>_<id>.jsonl' is not an id such an agent takes back, and no rule for
+        // cutting the name needs guessing. Only when no record matches is the name the id.
         if (!ids.record().isEmpty()) {
             final Optional<String> inside = fromInside(container, path, ids);
             if (inside.isPresent()) {
@@ -321,8 +319,7 @@ public final class TaskSession {
             return null;
         }
         // The files first: they are what the agent itself kept, and a stop that could not read them
-        // left
-        // nothing recorded.
+        // left nothing recorded.
         final SessionIds ids = definition.supportsResume() ? definition.sessionIds() : null;
         if (ids != null) {
             fromFiles(container, ids).ifPresent(id -> record(container, id));

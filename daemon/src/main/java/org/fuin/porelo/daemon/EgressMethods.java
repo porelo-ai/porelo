@@ -51,10 +51,8 @@ final class EgressMethods {
                 "Sets",
                 (parameters, replies) -> {
                     // What a chooser offers. Scanned rather than listed anywhere: a set an operator
-                    // added
-                    // is a file they dropped in a directory, and it has to appear without anything
-                    // being
-                    // rebuilt.
+                    // added is a file they dropped in a directory, and it has to appear without
+                    // anything being rebuilt.
                     final var directory = context.paths().egress().egressSets();
                     final Map<String, Object> answer = new LinkedHashMap<>();
                     answer.put(
@@ -82,16 +80,13 @@ final class EgressMethods {
                     final Path file = projectFile(parameters, context);
                     final EgressControl egress = new EgressControl(context);
                     // Which repository's view of it. A repository's grants are ADDED to the
-                    // project's, so
-                    // asking without one answers the project-level set - true of every repository -
-                    // and
-                    // asking with one answers that plus what it adds.
+                    // project's, so asking without one answers the project-level set - true of
+                    // every repository - and asking with one answers that plus what it adds.
                     final String repository = text(parameters, "repository");
                     // Absent, not empty: a ?string that was not sent arrives as "" here, and an
-                    // empty
-                    // agent name is not a request for the default - it is a request for an agent
-                    // called
-                    // nothing, which is refused. Measured over the wire on the first call.
+                    // empty agent name is not a request for the default - it is a request for an
+                    // agent called nothing, which is refused. Measured over the wire on the first
+                    // call.
                     final String agent = text(parameters, "agent");
                     final String named = agent.isEmpty() ? null : agent;
                     final Map<String, Object> answer = new LinkedHashMap<>();
@@ -123,9 +118,8 @@ final class EgressMethods {
                                     .apply(
                                             projectFile(parameters, context),
                                             // Which block it lands in. A repository's grants are
-                                            // added to the project's,
-                                            // so this never takes anything away from the repository
-                                            // it names.
+                                            // added to the project's, so this never takes anything
+                                            // away from the repository it names.
                                             empty(parameters, "repository"),
                                             new EgressControl.Change(
                                                     strings(parameters, "addSets"),
@@ -146,10 +140,9 @@ final class EgressMethods {
                 "NarrowTask",
                 (parameters, replies) -> {
                     // The scope is required here for the same reason it is for widening, and the
-                    // mistake
-                    // it prevents is worse in this direction: narrowing only the run when somebody
-                    // meant
-                    // the project too leaves the next task starting with the host still open.
+                    // mistake it prevents is worse in this direction: narrowing only the run when
+                    // somebody meant the project too leaves the next task starting with the host
+                    // still open.
                     final String scope = text(parameters, "scope");
                     if (scope.isEmpty()) {
                         throw new VarlinkException(INTERFACE + ".ScopeRequired", Map.of());
@@ -176,10 +169,8 @@ final class EgressMethods {
                 "WidenTask",
                 (parameters, replies) -> {
                     // The scope is read without a default on purpose: "this run only" and "this run
-                    // and
-                    // the project" are different intentions, and a client that did not say which
-                    // one it
-                    // meant must not have one chosen for it.
+                    // and the project" are different intentions, and a client that did not say
+                    // which one it meant must not have one chosen for it.
                     final String scope = text(parameters, "scope");
                     if (scope.isEmpty()) {
                         throw new VarlinkException(INTERFACE + ".ScopeRequired", Map.of());
@@ -229,8 +220,7 @@ final class EgressMethods {
                 (parameters, replies) -> {
                     if (!replies.streaming()) {
                         // Answering a stream once would look like it worked and then deliver
-                        // nothing
-                        // ever again. The watcher's own Subscribe refuses the same way.
+                        // nothing ever again. The watcher's own Subscribe refuses the same way.
                         throw new VarlinkException(
                                 INTERFACE + ".StreamRequired", Map.of("method", "Prompts"));
                     }
@@ -264,10 +254,8 @@ final class EgressMethods {
                     final Path clearance = clearanceSocket(context, task);
                     if (clearance == null) {
                         // A task that is not running has no watcher, so there is nobody to tell.
-                        // Said
-                        // plainly rather than accepted and dropped: an answer that goes nowhere
-                        // leaves
-                        // the operator believing they unblocked something.
+                        // Said plainly rather than accepted and dropped: an answer that goes
+                        // nowhere leaves the operator believing they unblocked something.
                         throw new VarlinkException(
                                 INTERFACE + ".NoClearance", Map.of("task", task));
                     }

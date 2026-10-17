@@ -20,8 +20,8 @@ class CpuStealTest {
     void saysWhatShareOfTheTimeBetweenTwoReadingsWasStolen() {
 
         // A build on a leased machine took five times its usual time with its threads busy
-        // (2026-10-17), and the log
-        // could not say whether the host had taken the CPUs: the share stolen is what says it.
+        // (2026-10-17), and the log could not say whether the host had taken the CPUs: the share
+        // stolen is what says it.
         final CpuSteal before = CpuSteal.parse(BEFORE);
         final CpuSteal after = CpuSteal.parse(AFTER);
 

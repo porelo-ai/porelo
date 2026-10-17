@@ -90,8 +90,8 @@ public final class InstallablePackages {
      */
     public List<Installable> list() {
         final Map<String, Installable> found = new LinkedHashMap<>();
-        // Agents first, then transports, and in that order on purpose: it is the order a person
-        // is asked to choose in, and Map.of would have decided it by hash.
+        // Agents first, then transports, and in that order on purpose: it is the order a person is
+        // asked to choose in, and Map.of would have decided it by hash.
         for (final List<String> kind :
                 List.of(
                         List.of(PROVIDES_AGENT, AGENT),

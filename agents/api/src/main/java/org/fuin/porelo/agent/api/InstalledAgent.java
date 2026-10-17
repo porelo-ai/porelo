@@ -100,8 +100,8 @@ public class InstalledAgent implements AutoCloseable {
             this.definition = bounded(this::handshake);
         } catch (RuntimeException ex) {
             // Everything it left goes, and the failure is the agent's: as a VarlinkException it
-            // escaped the list, which
-            // threw the whole lookup away and left the agents started before it running.
+            // escaped the list, which threw the whole lookup away and left the agents started
+            // before it running.
             process.destroyForcibly();
             if (opened != null) {
                 try {
@@ -167,8 +167,8 @@ public class InstalledAgent implements AutoCloseable {
             final long deadline =
                     System.nanoTime() + TimeUnit.SECONDS.toNanos(READY_TIMEOUT_SECONDS);
             // Character by character, only what is there: a whole line was read once anything was
-            // ready, and an
-            // adapter that printed a word with no line end and hung held every task start for ever.
+            // ready, and an adapter that printed a word with no line end and hung held every task
+            // start for ever.
             final StringBuilder line = new StringBuilder();
             while (System.nanoTime() < deadline) {
                 while (reader.ready()) {
@@ -199,10 +199,10 @@ public class InstalledAgent implements AutoCloseable {
                     exited = true;
                     break;
                 }
-                // Sleeping, not spinning. This was 'Thread.onSpinWait()', which burns a core for
-                // as long as the agent takes to answer - up to the whole timeout for one that
-                // hangs, on every launch and for every agent asked. A millisecond costs nothing
-                // against a process that is starting and bounds the waste at a thousand wakeups.
+                // Sleeping, not spinning. This was 'Thread.onSpinWait()', which burns a core for as
+                // long as the agent takes to answer - up to the whole timeout for one that hangs,
+                // on every launch and for every agent asked. A millisecond costs nothing against a
+                // process that is starting and bounds the waste at a thousand wakeups.
                 try {
                     Thread.sleep(1);
                 } catch (InterruptedException ex) {
@@ -225,9 +225,9 @@ public class InstalledAgent implements AutoCloseable {
 
         process.destroyForcibly();
 
-        // A binary that died immediately and one that hung are different problems, and saying
-        // "did not become ready within 10 seconds" about the first sends an operator looking for
-        // a slow agent when they have a crashing one.
+        // A binary that died immediately and one that hung are different problems, and saying "did
+        // not become ready within 10 seconds" about the first sends an operator looking for a slow
+        // agent when they have a crashing one.
         if (exited) {
             throw new AgentException(
                     executable

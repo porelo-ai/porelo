@@ -60,9 +60,9 @@ class ProcessHardeningTest {
     @Test
     void aJvmMainThreadIsNotTheThreadGroupLeader() {
 
-        // This is the C5 finding, pinned as a test: on a JVM, prctl from this thread does not
-        // cover the process. If this ever passes on a JVM the native-image requirement can be
-        // revisited; until then it is why the shipped binaries are native images.
+        // This is the C5 finding, pinned as a test: on a JVM, prctl from this thread does not cover
+        // the process. If this ever passes on a JVM the native-image requirement can be revisited;
+        // until then it is why the shipped binaries are native images.
         assertThat(ProcessHardening.appliesToWholeProcess()).isFalse();
     }
 }

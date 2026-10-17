@@ -29,8 +29,8 @@ public abstract class YamlAgent implements Agent {
         this.definition =
                 AgentDefinitionReader.fromResource(getClass(), "/agent/" + name + ".yaml");
         if (!this.definition.name().equals(name)) {
-            // Otherwise an agent could be discovered under one name and describe itself as
-            // another, and the roster would disagree with the file it came from.
+            // Otherwise an agent could be discovered under one name and describe itself as another,
+            // and the roster would disagree with the file it came from.
             throw new AgentException(
                     "Agent '"
                             + name

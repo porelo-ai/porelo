@@ -79,9 +79,8 @@ class InstalledBuildReaderTest {
     void startsAReaderAgainWhoseProcessEndedSoTheNextQuestionIsAnswered() throws IOException {
 
         // A reader that did not answer within its limit is killed, and the watch tries again later:
-        // with the same
-        // ended reader, every later round said "Porelo cannot read builds" until the task was
-        // started again.
+        // with the same ended reader, every later round said "Porelo cannot read builds" until the
+        // task was started again.
         try (InstalledBuildReader reader =
                 new InstalledBuildReader(java(FakeReader.class), "fake", socket())) {
             assertThatThrownBy(() -> reader.look(TARGET, "x".repeat(40), Build.Logs.FAILURE))
@@ -95,8 +94,7 @@ class InstalledBuildReaderTest {
     void handsOverTheMostJobsWithTheirLogsInOneAnswer() throws IOException {
 
         // Fifty full logs are 4.4 MB in base64, past the 4 MiB a varlink message may hold: the
-        // answer was refused
-        // in every round, for as long as the commit was watched.
+        // answer was refused in every round, for as long as the commit was watched.
         try (InstalledBuildReader reader =
                 new InstalledBuildReader(java(FakeReader.class), "fake", socket())) {
             final Build build = reader.look(TARGET, "m".repeat(40), Build.Logs.ALL);

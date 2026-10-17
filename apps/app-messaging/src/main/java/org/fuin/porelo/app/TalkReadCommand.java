@@ -56,9 +56,8 @@ public class TalkReadCommand implements Callable<Integer>, PoreloFactory.Context
         return switch (held.outcome()) {
             case FOUND -> {
                 // Every field through 'shown': none of it was cleared by anybody, and a terminal
-                // that
-                // interprets what a held message carries has let the message act before a person
-                // decided.
+                // that interprets what a held message carries has let the message act before a
+                // person decided.
                 out.println("message   " + shown(held.message()));
                 out.println("standing  " + held.standing());
                 if (!held.direction().isEmpty()) {

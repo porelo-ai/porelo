@@ -30,9 +30,8 @@ class BackgroundPassTest {
     void noneOfTheDaemonsPassesStartsOnAVirtualThread() throws Exception {
 
         // Four passes, each started where it lives. A virtual one pinned in a native call took a
-        // carrier from the
-        // socket's calls; two of them on a two-CPU machine took both, and the daemon answered
-        // nothing.
+        // carrier from the socket's calls; two of them on a two-CPU machine took both, and the
+        // daemon answered nothing.
         for (final String pass : List.of("ConfigurationWatch", "UpstreamWatch", "MessageWatch")) {
             // In whichever area module holds it: the package is one, its sources are in several.
             final Path file;

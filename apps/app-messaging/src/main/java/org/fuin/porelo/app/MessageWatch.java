@@ -351,10 +351,9 @@ public final class MessageWatch implements AutoCloseable {
             return null;
         }
         // Each pass, every mailbox again: one made after the watch started announced its directory
-        // before its outbox
-        // existed, so the watch on it failed then and was never tried again - and its agent's
-        // answers waited for this
-        // timer, a minute. Registering a directory twice is the same watch.
+        // before its outbox existed, so the watch on it failed then and was never tried again - and
+        // its agent's answers waited for this timer, a minute. Registering a directory twice is the
+        // same watch.
         if (watcher != null) {
             mailboxes.forEach(this::watch);
         }
@@ -412,8 +411,8 @@ public final class MessageWatch implements AutoCloseable {
         // time.
         VaultCache.hold();
         // The waiting polls at once, without a pass: started by the first pass, which waits an
-        // interval on purpose, a
-        // person's first word after the daemon came up waited for it too (2026-10-04).
+        // interval on purpose, a person's first word after the daemon came up waited for it too
+        // (2026-10-04).
         BackgroundPass.start(
                 "porelo-conversations",
                 () -> {
@@ -482,8 +481,8 @@ public final class MessageWatch implements AutoCloseable {
         }
         try {
             // Made here when it is not there yet: on a fresh account it came with the first task,
-            // after the daemon's
-            // start, and nothing was ever noticed - every message waited for the timed pass.
+            // after the daemon's start, and nothing was ever noticed - every message waited for the
+            // timed pass.
             Files.createDirectories(root);
             watcher = root.getFileSystem().newWatchService();
             register(root);
@@ -522,8 +521,8 @@ public final class MessageWatch implements AutoCloseable {
                 Thread.currentThread().interrupt();
                 return;
             }
-            // A new mailbox brings two more directories to watch, and nothing else here would
-            // ever look at it again.
+            // A new mailbox brings two more directories to watch, and nothing else here would ever
+            // look at it again.
             for (final java.nio.file.WatchEvent<?> event : key.pollEvents()) {
                 if (key.watchable() instanceof Path directory
                         && event.context() instanceof Path name
@@ -551,11 +550,9 @@ public final class MessageWatch implements AutoCloseable {
     private void watch(final Path mailbox) {
         final Mailbox box = new Mailbox(mailbox);
         // And accepted/, where a person's release puts a held message back: it went out only at the
-        // next minute's pass
-        // (walk 10, 2026-10-04).
-        // And person/, where 'porelo talk say' writes a person's message: unwatched, it went only
-        // with whatever pass
-        // came next, up to the timed one.
+        // next minute's pass (walk 10, 2026-10-04). And person/, where 'porelo talk say' writes a
+        // person's message: unwatched, it went only with whatever pass came next, up to the timed
+        // one.
         for (final Path directory :
                 List.of(box.outboxNew(), box.inbound(), box.accepted(), box.person())) {
             try {
@@ -563,9 +560,8 @@ public final class MessageWatch implements AutoCloseable {
             } catch (final IOException | RuntimeException ex) {
                 // A mailbox that cannot be watched is one the timer still reaches. Refusing to
                 // watch anything because one directory is missing would be worse; saying nothing
-                // left a person
-                // wondering why its messages took a minute, as when the machine's inotify watches
-                // run out.
+                // left a person wondering why its messages took a minute, as when the machine's
+                // inotify watches run out.
                 notWatched(directory, ex);
             }
         }
@@ -614,8 +610,7 @@ public final class MessageWatch implements AutoCloseable {
             }
         }
         // Waited for, never interrupted: a pass that is moving a message finishes the move, and
-        // only then may the
-        // caller take the mail directories away.
+        // only then may the caller take the mail directories away.
         final Thread thread = noticing;
         if (thread != null && thread != Thread.currentThread()) {
             try {
@@ -680,11 +675,9 @@ public final class MessageWatch implements AutoCloseable {
             }
         }
         // Every task of those projects on this machine takes part, not only the ones this pass
-        // moves: what arrives in a
-        // conversation is for whichever task it names. A pass for one task handed out to that task
-        // alone, so a message
-        // for its peer named nobody here and was deleted - lost after the transport had delivered
-        // it.
+        // moves: what arrives in a conversation is for whichever task it names. A pass for one task
+        // handed out to that task alone, so a message for its peer named nobody here and was
+        // deleted - lost after the transport had delivered it.
         final java.util.Set<Path> taking = new java.util.LinkedHashSet<>(mailboxes);
         final Path all = context.paths().messaging().mailbox("porelo-x-x").getParent();
         if (all != null && Files.isDirectory(all)) {
@@ -1056,10 +1049,9 @@ public final class MessageWatch implements AutoCloseable {
                 continue;
             }
             // Through the project's conversation, on whichever transport keeps it: a person in it
-            // sees what the
-            // tasks say to each other. A project without one is standalone - its tasks do not
-            // message each
-            // other at all (decided on 2026-09-30, when the local transport was retired).
+            // sees what the tasks say to each other. A project without one is standalone - its
+            // tasks do not message each other at all (decided on 2026-09-30, when the local
+            // transport was retired).
             final java.util.Set<String> conversations = project.mail().conversations();
             if (conversations.isEmpty()) {
                 break;

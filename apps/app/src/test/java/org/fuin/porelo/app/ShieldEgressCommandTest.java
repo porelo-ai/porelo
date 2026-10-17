@@ -141,8 +141,8 @@ class ShieldEgressCommandTest {
     @Test
     void saysWhatAChangeOpensBeforeItIsSaved(@TempDir Path dir) throws IOException {
 
-        // In hosts, not in set names: a set is a name for several hosts, and an operator adding
-        // one is entitled to see what it opens.
+        // In hosts, not in set names: a set is a name for several hosts, and an operator adding one
+        // is entitled to see what it opens.
         installSets(dir);
         final String file = project(dir, "guarded", "");
 
@@ -320,8 +320,8 @@ class ShieldEgressCommandTest {
     @Test
     void listsHostsInTheOrderTheirSourceWasConsulted(@TempDir Path dir) throws IOException {
 
-        // A report whose order changes between runs cannot be diffed against yesterday's, and
-        // these are grouped by the set that granted them so an operator can see what a set is.
+        // A report whose order changes between runs cannot be diffed against yesterday's, and these
+        // are grouped by the set that granted them so an operator can see what a set is.
         installSets(dir);
         final String file = project(dir, "guarded", "");
 

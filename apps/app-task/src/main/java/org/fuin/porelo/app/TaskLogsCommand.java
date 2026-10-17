@@ -138,9 +138,9 @@ public class TaskLogsCommand implements Callable<Integer>, PoreloFactory.Context
 
         final List<TaskInventory.Log> logs = new TaskInventory(context).logs(container);
 
-        // A name of the right shape that names nothing is not a task with no logs. Reported:
-        // 'task logs porelo-does-not' answered "either nothing wrote one, or the machine has
-        // restarted", which describes a task that exists - about one that never did.
+        // A name of the right shape that names nothing is not a task with no logs. Reported: 'task
+        // logs porelo-does-not' answered "either nothing wrote one, or the machine has restarted",
+        // which describes a task that exists - about one that never did.
         //
         // Existing OR having logs, not existing alone: a container somebody removed by hand can
         // leave its state directory behind, and those logs are worth reading precisely then.
@@ -173,8 +173,8 @@ public class TaskLogsCommand implements Callable<Integer>, PoreloFactory.Context
 
         if (log == null) {
             if (logs.isEmpty()) {
-                // Two different reasons, and neither is an error: a task that started nothing
-                // worth logging, or one whose state directory went with a restart.
+                // Two different reasons, and neither is an error: a task that started nothing worth
+                // logging, or one whose state directory went with a restart.
                 out.println(
                         "no logs for "
                                 + container
@@ -198,9 +198,9 @@ public class TaskLogsCommand implements Callable<Integer>, PoreloFactory.Context
             return 0;
         }
 
-        // Only a name this task actually has. Not a path check with an exception for '..' - the
-        // set of legal answers is known, so anything outside it is refused without reasoning
-        // about traversal at all.
+        // Only a name this task actually has. Not a path check with an exception for '..' - the set
+        // of legal answers is known, so anything outside it is refused without reasoning about
+        // traversal at all.
         if (logs.stream().noneMatch(each -> each.name().equals(log))) {
             err.println("porelo: " + container + " has no log called " + log);
             if (!logs.isEmpty()) {
@@ -250,18 +250,17 @@ public class TaskLogsCommand implements Callable<Integer>, PoreloFactory.Context
             return print(file, 0, out);
         }
         if (size == from) {
-            // Not a correctness guard, and no test can tell it from its absence: reading zero
-            // bytes prints nothing either way. It is here so that following an idle log does not
-            // open and close a channel twice a second for as long as somebody watches it.
+            // Not a correctness guard, and no test can tell it from its absence: reading zero bytes
+            // prints nothing either way. It is here so that following an idle log does not open and
+            // close a channel twice a second for as long as somebody watches it.
             return from;
         }
         try (var channel =
                 java.nio.channels.FileChannel.open(file, java.nio.file.StandardOpenOption.READ)) {
             channel.position(from);
             // In blocks, never the whole rest at once: a log past 2 GiB did not fit one buffer. A
-            // character cut at
-            // a block's end is carried into the next; one cut at the file's end is printed as
-            // unreadable, as before.
+            // character cut at a block's end is carried into the next; one cut at the file's end is
+            // printed as unreadable, as before.
             final java.nio.charset.CharsetDecoder decoder =
                     StandardCharsets.UTF_8
                             .newDecoder()
@@ -394,9 +393,8 @@ public class TaskLogsCommand implements Callable<Integer>, PoreloFactory.Context
         final java.io.StringWriter text = new java.io.StringWriter();
         final PrintWriter writer = new PrintWriter(text, true);
         // The same code a person runs, so the archive cannot say something the command would not.
-        // Its refusal is kept
-        // as well: a stopped task has no answer from its container, and an empty file would hide
-        // why.
+        // Its refusal is kept as well: a stopped task has no answer from its container, and an
+        // empty file would hide why.
         final int code =
                 new picocli.CommandLine(command, new PoreloFactory(context))
                         .setOut(writer)

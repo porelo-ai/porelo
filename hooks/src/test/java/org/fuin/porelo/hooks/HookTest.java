@@ -174,8 +174,8 @@ class HookTest {
     void anErrorIsWrittenDownAndAnsweredLikeAnyFailure(@TempDir Path dir) throws IOException {
 
         // Only an Exception was caught: an Error - a class that did not initialise, a stack that
-        // overflowed - left
-        // nothing in the log, and refused the container even for a hook that only reports.
+        // overflowed - left nothing in the log, and refused the container even for a hook that only
+        // reports.
         assertThat(execute(new Erring(false), state(sidecarFile(dir).toString()))).isZero();
         assertThat(execute(new Erring(true), state(sidecarFile(dir).toString()))).isEqualTo(1);
         assertThat(Files.readString(dir.resolve("hooks.log"))).contains("failed");

@@ -88,8 +88,8 @@ public class VaultUnlockCommand implements Callable<Integer>, PoreloFactory.Cont
         }
         final long amount = Long.parseLong(matcher.group(1));
         if (amount == 0) {
-            // Zero would be a key the kernel discards at once, which reads as "unlock did
-            // nothing" - and somebody who means that has 'vault lock'.
+            // Zero would be a key the kernel discards at once, which reads as "unlock did nothing"
+            // - and somebody who means that has 'vault lock'.
             throw new IllegalArgumentException(
                     "'--for 0"
                             + matcher.group(2)
@@ -166,9 +166,8 @@ public class VaultUnlockCommand implements Callable<Integer>, PoreloFactory.Cont
         final PassphraseTiers tiers =
                 new PassphraseTiers(
                         // Strongest first: a TPM-sealed credential beats a password manager, which
-                        // beats
-                        // typing. The keyring itself is not in this list - it is what is being
-                        // filled.
+                        // beats typing. The keyring itself is not in this list - it is what is
+                        // being filled.
                         new SystemdCredential(runner, systemdCredential),
                         new CommandPassphrase(runner, passphraseCommand),
                         new ConsolePassphrase("Vault passphrase: "));

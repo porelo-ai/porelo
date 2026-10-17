@@ -92,10 +92,9 @@ public class ReadySteps {
         final String container = container(project, task);
         final Steady steady = new Steady(ready.text(), STEADY);
         // The agent's bound counts from its session existing, not from the step: before that the
-        // task is
-        // still being built and started, which the agent has no say in - measured, a first image
-        // build
-        // took most of a 30-second bound. Until then a start may take what any start may.
+        // task is still being built and started, which the agent has no say in - measured, a first
+        // image build took most of a 30-second bound. Until then a start may take what any start
+        // may.
         java.time.Instant deadline =
                 java.time.Instant.now().plusSeconds(LiveTaskSteps.START_SECONDS);
         boolean session = false;

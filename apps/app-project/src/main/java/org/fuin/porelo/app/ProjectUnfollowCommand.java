@@ -98,9 +98,8 @@ public class ProjectUnfollowCommand
         // the worst of both.
         ProjectDeletion.Result deleted = new ProjectDeletion(context).delete(name, dryRun, force);
         // What a refusal would tell a person to do first is offered instead, and the removal tried
-        // again after it:
-        // at most once per kind of refusal, so a remedy that did not help ends in that refusal
-        // rather than a loop.
+        // again after it: at most once per kind of refusal, so a remedy that did not help ends in
+        // that refusal rather than a loop.
         final Offer offer =
                 dryRun || noInput || asker == Offer.Asker.NOBODY
                         ? Offer.NOBODY
@@ -131,8 +130,8 @@ public class ProjectUnfollowCommand
             if (force) {
                 // With --force this is the one command a cleanup trap can run blind: a trap fires
                 // after a failure, which is exactly when nobody knows how far the setup got.
-                // Removing nothing is a success, not an error - anything else makes a script
-                // guard a command whose whole purpose is to be the guard.
+                // Removing nothing is a success, not an error - anything else makes a script guard
+                // a command whose whole purpose is to be the guard.
                 out.println("nothing of " + name + " is here");
                 out.flush();
                 return 0;
@@ -179,8 +178,8 @@ public class ProjectUnfollowCommand
                                 ? "would remove " + name + ", which this account does not follow"
                                 : "would remove " + name + " and stop following " + followed.url());
                 // The kind and the thing, not the record's toString: a preview that reads
-                // "Removal[kind=FOLLOWED_CLONE, what=/home/...]" is for a debugger, and this is
-                // the screen somebody decides on.
+                // "Removal[kind=FOLLOWED_CLONE, what=/home/...]" is for a debugger, and this is the
+                // screen somebody decides on.
                 deleted.removes()
                         .forEach(
                                 removal ->
@@ -190,9 +189,9 @@ public class ProjectUnfollowCommand
                                                         .toLowerCase(java.util.Locale.ROOT)
                                                         .replace('_', ' '),
                                                 removal.what()));
-                // What survives, said as plainly as what goes. Somebody deciding whether to
-                // confirm is asking both questions at once, and the one nobody answers is the one
-                // they assume the worst about.
+                // What survives, said as plainly as what goes. Somebody deciding whether to confirm
+                // is asking both questions at once, and the one nobody answers is the one they
+                // assume the worst about.
                 deleted.keeps().forEach(kept -> out.println("    kept: " + kept));
                 out.flush();
                 return 0;

@@ -93,8 +93,8 @@ class RsaKeyTest {
     @Test
     void stillReadsAnEd25519SeedWrittenBeforeAnyOfThis(@TempDir final Path dir) throws Exception {
 
-        // Every entry written until now is a seed, and nobody should have to store their key
-        // again because we learned a second format.
+        // Every entry written until now is a seed, and nobody should have to store their key again
+        // because we learned a second format.
         final Path file = keygen(dir, "id_ed25519", "-t", "ed25519");
         final String seed = OpenSshPrivateKey.seedBase64(Files.readString(file));
 
@@ -117,8 +117,8 @@ class RsaKeyTest {
     @Test
     void saysWhatToDoWithAnOpenSshWrappedRsaKey(@TempDir final Path dir) throws Exception {
 
-        // ssh-keygen writes this by default now, and it is not a format this reads. Saying the
-        // one command that converts it is worth more than a parser nobody asked for.
+        // ssh-keygen writes this by default now, and it is not a format this reads. Saying the one
+        // command that converts it is worth more than a parser nobody asked for.
         final Path file = keygen(dir, "id_rsa_new", "-t", "rsa", "-b", "2048");
 
         assertThatThrownBy(() -> StoredKey.of(Files.readString(file), "new@style"))

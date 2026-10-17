@@ -119,10 +119,10 @@ class GateCheckCommandTest {
     @Test
     void aFirstPushIsNotCancelledOutByTheVeryRefBeingPushed(@TempDir Path root) throws Exception {
 
-        // The regression this whole method was rewritten for. "--not --all" reads as "everything
-        // no other ref has", but the ref being pushed is one of --all, so it subtracts itself and
-        // answers nothing - a check that installs, runs, and never fires. Measured: 0 commits
-        // where three are leaving.
+        // The regression this whole method was rewritten for. "--not --all" reads as "everything no
+        // other ref has", but the ref being pushed is one of --all, so it subtracts itself and
+        // answers nothing - a check that installs, runs, and never fires. Measured: 0 commits where
+        // three are leaving.
         final Path work = repository(root);
         commit(work, "one.txt", AGENT, "one");
         final String head = git(work, "rev-parse", "HEAD");
@@ -148,8 +148,8 @@ class GateCheckCommandTest {
         // git tells a hook which remote it is pushing to, and taking that name is what keeps the
         // answer honest with more than one. Here origin already has the first commit and the fork
         // has nothing, so a push to the fork is sending both - and a check that subtracted every
-        // remote instead of the named one would report one commit and wave the other through.
-        // With a single remote the two forms agree, which is why this fixture has two.
+        // remote instead of the named one would report one commit and wave the other through. With
+        // a single remote the two forms agree, which is why this fixture has two.
         final Path work = repository(root);
         commit(work, "old.txt", AGENT, "already on origin");
         git(
@@ -189,8 +189,8 @@ class GateCheckCommandTest {
     void aPushOverACommitThisCloneNeverHadIsStillChecked(@TempDir Path root) throws Exception {
 
         // A force push, or one made without fetching, hands the hook a far side's commit this clone
-        // lacks: git could
-        // not count the range, the check found nothing, and the agent's commits left unasked.
+        // lacks: git could not count the range, the check found nothing, and the agent's commits
+        // left unasked.
         final Path work = repository(root);
         commit(work, "theirs.txt", AGENT, "the agent's");
         final String head = git(work, "rev-parse", "HEAD");
@@ -230,11 +230,11 @@ class GateCheckCommandTest {
     @Test
     void deletingABranchAsksGitNothingAtAll(@TempDir Path root) throws Exception {
 
-        // A deletion has forty zeros on the local side. Asserting only that nothing is found
-        // proves nothing: take the guard away and git fails on the zeros, the failure reads as
-        // "no commits", and the test still passes. What the guard is for is that a deletion is
-        // recognised rather than handed to git as a question it can only answer with an error -
-        // so what is asserted is that no command is run.
+        // A deletion has forty zeros on the local side. Asserting only that nothing is found proves
+        // nothing: take the guard away and git fails on the zeros, the failure reads as "no
+        // commits", and the test still passes. What the guard is for is that a deletion is
+        // recognised rather than handed to git as a question it can only answer with an error - so
+        // what is asserted is that no command is run.
         final Path work = repository(root);
         commit(work, "one.txt", AGENT, "one");
         final String head = git(work, "rev-parse", "HEAD");
@@ -264,8 +264,7 @@ class GateCheckCommandTest {
     void anAuthorSurvivesARebaseSoTheCheckStillSeesIt(@TempDir Path root) throws Exception {
 
         // It was assumed an author is "easy to lose in a rebase", and proposed to rewrite commits
-        // at
-        // approval time to carry a trailer instead. Measured here rather than assumed: a rebase
+        // at approval time to carry a trailer instead. Measured here rather than assumed: a rebase
         // changes the committer and keeps the author, so the cheap signal is the durable one and
         // nothing has to be rewritten.
         final Path work = repository(root);
@@ -294,9 +293,9 @@ class GateCheckCommandTest {
     @Test
     void twoRefsSharingHistoryNameACommitOnce(@TempDir Path root) throws Exception {
 
-        // Pushing a branch and a tag of the same tip hands the hook two lines. Counting the
-        // commit twice would report "2 commits" for one, and nothing on screen would let somebody
-        // tell that from two real ones.
+        // Pushing a branch and a tag of the same tip hands the hook two lines. Counting the commit
+        // twice would report "2 commits" for one, and nothing on screen would let somebody tell
+        // that from two real ones.
         final Path work = repository(root);
         commit(work, "one.txt", AGENT, "one");
         final String head = git(work, "rev-parse", "HEAD");

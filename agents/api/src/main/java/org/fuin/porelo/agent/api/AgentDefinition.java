@@ -803,8 +803,8 @@ public record AgentDefinition(
                             + "' says where its session id is but does not support resume");
         }
         if (!artifacts.isEmpty() && (version == null || version.isBlank())) {
-            // An artifact list without a version cannot answer "which version ran?" after the
-            // fact, which is half the reason for declaring the artifacts at all.
+            // An artifact list without a version cannot answer "which version ran?" after the fact,
+            // which is half the reason for declaring the artifacts at all.
             throw new AgentException(
                     "Agent '" + name + "' installs artifacts but declares no version");
         }
@@ -813,9 +813,9 @@ public record AgentDefinition(
         refusedDomains = List.copyOf(refusedDomains);
         // Checked with the same grammar a project's own egress domains are checked with, and for
         // the same reason: every one of these is written verbatim into a dnsmasq 'server=' or
-        // 'nftset=' line and into the firewall's allow sets. A value carrying a newline, a slash
-        // or a comment character is not a bad host name there - it is additional configuration,
-        // in the file that decides what a container may reach.
+        // 'nftset=' line and into the firewall's allow sets. A value carrying a newline, a slash or
+        // a comment character is not a bad host name there - it is additional configuration, in the
+        // file that decides what a container may reach.
         //
         // The project side has had this from the beginning; this side had only a check that the
         // allow and refuse lists did not overlap. An agent's answer arrives from a program, and a

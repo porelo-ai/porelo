@@ -264,8 +264,7 @@ public final class EgressControl {
 
         if (DefaultProject.is(project.name())) {
             // Its settings are Porelo's and cannot be changed; an edit to its file would not even
-            // last, since it is
-            // written anew whenever it is read.
+            // last, since it is written anew whenever it is read.
             return Effect.refused(Outcome.REFUSED_BY_CLASS, DEFAULT_REFUSED);
         }
 
@@ -318,10 +317,9 @@ public final class EgressControl {
         } catch (EgressSetException ex) {
             // A set this machine does not have, whether the change added it or the file already
             // named one. Refused before anything is written: the file would otherwise name
-            // something no task here could resolve, and every run would fail on it rather than
-            // this one call. Checked by resolving rather than by a second look-up beside it -
-            // deleting that look-up changed no behavior, which is how it was found to be
-            // redundant.
+            // something no task here could resolve, and every run would fail on it rather than this
+            // one call. Checked by resolving rather than by a second look-up beside it - deleting
+            // that look-up changed no behavior, which is how it was found to be redundant.
             return Effect.refused(Outcome.NO_SUCH_SET, CliErrors.reason(ex));
         }
 

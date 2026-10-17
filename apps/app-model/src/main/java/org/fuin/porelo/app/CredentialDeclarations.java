@@ -146,8 +146,8 @@ public final class CredentialDeclarations {
                         "",
                         "nothing authenticates to " + url + " - it is a path on this machine");
             }
-            // Nothing declared, but the names a git URL implies may still hold something: a
-            // machine that has never written a registry is the ordinary case, not a broken one.
+            // Nothing declared, but the names a git URL implies may still hold something: a machine
+            // that has never written a registry is the ordinary case, not a broken one.
             final Map<String, org.fuin.porelo.vault.VaultEntry> held =
                     context.readableCredentials().orElse(null);
             if (held == null) {
@@ -252,8 +252,8 @@ public final class CredentialDeclarations {
                                     + " and this account's vault is shut");
                 }
                 if (!context.vault().exists()) {
-                    // No vault at all. A readable, empty answer covers this and "the vault is
-                    // open and empty", and the two send a person to different places.
+                    // No vault at all. A readable, empty answer covers this and "the vault is open
+                    // and empty", and the two send a person to different places.
                     yield new Check(
                             Outcome.NO_VAULT,
                             declared,
@@ -348,9 +348,9 @@ public final class CredentialDeclarations {
                             + credential.id()
                             + "'");
         }
-        // The same question the check asks of a destination, asked of the record as it would be:
-        // is the value actually there. One implementation, so a dry run cannot answer differently
-        // from the thing it stands for.
+        // The same question the check asks of a destination, asked of the record as it would be: is
+        // the value actually there. One implementation, so a dry run cannot answer differently from
+        // the thing it stands for.
         final Check about = check(credential.match(), credential.purpose());
         if (about.outcome() == Outcome.READY || about.credential() == null) {
             return new Check(

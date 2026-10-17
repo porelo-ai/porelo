@@ -163,10 +163,8 @@ class VaultProxyTest {
             throws IOException {
 
         // Measured on 2026-09-30 after a finding elsewhere: an agent that compresses its requests
-        // (Content-Encoding:
-        // zstd) failed at a broker that decoded bodies. This one only swaps the credential header,
-        // so the body goes
-        // on as the same bytes, its coding named as it was.
+        // (Content-Encoding: zstd) failed at a broker that decoded bodies. This one only swaps the
+        // credential header, so the body goes on as the same bytes, its coding named as it was.
         final Path socket = dir.resolve("vault.sock");
         // A real frame now: the broker reads a zstd body for a token grant, and refuses one that
         // does not decode.
@@ -293,8 +291,7 @@ class VaultProxyTest {
             throws IOException {
 
         // The pattern read the raw bytes, so an encoding of the same words - a form's %5F, a JSON
-        // escape - went out
-        // with the real credential attached.
+        // escape - went out with the real credential attached.
         final Path socket = dir.resolve("vault.sock");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
 
@@ -350,9 +347,9 @@ class VaultProxyTest {
     void refusesAClientCredentialsGrantForTheSameReason(@TempDir Path dir) throws IOException {
 
         // The refusal began as refresh_token alone, and the reason written beside it - forwarding
-        // attaches the real credential to a request whose answer is a new one - is exactly as
-        // true of client_credentials. Reported as latent: no supported provider mints this way,
-        // so nothing reached it, and it was one pattern away from being reachable.
+        // attaches the real credential to a request whose answer is a new one - is exactly as true
+        // of client_credentials. Reported as latent: no supported provider mints this way, so
+        // nothing reached it, and it was one pattern away from being reachable.
         final Path socket = dir.resolve("vault.sock");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
 
@@ -540,8 +537,8 @@ class VaultProxyTest {
     @Test
     void streamsTheAnswerBackRatherThanBufferingIt(@TempDir Path dir) throws IOException {
 
-        // A completion arrives as server-sent events. The body must come back chunked, or the
-        // agent shows nothing until the answer is complete.
+        // A completion arrives as server-sent events. The body must come back chunked, or the agent
+        // shows nothing until the answer is complete.
         responseBody.set("data: {\"delta\":\"one\"}\n\ndata: {\"delta\":\"two\"}\n\n");
         final Path socket = dir.resolve("vault.sock");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
@@ -566,10 +563,9 @@ class VaultProxyTest {
             throws Exception {
 
         // An MCP server over HTTP answers in server-sent events and may send one small event and
-        // then wait - a
-        // notification stream, a progress event. The answer was held until 8 KiB had arrived, so
-        // the agent saw nothing
-        // while the server waited. Its session header has to cross both ways as well.
+        // then wait - a notification stream, a progress event. The answer was held until 8 KiB had
+        // arrived, so the agent saw nothing while the server waited. Its session header has to
+        // cross both ways as well.
         upstream.createContext(
                 "/mcp",
                 exchange -> {
@@ -634,11 +630,10 @@ class VaultProxyTest {
     @Test
     void theDirectoryIsWhatKeepsOtherUsersOut(@TempDir Path dir) throws IOException {
 
-        // Measured: a rootless container's agent user is a subordinate uid on the host and
-        // cannot open an owner-only socket - the connect fails. So the socket is permissive and
-        // the directory is not. Asserting both, because either alone is wrong: an owner-only
-        // socket breaks every task, and a traversable directory exposes the proxy to other
-        // host users.
+        // Measured: a rootless container's agent user is a subordinate uid on the host and cannot
+        // open an owner-only socket - the connect fails. So the socket is permissive and the
+        // directory is not. Asserting both, because either alone is wrong: an owner-only socket
+        // breaks every task, and a traversable directory exposes the proxy to other host users.
         final Path socket = dir.resolve("nested").resolve("vault.sock");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
             assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(socket)))
@@ -710,13 +705,13 @@ class VaultProxyTest {
     @Test
     void withholdsACredentialFieldSpelledWithEscapes(@TempDir Path dir) throws IOException {
 
-        // "\u0061ccess_token" is the same member as "access_token" to every JSON parser and was
-        // not the same string to a literal match. Asserted here rather than only on the scanner,
+        // "\u0061ccess_token" is the same member as "access_token" to every JSON parser and was not
+        // the same string to a literal match. Asserted here rather than only on the scanner,
         // because what matters is what leaves the proxy.
         final Path socket = dir.resolve("vault.sock");
         // Every watched name in this answer is escaped. An earlier version of this test also
-        // carried a plain "refresh_token", which made it pass against a literal matcher too -
-        // it was asserting the scan worked while testing nothing about escapes.
+        // carried a plain "refresh_token", which made it pass against a literal matcher too - it
+        // was asserting the scan worked while testing nothing about escapes.
         responseBody.set(
                 "{\"\\u0061ccess_token\":\"sk-live-ESCAPED\","
                         + "\"\\u0072efresh_token\":\"rt-esc\"}");
@@ -735,10 +730,9 @@ class VaultProxyTest {
     @Test
     void cutsOffACredentialThatArrivesAfterTheStreamedPrefix(@TempDir Path dir) throws IOException {
 
-        // The earlier shape scanned a bounded prefix and streamed the rest unread, and a
-        // credential past that point reached the container. The headers are already gone by
-        // then, so there is no status left to answer with: the only thing that still withholds
-        // it is to stop writing.
+        // The earlier shape scanned a bounded prefix and streamed the rest unread, and a credential
+        // past that point reached the container. The headers are already gone by then, so there is
+        // no status left to answer with: the only thing that still withholds it is to stop writing.
         final Path socket = dir.resolve("vault.sock");
         responseBody.set(filler(VaultProxy.PEEK * 3) + "\",\"access_token\":\"sk-live-LATE\"}");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
@@ -786,9 +780,9 @@ class VaultProxyTest {
     void cutsOffACredentialThatFollowsMalformedUtf8(@TempDir Path dir) throws IOException {
 
         // A provider that answers with bytes that are not valid UTF-8 must not be a way past the
-        // scan. Decoding replaces them rather than throwing, so the ASCII member name after them
-        // is still a member name - asserted rather than assumed, because "it cannot happen" was
-        // the reasoning that produced the bounded prefix.
+        // scan. Decoding replaces them rather than throwing, so the ASCII member name after them is
+        // still a member name - asserted rather than assumed, because "it cannot happen" was the
+        // reasoning that produced the bounded prefix.
         final Path socket = dir.resolve("vault.sock");
         final byte[] head = filler(VaultProxy.PEEK * 2).getBytes(StandardCharsets.UTF_8);
         final byte[] malformed = {
@@ -819,11 +813,11 @@ class VaultProxyTest {
     void cutsOffACredentialSeparatedFromItsColonByMoreWhitespaceThanIsCarried(@TempDir Path dir)
             throws IOException {
 
-        // JSON allows any amount of whitespace between a member name and its colon, and the
-        // carried tail is finite. Enough of it and the name is out of the window before the colon
-        // arrives, so neither half ever matches - valid framing, and a provider can produce it
-        // deliberately. The run is longer than one read, so at least one whole read is nothing
-        // but whitespace whatever the network does.
+        // JSON allows any amount of whitespace between a member name and its colon, and the carried
+        // tail is finite. Enough of it and the name is out of the window before the colon arrives,
+        // so neither half ever matches - valid framing, and a provider can produce it deliberately.
+        // The run is longer than one read, so at least one whole read is nothing but whitespace
+        // whatever the network does.
         final String name = "\"access_token\"";
         final Path socket = dir.resolve("vault.sock");
         responseBody.set(
@@ -848,9 +842,9 @@ class VaultProxyTest {
     @Test
     void refusesAnAnswerItCannotReadBecauseItIsCompressed(@TempDir Path dir) throws IOException {
 
-        // A gzipped body reaches the scan as compressed bytes: a member name is not absent from
-        // it, it is not *present* to be found. Streaming what cannot be judged is the same as
-        // judging it harmless, so this fails closed - and says which of the two reasons it was.
+        // A gzipped body reaches the scan as compressed bytes: a member name is not absent from it,
+        // it is not *present* to be found. Streaming what cannot be judged is the same as judging
+        // it harmless, so this fails closed - and says which of the two reasons it was.
         final Path socket = dir.resolve("vault.sock");
         responseEncoding.set("gzip");
         responseBody.set("{\"access_token\":\"sk-live-HIDDEN\"}");
@@ -870,9 +864,9 @@ class VaultProxyTest {
     @Test
     void refusesAMediaTypeTheScanDoesNotUnderstand(@TempDir Path dir) throws IOException {
 
-        // The scan looks for JSON member names. A body in some other framing may carry a
-        // credential in a shape it does not look for at all, so the type it was told decides
-        // whether it is allowed to judge at all.
+        // The scan looks for JSON member names. A body in some other framing may carry a credential
+        // in a shape it does not look for at all, so the type it was told decides whether it is
+        // allowed to judge at all.
         final Path socket = dir.resolve("vault.sock");
         responseType.set("application/octet-stream");
         try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
@@ -925,9 +919,9 @@ class VaultProxyTest {
     @Test
     void anAnswerWithNoBodyIsNotRefusedForHavingNoType(@TempDir Path dir) throws IOException {
 
-        // Nothing in an empty answer can carry a credential, and refusing one would break every
-        // 204 and every redirect - a fail-closed rule that breaks ordinary traffic gets switched
-        // off by whoever it annoys.
+        // Nothing in an empty answer can carry a credential, and refusing one would break every 204
+        // and every redirect - a fail-closed rule that breaks ordinary traffic gets switched off by
+        // whoever it annoys.
         final Path socket = dir.resolve("vault.sock");
         responseType.set(null);
         responseBody.set("");
@@ -947,8 +941,8 @@ class VaultProxyTest {
     @Test
     void refusesABodyThatDeclaresNoTypeAtAll(@TempDir Path dir) throws IOException {
 
-        // The other half of the case above: bytes with no declared type are bytes the scan has
-        // been told nothing about.
+        // The other half of the case above: bytes with no declared type are bytes the scan has been
+        // told nothing about.
         final Path socket = dir.resolve("vault.sock");
         responseType.set(null);
         responseBody.set("{\"access_token\":\"sk-live-UNDECLARED\"}");

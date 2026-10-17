@@ -25,8 +25,8 @@ class EgressPolicyTest {
 
         policy.allow("1.1.1.1");
 
-        // Adding to the live set rather than reloading the ruleset: a reload drops conntrack
-        // state and kills every connection the agent already had open.
+        // Adding to the live set rather than reloading the ruleset: a reload drops conntrack state
+        // and kills every connection the agent already had open.
         assertThat(runner.only("nft").describe())
                 .isEqualTo(
                         "podman unshare nsenter --target 4711 --net"

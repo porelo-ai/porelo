@@ -52,8 +52,8 @@ class UpstreamWatchTest {
     @Test
     void nonsenseFallsBackToTheDefaultRatherThanTurningItOff() {
 
-        // A misspelt variable that silently disabled this would be found weeks later as "the
-        // number never updates", which is the worst way to learn about a typo.
+        // A misspelt variable that silently disabled this would be found weeks later as "the number
+        // never updates", which is the worst way to learn about a typo.
         assertThat(UpstreamWatch.interval(saying("every fifteen minutes")))
                 .isEqualTo(UpstreamWatch.DEFAULT_INTERVAL);
         assertThat(UpstreamWatch.interval(saying(""))).isEqualTo(UpstreamWatch.DEFAULT_INTERVAL);

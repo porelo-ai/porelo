@@ -97,8 +97,7 @@ class ScreenFileTest {
     void whatTheAgentLeavesInsteadOfADrawingIsNotCopiedAndNothingWaits() throws Exception {
 
         // The agent's side is the agent's: a link to a file of the root's, or a pipe nobody writes,
-        // must neither be
-        // read through nor hold the copy.
+        // must neither be read through nor hold the copy.
         final Path directory = ScreenFile.prepare(state);
         final Path agents = state.resolve("agent-screen");
         final Path secret =

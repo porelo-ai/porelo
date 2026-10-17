@@ -59,8 +59,8 @@ public final class SocketRelay implements Runnable, AutoCloseable {
                 }
                 return;
             }
-            // One virtual thread per connection, like the broker: an agent opens several and a
-            // slow response on one must not stall the next.
+            // One virtual thread per connection, like the broker: an agent opens several and a slow
+            // response on one must not stall the next.
             Thread.ofVirtual().start(() -> relay(client));
         }
     }

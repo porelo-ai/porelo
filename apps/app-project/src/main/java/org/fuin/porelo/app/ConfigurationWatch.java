@@ -195,8 +195,7 @@ public final class ConfigurationWatch implements AutoCloseable {
             try {
                 final Reconcile.Result result = reconcile.run(followed);
                 // Only onto the record it read: a project unfollowed, or a first follow refused,
-                // while this fetched is
-                // not brought back.
+                // while this fetched is not brought back.
                 if (projects.writeIfUnchanged(followed, Reconcile.after(followed, result))) {
                     done.put(followed.name(), result);
                 }

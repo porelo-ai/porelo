@@ -173,10 +173,8 @@ public final class TransportSend {
                 continue;
             }
             // The room the task acts in, as every task of the project is reached through it - and a
-            // person's own chat
-            // only for an answer to what they said there; in the room a person is mentioned instead
-            // (the operator in
-            // walk 10, 2026-10-04).
+            // person's own chat only for an answer to what they said there; in the room a person is
+            // mentioned instead (the operator in walk 10, 2026-10-04).
             final String queued = Files.readString(destination, StandardCharsets.UTF_8).strip();
             final boolean person = queued.startsWith("@") && acting != null && acting.to() != null;
             final boolean direct = person && "direct".equals(via(message));
@@ -195,9 +193,8 @@ public final class TransportSend {
                                             ? queued
                                             : acting.to()));
             // Beside the message, never inside it, and only for a transport that says it takes it:
-            // an option it does
-            // not list is its 64. Written here, on the host, from the checked message - never a
-            // file a task wrote.
+            // an option it does not list is its 64. Written here, on the host, from the checked
+            // message - never a file a task wrote.
             final Path line = message.resolveSibling(name + SHOWN_SUFFIX);
             if (shows) {
                 Files.writeString(
@@ -208,8 +205,7 @@ public final class TransportSend {
                 arguments.add(line.toString());
             }
             // The task it is for, mentioned by its account, so the room shows whom it is meant for:
-            // never a person, who is
-            // reached in a direct chat, and nobody for the room's people.
+            // never a person, who is reached in a direct chat, and nobody for the room's people.
             final String mention =
                     !mentions || acting == null || direct
                             ? null

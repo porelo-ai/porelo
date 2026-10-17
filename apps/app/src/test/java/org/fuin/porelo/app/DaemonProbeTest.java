@@ -18,8 +18,7 @@ class DaemonProbeTest {
             throws Exception {
 
         // An update replaced the binaries and started nothing: the daemon went on as the old
-        // version, and nothing
-        // said so.
+        // version, and nothing said so.
         final Path socket = Files.createFile(dir.resolve("porelod.sock"));
 
         final Probe probe =

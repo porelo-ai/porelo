@@ -108,8 +108,8 @@ public class TalkKeyCommand implements Callable<Integer>, PoreloFactory.ContextA
             out.println("published " + file);
             return 0;
         } catch (final java.io.IOException ex) {
-            // Most likely somebody else got there first: the directory is sticky, so a file that
-            // is not yours cannot be replaced. That is the protection working, not a fault.
+            // Most likely somebody else got there first: the directory is sticky, so a file that is
+            // not yours cannot be replaced. That is the protection working, not a fault.
             err.println("porelo: cannot write " + file + " - " + ex.getMessage());
             if (java.nio.file.Files.exists(file)) {
                 err.println(

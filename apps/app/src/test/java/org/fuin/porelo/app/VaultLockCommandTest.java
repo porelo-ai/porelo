@@ -85,8 +85,8 @@ class VaultLockCommandTest {
     @Test
     void refusesAPassphraseThatDoesNotOpenTheVault(@TempDir Path dir) {
 
-        // Caching an unverified passphrase moves the failure to the next command, where a wrong
-        // one reads as a corrupt store rather than as a typo.
+        // Caching an unverified passphrase moves the failure to the next command, where a wrong one
+        // reads as a corrupt store rather than as a typo.
         assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
 
         final PoreloContext context = context(dir);
@@ -111,8 +111,8 @@ class VaultLockCommandTest {
     @Test
     void lockingWhenNothingIsCachedIsNotAFailure(@TempDir Path dir) {
 
-        // The wanted state is "not cached", and it already holds; failing would stop a script
-        // that locks on its way out.
+        // The wanted state is "not cached", and it already holds; failing would stop a script that
+        // locks on its way out.
         assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
 
         assertThat(execute(context(dir), "vault", "lock")).isEqualTo(0);
@@ -123,8 +123,8 @@ class VaultLockCommandTest {
     void lockingForgetsADevicesHeldShareTooSoNothingOpensTheVaultAfterwards(@TempDir Path dir) {
 
         // Measured on the shared VM: an interface enrolled as a device held its share here, 'lock'
-        // said
-        // "locked", and every command - a restarted task's start included - still opened the vault.
+        // said "locked", and every command - a restarted task's start included - still opened the
+        // vault.
         assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
 
         final PoreloContext context = context(dir);

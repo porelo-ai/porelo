@@ -76,8 +76,8 @@ final class ClearanceWiring {
                                 "shield",
                                 "watch",
                                 // What the prompt shows. A container name carries a pid and
-                                // identifies nothing
-                                // an operator recognizes; project and task are what they chose.
+                                // identifies nothing an operator recognizes; project and task are
+                                // what they chose.
                                 "--project",
                                 project,
                                 "--task",
@@ -89,9 +89,8 @@ final class ClearanceWiring {
                                 "--socket",
                                 state.resolve("clearance.sock").toString(),
                                 // Outside the state directory on purpose: this one has to survive
-                                // the task it
-                                // records, and a resumed watcher reads it back so nothing is asked
-                                // twice.
+                                // the task it records, and a resumed watcher reads it back so
+                                // nothing is asked twice.
                                 "--journal",
                                 context.paths().tasks().clearanceJournal(container).toString(),
                                 "--pid-file",
@@ -162,8 +161,8 @@ final class ClearanceWiring {
             out.println("clearance " + mode + ", log at " + state.resolve("clearance.log"));
             out.flush();
         } catch (java.io.IOException ex) {
-            // Losing the prompt costs recourse, not containment: the firewall keeps dropping
-            // either way. Saying so beats failing a task that may not need it.
+            // Losing the prompt costs recourse, not containment: the firewall keeps dropping either
+            // way. Saying so beats failing a task that may not need it.
             err.println("porelo: could not start the clearance watcher: " + ex.getMessage());
             err.flush();
         }

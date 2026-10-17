@@ -48,8 +48,8 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
 
     @Override
     public List<String> candidates() {
-        // Every task: this reads and changes nothing, so there is no state a task could be in
-        // that makes asking about it the wrong thing to do.
+        // Every task: this reads and changes nothing, so there is no state a task could be in that
+        // makes asking about it the wrong thing to do.
         return TaskCandidates.all(context);
     }
 
@@ -142,8 +142,8 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
                 task.derived().session().isEmpty()
                         ? null
                         : task.derived().session() + " - the next start continues it");
-        // Both: the age is what somebody is asking, and the instant is what they would quote
-        // in a report or compare against something else.
+        // Both: the age is what somebody is asking, and the instant is what they would quote in a
+        // report or compare against something else.
         final String age = Age.compact(task.since(), java.time.Instant.now());
         line(
                 out,
@@ -154,8 +154,8 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
                                 + " ago"
                                 + (task.since().isBlank() ? "" : "  (" + task.since() + ")"));
         line(out, "helpers", String.valueOf(task.helpers()));
-        // 'off' is the one clearance value that has to be visible wherever a task is: nothing
-        // asks and nothing is refused. It is the other thing on this page worth a colour.
+        // 'off' is the one clearance value that has to be visible wherever a task is: nothing asks
+        // and nothing is refused. It is the other thing on this page worth a colour.
         line(
                 out,
                 "clearance",
@@ -168,8 +168,7 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
         line(out, "workspace", workspace(task));
         line(out, "prompt", task.prompt());
         // What was handed to it, from the record: name, size, by whom - so a person returning to a
-        // task sees what
-        // it was given without going in and looking.
+        // task sees what it was given without going in and looking.
         for (final HandIns.HandedFile file : task.handIns().files()) {
             line(
                     out,
@@ -265,8 +264,8 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
                         ? new TaskControl(context).heldBy(task.name())
                         : UnhandedWork.read(context.paths().tasks().containerState(task.name()));
         if (!held.readable()) {
-            // Not "nothing": nothing would read as nothing to lose, and what is true is that
-            // nobody could look.
+            // Not "nothing": nothing would read as nothing to lose, and what is true is that nobody
+            // could look.
             return warn("cannot be read - the task is stopped and left no record");
         }
         final String phrase = held.phrase();
@@ -310,8 +309,8 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
     private static void line(
             PrintWriter out, String name, @org.jspecify.annotations.Nullable String value) {
         // Absent fields are left out rather than printed as "-". This is a page somebody reads
-        // rather than a table they scan, and a column of dashes is noise where a short page is
-        // the point.
+        // rather than a table they scan, and a column of dashes is noise where a short page is the
+        // point.
         if (value != null && !value.isBlank()) {
             out.printf("%-10s %s%n", name, value);
         }

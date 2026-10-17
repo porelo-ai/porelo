@@ -46,8 +46,8 @@ class ProviderDefinitionReaderTest {
     void theFirstDialectDeclaredIsTheOneTheProviderIs() {
 
         // Order is meaning here, so the reader must not use a map that loses it. An agent asking
-        // for 'native' gets whichever comes first, and picking the wrong one sends the request in
-        // a format the provider does not serve at that path.
+        // for 'native' gets whichever comes first, and picking the wrong one sends the request in a
+        // format the provider does not serve at that path.
         assertThat(read(OPENROUTER).nativeDialect()).isEqualTo("openai");
         assertThat(read(OPENROUTER).pathFor(ProviderDefinition.NATIVE_DIALECT))
                 .isEqualTo("/api/v1");
@@ -115,8 +115,8 @@ class ProviderDefinitionReaderTest {
     @Test
     void refusesAProviderThatServesNothing() {
 
-        // It could never be selected, so a declaration without dialects is a mistake rather
-        // than a choice.
+        // It could never be selected, so a declaration without dialects is a mistake rather than a
+        // choice.
         assertThatThrownBy(
                         () ->
                                 read(
@@ -215,9 +215,8 @@ class ProviderDefinitionReaderTest {
             @org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
 
         // The first file to name a provider won, whatever it was called, and nothing said another
-        // was set aside: a file
-        // dropped in as 'experiment.yaml' took 'openrouter' over, and with it where the stored key
-        // goes.
+        // was set aside: a file dropped in as 'experiment.yaml' took 'openrouter' over, and with it
+        // where the stored key goes.
         final java.nio.file.Path own = java.nio.file.Files.createDirectories(dir.resolve("own"));
         final java.nio.file.Path packaged =
                 java.nio.file.Files.createDirectories(dir.resolve("packaged"));
@@ -236,8 +235,8 @@ class ProviderDefinitionReaderTest {
     @Test
     void readsTheGrantAPersonGivesOnceWithTheSettingsEveryoneShares() {
         // GitHub's device flow is the same for everybody but the client: the URLs and the scope
-        // belong to the provider,
-        // the client id to the agent that signs in, so a person types none of them.
+        // belong to the provider, the client id to the agent that signs in, so a person types none
+        // of them.
         final ProviderDefinition copilot =
                 read(
                         """

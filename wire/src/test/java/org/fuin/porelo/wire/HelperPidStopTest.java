@@ -15,8 +15,8 @@ class HelperPidStopTest {
     void aHelperIsStoppedWithTheProcessesItStartedSoNoneOutlivesItsTask(@TempDir final Path dir)
             throws Exception {
 
-        // A task's build watch was stopped through its pid file and its build reader, a process
-        // it had started, kept running for hours after the task was removed.
+        // A task's build watch was stopped through its pid file and its build reader, a process it
+        // had started, kept running for hours after the task was removed.
         final Process helper = new ProcessBuilder("sh", "-c", "sleep 300 & wait").start();
         final Path pidFile = dir.resolve("builds.pid");
         HelperPid.record(pidFile, helper.toHandle());

@@ -97,9 +97,8 @@ public class TaskResumeCommand implements Callable<Integer>, PoreloFactory.Conte
             PrintWriter err,
             @org.jspecify.annotations.Nullable Suggests suggests) {
         // Decided by TaskControl, which the daemon calls too. This renders, and asks for a shut
-        // vault at a terminal:
-        // the decision that needs it is made before anything is started, so it is simply made again
-        // once it is open.
+        // vault at a terminal: the decision that needs it is made before anything is started, so it
+        // is simply made again once it is open.
         TaskControl.Resumed result = new TaskControl(context).resume(container);
         if (result.outcome() == TaskControl.Outcome.NEEDS_VAULT) {
             context.openIfShut(true, true, err);
@@ -255,9 +254,9 @@ public class TaskResumeCommand implements Callable<Integer>, PoreloFactory.Conte
         if (result.state() != null) {
             out.println("logs      " + result.state());
         }
-        // Resume brings the task back up; it does not put anybody inside it, and a person who
-        // was told to "go back in" and got their own prompt back reasonably reads that as
-        // broken. Saying the next command is cheaper than making this command block.
+        // Resume brings the task back up; it does not put anybody inside it, and a person who was
+        // told to "go back in" and got their own prompt back reasonably reads that as broken.
+        // Saying the next command is cheaper than making this command block.
         out.println("attach    porelo task attach " + container);
         for (final String problem : result.problems()) {
             err.println("porelo: " + problem);

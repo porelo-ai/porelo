@@ -108,12 +108,12 @@ public final class BackupRecords {
                                     present ? Files.size(bundle) : 0L));
                 } catch (RuntimeException | IOException malformed) {
                     // A half-written line from a crash, or a path this platform cannot parse.
-                    // Skipping it loses one entry; failing the whole listing would hide every
-                    // other backup this project has, which is the opposite of what somebody
-                    // needs at that moment.
+                    // Skipping it loses one entry; failing the whole listing would hide every other
+                    // backup this project has, which is the opposite of what somebody needs at that
+                    // moment.
                     //
-                    // This is the only guard: a length check in front of it was removed because
-                    // the two covered for each other, so neither could be shown to matter.
+                    // This is the only guard: a length check in front of it was removed because the
+                    // two covered for each other, so neither could be shown to matter.
                     continue;
                 }
             }

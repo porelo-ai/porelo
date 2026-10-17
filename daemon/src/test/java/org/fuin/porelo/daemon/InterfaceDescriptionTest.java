@@ -72,11 +72,11 @@ class InterfaceDescriptionTest {
     @Test
     void namesNoTypeItDoesNotDeclare() throws IOException {
 
-        // A description is only worth anything if somebody can write a client from it alone, and
-        // a field whose type is named but never declared stops exactly that - the reader has to
-        // come and read this daemon's Java, which is the thing the file exists to avoid. Found
-        // worth guarding when a new named type was added for an agent's commit identity: nothing
-        // here would have noticed if it had been referenced and never written down.
+        // A description is only worth anything if somebody can write a client from it alone, and a
+        // field whose type is named but never declared stops exactly that - the reader has to come
+        // and read this daemon's Java, which is the thing the file exists to avoid. Found worth
+        // guarding when a new named type was added for an agent's commit identity: nothing here
+        // would have noticed if it had been referenced and never written down.
         final String description = PoreloDaemon.description();
         final Set<String> declared = new TreeSet<>();
         final Matcher types = TYPE.matcher(description);
@@ -130,8 +130,8 @@ class InterfaceDescriptionTest {
 
     @Test
     void servesTheDescriptionToAClientThatAsks(@TempDir Path dir) throws Exception {
-        // The point of the file is that a client can read the contract off a running daemon, so
-        // the reading is what is tested - not that the file is on the classpath.
+        // The point of the file is that a client can read the contract off a running daemon, so the
+        // reading is what is tested - not that the file is on the classpath.
         try (VarlinkServer server =
                 PoreloDaemon.serving(context(dir), dir.resolve("porelod.sock"))) {
             Thread.ofVirtual().start(server);
@@ -174,9 +174,9 @@ class InterfaceDescriptionTest {
     @Test
     void everyMethodRepliesWithAStruct() {
 
-        // Found on Authorizations, and Prompts and Talk had it too: varlink's grammar wants
-        // '-> (field: type, ...)', and a strict parser refuses '-> SomeType' - and with it the
-        // whole description.
+        // Found on Authorizations, and Prompts and Talk had it too: varlink's grammar wants '->
+        // (field: type, ...)', and a strict parser refuses '-> SomeType' - and with it the whole
+        // description.
         assertThat(
                         java.util.regex.Pattern.compile(
                                         "(?m)^method\\s+\\w+\\([^)]*\\)\\s*->\\s*[A-Za-z]")
@@ -191,10 +191,9 @@ class InterfaceDescriptionTest {
     @Test
     void noTypeMethodOrErrorIsDeclaredTwice() {
 
-        // Found on build 215: a second 'type Grant' beside the egress one. varlink allows
-        // one definition per name; a strict parser refuses the whole description, and a lenient one
-        // reads
-        // one of the two fields' sets with the other's.
+        // Found on build 215: a second 'type Grant' beside the egress one. varlink allows one
+        // definition per name; a strict parser refuses the whole description, and a lenient one
+        // reads one of the two fields' sets with the other's.
         final String description = PoreloDaemon.description();
         for (final Pattern pattern : List.of(TYPE, METHOD, ERROR)) {
             final java.util.List<String> all = new java.util.ArrayList<>();
@@ -229,9 +228,9 @@ class InterfaceDescriptionTest {
             throw new IllegalStateException("Cannot read the daemon's sources", ex);
         }
         final Set<String> found = new TreeSet<>();
-        // Anchored on the throw, not on the concatenation: INTERFACE is also glued to the
-        // resource name, and the clearance interface is concatenated the same way - both of
-        // which this matched before it was narrowed.
+        // Anchored on the throw, not on the concatenation: INTERFACE is also glued to the resource
+        // name, and the clearance interface is concatenated the same way - both of which this
+        // matched before it was narrowed.
         final Matcher matcher =
                 Pattern.compile(
                                 "new VarlinkException\\(\\s*INTERFACE\\s*\\+\\s*\"\\.([A-Za-z][A-Za-z0-9]*)\"")
@@ -247,10 +246,10 @@ class InterfaceDescriptionTest {
 
     @Test
     void describesEveryParameterNameTheDaemonReads() throws IOException {
-        // Parameter names are where an IDL quietly stops being true: they are strings on both
-        // sides and nothing connects them. Every name the daemon reads out of a call must appear
-        // in the description - which also refuses a name varlink cannot express, such as one
-        // with a hyphen in it, because it could never have been written there.
+        // Parameter names are where an IDL quietly stops being true: they are strings on both sides
+        // and nothing connects them. Every name the daemon reads out of a call must appear in the
+        // description - which also refuses a name varlink cannot express, such as one with a hyphen
+        // in it, because it could never have been written there.
         final String idl = PoreloDaemon.description();
         final String source = daemonSources();
         final Matcher matcher =
@@ -262,8 +261,7 @@ class InterfaceDescriptionTest {
         while (matcher.find()) {
             final String name = matcher.group(1) == null ? matcher.group(2) : matcher.group(1);
             // On a line of its own, or inline in a signature such as 'method LogArchive(task:
-            // string,
-            // withAgentOutput: ?bool)'.
+            // string, withAgentOutput: ?bool)'.
             if (!Pattern.compile("(?m)(?:^\\s*|[(,]\\s*)" + Pattern.quote(name) + ":")
                     .matcher(idl)
                     .find()) {
@@ -308,9 +306,8 @@ class InterfaceDescriptionTest {
             throws Exception {
 
         // The point of one file per area is that an area's change stays in its files: a method
-        // registered by one
-        // area and described in another's part would be the two files that have to change together
-        // again.
+        // registered by one area and described in another's part would be the two files that have
+        // to change together again.
         final PoreloContext context = context(dir);
         final VarlinkServer server =
                 new VarlinkServer(dir.resolve("porelod.sock"), PoreloDaemon.INTERFACE);

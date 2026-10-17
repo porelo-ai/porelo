@@ -129,8 +129,8 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
             gate.initialize();
 
             // From the environment when a task started this gate, so the container and the gate
-            // agree on it. Never from an argument: a command line is visible in the host's
-            // process list, and this token authenticates pushes.
+            // agree on it. Never from an argument: a command line is visible in the host's process
+            // list, and this token authenticates pushes.
             final String supplied = System.getenv("PORELO_GATE_TOKEN");
             final TaskToken token =
                     supplied == null || supplied.isBlank()
@@ -192,8 +192,8 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
                                 + "/"
                                 + project.name()
                                 + ".git");
-                // Abbreviated: this line goes to gate.log, which the daemon streams to whatever
-                // is tailing it. The container is given the token through its environment.
+                // Abbreviated: this line goes to gate.log, which the daemon streams to whatever is
+                // tailing it. The container is given the token through its environment.
                 out.println("token     " + token.abbreviate());
                 out.flush();
 

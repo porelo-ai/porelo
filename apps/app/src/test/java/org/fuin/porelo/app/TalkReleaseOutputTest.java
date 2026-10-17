@@ -21,8 +21,7 @@ class TalkReleaseOutputTest {
     void aFileNameTheAgentChoseCannotClearThePersonsScreen(@TempDir Path dir) throws Exception {
 
         // The name of a held message is the agent's; printed as it came, ESC[2J cleared the screen
-        // a person was
-        // deciding on.
+        // a person was deciding on.
         final XdgPaths xdg =
                 XdgPaths.of(
                         name ->

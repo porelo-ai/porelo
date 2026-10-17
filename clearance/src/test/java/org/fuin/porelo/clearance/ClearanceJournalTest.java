@@ -40,8 +40,8 @@ class ClearanceJournalTest {
         journal.record(decision("1.1.1.1", Verdict.ALLOW, Decision.PROMPT));
         journal.record(decision("9.9.9.9", Verdict.DENY, Decision.PROMPT));
 
-        // The directory is created on the way, because the state directory holds nothing for a
-        // task until this file.
+        // The directory is created on the way, because the state directory holds nothing for a task
+        // until this file.
         assertThat(Files.readAllLines(journal.file())).hasSize(2);
         assertThat(Files.readString(journal.file(), StandardCharsets.UTF_8))
                 .contains("\"verdict\":\"allow\"")
@@ -83,8 +83,8 @@ class ClearanceJournalTest {
     void keepsTheDecisionsBeforeALineThatWasCutShort(@TempDir Path dir) throws IOException {
 
         // A watcher killed mid-write leaves a partial last line. Refusing to read the file would
-        // cost the task every decision made before it, which is the opposite of what the record
-        // is for.
+        // cost the task every decision made before it, which is the opposite of what the record is
+        // for.
         final Path file = dir.resolve("uc-shell.jsonl");
         final ClearanceJournal journal = new ClearanceJournal(file);
         journal.record(decision("1.1.1.1", Verdict.ALLOW, Decision.PROMPT));
@@ -103,8 +103,8 @@ class ClearanceJournalTest {
         final ClearanceJournal journal = new ClearanceJournal(dir.resolve("uc-shell.jsonl"));
         journal.record(decision("1.1.1.1", Verdict.ALLOW, Decision.PROMPT));
 
-        // What an agent tried to reach is nobody else's business, and the state directory is
-        // shared with every other file Porelo keeps.
+        // What an agent tried to reach is nobody else's business, and the state directory is shared
+        // with every other file Porelo keeps.
         assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(journal.file())))
                 .isEqualTo("rw-------");
     }
@@ -129,8 +129,8 @@ class ClearanceJournalTest {
     @Test
     void survivesTheTaskItRecords(@TempDir Path dir) throws IOException {
 
-        // The measurement this file exists for: everything else a task writes is under the
-        // runtime directory, which 'task stop --remove' deletes outright.
+        // The measurement this file exists for: everything else a task writes is under the runtime
+        // directory, which 'task stop --remove' deletes outright.
         final Path runtime = dir.resolve("run/porelo/porelo-uc-shell-1");
         Files.createDirectories(runtime);
         final ClearanceJournal journal =
@@ -155,8 +155,8 @@ class ClearanceJournalTest {
     @Test
     void keepsTheOrderDecisionsWereMadeIn(@TempDir Path dir) {
 
-        // The hub takes the last answer about a destination, so the file has to be read the way
-        // it was written.
+        // The hub takes the last answer about a destination, so the file has to be read the way it
+        // was written.
         final ClearanceJournal journal = new ClearanceJournal(dir.resolve("uc-shell.jsonl"));
         journal.record(decision("1.1.1.1", Verdict.TIMEOUT, Decision.PROMPT));
         journal.record(decision("1.1.1.1", Verdict.ALLOW, Decision.CLIENT));

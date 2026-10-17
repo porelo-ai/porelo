@@ -39,8 +39,7 @@ class MessageFilteringTest {
 
         assertThat(outcome.ran()).isTrue();
         // Reporting only, a payload in plain text left unless a person happened to hold it, and the
-        // person was
-        // not told the filter would have refused it.
+        // person was not told the filter would have refused it.
         assertThat(runner.lines())
                 .singleElement(org.assertj.core.api.InstanceOfAssertFactories.STRING)
                 .contains("--mail " + mailbox.root())

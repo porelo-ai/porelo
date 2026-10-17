@@ -25,8 +25,8 @@ class ResolvedNamesTest {
     @Test
     void readsACachedAnswerToo() {
 
-        // A repeat answer is served from cache and logged differently; the container was still
-        // told that name, which is what the operator is being asked about.
+        // A repeat answer is served from cache and logged differently; the container was still told
+        // that name, which is what the operator is being asked about.
         assertThat(ResolvedNames.nameFor(LOG, "10.0.0.1")).contains("other.example.test");
     }
 

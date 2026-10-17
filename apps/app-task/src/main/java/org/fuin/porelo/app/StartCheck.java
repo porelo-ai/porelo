@@ -189,9 +189,9 @@ public final class StartCheck {
             map.put("provider", provider);
             map.put("credential", credential);
             // What to run on that machine to store it, when that is what is missing. The line is
-            // built here rather than joined together by a client out of Providers(): it is the
-            // same string ProviderInventory already makes, and a second place that builds it is a
-            // second place it can drift.
+            // built here rather than joined together by a client out of Providers(): it is the same
+            // string ProviderInventory already makes, and a second place that builds it is a second
+            // place it can drift.
             map.put(
                     "storeCommand",
                     outcome == Outcome.CREDENTIAL_MISSING && !credential.isEmpty()
@@ -360,10 +360,8 @@ public final class StartCheck {
             @Nullable Path projectFile,
             Map<String, String> run) {
         // Before the agent's own credential: an undeclared destination refuses a start in every
-        // mode, where a
-        // missing credential does not stop a shell - an interface told only the second would offer
-        // a start
-        // that Start then refuses (found on 2026-09-29).
+        // mode, where a missing credential does not stop a shell - an interface told only the
+        // second would offer a start that Start then refuses (found on 2026-09-29).
         if (rest.outcome() != Outcome.READY
                 && rest.outcome() != Outcome.CREDENTIAL_MISSING
                 && rest.outcome() != Outcome.CREDENTIAL_UNUSABLE
@@ -547,10 +545,8 @@ public final class StartCheck {
         }
         final String host = unknownHost(context, projectFile, repository);
         // Before the vault's questions, not after: trusting a host needs no vault, and asked last
-        // it hid behind a
-        // locked one - a person unlocked only to be asked about the host next. After everything
-        // else, which a host
-        // does not settle.
+        // it hid behind a locked one - a person unlocked only to be asked about the host next.
+        // After everything else, which a host does not settle.
         if (host == null
                 || !(rest.outcome() == Outcome.READY
                         || rest.outcome() == Outcome.VAULT_LOCKED
@@ -603,8 +599,7 @@ public final class StartCheck {
                     org.fuin.porelo.core.project.ProjectReader.read(projectFile);
             final org.fuin.porelo.core.project.Repository chosen = project.repository(repository);
             // With a mirror there the start goes on from it whatever the upstream says, so the
-            // answer is ready and
-            // the network is not asked: a dialog asks this every few seconds.
+            // answer is ready and the network is not asked: a dialog asks this every few seconds.
             finding =
                     chosen == null || UpstreamProbe.mirrored(context, project, chosen)
                             ? null
@@ -723,8 +718,7 @@ public final class StartCheck {
             return null;
         }
         // On its own port, as ssh looks it up, and named with it: a line for port 22 says nothing
-        // about another one,
-        // and a hint without the port sent a person to trust the wrong service.
+        // about another one, and a hint without the port sent a person to trust the wrong service.
         final HostKeys.Address address = HostKeys.Address.ofUpstream(upstream);
         if (address == null) {
             return null;
@@ -903,8 +897,8 @@ public final class StartCheck {
             }
             if (!stored.get().containsKey(credential)) {
                 // The sign-in first, for an agent that has one: a new person told only what is
-                // missing went on to the
-                // one start that needs no credential, a shell where the agent said "Not logged in".
+                // missing went on to the one start that needs no credential, a shell where the
+                // agent said "Not logged in".
                 return new Result(
                         Outcome.CREDENTIAL_MISSING,
                         agent.name(),

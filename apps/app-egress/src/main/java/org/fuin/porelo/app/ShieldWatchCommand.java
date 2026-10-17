@@ -154,12 +154,10 @@ public class ShieldWatchCommand implements Callable<Integer> {
                             project,
                             task,
                             // Wrapped so the task can say it is waiting for a person. Written when
-                            // the
-                            // question is put and removed when it is answered, which is the work's
-                            // own
-                            // signal - a quiet task is not a waiting one, and anything inferred
-                            // from a
-                            // clock would be wrong in the direction that costs the most.
+                            // the question is put and removed when it is answered, which is the
+                            // work's own signal - a quiet task is not a waiting one, and anything
+                            // inferred from a clock would be wrong in the direction that costs the
+                            // most.
                             request -> {
                                 final org.fuin.porelo.wire.Waiting waiting =
                                         new org.fuin.porelo.wire.Waiting(socketDirectory());
@@ -174,27 +172,21 @@ public class ShieldWatchCommand implements Callable<Integer> {
                                 try {
                                     policy.allow(address);
                                     // Written down at the one moment both are known. Resolving the
-                                    // name
-                                    // again later to find out what to withdraw was rejected: a
+                                    // name again later to find out what to withdraw was rejected: a
                                     // CDN, GeoDNS or plain round-robin answers Porelo and the
-                                    // container
-                                    // differently, and the addresses that differ are exactly the
-                                    // ones
-                                    // that would be left open.
+                                    // container differently, and the addresses that differ are
+                                    // exactly the ones that would be left open.
                                     if (name != null) {
                                         try {
                                             org.fuin.porelo.wire.GrantedAddresses.add(
                                                     socketDirectory(), name, address);
                                         } catch (java.io.IOException ex) {
                                             // NOT the same failure as the allow not taking effect,
-                                            // and it
-                                            // must not borrow that sentence: the host IS open. What
-                                            // is
-                                            // lost is the pair a later withdrawal would need, so
-                                            // the
-                                            // withdrawal will say it could not find the address
-                                            // rather
-                                            // than silently leaving it open.
+                                            // and it must not borrow that sentence: the host IS
+                                            // open. What is lost is the pair a later withdrawal
+                                            // would need, so the withdrawal will say it could not
+                                            // find the address rather than silently leaving it
+                                            // open.
                                             err.println(
                                                     "porelo: allowed "
                                                             + address
@@ -212,10 +204,9 @@ public class ShieldWatchCommand implements Callable<Integer> {
                                     out.println("allowed   " + address);
                                 } catch (RuntimeException ex) {
                                     // Never silent. A verdict of allow that did not take effect
-                                    // leaves the
-                                    // operator believing they unblocked something they did not, and
-                                    // the
-                                    // agent failing for a reason the log says was resolved.
+                                    // leaves the operator believing they unblocked something they
+                                    // did not, and the agent failing for a reason the log says was
+                                    // resolved.
                                     err.println(
                                             "porelo: DECIDED ALLOW BUT COULD NOT APPLY IT for "
                                                     + address
@@ -240,10 +231,9 @@ public class ShieldWatchCommand implements Callable<Integer> {
                             record.record(decision);
                         } catch (ClearanceException ex) {
                             // Never silent, for the same reason an allow that did not take effect
-                            // is not:
-                            // the audit record is what says a destination was refused rather than
-                            // never
-                            // asked about, and a gap in it is invisible from the file itself.
+                            // is not: the audit record is what says a destination was refused
+                            // rather than never asked about, and a gap in it is invisible from the
+                            // file itself.
                             err.println(
                                     "porelo: DECIDED "
                                             + decision.verdict().name().toLowerCase(Locale.ROOT)
@@ -287,8 +277,8 @@ public class ShieldWatchCommand implements Callable<Integer> {
 
                 if (events != null) {
                     // The reader hook already started one inside the container and is appending to
-                    // this file. Starting a second reader would bind the same NFLOG group twice
-                    // and split the events between them.
+                    // this file. Starting a second reader would bind the same NFLOG group twice and
+                    // split the events between them.
                     out.println("following " + events + " for project " + project);
                     out.flush();
                     follow(hub, service, out, err, enough);
@@ -334,9 +324,9 @@ public class ShieldWatchCommand implements Callable<Integer> {
             final String destination = String.valueOf(event.get("destination"));
             final String protocol = String.valueOf(event.get("protocol"));
             final int port = event.get("port") instanceof Number number ? number.intValue() : 0;
-            // A bare address is not something an operator can judge. The resolver logged what
-            // it answered, which is the only place to turn the number back into the name the
-            // agent asked for; the address stays visible because the decision is about it.
+            // A bare address is not something an operator can judge. The resolver logged what it
+            // answered, which is the only place to turn the number back into the name the agent
+            // asked for; the address stays visible because the decision is about it.
             final String name =
                     events == null
                             ? null
@@ -354,16 +344,15 @@ public class ShieldWatchCommand implements Callable<Integer> {
             // carrying prompts to an interface - wants the question, and the line below blocks
             // until somebody answers it.
             //
-            // Rebuilt rather than forwarded, and it carries the key: a client answering this
-            // has to name the same destination the hub deduplicates on, and deriving that from
-            // three separate fields at the far end is a rule in two places that can drift. The
-            // resolved name comes with it, because an address alone is not something an operator
-            // can judge.
-            // An answered destination is not a question. The retries of a dropped connection
-            // keep arriving here long after somebody decided, and publishing them left an
-            // interface showing a settled question with buttons under it - the client cannot tell
-            // the two apart, because on the wire they are the same event. Answered here rather
-            // than there, so every client gets it right rather than each one guarding.
+            // Rebuilt rather than forwarded, and it carries the key: a client answering this has to
+            // name the same destination the hub deduplicates on, and deriving that from three
+            // separate fields at the far end is a rule in two places that can drift. The resolved
+            // name comes with it, because an address alone is not something an operator can judge.
+            // An answered destination is not a question. The retries of a dropped connection keep
+            // arriving here long after somebody decided, and publishing them left an interface
+            // showing a settled question with buttons under it - the client cannot tell the two
+            // apart, because on the wire they are the same event. Answered here rather than there,
+            // so every client gets it right rather than each one guarding.
             if (hub.settled(blocked.key())) {
                 return hub.handle(blocked);
             }
@@ -377,25 +366,24 @@ public class ShieldWatchCommand implements Callable<Integer> {
             prompt.put("name", name == null ? "" : name);
             prompt.put("shown", shown);
             prompt.put("project", project);
-            // Carried through rather than left out. The IDL declares both on Prompt and this
-            // event had neither, so an interface reading them off an open question got nothing
-            // and had to substitute the moment it happened to see the event - which is its own
-            // clock answering a question about this machine's.
+            // Carried through rather than left out. The IDL declares both on Prompt and this event
+            // had neither, so an interface reading them off an open question got nothing and had to
+            // substitute the moment it happened to see the event - which is its own clock answering
+            // a question about this machine's.
             prompt.put("at", String.valueOf(event.get("at")));
             prompt.put("prefix", String.valueOf(event.get("prefix")));
-            // When this watcher gives up, as a moment rather than a length. Computed here
-            // because the timeout lives here: one that differs per watcher, or is changed by
-            // --timeout, then arrives already applied instead of being arithmetic a client does
-            // on a number it assumed. Measured from now rather than from 'at': 'at' is when the
-            // connection was blocked, and the wait starts when the question is asked, which is
-            // the line below. A reader that has fallen behind would otherwise publish a deadline
-            // already in the past.
+            // When this watcher gives up, as a moment rather than a length. Computed here because
+            // the timeout lives here: one that differs per watcher, or is changed by --timeout,
+            // then arrives already applied instead of being arithmetic a client does on a number it
+            // assumed. Measured from now rather than from 'at': 'at' is when the connection was
+            // blocked, and the wait starts when the question is asked, which is the line below. A
+            // reader that has fallen behind would otherwise publish a deadline already in the past.
             // Per question, not per packet. A dropped connection is retried, so the same key is
             // published again and again while one question is open - the hub records its verdict
-            // before asking precisely so a burst does not ask twice. Recomputing here would hand
-            // a countdown a fresh minute on every retry, so it would never visibly run out: wrong
-            // in the direction that costs. Measured on the VM, four events for one destination
-            // inside five seconds.
+            // before asking precisely so a burst does not ask twice. Recomputing here would hand a
+            // countdown a fresh minute on every retry, so it would never visibly run out: wrong in
+            // the direction that costs. Measured on the VM, four events for one destination inside
+            // five seconds.
             //
             // Keyed by the same key the hub deduplicates on, so the two cannot disagree about what
             // one question is. It grows with distinct destinations, exactly as the hub's own map
@@ -473,8 +461,8 @@ public class ShieldWatchCommand implements Callable<Integer> {
         try {
             org.fuin.porelo.wire.HelperPid.record(pidFile);
         } catch (IOException ex) {
-            // Not fatal: it only means poststop cannot reap this process, and the runtime
-            // directory is cleared at logout anyway.
+            // Not fatal: it only means poststop cannot reap this process, and the runtime directory
+            // is cleared at logout anyway.
             err.println("porelo: cannot write " + pidFile + ": " + ex.getMessage());
             err.flush();
         }

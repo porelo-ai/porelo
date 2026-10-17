@@ -156,14 +156,12 @@ public final class TaskSecrets {
                                 final Map<String, VaultEntry> updated =
                                         new LinkedHashMap<>(entries);
                                 // Asked here, under the vault's lock, not before it: a start beside
-                                // this one that kept its tokens in
-                                // between has its container by then, and its tokens are not pruned
-                                // as a gone task's.
+                                // this one that kept its tokens in between has its container by
+                                // then, and its tokens are not pruned as a gone task's.
                                 final Set<String> exist = existing.get();
                                 // Only a task's own entries, whose owner is a container: a grant or
-                                // a transport's secrets are the
-                                // account's, owned by no task. Pruning every reserved name took
-                                // them too, at every task start
+                                // a transport's secrets are the account's, owned by no task.
+                                // Pruning every reserved name took them too, at every task start
                                 // (found on 2026-09-30: the transport's provisioning token gone).
                                 updated.keySet()
                                         .removeIf(

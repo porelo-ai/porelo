@@ -59,11 +59,9 @@ final class VaultMethods {
                 "ImportCredential",
                 (parameters, replies) -> {
                     // No console tier: a daemon has no terminal to ask at, so a vault that is not
-                    // already
-                    // unlocked is answered as VAULT_LOCKED rather than hanging on a prompt nobody
-                    // sees.
-                    // A device's share counts as unlocked, which is the one way a daemon can open a
-                    // vault.
+                    // already unlocked is answered as VAULT_LOCKED rather than hanging on a prompt
+                    // nobody sees. A device's share counts as unlocked, which is the one way a
+                    // daemon can open a vault.
                     final org.fuin.porelo.app.CredentialImport.Result result =
                             org.fuin.porelo.app.CredentialImport.run(
                                     context,
@@ -90,10 +88,9 @@ final class VaultMethods {
                 "Credentials",
                 (parameters, replies) -> {
                     // Names, types and lengths - never a value. The vault is read only if the
-                    // passphrase
-                    // is already in the kernel keyring: a daemon has no terminal to ask at, and a
-                    // call
-                    // that blocked on a prompt nobody can see would hang the interface.
+                    // passphrase is already in the kernel keyring: a daemon has no terminal to ask
+                    // at, and a call that blocked on a prompt nobody can see would hang the
+                    // interface.
                     final Map<String, Object> answer = new LinkedHashMap<>();
                     answer.put("vault", context.vault().path().toString());
                     answer.put("exists", context.vault().exists());
@@ -144,30 +141,24 @@ final class VaultMethods {
                                     .toList();
                     answer.put("credentials", entries);
                     // What this machine is CONFIGURED to connect with, which is a different list:
-                    // it is
-                    // readable with the vault shut, because it holds no secret. Without it, "a
-                    // credential
-                    // for this host is configured, unlock the vault" and "nothing is here" look the
-                    // same.
+                    // it is readable with the vault shut, because it holds no secret. Without it,
+                    // "a credential for this host is configured, unlock the vault" and "nothing is
+                    // here" look the same.
                     answer.put(
                             "connections",
                             new org.fuin.porelo.app.CredentialDeclarations(context).asMaps());
                     // Empty because it is locked and empty because it holds nothing are different
-                    // things
-                    // an interface has to show apart. Asked of the vault rather than inferred from
-                    // the
-                    // list being empty, which is what this did before: an unlocked vault holding
-                    // nothing
-                    // answered "unreadable", and a client acting on that told somebody to unlock a
-                    // vault
-                    // that was already open.
+                    // things an interface has to show apart. Asked of the vault rather than
+                    // inferred from the list being empty, which is what this did before: an
+                    // unlocked vault holding nothing answered "unreadable", and a client acting on
+                    // that told somebody to unlock a vault that was already open.
                     answer.put("readable", readable.isPresent());
                     replies.last(answer);
                 });
 
         // The four keyslot verbs. The daemon can open the vault with a share where it cannot with a
-        // passphrase: a share arrives from a device over this socket, and a passphrase would need
-        // a terminal the daemon does not have.
+        // passphrase: a share arrives from a device over this socket, and a passphrase would need a
+        // terminal the daemon does not have.
         server.method(
                 "Keyslots",
                 (parameters, replies) -> {
@@ -277,11 +268,9 @@ final class VaultMethods {
                             org.fuin.porelo.core.credential.CredentialRegistry.normalise(match);
                     final String id = text(parameters, "id");
                     // 'id' is optional in the contract, and a client that leaves it out for the
-                    // vault
-                    // means "you name it". Named by CredentialDeclarations, which is the one place
-                    // that
-                    // does it - the terminal path had its own copy of this and did not have the
-                    // fix.
+                    // vault means "you name it". Named by CredentialDeclarations, which is the one
+                    // place that does it - the terminal path had its own copy of this and did not
+                    // have the fix.
                     final org.fuin.porelo.core.credential.Credential declared;
                     try {
                         declared =
@@ -300,10 +289,9 @@ final class VaultMethods {
                                                 source));
                         if (!flag(parameters, "dryRun")) {
                             // A dry run ANSWERS a refusal rather than raising it: being told what
-                            // would
-                            // be turned away is the whole reason it is asked. Raising here meant
-                            // the one
-                            // call that exists to report refusals was the one that could not.
+                            // would be turned away is the whole reason it is asked. Raising here
+                            // meant the one call that exists to report refusals was the one that
+                            // could not.
                             org.fuin.porelo.app.CredentialDeclarations.checkPossible(declared);
                         }
                     } catch (org.fuin.porelo.core.credential.CredentialException ex) {
@@ -316,17 +304,13 @@ final class VaultMethods {
                     final String fromFile = text(parameters, "fromFile");
                     if (flag(parameters, "dryRun")) {
                         // Nothing is written. Every refusal a real declaration gives, plus - for a
-                        // key -
-                        // who the forge thinks we are, which catches a key that is for another
-                        // account or
-                        // another repository at the moment somebody chooses it rather than at the
-                        // first
-                        // fetch. The better moment by a mile.
+                        // key - who the forge thinks we are, which catches a key that is for
+                        // another account or another repository at the moment somebody chooses it
+                        // rather than at the first fetch. The better moment by a mile.
                         final org.fuin.porelo.app.CredentialDeclarations.Check would =
                                 declarations.wouldDeclare(declared);
                         // Only worth asking when the value is actually there; a key nothing holds
-                        // cannot
-                        // be offered to a host anyway.
+                        // cannot be offered to a host anyway.
                         final org.fuin.porelo.app.ForgeIdentity.Answer answer =
                                 would.credential() == null
                                                 || would.outcome()
@@ -348,10 +332,9 @@ final class VaultMethods {
                                                 .name()
                                         : would.outcome().name();
                         // What the CHECK said to run, when it said anything: for a machine with no
-                        // vault
-                        // that is 'vault init', and recomputing it here sent somebody to 'vault
-                        // put'
-                        // while the sentence beside it said there was nowhere to put anything.
+                        // vault that is 'vault init', and recomputing it here sent somebody to
+                        // 'vault put' while the sentence beside it said there was nowhere to put
+                        // anything.
                         final String store =
                                 would.storeCommand().isEmpty()
                                         ? org.fuin.porelo.app.CredentialDeclarations
@@ -373,10 +356,9 @@ final class VaultMethods {
                                         org.fuin.porelo.app.CredentialDeclarations.argumentsOf(
                                                 store),
                                         // Answered the same way the real declaration answers it, or
-                                        // a wizard
-                                        // cannot tell from the check whether step four pipes a file
-                                        // or opens a
-                                        // terminal - which is what it asked the check for.
+                                        // a wizard cannot tell from the check whether step four
+                                        // pipes a file or opens a terminal - which is what it asked
+                                        // the check for.
                                         "storeStdin",
                                         store.contains("<") ? "the private key file" : "",
                                         "identity",
@@ -392,8 +374,8 @@ final class VaultMethods {
                         return;
                     }
                     // Declaring twice is not an error: a wizard run again has to land in the same
-                    // place.
-                    // Whether it replaced one is answered, so an interface can say "updated".
+                    // place. Whether it replaced one is answered, so an interface can say
+                    // "updated".
                     final boolean replaced =
                             context.credentialRegistry().all().stream()
                                     .anyMatch(
@@ -444,8 +426,7 @@ final class VaultMethods {
                                 Map.of("message", String.valueOf(ex.getMessage())));
                     }
                     // The secret is not removed: a key in somebody's own directory is theirs, and a
-                    // vault
-                    // entry is removed by a person at the machine.
+                    // vault entry is removed by a person at the machine.
                     replies.last(
                             Map.of(
                                     "forgotten",
@@ -458,12 +439,9 @@ final class VaultMethods {
                 "SshKeys",
                 (parameters, replies) -> {
                     // Never a value: a private key is opened far enough to say what it is and
-                    // whether a
-                    // passphrase protects it, and is not copied, printed or returned. Deciding what
-                    // is a
-                    // key means reading files, which is why it is answered here rather than left to
-                    // a
-                    // client listing a home directory over ssh and guessing.
+                    // whether a passphrase protects it, and is not copied, printed or returned.
+                    // Deciding what is a key means reading files, which is why it is answered here
+                    // rather than left to a client listing a home directory over ssh and guessing.
                     replies.last(
                             Map.of(
                                     "keys",
@@ -512,10 +490,9 @@ final class VaultMethods {
                 });
 
         // What a person has to authorize before work can use it: a start refused for want of a
-        // grant, a grant the
-        // broker found ended. Every interface sees it, so a second person can answer what the first
-        // was refused.
-        // What is open now first, then what changes; "granted" when a grant lands. Streaming only.
+        // grant, a grant the broker found ended. Every interface sees it, so a second person can
+        // answer what the first was refused. What is open now first, then what changes; "granted"
+        // when a grant lands. Streaming only.
         server.method(
                 "Authorizations",
                 (parameters, replies) -> {

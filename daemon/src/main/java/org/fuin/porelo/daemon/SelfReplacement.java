@@ -158,12 +158,10 @@ final class SelfReplacement {
         final CommandResult restarted =
                 runner.run(Command.of("systemctl", "--user", "restart", "--no-block", unit.get()));
         // Ended by a signal is the restart under way: stopping the unit stops everything in it, the
-        // call that
-        // asked for it too.
+        // call that asked for it too.
         if (!restarted.successful() && restarted.exitCode() < 128) {
             // Said, and asked again at the next look: an update that left the manager unable to
-            // restart this
-            // once may not the next time.
+            // restart this once may not the next time.
             out.println(
                     "porelod: restarting "
                             + unit.get()

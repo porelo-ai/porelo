@@ -234,10 +234,9 @@ public class KernelKeyring {
             if (timeout != null) {
                 // Set last, on a key that is already stored and already restricted: a bound on a
                 // key that failed to be locked down would be the wrong thing to get right. The
-                // kernel
-                // keeps the expiry in whole seconds of the clock, so a bound of n seconds lasts
-                // from
-                // n-1 to n: one second short at most, which no bound a person sets notices.
+                // kernel keeps the expiry in whole seconds of the clock, so a bound of n seconds
+                // lasts from n-1 to n: one second short at most, which no bound a person sets
+                // notices.
                 final MethodHandle setTimeout =
                         handle(
                                 "keyctl_set_timeout",
@@ -408,8 +407,8 @@ public class KernelKeyring {
                 return missing(failure) ? Forgotten.NOTHING_CACHED : Forgotten.UNKNOWN;
             }
             if ((long) unlink.invokeExact(errno, (int) serial, KEY_SPEC_USER_KEYRING) == -1L) {
-                // It was found and could not be removed, which is the one case that must never
-                // read as cleared.
+                // It was found and could not be removed, which is the one case that must never read
+                // as cleared.
                 return Forgotten.UNKNOWN;
             }
             return Forgotten.CLEARED;

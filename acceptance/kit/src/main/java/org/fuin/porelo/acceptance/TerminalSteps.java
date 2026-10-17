@@ -98,10 +98,9 @@ public class TerminalSteps {
     static void removeTheProjectsTheKitMade() throws IOException {
         for (final var made : World.takeProjects().entrySet()) {
             // As the account that made them, named rather than taken from the thread: this runs on
-            // whichever thread ends the run, which need not be one that held an account.
-            // One account that cannot be reached does not leave every later one's projects behind:
-            // they were taken
-            // from the list already, and nothing would remove them.
+            // whichever thread ends the run, which need not be one that held an account. One
+            // account that cannot be reached does not leave every later one's projects behind: they
+            // were taken from the list already, and nothing would remove them.
             try {
                 final Machine machine = Machine.forAccount(made.getKey());
                 for (final String name : made.getValue()) {
@@ -171,11 +170,11 @@ public class TerminalSteps {
     public void aTerminal() throws IOException {
         final Terminal terminal = world.openTerminal();
         world.terminal(terminal);
-        // A prompt of our own, so that what a scenario waits for afterwards is its command's
-        // output rather than whatever the login banner happened to say.
-        // Both stated rather than inherited: a shell opened over ssh may source no profile, so
-        // an unprivileged install in ~/.local/bin would not be found - which is how this suite
-        // answered 127 to every command on its first run against a rented machine.
+        // A prompt of our own, so that what a scenario waits for afterwards is its command's output
+        // rather than whatever the login banner happened to say. Both stated rather than inherited:
+        // a shell opened over ssh may source no profile, so an unprivileged install in ~/.local/bin
+        // would not be found - which is how this suite answered 127 to every command on its first
+        // run against a rented machine.
         terminal.type("export PATH=\"$HOME/.local/bin:$PATH\"; export PS1='ready$ '");
         terminal.await("ready$");
     }
@@ -193,8 +192,8 @@ public class TerminalSteps {
     @When("I run {string}")
     public void iRun(String command) throws IOException {
         world.terminal().type(World.expand(command));
-        // Not "wait for the prompt": a command that asks a question never reaches one, and
-        // waiting for it would hang on exactly the scenarios this module exists for.
+        // Not "wait for the prompt": a command that asks a question never reaches one, and waiting
+        // for it would hang on exactly the scenarios this module exists for.
         world.terminal().drain();
     }
 
@@ -274,11 +273,11 @@ public class TerminalSteps {
      */
     @When("I wait for the session inside the container")
     public void iWaitForTheSession() throws IOException {
-        // 'task attach' goes through tmux, which does NOT set Porelo's prompt - only the shell
-        // that 'task run --attach' opens does. Found by this suite, and it is a real
-        // inconsistency: the prompt naming the task is there when you start one and gone when
-        // you come back to it. Until that is decided this waits for what the container actually
-        // shows rather than for what it ought to.
+        // 'task attach' goes through tmux, which does NOT set Porelo's prompt - only the shell that
+        // 'task run --attach' opens does. Found by this suite, and it is a real inconsistency: the
+        // prompt naming the task is there when you start one and gone when you come back to it.
+        // Until that is decided this waits for what the container actually shows rather than for
+        // what it ought to.
         world.terminal().await("agent@", Terminal.BUILD_PATIENCE);
     }
 
@@ -289,8 +288,8 @@ public class TerminalSteps {
      */
     @When("I wait for the shell inside the container")
     public void iWaitForTheShellInside() throws IOException {
-        // The long patience is here and nowhere else: this is the step behind which an image
-        // gets built, and only the first one pays it.
+        // The long patience is here and nowhere else: this is the step behind which an image gets
+        // built, and only the first one pays it.
         world.terminal().await("porelo[", Terminal.BUILD_PATIENCE);
     }
 
@@ -414,10 +413,10 @@ public class TerminalSteps {
             @org.jspecify.annotations.Nullable String upstream,
             String more)
             throws IOException {
-        // Built by running the commands rather than by writing files from here: a fixture the
-        // suite creates is a fixture that can be right while the product is wrong.
-        // Built by running the commands rather than by writing files from here: a fixture the
-        // suite creates is a fixture that can be right while the product is wrong.
+        // Built by running the commands rather than by writing files from here: a fixture the suite
+        // creates is a fixture that can be right while the product is wrong. Built by running the
+        // commands rather than by writing files from here: a fixture the suite creates is a fixture
+        // that can be right while the product is wrong.
         //
         // A project comes to be on a machine by that machine FOLLOWING its repository - nothing
         // writes a project file any more. So the repository is made here, on the machine, and
@@ -776,8 +775,8 @@ public class TerminalSteps {
     /** Asserts the last script painted nothing - the other half of every color scenario. */
     @Then("its output contains no escape sequences")
     public void itsOutputHasNoEscapes() {
-        // A suite that only ever allocates a pty proves that color appears and never that it
-        // stays out of a pipe, a log or a fixture.
+        // A suite that only ever allocates a pty proves that color appears and never that it stays
+        // out of a pipe, a log or a fixture.
         assertThat(world.output().all()).doesNotContain("\033[");
     }
 }

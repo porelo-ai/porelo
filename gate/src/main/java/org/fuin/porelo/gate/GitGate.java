@@ -136,10 +136,9 @@ public class GitGate {
             git("init", "--bare", "--initial-branch=main", mirror.toString());
         } else {
             // Through the lending, as every later call to the upstream is: an ssh seed needs the
-            // machine's host-key
-            // policy and its own known hosts. A bare 'git clone' had neither, so a host this
-            // machine had vouched for
-            // failed as "Host key verification failed" and the task started with no gate.
+            // machine's host-key policy and its own known hosts. A bare 'git clone' had neither, so
+            // a host this machine had vouched for failed as "Host key verification failed" and the
+            // task started with no gate.
             try (GitCredentials.Lease lease = lending.forUrl(seedUrl)) {
                 final List<String> all = new ArrayList<>(List.of("git"));
                 all.addAll(lease.arguments());
@@ -317,9 +316,8 @@ public class GitGate {
                                     && fields[0].startsWith(INCOMING)
                                     && (mode != GateMode.ONLINE || fields[0].endsWith(RESCUED))) {
                                 // Listed whatever the agent pushed: receive-pack refuses a tag or a
-                                // blob only under refs/heads, and
-                                // one that made this throw took the review queue away from every
-                                // task of the project.
+                                // blob only under refs/heads, and one that made this throw took the
+                                // review queue away from every task of the project.
                                 final String subject =
                                         "commit".equals(fields[3])
                                                 ? fields[4]
@@ -378,8 +376,8 @@ public class GitGate {
      */
     public boolean verifyBackup(Path bundle) {
         // git refuses to verify a bundle without a repository to verify it against - it has to
-        // check whether the bundle's prerequisites are present. So this needs a git directory,
-        // and restore() creates an empty one before calling it.
+        // check whether the bundle's prerequisites are present. So this needs a git directory, and
+        // restore() creates an empty one before calling it.
         if (!Files.isDirectory(mirror.resolve("objects"))) {
             throw new GateException(
                     "Cannot verify "
@@ -426,9 +424,9 @@ public class GitGate {
             deleteMirror();
             throw new GateException(bundle + " is not a usable git bundle");
         }
-        // Not 'clone --bare': that takes refs/heads/* and silently drops everything else,
-        // including every pending push - which is exactly the work an operator restoring a backup
-        // is least able to reconstruct. Fetching refs/*:refs/* takes all of it.
+        // Not 'clone --bare': that takes refs/heads/* and silently drops everything else, including
+        // every pending push - which is exactly the work an operator restoring a backup is least
+        // able to reconstruct. Fetching refs/*:refs/* takes all of it.
         gitIn("fetch", bundle.toString(), "refs/*:refs/*");
         gitIn("config", "http.receivepack", "true");
         gitIn("config", "receive.denyCurrentBranch", "ignore");
@@ -514,8 +512,7 @@ public class GitGate {
         final List<String> refs =
                 compare && against != null ? compared(against, name) : List.of(INCOMING + name);
         // Read with -z: without it git quotes a path holding a byte beyond ASCII, a '"' or a tab,
-        // and the quoted name
-        // matched no dangerous place - a workflow ranked ordinary.
+        // and the quoted name matched no dangerous place - a workflow ranked ordinary.
         final Map<String, int[]> counts =
                 numstat(gitIn(join(verb, List.of("--numstat", "-z"), refs)).standardOutput());
         final Set<String> beyondWhitespace =
@@ -699,10 +696,8 @@ public class GitGate {
     }
 
     // Every address the project file names goes to git after '--end-of-options': written as
-    // '--upload-pack=<command>',
-    // an upstream reached 'git fetch' as an option and ran that command on the host. The project
-    // file refuses such a
-    // value; this is so that no other way in can.
+    // '--upload-pack=<command>', an upstream reached 'git fetch' as an option and ran that command
+    // on the host. The project file refuses such a value; this is so that no other way in can.
 
     /**
      * Forwards an incoming ref to the upstream.
@@ -747,8 +742,8 @@ public class GitGate {
         requirePending(name);
         final String commit = reviewedCommit(name, reviewed);
         // The one command here that reaches the forge. It ran with nothing: an approved change
-        // could not be forwarded to a private upstream unless the account happened to have a key
-        // of its own lying about, which is exactly the arrangement the vault exists to replace.
+        // could not be forwarded to a private upstream unless the account happened to have a key of
+        // its own lying about, which is exactly the arrangement the vault exists to replace.
         try (GitCredentials.Lease lease = lending.forUrl(upstreamUrl)) {
             refuseEarlierWork(lease, upstreamUrl, branch, commit);
             gitWith(
@@ -1056,9 +1051,8 @@ public class GitGate {
                         ex);
             }
             // Whether it carries a signature at all - not whether this machine can verify it: '%G?'
-            // answers "N" for an
-            // ssh signature whenever no allowed-signers file is configured, which is the ordinary
-            // case here.
+            // answers "N" for an ssh signature whenever no allowed-signers file is configured,
+            // which is the ordinary case here.
             final boolean signed =
                     gitAt(target, "cat-file", "commit", "HEAD")
                             .standardOutput()

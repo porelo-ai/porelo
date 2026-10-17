@@ -60,8 +60,8 @@ class ProjectReaderTest {
     @Test
     void theOtherClassesDoNotNeedAnUpstream() {
 
-        // A guarded project keeps the gate in the path, and an approved push names the upstream
-        // on the command line. Requiring it here would make the common case depend on the rare.
+        // A guarded project keeps the gate in the path, and an approved push names the upstream on
+        // the command line. Requiring it here would make the common case depend on the rare.
         assertThat(
                         read("""
                 project:
@@ -355,8 +355,8 @@ class ProjectReaderTest {
     @Test
     void aProjectThatDeclaresNothingReachesNothing() {
 
-        // Absence is deny, not the generous default. A project file that says nothing about
-        // egress must not acquire reachability because a later release added a set.
+        // Absence is deny, not the generous default. A project file that says nothing about egress
+        // must not acquire reachability because a later release added a set.
         assertThat(read(MINIMAL).egress().isEmpty()).isTrue();
     }
 
@@ -496,8 +496,8 @@ class ProjectReaderTest {
     @Test
     void anOfflineProjectNamesNoUpstream() {
         // The host cloned an offline project's mirror from it on the first start: offline then
-        // meant "offline after
-        // the first start". It never connects; a repository comes in as a file.
+        // meant "offline after the first start". It never connects; a repository comes in as a
+        // file.
         org.assertj.core.api.Assertions.assertThatThrownBy(
                         () ->
                                 read(
@@ -568,8 +568,7 @@ class ProjectReaderTest {
     void anUpstreamOrImageThatGitOrPodmanWouldTakeForAnOptionIsRefused() {
 
         // An upstream reached 'git fetch' as it was written: '--upload-pack=<command>' ran that
-        // command on the host
-        // at the next task start, and 'ext::' does the same by design.
+        // command on the host at the next task start, and 'ext::' does the same by design.
         for (final String upstream :
                 java.util.List.of(
                         "--upload-pack=touch /tmp/owned;false",
@@ -607,8 +606,7 @@ class ProjectReaderTest {
             @org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) throws Exception {
 
         // Resolved as written, an absolute path, '../' or a link read any file the person can - a
-        // key included - into
-        // the image the agent runs in, or into an error on their screen.
+        // key included - into the image the agent runs in, or into an error on their screen.
         final java.nio.file.Path repository =
                 java.nio.file.Files.createDirectories(dir.resolve("repository"));
         java.nio.file.Files.writeString(dir.resolve("outside.txt"), "RUN echo secret");

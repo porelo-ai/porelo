@@ -21,9 +21,9 @@ class MessageWaitPaceTest {
     @Test
     void aWaitThatCameBackAtOnceWithNothingIsFollowedByAPause() {
 
-        // Two tasks down for two days, no account for them in the vault; each direct-chat loop
-        // came back from its 'wait' at once, with nothing and no error, and asked again - two
-        // cores, for hours.
+        // Two tasks down for two days, no account for them in the vault; each direct-chat loop came
+        // back from its 'wait' at once, with nothing and no error, and asked again - two cores, for
+        // hours.
         assertThat(MessageWatch.pause(outcome(Map.of(), List.of()), Duration.ofMillis(3)))
                 .isEqualTo(MessageWatch.IDLE);
     }

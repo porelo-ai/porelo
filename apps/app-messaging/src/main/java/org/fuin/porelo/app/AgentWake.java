@@ -137,10 +137,8 @@ public final class AgentWake {
             }
             if (metadata.get("inReplyToMessageId") != null || decided(document)) {
                 // The filter's answer to the agent's own message: worth waking for only when it
-                // refused it or would
-                // have, never for a receipt. Known by its decision too, because an id the detectors
-                // flagged is not
-                // repeated in the answer.
+                // refused it or would have, never for a receipt. Known by its decision too, because
+                // an id the detectors flagged is not repeated in the answer.
                 return refused(document);
             }
             final String task = org.fuin.porelo.runtime.ContainerName.taskIn(project, container);
@@ -149,9 +147,8 @@ public final class AgentWake {
                     to instanceof List<?> list ? list : to == null ? List.of() : List.of(to);
             if (named.isEmpty() && PersonsWords.VIA_ROOM.equals(metadata.get("via"))) {
                 // A person asking the room without naming anybody asks every task in it (the
-                // operator, walk 10:
-                // "Wer ist da?" and nobody answered). A task's word to nobody stays the room's
-                // talk.
+                // operator, walk 10: "Wer ist da?" and nobody answered). A task's word to nobody
+                // stays the room's talk.
                 return true;
             }
             return named.stream()
@@ -227,10 +224,9 @@ public final class AgentWake {
             final java.util.function.BooleanSupplier waking) {
         try {
             // One at a time per task, across the daemon's passes and a person's 'talk tell' in
-            // another process: two
-            // paths that found the same message at the same moment of rest typed it twice, and the
-            // second Enter broke
-            // into the turn the first had started (2026-10-04).
+            // another process: two paths that found the same message at the same moment of rest
+            // typed it twice, and the second Enter broke into the turn the first had started
+            // (2026-10-04).
             Files.createDirectories(mailbox.record());
             return FileLocks.holding(
                     mailbox.record().resolve(".wake.lock"),
@@ -492,14 +488,12 @@ public final class AgentWake {
      */
     boolean wake(final String container, final AgentDefinition definition, final String line) {
         // Both, or never: an agent whose screen does not tell a question it put from its rest would
-        // take the line and
-        // its Enter as the answer to a question nobody can see is open.
+        // take the line and its Enter as the answer to a question nobody can see is open.
         if (definition.atRest() == null || definition.waiting() == null) {
             return false;
         }
         // Rest that holds over two looks: an agent's work line comes and goes between its tool
-        // calls, and one look
-        // that fell into such a gap typed into a turn that was still running.
+        // calls, and one look that fell into such a gap typed into a turn that was still running.
         if (!rests(container, definition) || !pause() || !rests(container, definition)) {
             return false;
         }
@@ -511,8 +505,7 @@ public final class AgentWake {
             return false;
         }
         // An agent that took the line works, and its screen says so. One that still rests left the
-        // line standing in its
-        // input box: it took the Enter while it drew something.
+        // line standing in its input box: it took the Enter while it drew something.
         if (!pause() || !rests(container, definition)) {
             return taken(stuck);
         }

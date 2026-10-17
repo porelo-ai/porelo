@@ -98,8 +98,7 @@ class WakeLandsTest {
     @Test
     void restForOneLookOnlyIsNotTypedInto() {
         // An agent's work line comes and goes between its tool calls: one look fell into such a gap
-        // and the wake line
-        // broke into a turn that was still running.
+        // and the wake line broke into a turn that was still running.
         final Stand stand = new Stand(REST, WORK);
 
         assertThat(waker(stand).wake("porelo-p-writer", CLAUDE, AgentWake.LINE)).isFalse();

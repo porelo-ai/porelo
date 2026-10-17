@@ -172,8 +172,8 @@ public final class UnhandedWork {
                         StandardCharsets.UTF_8);
             }
         } catch (IOException | RuntimeException ex) {
-            // The task stops regardless. A note that could not be written reads as "nobody
-            // looked", which is the cautious end of this: removal then asks rather than proceeds.
+            // The task stops regardless. A note that could not be written reads as "nobody looked",
+            // which is the cautious end of this: removal then asks rather than proceeds.
         }
     }
 
@@ -199,8 +199,8 @@ public final class UnhandedWork {
             return fromJson(content);
         }
         // Written by a Porelo that recorded the phrase rather than the counts. Parsed rather than
-        // discarded because it is our own sentence, in one of three shapes, and answering
-        // "nobody looked" about a task that was measured would be worse than reading it back.
+        // discarded because it is our own sentence, in one of three shapes, and answering "nobody
+        // looked" about a task that was measured would be worse than reading it back.
         return legacy(content, written(file));
     }
 

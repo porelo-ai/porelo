@@ -43,8 +43,8 @@ public class PoreloCli implements Callable<Integer> {
 
     @Override
     public Integer call() {
-        // Invoked without a subcommand. Usage on stderr and a non-zero exit, so that a script
-        // that forgets the subcommand fails instead of looking successful.
+        // Invoked without a subcommand. Usage on stderr and a non-zero exit, so that a script that
+        // forgets the subcommand fails instead of looking successful.
         spec.commandLine().usage(spec.commandLine().getErr());
         return 2;
     }

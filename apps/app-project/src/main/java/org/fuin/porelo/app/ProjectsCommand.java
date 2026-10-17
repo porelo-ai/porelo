@@ -84,9 +84,9 @@ public class ProjectsCommand implements Callable<Integer>, PoreloFactory.Context
                     project.file() == null ? "(file not recorded)" : project.file());
             if (project.repositories().size() > 1) {
                 // Only when there is more than one, because one repository is what the line above
-                // already reads as. Naming them rather than counting them: this is the list
-                // 'porelo task start --repository' takes, and a number would send somebody to the
-                // file to find out what to type.
+                // already reads as. Naming them rather than counting them: this is the list 'porelo
+                // task start --repository' takes, and a number would send somebody to the file to
+                // find out what to type.
                 out.printf(
                         "%-" + width + "s  %d repositories: %s%n",
                         "",
@@ -96,8 +96,7 @@ public class ProjectsCommand implements Callable<Integer>, PoreloFactory.Context
                                         repository ->
                                                 repository.name()
                                                         // Only where there is something to act on,
-                                                        // by the same
-                                                        // rule the line below follows.
+                                                        // by the same rule the line below follows.
                                                         + (repository.pending() > 0
                                                                 ? " ("
                                                                         + repository.pending()
@@ -107,10 +106,10 @@ public class ProjectsCommand implements Callable<Integer>, PoreloFactory.Context
             }
             if (project.following() != null && project.following().unverified()) {
                 // On the listing and not only under 'project following'. This is the one line that
-                // says who decides what tasks here may reach: with no anchor it is whoever can
-                // push to that repository, rather than whoever holds the signing key. Somebody
-                // reading a list of projects is choosing one to work in, which is exactly the
-                // moment that matters.
+                // says who decides what tasks here may reach: with no anchor it is whoever can push
+                // to that repository, rather than whoever holds the signing key. Somebody reading a
+                // list of projects is choosing one to work in, which is exactly the moment that
+                // matters.
                 out.printf(
                         "%-"
                                 + width
@@ -119,8 +118,8 @@ public class ProjectsCommand implements Callable<Integer>, PoreloFactory.Context
                         "");
             }
             if (project.pending() > 0 || project.tasks() > 0) {
-                // Only when there is something to act on: a line of zeroes under every project is
-                // a line nobody reads.
+                // Only when there is something to act on: a line of zeroes under every project is a
+                // line nobody reads.
                 out.printf(
                         "%-" + width + "s  %s%n",
                         "",

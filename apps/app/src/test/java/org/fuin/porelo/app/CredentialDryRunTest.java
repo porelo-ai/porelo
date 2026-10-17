@@ -62,9 +62,9 @@ class CredentialDryRunTest {
     @Test
     void saysAValueIsMissingBeforeAnybodyReliesOnIt(@TempDir final Path dir) {
 
-        // With a vault that exists and is open: the value simply is not in it. That is a
-        // different answer from having no vault at all, which the test below measures - and
-        // telling them apart is the point of both.
+        // With a vault that exists and is open: the value simply is not in it. That is a different
+        // answer from having no vault at all, which the test below measures - and telling them
+        // apart is the point of both.
         final PoreloContext context = context(dir);
         context.vault().write(java.util.Map.of(), "a-passphrase".toCharArray());
 
@@ -126,9 +126,9 @@ class CredentialDryRunTest {
     @Test
     void tellsNoVaultApartFromAValueThatWasNeverStored(@TempDir final Path dir) {
 
-        // Two different things to do first. A wizard told MISSING_VALUE sends somebody to
-        // 'vault put', which fails at its last step on a machine that has no vault at all.
-        // Found on an account that had never made one.
+        // Two different things to do first. A wizard told MISSING_VALUE sends somebody to 'vault
+        // put', which fails at its last step on a machine that has no vault at all. Found on an
+        // account that had never made one.
         final CredentialDeclarations.Check would =
                 new CredentialDeclarations(context(dir))
                         .wouldDeclare(

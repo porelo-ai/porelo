@@ -120,9 +120,9 @@ public final class MessageBudget {
             // where that is decided, with a message that says so.
             return "";
         }
-        // The pass now running is counted too. The record is written when a pass ends, so a
-        // budget that read only the record would let a single pass through with any number of
-        // messages - which is exactly the runaway the budget exists to stop.
+        // The pass now running is counted too. The record is written when a pass ends, so a budget
+        // that read only the record would let a single pass through with any number of messages -
+        // which is exactly the runaway the budget exists to stop.
         final int used = record.count(event, peer, Instant.now().minus(DAY)) + thisPass;
         if (used < known.perDay()) {
             return "";

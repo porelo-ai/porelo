@@ -96,8 +96,8 @@ public final class MessagePass {
             final Moderation moderation)
             throws IOException {
         // One pass at a time per mailbox, whoever runs it: the daemon's and a 'talk pass' ran over
-        // one queue at once,
-        // sent a message twice, and the slower one's move failed halfway through its pass.
+        // one queue at once, sent a message twice, and the slower one's move failed halfway through
+        // its pass.
         return FileLocks.holding(
                 mailbox.root().resolve(PASS_LOCK), () -> runHeld(mailbox, mail, peers, moderation));
     }
@@ -118,8 +118,8 @@ public final class MessagePass {
         final List<String> taken = new MessageIntake(key).take(mailbox);
         for (final String message : taken) {
             // The role goes into the record: a person writing into a conversation has to be
-            // distinguishable from the agent afterwards, and the message itself may be gone by
-            // the time anybody asks.
+            // distinguishable from the agent afterwards, and the message itself may be gone by the
+            // time anybody asks.
             record.append(
                     MessageRecord.TAKEN,
                     message,
@@ -193,8 +193,8 @@ public final class MessagePass {
             }
         }
 
-        // Asked before anything is delivered: a transport that keeps its arrivals elsewhere has
-        // to be given the chance to put them here, or the delivery below would walk past them.
+        // Asked before anything is delivered: a transport that keeps its arrivals elsewhere has to
+        // be given the chance to put them here, or the delivery below would walk past them.
         final TransportPoll.Outcome polled =
                 new TransportPoll(runner, transports).poll(mailbox, named(mail));
         for (final Map.Entry<String, String> failure : polled.failures().entrySet()) {
@@ -208,9 +208,8 @@ public final class MessagePass {
         }
 
         // Independent of our own filter: what a peer sent is delivered whether or not this machine
-        // can send anything today.
-        // What was held counts as seen as much as what was delivered: a second copy of a held
-        // message is the same message.
+        // can send anything today. What was held counts as seen as much as what was delivered: a
+        // second copy of a held message is the same message.
         final java.util.Set<String> handed = record.delivered();
         final java.util.Set<String> seen = new java.util.LinkedHashSet<>(handed);
         seen.addAll(record.held());

@@ -16,8 +16,7 @@ class RepositoryOfferTest {
     void anEmptyDefaultOffersNoneAndSaysHowToAddOne() {
 
         // A start said "It has: default" while 'project default list' said it had no repository
-        // yet: the project's own
-        // repository was offered, where no task works.
+        // yet: the project's own repository was offered, where no task works.
         final var empty =
                 ProjectReader.read(
                         new StringReader(

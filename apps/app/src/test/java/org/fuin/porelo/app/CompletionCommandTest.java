@@ -22,11 +22,11 @@ class CompletionCommandTest {
     @Test
     void everyScriptIsDeclaredToTheNativeImage() throws IOException {
 
-        // This is the defect it was written for, and it was found by running the binary rather
-        // than by any test: the resources were on the classpath, every test passed, and
-        // 'porelo completion bash' in the native image answered "this build carries no bash
-        // completion script". A resource nobody declares is simply absent from the image, and
-        // nothing in a JVM test can see that.
+        // This is the defect it was written for, and it was found by running the binary rather than
+        // by any test: the resources were on the classpath, every test passed, and 'porelo
+        // completion bash' in the native image answered "this build carries no bash completion
+        // script". A resource nobody declares is simply absent from the image, and nothing in a JVM
+        // test can see that.
         final String metadata = Files.readString(METADATA, StandardCharsets.UTF_8);
         for (final String shell : List.of("bash", "zsh")) {
             final String resource =
@@ -78,10 +78,10 @@ class CompletionCommandTest {
         // Completion runs on every TAB, including TABs somebody did not mean. The only porelo
         // command either script may run is the one that reads.
         //
-        // Comments are stripped first, and that is not a detail: both scripts explain the
-        // callback in their header, so counting every line that names it counted the prose as a
-        // second call. The first version of this test did exactly that and failed on correct
-        // scripts - it was caught by the full suite after a narrower run had reported success.
+        // Comments are stripped first, and that is not a detail: both scripts explain the callback
+        // in their header, so counting every line that names it counted the prose as a second call.
+        // The first version of this test did exactly that and failed on correct scripts - it was
+        // caught by the full suite after a narrower run had reported success.
         for (final String resource : List.of("/completion/porelo", "/completion/_porelo")) {
             final List<String> code =
                     read(resource)
@@ -89,12 +89,12 @@ class CompletionCommandTest {
                             .map(String::strip)
                             .filter(line -> !line.startsWith("#"))
                             .toList();
-            // Counted rather than matched, and that took three tries to get right. What has to
-            // be true is "this script runs the binary once, and that once is the callback" - and
-            // a test that merely looked for '__complete' somewhere passed a script that ran
-            // 'task list' first and the callback after, which is exactly the thing forbidden.
-            // The token that RUNS the binary is the array's element zero; the other COMP_WORDS
-            // expansions are the words being passed to it.
+            // Counted rather than matched, and that took three tries to get right. What has to be
+            // true is "this script runs the binary once, and that once is the callback" - and a
+            // test that merely looked for '__complete' somewhere passed a script that ran 'task
+            // list' first and the callback after, which is exactly the thing forbidden. The token
+            // that RUNS the binary is the array's element zero; the other COMP_WORDS expansions are
+            // the words being passed to it.
             final String body = String.join("\n", code);
             final String call = resource.endsWith("_porelo") ? "${words[1]}" : "${COMP_WORDS[0]}";
             assertThat(occurrences(body, call))

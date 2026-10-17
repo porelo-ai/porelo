@@ -44,8 +44,8 @@ public final class ProjectReader {
         try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
             // Absolute, because the message is read somewhere else than it was typed: "project.yml
             // has no 'project' section" leaves a reader guessing which project.yml, and a person
-            // driving this over a socket or from a script has no working directory in front of
-            // them at all.
+            // driving this over a socket or from a script has no working directory in front of them
+            // at all.
             return read(reader, file.toAbsolutePath().toString());
         } catch (IOException ex) {
             throw new ProjectException("Cannot read " + file, ex);
@@ -143,8 +143,8 @@ public final class ProjectReader {
         }
 
         // Before anything is read from it: a setting in the wrong place, or misspelt, is no setting
-        // at all, and
-        // the file looked applied (found on 2026-09-30, with a key one section too low).
+        // at all, and the file looked applied (found on 2026-09-30, with a key one section too
+        // low).
         ProjectSchema.check(root, origin);
 
         final Map<?, ?> project = section(root, "project", origin);
@@ -470,8 +470,8 @@ public final class ProjectReader {
                             name,
                             text(peer.get("address")),
                             // Vouched is the narrower promise - it skips the check on the way in -
-                            // so an
-                            // omitted trust level is the wider one rather than the convenient one.
+                            // so an omitted trust level is the wider one rather than the convenient
+                            // one.
                             text(peer.get("trust")).isEmpty()
                                     ? Mail.Peer.EXTERNAL
                                     : text(peer.get("trust")),
@@ -565,8 +565,7 @@ public final class ProjectReader {
             }
             final String scheme = String.valueOf(entry.getKey());
             // Named as a peer's transport is: it becomes a directory of this machine's state, and
-            // clearing a project
-            // deletes files under it - '../../x' reached outside it.
+            // clearing a project deletes files under it - '../../x' reached outside it.
             if (!scheme.matches("[a-z0-9][a-z0-9-]*")) {
                 throw new ProjectException(
                         origin
@@ -768,9 +767,8 @@ public final class ProjectReader {
             return null;
         }
         // From the repository and nowhere else: resolved as written, an absolute path, '../' or a
-        // link read any file
-        // the person can - a key included - into the image the agent runs in, or into an error on
-        // their screen.
+        // link read any file the person can - a key included - into the image the agent runs in, or
+        // into an error on their screen.
         final Path base = Path.of(origin).toAbsolutePath().getParent();
         final String named = String.valueOf(file);
         if (base == null || Path.of(named).isAbsolute()) {

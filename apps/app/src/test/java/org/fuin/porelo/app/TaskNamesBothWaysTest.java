@@ -24,9 +24,8 @@ class TaskNamesBothWaysTest {
     @Test
     void everyTaskAndTalkCommandTakesATaskByItsContainersNameOrItsOwn() throws IOException {
         // 'porelo task files b37online' said nothing was handed to it, while the container's name
-        // listed six records:
-        // every other task command took both spellings, and files, give, take-back, label,
-        // clearance and talk did not.
+        // listed six records: every other task command took both spellings, and files, give,
+        // take-back, label, clearance and talk did not.
         final Path apps = Path.of("").toAbsolutePath().getParent();
         final List<String> missing = new ArrayList<>();
         int found = 0;

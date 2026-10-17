@@ -36,9 +36,9 @@ class TeardownTest {
     @Test
     void makesTheSecondCallerWaitForACleanupInProgress() throws Exception {
 
-        // The point of the lock. The runtime waits for shutdown hook threads and not for the
-        // main thread, so a hook that saw "somebody else has it" and returned would let the
-        // process exit with the container half stopped.
+        // The point of the lock. The runtime waits for shutdown hook threads and not for the main
+        // thread, so a hook that saw "somebody else has it" and returned would let the process exit
+        // with the container half stopped.
         final CountDownLatch started = new CountDownLatch(1);
         final CountDownLatch release = new CountDownLatch(1);
         final AtomicInteger finished = new AtomicInteger();

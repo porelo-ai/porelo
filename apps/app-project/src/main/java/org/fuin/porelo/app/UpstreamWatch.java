@@ -100,10 +100,10 @@ public final class UpstreamWatch implements AutoCloseable {
                     continue;
                 }
                 try {
-                    // Once per repository, because each has its own mirror and its own upstream -
-                    // a project's distance was never one number once it had a second repository,
-                    // and reporting the first one's as the project's would be reporting a number
-                    // that is right about one repository and shown against all of them.
+                    // Once per repository, because each has its own mirror and its own upstream - a
+                    // project's distance was never one number once it had a second repository, and
+                    // reporting the first one's as the project's would be reporting a number that
+                    // is right about one repository and shown against all of them.
                     final Project project = GateSupport.project(Path.of(summary.file()));
                     records.put(
                             UpstreamRecords.key(summary.name(), repository.name()),
@@ -115,8 +115,8 @@ public final class UpstreamWatch implements AutoCloseable {
                                             context, summary.name(), repository.name())));
                     looked++;
                 } catch (RuntimeException ex) {
-                    // An unreadable project file, or a record that cannot be written. The next
-                    // pass tries again, and the listing keeps whatever it had.
+                    // An unreadable project file, or a record that cannot be written. The next pass
+                    // tries again, and the listing keeps whatever it had.
                     continue;
                 }
             }

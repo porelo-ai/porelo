@@ -71,8 +71,7 @@ public final class WorkOrigin {
                         : "; its origin's address carried a credential, which Porelo"
                                 + " leaves out of everything it keeps or shows";
         // A followed project's settings are what somebody wrote and signed for this repository: its
-        // work comes from
-        // its remote and goes there, and this checkout is no part of it.
+        // work comes from its remote and goes there, and this checkout is no part of it.
         final Choice followed = origin.isEmpty() ? null : followedNaming(context, origin);
         if (followed != null) {
             return new Choice(
@@ -84,8 +83,8 @@ public final class WorkOrigin {
                             + " and goes there, not into this checkout");
         }
         // Otherwise the checkout is the source, both ways: its committed history goes in, the
-        // approved work comes back
-        // into it, and its remote is the person's own to pull from and push to.
+        // approved work comes back into it, and its remote is the person's own to pull from and
+        // push to.
         final String path = top.toString();
         final DefaultProject fallback = new DefaultProject(context);
         final DefaultProject.Entry kept = fallback.withUpstream(path);

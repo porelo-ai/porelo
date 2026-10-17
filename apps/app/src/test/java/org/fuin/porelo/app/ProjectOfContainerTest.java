@@ -15,8 +15,7 @@ class ProjectOfContainerTest {
     void aContainerOfAnotherProjectWithTheSameNameIsNotThisTask() {
 
         // 'web' with task 'app-x' and 'web-app' with task 'x' are both porelo-web-app-x: a start in
-        // 'web' brought back
-        // the other project's task, with its workspace and its egress.
+        // 'web' brought back the other project's task, with its workspace and its egress.
         final ContainerSummary theirs =
                 new ContainerSummary(
                         "porelo-web-app-x",

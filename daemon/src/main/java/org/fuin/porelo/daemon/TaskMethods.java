@@ -84,8 +84,7 @@ final class TaskMethods {
                 "Stop",
                 (parameters, replies) -> {
                     // Stops and keeps. What used to be Stop(purge:) is Remove, because one verb
-                    // that
-                    // destroys depending on a flag is one people press without reading.
+                    // that destroys depending on a flag is one people press without reading.
                     final TaskControl.Stopped result = control.stop(text(parameters, "task"));
                     final Map<String, Object> answer = new LinkedHashMap<>();
                     answer.put("outcome", result.outcome().name());
@@ -118,8 +117,7 @@ final class TaskMethods {
                 "Label",
                 (parameters, replies) -> {
                     // Through TaskControl, which is what the CLI drives too. A caption written by
-                    // one
-                    // surface and invisible to the other would be worse than none.
+                    // one surface and invisible to the other would be worse than none.
                     final String caption = text(parameters, "label");
                     final TaskControl.Labelled outcome =
                             control.label(text(parameters, "task"), caption);
@@ -137,16 +135,12 @@ final class TaskMethods {
                 "Panic",
                 (parameters, replies) -> {
                     // The same operation the CLI runs, not a faster one. Somebody reaches for this
-                    // when
-                    // they do not know what is wrong, which is the worst moment for two
-                    // implementations
-                    // of "stop everything" to differ - and it is why shelling out to 'porelo panic'
-                    // was
-                    // never an acceptable answer for an interface.
+                    // when they do not know what is wrong, which is the worst moment for two
+                    // implementations of "stop everything" to differ - and it is why shelling out
+                    // to 'porelo panic' was never an acceptable answer for an interface.
                     //
                     // It stops and never removes: every workspace, log and unpushed commit
-                    // survives, and
-                    // Start brings a task back with the work it had.
+                    // survives, and Start brings a task back with the work it had.
                     final TaskPanic.Result result =
                             new TaskPanic(context).panic(flag(parameters, "dryRun"), "daemon");
                     final Map<String, Object> answer = new LinkedHashMap<>();
@@ -163,10 +157,8 @@ final class TaskMethods {
                 "Lock",
                 (parameters, replies) -> {
                     // The one thing that mutates the credential store over the socket. Everything
-                    // else
-                    // about the vault is read-only here on purpose: a daemon has no terminal, so it
-                    // can
-                    // shut the vault but can never open it.
+                    // else about the vault is read-only here on purpose: a daemon has no terminal,
+                    // so it can shut the vault but can never open it.
                     final Map<String, Object> answer = new LinkedHashMap<>();
                     final boolean keyring = org.fuin.porelo.vault.KernelKeyring.available();
                     answer.put("keyring", keyring);
@@ -177,16 +169,14 @@ final class TaskMethods {
                                             .forget()
                                     : org.fuin.porelo.vault.KernelKeyring.Forgotten.NOTHING_CACHED;
                     // Only a clearing counts as one. A keyring that could not answer must not read
-                    // as
-                    // "there was nothing", which is what a boolean made of it.
+                    // as "there was nothing", which is what a boolean made of it.
                     answer.put(
                             "wasCached",
                             forgotten == org.fuin.porelo.vault.KernelKeyring.Forgotten.CLEARED);
                     // Locking does not reach a running task: its proxy read the credential when it
                     // started and holds it in its own memory. Stopping the task is what ends that,
-                    // and an
-                    // interface that said "locked" without saying this would be claiming more than
-                    // happened.
+                    // and an interface that said "locked" without saying this would be claiming
+                    // more than happened.
                     answer.put(
                             "holding",
                             context.podman().poreloTasks().stream()
@@ -200,10 +190,8 @@ final class TaskMethods {
                 (parameters, replies) -> {
                     if (!replies.streaming()) {
                         // Asked without 'more', which is a client wanting the state once. Answering
-                        // with
-                        // the list rather than an error means one method serves both, and a client
-                        // that
-                        // cannot stream is not locked out of the data.
+                        // with the list rather than an error means one method serves both, and a
+                        // client that cannot stream is not locked out of the data.
                         final List<TaskInventory.Task> found = inventory.tasks();
                         replies.last(
                                 Map.of(
@@ -217,14 +205,10 @@ final class TaskMethods {
                     while (replies.open()) {
                         final List<TaskInventory.Task> tasks = inventory.tasks();
                         // Only on change - and "change" cannot include the age. The runtime's state
-                        // is a
-                        // phrase carrying one: 'Up 3 seconds' becomes 'Up 4 seconds' a second
-                        // later, so
-                        // comparing the whole answer made this fire every second and told a fleet
-                        // view to
-                        // redraw because a clock had moved. Measured against a real task, which is
-                        // the
-                        // only way this shows up at all.
+                        // is a phrase carrying one: 'Up 3 seconds' becomes 'Up 4 seconds' a second
+                        // later, so comparing the whole answer made this fire every second and told
+                        // a fleet view to redraw because a clock had moved. Measured against a real
+                        // task, which is the only way this shows up at all.
                         final List<String> unrecognized = inventory.unrecognized(tasks);
                         final List<String> settled =
                                 new java.util.ArrayList<>(
@@ -262,9 +246,8 @@ final class TaskMethods {
                                         : org.fuin.porelo.runtime.Podman.Rebuild.valueOf(asked);
                     } catch (IllegalArgumentException ex) {
                         // Refused rather than defaulted: silently doing the cheapest thing when
-                        // somebody
-                        // asked for the most expensive is the failure this whole feature exists to
-                        // avoid.
+                        // somebody asked for the most expensive is the failure this whole feature
+                        // exists to avoid.
                         throw new VarlinkException(
                                 INTERFACE + ".UnknownRebuild", Map.of("rebuild", asked));
                     }
@@ -298,8 +281,8 @@ final class TaskMethods {
                 "Logs",
                 (parameters, replies) -> {
                     // Listed, not guessed: which files a task has depends on what it started, and a
-                    // client
-                    // that knew the names would open an empty viewer for one that never existed.
+                    // client that knew the names would open an empty viewer for one that never
+                    // existed.
                     replies.last(
                             Map.of(
                                     "logs",
@@ -349,8 +332,8 @@ final class TaskMethods {
                     final String task = text(parameters, "task");
                     if (!ContainerName.isTask(task)) {
                         // The same refusal as everywhere else that takes a container name: a name
-                        // Porelo
-                        // did not create belongs to somebody else, and this one runs git inside it.
+                        // Porelo did not create belongs to somebody else, and this one runs git
+                        // inside it.
                         throw new VarlinkException(INTERFACE + ".NoSuchTask", Map.of("task", task));
                     }
                     final boolean up =
@@ -386,17 +369,15 @@ final class TaskMethods {
                                         text(parameters, "log")));
                     }
                     // From its last lines when a client asks: from the first line, a log of 53 MB
-                    // crossed the socket before an
-                    // interface could show any of it. Every reply says where its first line starts,
-                    // for reading back.
+                    // crossed the socket before an interface could show any of it. Every reply says
+                    // where its first line starts, for reading back.
                     long position =
                             parameters.get("last") instanceof Number last
                                     ? startOfLast(log, last.intValue())
                                     : 0;
                     // Through the task's own agent when a client asks: its formatter reads one line
-                    // at a time, so a console
-                    // showing a log's end gets that end formatted, never the whole file. One agent
-                    // for the whole stream.
+                    // at a time, so a console showing a log's end gets that end formatted, never
+                    // the whole file. One agent for the whole stream.
                     final String agent =
                             Boolean.TRUE.equals(parameters.get("formatted"))
                                             && log.getParent() != null
@@ -440,9 +421,8 @@ final class TaskMethods {
                 "HandIn",
                 (parameters, replies) -> {
                     // A file for a running task, in parts: a reply is one message, so a large file
-                    // is several calls, and a
-                    // client on another machine carries bytes, never a path. It reaches the task
-                    // only whole.
+                    // is several calls, and a client on another machine carries bytes, never a
+                    // path. It reaches the task only whole.
                     final String task = runningTask(context, text(parameters, "task"));
                     final byte[] part;
                     try {
@@ -534,8 +514,8 @@ final class TaskMethods {
                 "Screen",
                 (parameters, replies) -> {
                     // A tile's console for work in a terminal, which has no log to follow: what its
-                    // session shows, read by tmux
-                    // in the task without attaching. A snapshot; a client asks again.
+                    // session shows, read by tmux in the task without attaching. A snapshot; a
+                    // client asks again.
                     final String task = text(parameters, "task");
                     if (!ContainerName.isTask(task)
                             || context.podman().poreloTasks().stream()
@@ -557,17 +537,15 @@ final class TaskMethods {
                 "CanStart",
                 (parameters, replies) -> {
                     // The rule lives in one place and this is not it: StartCheck delegates every
-                    // decision
-                    // to the same objects a launch uses, so this and an actual Start cannot come to
-                    // different conclusions. That was the whole argument for a method over a reply
-                    // field -
-                    // the rule needs four inputs and a client has one of them.
+                    // decision to the same objects a launch uses, so this and an actual Start
+                    // cannot come to different conclusions. That was the whole argument for a
+                    // method over a reply field - the rule needs four inputs and a client has one
+                    // of them.
                     final String project = text(parameters, "project");
                     // A name this machine does not have is an ANSWER here, not an error: asking
-                    // whether
-                    // work can start is a question a client is entitled to ask about a project that
-                    // turns
-                    // out not to exist, and making it throw would hand it an exception for asking.
+                    // whether work can start is a question a client is entitled to ask about a
+                    // project that turns out not to exist, and making it throw would hand it an
+                    // exception for asking.
                     final java.nio.file.Path named =
                             project.isEmpty()
                                     ? null
@@ -605,9 +583,9 @@ final class TaskMethods {
                                     org.fuin.porelo.app.StartCheck.check(
                                                     context,
                                                     // A name, as everything else takes now. Left
-                                                    // out, no project is checked -
-                                                    // which is how an interface asks about the
-                                                    // machine before one is chosen.
+                                                    // out, no project is checked - which is how an
+                                                    // interface asks about the machine before one
+                                                    // is chosen.
                                                     named,
                                                     empty(parameters, "task"),
                                                     empty(parameters, "agent"),
@@ -615,10 +593,9 @@ final class TaskMethods {
                                                     empty(parameters, "credentialType"),
                                                     empty(parameters, "repository"),
                                                     // A run with no gate works on no repository, so
-                                                    // there is nothing for it to
-                                                    // name - and asking for one would be asking
-                                                    // about something that does not
-                                                    // exist for that run.
+                                                    // there is nothing for it to name - and asking
+                                                    // for one would be asking about something that
+                                                    // does not exist for that run.
                                                     !flag(parameters, "noGate"),
                                                     credentials(parameters))
                                             .asMap());
@@ -640,12 +617,10 @@ final class TaskMethods {
                 "Start",
                 (parameters, replies) -> {
                     // Refused as itself before anything is launched: a destination nobody declared
-                    // is a typed answer an
-                    // interface can show, not a launch line among others.
-                    // A host never met is a typed refusal, before anything is made: it went ahead
-                    // without a gate before.
-                    // The host the start will fetch from: the upstream it was given, as the launch
-                    // asks it.
+                    // is a typed answer an interface can show, not a launch line among others. A
+                    // host never met is a typed refusal, before anything is made: it went ahead
+                    // without a gate before. The host the start will fetch from: the upstream it
+                    // was given, as the launch asks it.
                     final String unmet =
                             org.fuin.porelo.app.StartCheck.unknownHost(
                                     context,
@@ -680,21 +655,16 @@ final class TaskMethods {
                                 Map.of("name", undeclared.substring(0, undeclared.indexOf('\n'))));
                     }
                     // Into the domain, not out to a subprocess. Until TaskLaunch existed this
-                    // spawned
-                    // 'porelo task run' and read one line of its output for the container name,
-                    // because
-                    // running the command was the only way to start a task. Now the CLI and this
-                    // call
-                    // the same object, so neither can grow a behavior the other lacks - and there
-                    // is
-                    // because the name comes back as a value.
+                    // spawned 'porelo task run' and read one line of its output for the container
+                    // name, because running the command was the only way to start a task. Now the
+                    // CLI and this call the same object, so neither can grow a behavior the other
+                    // lacks - and there is because the name comes back as a value.
                     final java.io.StringWriter collected = new java.io.StringWriter();
                     final PrintWriter sink =
                             replies.streaming()
                                     // Streamed as it happens: building an image takes minutes, and
-                                    // an interface
-                                    // showing nothing for that long is indistinguishable from one
-                                    // that hung.
+                                    // an interface showing nothing for that long is
+                                    // indistinguishable from one that hung.
                                     ? new PrintWriter(new StreamingWriter(replies), true)
                                     : new PrintWriter(collected, true);
 
@@ -702,9 +672,8 @@ final class TaskMethods {
                             new java.util.concurrent.atomic.AtomicReference<>("");
                     final TaskLaunch launch = new TaskLaunch(context, request(parameters, context));
                     // A task that already exists is brought back, not created again - the same call
-                    // the
-                    // CLI makes first, so a stopped task answers the same over the socket as at a
-                    // terminal.
+                    // the CLI makes first, so a stopped task answers the same over the socket as at
+                    // a terminal.
                     final TaskLaunch.Existing existing = launch.startExisting(sink, sink);
                     final int code;
                     // What Start did, or the refusal it answered with - on the final reply, as the
@@ -713,9 +682,8 @@ final class TaskMethods {
                     if (existing != null) {
                         started.set(existing.container());
                         // Brought back with a prompt, it runs - continuing its session where the
-                        // agent can - as a
-                        // new task with a prompt does. A start that ignored it would report a run
-                        // nobody performed.
+                        // agent can - as a new task with a prompt does. A start that ignored it
+                        // would report a run nobody performed.
                         code =
                                 existing.code() != 0 || empty(parameters, "prompt") == null
                                         ? existing.code()
@@ -729,15 +697,12 @@ final class TaskMethods {
                                         running -> {
                                             started.set(running.container());
                                             // With a prompt this is an unattended run and has to
-                                            // actually run: a task
-                                            // started over the socket is as unattended as one
-                                            // started at a terminal,
-                                            // and a client that got "started" for a run nobody
-                                            // performed would wait
-                                            // for output that was never going to come. Without one,
-                                            // there is no
-                                            // terminal on the far end of a socket, so the task is
-                                            // up and that is all.
+                                            // actually run: a task started over the socket is as
+                                            // unattended as one started at a terminal, and a client
+                                            // that got "started" for a run nobody performed would
+                                            // wait for output that was never going to come. Without
+                                            // one, there is no terminal on the far end of a socket,
+                                            // so the task is up and that is all.
                                             if (empty(parameters, "prompt") == null) {
                                                 return 0;
                                             }

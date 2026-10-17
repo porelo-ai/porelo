@@ -236,9 +236,8 @@ public final class TokenPurchase implements TokenSource {
         }
         if (failed != null && (failed instanceof Ended || clock.instant().isBefore(failedUntil))) {
             // The single flight holds for a refusal too: the callers who waited behind it hear it,
-            // rather than each
-            // asking a server that just refused - or spending a grant the service has ended - once
-            // more.
+            // rather than each asking a server that just refused - or spending a grant the service
+            // has ended - once more.
             throw failed instanceof Ended
                     ? new Ended(String.valueOf(failed.getMessage()))
                     : new Refused(String.valueOf(failed.getMessage()));

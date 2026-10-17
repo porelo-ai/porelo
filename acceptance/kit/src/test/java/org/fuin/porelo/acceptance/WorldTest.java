@@ -62,8 +62,8 @@ class WorldTest {
 
     @Test
     void refusesAPlaceholderNobodySet() {
-        // Silently typing '${PORELO_E2E_MODEL}' into a terminal would fail on the machine, in a
-        // way that reads as the product not knowing the model.
+        // Silently typing '${PORELO_E2E_MODEL}' into a terminal would fail on the machine, in a way
+        // that reads as the product not knowing the model.
         assertThatThrownBy(() -> World.expand("x ${PORELO_ACCEPTANCE_NOT_A_VARIABLE_1} y"))
                 .isInstanceOf(AssertionError.class)
                 .hasMessageContaining("PORELO_ACCEPTANCE_NOT_A_VARIABLE_1");

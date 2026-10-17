@@ -18,8 +18,8 @@ class PublishedBomTest {
     @Test
     void carriesNoFlagThatWouldPublishWhoeverTakesItAsParent() throws IOException {
 
-        // A repository took porelo-bom as its parent, inherited both flags as false
-        // and counted as published to Central, which it never was.
+        // A repository took porelo-bom as its parent, inherited both flags as false and counted as
+        // published to Central, which it never was.
         final String published = Files.readString(FLATTENED);
 
         assertThat(published)

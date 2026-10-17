@@ -43,9 +43,9 @@ public class NftHook extends Hook {
         // only way to be sure the ruleset lands in the container's namespace and not the host's.
         //
         // The ruleset goes in on stdin rather than as a path. Under SELinux, running nft
-        // transitions
-        // into a confined domain that cannot open the operator's runtime files, and the denial is
-        // dontaudit'ed - so a path fails as "Permission denied" with nothing in the audit log.
+        // transitions into a confined domain that cannot open the operator's runtime files, and the
+        // denial is dontaudit'ed - so a path fails as "Permission denied" with nothing in the audit
+        // log.
         this(
                 pid ->
                         List.of(
@@ -101,9 +101,8 @@ public class NftHook extends Hook {
                 new ProcessBuilder(program.apply(state.pid())).redirectErrorStream(true).start();
 
         // Written and read beside the wait, not before it: reading the output first waited until
-        // nft closed it, so a
-        // hung nft was never timed out here and the runtime killed the hook with no line in its
-        // log.
+        // nft closed it, so a hung nft was never timed out here and the runtime killed the hook
+        // with no line in its log.
         final ByteArrayOutputStream output = new ByteArrayOutputStream();
         final Thread writer =
                 Thread.ofPlatform()

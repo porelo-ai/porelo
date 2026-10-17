@@ -161,8 +161,8 @@ class KeyslotsTest {
                 "root writes into a read-only directory, so the write cannot be made to fail");
 
         // The share is held, and the vault open with it, before "last used" is written: a failure
-        // there answered
-        // SHARE_REJECTED while the vault stood open, and a person was told the device was refused.
+        // there answered SHARE_REJECTED while the vault stood open, and a person was told the
+        // device was refused.
         final PoreloContext context = withVault(dir);
         final String share = share(1);
         context.vault()

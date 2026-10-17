@@ -119,11 +119,11 @@ public final class BackupRestore {
                     GateSupport.project(Path.of(summary.file()));
             final org.fuin.porelo.core.project.Repository chosen =
                     GateSupport.repository(read, repository);
-            // Built from the context rather than through GateSupport, which derives its paths
-            // from the real environment and its runner from nothing - so anything going through
-            // it reaches this machine's directories whatever it was handed. That is the same
-            // shape as the listing that bypassed its runner, and it is why a test of this wrote
-            // a mirror into a real home directory before it was noticed.
+            // Built from the context rather than through GateSupport, which derives its paths from
+            // the real environment and its runner from nothing - so anything going through it
+            // reaches this machine's directories whatever it was handed. That is the same shape as
+            // the listing that bypassed its runner, and it is why a test of this wrote a mirror
+            // into a real home directory before it was noticed.
             final Path mirrors = context.paths().xdg().data().resolve("mirrors");
             mirror =
                     chosen.name().equals(read.name())
@@ -161,11 +161,9 @@ public final class BackupRestore {
         }
 
         // restore() refuses to write over a mirror, which is right: it is the last guard before
-        // something
-        // irreversible. Moving it aside is the deliberate act, taken only after the refusal above
-        // has been answered,
-        // and it is removed only once the bundle has restored: a bundle that does not leaves it as
-        // it was.
+        // something irreversible. Moving it aside is the deliberate act, taken only after the
+        // refusal above has been answered, and it is removed only once the bundle has restored: a
+        // bundle that does not leaves it as it was.
         Path aside = null;
         try {
             if (Files.isDirectory(mirror.resolve("objects"))) {

@@ -66,8 +66,8 @@ public final class ProviderInventory {
                     }
                 }
             } catch (RuntimeException ex) {
-                // A machine whose agents cannot be asked still has providers worth listing. The
-                // key falls back to the provider's own name, which is where a credential belongs.
+                // A machine whose agents cannot be asked still has providers worth listing. The key
+                // falls back to the provider's own name, which is where a credential belongs.
             }
         }
 

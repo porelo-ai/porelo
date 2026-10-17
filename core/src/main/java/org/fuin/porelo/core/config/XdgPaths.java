@@ -66,14 +66,14 @@ public record XdgPaths(Path config, Path data, Path state, Path runtime, Path ho
                 base(env, "XDG_STATE_HOME", home.resolve(".local/state")),
                 base(env, "XDG_RUNTIME_DIR", Path.of("/run/user").resolve(String.valueOf(uid()))),
                 // Kept rather than only consulted. One thing Porelo makes is for a person to open
-                // in their own editor, and none of the four directories above is somewhere a
-                // person or a file dialog looks.
+                // in their own editor, and none of the four directories above is somewhere a person
+                // or a file dialog looks.
                 home);
     }
 
     private static Path base(EnvironmentLookup env, String variable, Path fallback) {
-        // The specification says a relative value must be ignored, not resolved against the
-        // current directory - a container runtime is the last place to want that ambiguity.
+        // The specification says a relative value must be ignored, not resolved against the current
+        // directory - a container runtime is the last place to want that ambiguity.
         return Optional.ofNullable(env.get(variable))
                 .filter(value -> !value.isBlank())
                 .map(Path::of)

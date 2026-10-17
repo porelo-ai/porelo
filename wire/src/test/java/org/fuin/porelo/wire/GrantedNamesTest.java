@@ -23,9 +23,9 @@ class GrantedNamesTest {
     @Test
     void aGrantCoversWhatIsUnderIt(@TempDir Path dir) throws IOException {
 
-        // Because that is what the resolver does with it: dnsmasq matches server=/example.test/
-        // for cdn.example.test too. A stricter rule here would leave a name resolving and then
-        // blocked, which is the one combination the design exists to avoid.
+        // Because that is what the resolver does with it: dnsmasq matches server=/example.test/ for
+        // cdn.example.test too. A stricter rule here would leave a name resolving and then blocked,
+        // which is the one combination the design exists to avoid.
         GrantedNames.add(dir, "example.test");
 
         assertThat(GrantedNames.covers(dir, "cdn.example.test")).isTrue();

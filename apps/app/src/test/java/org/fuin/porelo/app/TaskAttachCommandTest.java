@@ -81,9 +81,9 @@ class TaskAttachCommandTest {
     @Test
     void keepsTheProgramAndItsArgumentsApart(@TempDir Path dir) {
 
-        // Joined into one string, podman looks for an executable called
-        // "tmux new-session -A -s porelo" and fails with "no such file" - which reads as a broken
-        // container rather than as a mistake here.
+        // Joined into one string, podman looks for an executable called "tmux new-session -A -s
+        // porelo" and fails with "no such file" - which reads as a broken container rather than as
+        // a mistake here.
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
 
         run(dir, "task", "attach", "porelo-uc-shell-1");
@@ -95,8 +95,8 @@ class TaskAttachCommandTest {
     @Test
     void aStoppedTaskIsSentToStartRatherThanToTheList(@TempDir Path dir) {
 
-        // Two different things a person has to do next. "No such task" would send somebody
-        // looking at the list for something that is right there, stopped.
+        // Two different things a person has to do next. "No such task" would send somebody looking
+        // at the list for something that is right there, stopped.
         runner.answering("ps", "porelo-uc-shell-1\tExited (0) 2 minutes ago\n");
 
         assertThat(run(dir, "task", "attach", "porelo-uc-shell-1")).isEqualTo(69);
@@ -117,8 +117,8 @@ class TaskAttachCommandTest {
     @Test
     void doesNotAskAScriptWhetherToStartAStoppedTask() {
 
-        // The gate that matters. This command is also how a script gets into a task, and one
-        // that finds it stopped must fail rather than wait for an answer nobody will type.
+        // The gate that matters. This command is also how a script gets into a task, and one that
+        // finds it stopped must fail rather than wait for an answer nobody will type.
         assertThat(new TaskAttachCommand().offerToStart(new PrintWriter(new StringWriter()), null))
                 .isFalse();
     }
@@ -126,9 +126,9 @@ class TaskAttachCommandTest {
     @Test
     void takesSilenceAsYesButEndOfInputAsNo() {
 
-        // Yes is the default because the question only exists after somebody asked to attach -
-        // the answer is implied and the prompt is there to say what it costs. Ctrl-D is not that:
-        // end of input answers nothing, and nothing is not consent.
+        // Yes is the default because the question only exists after somebody asked to attach - the
+        // answer is implied and the prompt is there to say what it costs. Ctrl-D is not that: end
+        // of input answers nothing, and nothing is not consent.
         assertThat(TaskAttachCommand.consented("")).isTrue();
         assertThat(TaskAttachCommand.consented("y")).isTrue();
         assertThat(TaskAttachCommand.consented("YES")).isTrue();
@@ -142,10 +142,10 @@ class TaskAttachCommandTest {
     @Test
     void somethingThatIsNotATaskIsRefusedOnItsNameAlone(@TempDir Path dir) {
 
-        // The refusal is decided by the name, before anything about the machine is consulted.
-        // What follows it is a listing, offered because somebody who typed a name that is not a
-        // task is exactly who needs to see the ones that are - and it is read-only. A podman
-        // that cannot answer costs nothing here: the offer swallows it and the refusal stands.
+        // The refusal is decided by the name, before anything about the machine is consulted. What
+        // follows it is a listing, offered because somebody who typed a name that is not a task is
+        // exactly who needs to see the ones that are - and it is read-only. A podman that cannot
+        // answer costs nothing here: the offer swallows it and the refusal stands.
         assertThat(run(dir, "task", "attach", "some-other-container")).isEqualTo(69);
         assertThat(attached).as("nothing is attached to a name that is not a task").isEmpty();
         assertThat(runner.lines())

@@ -17,10 +17,9 @@ class RealAccountTest {
     void nothingButACommandsDefaultAndTheTwoMainsAsksForTheRealAccount() throws IOException {
 
         // The gate's helpers asked for this process's own account instead of the machine a command
-        // was given, so every
-        // test that gave a gate command a machine of its own wrote mirrors into the developer's
-        // account - a project
-        // 'uc' the operator cleared, and found again after the next build.
+        // was given, so every test that gave a gate command a machine of its own wrote mirrors into
+        // the developer's account - a project 'uc' the operator cleared, and found again after the
+        // next build.
         final Path root = Path.of("").toAbsolutePath().getParent().getParent();
         final List<String> found = new ArrayList<>();
         try (Stream<Path> modules = Files.list(root)) {
@@ -50,8 +49,8 @@ class RealAccountTest {
                                 continue;
                             }
                             // A command's default, which the factory replaces with the machine it
-                            // was given; and the
-                            // two entry points, which are the real account by definition.
+                            // was given; and the two entry points, which are the real account by
+                            // definition.
                             if (line.equals("private PoreloContext context = PoreloContext.real();")
                                     || line.contains("commandLine(PoreloContext.real())")
                                     || line.equals(

@@ -90,8 +90,8 @@ public class HookInstaller {
     }
 
     private static String quoteForMatch(String annotation) {
-        // podman treats the key as a regular expression. The dots in the annotation would
-        // otherwise match any character, so a foreign annotation could switch the hooks on.
+        // podman treats the key as a regular expression. The dots in the annotation would otherwise
+        // match any character, so a foreign annotation could switch the hooks on.
         return annotation.replace(".", "\\.");
     }
 
@@ -184,8 +184,8 @@ public class HookInstaller {
         if (!binariesPresent()) {
             return Registration.DANGLING;
         }
-        // Last, because it is the least definite: the three above are all "the hooks will not
-        // run", while this one is "they will run, and not necessarily as this version intends".
+        // Last, because it is the least definite: the three above are all "the hooks will not run",
+        // while this one is "they will run, and not necessarily as this version intends".
         return outdated().isEmpty() ? Registration.ACTIVE : Registration.STALE;
     }
 
@@ -325,8 +325,8 @@ public class HookInstaller {
             }
         }
         // In a different directory from the rest, which is why this returns paths rather than a
-        // count: a count with one directory beside it named the wrong place for this one file,
-        // and where things went is the whole point of saying anything.
+        // count: a count with one directory beside it named the wrong place for this one file, and
+        // where things went is the whole point of saying anything.
         if (Files.deleteIfExists(dropInFile())) {
             removed.add(dropInFile());
         }

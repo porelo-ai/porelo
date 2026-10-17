@@ -76,9 +76,9 @@ class MailboxLifetimeTest {
 
         final Path mailbox = context.paths().messaging().mailbox("porelo-uc-shell");
 
-        // Compared as names rather than with AssertJ's path assertion, which resolves the real
-        // path and therefore needs the directory to exist - and the point here is where a mailbox
-        // WOULD go, before any task has made one.
+        // Compared as names rather than with AssertJ's path assertion, which resolves the real path
+        // and therefore needs the directory to exist - and the point here is where a mailbox WOULD
+        // go, before any task has made one.
         assertThat(mailbox.startsWith(dir.resolve("state")))
                 .as("under the state directory")
                 .isTrue();

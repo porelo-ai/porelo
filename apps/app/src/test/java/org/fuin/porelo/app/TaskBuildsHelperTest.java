@@ -77,8 +77,7 @@ class TaskBuildsHelperTest {
     @Test
     void theHelperFollowsTheBranchTheGatePassedThePushOnTo() {
         // An online task pushed to refs/heads/<task> at the forge itself; now its gate passes its
-        // own ref on as
-        // porelo/<task>, and that is the branch the forge builds.
+        // own ref on as porelo/<task>, and that is the branch the forge builds.
         assertThat(BuildsWiring.branchAtTheUpstream("refs/porelo/incoming/builds"))
                 .isEqualTo("porelo/builds");
         assertThat(BuildsWiring.branchAtTheUpstream("refs/heads/builds")).isNull();

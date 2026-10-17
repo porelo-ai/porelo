@@ -73,9 +73,8 @@ public class ClearanceJournal {
                     Files.createDirectories(file.getParent());
                 }
                 // Made owner-only before its first line, not restricted after it: what a task
-                // reached is nobody
-                // else's business, and the directory it sits in is shared with every other Porelo
-                // state file.
+                // reached is nobody else's business, and the directory it sits in is shared with
+                // every other Porelo state file.
                 try {
                     Files.createFile(
                             file,

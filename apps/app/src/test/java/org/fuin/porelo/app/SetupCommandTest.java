@@ -97,8 +97,7 @@ class SetupCommandTest {
     void leavesTheVaultForATerminalAndSaysSoWhenThereIsNone(@TempDir Path dir) throws IOException {
 
         // Run the way a script runs it, with no terminal: the prompt would fail as "no passphrase
-        // available",
-        // which reads as Porelo's fault and is a missing -t.
+        // available", which reads as Porelo's fault and is a missing -t.
         assertThat(execute(context(dir, true), "setup")).isZero();
         assertThat(out.toString())
                 .contains("vault     none yet; it needs a passphrase typed at a terminal")

@@ -109,8 +109,7 @@ class JsonTest {
     void deepNestingIsRefusedAsBadInputNotAStackOverflow() {
 
         // A varlink message of brackets, well inside its size limit, ended in StackOverflowError -
-        // which no caller that
-        // catches bad input as a RuntimeException ever saw.
+        // which no caller that catches bad input as a RuntimeException ever saw.
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> Json.parse("[".repeat(200_000)))
                 .isInstanceOf(JsonException.class);
     }

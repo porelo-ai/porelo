@@ -49,8 +49,8 @@ public class TaskLabelCommand implements Callable<Integer>, PoreloFactory.Contex
 
     @Override
     public List<String> candidates() {
-        // Every task: a caption is worth as much on a stopped one, which is where a list
-        // of forty is hardest to read.
+        // Every task: a caption is worth as much on a stopped one, which is where a list of forty
+        // is hardest to read.
         return TaskCandidates.all(context);
     }
 

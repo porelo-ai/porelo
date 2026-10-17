@@ -159,8 +159,7 @@ class TaskLogArchiveTest {
             throws IOException {
 
         // A restart took its logs. The commands still answer, and a refusal is kept with its exit
-        // code, so a missing
-        // part is never an empty file.
+        // code, so a missing part is never an empty file.
         final PoreloContext context = context(dir);
         final Path target = dir.resolve("kept.zip");
 

@@ -40,8 +40,8 @@ class DnsmasqProbeTest {
     @Test
     void answersNoWhenThereIsNothingToRead() {
 
-        // A missing dnsmasq, or output in a shape this does not recognize. Assuming support
-        // would turn a loud "your dnsmasq is too old" into a silent network fault.
+        // A missing dnsmasq, or output in a shape this does not recognize. Assuming support would
+        // turn a loud "your dnsmasq is too old" into a silent network fault.
         assertThat(DnsmasqProbe.supportsNftSet(null)).isFalse();
         assertThat(DnsmasqProbe.supportsNftSet("")).isFalse();
         assertThat(DnsmasqProbe.supportsNftSet("Dnsmasq Version 2.92")).isFalse();
@@ -50,8 +50,8 @@ class DnsmasqProbeTest {
     @Test
     void ignoresTheWordAnywhereButTheOptionsLine() {
 
-        // Only dnsmasq's own capability line counts, not a copyright notice or a path that
-        // happens to contain the word.
+        // Only dnsmasq's own capability line counts, not a copyright notice or a path that happens
+        // to contain the word.
         assertThat(DnsmasqProbe.supportsNftSet("nftset is great\nVersion 2.92")).isFalse();
     }
 

@@ -18,8 +18,8 @@ class SelfReplacementTest {
     void aBinaryReplacedOnDiskIsSeenAndARemovedOneIsNot() {
 
         // An update renames a new binary over the old: the running one is then '(deleted)' with a
-        // file at its path.
-        // Removed with nothing in its place is an uninstall, which nothing restarts into.
+        // file at its path. Removed with nothing in its place is an uninstall, which nothing
+        // restarts into.
         assertThat(
                         SelfReplacement.replaced(
                                 "/usr/bin/porelod (deleted)",
@@ -44,9 +44,8 @@ class SelfReplacementTest {
     void anUpdateSeenTwiceInARowRestartsTheUnitWithItsNewDefinition() {
 
         // The binary is replaced first and the unit file a moment later, in one update: the first
-        // sight waits for
-        // the second, and the restart reloads the definitions first, or it ran the new binary under
-        // the old unit.
+        // sight waits for the second, and the restart reloads the definitions first, or it ran the
+        // new binary under the old unit.
         final FakeCommandRunner runner = new FakeCommandRunner();
         final java.io.ByteArrayOutputStream said = new java.io.ByteArrayOutputStream();
         final SelfReplacement watch =
@@ -109,9 +108,8 @@ class SelfReplacementTest {
     void theRestartEndingTheCallThatAskedForItIsNotAFailure() {
 
         // Measured on the VM: stopping the unit stops everything in it, the 'systemctl' that asked
-        // too, so its answer
-        // was a signal - and the log said the restart had failed while the daemon came back on the
-        // new binary.
+        // too, so its answer was a signal - and the log said the restart had failed while the
+        // daemon came back on the new binary.
         final FakeCommandRunner runner = new FakeCommandRunner().failing("restart", 143, "");
         final java.io.ByteArrayOutputStream said = new java.io.ByteArrayOutputStream();
         final SelfReplacement watch =

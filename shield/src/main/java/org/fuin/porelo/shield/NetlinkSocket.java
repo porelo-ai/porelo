@@ -128,8 +128,7 @@ public class NetlinkSocket implements AutoCloseable {
             descriptor = opened;
         } catch (Throwable ex) {
             // A refused bind left the socket open: one descriptor and the arena per attempt, for a
-            // reader that is
-            // started again and again.
+            // reader that is started again and again.
             release(opened);
             if (ex instanceof NetlinkException netlink) {
                 throw netlink;

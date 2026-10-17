@@ -43,8 +43,8 @@ public class TaskClearanceCommand
 
     @Override
     public List<String> candidates() {
-        // Only the ones that are up. This changes enforcement on a RUNNING task, so a
-        // stopped one offered here is a name that cannot be used.
+        // Only the ones that are up. This changes enforcement on a RUNNING task, so a stopped one
+        // offered here is a name that cannot be used.
         return TaskCandidates.running(context);
     }
 

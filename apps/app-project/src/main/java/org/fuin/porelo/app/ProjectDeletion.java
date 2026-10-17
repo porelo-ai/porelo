@@ -186,13 +186,13 @@ public final class ProjectDeletion {
                         .toList();
         final List<String> unreviewed = unreviewedIn(project);
 
-        // Named so a confirmation can say what survives. The interface would otherwise have to
-        // know which of a project's things are Porelo's, and being wrong about ownership in a
-        // dialog whose job is to say truthfully what is destroyed is the worst place for it.
+        // Named so a confirmation can say what survives. The interface would otherwise have to know
+        // which of a project's things are Porelo's, and being wrong about ownership in a dialog
+        // whose job is to say truthfully what is destroyed is the worst place for it.
         final List<String> keeps = new ArrayList<>();
-        // NOT a file that sits inside something being removed. A followed project's file is in
-        // the verified clone, and the clone goes - so naming it here said "kept" and "removed"
-        // about the same path, in the same preview. Found by running the published package.
+        // NOT a file that sits inside something being removed. A followed project's file is in the
+        // verified clone, and the clone goes - so naming it here said "kept" and "removed" about
+        // the same path, in the same preview. Found by running the published package.
         if (summary.file() != null
                 && !Path.of(summary.file())
                         .startsWith(context.paths().projects().followedClone(project))) {
@@ -228,9 +228,9 @@ public final class ProjectDeletion {
 
         try {
             for (final TaskInventory.Task task : tasks) {
-                // Through the same removal 'task remove' uses, so a deletion writes down what
-                // a task held exactly as a deliberate removal does. force carries through: a
-                // deletion the operator confirmed is not asked again per task.
+                // Through the same removal 'task remove' uses, so a deletion writes down what a
+                // task held exactly as a deliberate removal does. force carries through: a deletion
+                // the operator confirmed is not asked again per task.
                 //
                 // And the answer is READ. It was discarded, and that quietly broke the promise at
                 // the top of this class: a task refusing because it holds work the gate never saw
@@ -314,11 +314,10 @@ public final class ProjectDeletion {
                                     .resolve(project)
                                     .toString()));
         }
-        // The verified clone. Named here, and removed below, because BOTH ways of ending a
-        // project have to take it: the terminal removed it by hand afterwards and the socket did
-        // not, so a project unfollowed from an interface left its clone on the machine. The
-        // contract said the clone goes, and one of the two paths quietly did not. Found through
-        // the interface.
+        // The verified clone. Named here, and removed below, because BOTH ways of ending a project
+        // have to take it: the terminal removed it by hand afterwards and the socket did not, so a
+        // project unfollowed from an interface left its clone on the machine. The contract said the
+        // clone goes, and one of the two paths quietly did not. Found through the interface.
         if (Files.isDirectory(context.paths().projects().followedClone(project))) {
             removes.add(
                     new Removal(

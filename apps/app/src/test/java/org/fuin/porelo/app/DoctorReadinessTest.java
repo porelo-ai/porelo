@@ -38,8 +38,8 @@ class DoctorReadinessTest {
     @Test
     void degradedAndUnknownLeaveAMachineReady() {
 
-        // The machine does run tasks and the report says how well. Treating either as unready
-        // would refuse work on a machine that works, and people would stop reading the report.
+        // The machine does run tasks and the report says how well. Treating either as unready would
+        // refuse work on a machine that works, and people would stop reading the report.
         assertThat(
                         DoctorCommand.ready(
                                 List.of(probe(Probe.State.DEGRADED), probe(Probe.State.UNKNOWN))))

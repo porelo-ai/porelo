@@ -114,9 +114,8 @@ public class TransportDirectory {
                             entries.filter(path -> path.getFileName().toString().startsWith(PREFIX))
                                     .filter(Files::isRegularFile)
                                     // An adapter is executed. A file somebody dropped here without
-                                    // meaning it to
-                                    // run is not one, and neither is a stray note or a leftover
-                                    // archive.
+                                    // meaning it to run is not one, and neither is a stray note or
+                                    // a leftover archive.
                                     .filter(Files::isExecutable)
                                     .toList());
             candidates.sort(Comparator.comparing(path -> path.getFileName().toString()));

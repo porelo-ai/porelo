@@ -228,8 +228,8 @@ class AgentProtocolTest {
     void everyPartOfTheSetupContextSurvivesTheWire(@TempDir Path dir) throws Exception {
 
         // A regression test with a cause: the provider name was added to the context, the agent
-        // read it, and the client never sent it - so a task got registerProvider("") and failed
-        // to authenticate. Nothing below the wire could see that, because both sides compiled.
+        // read it, and the client never sent it - so a task got registerProvider("") and failed to
+        // authenticate. Nothing below the wire could see that, because both sides compiled.
         final Agent echoing =
                 new Agent() {
                     @Override

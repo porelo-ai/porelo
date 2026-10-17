@@ -54,8 +54,8 @@ public final class SshWire {
         final int length = buffer.getInt();
         if (length < 0 || length > buffer.remaining()) {
             // A negative or oversized length is how a hostile client turns a parser into an
-            // allocator. This is the only place that reads a length, so this is the only place
-            // that has to say no.
+            // allocator. This is the only place that reads a length, so this is the only place that
+            // has to say no.
             throw new SshProtocolException("Implausible string length " + length);
         }
         final byte[] value = new byte[length];

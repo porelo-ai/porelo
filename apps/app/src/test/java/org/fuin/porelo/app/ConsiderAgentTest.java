@@ -23,8 +23,7 @@ class ConsiderAgentTest {
             throws IOException {
 
         // "No agent named 'claude' is installed. Found: none" while it was installed: its adapter
-        // had not started,
-        // and the reason was left out.
+        // had not started, and the reason was left out.
         final Path agents = Files.createDirectories(dir.resolve("agents"));
         final Path adapter = agents.resolve(AgentDirectory.PREFIX + "claude");
         Files.writeString(adapter, "#!/bin/sh\necho 'cannot bind its socket' >&2\nexit 3\n");

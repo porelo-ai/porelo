@@ -81,22 +81,19 @@ public final class MessageIntake {
         for (final Path message : finished(from)) {
             final String name = message.getFileName().toString();
             // The bytes, once, and from then on the host's own copy: renamed onward, the file
-            // stayed the agent's inode,
-            // and through a hard link it kept it could change a message after it was signed,
-            // filtered or read.
+            // stayed the agent's inode, and through a hard link it kept it could change a message
+            // after it was signed, filtered or read.
             final byte[] bytes = bounded(message);
             Files.delete(message);
             if (bytes == null) {
                 // Beyond the limit, and not read: a sparse file of gigabytes, read whole, ended
-                // messaging on the
-                // machine. No transport carries one anyway.
+                // messaging on the machine. No transport carries one anyway.
                 continue;
             }
-            // Only the false claim is stopped here, not every wrong role: a message with no role
-            // or a nonsense one is the filter's to refuse, and it answers the sender properly.
-            // What the filter cannot judge is whether a task is entitled to say a person wrote
-            // this, and that is exactly what this decides. Read from the bytes signed, not the file
-            // again.
+            // Only the false claim is stopped here, not every wrong role: a message with no role or
+            // a nonsense one is the filter's to refuse, and it answers the sender properly. What
+            // the filter cannot judge is whether a task is entitled to say a person wrote this, and
+            // that is exactly what this decides. Read from the bytes signed, not the file again.
             final String role = MessageFile.role(bytes);
             if (person ? !PERSON.equals(role) : PERSON.equals(role)) {
                 // Held, not corrected: a host that rewrote the role would be signing its own
@@ -106,10 +103,9 @@ public final class MessageIntake {
             }
 
             // The signature is written before the message. A crash between the two leaves a
-            // signature with no
-            // message, which the next run overwrites; the other order would leave a message with no
-            // signature, and
-            // nothing downstream could tell whether it had been signed or tampered with.
+            // signature with no message, which the next run overwrites; the other order would leave
+            // a message with no signature, and nothing downstream could tell whether it had been
+            // signed or tampered with.
             final Path signature = mailbox.incoming().resolve(name + ".sig");
             final Path partial = mailbox.incoming().resolve("." + name + ".sig.tmp");
             Files.writeString(

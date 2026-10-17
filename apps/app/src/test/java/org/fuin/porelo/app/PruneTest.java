@@ -108,8 +108,7 @@ class PruneTest {
     void theBuildLockOfAProjectThatExistsIsNeverLeftOver() throws IOException {
 
         // Listed as "build …/default.build.lock - its build context" while a task of 'default' ran:
-        // the lock beside
-        // the context was read as a project called "default.build.lock".
+        // the lock beside the context was read as a project called "default.build.lock".
         final PoreloContext context = context();
         final Path file = Files.createDirectories(dir.resolve("readable")).resolve("project.yml");
         Files.writeString(

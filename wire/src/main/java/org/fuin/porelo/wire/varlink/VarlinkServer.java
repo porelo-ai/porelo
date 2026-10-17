@@ -208,13 +208,12 @@ public class VarlinkServer implements AutoCloseable, Runnable {
             try {
                 final SocketChannel client = channel.accept();
                 // A platform thread per connection unless told otherwise: in the native binary a
-                // virtual thread blocked
-                // reading a call now and then never woke, and the caller waited until its own limit
+                // virtual thread blocked reading a call now and then never woke, and the caller
+                // waited until its own limit
                 // - an agent that
                 // answered in a tenth of a second, and once a daemon for four minutes. Connections
-                // are few: a
-                // lookup's one, an interface's streams. Switchable, so one binary is measured both
-                // ways.
+                // are few: a lookup's one, an interface's streams. Switchable, so one binary is
+                // measured both ways.
                 ServingThreads.start("varlink-connection", () -> serve(client));
             } catch (IOException ex) {
                 if (running) {
@@ -289,10 +288,9 @@ public class VarlinkServer implements AutoCloseable, Runnable {
                         @Override
                         public boolean open() {
                             // The first time always: a client that has said all it will say -
-                            // 'porelo daemon connect' ends its
-                            // half when its input ends - reads exactly like one that has gone, and
-                            // still hears what is open
-                            // now. After that, the end of its half ends the stream.
+                            // 'porelo daemon connect' ends its half when its input ends - reads
+                            // exactly like one that has gone, and still hears what is open now.
+                            // After that, the end of its half ends the stream.
                             if (!asked) {
                                 asked = true;
                                 return true;

@@ -10,9 +10,9 @@ class ClearanceRequestTest {
     @Test
     void namesTheTaskRatherThanTheContainer() {
 
-        // Captured off the notification bus: the summary read
-        // "Porelo: porelo-notify-probe-shell-1209592 blocked", which carries a process id and
-        // identifies nothing an operator with several tasks open would recognize.
+        // Captured off the notification bus: the summary read "Porelo:
+        // porelo-notify-probe-shell-1209592 blocked", which carries a process id and identifies
+        // nothing an operator with several tasks open would recognize.
         assertThat(
                         new ClearanceRequest("myproject", "shell", "1.1.1.1:443", "1.1.1.1", "tcp")
                                 .summary())
@@ -39,8 +39,8 @@ class ClearanceRequestTest {
     @Test
     void saysWhatTheSilenceDidWhenNobodyAnswered() {
 
-        // A question that simply disappears leaves an operator who was away from the machine
-        // unable to tell it from one that was never raised - and this one settled something: the
+        // A question that simply disappears leaves an operator who was away from the machine unable
+        // to tell it from one that was never raised - and this one settled something: the
         // destination stays blocked and is not asked about again.
         final ClearanceRequest request =
                 new ClearanceRequest("myproject", "shell", "1.1.1.1:443", "1.1.1.1", "tcp");
@@ -54,8 +54,8 @@ class ClearanceRequestTest {
     @Test
     void showsTheAddressWhenNothingNamedIt() {
 
-        // The common case, and the honest one: an agent dialling a literal address was never
-        // told a name, and inventing one would be worse than the number.
+        // The common case, and the honest one: an agent dialling a literal address was never told a
+        // name, and inventing one would be worse than the number.
         assertThat(new ClearanceRequest("p", "t", "1.1.1.1:443", "1.1.1.1", "tcp").body())
                 .contains("1.1.1.1:443");
     }
@@ -64,9 +64,8 @@ class ClearanceRequestTest {
     void aNameTheAgentChoseCannotDressItselfUpWhereAPersonDecides() {
 
         // The name is the one the agent queried: markup a notification server reads, a
-        // right-to-left override that
-        // makes it read as another host, or a name long enough to push the warning out of view,
-        // went in as it came.
+        // right-to-left override that makes it read as another host, or a name long enough to push
+        // the warning out of view, went in as it came.
         final ClearanceRequest request =
                 new ClearanceRequest(
                         "uc",

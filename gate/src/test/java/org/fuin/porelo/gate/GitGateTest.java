@@ -140,8 +140,7 @@ class GitGateTest {
     void theReviewNamesWhatIsDangerousByKindFirstAndReformattingLast() throws IOException {
 
         // A one-line workflow change beside a large reformat: the workflow is the finding, and a
-        // raw
-        // patch in path order put the reformat first.
+        // raw patch in path order put the reformat first.
         final GitGate gate = gate(GateMode.GATEKEEPING, null);
         final TaskToken token = TaskToken.mint();
 
@@ -187,8 +186,7 @@ class GitGateTest {
     void aTaskMayPushToItsOwnRefAndToNothingElseInTheMirror() throws IOException {
 
         // Measured on 2026-09-29: a plain push landed in the mirror's refs/heads, which is the
-        // history
-        // the next task clones from and the base every review compares against.
+        // history the next task clones from and the base every review compares against.
         final GitGate gate = gate(GateMode.GATEKEEPING, null);
         final TaskToken token = TaskToken.mint();
         final GitHttpServer server =
@@ -205,8 +203,8 @@ class GitGateTest {
             makeCommit("agent.txt", "written by the agent");
 
             // Refused in git's own words, which an agent reads and corrects: a bare 403 read to
-            // Claude Code as "an
-            // authentication issue on the git server", and it gave up (measured 2026-10-01).
+            // Claude Code as "an authentication issue on the git server", and it gave up (measured
+            // 2026-10-01).
             assertThatThrownBy(() -> git(work, "push", url(server), "HEAD:refs/heads/main"))
                     .as("a branch of the mirror")
                     .hasMessageContaining("remote rejected")
@@ -227,8 +225,7 @@ class GitGateTest {
                     .hasMessageContaining("remote rejected");
             git(work, "push", url(server), "HEAD:" + GitGate.INCOMING + "task-1");
             // Its rescue, beside it: pushed through this same gate when the task is removed with
-            // work it never
-            // handed back. Refused until 2026-09-30, so every rescue failed.
+            // work it never handed back. Refused until 2026-09-30, so every rescue failed.
             git(work, "push", url(server), "HEAD:" + GitGate.INCOMING + "task-1" + GitGate.RESCUED);
             assertThatThrownBy(
                             () ->
@@ -288,8 +285,7 @@ class GitGateTest {
     void anOnlineTasksPushArrivesAtTheUpstreamBeforeItReturnsWithForceOnItsOwnBranch()
             throws IOException {
         // An online task held the real key through an ssh-agent socket and could push anywhere it
-        // reached; now its
-        // gate passes its own branch on, and the container holds nothing.
+        // reached; now its gate passes its own branch on, and the container holds nothing.
         final Path upstream = upstreamWithMain();
         final GitGate gate = gate(GateMode.ONLINE, upstream.toString());
         final TaskToken token = TaskToken.mint();
@@ -507,8 +503,7 @@ class GitGateTest {
     void aReviewShowsWhatTheTaskChangedNotWhatTheUpstreamDidSinceItStarted() throws IOException {
 
         // Two tasks share a mirror. A later task's start refreshed it to the upstream's newer main,
-        // and the earlier
-        // task's review showed that newer work as its own, removed.
+        // and the earlier task's review showed that newer work as its own, removed.
         final Path upstream = upstreamWithMain();
         final GitGate gate = gate(GateMode.GATEKEEPING, upstream.toString());
         git(root, "clone", "--quiet", mirror.toString(), work.toString());
@@ -533,8 +528,7 @@ class GitGateTest {
     void theWorkApprovedIntoTheSourceDoesNotComeBackAsABranchOfItsOwn() throws IOException {
 
         // An approval puts porelo/<task> into the checkout; the next refresh brought it back into
-        // the gate, and the
-        // task saw it as porelo/porelo/<task>.
+        // the gate, and the task saw it as porelo/porelo/<task>.
         final Path upstream = upstreamWithMain();
         final Path seed = root.resolve("seed");
         git(seed, "push", "--quiet", upstream.toString(), "HEAD:refs/heads/porelo/earlier");
@@ -565,8 +559,8 @@ class GitGateTest {
     @Test
     void theFirstReviewOfANewProjectWorks() throws IOException {
 
-        // An empty mirror has no branch to compare against. Every project's first review hits
-        // this, so it must not be a git error about an ambiguous argument.
+        // An empty mirror has no branch to compare against. Every project's first review hits this,
+        // so it must not be a git error about an ambiguous argument.
         final GitGate gate = gate(GateMode.GATEKEEPING, null);
         final TaskToken token = TaskToken.mint();
 
@@ -591,8 +585,8 @@ class GitGateTest {
             git(root, "init", work.toString());
             makeCommit("agent.txt", "x");
 
-            // git asking for a username is the visible form of the 401: it received the
-            // challenge and had no credentials to answer it with.
+            // git asking for a username is the visible form of the 401: it received the challenge
+            // and had no credentials to answer it with.
             assertThatThrownBy(
                             () -> git(work, "push", url(server), "HEAD:" + GitGate.INCOMING + "t"))
                     .hasMessageContaining("could not read Username");
@@ -709,8 +703,8 @@ class GitGateTest {
     void approvingSignedMergesTheWorkAsACommitSignedByThePersonsOwnKey() throws IOException {
 
         // What a machine's enrolment needs: every machine accepts a configuration only signed, and
-        // the key is
-        // a person's. Git signs with the key the person's own git names; the gate never holds it.
+        // the key is a person's. Git signs with the key the person's own git names; the gate never
+        // holds it.
         final Path upstream = upstreamWithMain();
         final Path key = root.resolve("signing");
         runner.runOrFail(
@@ -814,9 +808,8 @@ class GitGateTest {
     void workMergedElsewhereIsBundledOutAndClearedOnlyOnceTheUpstreamHasIt() throws IOException {
 
         // The interface's way: the reviewed work leaves as a bundle, a person merges and signs it
-        // on their own
-        // computer and pushes it, and the gate clears it once - and only once - the upstream's
-        // branch holds it.
+        // on their own computer and pushes it, and the gate clears it once - and only once - the
+        // upstream's branch holds it.
         final Path upstream = upstreamWithMain();
         final GitGate gate = gate(GateMode.GATEKEEPING, upstream.toString());
         pendingEnrolment(gate);
@@ -854,10 +847,9 @@ class GitGateTest {
     void aFetchWithEnoughHistoryToBeCompressedIsServed() throws IOException {
 
         // Measured on 2026-09-30 after a finding about compressed bodies elsewhere: git compresses
-        // a fetch's
-        // negotiation (Content-Encoding: gzip) once it is larger than a kilobyte - a clone with a
-        // few dozen
-        // commits of its own. The gate must serve that fetch, not hand git a body it cannot read.
+        // a fetch's negotiation (Content-Encoding: gzip) once it is larger than a kilobyte - a
+        // clone with a few dozen commits of its own. The gate must serve that fetch, not hand git a
+        // body it cannot read.
         final GitGate gate = gate(GateMode.GATEKEEPING, null);
         final TaskToken token = TaskToken.mint();
         try (GitHttpServer server = serve(token)) {
@@ -1031,8 +1023,8 @@ class GitGateTest {
         final GitGate restored = new GitGate(runner, elsewhere, GateMode.GATEKEEPING, null);
         restored.restore(bundle);
 
-        // The pending push has to survive: it is exactly the work an operator restoring a backup
-        // is least able to reconstruct.
+        // The pending push has to survive: it is exactly the work an operator restoring a backup is
+        // least able to reconstruct.
         assertThat(restored.pending()).containsExactly("task-1");
     }
 
@@ -1076,8 +1068,8 @@ class GitGateTest {
         final Path bundle = root.resolve("mirror.bundle");
         gate.backup(bundle);
 
-        // git needs a repository to check a bundle's prerequisites against, so answering this
-        // from nowhere would be a guess. Whether the surrounding directory happens to be a git
+        // git needs a repository to check a bundle's prerequisites against, so answering this from
+        // nowhere would be a guess. Whether the surrounding directory happens to be a git
         // repository must not change the result.
         final GitGate nowhere =
                 new GitGate(runner, root.resolve("absent.git"), GateMode.GATEKEEPING, null);
@@ -1154,8 +1146,8 @@ class GitGateTest {
     @Test
     void reportsThatAnEmptyMirrorCameFromNowhere() {
 
-        // The negative case: a mirror created empty has no origin, and inventing one would make
-        // the report worse than absent.
+        // The negative case: a mirror created empty has no origin, and inventing one would make the
+        // report worse than absent.
         final GitGate gate = new GitGate(runner, mirror, GateMode.GATEKEEPING, null);
         gate.initialize();
 
@@ -1190,9 +1182,8 @@ class GitGateTest {
             throws Exception {
 
         // Approved work goes to the upstream, never into the mirror: without this the next task
-        // started from the old
-        // base, and its forward was refused as no fast-forward (found on a real repository,
-        // 2026-10-01).
+        // started from the old base, and its forward was refused as no fast-forward (found on a
+        // real repository, 2026-10-01).
         final Path upstream = root.resolve("upstream.git");
         git(root, "init", "--bare", "--initial-branch=main", upstream.toString());
         git(root, "init", "--initial-branch=main", work.toString());
@@ -1267,9 +1258,8 @@ class GitGateTest {
     void seedsThroughTheLendingAsEveryOtherCallToTheUpstreamDoes() {
 
         // An ssh seed needs the machine's host-key policy and its known hosts, which only the
-        // lending gives. The
-        // first clone went without, so a host this machine had vouched for failed and the task had
-        // no gate.
+        // lending gives. The first clone went without, so a host this machine had vouched for
+        // failed and the task had no gate.
         final Path upstream = root.resolve("upstream.git");
         git(root, "init", "--bare", "--initial-branch=main", upstream.toString());
         final java.util.List<String> asked = new java.util.ArrayList<>();
@@ -1352,9 +1342,9 @@ class GitGateTest {
         // is "fetch it into your own checkout and push", and this copy simply has no upstream to
         // push to.
         //
-        // The gate is built WITH an upstream on purpose. Written against a gate that had none,
-        // this test passed while a mutation added the upstream as a remote - it was asserting
-        // against a fixture that could not have failed.
+        // The gate is built WITH an upstream on purpose. Written against a gate that had none, this
+        // test passed while a mutation added the upstream as a remote - it was asserting against a
+        // fixture that could not have failed.
         final Path upstream = root.resolve("upstream.git");
         git(root, "init", "--quiet", "--bare", "--initial-branch=main", upstream.toString());
         final GitGate gate = gate(GateMode.GATEKEEPING, upstream.toString());
@@ -1394,8 +1384,8 @@ class GitGateTest {
         final Path opened = root.resolve("opened");
         gate.checkout("shell", opened);
 
-        // Asked without runOrFail: a non-zero exit IS the assertion here, and the helper would
-        // turn the thing being proved into a thrown error.
+        // Asked without runOrFail: a non-zero exit IS the assertion here, and the helper would turn
+        // the thing being proved into a thrown error.
         assertThat(
                         runner.run(
                                         new Command(
@@ -1435,9 +1425,9 @@ class GitGateTest {
     @Test
     void refusesToDiscardWorkTheUpstreamAlreadyHas() throws Exception {
 
-        // The dangerous one of the three things a hand push breaks. approve pushes AND deletes
-        // the ref; a hand push does the first only, so the ref stays - and somebody tidying up
-        // then writes down "discarded" about code that is live.
+        // The dangerous one of the three things a hand push breaks. approve pushes AND deletes the
+        // ref; a hand push does the first only, so the ref stays - and somebody tidying up then
+        // writes down "discarded" about code that is live.
         final GitGate gate = gate(GateMode.GATEKEEPING, null);
         pushWork("shell", "one.txt");
 
@@ -1452,8 +1442,8 @@ class GitGateTest {
     @Test
     void discardsItAnywayWhenSomebodySaysForce() throws Exception {
 
-        // A person who means it can still do it - the same property the whole requirement rests
-        // on. What must not happen is doing it without being told.
+        // A person who means it can still do it - the same property the whole requirement rests on.
+        // What must not happen is doing it without being told.
         final GitGate gate = gate(GateMode.GATEKEEPING, null);
         pushWork("shell", "one.txt");
 
@@ -1479,8 +1469,7 @@ class GitGateTest {
     void whatIsApprovedIsTheCommitThatWasReviewedNeverOneThatCameAfter() throws Exception {
 
         // The task's gate stays up while a person reads: a push after the review reached the
-        // upstream unseen, and
-        // one landing between the forward and the clean-up was deleted.
+        // upstream unseen, and one landing between the forward and the clean-up was deleted.
         final Path upstream = root.resolve("upstream.git");
         git(root, "init", "--bare", "--initial-branch=main", upstream.toString());
         final GitGate gate = gate(GateMode.GATEKEEPING, upstream.toString());
@@ -1527,9 +1516,8 @@ class GitGateTest {
             throws Exception {
 
         // A task's name came back after a restart: the upstream still holds porelo/task-1 from the
-        // earlier task. The
-        // approve was git's "! [rejected] (non-fast-forward)" as Failed; now it is named, with what
-        // the branch holds.
+        // earlier task. The approve was git's "! [rejected] (non-fast-forward)" as Failed; now it
+        // is named, with what the branch holds.
         final Path upstream = root.resolve("upstream.git");
         git(root, "init", "--bare", "--initial-branch=main", upstream.toString());
         final Path earlier = root.resolve("earlier");
@@ -1600,8 +1588,7 @@ class GitGateTest {
     void aTaskSeesAndFetchesItsOwnWorkAndNoOtherTasks() throws Exception {
 
         // Every task's gate served the whole shared mirror: one agent listed another's ref and
-        // fetched its unreviewed
-        // work.
+        // fetched its unreviewed work.
         gate(GateMode.GATEKEEPING, null);
         pushWork("task-2", "theirs.txt");
         pushWork("task-10", "a-longer-name.txt");
@@ -1635,8 +1622,7 @@ class GitGateTest {
     void aRefNameIsReadAsGitReadsItWithNothingTrimmedButTheLineEnd() throws Exception {
 
         // Trimmed as Java trims, a name ending in U+3000 compared equal to the task's own ref and
-        // git made a second
-        // ref of it, listed beside the real one under the same name.
+        // git made a second ref of it, listed beside the real one under the same name.
         final byte[] line =
                 ("0".repeat(40)
                                 + " "
@@ -1658,8 +1644,8 @@ class GitGateTest {
     void aRefThatIsNoCommitIsListedAsSuchAndTheOthersStillAre() throws Exception {
 
         // An annotated tag or a blob pushed to an incoming ref - receive-pack refuses those only
-        // under refs/heads -
-        // made the listing throw, and every task of the project lost its review queue.
+        // under refs/heads - made the listing throw, and every task of the project lost its review
+        // queue.
         final GitGate gate = gate(GateMode.GATEKEEPING, null);
         pushWork("task-1", "work.txt");
         final Path blob = root.resolve("blob.txt");
@@ -1683,8 +1669,7 @@ class GitGateTest {
     void aWorkflowWhoseNameGitWouldQuoteIsStillDangerous() throws Exception {
 
         // Read without -z, git quoted a path with a byte beyond ASCII or a '"', and the quoted name
-        // matched no
-        // dangerous place: a workflow ranked ordinary.
+        // matched no dangerous place: a workflow ranked ordinary.
         final GitGate gate = gate(GateMode.GATEKEEPING, null);
         git(root, "init", "--initial-branch=main", work.toString());
         Files.createDirectories(work.resolve(".github/workflows"));
@@ -1707,8 +1692,7 @@ class GitGateTest {
     void aRefusedNameReachesTheLogAsOneLineWithNothingATerminalActsOn() {
 
         // Printed as the agent sent it, a name could write lines of its own into the gate log, or
-        // escape sequences
-        // into the terminal of whoever follows it.
+        // escape sequences into the terminal of whoever follows it.
         assertThat(GitHttpServer.printable("refs/heads/x\nrefused: all is well\u001b[2J"))
                 .isEqualTo("refs/heads/x\\nrefused: all is well\\x1b[2J");
     }
@@ -1739,9 +1723,8 @@ class GitGateTest {
     void anUpstreamThatReadsAsAnOptionIsNeverTakenForOne() throws Exception {
 
         // Written into the project file, '--upload-pack=<command>' reached 'git fetch' as an option
-        // and ran on the host.
-        // The project file refuses it; the gate never hands an address to git where an option could
-        // be.
+        // and ran on the host. The project file refuses it; the gate never hands an address to git
+        // where an option could be.
         final Path marker = root.resolve("owned");
         final GitGate gate =
                 new GitGate(
@@ -1769,8 +1752,7 @@ class GitGateTest {
     void theReviewedCommitIsNamedInFullBecauseAShortOneCanBeMatchedByAnother() throws Exception {
 
         // Compared as a prefix, the seven characters a listing shows could be met by another commit
-        // the agent ground
-        // out - about 2^28 tries - and pushed while the person read.
+        // the agent ground out - about 2^28 tries - and pushed while the person read.
         final Path upstream = root.resolve("upstream.git");
         git(root, "init", "--bare", "--initial-branch=main", upstream.toString());
         final GitGate gate = gate(GateMode.GATEKEEPING, upstream.toString());

@@ -96,12 +96,12 @@ class PoreloPathsTest {
     @Test
     void putsAReviewCopyWhereSomebodyWillFindIt(@TempDir Path dir) {
 
-        // Two things this pins, and the second is easy to undo by accident. It must not land in
-        // the operator's repository - the default used to be beside the project file, so a review
-        // left 'porelo-review-shell/' untracked in a checkout Porelo promises not to touch; one had
-        // sat on a test machine for two days. And it must not land under the data directory
-        // either: this is the one thing Porelo makes for a person to open in their own editor, and
-        // a file dialog does not show .local/share.
+        // Two things this pins, and the second is easy to undo by accident. It must not land in the
+        // operator's repository - the default used to be beside the project file, so a review left
+        // 'porelo-review-shell/' untracked in a checkout Porelo promises not to touch; one had sat
+        // on a test machine for two days. And it must not land under the data directory either:
+        // this is the one thing Porelo makes for a person to open in their own editor, and a file
+        // dialog does not show .local/share.
         final XdgPaths xdg = XdgPaths.of(name -> null, dir);
         final Path review =
                 new PoreloPaths(xdg, dir.resolve("bin")).gate().reviewCheckout("utils4j", "shell");
@@ -116,8 +116,8 @@ class PoreloPathsTest {
     @Test
     void usesTheOperatorsOwnVaultWhenNothingOverridesIt(@TempDir Path dir) {
 
-        // The negative case: an override that leaked in by accident would send every command at
-        // a vault the operator never chose.
+        // The negative case: an override that leaked in by accident would send every command at a
+        // vault the operator never chose.
         assertThat(
                         new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin"))
                                 .vault()

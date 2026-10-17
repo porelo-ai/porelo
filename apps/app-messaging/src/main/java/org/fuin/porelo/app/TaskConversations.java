@@ -89,8 +89,7 @@ final class TaskConversations {
                 lifecycle.retire(scheme, project.name(), container, settings(project, scheme));
             } catch (TransportLifecycle.Refused ex) {
                 // Its secrets stay in the vault, so the account can still be retired: nothing is
-                // lost that a
-                // transport which answers again could not finish.
+                // lost that a transport which answers again could not finish.
                 err.println(
                         "porelo: "
                                 + container

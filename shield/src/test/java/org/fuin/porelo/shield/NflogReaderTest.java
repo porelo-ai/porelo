@@ -33,8 +33,8 @@ class NflogReaderTest {
     void putsTheGroupNumberInNetworkByteOrder() {
 
         // res_id is big endian while the netlink header around it is host endian. Getting this
-        // wrong binds group 256 instead of group 1 and the reader then sees nothing at all.
-        // res_id sits at offset 18: after the 16-byte nlmsghdr come family and version.
+        // wrong binds group 256 instead of group 1 and the reader then sees nothing at all. res_id
+        // sits at offset 18: after the 16-byte nlmsghdr come family and version.
         final ByteBuffer buffer =
                 ByteBuffer.wrap(NflogReader.bindMessage(1)).order(ByteOrder.BIG_ENDIAN);
 

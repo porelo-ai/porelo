@@ -63,9 +63,8 @@ class DeployKeysTest {
             throws Exception {
 
         // Its file names no upstream - the work goes elsewhere - but this machine fetches its
-        // configuration from the
-        // follow's address: with the key's secret half gone, 'deploy-key --new' refused, and
-        // nothing could fetch it.
+        // configuration from the follow's address: with the key's secret half gone, 'deploy-key
+        // --new' refused, and nothing could fetch it.
         final PoreloContext context = context();
         Files.createDirectories(context.vault().path().getParent());
         context.vault().write(Map.of(), PASSPHRASE);
@@ -99,8 +98,7 @@ class DeployKeysTest {
         Assumptions.assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
 
         // 'web' with 'app-api' and 'web-app' with 'api' were both 'deploy-web-app-api': the second
-        // was given the
-        // first one's key, and clearing 'web' deleted 'web-app''s.
+        // was given the first one's key, and clearing 'web' deleted 'web-app''s.
         final PoreloContext context = context();
         final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
         try {
@@ -129,8 +127,7 @@ class DeployKeysTest {
         Assumptions.assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
 
         // Machines hold keys under the old name; the one that registered it at a forge keeps it,
-        // and a project whose
-        // names only meet it does not inherit it.
+        // and a project whose names only meet it does not inherit it.
         final PoreloContext context = context();
         final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
         try {
@@ -167,9 +164,9 @@ class DeployKeysTest {
     void aKeyKeptUnderTheOldNameMovesToItsOwnAndAClearingLeavesNoCopy() throws Exception {
         Assumptions.assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
 
-        // The move compared the entry it read with the one the update read anew by identity, so
-        // the old name was never removed: a clearing that said the key was forgotten left its
-        // secret half in the vault, and a later follow took it back as found.
+        // The move compared the entry it read with the one the update read anew by identity, so the
+        // old name was never removed: a clearing that said the key was forgotten left its secret
+        // half in the vault, and a later follow took it back as found.
         final PoreloContext context = context();
         final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
         try {

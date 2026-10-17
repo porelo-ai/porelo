@@ -46,9 +46,9 @@ public class TokenBroker {
      */
     public PhantomToken mint(String scope, String subject, Duration lifetime) {
         if (!credentials.get().containsKey(scope)) {
-            // Minting a token that can never be exchanged would fail later, inside the agent,
-            // as an authentication error against the provider - which is the hardest possible
-            // place to work out what went wrong.
+            // Minting a token that can never be exchanged would fail later, inside the agent, as an
+            // authentication error against the provider - which is the hardest possible place to
+            // work out what went wrong.
             throw new VaultException("The vault has no credential for scope '" + scope + "'");
         }
         final PhantomToken token = PhantomToken.mint(scope, subject, Instant.now().plus(lifetime));

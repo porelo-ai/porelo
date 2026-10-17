@@ -120,14 +120,13 @@ class AgentIsolationTest {
         // to this codebase.
         //
         // Narrower than the agent rule in one way, and deliberately. That rule scans tests too,
-        // because an agent has a module of its own to be exempt. A provider has no module - it is
-        // a YAML file and nothing else - so a test that checks the shipped declarations has
-        // nowhere to live that is exempt, and would have to describe them without naming them.
-        // That would test less. Product code is where the rule has teeth, so that is what is
-        // scanned.
+        // because an agent has a module of its own to be exempt. A provider has no module - it is a
+        // YAML file and nothing else - so a test that checks the shipped declarations has nowhere
+        // to live that is exempt, and would have to describe them without naming them. That would
+        // test less. Product code is where the rule has teeth, so that is what is scanned.
         //
-        // Declarations themselves may name providers: an agent says which it uses by default,
-        // which is data, and moving that into data is the whole point.
+        // Declarations themselves may name providers: an agent says which it uses by default, which
+        // is data, and moving that into data is the whole point.
         final Path root = repositoryRoot();
         final List<String> providerNames = providerNames(root);
 
@@ -177,8 +176,7 @@ class AgentIsolationTest {
         // its absolute path every file of it was left out and the scans passed on nothing.
         final String name = "/" + root.relativize(path);
         // Nor under a hidden directory, which git ignores here: a worktree kept in '.worktrees/' is
-        // another checkout
-        // of this repository, and its sources were reported as this one's.
+        // another checkout of this repository, and its sources were reported as this one's.
         return name.endsWith(".java")
                 && !name.contains("/target/")
                 && !name.contains("/.")

@@ -162,9 +162,9 @@ class SeveralRepositoriesTest {
         assertThat(backend.pending()).containsExactly("task-1");
 
         // And nowhere near that repository's upstream. This is the claim the gate makes for one
-        // repository, measured again for one repository OF A PROJECT THAT HAS SEVERAL - the
-        // mirror is a different directory now, and a gate built on the wrong one would forward
-        // or refuse without anybody noticing which.
+        // repository, measured again for one repository OF A PROJECT THAT HAS SEVERAL - the mirror
+        // is a different directory now, and a gate built on the wrong one would forward or refuse
+        // without anybody noticing which.
         assertThat(branchesOf(backendUpstream)).containsExactly("main");
     }
 
@@ -178,9 +178,9 @@ class SeveralRepositoriesTest {
 
         pushThroughGate(backend, mirrorOf("acme", "backend"), "task-1", "backend.txt");
 
-        // The other repository of the same project has nothing waiting. If the two shared a
-        // mirror, 'what is waiting for review' would have two answers and a person approving the
-        // frontend would be approving the backend's work.
+        // The other repository of the same project has nothing waiting. If the two shared a mirror,
+        // 'what is waiting for review' would have two answers and a person approving the frontend
+        // would be approving the backend's work.
         assertThat(frontend.pending()).isEmpty();
         assertThat(branchesOf(frontendUpstream)).containsExactly("main");
     }
@@ -196,10 +196,10 @@ class SeveralRepositoriesTest {
         pushThroughGate(backend, mirrorOf("acme", "backend"), "task-1", "backend.txt");
         pushThroughGate(frontend, mirrorOf("acme", "frontend"), "task-2", "frontend.txt");
 
-        // The sharpest version of the claim: the backend's gate cannot approve the frontend's
-        // push at all. If the two shared a mirror this would succeed, and one repository's
-        // unreviewed work would land on ANOTHER repository's upstream - approved by somebody who
-        // was looking at a different project entirely.
+        // The sharpest version of the claim: the backend's gate cannot approve the frontend's push
+        // at all. If the two shared a mirror this would succeed, and one repository's unreviewed
+        // work would land on ANOTHER repository's upstream - approved by somebody who was looking
+        // at a different project entirely.
         org.assertj.core.api.Assertions.assertThatThrownBy(
                         () -> backend.approve("task-2", "task-2"))
                 .isInstanceOf(GateException.class);
@@ -208,8 +208,8 @@ class SeveralRepositoriesTest {
 
         // Approved work reaches ITS repository's upstream...
         assertThat(branchesOf(backendUpstream)).contains("task-1");
-        // ...and the other repository's push is still waiting, unapproved and unsent. One
-        // approval, one repository: that is what a task working on exactly one of them is for.
+        // ...and the other repository's push is still waiting, unapproved and unsent. One approval,
+        // one repository: that is what a task working on exactly one of them is for.
         assertThat(frontend.pending()).containsExactly("task-2");
         assertThat(branchesOf(frontendUpstream)).containsExactly("main");
     }

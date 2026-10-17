@@ -61,8 +61,8 @@ public class ClearanceService implements AutoCloseable {
                     final int port =
                             parameters.get("port") instanceof Number number ? number.intValue() : 0;
                     // What was blocked, as read, and nothing its sender added: forwarded as it
-                    // came, a report carrying
-                    // 'verdict' and 'source' read to an interface like an answer.
+                    // came, a report carrying 'verdict' and 'source' read to an interface like an
+                    // answer.
                     final Map<String, Object> event = new LinkedHashMap<>();
                     event.put("destination", destination);
                     event.put("port", port);
@@ -79,8 +79,7 @@ public class ClearanceService implements AutoCloseable {
                 (parameters, replies) -> {
                     if (!replies.streaming()) {
                         // Answering a non-streaming Subscribe with one event would look like it
-                        // worked and
-                        // then deliver nothing ever again.
+                        // worked and then deliver nothing ever again.
                         replies.last(Map.of("error", "Subscribe requires more=true"));
                         return;
                     }
@@ -88,8 +87,7 @@ public class ClearanceService implements AutoCloseable {
                     subscribers.add(queue);
                     try {
                         // Until its client goes: a subscriber that left was waited for until the
-                        // next event, for ever when
-                        // none came.
+                        // next event, for ever when none came.
                         while (replies.open()) {
                             final Map<String, Object> event = queue.poll(1, TimeUnit.SECONDS);
                             if (event != null) {
@@ -153,8 +151,8 @@ public class ClearanceService implements AutoCloseable {
     }
 
     private void broadcast(Map<String, Object> event) {
-        // Never waits: a subscriber that has stopped reading must not block the reader, which is
-        // on the path of every dropped packet. What does not fit is counted and told.
+        // Never waits: a subscriber that has stopped reading must not block the reader, which is on
+        // the path of every dropped packet. What does not fit is counted and told.
         subscribers.forEach(queue -> queue.offer(event));
     }
 

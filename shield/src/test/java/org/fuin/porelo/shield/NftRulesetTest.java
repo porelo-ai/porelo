@@ -55,8 +55,8 @@ class NftRulesetTest {
     @Test
     void offlineConsultsNoAllowSetAtAll() {
 
-        // Adding an address to an offline project must not open anything: the class decides,
-        // not the set contents.
+        // Adding an address to an offline project must not open anything: the class decides, not
+        // the set contents.
         final String rendered =
                 new NftRuleset(SecurityClass.OFFLINE)
                         .allowV4("140.82.112.0/20")
@@ -158,10 +158,8 @@ class NftRulesetTest {
     void onlyTheResolverItselfReachesTheUpstreamResolver() {
 
         // The rule matched the destination alone, so every process in the task could ask the
-        // upstream directly: data
-        // left in query names, with no prompt and no log line. The resolver runs as the namespace's
-        // root, the agent
-        // does not.
+        // upstream directly: data left in query names, with no prompt and no log line. The resolver
+        // runs as the namespace's root, the agent does not.
         final String rendered =
                 new NftRuleset(SecurityClass.GUARDED).resolver("10.89.0.1").render();
 

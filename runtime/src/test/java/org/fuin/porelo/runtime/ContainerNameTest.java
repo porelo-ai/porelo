@@ -10,8 +10,8 @@ class ContainerNameTest {
     @Test
     void tellsALoginContainerApartFromATask() {
 
-        // Reported from the test machine: 'porelo task list' showed a login container, which has
-        // no workspace, no gate and no clearance, so every column of that list lies about it.
+        // Reported from the test machine: 'porelo task list' showed a login container, which has no
+        // workspace, no gate and no clearance, so every column of that list lies about it.
         final String login = ContainerName.login();
         assertThat(ContainerName.isPorelo(login)).isTrue();
         assertThat(ContainerName.isLogin(login)).isTrue();
@@ -39,9 +39,9 @@ class ContainerNameTest {
     @Test
     void namesOneContainerPerTaskSoStartingTwiceFindsTheFirst() {
 
-        // The whole point of dropping the run id. It used to carry the launching process's pid,
-        // so two invocations never shared a container and nothing could map a task to one -
-        // 'start' would build a second beside the one that was named.
+        // The whole point of dropping the run id. It used to carry the launching process's pid, so
+        // two invocations never shared a container and nothing could map a task to one - 'start'
+        // would build a second beside the one that was named.
         final org.fuin.porelo.core.project.Project project =
                 new org.fuin.porelo.core.project.Project(
                         "utils4j",
@@ -114,8 +114,8 @@ class ContainerNameTest {
     @Test
     void handsBackTheTaskInsideAContainerName() {
 
-        // Carried to an interface rather than derived by it: the rule relating the two belongs
-        // here and has already changed once.
+        // Carried to an interface rather than derived by it: the rule relating the two belongs here
+        // and has already changed once.
         assertThat(ContainerName.taskIn("utils4j", "porelo-utils4j-shell")).isEqualTo("shell");
         assertThat(ContainerName.taskIn("utils4j", "porelo-other-shell")).isEmpty();
     }
@@ -139,9 +139,9 @@ class ContainerNameTest {
     @Test
     void doesNotMistakeATaskInAProjectCalledLoginForOne() {
 
-        // 'login' passes the project name check, so this name is reachable. Matching on the
-        // prefix alone would hide a real task from 'task list' and make attach and stop refuse
-        // it - a project nobody could work in, for the sake of its name.
+        // 'login' passes the project name check, so this name is reachable. Matching on the prefix
+        // alone would hide a real task from 'task list' and make attach and stop refuse it - a
+        // project nobody could work in, for the sake of its name.
         assertThat(ContainerName.isLogin("porelo-login-shell-25471")).isFalse();
         assertThat(ContainerName.isTask("porelo-login-shell-25471")).isTrue();
 

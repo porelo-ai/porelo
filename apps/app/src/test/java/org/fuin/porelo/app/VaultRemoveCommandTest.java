@@ -59,8 +59,8 @@ class VaultRemoveCommandTest {
     @Test
     void removingSomethingAbsentIsNotAFailure(@TempDir Path dir) {
 
-        // The wanted state is "not in the vault", and it already holds. Failing here would make
-        // a cleanup script stop on its second run.
+        // The wanted state is "not in the vault", and it already holds. Failing here would make a
+        // cleanup script stop on its second run.
         final var vault = context(dir).vault();
         vault.write(Map.of("keep", VaultEntry.of("one")), PASSPHRASE);
 

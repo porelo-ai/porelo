@@ -151,9 +151,8 @@ class ProjectUnfollowCommandTest {
         // It did not, over the socket: the terminal removed the clone by hand AFTER the deletion
         // and the daemon never did, so a project unfollowed from an interface left its verified
         // clone on the machine - while the contract said the clone goes. Found through the
-        // interface.
-        // Removed through ProjectDeletion now, which is the one thing both ways call, and it is
-        // named in the preview for the same reason.
+        // interface. Removed through ProjectDeletion now, which is the one thing both ways call,
+        // and it is named in the preview for the same reason.
         final PoreloContext context = context(dir);
         unfollowedProject("uc");
         final Path clone = context.paths().projects().followedClone("uc");
@@ -165,8 +164,8 @@ class ProjectUnfollowCommandTest {
         assertThat(previewed.out()).contains(clone.toString());
         // Readable, not a record's toString: this is the screen somebody decides on.
         assertThat(previewed.out()).contains("followed clone").doesNotContain("Removal[");
-        // And what is inside the clone is NOT listed as kept, because the clone goes. Saying
-        // both about one path in one preview is worse than saying neither.
+        // And what is inside the clone is NOT listed as kept, because the clone goes. Saying both
+        // about one path in one preview is worse than saying neither.
         assertThat(
                         previewed
                                 .out()

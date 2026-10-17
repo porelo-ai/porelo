@@ -219,10 +219,8 @@ public final class Prune {
     private Item project(final String name, final boolean apply, final boolean includingWork) {
         final List<String> what = new ArrayList<>();
         // What 'remove' would refuse for a stopped task, asked before rather than learnt from a
-        // refusal halfway:
-        // a preview has to say what the real run will do.
-        // Grouped by what is held, so nine tasks nobody recorded are one sentence and nine names,
-        // not nine sentences.
+        // refusal halfway: a preview has to say what the real run will do. Grouped by what is held,
+        // so nine tasks nobody recorded are one sentence and nine names, not nine sentences.
         final Map<String, List<String>> work = new LinkedHashMap<>();
         for (final TaskInventory.Task task : new TaskInventory(context).tasks()) {
             if (name.equals(task.project())) {
@@ -436,9 +434,8 @@ public final class Prune {
         final Path builds = directoryOf(context.paths().tasks().buildContext("x"));
         for (final String entry : names(builds)) {
             // Beside each context lies the lock an image build holds, '<project>.build.lock': a
-            // file of the project,
-            // never a project of its own name. Read as one, it was offered while a task of the
-            // project ran.
+            // file of the project, never a project of its own name. Read as one, it was offered
+            // while a task of the project ran.
             final String project =
                     entry.endsWith(BUILD_LOCK)
                             ? entry.substring(0, entry.length() - BUILD_LOCK.length())
@@ -580,9 +577,9 @@ public final class Prune {
                         .update(
                                 opener.get(),
                                 entries -> {
-                                    // The containers are asked again under the vault's lock: a
-                                    // task that started since the prune listed them has kept its
-                                    // tokens by now, and they are not a gone task's.
+                                    // The containers are asked again under the vault's lock: a task
+                                    // that started since the prune listed them has kept its tokens
+                                    // by now, and they are not a gone task's.
                                     final Set<String> exist =
                                             new LinkedHashSet<>(
                                                     context.podman().poreloContainers());

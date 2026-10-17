@@ -44,8 +44,7 @@ class BuildTest {
     @Test
     void saysItDidNotCheckAPackageWhoseBinaryIsNotHereOutsideCi() throws IOException {
         // A developer may check packages whose binary arrived from elsewhere; that is allowed, and
-        // said, because a
-        // silent pass would read as a fresh package.
+        // said, because a silent pass would read as a fresh package.
         final Path absent = directory.resolve("absent");
         Build.freshness(Map.of(file("porelo_0.1.0_amd64.deb", 1000), absent), false, out.report);
 
@@ -58,8 +57,7 @@ class BuildTest {
     @Test
     void failsAPackageWhoseBinaryIsNotHereInCi() throws IOException {
         // CI builds the binary and the package in one run, so a binary that is not there means the
-        // check would
-        // have compared nothing.
+        // check would have compared nothing.
         final Path absent = directory.resolve("absent");
         Build.freshness(Map.of(file("porelo_0.1.0_amd64.deb", 1000), absent), true, out.report);
 

@@ -79,13 +79,12 @@ public class ReaderHook extends Hook {
                         .start();
 
         // With its start time, as every helper's record is: poststop verifies both before it
-        // signals,
-        // and a bare pid is refused - which left this process, and conmon above it, running after
-        // every task was removed.
+        // signals, and a bare pid is refused - which left this process, and conmon above it,
+        // running after every task was removed.
         org.fuin.porelo.wire.HelperPid.record(stateDirectory.resolve(PID_FILE), reader.toHandle());
 
-        // Long enough to catch a reader that cannot bind at all, which is the common failure and
-        // is silent otherwise.
+        // Long enough to catch a reader that cannot bind at all, which is the common failure and is
+        // silent otherwise.
         try {
             if (reader.waitFor(500, TimeUnit.MILLISECONDS)) {
                 throw new IOException(

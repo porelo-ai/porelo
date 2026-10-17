@@ -181,9 +181,9 @@ public class GateProtectCommand implements Callable<Integer>, PoreloFactory.Cont
             return 70;
         }
 
-        // Measured: with core.hooksPath set elsewhere, the repository's own hook is never found
-        // and a push goes through with no output at all. Reporting success here without saying so
-        // would leave somebody believing they are protected - which is worse than not installing.
+        // Measured: with core.hooksPath set elsewhere, the repository's own hook is never found and
+        // a push goes through with no output at all. Reporting success here without saying so would
+        // leave somebody believing they are protected - which is worse than not installing.
         final var hooksPath =
                 context.runner()
                         .run(

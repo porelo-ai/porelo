@@ -31,8 +31,7 @@ class VaultCacheTest {
     @Test
     void theDaemonReadsTheVaultOnceWhileItIsUnchangedAndAgainOnceItChanges() {
         // Each lookup of a conversation's secrets decrypted the whole vault, 150 ms of CPU each: 18
-        // % of a core with two
-        // idle tasks in a conversation.
+        // % of a core with two idle tasks in a conversation.
         final VaultFile vault = new VaultFile(dir.resolve("vault.bin"));
         vault.write(Map.of("a", secret("one")), PASSPHRASE);
         final VaultFile.Opener opener = VaultFile.Opener.passphrase(PASSPHRASE);
@@ -75,8 +74,7 @@ class VaultCacheTest {
     @Test
     void theJournalSaysWhatWasDecryptedAndWhatCameFromMemory() {
         // "0 vault read(s), 3 held" read as three held messages beside 'talk held'; they were three
-        // lookups answered
-        // from what the daemon holds, and no decryption.
+        // lookups answered from what the daemon holds, and no decryption.
         final VaultFile vault = new VaultFile(dir.resolve("vault.bin"));
         vault.write(Map.of("a", secret("one")), PASSPHRASE);
         final VaultFile.Opener opener = VaultFile.Opener.passphrase(PASSPHRASE);

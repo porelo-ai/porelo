@@ -305,9 +305,8 @@ class BuildWatchTest {
     @Test
     void aRefusalBeforeTheFirstPushIsSaidWhereAPersonLooksAndClearedOnceTheForgeAnswers() {
 
-        // Nothing was pushed yet, so no commit was followed, and every refusal
-        // went to the commits followed - none. The helper's log stayed empty and the task's view
-        // said nothing wrong.
+        // Nothing was pushed yet, so no commit was followed, and every refusal went to the commits
+        // followed - none. The helper's log stayed empty and the task's view said nothing wrong.
         final BuildWatch watch = watch();
         refusal = new BuildRefused(BuildRefused.Reason.CREDENTIAL_REFUSED, "401");
         watch.round();

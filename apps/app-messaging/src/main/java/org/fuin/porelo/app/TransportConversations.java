@@ -118,11 +118,9 @@ final class TransportConversations {
         }
         if (secrets.isEmpty()) {
             // Its project's conversation is there and its account is not: run without it, the
-            // transport refused, and
-            // the message came back held with the transport's words about a variable. It waits
-            // instead, and goes
-            // once the account can be read - an unlocked vault - or the task is taken in by
-            // starting it again.
+            // transport refused, and the message came back held with the transport's words about a
+            // variable. It waits instead, and goes once the account can be read - an unlocked vault
+            // - or the task is taken in by starting it again.
             throw new java.io.IOException(
                     "this task has no account in the project's "
                             + scheme
@@ -563,8 +561,7 @@ final class TransportConversations {
                             StandardCopyOption.REPLACE_EXISTING);
                 }
                 // The message last, through a neighbour and a rename, so a task's pass never sees a
-                // message whose
-                // companion is still on its way, nor half of one.
+                // message whose companion is still on its way, nor half of one.
                 final Path staged = to.mailbox().inbound().resolve("." + name + ".tmp");
                 if (bytes != null) {
                     Files.write(staged, bytes);

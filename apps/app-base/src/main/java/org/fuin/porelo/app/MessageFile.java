@@ -52,8 +52,8 @@ public final class MessageFile {
             return "";
         }
         // As the bytes are read: a file that is no message is the filter's to refuse, and it
-        // answers the sender. Thrown
-        // here, it stopped every pass of the mailbox at the file an agent wrote.
+        // answers the sender. Thrown here, it stopped every pass of the mailbox at the file an
+        // agent wrote.
         return role(Files.readAllBytes(message));
     }
 

@@ -54,10 +54,8 @@ public class ProcessCommandRunner implements CommandRunner {
             final Thread errThread = Thread.ofVirtual().start(err);
 
             // Written on a thread of its own, so the limit runs from the start: written first, a
-            // child that did not
-            // read it blocked the caller unbounded, and one that exited without reading it failed a
-            // command that
-            // had succeeded.
+            // child that did not read it blocked the caller unbounded, and one that exited without
+            // reading it failed a command that had succeeded.
             Thread.ofVirtual().start(() -> writeInput(process, command));
 
             try {

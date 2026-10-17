@@ -159,8 +159,7 @@ public class DesktopPrompt implements ClearancePrompt, AutoCloseable {
         final AtomicReference<UInt32> shown = new AtomicReference<>();
 
         // Removed again when the question is done: registered per question and never removed, every
-        // handler stayed,
-        // kept its question, and every signal walked them all.
+        // handler stayed, kept its question, and every signal walked them all.
         try (AutoCloseable handler =
                 connection.addSigHandler(
                         Notifications.ActionInvoked.class,

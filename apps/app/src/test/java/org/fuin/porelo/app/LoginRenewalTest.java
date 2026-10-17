@@ -131,8 +131,7 @@ class LoginRenewalTest {
     void keepsAnImportsEndButNeverWhatWouldRenewIt(@TempDir Path dir) {
 
         // An import copies what the agent on this machine keeps renewing; renewing the copy would
-        // spend the
-        // refresh token the developer's own session renews with.
+        // spend the refresh token the developer's own session renews with.
         final Map<String, VaultEntry> entries =
                 vault(dir, signIn(NOW.plusSeconds(3600)), false).read(PASSPHRASE);
 
@@ -205,10 +204,8 @@ class LoginRenewalTest {
     void aRenewalThatFailedIsAnsweredFromMemoryForAMomentThenAskedAgain(@TempDir Path dir) {
 
         // Every request of the task asks for the token: after a refusal each one opened the vault
-        // and spent the dead
-        // refresh token at the service again, one after another behind the lock. Asked again after
-        // a moment, so a
-        // sign-in made anew reaches a running broker.
+        // and spent the dead refresh token at the service again, one after another behind the lock.
+        // Asked again after a moment, so a sign-in made anew reaches a running broker.
         status.set(400);
         answer.set("{\"error\":\"invalid_grant\"}");
         final VaultFile vault = vault(dir, signIn(NOW.plusSeconds(30)), true);

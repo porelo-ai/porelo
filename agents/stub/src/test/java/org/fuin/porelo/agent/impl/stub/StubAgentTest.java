@@ -64,9 +64,8 @@ class StubAgentTest {
             @org.junit.jupiter.api.io.TempDir java.nio.file.Path home) throws Exception {
 
         // The chain a login takes, end to end on this side: the definition's login arguments run
-        // the script,
-        // which writes where config_dir says, and the extractor every login goes through reads it
-        // as oauth.
+        // the script, which writes where config_dir says, and the extractor every login goes
+        // through reads it as oauth.
         assertThat(agent.definition().loginArguments()).containsExactly("login");
         assertThat(agent.definition().configDirectory()).isEqualTo("~/.porelo-stub");
         final java.nio.file.Path script = home.resolve("porelo-stub-cli");
@@ -240,8 +239,7 @@ class StubAgentTest {
             @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws Exception {
 
         // A continuation is proved by what only the earlier turn holds: a run that merely said
-        // "continued" for any
-        // id would read as a kept conversation where a fresh one had started.
+        // "continued" for any id would read as a kept conversation where a fresh one had started.
         final String id = sessionOf(runUnattended(dir, "lantern"));
 
         final String continued = runUnattended(dir, "--resume", id, "hello");
@@ -276,8 +274,8 @@ class StubAgentTest {
             @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws Exception {
 
         // The attached half: what a person typed is the earlier turn, kept in the session file
-        // Porelo reads the id
-        // from, and an attached agent continued with that id shows it on its screen.
+        // Porelo reads the id from, and an attached agent continued with that id shows it on its
+        // screen.
         final java.nio.file.Path script = dir.resolve("porelo-stub-cli");
         java.nio.file.Files.writeString(script, renderedScript());
         final java.nio.file.Path home = java.nio.file.Files.createDirectories(dir.resolve("home"));
@@ -347,10 +345,8 @@ class StubAgentTest {
     void aCopyUnderTheSessionlessNameDeclaresNoSessionIdAndTheStubKeepsItsOwn() {
 
         // The copy is how a suite proves an agent that cannot continue starts fresh and says so;
-        // still declaring an
-        // id, it would continue and the proof would be of nothing - and the stub itself losing its
-        // id would turn
-        // every continuation the suite proves into a fresh session.
+        // still declaring an id, it would continue and the proof would be of nothing - and the stub
+        // itself losing its id would turn every continuation the suite proves into a fresh session.
         final AgentDefinition plain = StubAgent.forExecutable("porelo-agent-stub").definition();
         final AgentDefinition sessionless =
                 StubAgent.forExecutable(StubAgent.SESSIONLESS).definition();
@@ -381,8 +377,8 @@ class StubAgentTest {
     void looksUpEveryDomainItDeclares() throws Exception {
 
         // The lookup, not the name. An earlier version asserted the script merely mentioned each
-        // domain and stayed green when the lookup was pointed at a third name, because the
-        // domain was still in an echo beside it.
+        // domain and stayed green when the lookup was pointed at a third name, because the domain
+        // was still in an echo beside it.
         final AgentDefinition definition = agent.definition();
         final List<String> declared = new ArrayList<>(definition.allowedDomains());
         declared.addAll(definition.refusedDomains());
@@ -420,8 +416,8 @@ class StubAgentTest {
     void usesNoConstructPodmanFourCannotParse() {
 
         // podman 4.9.3, which Ubuntu 24.04 ships, reads every line of a Containerfile as an
-        // instruction. A here-document fails there with `Unknown instruction: "IF"` while
-        // building fine on podman 5, which is how this reached an acceptance leg.
+        // instruction. A here-document fails there with `Unknown instruction: "IF"` while building
+        // fine on podman 5, which is how this reached an acceptance leg.
         assertThat(buildLine()).doesNotContain("<<").startsWith("RUN ");
         for (final String line : agent.definition().installAsRoot()) {
             assertThat(line.strip().isEmpty()).isFalse();

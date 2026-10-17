@@ -12,10 +12,8 @@ class InstalledAgentTest {
     void twoLookupsAtOnceNeverShareASocket() {
 
         // Named after the daemon's pid alone, two lookups at once - a task starting while another
-        // start is checked -
-        // shared one path: the second adapter found the first one's socket live and exited, and the
-        // lookup listed no
-        // agent at all.
+        // start is checked - shared one path: the second adapter found the first one's socket live
+        // and exited, and the lookup listed no agent at all.
         final Path executable = Path.of("/usr/libexec/porelo/agents/porelo-agent-claude");
         final Path directory = Path.of("/run/user/1000/porelo");
 
@@ -43,8 +41,7 @@ class InstalledAgentTest {
             @org.junit.jupiter.api.io.TempDir Path dir) throws Exception {
 
         // The line was read whole once anything was ready: an adapter that printed a word with no
-        // line end and hung
-        // held every task start for ever.
+        // line end and hung held every task start for ever.
         final Path executable = adapter(dir, "half", "printf starting; sleep 600");
         final java.time.Instant started = java.time.Instant.now();
 
@@ -60,8 +57,7 @@ class InstalledAgentTest {
             @org.junit.jupiter.api.io.TempDir Path dir) throws Exception {
 
         // Its connection failed as a VarlinkException, which the list did not catch: one broken
-        // adapter threw the
-        // whole lookup away and left the ones started before it running.
+        // adapter threw the whole lookup away and left the ones started before it running.
         adapter(dir, "broken", "printf 'ready now\\n'; sleep 30");
 
         final InstalledAgents agents =
@@ -82,10 +78,8 @@ class InstalledAgentTest {
     void theDescriptionIsAwaitedOnAThreadOfItsOwnAndNotOnTheSchedulersOwn() {
 
         // On a virtual thread, the one step of a lookup that waits on the agent waited on a
-        // scheduler too: on a
-        // machine of two processors under a suite's load, an agent that answered in a tenth of a
-        // second "did not
-        // describe itself within 10 seconds".
+        // scheduler too: on a machine of two processors under a suite's load, an agent that
+        // answered in a tenth of a second "did not describe itself within 10 seconds".
         final Boolean virtual =
                 InstalledAgent.bounded(
                         Path.of("agent"), () -> Thread.currentThread().isVirtual(), 5);
@@ -128,9 +122,8 @@ class InstalledAgentTest {
     void aDescriptionThatDidNotComeSaysWhetherTheAgentStillRunsAndWhatItLastSaid() {
 
         // "did not describe itself within 10 seconds" was all there was, three times, and never
-        // reproduced: whether
-        // the agent was alive, and what it had written after it said it was ready, is what tells
-        // the cause apart.
+        // reproduced: whether the agent was alive, and what it had written after it said it was
+        // ready, is what tells the cause apart.
         assertThat(InstalledAgent.diagnosis(true, "serving on /run/x.sock\nslow\n"))
                 .contains("still running")
                 .contains("slow");

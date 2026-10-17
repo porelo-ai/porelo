@@ -80,8 +80,8 @@ class KernelKeyringTest {
     @Test
     void tellsAbsenceApartFromNotBeingAbleToTell() {
         // The search returns -1 for any reason at all, and treating that as "nothing was cached"
-        // told an operator a passphrase was gone while it was still in the keyring. Absence,
-        // expiry and revocation are answers; every other errno is not.
+        // told an operator a passphrase was gone while it was still in the keyring. Absence, expiry
+        // and revocation are answers; every other errno is not.
         assertThat(KernelKeyring.missing(126)).as("ENOKEY, nothing there").isTrue();
         assertThat(KernelKeyring.missing(127))
                 .as("EKEYEXPIRED, and --for makes this ordinary")
@@ -99,14 +99,13 @@ class KernelKeyringTest {
     @Test
     void findsWhatWasStoredEvenWithoutTheSessionLink() {
         // The key is added to the user keyring and was searched for in the session keyring, which
-        // finds it only through a link - and pam_keyinit revokes a session keyring at logout, so
-        // a process outliving its login searched a revoked keyring while the key sat in @u.
+        // finds it only through a link - and pam_keyinit revokes a session keyring at logout, so a
+        // process outliving its login searched a revoked keyring while the key sat in @u.
         assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
 
         keyring.store("secret".toCharArray());
         // A new, empty session keyring for this process alone: the link store() made is gone, as
-        // after a logout,
-        // and the operator's own session keyring is not touched.
+        // after a logout, and the operator's own session keyring is not touched.
         joinANewSessionKeyring();
 
         assertThat(keyring.read()).isPresent();
@@ -148,8 +147,8 @@ class KernelKeyringTest {
 
         assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
 
-        // The payload is bytes, so anything that is not encoded and decoded consistently comes
-        // back as a passphrase that no longer opens the vault.
+        // The payload is bytes, so anything that is not encoded and decoded consistently comes back
+        // as a passphrase that no longer opens the vault.
         final char[] passphrase = "Straße-\u00e9\u00e8-\u4f60\u597d".toCharArray();
         keyring.store(passphrase);
 
@@ -191,16 +190,14 @@ class KernelKeyringTest {
     void aBoundedPassphraseIsDiscardedByTheKernelItself() throws InterruptedException {
 
         // The whole point of a bound: nothing in Porelo has to remember to drop it, no timer runs,
-        // and a process that dies leaves nothing behind that outlives its welcome. Measured
-        // against the real kernel, because "we asked for a timeout" is not the same claim as
-        // "the passphrase is gone".
+        // and a process that dies leaves nothing behind that outlives its welcome. Measured against
+        // the real kernel, because "we asked for a timeout" is not the same claim as "the
+        // passphrase is gone".
         assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
 
         // The kernel keeps the expiry in whole seconds of the clock, so a bound of n seconds lasts
-        // from n-1 to n. Stored
-        // just before a second turns over and read just after it - the case a slow run hit by
-        // chance - a key with a
-        // one-second bound is already gone, 30 ms later.
+        // from n-1 to n. Stored just before a second turns over and read just after it - the case a
+        // slow run hit by chance - a key with a one-second bound is already gone, 30 ms later.
         while (System.currentTimeMillis() % 1000 < 980) {
             Thread.sleep(5);
         }
@@ -219,9 +216,9 @@ class KernelKeyringTest {
     @Test
     void withoutABoundThePassphraseStays() throws InterruptedException {
 
-        // The default is unchanged: one behaviour, kept until it is dropped or the session ends.
-        // A bound that crept in as a default would start asking people for a passphrase they
-        // never used to be asked for.
+        // The default is unchanged: one behaviour, kept until it is dropped or the session ends. A
+        // bound that crept in as a default would start asking people for a passphrase they never
+        // used to be asked for.
         assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
 
         keyring.store("correct horse battery staple".toCharArray(), null);

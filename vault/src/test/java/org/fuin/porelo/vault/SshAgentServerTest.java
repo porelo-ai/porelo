@@ -94,8 +94,8 @@ class SshAgentServerTest {
         try (SshAgentServer server = agent(dir)) {
 
             // 17 is SSH_AGENTC_ADD_IDENTITY. Accepting keys over this socket is exactly what must
-            // not be possible: the container would then be able to make the agent sign for a key
-            // of its own choosing. Every unknown request is refused rather than guessed at.
+            // not be possible: the container would then be able to make the agent sign for a key of
+            // its own choosing. Every unknown request is refused rather than guessed at.
             for (final byte type : new byte[] {17, 18, 19, 20, 21, 22, 25, 27, 0, -1}) {
                 assertThat(server.handle(new byte[] {type}))
                         .as("request type %s", type)

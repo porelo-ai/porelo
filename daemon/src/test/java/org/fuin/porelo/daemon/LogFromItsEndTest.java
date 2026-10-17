@@ -33,8 +33,7 @@ class LogFromItsEndTest {
     void aLastLineWithoutItsEndCountsAndLongLinesAreCrossed(@TempDir Path dir) throws IOException {
 
         // A line of 85 698 characters was measured in a real log; finding where it starts reads
-        // back past several
-        // blocks.
+        // back past several blocks.
         final String longLine = "x".repeat(200_000);
         final Path log =
                 Files.writeString(

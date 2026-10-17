@@ -144,8 +144,8 @@ public record ProviderDefinition(
         try {
             final URI uri = URI.create(upstream);
             if (uri.getHost() == null || !"https".equals(uri.getScheme())) {
-                // Plain HTTP would send the real credential in the clear, and a URI without a
-                // host cannot produce the deny rule that stops an agent going direct.
+                // Plain HTTP would send the real credential in the clear, and a URI without a host
+                // cannot produce the deny rule that stops an agent going direct.
                 throw new AgentException(
                         "Provider '"
                                 + name

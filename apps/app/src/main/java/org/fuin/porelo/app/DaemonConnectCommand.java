@@ -107,9 +107,8 @@ public class DaemonConnectCommand implements Callable<Integer>, PoreloFactory.Co
                                         } finally {
                                             try {
                                                 // Half-close, so a daemon waiting for the rest of a
-                                                // call sees the end of
-                                                // it rather than waiting for a client that has
-                                                // gone.
+                                                // call sees the end of it rather than waiting for a
+                                                // client that has gone.
                                                 channel.shutdownOutput();
                                             } catch (IOException ex) {
                                                 // Already closed.
@@ -124,8 +123,8 @@ public class DaemonConnectCommand implements Callable<Integer>, PoreloFactory.Co
                         buffer.array(),
                         buffer.arrayOffset() + buffer.position(),
                         buffer.remaining());
-                // Every read, because the next reply of a stream may be minutes away and a
-                // buffered one is indistinguishable from a daemon that has stopped answering.
+                // Every read, because the next reply of a stream may be minutes away and a buffered
+                // one is indistinguishable from a daemon that has stopped answering.
                 out.flush();
                 buffer.clear();
             }

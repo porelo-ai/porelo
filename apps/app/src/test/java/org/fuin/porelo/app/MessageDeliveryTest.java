@@ -222,8 +222,7 @@ class MessageDeliveryTest {
             throws IOException {
 
         // Its id could not be read, the pass threw, and the file stayed in inbound: the task never
-        // received anything
-        // again.
+        // received anything again.
         final Mailbox mailbox = mailbox(dir);
         arrive(
                 mailbox,

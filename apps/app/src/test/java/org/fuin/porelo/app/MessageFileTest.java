@@ -16,9 +16,8 @@ class MessageFileTest {
             throws IOException {
 
         // Found by the suite on 2026-10-04: an agent wrote a line of text into its outbox, and
-        // every pass of its mailbox
-        // stopped there with "expected 'false' at offset 0". It is the filter's to refuse, and it
-        // answers the sender.
+        // every pass of its mailbox stopped there with "expected 'false' at offset 0". It is the
+        // filter's to refuse, and it answers the sender.
         final Path file = dir.resolve("m-agent.json");
         Files.writeString(file, "from-the-agent\n");
 

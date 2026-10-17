@@ -145,9 +145,9 @@ public final class NodeIdentity {
         try {
             Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("rw-------"));
         } catch (UnsupportedOperationException | IOException ignored) {
-            // Not a POSIX filesystem, or no permission to change it. The value is not a secret -
-            // it is an identifier that says nothing about the node - so failing a daemon's start
-            // over its mode would cost more than it protects.
+            // Not a POSIX filesystem, or no permission to change it. The value is not a secret - it
+            // is an identifier that says nothing about the node - so failing a daemon's start over
+            // its mode would cost more than it protects.
         }
     }
 }

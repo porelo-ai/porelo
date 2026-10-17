@@ -116,8 +116,7 @@ class WaitingTest {
     @Test
     void aPathologicalDeclarationIsRefusedWhenReadNotTimedOutWhenMatched() {
         // Seventeen rules, each as long as allowed: past the bound, so refused at load - the cost
-        // of a
-        // declaration is bounded by what it may say, never by how politely it is written.
+        // of a declaration is bounded by what it may say, never by how politely it is written.
         final StringBuilder yaml =
                 new StringBuilder(MINIMAL + "session:\n  waiting:\n    screen:\n");
         for (int i = 0; i <= Waiting.MOST_RULES; i++) {
@@ -201,8 +200,7 @@ class WaitingTest {
     @Test
     void aScreenThatIsNotTheAgentsSaysNothingAboutItEvenOverAQuestion() {
         // A pager open over the agent's question: reporting it as waiting - or as idle - would be
-        // reporting
-        // on the pager.
+        // reporting on the pager.
         assertThat(TRUST.read("Trust this folder? [y/N]\n(END)\n").seen())
                 .isEqualTo(Waiting.Seen.NOT_ITS_SCREEN);
     }

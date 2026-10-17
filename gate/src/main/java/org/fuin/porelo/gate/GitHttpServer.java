@@ -309,8 +309,8 @@ public class GitHttpServer implements AutoCloseable {
         }
 
         // Spooled to a file beside the mirror rather than held: a push can be as large as the
-        // limit, and a few at once
-        // took the host's memory. Not /tmp, which is memory on some machines.
+        // limit, and a few at once took the host's memory. Not /tmp, which is memory on some
+        // machines.
         final Path body = java.nio.file.Files.createTempFile(spool(), "request-", ".git");
         try {
             try (InputStream in = exchange.getRequestBody()) {
@@ -337,11 +337,9 @@ public class GitHttpServer implements AutoCloseable {
                     updated.stream().filter(each -> !mayUpdate(each)).findFirst().orElse(null);
             if (refused != null) {
                 // Refused in git's own protocol, not with an HTTP status: a 403 reached the agent
-                // as "RPC failed;
-                // HTTP 403", which it read as an authentication problem and gave up on. Answered
-                // this way, git
-                // prints the reason as 'remote:' and '! [remote rejected]', and an agent corrects
-                // its push.
+                // as "RPC failed; HTTP 403", which it read as an authentication problem and gave up
+                // on. Answered this way, git prints the reason as 'remote:' and '! [remote
+                // rejected]', and an agent corrects its push.
                 final String where = ref == null ? GitGate.INCOMING + "<name>" : ref;
                 System.err.println(
                         "refused: this gate takes a push to "
@@ -592,8 +590,7 @@ public class GitHttpServer implements AutoCloseable {
         final List<String> command = new java.util.ArrayList<>();
         if (ref != null) {
             // git matches at a ref's component boundary, so the task's own ref and its rescue are
-            // named each: 'task-1'
-            // does not reveal 'task-10'.
+            // named each: 'task-1' does not reveal 'task-10'.
             command.addAll(
                     List.of(
                             "-c",
@@ -705,8 +702,8 @@ public class GitHttpServer implements AutoCloseable {
 
     private boolean mayUpdate(String updated) {
         // A task's own ref, and its rescue beside it: the rescue pushes through this same gate, and
-        // a gate that
-        // took only the one ref refused it - every rescue failed, and the container was kept.
+        // a gate that took only the one ref refused it - every rescue failed, and the container was
+        // kept.
         return ref != null
                 ? ref.equals(updated) || (ref + GitGate.RESCUED).equals(updated)
                 : updated.startsWith(GitGate.INCOMING)
@@ -764,8 +761,7 @@ public class GitHttpServer implements AutoCloseable {
                 line = line.substring(0, nul);
             }
             // Only the line end, as receive-pack takes it: trimmed as Java trims, a name ending in
-            // U+3000 compared
-            // equal to the task's own ref while git made a second ref of it.
+            // U+3000 compared equal to the task's own ref while git made a second ref of it.
             if (line.endsWith("\n")) {
                 line = line.substring(0, line.length() - 1);
             }

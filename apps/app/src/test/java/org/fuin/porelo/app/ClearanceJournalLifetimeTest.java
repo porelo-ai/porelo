@@ -56,9 +56,8 @@ class ClearanceJournalLifetimeTest {
     void removingKeepsTheRecordWhereTheNextTaskOfTheNameDoesNotReadIt(@TempDir final Path dir)
             throws IOException {
         // A new task of the same project and name gets the same container name, and read this
-        // journal
-        // back: an address allowed for the removed task was open in the new one without being
-        // asked.
+        // journal back: an address allowed for the removed task was open in the new one without
+        // being asked.
         final PoreloContext context = context(dir);
         final Path journal = journal(context);
         runner.answering(

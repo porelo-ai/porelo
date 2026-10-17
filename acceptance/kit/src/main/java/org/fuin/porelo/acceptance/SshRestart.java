@@ -46,8 +46,8 @@ final class SshRestart implements Restart {
                             "sudo systemd-run --on-active=1s /sbin/reboot || { sudo reboot & }");
             asked = "exit " + output.status() + "; " + output.all().strip();
         } catch (IOException | RuntimeException ex) {
-            // The connection dying IS the reboot starting, so this is not an error by itself -
-            // but it is the only account of what happened, and it used to be discarded. When the
+            // The connection dying IS the reboot starting, so this is not an error by itself - but
+            // it is the only account of what happened, and it used to be discarded. When the
             // machine then did not go down, the failure said "reboot over ssh" and nothing about
             // why: CI on 2026-09-12, where the reboot never landed on either leg.
             asked = ex.getClass().getSimpleName() + ": " + ex.getMessage();
@@ -57,10 +57,10 @@ final class SshRestart implements Restart {
             awaitGone();
             awaitBack();
         } catch (IOException ex) {
-            // Reconnect before giving up. Without this one failed restart left the connection
-            // down and EVERY scenario after it failed with "Not connected" - 28 errors for one
-            // cause, in a report where the one that mattered was indistinguishable from the
-            // wreckage. A scenario may fail; it may not take the rest of the run with it.
+            // Reconnect before giving up. Without this one failed restart left the connection down
+            // and EVERY scenario after it failed with "Not connected" - 28 errors for one cause, in
+            // a report where the one that mattered was indistinguishable from the wreckage. A
+            // scenario may fail; it may not take the rest of the run with it.
             reconnectQuietly();
             throw new IOException(
                     ex.getMessage() + ". What the reboot request answered: " + asked, ex);

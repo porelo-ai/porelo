@@ -141,8 +141,7 @@ public final class ConfigurationGate {
         final CommandResult result;
         try {
             // The commit as resolved, not the ref: a fetch between the two could make what was
-            // checked differ
-            // from what is applied.
+            // checked differ from what is applied.
             result =
                     runner.run(
                             Command.of(
@@ -172,8 +171,8 @@ public final class ConfigurationGate {
         }
         // Measured against git 2.53: an unsigned commit fails with nothing to say, and one signed
         // by a key that is not pinned reports a good signature and "No principal matched". The two
-        // have different cures - somebody forgot to sign, or somebody who may not sign did - and
-        // an operator should not have to tell them apart from the same sentence.
+        // have different cures - somebody forgot to sign, or somebody who may not sign did - and an
+        // operator should not have to tell them apart from the same sentence.
         if (said.contains("No principal matched") || said.contains("Good \"git\" signature with")) {
             // The fingerprint, because it is what turns "signed by a key you were not given" into
             // something a person can act on: they compare it with the one they meant to pin. A

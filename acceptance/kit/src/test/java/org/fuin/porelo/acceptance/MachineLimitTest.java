@@ -16,8 +16,7 @@ class MachineLimitTest {
     void aCommandThatHangsIsStoppedOnTheMachineAtItsLimit() {
 
         // A remote command had no limit: one hung 'podman exec' waited for the job's limit, and the
-        // job lost every
-        // report of the scenarios that had already run.
+        // job lost every report of the scenarios that had already run.
         final String limited = Machine.limited("sleep 60", Duration.ofSeconds(1));
 
         final int exit =

@@ -27,9 +27,8 @@ class FollowCredentialTest {
     void twoLendsForOneLabelNeverShareASocket(@TempDir Path dir) {
 
         // Each lend removed whatever lay at git-<label>.sock before it served its key there, so a
-        // follow by the daemon
-        // and one at the command line at the same moment took each other's socket away, and one
-        // fetch failed.
+        // follow by the daemon and one at the command line at the same moment took each other's
+        // socket away, and one fetch failed.
         final PoreloContext context = context(dir);
 
         final Path first =
@@ -48,8 +47,8 @@ class FollowCredentialTest {
     void anSshDestinationWithNothingLentStillGetsTheMachinesHostKeyPolicy(@TempDir Path dir) {
 
         // The developer's own agent key reaches the origin, so nothing is lent - and ssh, given no
-        // policy, checked the
-        // host against the user's own known hosts and refused one this machine had vouched for.
+        // policy, checked the host against the user's own known hosts and refused one this machine
+        // had vouched for.
         try (FollowCredential lent =
                 FollowCredential.open(
                         context(dir), "ssh://dev@forge.example/team/repo.git", "test")) {

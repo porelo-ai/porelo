@@ -40,8 +40,8 @@ class ContainerSpecTest {
     @Test
     void neverPutsAValueBesideAVariableName() {
 
-        // The rule rather than one instance of it: no --env argument may carry a value, whatever
-        // is added here later.
+        // The rule rather than one instance of it: no --env argument may carry a value, whatever is
+        // added here later.
         final List<String> arguments =
                 new ContainerSpec("box", "ubuntu:24.04")
                         .environment("ONE", "first")
@@ -99,8 +99,7 @@ class ContainerSpecTest {
     void givesATaskWithItsOwnResolverNoSearchDomainOfTheHost() {
 
         // The host's search line was copied into the task: it learned internal domain names, and a
-        // refused name was
-        // asked once per domain.
+        // refused name was asked once per domain.
         assertThat(new ContainerSpec("box", "ubuntu:24.04").resolver("10.88.0.53").toArguments())
                 .containsSequence("--dns", "10.88.0.53")
                 .contains("--dns-search=.");

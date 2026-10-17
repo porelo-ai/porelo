@@ -158,8 +158,7 @@ public final class Clearing {
             }
             case FAILED -> {
                 // Stopped here: the project stays, so its follow, its conversation and its keys
-                // stay with it - removed
-                // around a project still there, they left it half cleared.
+                // stay with it - removed around a project still there, they left it half cleared.
                 items.add(
                         new Item(
                                 "project",
@@ -221,8 +220,8 @@ public final class Clearing {
      */
     public Result account(final boolean dryRun, final boolean force) {
         // All or nothing: cleared project by project, it stopped at the first that held work, and
-        // the ones before it
-        // were already gone. Without force, the listing goes first; a refusal in it clears nothing.
+        // the ones before it were already gone. Without force, the listing goes first; a refusal in
+        // it clears nothing.
         if (!dryRun && !force) {
             final Result listed = account(true, false);
             if (listed.refused()) {

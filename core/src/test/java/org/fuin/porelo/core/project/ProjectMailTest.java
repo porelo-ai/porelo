@@ -199,8 +199,8 @@ class ProjectMailTest {
     void aConfiguredTransportIsTheProjectsConversationWithoutAPeerNamingIt() throws Exception {
 
         // Naming the transport is the decision; a project with 'matrix: {}' and no peer at
-        // 'matrix:' had no
-        // conversation, and nothing said so - its tasks could not reach each other.
+        // 'matrix:' had no conversation, and nothing said so - its tasks could not reach each
+        // other.
         final Project project =
                 ProjectReader.read(
                         new java.io.StringReader(
@@ -255,8 +255,7 @@ class ProjectMailTest {
     void aTransportIsNamedAsAPeersTransportIsSoItNeverBecomesAPathOfItsOwn() {
 
         // A transport's name becomes a directory of this machine's state, and clearing a project
-        // deletes files under
-        // it: '../../x' reached outside it.
+        // deletes files under it: '../../x' reached outside it.
         for (final String scheme : java.util.List.of("../../x", "/home/op/x", "Matrix", "a b")) {
             org.assertj.core.api.Assertions.assertThatThrownBy(
                             () ->
@@ -276,8 +275,7 @@ class ProjectMailTest {
     void aFileThatSetsNoRuleSendsWhatTheFilterPassesAndRefusesStrangers() {
 
         // The operator in walk 10, 2026-10-04: "If the check finds no problem, a message is always
-        // delivered at once.
-        // A release is only needed when the filter flags something".
+        // delivered at once. A release is only needed when the filter flags something".
         final Project project =
                 read(
                         HEAD

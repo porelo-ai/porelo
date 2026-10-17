@@ -83,8 +83,8 @@ class ProjectInventoryTest {
     @Test
     void saysAProjectWithNoImageWillHaveToBuildOneFirst(@TempDir Path dir) throws IOException {
 
-        // A normal state, not a fault: it means the first task here spends minutes building
-        // before anything happens, which is worth showing before somebody presses start.
+        // A normal state, not a fault: it means the first task here spends minutes building before
+        // anything happens, which is worth showing before somebody presses start.
         final PoreloContext context = context(dir);
         mirror("uc");
         runner.answering("images", "porelo/somethingelse\nubuntu\n");
@@ -98,8 +98,8 @@ class ProjectInventoryTest {
     void doesNotMistakeAnImageWhoseNameMerelyStartsTheSame(@TempDir Path dir) throws IOException {
 
         // 'porelo/uc-staging' is a different project. Matching on a prefix would mark a project
-        // ready that has never been built, and the first task would then spend minutes doing
-        // what an interface said was already done.
+        // ready that has never been built, and the first task would then spend minutes doing what
+        // an interface said was already done.
         final PoreloContext context = context(dir);
         mirror("uc");
         runner.answering("images", "porelo/uc-staging\n");
@@ -112,9 +112,9 @@ class ProjectInventoryTest {
     @Test
     void asksPodmanForImagesOnceHoweverManyProjectsThereAre(@TempDir Path dir) throws IOException {
 
-        // The cost the interface cannot see. It re-reads this list after every task start and
-        // every approval, so a subprocess per project would turn ordinary use into a stall
-        // nothing on screen explains.
+        // The cost the interface cannot see. It re-reads this list after every task start and every
+        // approval, so a subprocess per project would turn ordinary use into a stall nothing on
+        // screen explains.
         final PoreloContext context = context(dir);
         for (final String name : java.util.List.of("one", "two", "three", "four")) {
             mirror(name);
@@ -287,11 +287,11 @@ class ProjectInventoryTest {
     @Test
     void countsWhatIsWaitingInEveryRepositoryOfTheProject(@TempDir Path dir) throws IOException {
 
-        // A project is a unit of work over one or more repositories, and each keeps its own
-        // mirror. Counting only the project's own would report a number that silently excludes
-        // repositories - worse than reporting none, because a number that is there is read as the
-        // answer. The fake answers the same two refs for every mirror it is asked about, so three
-        // mirrors is six: what this measures is that all three were asked.
+        // A project is a unit of work over one or more repositories, and each keeps its own mirror.
+        // Counting only the project's own would report a number that silently excludes repositories
+        // - worse than reporting none, because a number that is there is read as the answer. The
+        // fake answers the same two refs for every mirror it is asked about, so three mirrors is
+        // six: what this measures is that all three were asked.
         final PoreloContext context = context(dir);
         mirror("uc");
         mirror("uc", "backend");
@@ -462,11 +462,11 @@ class ProjectInventoryTest {
     @Test
     void listsAProjectItFollowsBeforeAnythingHasRun(@TempDir Path dir) throws IOException {
 
-        // Measured on a rented machine: an interface's dialog followed a project, the
-        // follow applied, and 'Projects()' answered nothing - so the only way into a project
-        // ended at the dialog that took it. The listing was assembled from mirrors, tasks and the
-        // registry, and a project that has done none of those three is in none of them. A project
-        // exists here by being followed, so this is the case, not an edge of it.
+        // Measured on a rented machine: an interface's dialog followed a project, the follow
+        // applied, and 'Projects()' answered nothing - so the only way into a project ended at the
+        // dialog that took it. The listing was assembled from mirrors, tasks and the registry, and
+        // a project that has done none of those three is in none of them. A project exists here by
+        // being followed, so this is the case, not an edge of it.
         final PoreloContext context = context(dir);
         followed(
                 context,
@@ -495,8 +495,8 @@ class ProjectInventoryTest {
                                 .followedClone("e2e-follow")
                                 .resolve("project.yml")
                                 .toString());
-        // And with the repositories that file names, so the interface can offer the choice a
-        // task start demands.
+        // And with the repositories that file names, so the interface can offer the choice a task
+        // start demands.
         assertThat(projects.get(0).repositories())
                 .extracting(ProjectInventory.RepositorySummary::name)
                 .containsExactly("e2e-follow", "backend");
@@ -510,8 +510,7 @@ class ProjectInventoryTest {
             throws IOException {
 
         // A followed project made online kept saying guarded, the class its old tasks had been
-        // started with, and a
-        // person asked whether the new file had been refused.
+        // started with, and a person asked whether the new file had been refused.
         final PoreloContext context = context(dir);
         runner.answering("ps", "porelo-uc-writer\tExited (0) 1 hour ago\n");
         task("porelo-uc-writer", "uc");

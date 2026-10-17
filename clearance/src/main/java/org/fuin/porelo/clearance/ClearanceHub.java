@@ -150,10 +150,9 @@ public class ClearanceHub {
                                 blocked.destination(),
                                 blocked.protocol()));
         // A person who answered from a client while the notification waited has decided: its
-        // running out says
-        // nothing. Written over, the firewall was open while the hub said it was not, and a resume
-        // never allowed
-        // it again. An answer at the notification itself came last, and stands.
+        // running out says nothing. Written over, the firewall was open while the hub said it was
+        // not, and a resume never allowed it again. An answer at the notification itself came last,
+        // and stands.
         if (!asking.remove(key) && verdict == Verdict.TIMEOUT) {
             return decided.getOrDefault(key, Verdict.DENY);
         }
@@ -184,8 +183,8 @@ public class ClearanceHub {
                 seen.computeIfAbsent(key, unknown -> Blocked.fromKey(unknown, address));
         final Verdict previous = decided.put(key, verdict);
         if (verdict.allows() && (previous == null || !previous.allows())) {
-            // No name here: a verdict from a client names an address, and the name it
-            // was reached by is not part of that call.
+            // No name here: a verdict from a client names an address, and the name it was reached
+            // by is not part of that call.
             allow.accept(address, null);
         }
         announce(blocked, verdict, Decision.CLIENT);
@@ -222,8 +221,8 @@ public class ClearanceHub {
                             decision.protocol(),
                             decision.shown()));
             if (decision.verdict().allows()) {
-                // Replayed after a restart. The name is not in the journal, and it does not
-                // need to be: what was recorded at grant time is already on disk.
+                // Replayed after a restart. The name is not in the journal, and it does not need to
+                // be: what was recorded at grant time is already on disk.
                 allow.accept(decision.destination(), null);
             }
         }

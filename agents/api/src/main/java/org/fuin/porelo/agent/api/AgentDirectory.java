@@ -238,8 +238,8 @@ public class AgentDirectory {
             winners.put(path.getFileName().toString(), path);
         }
 
-        // Insertion order kept on purpose: Map.copyOf would lose it, and the order these were
-        // found in is the only thing that explains why one wins.
+        // Insertion order kept on purpose: Map.copyOf would lose it, and the order these were found
+        // in is the only thing that explains why one wins.
         final Map<Path, Path> pairs = new LinkedHashMap<>();
         for (final Path loser : shadowed()) {
             final Path winner = winners.get(loser.getFileName().toString());

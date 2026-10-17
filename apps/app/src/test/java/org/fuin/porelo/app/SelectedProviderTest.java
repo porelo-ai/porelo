@@ -81,8 +81,8 @@ class SelectedProviderTest {
     @Test
     void anEmptyVaultIsToldWhereACredentialBelongs() {
 
-        // Not the agent's name: this is what the "no credential for X" message says, and it
-        // should name the place a new one goes.
+        // Not the agent's name: this is what the "no credential for X" message says, and it should
+        // name the place a new one goes.
         assertThat(SelectedProvider.credentialKey(java.util.Set.of(), "one-agent", "anthropic"))
                 .isEqualTo("anthropic");
     }
@@ -97,8 +97,8 @@ class SelectedProviderTest {
     @Test
     void theShippedDeclarationsParse() {
 
-        // They are data files installed to /usr/share, so nothing else would catch a typo in
-        // them until a task failed to start.
+        // They are data files installed to /usr/share, so nothing else would catch a typo in them
+        // until a task failed to start.
         assertThat(Files.isDirectory(SHIPPED)).isTrue();
         assertThat(shipped()).containsKeys("anthropic", "openrouter");
         assertThat(new ProviderDirectory(java.util.List.of(SHIPPED)).unreadable()).isEmpty();
@@ -107,9 +107,9 @@ class SelectedProviderTest {
     @Test
     void twoAgentsReachTheSameProviderWithoutEitherDescribingIt() {
 
-        // The whole point. Anthropic is declared once; an agent speaking its dialect and an
-        // agent speaking whatever its provider speaks both reach it, and neither restates a
-        // header, a prefix or a host.
+        // The whole point. Anthropic is declared once; an agent speaking its dialect and an agent
+        // speaking whatever its provider speaks both reach it, and neither restates a header, a
+        // prefix or a host.
         final AgentDefinition fixed =
                 agent(
                         """
@@ -227,8 +227,8 @@ class SelectedProviderTest {
     @Test
     void refusesAPairingTheProviderCannotServe() {
 
-        // Anthropic serves its own dialect only. An agent speaking the OpenAI one would
-        // otherwise send a request that comes back as a confusing model error.
+        // Anthropic serves its own dialect only. An agent speaking the OpenAI one would otherwise
+        // send a request that comes back as a confusing model error.
         final AgentDefinition openai =
                 agent(
                         """

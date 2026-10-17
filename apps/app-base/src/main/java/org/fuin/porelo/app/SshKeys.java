@@ -133,8 +133,8 @@ public final class SshKeys {
                 }
             }
         }
-        // Named rather than guessed at. A company setup usually names its key in the config, and
-        // a list that ignored it would look wrong to exactly the people who need this most.
+        // Named rather than guessed at. A company setup usually names its key in the config, and a
+        // list that ignored it would look wrong to exactly the people who need this most.
         for (final Path candidate : configured()) {
             if (seen.add(candidate.toAbsolutePath().normalize())) {
                 final Key key = describe(candidate, Found.CONFIGURED);
@@ -161,8 +161,8 @@ public final class SshKeys {
                 }
                 // A .pub whose private half is missing is offered as the private path it implies,
                 // so the listing can say "only the public half is here" rather than showing
-                // nothing. That is the case somebody points a credential at by mistake, and a
-                // list that hides it cannot explain the failure that follows.
+                // nothing. That is the case somebody points a credential at by mistake, and a list
+                // that hides it cannot explain the failure that follows.
                 final Path implied = directory.resolve(name.substring(0, name.length() - 4));
                 if (!Files.exists(implied)) {
                     candidates.add(implied);
@@ -246,8 +246,8 @@ public final class SshKeys {
             fingerprint = fingerprintOf(published[1]);
             comment = published.length > 2 ? published[2] : "";
         } else if (described.usable()) {
-            // No .pub beside it: the public half is derivable from the seed, for the one kind
-            // this machine can read.
+            // No .pub beside it: the public half is derivable from the seed, for the one kind this
+            // machine can read.
             try {
                 fingerprint =
                         new org.fuin.porelo.vault.SigningKey(

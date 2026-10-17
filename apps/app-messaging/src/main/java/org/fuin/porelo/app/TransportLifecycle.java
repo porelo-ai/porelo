@@ -168,8 +168,7 @@ final class TransportLifecycle {
             keep(scheme, "project/" + project, secrets);
         }
         // Kept even when this machine is not admitted yet: the account the transport registered is
-        // in the
-        // vault by now, and the name a person needs to let it in is in what is remembered.
+        // in the vault by now, and the name a person needs to let it in is in what is remembered.
         final Conversation found = Conversation.of(said);
         remember(scheme, project, found);
         return found;
@@ -604,10 +603,9 @@ final class TransportLifecycle {
             arguments.add("--loopback-only");
         }
         // This machine's name, to a transport that takes it: two machines on one homeserver run
-        // tasks of the
-        // same name, and without it the second one's enroll would take the first one's account
-        // over. The
-        // transport keeps the name it first used, so a machine renamed later keeps its accounts.
+        // tasks of the same name, and without it the second one's enroll would take the first one's
+        // account over. The transport keeps the name it first used, so a machine renamed later
+        // keeps its accounts.
         if (!"settings".equals(verb[0])
                 && TransportDescription.of(context.runner(), adapter).takes("machine")) {
             arguments.add("--machine");

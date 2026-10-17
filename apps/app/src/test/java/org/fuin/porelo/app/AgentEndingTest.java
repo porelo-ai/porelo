@@ -27,8 +27,8 @@ class AgentEndingTest {
             @TempDir Path dir) throws IOException {
 
         // The provider answered 402 and the agent ended; the task said 'idle', then 'working', and
-        // nothing pointed the
-        // person at what had happened, nor at the report it had written and never pushed.
+        // nothing pointed the person at what had happened, nor at the report it had written and
+        // never pushed.
         final Path log =
                 Files.writeString(
                         dir.resolve("task.log"),
@@ -88,8 +88,8 @@ class AgentEndingTest {
     @Test
     void anEndLineThatCarriesTheWholeRunIsStillOfferedWhole(@TempDir Path dir) throws IOException {
 
-        // An agent's end event can hold every message of its run, the output of every tool it
-        // ran included: a run that read a few files writes an end line past 64 KiB.
+        // An agent's end event can hold every message of its run, the output of every tool it ran
+        // included: a run that read a few files writes an end line past 64 KiB.
         final String run = "x".repeat(300 * 1024);
         final String end = "{\"type\":\"agent_end\",\"messages\":[\"" + run + "\"]}";
         final Path log =

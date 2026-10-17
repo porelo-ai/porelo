@@ -13,9 +13,8 @@ class ProjectNamesTest {
     void theLabelSaysWhoseTaskItIsAndANameAloneOnlyWhenItCanMeanOneProject() {
 
         // Taken by its name's beginning, a task of 'web-app' was one of 'web' in messaging - web's
-        // peers, web's
-        // conversation, web's tasks as vouched siblings - and the release check made the opposite
-        // mistake.
+        // peers, web's conversation, web's tasks as vouched siblings - and the release check made
+        // the opposite mistake.
         final List<String> projects = List.of("web", "web-app");
 
         assertThat(

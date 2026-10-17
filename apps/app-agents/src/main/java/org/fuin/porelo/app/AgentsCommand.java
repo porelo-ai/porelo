@@ -95,8 +95,7 @@ public class AgentsCommand implements Callable<Integer> {
             }
 
             // A vendor's description that names nothing usable is said, not quietly skipped: the
-            // agent it meant is
-            // missing from the list, and the file is the one place that says why.
+            // agent it meant is missing from the list, and the file is the one place that says why.
             for (final AgentDirectory.Description description : locations.descriptions()) {
                 if (description.refusal() != null) {
                     err.println(
@@ -124,8 +123,8 @@ public class AgentsCommand implements Callable<Integer> {
                             }
                         }
                         // The address the guard recognises. Somebody looking at a commit and
-                        // wondering whether a person or an agent wrote it has nowhere else to
-                        // find out, now that a pre-push hook decides on exactly this.
+                        // wondering whether a person or an agent wrote it has nowhere else to find
+                        // out, now that a pre-push hook decides on exactly this.
                         out.println(
                                 "             commits: "
                                         + agent.definition().gitIdentity().name()
@@ -157,8 +156,8 @@ public class AgentsCommand implements Callable<Integer> {
                             }
                         }
                         if (!agent.definition().refusedDomains().isEmpty()) {
-                            // Shown so that a blocked connection is something the operator was
-                            // told about, rather than something they find in a drop log.
+                            // Shown so that a blocked connection is something the operator was told
+                            // about, rather than something they find in a drop log.
                             out.println(
                                     "             refused: "
                                             + String.join(
@@ -184,8 +183,8 @@ public class AgentsCommand implements Callable<Integer> {
                                                                         + ready.withinSeconds()
                                                                         + "s")));
                         // What waiting for a person looks like, counted rather than quoted: the
-                        // wording is
-                        // the agent's, and a count says enough to see whether there is any.
+                        // wording is the agent's, and a count says enough to see whether there is
+                        // any.
                         final org.fuin.porelo.agent.api.Waiting waiting =
                                 agent.definition().waiting();
                         out.println(
@@ -205,10 +204,10 @@ public class AgentsCommand implements Callable<Integer> {
                 out.flush();
             }
 
-            // On standard output and not an error: nothing here is broken. A second binary
-            // claiming a name that is already taken means the agent runs and somebody cannot see
-            // which copy they are getting - worth saying, and not worth a non-zero exit on a
-            // machine where everything works.
+            // On standard output and not an error: nothing here is broken. A second binary claiming
+            // a name that is already taken means the agent runs and somebody cannot see which copy
+            // they are getting - worth saying, and not worth a non-zero exit on a machine where
+            // everything works.
             agents.ignored()
                     .forEach(
                             (hidden, running) -> {

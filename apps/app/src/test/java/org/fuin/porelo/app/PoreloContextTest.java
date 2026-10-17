@@ -72,8 +72,8 @@ class PoreloContextTest {
 
         // The case that was answered wrongly. An empty vault whose passphrase is cached reads as
         // unreadable if "readable" is inferred from the list being empty, and an interface acting
-        // on that tells somebody to unlock a vault that is already open - the one instruction
-        // that cannot help them.
+        // on that tells somebody to unlock a vault that is already open - the one instruction that
+        // cannot help them.
         assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
 
         final PoreloContext context = context(dir);
@@ -90,8 +90,8 @@ class PoreloContextTest {
     @Test
     void aLockedVaultIsNotReadable(@TempDir Path dir) throws IOException {
 
-        // Nothing in the keyring, so there is no passphrase to read it with and no terminal to
-        // ask at.
+        // Nothing in the keyring, so there is no passphrase to read it with and no terminal to ask
+        // at.
         final PoreloContext context = context(dir);
         writeVault(context, Map.of("anthropic", VaultEntry.of("sk-test-value")), PASSPHRASE);
 
@@ -101,8 +101,8 @@ class PoreloContextTest {
     @Test
     void aVaultThatIsNotThereIsReadableAndEmpty(@TempDir Path dir) {
 
-        // There is nothing to unlock. Reporting this as unreadable would send somebody looking
-        // for a passphrase for a file that was never created.
+        // There is nothing to unlock. Reporting this as unreadable would send somebody looking for
+        // a passphrase for a file that was never created.
         assertThat(context(dir).readableCredentials())
                 .isPresent()
                 .get()

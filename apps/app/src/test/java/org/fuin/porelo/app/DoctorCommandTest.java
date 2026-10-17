@@ -280,8 +280,7 @@ class DoctorCommandTest {
         doctor.setContext(context);
 
         // A machine that works only in 'default' needs no key: DEGRADED there was read by a
-        // newcomer before the
-        // guide had said a word about keys.
+        // newcomer before the guide had said a word about keys.
         assertThat(doctor.probes())
                 .filteredOn(probe -> "configuration key".equals(probe.name()))
                 .singleElement()
@@ -345,8 +344,8 @@ class DoctorCommandTest {
     @Test
     void saysWhenABackendCannotMapTheHostsLoopback(@TempDir Path dir) {
 
-        // It works, and the git gate ends up on the operator's network with only its per-task
-        // token in front of it. Degraded rather than missing: the machine runs tasks.
+        // It works, and the git gate ends up on the operator's network with only its per-task token
+        // in front of it. Degraded rather than missing: the machine runs tasks.
         final FakeCommandRunner runner =
                 new FakeCommandRunner().answering("RootlessNetworkCmd", "slirp4netns\n");
         final XdgPaths xdg = XdgPaths.of(name -> null, dir);
@@ -409,8 +408,8 @@ class DoctorCommandTest {
         final String report =
                 doctor(context(dir, own, packaged, Files.createDirectory(dir.resolve("agents"))));
 
-        // Both halves: an operator told only that a copy is unused goes looking for the one that
-        // is used.
+        // Both halves: an operator told only that a copy is unused goes looking for the one that is
+        // used.
         assertThat(report).contains("not used " + packaged);
         assertThat(report).contains("hidden by " + own);
     }

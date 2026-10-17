@@ -154,8 +154,7 @@ class VaultProxyRoutesTest {
     void aTokenCannotCarryItsKeyToAnotherService(@TempDir Path dir) throws IOException {
 
         // The search token presented in the provider's header, on the provider's path: it still
-        // goes to
-        // search, with the search key, and the provider never sees it.
+        // goes to search, with the search key, and the provider never sees it.
         final Path socket = dir.resolve("vault.sock");
         try (VaultProxy proxy = proxy(socket)) {
             send(

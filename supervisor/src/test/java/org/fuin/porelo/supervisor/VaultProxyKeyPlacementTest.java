@@ -95,8 +95,8 @@ class VaultProxyKeyPlacementTest {
             throws Exception {
 
         // The key went into the address before the address was parsed, so the parser's complaint
-        // repeated it - and
-        // a thread's uncaught exception goes to stderr, which is the broker's log.
+        // repeated it - and a thread's uncaught exception goes to stderr, which is the broker's
+        // log.
         final java.io.ByteArrayOutputStream stderr = new java.io.ByteArrayOutputStream();
         final java.io.PrintStream before = System.err;
         final String answer;
@@ -221,9 +221,8 @@ class VaultProxyKeyPlacementTest {
             throws Exception {
 
         // The address was the upstream with the agent's target appended: '@localhost:<port>/x' made
-        // the upstream's
-        // host the user part and sent the real key to a host the agent chose; '.attacker.example/x'
-        // does the same.
+        // the upstream's host the user part and sent the real key to a host the agent chose;
+        // '.attacker.example/x' does the same.
         final Path socket = dir.resolve("vault.sock");
         proxy(socket, "x-goog-api-key", "");
         final String answer =

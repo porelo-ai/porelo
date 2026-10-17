@@ -16,8 +16,7 @@ class GitSubprocessTest {
     void aGitThatHangsIsStoppedAtItsLimit() {
 
         // The limit was waited for only after all output had been read, so it started once git had
-        // closed its
-        // output: a hung git held its request for ever.
+        // closed its output: a hung git held its request for ever.
         final Instant started = Instant.now();
 
         assertThatThrownBy(() -> new GitSubprocess("sleep", 1).run(List.of("30"), new byte[0]))

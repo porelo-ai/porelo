@@ -66,8 +66,8 @@ public class SshAgentServer implements AutoCloseable, Runnable {
         try {
             Files.createDirectories(socketPath.toAbsolutePath().getParent());
             // Never over a live one. This socket signs with the operator's key; taking it from a
-            // running agent on the strength of a pathname is the last thing that should happen
-            // by accident.
+            // running agent on the strength of a pathname is the last thing that should happen by
+            // accident.
             org.fuin.porelo.wire.LiveSocket.refuseToStealFrom(socketPath, "ssh agent");
             Files.deleteIfExists(socketPath);
             // The DIRECTORY is the access control, not the socket file. Measured: a rootless
@@ -75,8 +75,8 @@ public class SshAgentServer implements AutoCloseable, Runnable {
             // owner-only socket the host user owns - the connect fails outright, and the task
             // simply cannot sign. Podman's --userns=keep-id would fix that only by pinning the
             // agent's uid in the image, which Porelo deliberately does not do. So the socket is
-            // permissive inside a 0700 directory, and only the one container it is mounted into
-            // can see it at all. Same reasoning as the vault proxy's socket.
+            // permissive inside a 0700 directory, and only the one container it is mounted into can
+            // see it at all. Same reasoning as the vault proxy's socket.
             Files.setPosixFilePermissions(
                     socketPath.toAbsolutePath().getParent(),
                     PosixFilePermissions.fromString("rwx------"));
@@ -103,8 +103,8 @@ public class SshAgentServer implements AutoCloseable, Runnable {
         while (running) {
             try {
                 final SocketChannel client = channel.accept();
-                // One virtual thread per client: a client that stalls mid-message must not stop
-                // the agent answering anyone else.
+                // One virtual thread per client: a client that stalls mid-message must not stop the
+                // agent answering anyone else.
                 Thread.ofVirtual().start(() -> serve(client));
             } catch (IOException ex) {
                 if (running) {
@@ -188,8 +188,8 @@ public class SshAgentServer implements AutoCloseable, Runnable {
 
         final byte[] keyBlob = SshWire.readString(buffer);
         final byte[] data = SshWire.readString(buffer);
-        // The flags say which hash an RSA client wants. Ignoring them answered SHA-1, which
-        // GitHub has rejected since 2022 - with a message that says nothing about hashes.
+        // The flags say which hash an RSA client wants. Ignoring them answered SHA-1, which GitHub
+        // has rejected since 2022 - with a message that says nothing about hashes.
         final int flags = buffer.remaining() >= 4 ? buffer.getInt() : 0;
 
         for (final AgentKey key : keys) {

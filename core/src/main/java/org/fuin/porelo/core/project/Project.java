@@ -434,8 +434,8 @@ public record Project(
         }
         if (securityClass == SecurityClass.OFFLINE && upstream != null && !upstream.isBlank()) {
             // The host cloned the mirror from it on the first start, so offline meant "offline
-            // after the first start".
-            // An offline project never connects: its repository comes in as a file.
+            // after the first start". An offline project never connects: its repository comes in as
+            // a file.
             throw new ProjectException(
                     "Project '"
                             + name
@@ -463,8 +463,8 @@ public record Project(
             throw new ProjectException("Project '" + name + "' is online, so it needs an upstream");
         }
         if (packageSources != null && packageSources.isEmpty()) {
-            // An empty list is not "use the default" - it is a project that named sources and
-            // named none, which would silently leave the base image's own and read as configured.
+            // An empty list is not "use the default" - it is a project that named sources and named
+            // none, which would silently leave the base image's own and read as configured.
             throw new ProjectException(
                     "Project '"
                             + name
@@ -474,8 +474,8 @@ public record Project(
         for (final String source :
                 packageSources == null ? java.util.List.<String>of() : packageSources) {
             if (!source.startsWith("http://") && !source.startsWith("https://")) {
-                // Refused here rather than inside a container, where it is an apt parse error in
-                // a file nobody wrote by hand.
+                // Refused here rather than inside a container, where it is an apt parse error in a
+                // file nobody wrote by hand.
                 throw new ProjectException(
                         "Project '"
                                 + name

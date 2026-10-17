@@ -70,8 +70,7 @@ public class TalkHoldCommand implements Callable<Integer>, PoreloFactory.Context
             return 1;
         }
         // A name, like every other command since projects stopped being pointed at by file; this
-        // one
-        // still read project.yml from wherever it was run, which was nowhere a task's project
+        // one still read project.yml from wherever it was run, which was nowhere a task's project
         // lives.
         final String known =
                 projectName != null ? projectName : new TaskInventory(context).projectOf(container);

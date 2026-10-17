@@ -79,9 +79,8 @@ class UpstreamDistanceTest {
 
         // The upstream was a private repository over ssh. The follow's fetch and the gate's refresh
         // lent the deploy key; the measurement fetched without it and answered "Permission denied
-        // (publickey)" with
-        // the vault open. Here origin is an address only the lent configuration turns into the real
-        // repository.
+        // (publickey)" with the vault open. Here origin is an address only the lent configuration
+        // turns into the real repository.
         final Path upstream = upstreamWithOneCommit(root);
         final Path mirror = root.resolve("mirror.git");
         git(root, "clone", "--quiet", "--bare", upstream.toString(), mirror.toString());
@@ -164,9 +163,9 @@ class UpstreamDistanceTest {
         final UpstreamDistance.Distance distance =
                 UpstreamDistance.measure(runner, mirror, GateMode.GATEKEEPING);
 
-        // The detail is in the message on purpose: without it a failure here reads only
-        // "expected MEASURED but was FAILED" and throws away git's own words, which is the one
-        // thing that would explain it. That cost a reproduction round on this very test.
+        // The detail is in the message on purpose: without it a failure here reads only "expected
+        // MEASURED but was FAILED" and throws away git's own words, which is the one thing that
+        // would explain it. That cost a reproduction round on this very test.
         assertThat(distance.reason())
                 .as("git said: %s", distance.detail())
                 .isEqualTo(UpstreamDistance.Reason.MEASURED);
@@ -267,8 +266,8 @@ class UpstreamDistanceTest {
     void reportsAnUnreachableUpstreamRatherThanThrowing(@TempDir Path root) throws Exception {
 
         // This runs on a timer over every project. One upstream that is down, renamed or behind a
-        // credential nobody has must not stop the others being measured, and it must not surface
-        // as a number.
+        // credential nobody has must not stop the others being measured, and it must not surface as
+        // a number.
         final Path upstream = upstreamWithOneCommit(root);
         final Path mirror = root.resolve("mirror.git");
         git(root, "clone", "--quiet", "--bare", upstream.toString(), mirror.toString());
@@ -320,8 +319,8 @@ class UpstreamDistanceTest {
     @Test
     void workNobodyPushedIsNotReportedAsUpstream(@TempDir Path root) throws Exception {
 
-        // The entry that really is waiting has to keep standing out. Clearing something that is
-        // not there would be the dangerous direction of this mistake.
+        // The entry that really is waiting has to keep standing out. Clearing something that is not
+        // there would be the dangerous direction of this mistake.
         final Path upstream = upstreamWithOneCommit(root);
         final Path mirror = root.resolve("mirror.git");
         git(root, "clone", "--quiet", "--bare", upstream.toString(), mirror.toString());

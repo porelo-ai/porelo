@@ -38,8 +38,7 @@ class StoredKeyTest {
     void aRealKeyMissingItsLastByteIsRefusedNotPaddedWithZeros() throws Exception {
 
         // Padded, the last number was wrong and the key accepted: 'vault put' said this machine
-        // could sign with it,
-        // and the forge refused every signature it made.
+        // could sign with it, and the forge refused every signature it made.
         final java.security.KeyPairGenerator generator =
                 java.security.KeyPairGenerator.getInstance("RSA");
         generator.initialize(2048);

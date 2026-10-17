@@ -160,8 +160,8 @@ final class CredentialWiring {
         final var route = selection.route();
         if (route.endpoint() == org.fuin.porelo.agent.api.ProviderRoute.Endpoint.URL) {
             // The dialect's path belongs on the endpoint rather than in the agent: the same
-            // provider serves different wire formats under different paths, and only the
-            // provider knows which.
+            // provider serves different wire formats under different paths, and only the provider
+            // knows which.
             return route.endpointFor(TaskWiring.VAULT_URL);
         }
         final String variable = route.socketEnvironment();
@@ -400,8 +400,7 @@ final class CredentialWiring {
                             : agent.definition().provider().baseUrlEnvironment();
             if (baseUrl != null) {
                 // Both, always. The socket variable only picks the transport; without a base URL
-                // the
-                // agent uses its own compiled-in endpoint and never touches the socket at all.
+                // the agent uses its own compiled-in endpoint and never touches the socket at all.
                 environment.put(baseUrl, own.route().endpointFor(TaskWiring.VAULT_URL));
             }
             out.println("vault     " + socket + " -> " + own.route().upstream());
@@ -474,9 +473,9 @@ final class CredentialWiring {
         final String type = choice.credentialType(choice.credentialName(agent));
         final String variable = choice.tokenVariable(agent);
         if (route == null || variable == null) {
-            // Nothing to proxy through. Not an error - an agent may take no credential at all -
-            // but if it takes one and cannot be redirected, say so rather than issue a token
-            // that cannot work.
+            // Nothing to proxy through. Not an error - an agent may take no credential at all - but
+            // if it takes one and cannot be redirected, say so rather than issue a token that
+            // cannot work.
             if (variable != null) {
                 err.println(
                         "porelo: '"
@@ -486,8 +485,8 @@ final class CredentialWiring {
                 err.flush();
             } else if (route != null && selection != null) {
                 // Said, not skipped: a provider chosen and nothing brokered for it started a task
-                // that failed on its
-                // first request with "no API key" (measured with Copilot, 2026-10-01).
+                // that failed on its first request with "no API key" (measured with Copilot,
+                // 2026-10-01).
                 err.println(
                         "porelo: neither '"
                                 + agent.name()

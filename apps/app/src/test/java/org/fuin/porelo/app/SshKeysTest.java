@@ -80,8 +80,8 @@ class SshKeysTest {
     void listsAKeyThisMachineCannotSignWithRatherThanHidingIt(@TempDir final Path home)
             throws Exception {
 
-        // An RSA key is perfectly usable by ssh itself, where it lies. A list that threw on it -
-        // or left it out - would be a list nobody could trust.
+        // An RSA key is perfectly usable by ssh itself, where it lies. A list that threw on it - or
+        // left it out - would be a list nobody could trust.
         keygen(home, "id_rsa", "-t", "rsa", "-b", "2048", "-N", "");
 
         final SshKeys.Key key = new SshKeys(home).all().get(0);
@@ -108,8 +108,8 @@ class SshKeysTest {
     @Test
     void findsAKeyNamedInTheConfigAndSaysSo(@TempDir final Path home) throws Exception {
 
-        // A company setup usually names its key in ~/.ssh/config, often outside ~/.ssh entirely.
-        // A list that ignored it would look wrong to exactly the people who need this most.
+        // A company setup usually names its key in ~/.ssh/config, often outside ~/.ssh entirely. A
+        // list that ignored it would look wrong to exactly the people who need this most.
         final Path elsewhere = home.resolve("work");
         Files.createDirectories(elsewhere);
         final Process made =

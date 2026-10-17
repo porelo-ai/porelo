@@ -89,8 +89,7 @@ class HeadlessCommandTest {
     void startsAnAttachedAgentOnTheModelThatWasAskedFor() {
 
         // Measured on 2026-09-29: an attended start accepted --model and dropped it, and the
-        // agents'
-        // headers named their own defaults.
+        // agents' headers named their own defaults.
         assertThat(agent(FULL).definition().attendedCommand("cheap-model"))
                 .containsExactly("example-cli", "--model", "cheap-model");
         assertThat(agent(FULL).definition().attendedCommand(null)).containsExactly("example-cli");
@@ -214,9 +213,8 @@ class HeadlessCommandTest {
     void anAgentInATaskWithAMailboxIsToldWhereItsInstructionsAre() {
 
         // An agent was never told that its mailbox existed (2026-10-04): its own way of taking
-        // standing
-        // instructions gets the file, directly behind what turns its prompts off, attended and
-        // unattended alike.
+        // standing instructions gets the file, directly behind what turns its prompts off, attended
+        // and unattended alike.
         final AgentDefinition definition =
                 agent(
                                 FULL
@@ -292,8 +290,7 @@ class HeadlessCommandTest {
     void anAgentSaysWhatItsScreenShowsAtRestAndItSurvivesTheWayToPorelo() {
 
         // So a message that names it can wake it, and never while it works or asks a person
-        // something (
-        // 2026-10-04): what must be on the screen, and what must not.
+        // something ( 2026-10-04): what must be on the screen, and what must not.
         final AgentDefinition definition =
                 agent(
                                 FULL.replace(

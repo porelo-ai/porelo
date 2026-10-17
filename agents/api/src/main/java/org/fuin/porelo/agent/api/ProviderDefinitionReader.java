@@ -90,8 +90,8 @@ public final class ProviderDefinitionReader {
                 name,
                 root.get("label") == null ? name : String.valueOf(root.get("label")),
                 required(root, "upstream", origin),
-                // Ordered, because the dialect a provider declares first is the one it is, and
-                // that is what an agent asking for 'native' gets.
+                // Ordered, because the dialect a provider declares first is the one it is, and that
+                // is what an agent asking for 'native' gets.
                 ordered(root.get("dialects"), origin),
                 ordered(root.get("auth_header"), origin),
                 ordered(root.get("auth_prefix"), origin),
@@ -99,8 +99,8 @@ public final class ProviderDefinitionReader {
                 ordered(root.get("token_env"), origin),
                 ordered(root.get("auth_query"), origin),
                 // What a person grants once, as everyone does: the kind of flow, its URLs and
-                // scopes. The client id is
-                // not here; it is the agent's that signs in, in its own definition.
+                // scopes. The client id is not here; it is the agent's that signs in, in its own
+                // definition.
                 ordered(root.get("grant"), origin));
     }
 

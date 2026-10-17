@@ -113,8 +113,7 @@ final class CheckoutApproval {
         final PendingPush chosen = choose(waiting, task, yes, top, asker);
         if (chosen == null) {
             // The exit of the refusal that was said: guessed from the input, a name mistyped at the
-            // question read as
-            // ambiguous, under the sentence that no work of that name waits.
+            // question read as ambiguous, under the sentence that no work of that name waits.
             return chosenRefusal;
         }
         final String branch = PREFIX + chosen.name();
@@ -171,9 +170,8 @@ final class CheckoutApproval {
                     : GateSupport.gate(context, project, repository, null, null);
         }
         // Not its own source: a followed project naming its origin, or a repository added before
-        // the checkout was
-        // one. Its work goes to the remote - pushed there only by a person who says so, never by a
-        // question here.
+        // the checkout was one. Its work goes to the remote - pushed there only by a person who
+        // says so, never by a question here.
         final CommandResult remote =
                 context.runner()
                         .run(
@@ -376,8 +374,7 @@ final class CheckoutApproval {
             return null;
         }
         // Asked in the gate's mirror, which holds the work and its history: a commit only the
-        // checkout has is the
-        // person's own, and the work does not extend it.
+        // checkout has is the person's own, and the work does not extend it.
         final CommandResult ancestor =
                 context.runner()
                         .run(

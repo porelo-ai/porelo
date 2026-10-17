@@ -374,8 +374,8 @@ class DeployTest {
     void stagesInADirectoryOfItsOwnAndRemovesItEvenWhenTheInstallFails() throws IOException {
 
         // The package went to a fixed name in /tmp: the second account to deploy the same handover
-        // could not overwrite
-        // the first one's file, and stopped - "scp: /tmp/porelo_…292….deb: Permission denied".
+        // could not overwrite the first one's file, and stopped - "scp: /tmp/porelo_…292….deb:
+        // Permission denied".
         final Path deb = deb();
         machine.fail("set -e; d=$(mktemp -d); dpkg-deb -x");
 

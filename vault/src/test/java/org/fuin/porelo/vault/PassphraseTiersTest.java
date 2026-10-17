@@ -63,8 +63,8 @@ class PassphraseTiersTest {
     @Test
     void refusesToFallThroughWhenAConfiguredCommandFails() {
 
-        // Falling through would prompt for a passphrase the operator stored precisely so they
-        // would not have to type it, and would look like the store was never configured.
+        // Falling through would prompt for a passphrase the operator stored precisely so they would
+        // not have to type it, and would look like the store was never configured.
         final FakeCommandRunner runner =
                 new FakeCommandRunner()
                         .failing("sh -c", 2, "gpg: decryption failed: No secret key");

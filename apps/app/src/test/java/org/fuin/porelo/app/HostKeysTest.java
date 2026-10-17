@@ -130,10 +130,10 @@ class HostKeysTest {
     @Test
     void anAskpassFailureIsAHostKeyProblemToo() {
 
-        // What it actually looks like in a daemon: ssh wants to ask, finds no ssh-askpass, and
-        // says so before it says anything about host keys. Reading only the last line would have
-        // classified this as a missing credential - which is what it did, and what sent somebody
-        // to store a key they had already stored.
+        // What it actually looks like in a daemon: ssh wants to ask, finds no ssh-askpass, and says
+        // so before it says anything about host keys. Reading only the last line would have
+        // classified this as a missing credential - which is what it did, and what sent somebody to
+        // store a key they had already stored.
         assertThat(
                         HostKeys.refusedTheHost(
                                 "ssh_askpass: exec(/usr/bin/ssh-askpass): No such file or directory\n"
@@ -146,8 +146,7 @@ class HostKeysTest {
             throws IOException {
 
         // ssh-keyscan asked port 22 and the bare name was written, so a fetch from port 7999 never
-        // found it and the
-        // start kept saying it had never met the forge (found on 2026-10-13).
+        // found it and the start kept saying it had never met the forge (found on 2026-10-13).
         final PoreloContext context = context(dir);
         runner.answering(
                 "ssh-keyscan",

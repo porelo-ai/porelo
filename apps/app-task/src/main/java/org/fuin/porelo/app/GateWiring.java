@@ -99,10 +99,9 @@ final class GateWiring {
                                 "gate",
                                 "serve",
                                 // The NAME, because that is what 'gate serve' takes now. It
-                                // resolves on its own
-                                // side, and by the time this runs the launch has recorded where the
-                                // file is - so
-                                // the gate and the task cannot end up reading two different files.
+                                // resolves on its own side, and by the time this runs the launch
+                                // has recorded where the file is - so the gate and the task cannot
+                                // end up reading two different files.
                                 "--project",
                                 project.name(),
                                 "--address",
@@ -117,8 +116,7 @@ final class GateWiring {
                                 org.fuin.porelo.gate.GitGate.INCOMING + taskName));
         if (project.securityClass() == org.fuin.porelo.core.project.SecurityClass.ONLINE) {
             // An online task's push goes on to the upstream at once, from here, with the host's
-            // key; its container
-            // holds none.
+            // key; its container holds none.
             command.add("--pass-on");
         }
         if (repository != null) {

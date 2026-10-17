@@ -71,8 +71,8 @@ class PreparationTest {
     @Test
     void aCachedRebuildPassesNeitherFlag(@TempDir Path dir) throws Exception {
 
-        // Not "skip the build": the build runs and podman's cache decides layer by layer, which
-        // is what every task start already does.
+        // Not "skip the build": the build runs and podman's cache decides layer by layer, which is
+        // what every task start already does.
         assertThat(prepare(dir, Podman.Rebuild.CACHED, false).outcome())
                 .isEqualTo(Preparation.Outcome.PREPARED);
 
@@ -85,8 +85,8 @@ class PreparationTest {
             throws Exception {
 
         // There is no podman flag for "rebuild from here". It works by changing a build argument
-        // placed where the agent's layers begin - so if this stopped being passed, the middle
-        // depth would silently become the cheapest one.
+        // placed where the agent's layers begin - so if this stopped being passed, the middle depth
+        // would silently become the cheapest one.
         prepare(dir, Podman.Rebuild.AGENT, false);
 
         assertThat(String.join(" ", build()))

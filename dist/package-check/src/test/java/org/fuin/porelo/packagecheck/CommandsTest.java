@@ -14,8 +14,7 @@ class CommandsTest {
     void aCommandThatDoesNotEndIsEndedAtItsLimitAndSaysSoSoTheChecksAfterItRun() {
 
         // Without a limit a hung image pull or install held the step until the job's own limit, and
-        // the report of
-        // every check after it was lost with the job.
+        // the report of every check after it was lost with the job.
         final List<List<String>> hung = List.of(List.of("sh", "-c", "echo started; sleep 60"));
         final Commands.Result result =
                 assertTimeoutPreemptively(

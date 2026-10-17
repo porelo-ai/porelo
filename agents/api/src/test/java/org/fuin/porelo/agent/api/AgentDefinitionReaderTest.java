@@ -114,16 +114,16 @@ class AgentDefinitionReaderTest {
     @Test
     void anAgentThatCannotBeRedirectedDeclaresNoProvider() {
 
-        // Not an error. It means the agent must be given its credential directly, which is
-        // the operator's decision to make rather than the reader's to paper over.
+        // Not an error. It means the agent must be given its credential directly, which is the
+        // operator's decision to make rather than the reader's to paper over.
         assertThat(read(MINIMAL).provider()).isNull();
     }
 
     @Test
     void readsTheDomainsAnAgentIsDeliberatelyDenied() {
 
-        // Telemetry hosts are declared, not merely left out: the firewall cannot tell an
-        // oversight from a policy, and the domain-coverage test needs to.
+        // Telemetry hosts are declared, not merely left out: the firewall cannot tell an oversight
+        // from a policy, and the domain-coverage test needs to.
         final AgentDefinition definition =
                 read(
                         MINIMAL
@@ -342,8 +342,8 @@ class AgentDefinitionReaderTest {
     @Test
     void refusesAnEndpointItCannotServe() {
 
-        // Named rather than ignored: an unknown endpoint would otherwise fall back to a socket
-        // and the agent would be pointed at something it cannot address.
+        // Named rather than ignored: an unknown endpoint would otherwise fall back to a socket and
+        // the agent would be pointed at something it cannot address.
         assertThatThrownBy(
                         () ->
                                 read(
@@ -411,8 +411,8 @@ class AgentDefinitionReaderTest {
     void aModeWrittenAsANumberIsRefusedBecauseYamlReadsItInOctal() {
 
         // 'mode: 0644' is the number 420 to YAML, and the file was installed as 0420 - nobody may
-        // read it but its
-        // owner's group; '0755' became 493 and was refused with words that did not say why.
+        // read it but its owner's group; '0755' became 493 and was refused with words that did not
+        // say why.
         assertThatThrownBy(
                         () ->
                                 read(
@@ -451,8 +451,7 @@ class AgentDefinitionReaderTest {
     void whatGoesIntoTheImageBuildIsAPathOrPlainWordsNothingThatStartsAnotherCommand() {
 
         // The target went into the build script unquoted, so ';' ran a second command; a line break
-        // in a reason or a
-        // packaged target started an instruction of its own.
+        // in a reason or a packaged target started an instruction of its own.
         assertThatThrownBy(
                         () ->
                                 new InstallArtifact(
@@ -486,8 +485,7 @@ class AgentDefinitionReaderTest {
     @Test
     void readsTheAppItSignsInToAProviderWithOneIdPerHost() {
         // An agent may use one OAuth app on github.com and another on an Enterprise host; Porelo
-        // grants whichever the
-        // agent itself would use, and says whose it is.
+        // grants whichever the agent itself would use, and says whose it is.
         final AgentDefinition agent =
                 read(
                         MINIMAL

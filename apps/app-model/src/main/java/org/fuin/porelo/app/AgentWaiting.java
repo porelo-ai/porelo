@@ -237,8 +237,7 @@ public final class AgentWaiting {
             return;
         }
         // Platform threads, ended with the call: each waits on a process, which a virtual thread is
-        // not to do in this
-        // daemon.
+        // not to do in this daemon.
         try (java.util.concurrent.ExecutorService pool =
                 java.util.concurrent.Executors.newFixedThreadPool(
                         Math.min(AT_ONCE, due.size()),

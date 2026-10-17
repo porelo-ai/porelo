@@ -142,8 +142,8 @@ class DeviceGrantTest {
     @Test
     void aTokenThatNeverExpiresIsGrantedWithNoExpiryRatherThanAGuessedOne() throws Exception {
         // GitHub's device flow for an OAuth app: an access token, no refresh token, no expiry. A
-        // guessed expiry made
-        // it look like an hour's token with nothing to renew it, which is refused.
+        // guessed expiry made it look like an hour's token with nothing to renew it, which is
+        // refused.
         tokenAnswers.add(
                 new String[] {
                     "200",
@@ -193,8 +193,7 @@ class DeviceGrantTest {
     void anIntervalOfNothingStillWaitsAndStillEnds() throws Exception {
 
         // A service answering 'interval: 0' was polled with no pause, and the time waited never
-        // grew - so a pending
-        // authorization was asked about without end.
+        // grew - so a pending authorization was asked about without end.
         final DeviceGrant grant = grant();
         final DeviceGrant.Started started = grant.start();
 

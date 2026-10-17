@@ -127,8 +127,7 @@ class TokenPurchaseTest {
     void concurrentRequestsWhileTheServerRefusesAskItOnceAndAllHearTheRefusal() throws Exception {
 
         // The single flight held only for a purchase that succeeded: each waiting caller asked
-        // again in turn, so a
-        // hanging server cost every agent its own timeout, one after another.
+        // again in turn, so a hanging server cost every agent its own timeout, one after another.
         status.set(503);
         answer.set("{\"error\":\"temporarily_unavailable\"}");
         final TokenPurchase purchase = purchase(Clock.systemUTC());

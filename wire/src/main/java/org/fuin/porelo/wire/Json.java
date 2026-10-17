@@ -144,8 +144,7 @@ public final class Json {
         final char c = text.charAt(position);
         if ((c == '{' || c == '[') && ++depth > MAX_DEPTH) {
             // Refused as bad input: a message of brackets well inside its size limit overflowed the
-            // stack, and no
-            // caller that catches bad input as a RuntimeException ever saw it.
+            // stack, and no caller that catches bad input as a RuntimeException ever saw it.
             throw error("Nested deeper than " + MAX_DEPTH);
         }
         try {

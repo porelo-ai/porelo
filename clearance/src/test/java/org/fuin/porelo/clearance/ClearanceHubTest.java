@@ -148,9 +148,9 @@ class ClearanceHubTest {
     @Test
     void announcesAQuestionNobodyAnswered() {
 
-        // The case with nothing else to show for it: the task went on running with that
-        // destination blocked, and an unanswered question that is never written down is
-        // indistinguishable afterwards from one that was never asked.
+        // The case with nothing else to show for it: the task went on running with that destination
+        // blocked, and an unanswered question that is never written down is indistinguishable
+        // afterwards from one that was never asked.
         hub(Verdict.TIMEOUT).handle(ONE_ONE_ONE_ONE);
 
         assertThat(announced)
@@ -214,8 +214,8 @@ class ClearanceHubTest {
     @Test
     void aGrantDoesNotCoverADestinationNothingResolved() {
 
-        // A grant is made for a name; an address on its own can never match one, and treating it
-        // as covered would open a host nobody granted.
+        // A grant is made for a name; an address on its own can never match one, and treating it as
+        // covered would open a host nobody granted.
         final ClearanceHub hub = hub(Verdict.DENY);
         hub.granted(name -> true);
 
@@ -228,8 +228,8 @@ class ClearanceHubTest {
     void doesNotAskAgainAboutSomethingAnEarlierWatcherDecided() {
 
         // A resumed task re-reads its events file from the beginning, so every destination it was
-        // ever refused arrives again within seconds. Without the decisions back, retrying until
-        // the watcher restarts is all it takes to be asked a second time.
+        // ever refused arrives again within seconds. Without the decisions back, retrying until the
+        // watcher restarts is all it takes to be asked a second time.
         final ClearanceHub hub = hub(Verdict.ALLOW);
         hub.restore(List.of(decision(QUAD_NINE, Verdict.DENY)));
 
@@ -242,9 +242,9 @@ class ClearanceHubTest {
     void putsARestoredAllowBackIntoTheFirewall() {
 
         // A resumed task gets a fresh namespace and a ruleset rebuilt from the project, so an
-        // address the operator cleared last time is no longer in it. Remembering the answer
-        // without re-applying it leaves the hub saying allow while the packets are still dropped,
-        // and nothing will ask again.
+        // address the operator cleared last time is no longer in it. Remembering the answer without
+        // re-applying it leaves the hub saying allow while the packets are still dropped, and
+        // nothing will ask again.
         final ClearanceHub hub = hub(Verdict.DENY);
         hub.restore(List.of(decision(ONE_ONE_ONE_ONE, Verdict.ALLOW)));
 
@@ -285,8 +285,8 @@ class ClearanceHubTest {
     void anAnswerFromAClientWhileTheNotificationWaitsIsNotUndoneByItRunningOut() {
 
         // The notification timing out wrote TIMEOUT over the person's ALLOW from an interface: the
-        // firewall was
-        // open, the hub said it was not, and after a resume it was never allowed again.
+        // firewall was open, the hub said it was not, and after a resume it was never allowed
+        // again.
         final ClearanceHub[] holder = new ClearanceHub[1];
         holder[0] =
                 new ClearanceHub(
@@ -309,8 +309,7 @@ class ClearanceHubTest {
     void anAgentCannotKeepAPersonAnsweringOneQuestionAfterAnother() {
 
         // Each port of one address was a question of its own, asked for the whole prompt time: a
-        // thousand in a row,
-        // and a real one waited behind them.
+        // thousand in a row, and a real one waited behind them.
         final ClearanceHub hub = hub(Verdict.DENY);
         for (int port = 1; port <= ClearanceHub.MAX_QUESTIONS + 5; port++) {
             hub.handle(new Blocked("1.1.1.1", port, "tcp", "1.1.1.1:" + port));

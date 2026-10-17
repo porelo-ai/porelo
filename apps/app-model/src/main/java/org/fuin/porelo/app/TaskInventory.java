@@ -464,8 +464,8 @@ public final class TaskInventory {
             // own repository and the only one there was. An interface renders the empty string as
             // the project's own rather than as "unknown".
             map.put("repository", repository == null ? "" : repository);
-            // What the task's configuration was verified at. "" when nothing verified it, which
-            // is every task of a project this machine does not follow.
+            // What the task's configuration was verified at. "" when nothing verified it, which is
+            // every task of a project this machine does not follow.
             map.put("commit", commit == null ? "" : commit);
             map.put("state", state);
             map.put("running", running);
@@ -518,10 +518,9 @@ public final class TaskInventory {
             map.put("startDetail", startDetail);
 
             // Whether it waits for a person, as its agent's own declaration reads its output.
-            // Derived, and
-            // kept apart from 'activity' and 'waitingFor', which are what the runtime and the
-            // clearance
-            // watcher observed: an interface renders these as a reading, never as a fact.
+            // Derived, and kept apart from 'activity' and 'waitingFor', which are what the runtime
+            // and the clearance watcher observed: an interface renders these as a reading, never as
+            // a fact.
             map.put("screen", derived.screen().name());
             map.put("screenWaitingFor", derived.waitingFor());
             map.put("screenUnproven", derived.unproven());
@@ -539,12 +538,10 @@ public final class TaskInventory {
             map.put("grants", grants);
 
             // The container this task is, so a record entry of a name another task carried before
-            // can be told
-            // apart; "" for a task with none recorded.
+            // can be told apart; "" for a task with none recorded.
             map.put("run", handIns.run());
             // The bytes one file handed to it may have, fixed when it started: a client refuses a
-            // larger file
-            // before reading it.
+            // larger file before reading it.
             map.put("handInLimit", handIns.limit());
             // What is in /porelo/files now, as it was handed in by this run.
             map.put("files", handIns.files().stream().map(HandIns.HandedFile::asMap).toList());
@@ -557,8 +554,8 @@ public final class TaskInventory {
             // Why a named reader does not follow them; "" while it does.
             map.put("buildProblem", builds.problem());
 
-            // Nothing records a phase yet. "" is the honest answer for a task that is in none,
-            // and it is what every task answers until a detached Start has something to report.
+            // Nothing records a phase yet. "" is the honest answer for a task that is in none, and
+            // it is what every task answers until a detached Start has something to report.
             map.put("phase", "");
             return map;
         }
@@ -736,8 +733,8 @@ public final class TaskInventory {
      */
     public List<Task> tasks() {
         // The refs waiting in each project's mirror, asked once per project rather than once per
-        // task: this list is read on every change, and a git call per task would make it cost
-        // what a listing must not.
+        // task: this list is read on every change, and a git call per task would make it cost what
+        // a listing must not.
         final Map<String, java.util.Set<String>> waiting = new java.util.HashMap<>();
         final List<ContainerSummary> summaries = context.podman().poreloTasks();
         if (agentWaiting != null) {
@@ -799,10 +796,8 @@ public final class TaskInventory {
                                         .pending());
                     } catch (RuntimeException ex) {
                         // A directory that is not a repository, or a git that would not run.
-                        // Neither is
-                        // worth failing a listing for, and a task that cannot be asked reads as
-                        // none
-                        // waiting rather than as broken.
+                        // Neither is worth failing a listing for, and a task that cannot be asked
+                        // reads as none waiting rather than as broken.
                         return java.util.Set.of();
                     }
                 });
@@ -846,8 +841,7 @@ public final class TaskInventory {
         final String waitingFor =
                 summary.running() ? org.fuin.porelo.wire.Waiting.about(state) : null;
         // Only by the deriving listing, and of a stopped task too while its state is here: an agent
-        // whose container
-        // stopped with its run said only 'dead'.
+        // whose container stopped with its run said only 'dead'.
         final AgentEnding.Ended ended =
                 ending == null || restartTookIt
                         ? null
@@ -873,9 +867,9 @@ public final class TaskInventory {
                 summary.running(),
                 helpersOf(summary.name()),
                 profile == null ? null : profile.agent(),
-                // The enum's own name, like every other enum on the wire. The lower-case form
-                // is the on-disk spelling and stops at the file: a client reading the contract
-                // sees SHELL, AGENT, UNATTENDED and must get those.
+                // The enum's own name, like every other enum on the wire. The lower-case form is
+                // the on-disk spelling and stops at the file: a client reading the contract sees
+                // SHELL, AGENT, UNATTENDED and must get those.
                 profile == null ? null : profile.mode().name(),
                 profile == null ? null : profile.prompt(),
                 profile == null ? null : profile.branch(),
@@ -887,8 +881,7 @@ public final class TaskInventory {
                 profile == null ? null : profile.clearance(),
                 profile == null ? null : profile.label(),
                 // Only what waits at the gate. An online task's push is passed on as it arrives and
-                // is never
-                // reviewed, so its gate lists nothing waiting.
+                // is never reviewed, so its gate lists nothing waiting.
                 profile == null
                                 || profile.branch() == null
                                 || !profile.branch()
@@ -910,9 +903,9 @@ public final class TaskInventory {
                                                                         .length()))
                                 ? 1
                                 : 0,
-                // The same test resume makes, and a directory check rather than a runtime call:
-                // a stopped task with no state directory was started before this machine
-                // restarted, and Start would refuse it. Said here so nobody learns it by pressing.
+                // The same test resume makes, and a directory check rather than a runtime call: a
+                // stopped task with no state directory was started before this machine restarted,
+                // and Start would refuse it. Said here so nobody learns it by pressing.
                 restartTookIt
                         ? (needsLockedVault(summary.name()) ? "NEEDS_VAULT" : "RESUME")
                         : !summary.running() && !Files.isDirectory(state)
@@ -940,8 +933,8 @@ public final class TaskInventory {
                 // sidecar predates repositories - a task without the label worked on the only
                 // repository its project had.
                 summary.repository(),
-                // From the container's label, like the three above. The project moves on; this
-                // must not, or a question about a task is answered from a file that has changed.
+                // From the container's label, like the three above. The project moves on; this must
+                // not, or a question about a task is answered from a file that has changed.
                 summary.commit(),
                 agentWaiting == null
                         ? AgentWaiting.Derived.NOTHING

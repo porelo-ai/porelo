@@ -63,9 +63,8 @@ class ReadyStepsTest {
     @Test
     void aRunThatEndsAtOnceOnARefusalHasNotEndedWithinItsBound() {
         // Only the bound was asserted, so a start refused at once - a missing key, a shut vault -
-        // passed every
-        // "ends within", and a repository using the kit that asserted nothing after it saw green on
-        // a run that never ran.
+        // passed every "ends within", and a repository using the kit that asserted nothing after it
+        // saw green on a run that never ran.
         assertThat(ReadySteps.whyNotEnded(0, 60)).isNull();
         assertThat(ReadySteps.whyNotEnded(ReadySteps.TIMED_OUT, 60))
                 .contains("did not end within 60s");
@@ -83,8 +82,8 @@ class ReadyStepsTest {
     void aRunThatIgnoresTheStopIsKilledAtItsBound() {
 
         // The bound sent TERM and then waited: a start that did not end on it held the step until
-        // the kit's
-        // 30-minute limit, and a leg lost its time with no word of why (found on 2026-10-17).
+        // the kit's 30-minute limit, and a leg lost its time with no word of why (found on
+        // 2026-10-17).
         final String bounded =
                 ReadySteps.bounded("sh -c " + Shell.quote("trap '' TERM; sleep 60"), 1);
 

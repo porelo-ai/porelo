@@ -34,8 +34,8 @@ class ModerationTest {
                 securityClass,
                 "ubuntu:24.04",
                 null,
-                // An online project needs one, and this test is about what a mode may be, not
-                // about where work goes.
+                // An online project needs one, and this test is about what a mode may be, not about
+                // where work goes.
                 securityClass == SecurityClass.ONLINE ? "git@example.org:p.git" : null,
                 Limits.defaults(),
                 Egress.none(),

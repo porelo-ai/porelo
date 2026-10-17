@@ -86,8 +86,8 @@ public final class GitCredentialNames {
         if (scheme >= 0) {
             final String rest = trimmed.substring(scheme + 3);
             // A user only in the authority: an '@' in the path made
-            // 'ssh://forge.example/x/@github.com/y'
-            // read as github.com, and that host's key was lent to the other.
+            // 'ssh://forge.example/x/@github.com/y' read as github.com, and that host's key was
+            // lent to the other.
             final int slash = rest.indexOf('/');
             final int at = (slash < 0 ? rest : rest.substring(0, slash)).lastIndexOf('@');
             final String hostAndPath = at >= 0 ? rest.substring(at + 1) : rest;

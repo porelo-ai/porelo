@@ -97,8 +97,8 @@ class PanicCommandTest {
         assertThat(execute(context, "panic")).isZero();
 
         assertThat(runner.lines()).noneMatch(line -> line.contains("rm --force"));
-        // 'task resume' is gone; what brings a task back is attaching to it, which offers to
-        // start it. The message named a verb the CLI refuses until 2026-09-12.
+        // 'task resume' is gone; what brings a task back is attaching to it, which offers to start
+        // it. The message named a verb the CLI refuses until 2026-09-12.
         assertThat(out.toString()).contains("kept").contains("task attach");
     }
 
@@ -156,8 +156,7 @@ class PanicCommandTest {
             throws IOException {
 
         // A stop of everything left no record of who stopped what, when: only each task's own logs,
-        // which say nothing
-        // of the others.
+        // which say nothing of the others.
         final PoreloContext context = context(dir);
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\nporelo-uc-build-2\tUp 2 hours\n");
         stateOf("porelo-uc-shell-1");

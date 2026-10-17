@@ -45,8 +45,8 @@ final class Age {
         }
         final Duration elapsed = Duration.between(began, now);
         if (elapsed.isNegative()) {
-            // Clock skew, or the zero time rendered as something parseable. Either way this
-            // cannot be stated.
+            // Clock skew, or the zero time rendered as something parseable. Either way this cannot
+            // be stated.
             return "";
         }
         if (elapsed.toMinutes() < 1) {

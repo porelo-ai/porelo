@@ -315,8 +315,7 @@ public final class HostKeys {
         try {
             return Files.readAllLines(file, StandardCharsets.UTF_8).stream()
                     // By the names in the first field, exactly: as a prefix,
-                    // '[forge.example.org.evil]:22' counted for
-                    // forge.example.org.
+                    // '[forge.example.org.evil]:22' counted for forge.example.org.
                     .anyMatch(
                             line ->
                                     java.util.Arrays.asList(
