@@ -63,7 +63,9 @@ public class PoreloSteps {
      */
     @Given("a vault of this scenario's own that a restart keeps, unlocked with the passphrase {string}")
     public void aVaultARestartKeeps(String passphrase) throws IOException {
-        aVaultIn("mktemp -d \"$HOME/.porelo-acceptance-vault.XXXXXX\"", passphrase);
+        // Named after nothing a scenario takes as its passphrase: the check that the passphrase was not echoed reads the
+        // whole terminal, and a path that held "acceptance" failed it for a scenario whose passphrase that is.
+        aVaultIn("mktemp -d \"$HOME/.porelo-kept-vault.XXXXXX\"", passphrase);
     }
 
     private void aVaultIn(String makeDirectory, String passphrase) throws IOException {
