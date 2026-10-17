@@ -340,6 +340,71 @@ class ReconcileTest {
     }
 
     @Test
+    void several_keys_named_for_a_follow_that_did_not_apply_are_not_left_pinned(
+            @TempDir final Path dir) throws Exception {
+        final PoreloContext context = context(dir);
+        final Path repo = published(dir, key(dir, "stranger"), "demo");
+        final java.util.List<String> keys =
+                java.util.List.of(
+                        Files.readString(Path.of(key(dir, "laptop") + ".pub")).strip(),
+                        Files.readString(Path.of(key(dir, "desktop") + ".pub")).strip());
+
+        final FollowSignedBy.Answer answer =
+                new FollowSignedBy(context).follow("demo", repo.toString(), keys, false);
+
+        assertThat(answer.result().outcome()).isEqualTo(Reconcile.Outcome.UNKNOWN_KEY);
+        assertThat(answer.recorded()).isFalse();
+        assertThat(context.paths().projects().configurationSigners())
+                .as("a person told nothing was recorded is left trusting none of the keys")
+                .doesNotExist();
+    }
+
+    @Test
+    void a_follow_that_did_not_apply_leaves_what_another_project_pinned_meanwhile(
+            @TempDir final Path dir) throws Exception {
+        final Path old = key(dir, "old");
+        final Path successor = key(dir, "successor");
+        final Path signers = context(dir).paths().projects().configurationSigners();
+        // While this follow fetches, the daemon's pass hands the project 'other' on from its old
+        // key to its successor, as project.signers said.
+        final CommandRunner handingOn =
+                command -> {
+                    if (command.describe().contains(" fetch ")) {
+                        try {
+                            final java.util.List<String> lines =
+                                    new java.util.ArrayList<>(Files.readAllLines(signers));
+                            lines.removeIf(line -> line.startsWith("other "));
+                            lines.add("other " + typeAndKey(successor));
+                            Files.write(signers, lines);
+                        } catch (final IOException ex) {
+                            throw new java.io.UncheckedIOException(ex);
+                        }
+                    }
+                    return runner.run(command);
+                };
+        final PoreloContext context =
+                new PoreloContext(handingOn, context(dir).paths(), arguments -> 0);
+        pin(context, "other", old);
+        final Path repo = published(dir, key(dir, "stranger"), "demo");
+
+        final FollowSignedBy.Answer answer =
+                new FollowSignedBy(context)
+                        .follow(
+                                "demo",
+                                repo.toString(),
+                                Files.readString(Path.of(key(dir, "laptop") + ".pub")).strip(),
+                                false,
+                                false);
+
+        assertThat(answer.recorded()).isFalse();
+        assertThat(Files.readString(signers))
+                .as("the other project keeps the key it was handed on to, and not the retired one")
+                .contains("other " + typeAndKey(successor))
+                .doesNotContain(typeAndKey(old))
+                .doesNotContain("demo ");
+    }
+
+    @Test
     void a_list_with_one_key_that_is_not_one_pins_none_of_them(@TempDir final Path dir)
             throws Exception {
         final PoreloContext context = context(dir);
@@ -517,6 +582,33 @@ class ReconcileTest {
 
         assertThat(result.outcome()).isEqualTo(Reconcile.Outcome.UNUSABLE);
         assertThat(result.detail()).contains("does not read as a project");
+    }
+
+    @Test
+    void a_signed_commit_refused_as_unusable_never_reaches_the_working_tree(@TempDir final Path dir)
+            throws IOException {
+        final PoreloContext context = context(dir);
+        final Path key = key(dir, "operator");
+        pin(context, "demo", key);
+        final Path repo = published(dir, key, "demo");
+        final Reconcile.Result first = new Reconcile(context).run(followed(repo));
+        // Signed by the pinned key and calling itself another project: refused, as it must be.
+        commit(repo, key, "other", "a file that names another project");
+
+        final Reconcile.Result second =
+                new Reconcile(context).run(Reconcile.after(followed(repo), first));
+
+        assertThat(second.outcome()).isEqualTo(Reconcile.Outcome.UNUSABLE);
+        assertThat(second.commit()).isEqualTo(first.commit());
+        assertThat(
+                        Files.readString(
+                                context.paths()
+                                        .projects()
+                                        .followedClone("demo")
+                                        .resolve("project.yml")))
+                .as("the file in force is still the one applied, not the one refused")
+                .contains("name: demo")
+                .doesNotContain("another project");
     }
 
     /**

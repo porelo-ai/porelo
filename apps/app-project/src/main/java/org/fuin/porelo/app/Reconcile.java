@@ -565,15 +565,6 @@ public final class Reconcile {
     }
 
     /**
-     * Moves the working tree to a commit and says what it replaced.
-     *
-     * @param runner How git is run.
-     * @param clone The followed clone.
-     * @param followed What is recorded.
-     * @param commit What to move to.
-     * @return What happened.
-     */
-    /**
      * Whether a commit's project file says {@code offline}; one that cannot be read is judged where
      * it is read.
      */
@@ -595,6 +586,15 @@ public final class Reconcile {
         }
     }
 
+    /**
+     * Moves the working tree to a commit and says what it replaced.
+     *
+     * @param runner How git is run.
+     * @param clone The followed clone.
+     * @param followed What is recorded.
+     * @param commit What to move to.
+     * @return What happened.
+     */
     private Result applied(
             final CommandRunner runner,
             final Path clone,
@@ -624,31 +624,14 @@ public final class Reconcile {
             // 'reset --hard' does not touch it.
             final List<String> replaced = locallyChanged(runner, clone);
 
-            // Only now does the working tree move. Everything above this line is reversible and
-            // changes nothing an operator would notice.
-            final CommandResult moved =
-                    runner.run(
-                            Command.of(
-                                    "git",
-                                    "-C",
-                                    clone.toString(),
-                                    "reset",
-                                    "--hard",
-                                    "--quiet",
-                                    commit));
-            if (!moved.successful()) {
-                return new Result(
-                        Outcome.FAILED,
-                        followed.commit(),
-                        "have "
-                                + commit
-                                + " and could not check it out: "
-                                + moved.standardError().strip());
-            }
+            // The file is judged as the commit holds it, before the working tree moves: the clone's
+            // file is the one in force, so a commit refused here after the reset stayed in force
+            // under a record naming the commit before it.
             final Path file = clone.resolve("project.yml");
             String shape = "";
             try {
-                final org.fuin.porelo.core.project.Project read = ProjectReader.read(file);
+                final org.fuin.porelo.core.project.Project read =
+                        readAt(runner, clone, commit, file);
                 if (!read.repositories().isEmpty()) {
                     // Said before following, so the first refused start is not how a person finds
                     // out.
@@ -707,6 +690,28 @@ public final class Reconcile {
                                 + " names an egress set this machine does not have: "
                                 + ex.getMessage());
             }
+
+            // Only now does the working tree move. Everything above this line is reversible and
+            // changes nothing an operator would notice.
+            final CommandResult moved =
+                    runner.run(
+                            Command.of(
+                                    "git",
+                                    "-C",
+                                    clone.toString(),
+                                    "reset",
+                                    "--hard",
+                                    "--quiet",
+                                    commit));
+            if (!moved.successful()) {
+                return new Result(
+                        Outcome.FAILED,
+                        followed.commit(),
+                        "have "
+                                + commit
+                                + " and could not check it out: "
+                                + moved.standardError().strip());
+            }
             final String edits =
                     replaced.isEmpty()
                             ? ""
@@ -718,6 +723,34 @@ public final class Reconcile {
         } catch (final RuntimeException ex) {
             return new Result(Outcome.FAILED, followed.commit(), String.valueOf(ex.getMessage()));
         }
+    }
+
+    /**
+     * Reads the project file a commit holds, without checking it out.
+     *
+     * @param runner How git is run.
+     * @param clone The followed clone.
+     * @param commit The commit.
+     * @param file Where the file lies once the commit is checked out, named in messages.
+     * @return The project.
+     * @throws ProjectException If the commit holds no project file, or one that does not read.
+     */
+    private static org.fuin.porelo.core.project.Project readAt(
+            final CommandRunner runner, final Path clone, final String commit, final Path file) {
+        final CommandResult shown =
+                runner.run(
+                        Command.of("git", "-C", clone.toString(), "show", commit + ":project.yml"));
+        if (!shown.successful()) {
+            throw new ProjectException(
+                    "no project file at "
+                            + file
+                            + " in "
+                            + commit
+                            + ": "
+                            + shown.standardError().strip());
+        }
+        return ProjectReader.read(
+                new java.io.StringReader(shown.standardOutput()), file.toAbsolutePath().toString());
     }
 
     /**
@@ -771,11 +804,6 @@ public final class Reconcile {
     }
 
     /**
-     * Returns the likely cause when a private repository could not be fetched.
-     *
-     * @return A sentence, or "" when the vault is open and so is not the explanation.
-     */
-    /**
      * Says whether one commit descends from another.
      *
      * @param clone The repository.
@@ -800,13 +828,6 @@ public final class Reconcile {
         } catch (final RuntimeException ex) {
             return false;
         }
-    }
-
-    private String vaultHint() {
-        return context.opener().isPresent()
-                ? ""
-                : ". This account's vault is shut, so nothing here holds a credential for it -"
-                        + " open it if that repository needs one";
     }
 
     /**

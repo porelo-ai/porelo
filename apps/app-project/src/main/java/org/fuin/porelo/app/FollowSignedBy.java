@@ -135,15 +135,31 @@ public final class FollowSignedBy {
             throws Refused, IOException {
         refuseReserved(name);
         refuseBoth(signedBy, unverified);
-        // What is pinned now, put back if this follow does not end applied: pinned first and left,
-        // a key the person
-        // was told "nothing was recorded" about stayed trusted on this machine.
-        final Path signers = context.paths().projects().configurationSigners();
-        final byte[] before = Files.exists(signers) ? Files.readAllBytes(signers) : null;
+        return pinnedOnlyIfApplied(name, url, List.of(), signedBy, unverified, acceptRewrite);
+    }
+
+    /**
+     * Pins the given lines, follows, and puts this project's keys back as they were unless the
+     * follow ended applied: pinned first and left, a key the person was told "nothing was recorded"
+     * about stayed trusted on this machine. Only this project's lines are put back, so what the
+     * daemon's pass pinned for another project in the meantime stays.
+     */
+    private Answer pinnedOnlyIfApplied(
+            final String name,
+            final String url,
+            final List<String> lines,
+            final @Nullable String signedBy,
+            final boolean unverified,
+            final boolean acceptRewrite)
+            throws Refused, IOException {
+        final List<String> before = pinnedLines(name);
         try {
-            return followPinned(name, url, signedBy, unverified, acceptRewrite);
+            for (final String line : lines) {
+                pin(line);
+            }
+            return followPinned(name, url, signedBy, unverified, acceptRewrite, before);
         } catch (final Refused | IOException | RuntimeException ex) {
-            restore(signers, before);
+            restore(name, before);
             throw ex;
         }
     }
@@ -153,10 +169,9 @@ public final class FollowSignedBy {
             final String url,
             final @Nullable String signedBy,
             final boolean unverified,
-            final boolean acceptRewrite)
+            final boolean acceptRewrite,
+            final List<String> before)
             throws Refused, IOException {
-        final Path signers = context.paths().projects().configurationSigners();
-        final byte[] before = Files.exists(signers) ? Files.readAllBytes(signers) : null;
         String pinned = "";
         if (signedBy != null && !SignedBy.isFingerprint(signedBy)) {
             final String line = line(name, signedBy);
@@ -208,7 +223,7 @@ public final class FollowSignedBy {
                 result.outcome() == Reconcile.Outcome.APPLIED
                         || result.outcome() == Reconcile.Outcome.UNCHANGED;
         if (!applied) {
-            restore(signers, before);
+            restore(name, before);
         }
         if (!followedBefore && !applied) {
             projects.unfollow(name);
@@ -257,10 +272,7 @@ public final class FollowSignedBy {
         refuseReserved(name);
         // Every key is read before any is pinned, so a list with one bad key pins nothing.
         final List<String> lines = lines(name, signers);
-        for (final String line : lines) {
-            pin(line);
-        }
-        final Answer one = follow(name, url, null, false, acceptRewrite);
+        final Answer one = pinnedOnlyIfApplied(name, url, lines, null, false, acceptRewrite);
         return new Answer(one.result(), one.recorded(), "", fingerprints(lines));
     }
 
@@ -426,21 +438,47 @@ public final class FollowSignedBy {
         return principal + " " + fields[0] + " " + fields[1];
     }
 
+    /** This project's lines among the pinned signers, as they are now. */
+    private List<String> pinnedLines(final String name) throws IOException {
+        final Path signers = context.paths().projects().configurationSigners();
+        if (!Files.exists(signers)) {
+            return List.of();
+        }
+        return Files.readAllLines(signers, StandardCharsets.UTF_8).stream()
+                .filter(line -> name.equals(principalOf(line)))
+                .toList();
+    }
+
+    private static String principalOf(final String line) {
+        final String[] fields = line.strip().split("\\s+", 2);
+        return fields[0];
+    }
+
+    /**
+     * Puts this project's pinned keys back as they were, leaving every other project's as they are
+     * now; a file left with no line is removed.
+     */
+    private void restore(final String name, final List<String> before) throws IOException {
+        final Path signers = context.paths().projects().configurationSigners();
+        final List<String> lines =
+                Files.exists(signers)
+                        ? new ArrayList<>(Files.readAllLines(signers, StandardCharsets.UTF_8))
+                        : new ArrayList<>();
+        lines.removeIf(line -> name.equals(principalOf(line)));
+        lines.addAll(before);
+        lines.removeIf(String::isBlank);
+        if (lines.isEmpty()) {
+            Files.deleteIfExists(signers);
+        } else {
+            Files.writeString(signers, String.join("\n", lines) + "\n");
+        }
+    }
+
     /**
      * Writes one line into this machine's pinned signers. Appended rather than replacing the file:
      * a machine follows several projects and they need not share a key. A line already there is not
      * written twice.
      */
-    /** Puts the pinned keys back as they were, or removes the file there was none before. */
-    private static void restore(final Path signers, final byte @Nullable [] before)
-            throws IOException {
-        if (before == null) {
-            Files.deleteIfExists(signers);
-        } else {
-            Files.write(signers, before);
-        }
-    }
-
     private void pin(final String line) throws IOException {
         final Path signers = context.paths().projects().configurationSigners();
         Files.createDirectories(signers.getParent());

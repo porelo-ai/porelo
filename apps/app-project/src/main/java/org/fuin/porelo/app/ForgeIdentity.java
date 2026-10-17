@@ -25,16 +25,6 @@ public final class ForgeIdentity {
     }
 
     /**
-     * Asks a host who it thinks we are.
-     *
-     * @param context The machine, for the credential and for running ssh.
-     * @param url The destination, in any git form.
-     * @param label Names the agent socket.
-     * @return What the host said, or {@code null} when it said nothing recognisable, could not be
-     *     reached, or the URL is not one ssh opens. Never an error: this is an explanation, and an
-     *     explanation that fails explains nothing and breaks nothing.
-     */
-    /**
      * What a host answered when asked who we are.
      *
      * @param said The greeting, or what it refused with, or "".
@@ -81,6 +71,11 @@ public final class ForgeIdentity {
             return null;
         }
         final String user = userIn(url);
+        if (host.startsWith("-") || user != null && user.startsWith("-")) {
+            // ssh would read the destination as an option; git refuses such an address the same
+            // way.
+            return null;
+        }
         try (FollowCredential credential =
                 FollowCredential.open(context, url, label, "git", offered)) {
             final java.util.List<String> command =
@@ -91,17 +86,12 @@ public final class ForgeIdentity {
                                     "BatchMode=yes",
                                     "-o",
                                     "ConnectTimeout=10",
-                                    // The same host-key policy a fetch uses, or the FIRST question
-                                    // asked of a
-                                    // host this machine has never met fails on the host key and
-                                    // says nothing
-                                    // about the credential - which is exactly what happened when
-                                    // this was tried
-                                    // with a plain 'ssh': the answer was silence, and silence reads
-                                    // as "nothing
-                                    // to report".
+                                    // The host-key policy a fetch uses, strict: this file is the
+                                    // one every fetch trusts, so learning a host here decided the
+                                    // question a fetch puts to a person. A host never met answers
+                                    // nothing about the credential, which is said as nothing.
                                     "-o",
-                                    "StrictHostKeyChecking=accept-new",
+                                    "StrictHostKeyChecking=yes",
                                     "-o",
                                     "UserKnownHostsFile="
                                             + FollowCredential.knownHostsFile(context)));
@@ -148,6 +138,16 @@ public final class ForgeIdentity {
         }
     }
 
+    /**
+     * Asks a host who it thinks we are.
+     *
+     * @param context The machine, for the credential and for running ssh.
+     * @param url The destination, in any git form.
+     * @param label Names the agent socket.
+     * @return What the host said, or {@code null} when it said nothing recognisable, could not be
+     *     reached, or the URL is not one ssh opens. Never an error: this is an explanation, and an
+     *     explanation that fails explains nothing and breaks nothing.
+     */
     public static @Nullable String of(
             final PoreloContext context, final String url, final String label) {
         final Answer answer = ask(context, url, label);

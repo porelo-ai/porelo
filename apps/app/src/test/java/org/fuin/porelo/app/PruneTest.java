@@ -277,6 +277,74 @@ class PruneTest {
         assertThat(Prune.orphanedEntry("grant/forge-app", containers, projects)).isFalse();
     }
 
+    @Test
+    void aTaskThatStartsWhileAPruneRunsKeepsTheTokensItKeptInTheVault() throws IOException {
+        // Its container appears after the prune listed the containers, and its start keeps its
+        // tokens; taken for a gone task's, they were removed, and it could not come back after a
+        // reboot.
+        final char[] passphrase = "correct horse".toCharArray();
+        final java.util.concurrent.atomic.AtomicInteger listed =
+                new java.util.concurrent.atomic.AtomicInteger();
+        final FakeCommandRunner starting =
+                new FakeCommandRunner() {
+                    @Override
+                    public org.fuin.porelo.core.process.CommandResult run(
+                            final org.fuin.porelo.core.process.Command command) {
+                        if (command.describe().endsWith("{{.Names}}")) {
+                            return new org.fuin.porelo.core.process.CommandResult(
+                                    command,
+                                    0,
+                                    listed.getAndIncrement() == 0 ? "" : "porelo-p-new\n",
+                                    "");
+                        }
+                        return super.run(command);
+                    }
+                };
+        final PoreloContext context =
+                new PoreloContext(
+                                starting,
+                                new PoreloPaths(
+                                        XdgPaths.of(
+                                                name ->
+                                                        switch (name) {
+                                                            case "XDG_CONFIG_HOME" ->
+                                                                    dir.resolve("config")
+                                                                            .toString();
+                                                            case "XDG_DATA_HOME" ->
+                                                                    dir.resolve("data").toString();
+                                                            case "XDG_STATE_HOME" ->
+                                                                    dir.resolve("state").toString();
+                                                            default -> null;
+                                                        },
+                                                dir),
+                                        dir.resolve("bin")),
+                                arguments -> 0)
+                        .asking(prompt -> passphrase.clone());
+        Files.createDirectories(context.vault().path().getParent());
+        context.vault()
+                .write(
+                        java.util.Map.of(
+                                "task/porelo-p-new/gate-token",
+                                org.fuin.porelo.vault.VaultEntry.of("kept"),
+                                "task/porelo-p-gone/gate-token",
+                                org.fuin.porelo.vault.VaultEntry.of("left")),
+                        passphrase);
+        try {
+            assertThat(
+                            context.openerAsking(
+                                    false, new java.io.PrintWriter(new java.io.StringWriter())))
+                    .isPresent();
+
+            new Prune(context).run(true, false);
+
+            assertThat(context.vault().read(context.opener().orElseThrow()).keySet())
+                    .as("the starting task's tokens stay, the gone one's go")
+                    .containsExactly("task/porelo-p-new/gate-token");
+        } finally {
+            PoreloContext.forgetAsked();
+        }
+    }
+
     /** Makes everything under a directory look untouched for longer than {@link Prune#SETTLED}. */
     private static void age(Path root) throws IOException {
         final java.nio.file.attribute.FileTime then =

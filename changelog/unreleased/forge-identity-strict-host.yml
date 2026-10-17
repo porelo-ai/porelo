@@ -1,0 +1,2 @@
+title: Asking a forge who this machine is - a credential dry run, or the hint after a refused fetch - no longer trusts a host key nobody confirmed, and no longer runs ssh for an address whose user or host reads as an option
+type: fixed

@@ -1,0 +1,2 @@
+title: A follow with several --signed-by keys that did not apply no longer leaves the keys pinned, and a follow that did not apply no longer puts back the keys another project was handed on to meanwhile
+type: fixed

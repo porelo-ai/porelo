@@ -580,6 +580,18 @@ public final class Prune {
                         .update(
                                 opener.get(),
                                 entries -> {
+                                    // The containers are asked again under the vault's lock: a
+                                    // task that started since the prune listed them has kept its
+                                    // tokens by now, and they are not a gone task's.
+                                    final Set<String> exist =
+                                            new LinkedHashSet<>(
+                                                    context.podman().poreloContainers());
+                                    gone.clear();
+                                    for (final String name : entries.keySet()) {
+                                        if (orphanedEntry(name, exist, remaining)) {
+                                            gone.add(name);
+                                        }
+                                    }
                                     final Map<String, VaultEntry> updated =
                                             new LinkedHashMap<>(entries);
                                     updated.keySet().removeAll(gone);

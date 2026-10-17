@@ -1,0 +1,2 @@
+title: porelo prune --yes no longer removes the vault tokens of a task that started while it ran, which that task needs to come back after a reboot
+type: fixed
