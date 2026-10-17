@@ -17,7 +17,7 @@ Found in the joint test, 2026-10-10:
     credential already here
 
 The person had to read the sentence, then type one of two commands that Porelo had just named. [B133](README.md#b133) does the same for a
-shut vault, and [B132](README.md#b132) for a grant missing at a task's start.
+shut vault, and `task start` already does it for a grant that is missing, offering `vault authorize`.
 
 ## The shape
 

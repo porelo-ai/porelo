@@ -30,19 +30,15 @@ class NoOldNameTest {
     private static final String OLD_NAME = "So" + "kar";
 
     /**
-     * Paths that keep the old name, name and text: the released changelog entries and the changelog made of them,
-     * the entry that says the product was renamed, and the issue of the rename.
+     * Paths that keep the old name, name and text: the released changelog entries and the changelog made of them.
      */
-    private static final Pattern KEPT_PATHS = Pattern.compile("CHANGELOG\\.md|changelog/v[^/]+/.*|"
-            + "changelog/unreleased/renamed-porelo\\.yml|"
-            + "issues/base/B195-[^/]+\\.md"); // not-a-citation: the issue's own file
+    private static final Pattern KEPT_PATHS = Pattern.compile("CHANGELOG\\.md|changelog/v[^/]+/.*");
 
     /**
-     * Lines that keep it: the rename's own row in the issue index, and the sentence on what the old name left at a
-     * forge.
+     * Lines that keep it: the sentence on what the old name left at a forge.
      */
-    private static final Pattern KEPT_LINES = Pattern.compile(".*<a id=\"b195\"></a>.*"
-            + "|A deploy key made before 0\\.5\\.0, while Porelo was called " + OLD_NAME + ", .*"
+    private static final Pattern KEPT_LINES = Pattern.compile(
+            "A deploy key made before 0\\.5\\.0, while Porelo was called " + OLD_NAME + ", .*"
             + "|its forge\\. Porelo reads nothing of " + OLD_NAME + "'s, .*");
 
     private static List<String> tracked() throws IOException, InterruptedException {

@@ -16,29 +16,6 @@ is not counted.
 **Blocked by** names the issue that has to land first. An issue in another repository that waits for a row here says so
 from its side, as *blocked by*.
 
-## Review
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="b195"></a>[B195](B195-Sokar-Renamed-Porelo-Here.md) | L | - | One scripted commit: paths moved and `sokar` replaced by `porelo` but for released changelog entries and outside names; artifacts, varlink interfaces, `porelod`, packages, paths, variables, nft and SELinux names, the message signature namespace; images redrawn, signed fixtures signed again; red first a test refusing the old word; both legs. |
-| <a id="b157"></a>[B157](B157-Doctor-Says-Its-Findings-In-Colour.md) | S | - | Doctor colours its findings; `--color` and `NO_COLOR` work, no colour when piped; on `main`. |
-| <a id="b126"></a>[B126](B126-One-Source-For-A-Repository-Both-Ways.md) | L | - | One source per repository both ways; built on `main`, the walk is left. |
-| <a id="b127"></a>[B127](B127-An-Online-Task-Pushes-Through-The-Host.md) | L | - | An online task's push goes through the gate as `porelo/<task>`; on `main`, green on the VM, the operator's test is left. |
-| <a id="b128"></a>[B128](B128-A-Gate-A-Task-Cannot-Exhaust.md) | M | - | The gate's limits: 4 requests at once, a push spooled to disk, a scope per gate; on `main`, green on the VM, the operator's test is left. |
-| <a id="b162"></a>[B162](B162-Task-List-Names-What-It-Leaves-Out.md) | M | - | Task list, status, logs and the daemon name containers that look like tasks but have no recorded id; on `main`. |
-| <a id="b161"></a>[B161](B161-Doctor-As-Data.md) | S | - | `porelo doctor --json` from the same probe list as the text; on `main`. |
-| <a id="b146"></a>[B146](B146-One-Stop-Of-Every-Task-On-A-Node.md) | M | - | `task stop --all` and panic stop everything and journal it in `stops.log`; on `main`, the operator's test is left. |
-| <a id="b132"></a>[B132](B132-A-Subscription-Granted-With-One-Command.md) | M | - | `vault authorize <provider>` makes the grant from the provider and the agent; `task start` names and offers the command. |
-| <a id="b131"></a>[B131](B131-The-Oldest-System-A-Package-Promises.md) | M | - | Packages declare their glibc and zlib floor, `check-linkage` fails a build above it, runners pinned, Debian 13 and Fedora 43 in the package check. |
-| <a id="b130"></a>[B130](B130-Two-Refusals-By-Name.md) | M | - | `BranchExists` and `EarlierWorkWaits` as named refusals; daemon, CLI, interface and plugin built. |
-| <a id="b180"></a>[B180](B180-Trust-A-Host-On-Its-Own-Port.md) | M | - | `trust-host` asks and records a host on the port its upstream uses, so a forge on its own SSH port can be trusted and started. |
-| <a id="b182"></a>[B182](B182-A-Vault-Entry-A-Declaration-Names-Is-Used.md) | S | - | `vault put` says `used for <match>` instead of warning that nothing will find an entry a declaration reads, and warns when the kind does not fit. |
-| <a id="b181"></a>[B181](B181-An-Upstream-Read-Before-A-Start.md) | M | - | A start reads the upstream as the gate's clone would before creating anything, names why it cannot (host key, refused key, no such repository, unreachable) with the fix, and offers that fix instead of a shell; `credentials check` connects. |
-| <a id="b183"></a>[B183](B183-A-Tasks-Logs-Kept-In-One-Archive.md) | M | - | `task logs TASK --zip [FILE]`: the task's logs, its status, files and talk log as text, checksums, owner-only; the agent's own output only on request; later the task's entries from the account's event log. |
-| <a id="b188"></a>[B188](B188-No-Search-Domains-Of-The-Host-In-A-Task.md) | S | - | `--dns-search=.` on every task with its own resolver: no host search domains, one lookup per name. |
-| <a id="b187"></a>[B187](B187-No-Logging-Warning-From-The-Clearance-Watcher.md) | S | - | The binary sets SLF4J's own verbosity to errors only, so `clearance.log` no longer starts with three warnings. |
-| <a id="b186"></a>[B186](B186-One-Line-For-One-Dropped-Connection.md) | S | - | Not two readers: the kernel batches logged packets and the reader stamps a batch with one time, so a SYN and its retry read as two identical drops. Kernel timestamp, `queue-threshold 1`, source port, a retry within ten seconds is not a second line. |
-
 ## Implementing
 
 | # | Size | Blocked by | What it covers |
@@ -47,7 +24,7 @@ from its side, as *blocked by*.
 | <a id="b158"></a>[B158](B158-A-Refusal-That-Knows-The-Next-Command-Offers-It.md) | M | - | A refusal offers its remedy command; built for vault login, a start's credential refusals and resume's shut vault; a resume test is left. |
 | <a id="b137"></a>[B137](B137-An-Offline-Project-Never-Connects.md) | S | - | An offline project never connects; left: an acceptance round trip that follows a bundle, restores, backs up and refuses a `file://` follow. |
 | <a id="b102"></a>[B102](B102-A-Vault-Cleared-In-One-Step.md) | S | - | `vault clear` is on `main`; left: a scenario in `vault-commands.feature` and the walk with a homeserver on a rented machine. |
-| <a id="b76"></a>[B76](B76-The-Code-Checked-Against-The-Skills-It-Was-Written-Without.md) | L | - | Ten open findings against the house skills (vault tests, netlink, nft hang, app, kit), and the modules added since that were never read. |
+| <a id="b76"></a>[B76](B76-The-Code-Checked-Against-The-Skills-It-Was-Written-Without.md) | L | - | Every finding fixed or declined; left: the four modules added on 2026-10-08 that were never read (`builds/api`, `builds/stub`, `dist/package-check`, `acceptance/legs`). |
 | <a id="b125"></a>[B125](B125-What-A-Daemon-Costs-And-On-Which-Threads.md) | M | - | Left: no loops for exited tasks, never-started containers listed, the idle measurement on the two-CPU VM, and the run on virtual threads. |
 | <a id="b79"></a>[B79](B79-A-Daemon-That-Answers-Nothing.md) | S | - | Platform threads and the thread dump are built; left: runs on the two-CPU VM after SIGKILL, both thread kinds, reading a dump on a hang. |
 | <a id="b13"></a>[B13](B13-Unreviewed-Work-Leaving-By-The-Side-Door.md) | S | - | Guard, checkout and already-upstream marking on `main`; left: a hand-push acceptance scenario; no upstream review branch, no editor attached to the container. |
@@ -107,13 +84,13 @@ from its side, as *blocked by*.
 | <a id="b192"></a>[B192](B192-An-Image-Chosen-Per-Repository.md) | - | `porelo` [B170](README.md#b170) | A task started on one repository of a project gets that repository's own image, built from its devcontainer file. |
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | - | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own. |
 | <a id="b194"></a>[B194](B194-A-File-Handed-In-At-Every-Start.md) | - | - | A host file such as `.AGENTS.md` handed into an agent's task read-only at every start; a changed copy written on the host only after approval. |
+| <a id="b198"></a>[B198](B198-Settings-Inherited-Down-An-Organisations-Tree.md) | - | - | An organisation file pinned by the machine's administrator passes settings down signed teams to projects by repository address; `fixed` and `narrow-only` locks no file below can undo, every file verified through the chain of keys, `project show --resolved`; folds in porelo-project [PJ16](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj16). |
 
 ## Idea
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b179"></a>[B179](B179-A-Code-Beside-Why-A-Release-Cannot-Go.md) | - | - | A code beside `detail` when a release is answered `NOT_DELIVERABLE`, so a client can say what to do per case. |
-| <a id="b196"></a>[B196](B196-The-Fedora-Repository-Checked-By-Its-Key.md) | - | - | On Fedora the setup script writes the repository with `gpgcheck=0`; it is to be checked against the pinned package key, as on Debian and Ubuntu. |
 
 ## Estimated
 
@@ -163,6 +140,31 @@ from its side, as *blocked by*.
 | <a id="b169"></a>[B169](B169-Containers-Inside-A-Task.md) | L | - | The nested-container assessment first, measured on both legs; then an opt-in `image.nested_containers`, never for `guarded`, and only on a task's own kernel if the assessment says so. |
 | <a id="b170"></a>[B170](B170-A-Devcontainer-File-As-Image-Source.md) | M | - | `image.devcontainer`: a JSONC reader takes `image` or `build.dockerfile` and `containerEnv`, lists the rest as ignored; features are not fetched, and said. |
 | <a id="b174"></a>[B174](B174-A-Running-Tasks-Commits-And-Their-Diff.md) | M | - | `TaskCommits` and `TaskDiff`: a running task's commits no remote holds and their diff, cut at a file boundary; a stopped task's list from its note. |
+| <a id="b196"></a>[B196](B196-The-Fedora-Repository-Checked-By-Its-Key.md) | S | - | On Fedora the setup script writes the repository with `gpgcheck=0`; it is to be checked against the pinned package key, as on Debian and Ubuntu. |
+| <a id="b197"></a>[B197](B197-A-Push-To-A-Slow-Forge-Has-A-Bound.md) | M | - | A push the gate passes on to a forge that is slow or down ends within `limits.pass_on` of the project file, two minutes unless set, with a named refusal that the forge did not answer. |
+
+## Finished
+
+| # | Title | What was built |
+|---|---|---|
+| <a id="b157"></a>B157 | Doctor Says Its Findings In Colour | Doctor colours its findings; `--color` and `NO_COLOR` work, and there is no colour when piped. |
+| <a id="b126"></a>B126 | One Source For A Repository Both Ways | One source per repository both ways: a task clones from where its approved work goes. |
+| <a id="b127"></a>B127 | An Online Task Pushes Through The Host | An online task's push goes through the host's gate as `porelo/<task>`, with no key or route to the upstream in the container. |
+| <a id="b128"></a>B128 | A Gate A Task Cannot Exhaust | The gate's limits: four requests at once, a push spooled to disk, and a scope per gate. |
+| <a id="b162"></a>B162 | Task List Names What It Leaves Out | Task list, status, logs and the daemon name the containers that look like tasks but have no recorded id, and adopt none. |
+| <a id="b161"></a>B161 | Doctor As Data | `porelo doctor --json`, from the same probe list as the text. |
+| <a id="b146"></a>B146 | One Stop Of Every Task On A Node | `task stop --all` and panic stop every task of the machine and journal it in `stops.log`; tokens stay in the vault. |
+| <a id="b132"></a>B132 | A Subscription Granted With One Command | `vault authorize <provider>` makes the grant from the provider and the agent, and `task start` names and offers the command. |
+| <a id="b131"></a>B131 | The Oldest System A Package Promises | Packages declare their glibc and zlib floor, `check-linkage` fails a build above it, the runners are pinned, and Debian 13 and Fedora 43 are in the package check. |
+| <a id="b130"></a>B130 | Two Refusals By Name | `BranchExists` and `EarlierWorkWaits` as named refusals in the daemon, the CLI, the interface and the plugin. |
+| <a id="b180"></a>B180 | Trust A Host On Its Own Port | `trust-host` asks for and records a host on the port its upstream uses, so a forge on its own SSH port can be trusted and started. |
+| <a id="b182"></a>B182 | A Vault Entry A Declaration Names Is Used | `vault put` says `used for <match>`, where it warned that nothing would find an entry a declaration reads, and warns when the kind does not fit. |
+| <a id="b181"></a>B181 | An Upstream Read Before A Start | A start reads the upstream as the gate's clone would before creating anything, names why it cannot with the fix, and offers that fix; `credentials check` connects. |
+| <a id="b183"></a>B183 | A Tasks Logs Kept In One Archive | `task logs TASK --zip [FILE]`: the task's logs, its status, files and talk log as text, with checksums and owner-only; the agent's own output only on request. |
+| <a id="b188"></a>B188 | No Search Domains Of The Host In A Task | `--dns-search=.` on every task with its own resolver: no search domains of the host, one lookup per name. |
+| <a id="b187"></a>B187 | No Logging Warning From The Clearance Watcher | The binary sets SLF4J's own verbosity to errors only, so `clearance.log` no longer starts with three warnings. |
+| <a id="b186"></a>B186 | One Line For One Dropped Connection | One line for one dropped connection: kernel timestamps, `queue-threshold 1` and the source port, and a retry within ten seconds is no second line. |
+| <a id="b195"></a>B195 | Renamed Porelo Here | Everything this repository builds, ships and documents says Porelo, but for the released changelog entries: artifacts, varlink interfaces, programs, packages, paths, variables, nft and SELinux names and the message signature namespace; a documents test refuses the old word. |
 
 ## Rejected
 

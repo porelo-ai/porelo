@@ -11,7 +11,7 @@ refuses and names `porelo vault unlock`.
 
 Asked on 2026-10-09: when Porelo knows the vault has to be opened, it should open it in the same command. Today
 some commands ask and others refuse with "'porelo vault unlock'". `vault login` even runs the whole login first and
-fails afterwards: "logged in, but the vault is locked". With [B132](README.md#b132)'s offer at `task start`, a first start on a fresh
+fails afterwards: "logged in, but the vault is locked". With `task start` offering `vault authorize`, a first start on a fresh
 machine becomes one command: the passphrase, the grant, the task.
 
 ## Where it is today

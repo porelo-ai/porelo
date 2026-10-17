@@ -15,7 +15,8 @@ side in their repositories.
 Porelo's RPMs are built with signing off (`dist/dist-rpm/pom.xml`, `rpm.sign.skip`), so the Fedora repository is set up
 with `gpgcheck=0` - in `porelo-setup.sh`, in the documentation (`doc/getting-started.md`, "deliberate, and
 temporary"), and on every rented machine a leg installs on (`AgentLeg` in `porelo-buildtools`). Integrity rests on
-TLS to the project's own repository; `repo_gpgcheck` is not set either.
+TLS to the project's own repository; `repo_gpgcheck` is not set either, though both channels' metadata is
+signed by the packaging key (measured 2026-10-17), and [B196](README.md#b196) sets it ahead of this issue.
 
 ## The shape
 
@@ -98,8 +99,3 @@ Steps in Porelo, in order:
 
 **Guideline points, 2026-10-09:** a review of security guidelines counts this as its item F9,
 answering NCSC/CISA secure development, OWASP `LLM03`, Sysdig 6, AISVS `C06`.
-
-## To be checked
-
-- Whether the RPM repository's metadata is signed as the Debian one's is, which `repo_gpgcheck=1` needs
-  (Agent Core's, read in the package repository's settings).

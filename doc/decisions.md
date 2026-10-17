@@ -101,6 +101,7 @@ would change the answer.
 | Every Porelo repository gets the changelog check from its parent | bound once in `porelo-parent`; a repository not built with Maven runs it as a workflow step | [entry](#every-porelo-repository-gets-the-changelog-check-from-its-parent) |
 | A leg runs only the unit tests that need its machine | unit tests on the build host, except those only the target can run, which fail it when skipped | [entry](#a-leg-runs-only-the-unit-tests-that-need-its-machine) |
 | One key signs everything a machine installs from Porelo | packages, setup script and repository metadata with one key held by the owner; the publishing repositories switch on together | [entry](#one-key-signs-everything-a-machine-installs-from-porelo) |
+| A new name starts afresh | nothing of the name before is read, kept or migrated; a machine is set up afresh; a released changelog entry keeps the name it was released under | [entry](#a-new-name-starts-afresh) |
 | **The documentation** | | |
 | The issue index stays one table per section | a conflict there is resolved by keeping both lines; split, nobody could read it whole | [entry](#the-issue-index-stays-one-table-per-section) |
 | The data protection page follows the federal ISDS concept template | in the template's chapters, each saying what Porelo provides and what the organisation regulates | [entry](#the-data-protection-page-follows-the-federal-isds-concept-template) |
@@ -880,3 +881,11 @@ that checks signatures refuses every repository that does not sign yet.
 A task's screen is offered only to a project that switches it on in `project.yml`, and even then only through Porelo's
 relay, which takes a strong one-time token before a byte reaches the VNC server. Loopback alone is no access control on
 a machine with other accounts, and VNC's own password is too weak to rely on.
+
+## A new name starts afresh
+
+When the product took the name Porelo with 0.5.0, nothing was carried over from the name before: no state, setting,
+vault, command, path or package of it is read or kept, and nothing is migrated, so a machine is set up afresh. Maven
+Central keeps the old artifacts as they were, with no relocation, and a released changelog entry keeps the name it was
+released under. A reader of the old paths would have stayed in the code for good, for machines that are set up again
+in minutes.
