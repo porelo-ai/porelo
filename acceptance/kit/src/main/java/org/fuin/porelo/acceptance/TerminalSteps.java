@@ -213,6 +213,21 @@ public class TerminalSteps {
     }
 
     /**
+     * Presses one key, as the bytes a person's {@code xterm-256color} sends for it.
+     * <p>
+     * Unlike {@code I type}, nothing follows the key: no line end, no Enter. The keys are those {@link Keys} names - Esc,
+     * PageUp, Shift+Enter in both forms, focus in and out - and any other name is refused, naming them.
+     *
+     * @param key The key.
+     * @throws IOException If it cannot be sent.
+     */
+    @When("I press the key {string}")
+    public void iPressTheKey(String key) throws IOException {
+        world.terminal().press(Keys.bytes(key));
+        world.terminal().drain();
+    }
+
+    /**
      * Presses Enter alone, as a person confirming what a program shows.
      *
      * @throws IOException If it cannot be sent.

@@ -180,6 +180,17 @@ public final class Terminal implements AutoCloseable {
     }
 
     /**
+     * Presses a key, its bytes written raw, with no line end.
+     *
+     * @param key The bytes the key sends, from {@link Keys}.
+     * @throws IOException If they cannot be sent.
+     */
+    public void press(byte[] key) throws IOException {
+        to.write(key);
+        to.flush();
+    }
+
+    /**
      * Types text and then presses Enter, as a person at a keyboard does.
      * <p>
      * <strong>A carriage return, not a line feed.</strong> Enter sends a carriage return; a terminal

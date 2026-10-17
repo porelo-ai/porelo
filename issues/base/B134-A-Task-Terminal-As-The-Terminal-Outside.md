@@ -1,7 +1,7 @@
 # B134 — A Task Terminal As The Terminal Outside
 
 **Status:** Implementing.
-**Size:** M - left are Pi's measurement and the kit's per-key test, a step and a scenario; the whole was L.
+**Size:** M - left are Pi's measurement, the per-key scenario's run on the VM and the joint test; the whole was L.
 
 **What must be true.** An agent in a task behaves at the keyboard and on the screen as it does in a plain terminal on
 the same machine. Scrolling, Esc, modified keys, colours, the clipboard, links, focus and images work as they do
@@ -127,3 +127,15 @@ Left, in this order:
 
 Red first: the scenario for Shift+Enter in the CSI u form against the image of the commit before `e55e8f0d`, where
 tmux delivered nothing.
+
+**Built, 2026-10-17:** steps 2 and 3.
+- `Keys` in `acceptance/kit` names eleven keys as the bytes an `xterm-256color` sends - Esc, PageUp, PageDown,
+  Shift+PageUp, Shift+PageDown, Shift+Enter in both forms, Ctrl+Right, Alt+x, focus in and out - and refuses any other
+  name, listing them. The step `I press the key {string}` writes them raw through `Terminal.press`.
+  `KeysTest` was seen red against an empty table first.
+- `task/task-keys.feature`: one scenario, one task, each key in turn. The program behind tmux is
+  `head -c <n> | od -An -tx1`, started after a READY mark built at run time, and the scenario waits for the hex it
+  prints. Focus events are asked for first, as an agent's interface asks. Shift+PageUp and Shift+PageDown are left
+  out: they scroll tmux's history and reach no program outside the alternate screen.
+- **Left:** the scenario run on the VM with the others, and seen red against an image from before `e55e8f0d`; Pi's
+  measurement (step 1); the joint test (step 4).
