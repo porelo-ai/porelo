@@ -11,9 +11,9 @@ import picocli.CommandLine.Spec;
 /**
  * Shows one held message, so that releasing it is a decision about what it says.
  *
- * <p>Only what waits in the hold list, as {@code talk release} finds it: a message the filter
- * refused is never shown here, because it is kept in clear text with whatever made the filter
- * refuse it.
+ * <p>Found exactly as {@code talk release} finds it - held, refused by the filter, or unchecked -
+ * so what a person reads is what they decide about. A refused one is shown in full, secrets
+ * included, because a person may still deliver it, and only a person asking by name ever sees it.
  */
 @Command(
         name = "read",

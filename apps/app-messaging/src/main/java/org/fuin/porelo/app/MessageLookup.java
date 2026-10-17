@@ -115,9 +115,9 @@ final class MessageLookup {
         if (id.isEmpty()) {
             return "";
         }
-        // Wherever the answer is now: waiting in feedback/, or already handed to the agent's inbox.
-        for (final Path directory :
-                List.of(mailbox.feedback(), mailbox.inboxNew(), mailbox.inboxCur())) {
+        // Waiting in feedback/, or the host's copy of one handed over - never the agent's inbox,
+        // which the agent writes: an answer forged there was shown to the person as the filter's.
+        for (final Path directory : List.of(mailbox.feedback(), answers(mailbox))) {
             for (final Path answer : messages(directory)) {
                 final String text = answerText(answer, id);
                 if (!text.isEmpty()) {
@@ -128,19 +128,6 @@ final class MessageLookup {
         return "";
     }
 
-    /**
-     * Says what the filter would have refused in a message it let through only because it reports,
-     * from its receipt.
-     *
-     * <p>Only the rule and the excerpts the filter masked: the message itself holds the original,
-     * and a person reads that on purpose or not at all.
-     *
-     * @param mailbox The task's mailbox.
-     * @param id The message's id.
-     * @return "the filter would have refused it: RULE (excerpt, ...)", or "" when it would not, or
-     *     its receipt is gone.
-     * @throws IOException Reading failed.
-     */
     /**
      * Returns where the host keeps its copy of every answer the filter gave, out of the agent's
      * reach.
@@ -199,12 +186,24 @@ final class MessageLookup {
         }
     }
 
+    /**
+     * Says what the filter would have refused in a message it let through only because it reports,
+     * from its receipt.
+     *
+     * <p>Only the rule and the excerpts the filter masked: the message itself holds the original,
+     * and a person reads that on purpose or not at all.
+     *
+     * @param mailbox The task's mailbox.
+     * @param id The message's id.
+     * @return "the filter would have refused it: RULE (excerpt, ...)", or "" when it would not, or
+     *     its receipt is gone.
+     * @throws IOException Reading failed.
+     */
     static String wouldRefuse(final Mailbox mailbox, final String id) throws IOException {
         if (id.isEmpty()) {
             return "";
         }
-        for (final Path directory :
-                List.of(mailbox.feedback(), mailbox.inboxNew(), mailbox.inboxCur())) {
+        for (final Path directory : List.of(mailbox.feedback(), answers(mailbox))) {
             for (final Path answer : messages(directory)) {
                 final String verdict = verdict(answer, id);
                 if (!verdict.isEmpty()) {

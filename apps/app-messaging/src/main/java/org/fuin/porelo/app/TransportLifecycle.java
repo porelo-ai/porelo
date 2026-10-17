@@ -225,14 +225,20 @@ final class TransportLifecycle {
         }
         if (said.get("address") instanceof String address && !address.isBlank()) {
             // How the task is named in the conversation - not a secret - so what is sent to it can
-            // be asked
-            // about: 'receipt --by' takes it.
-            final Map<String, String> addresses = new LinkedHashMap<>(addresses(scheme, project));
-            addresses.put(task, address);
+            // be asked about: 'receipt --by' takes it. Read and written under one lock: two tasks
+            // of a project started at once each wrote the file as it read it, and one task's
+            // address was lost - with it, its own words in the room come back to it as a peer's.
+            final Path file = addressesFile(scheme, project);
             try {
-                final Path file = addressesFile(scheme, project);
                 Files.createDirectories(file.getParent());
-                Files.writeString(file, Json.write(addresses), StandardCharsets.UTF_8);
+                FileLocks.holding(
+                        file.resolveSibling("." + file.getFileName() + ".lock"),
+                        () -> {
+                            final Map<String, String> addresses = new LinkedHashMap<>(names(file));
+                            addresses.put(task, address);
+                            whole(file, Json.write(addresses));
+                            return Boolean.TRUE;
+                        });
             } catch (IOException ex) {
                 // The task takes part all the same; only whether it read something cannot be asked.
             }
@@ -692,11 +698,30 @@ final class TransportLifecycle {
         try {
             final Path file = state(scheme, project);
             Files.createDirectories(file.getParent());
-            Files.writeString(file, Json.write(written), StandardCharsets.UTF_8);
+            whole(file, Json.write(written));
         } catch (IOException ex) {
             throw new Refused(
                     "the conversation of " + project + " cannot be recorded: " + ex.getMessage(),
                     0);
+        }
+    }
+
+    /**
+     * Writes a file beside itself and renames it in: a pass reading it while a task's start writes
+     * it would find it half written, and read it as no conversation and nobody's address.
+     */
+    private static void whole(final Path file, final String text) throws IOException {
+        final Path staged =
+                Files.createTempFile(file.getParent(), "." + file.getFileName(), ".tmp");
+        try {
+            Files.writeString(staged, text, StandardCharsets.UTF_8);
+            Files.move(
+                    staged,
+                    file,
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                    java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+        } finally {
+            Files.deleteIfExists(staged);
         }
     }
 

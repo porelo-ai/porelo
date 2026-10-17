@@ -25,12 +25,6 @@ public final class MessageRelease {
     private @org.jspecify.annotations.Nullable String reason;
 
     /**
-     * Gives a refusal the person's own words, which the sender is told with it.
-     *
-     * @param said What the person said, or {@code null}.
-     * @return This.
-     */
-    /**
      * Says which of its project's conversations the task has an account in, so a message to a peer
      * reached through one it is not in is not released: it would be queued, run without the task's
      * account and held again.
@@ -81,6 +75,12 @@ public final class MessageRelease {
         return schemes;
     }
 
+    /**
+     * Gives a refusal the person's own words, which the sender is told with it.
+     *
+     * @param said What the person said, or {@code null}.
+     * @return This.
+     */
     public MessageRelease because(final @org.jspecify.annotations.Nullable String said) {
         this.reason = said == null || said.isBlank() ? null : said.strip();
         return this;

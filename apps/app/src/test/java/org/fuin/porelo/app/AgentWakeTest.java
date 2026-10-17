@@ -359,6 +359,46 @@ class AgentWakeTest {
     }
 
     @Test
+    void aPipeTheTaskPutIntoItsInboxHoldsNoPassAndTheMessageBesideItIsStillAnnounced()
+            throws Exception {
+
+        // The task writes its inbox: a pipe there held the daemon's read, and the pass with it -
+        // every mailbox on the machine stopped moving for as long as nothing wrote into the pipe.
+        final Mailbox mailbox = new Mailbox(dir.resolve("mail").resolve("porelo-p-writer"));
+        mailbox.create();
+        final Path pipe = mailbox.inboxNew().resolve("a-pipe.json");
+        assertThat(new ProcessBuilder("mkfifo", pipe.toString()).start().waitFor())
+                .as("mkfifo made the pipe")
+                .isZero();
+        Files.writeString(
+                mailbox.inboxNew().resolve("m-1.json"), "{\"metadata\":{\"via\":\"direct\"}}");
+        final AgentWake waker = new AgentWake(context());
+        final java.util.concurrent.atomic.AtomicBoolean announced =
+                new java.util.concurrent.atomic.AtomicBoolean();
+
+        final Thread pass =
+                Thread.ofPlatform()
+                        .start(
+                                () ->
+                                        announced.set(
+                                                waker.announce(
+                                                        mailbox,
+                                                        "porelo-p-writer",
+                                                        "p",
+                                                        () -> true)));
+        pass.join(java.time.Duration.ofSeconds(10));
+        final boolean held = pass.isAlive();
+        if (held) {
+            // Let the stuck read go, so the test leaves no thread behind.
+            Files.writeString(pipe, "{}");
+            pass.join(java.time.Duration.ofSeconds(10));
+        }
+
+        assertThat(held).as("the pass was held by the pipe").isFalse();
+        assertThat(announced.get()).as("the message beside the pipe").isTrue();
+    }
+
+    @Test
     void twoPathsAtTheSameMomentOfRestTypeOneLineAndAnotherArrivalWaitsOutTheQuiet()
             throws Exception {
 

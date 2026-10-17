@@ -144,6 +144,23 @@ public final class MessageIntake {
         }
     }
 
+    /**
+     * Reads a file in the part of the box the task writes - only a regular file, never through a
+     * link, and only up to {@link #MAX_BYTES} - or returns {@code null}: a pipe placed there held
+     * the host's read, and with it every mailbox's pass, for as long as the task wanted.
+     *
+     * @param file The file.
+     * @return Its bytes, or {@code null} when it is not a regular file or is beyond the limit.
+     * @throws IOException Reading failed, or the file went away.
+     */
+    static byte @org.jspecify.annotations.Nullable [] taskWritten(final Path file)
+            throws IOException {
+        if (!Files.isRegularFile(file, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+            return null;
+        }
+        return bounded(file);
+    }
+
     /** Writes the host's own copy, complete or not at all. */
     private static void place(final byte[] bytes, final Path target) throws IOException {
         final Path partial = target.resolveSibling("." + target.getFileName() + ".tmp");

@@ -82,8 +82,7 @@ public final class MessageVerify {
                         new Fault(
                                 messageName,
                                 "its signature is not one of the keys a peer may use"));
-            } else if (!SshSignature.verify(
-                    Files.readAllBytes(message), armored, signer, MessageIntake.NAMESPACE)) {
+            } else if (!matches(message, armored, signer)) {
                 faults.add(
                         new Fault(
                                 messageName, "it no longer matches the signature it arrived with"));
@@ -104,11 +103,22 @@ public final class MessageVerify {
         return null;
     }
 
+    /**
+     * Says whether a message still is what its signature was made over: read as the task left it in
+     * its inbox, so a link or a file beyond a message's size is no longer that message.
+     */
+    private static boolean matches(final Path message, final String armored, final byte[] signer)
+            throws IOException {
+        final byte[] bytes = MessageIntake.taskWritten(message);
+        return bytes != null
+                && SshSignature.verify(bytes, armored, signer, MessageIntake.NAMESPACE);
+    }
+
     private @org.jspecify.annotations.Nullable Path messageIn(
             final Mailbox mailbox, final String name) {
         for (final Path where : List.of(mailbox.inboxNew(), mailbox.inboxCur(), mailbox.sent())) {
             final Path candidate = where.resolve(name);
-            if (Files.isRegularFile(candidate)) {
+            if (Files.exists(candidate, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
                 return candidate;
             }
         }

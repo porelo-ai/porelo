@@ -47,13 +47,13 @@ public final class MessageRecord {
     /** A transport could not take it yet. */
     public static final String DEFERRED = "deferred";
 
-    /** It reached no agent, with a reason. */
     /** A message this task was sending: {@code direction} of a line. */
     public static final String OUT = "out";
 
     /** A message that was reaching this task: {@code direction} of a line. */
     public static final String IN = "in";
 
+    /** It reached no agent, with a reason. */
     public static final String HELD = "held";
 
     /** It was handed to the agent. */

@@ -70,6 +70,23 @@ class MessageVerifyTest {
                 .satisfies(fault -> assertThat(fault.what()).isEqualTo("line 1"));
     }
 
+    @Test
+    void a_file_beyond_a_messages_size_in_its_place_is_named_and_not_read_whole(
+            @TempDir final Path dir) throws IOException {
+        final Mailbox mailbox = delivered(dir, "{\"messageId\":\"m-1\"}");
+        // The task writes its inbox: a sparse file of gigabytes there, read whole, ended the check
+        // with an OutOfMemoryError instead of an answer.
+        try (java.io.RandomAccessFile file =
+                new java.io.RandomAccessFile(
+                        mailbox.inboxNew().resolve("m-1.json").toFile(), "rw")) {
+            file.setLength(3L * 1024 * 1024 * 1024);
+        }
+
+        assertThat(new MessageVerify().check(mailbox, peers).faults())
+                .singleElement()
+                .satisfies(fault -> assertThat(fault.detail()).contains("no longer matches"));
+    }
+
     /** An agent may delete what it has read, and that must not read as tampering. */
     @Test
     void a_message_the_agent_deleted_is_not_a_fault(@TempDir final Path dir) throws IOException {

@@ -31,6 +31,11 @@ class TransportConversationsTest {
     private final FakeCommandRunner runner = new FakeCommandRunner();
 
     private PoreloContext context() throws IOException {
+        return context(runner);
+    }
+
+    private PoreloContext context(final org.fuin.porelo.core.process.CommandRunner runner)
+            throws IOException {
         final XdgPaths xdg =
                 XdgPaths.of(
                         name ->
@@ -403,6 +408,86 @@ class TransportConversationsTest {
                     .contains("\"event\":\"read\"")
                     .contains("\"peer\":\"review\"");
         } finally {
+            keyring.forget();
+        }
+    }
+
+    @Test
+    void tasksOfOneProjectEnrolledAtOnceAreEachNamedInItsConversation() throws Exception {
+        Assumptions.assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        // Two starts of one project's tasks at once each wrote the addresses as they had read
+        // them, and one task's address was lost: its own words in the room then came back to it.
+        final int tasks = 8;
+        final java.util.concurrent.CyclicBarrier together =
+                new java.util.concurrent.CyclicBarrier(tasks);
+        final org.fuin.porelo.core.process.CommandRunner enrolling =
+                command -> {
+                    final List<String> arguments = command.arguments();
+                    if (arguments.contains("describe")) {
+                        return new org.fuin.porelo.core.process.CommandResult(
+                                command,
+                                0,
+                                "{\"scheme\":\"room\",\"lifecycle\":[\"setup\",\"enroll\"]}",
+                                "");
+                    }
+                    if (!arguments.contains("enroll")) {
+                        return new org.fuin.porelo.core.process.CommandResult(command, 0, "", "");
+                    }
+                    try {
+                        // Every enroll answers at the same moment, as the transport answers starts
+                        // that overlap.
+                        together.await(10, java.util.concurrent.TimeUnit.SECONDS);
+                    } catch (final Exception ex) {
+                        throw new IllegalStateException(ex);
+                    }
+                    final String task = arguments.get(arguments.indexOf("--task") + 1);
+                    return new org.fuin.porelo.core.process.CommandResult(
+                            command, 0, "{\"address\":\"@" + task + "\"}", "");
+                };
+        final PoreloContext context = context(enrolling);
+        final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
+        // Read once and held, as the daemon holds it, so the starts meet at the transport and not
+        // at the vault's key derivation.
+        VaultCache.hold();
+        try {
+            Files.createDirectories(context.vault().path().getParent());
+            context.vault().write(Map.of(), PASSPHRASE);
+            keyring.store(PASSPHRASE);
+            final TransportLifecycle lifecycle =
+                    new TransportLifecycle(
+                            context, context.paths().messaging().transportDirectory());
+            final List<String> containers =
+                    java.util.stream.IntStream.range(0, tasks)
+                            .mapToObj(n -> "porelo-p-t" + n)
+                            .toList();
+            final List<Throwable> failed =
+                    java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+            final List<Thread> starts =
+                    containers.stream()
+                            .map(
+                                    container ->
+                                            Thread.ofPlatform()
+                                                    .start(
+                                                            () -> {
+                                                                try {
+                                                                    lifecycle.enroll(
+                                                                            "room", "p", container,
+                                                                            Map.of());
+                                                                } catch (final Exception ex) {
+                                                                    failed.add(ex);
+                                                                }
+                                                            }))
+                            .toList();
+            for (final Thread start : starts) {
+                start.join(java.time.Duration.ofSeconds(30));
+            }
+
+            assertThat(failed).as("every enroll ran").isEmpty();
+            assertThat(lifecycle.addresses("room", "p"))
+                    .as("each task's address, as its enroll said it")
+                    .containsOnlyKeys(containers);
+        } finally {
+            VaultCache.stop();
             keyring.forget();
         }
     }

@@ -123,7 +123,10 @@ public final class AgentWake {
      */
     static boolean namesIt(final Path message, final String container, final String project) {
         try {
-            if (!(Json.parse(Files.readString(message, StandardCharsets.UTF_8))
+            // The task writes its inbox: what is read there is a regular file of a message's size.
+            final byte[] bytes = MessageIntake.taskWritten(message);
+            if (bytes == null
+                    || !(Json.parse(new String(bytes, StandardCharsets.UTF_8))
                             instanceof Map<?, ?> document)
                     || !(document.get("metadata") instanceof Map<?, ?> metadata)) {
                 return false;
