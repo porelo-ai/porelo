@@ -1,6 +1,6 @@
 # B201 — A Start Now, Built Or Removed
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** `porelo task start --now` does what it says, or is no longer offered: an option a person can
 type and that changes nothing is either built or removed, with whichever is chosen written down.
