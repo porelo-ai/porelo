@@ -384,6 +384,14 @@ public final class Mailbox {
      */
     public void create() throws IOException {
         for (final Path directory : layout()) {
+            // Before the permissions, which follow a link: a box directory the task replaced with
+            // one made whatever it pointed at open to every account, at each start.
+            if (Files.isSymbolicLink(directory)) {
+                throw new IOException(
+                        directory
+                                + " is a link; nothing is taken from or put into this task's box"
+                                + " until it is a directory again");
+            }
             Files.createDirectories(directory);
             // Each time, so a task made before the box opened finds it open when it comes back.
             Files.setPosixFilePermissions(directory, permissionsOf(directory));

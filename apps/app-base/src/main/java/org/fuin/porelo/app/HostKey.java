@@ -49,11 +49,23 @@ public final class HostKey {
         final SigningKey created = SigningKey.generate(comment);
         Files.createDirectories(file.getParent());
         // Written to a temporary name and renamed, so nothing can read a half-written key, and
-        // created 0600 before anything goes into it rather than after.
-        final Path partial = file.resolveSibling("." + file.getFileName() + ".tmp");
-        Files.writeString(partial, created.seedBase64(), StandardCharsets.UTF_8);
-        Files.setPosixFilePermissions(partial, OWNER_ONLY);
-        Files.move(partial, file);
+        // created 0600 before anything goes into it: written first and changed after, the seed
+        // could be read by another account in between, or from a file a crash left so.
+        final Path partial =
+                Files.createTempFile(
+                        file.getParent(),
+                        "." + file.getFileName() + ".",
+                        ".tmp",
+                        java.nio.file.attribute.PosixFilePermissions.asFileAttribute(OWNER_ONLY));
+        try {
+            Files.writeString(partial, created.seedBase64(), StandardCharsets.UTF_8);
+            Files.move(partial, file);
+        } catch (final java.nio.file.FileAlreadyExistsException raced) {
+            // Another process made it first: its key is the machine's.
+            return loadOrCreate(file, comment);
+        } finally {
+            Files.deleteIfExists(partial);
+        }
         return created;
     }
 

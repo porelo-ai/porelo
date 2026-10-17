@@ -38,6 +38,19 @@ class GitCredentialNamesTest {
     }
 
     @Test
+    void anAtInThePathNeverNamesAnotherHostsCredential() {
+        // The host is the authority's: read past the first '/', this address took github.com's
+        // key, and the agent the key was lent through answered forge.example.org with it.
+        assertThat(
+                        GitCredentialNames.candidatesFor(
+                                "ssh://git@forge.example.org/team/@github.com/x.git"))
+                .as("the key for the host git connects to")
+                .containsExactly("git.ssh.forge.example.org", "git.ssh", "ssh.default");
+        assertThat(GitCredentialNames.hostOf("https://forge.example.org/x/@github.com/y.git"))
+                .isEqualTo("forge.example.org");
+    }
+
+    @Test
     void theHostKeyedEntryIsTriedBeforeThePlainOne() {
         // A company forge and a public one are two credentials. A machine that fell back to one
         // key for both would offer a company's credential to whatever host a project file names,

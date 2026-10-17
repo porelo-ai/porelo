@@ -1,0 +1,2 @@
+title: A git address with an @ in its path lends the credential of the host git connects to, where it lent the one of the host named after the @
+type: fixed

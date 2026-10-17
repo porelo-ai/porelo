@@ -40,6 +40,27 @@ class MailboxTest {
     }
 
     @Test
+    void a_box_directory_the_task_replaced_with_a_link_opens_nothing_it_points_at()
+            throws IOException {
+        // Created again at every start, the box's permissions were set through the link: the
+        // account's own directory it pointed at became writable by every account on the host.
+        final Mailbox mailbox = new Mailbox(temp.resolve("porelo-p-t"));
+        mailbox.create();
+        final Path own = Files.createDirectories(temp.resolve("own"));
+        Files.setPosixFilePermissions(own, PosixFilePermissions.fromString("rwx------"));
+        Files.delete(mailbox.outboxNew());
+        Files.createSymbolicLink(mailbox.outboxNew(), own);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(mailbox::create)
+                .as("refused, naming the link")
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining(mailbox.outboxNew().toString());
+        assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(own)))
+                .as("what the link points at is as it was")
+                .isEqualTo("rwx------");
+    }
+
+    @Test
     void nothing_but_the_box_is_open_and_the_mailbox_around_it_shuts_every_other_account_out()
             throws IOException {
         final Mailbox mailbox = new Mailbox(temp.resolve("porelo-p-t"));
