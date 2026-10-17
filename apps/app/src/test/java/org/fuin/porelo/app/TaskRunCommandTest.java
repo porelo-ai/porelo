@@ -1031,4 +1031,31 @@ class TaskRunCommandTest {
         assertThat(runner.lines()).anyMatch(line -> line.contains("create")
                 && line.contains("--label org.fuin.porelo.commit=a1b2c3d4"));
     }
+
+    @Test
+    void aTaskNamedByItsContainerKeepsTheCredentialsItsRunNamed() {
+
+        // A start given the container's name goes on as the task's own name, and the run's credentials were dropped
+        // on the way: the task started without them, and a destination nobody declared was never refused.
+        final TaskLaunch.Request asked = new TaskLaunch.Request("porelo-uc-t", Path.of("project.yml"), null, null,
+                null, 8, null, false, false, "prompt", true, org.fuin.porelo.wire.TaskMode.SHELL, null, null, null,
+                TaskLaunch.DEFAULT_MINUTES, "app", java.util.Map.of("search", "brave-search"));
+
+        assertThat(asked.withTask("t").credentials()).containsExactly(java.util.Map.entry("search", "brave-search"));
+    }
+
+    @Test
+    void anAgentsOutputReachesTheTerminalWithItsControlsWrittenOut(@TempDir Path dir) throws IOException {
+
+        // What the agent wrote is the task's, which anything it read can steer: an escape sequence printed raw
+        // rewrites what the person reads, sets their window's title or writes their clipboard.
+        final Path log = Files.writeString(dir.resolve("task.log"),
+                "done\u001b[1A\u001b[2K\n\u001b]52;c;ZWNobyBwd25lZA==\u0007all well\n");
+        final StringWriter shown = new StringWriter();
+
+        TaskRunCommand.render(null, log, true, new PrintWriter(shown), new PrintWriter(new StringWriter()));
+
+        assertThat(shown.toString()).as("no terminal control reaches the terminal").doesNotContain("\u001b")
+                .doesNotContain("\u0007").contains("done").contains("all well");
+    }
 }

@@ -281,6 +281,14 @@ public final class TaskControl {
         }
     }
 
+    private static void forgetNote(Path state) {
+        try {
+            Files.deleteIfExists(state.resolve(UnhandedWork.FILE));
+        } catch (java.io.IOException ex) {
+            // The task stops regardless; a note that stays says what was asked last.
+        }
+    }
+
     private Stopped stopRecorded(String container, boolean purge, boolean rescue, boolean force) {
 
         final Path state = context.paths().tasks().containerState(container);
@@ -303,6 +311,11 @@ public final class TaskControl {
         if (work != null && purge && !rescue && !force) {
             return new Stopped(Outcome.HOLDS_WORK, work, null, false, 0, List.of(), state, null,
                     0);
+        }
+        if (purge && rescue && running && !held.readable() && !force) {
+            // Nothing said it holds work because nobody could ask: removing it now would be removing it unrescued.
+            return new Stopped(Outcome.RESCUE_FAILED, null, null, false, 0, List.of(), state,
+                    "what the workspace holds could not be asked, so nothing was removed", 0);
         }
         String rescued = null;
         if (work != null && rescue) {
@@ -339,8 +352,14 @@ public final class TaskControl {
             context.podman().stop(container);
             // Written on the way down, while the answer is still knowable. Whoever removes this
             // task later cannot ask the container itself.
+            // A census that failed leaves no note, and no older one: a note of nothing held lets the next
+            // removal go without --force, and nobody looked.
             if (running) {
-                UnhandedWork.note(state, held);
+                if (held.readable()) {
+                    UnhandedWork.note(state, held);
+                } else {
+                    forgetNote(state);
+                }
                 // Saved at once: a task stopped before a reboot must still answer what it held.
                 new TaskState(context).save(container);
             }

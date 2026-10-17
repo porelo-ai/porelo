@@ -73,4 +73,42 @@ class TaskLogsCommandTest {
         // A helper writes its log when it starts, which may be after somebody began following.
         assertThat(TaskLogsCommand.print(dir.resolve("not-yet.log"), 0, out)).isZero();
     }
+
+    @Test
+    void aLogLargerThanTwoGibibytesIsPrintedWhole(@TempDir Path dir) throws IOException {
+
+        // Read into one buffer whose size was cast to an int: past 2 GiB the size went negative and the command threw.
+        final Path log = dir.resolve("task.log");
+        final long size = (1L << 31) + 4096;
+        try (java.io.RandomAccessFile file = new java.io.RandomAccessFile(log.toFile(), "rw")) {
+            file.setLength(size - 4);
+            file.seek(size - 4);
+            file.write("end\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+        final long[] written = { 0 };
+        final StringBuilder last = new StringBuilder();
+        final PrintWriter counting = new PrintWriter(new java.io.Writer() {
+            @Override
+            public void write(final char[] buffer, final int offset, final int length) {
+                written[0] += length;
+                if (length == 0) {
+                    return;
+                }
+                last.setLength(0);
+                last.append(buffer, offset + Math.max(0, length - 4), Math.min(4, length));
+            }
+
+            @Override
+            public void flush() {
+            }
+
+            @Override
+            public void close() {
+            }
+        });
+
+        assertThat(TaskLogsCommand.print(log, 0, counting)).as("where the next read starts").isEqualTo(size);
+        assertThat(written[0]).as("every byte, one character each").isEqualTo(size);
+        assertThat(last.toString()).isEqualTo("end\n");
+    }
 }

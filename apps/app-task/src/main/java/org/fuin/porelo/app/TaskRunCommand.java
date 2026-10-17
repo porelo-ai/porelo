@@ -495,18 +495,32 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
      */
     private void render(org.fuin.porelo.agent.api.@org.jspecify.annotations.Nullable InstalledAgent
             agent, String container, PrintWriter out, PrintWriter err) {
+        render(agent, context.paths().tasks().containerState(container).resolve("task.log"), raw, out, err);
+    }
 
-        final java.nio.file.Path log =
-                context.paths().tasks().containerState(container).resolve("task.log");
+    /**
+     * Shows a task's log as its agent renders it, or as it came.
+     *
+     * @param agent The agent that ran, or {@code null} when none did.
+     * @param log The task's log.
+     * @param raw Whether to leave the agent's formatter out.
+     * @param out Where the output goes.
+     * @param err Where a rendering failure is reported.
+     */
+    static void render(org.fuin.porelo.agent.api.@org.jspecify.annotations.Nullable InstalledAgent agent,
+            java.nio.file.Path log, boolean raw, PrintWriter out, PrintWriter err) {
         out.println();
+        // The agent's text with its terminal controls written out: anything it read can steer it, and an escape
+        // sequence printed raw rewrites what the person reads, or their window's title, or their clipboard.
+        final java.util.function.Consumer<String> show = line -> out.println(TalkReadCommand.shown(line));
         try {
             if (raw || agent == null) {
-                java.nio.file.Files.readAllLines(log).forEach(out::println);
+                java.nio.file.Files.readAllLines(log).forEach(show);
             } else {
                 final int[] shown = { 0 };
                 agent.formatLog(log, line -> {
                     shown[0]++;
-                    out.println(line);
+                    show.accept(line);
                 });
                 if (shown[0] == 0 && java.nio.file.Files.size(log) > 0) {
                     // The formatter suppressed everything - which is right for a run that only
@@ -514,7 +528,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                     // is the one thing that tells a reader nothing, so fall back to the raw text.
                     out.println("(nothing to render; showing the raw output)");
                     out.println();
-                    java.nio.file.Files.readAllLines(log).forEach(out::println);
+                    java.nio.file.Files.readAllLines(log).forEach(show);
                 }
             }
         } catch (java.io.IOException | RuntimeException ex) {

@@ -954,6 +954,34 @@ class TaskLifecycleCommandsTest {
     }
 
     @Test
+    void aRescueOfAWorkspaceThatCouldNotBeAskedRemovesNothing(@TempDir Path dir) throws IOException {
+
+        // The census failed, so nothing said it held work: --rescue pushed nothing and removed the task, its
+        // workspace with it, unrescued and unforced.
+        final PoreloContext context = context(dir);
+        runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
+        stateOf("porelo-uc-shell-1");
+
+        assertThat(execute(context, "task", "remove", "porelo-uc-shell-1", "--rescue")).isNotZero();
+        assertThat(runner.lines()).as("nothing removed").noneMatch(line -> line.startsWith("podman rm"));
+    }
+
+    @Test
+    void aStopWhoseWorkspaceCouldNotBeAskedLeavesNoNoteOfHoldingNothing(@TempDir Path dir) throws IOException {
+
+        // A note of nothing held lets the next removal go without --force; written for a census that failed, it
+        // let 'task remove' destroy a workspace nobody had looked into. An older note must not stand in for it.
+        final PoreloContext context = context(dir);
+        runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
+        final Path state = stateOf("porelo-uc-shell-1");
+        UnhandedWork.note(state, new UnhandedWork.Held(true, 0, 0, null));
+
+        assertThat(execute(context, "task", "stop", "porelo-uc-shell-1")).isZero();
+
+        assertThat(UnhandedWork.read(state).readable()).as("what a later removal reads: nobody looked").isFalse();
+    }
+
+    @Test
     void forceRemovesItAnyway(@TempDir Path dir) throws IOException {
 
         final PoreloContext context = context(dir);

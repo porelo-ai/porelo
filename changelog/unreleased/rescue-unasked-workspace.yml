@@ -1,0 +1,2 @@
+title: task remove --rescue of a running task whose workspace could not be asked removes nothing, where it removed the task unrescued
+type: fixed

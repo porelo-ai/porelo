@@ -95,6 +95,8 @@ The readings listed below were made before versions were recorded; which they us
     porelo-app-vault   security-audit, java-code-review, concurrency-review,
                        test-quality, at 2026.906.3                                     808dc051
     porelo-app-gate    security-audit, java-code-review, concurrency-review,
+                       test-quality, at 2026.906.3                                     6269ab80
+    porelo-app-task    security-audit, java-code-review, concurrency-review,
                        test-quality, at 2026.906.3                                     (this commit)
 
 "The commit below" is the one that also lets a leg's image cache report never fail the leg.
@@ -668,6 +670,51 @@ Read and left as they are:
   says it is not a control.
 - **Each command is one process and the daemon builds a gate per call**, so the area holds no shared state; the
   gate's own locking is the gate module's.
+
+### `porelo-app-task` (`apps/app-task`)
+
+Read on 2026-10-17 whole - all of it is new under this path since `ac40a26` - against security-audit,
+java-code-review, concurrency-review and test-quality, each at 2026.906.3. Fixed, each with a test seen failing
+without its fix:
+
+- **A task started by its container's name lost the credentials its run named.** `Request.withTask` built the
+  request again without them, so the start went on without `--credential` or `Start(credentials:)`, and a
+  destination nobody declared was never refused. They are carried over.
+- **A stop whose workspace could not be asked wrote that it held nothing.** The note dropped `readable`, so a later
+  `task remove` - or `remove --yes`, or one after a panic - removed the task without `--force` and destroyed a
+  workspace nobody had looked into; the note also went into the durable record. A census that failed leaves no note,
+  and takes away an older one.
+- **`task remove --rescue` removed a running task unrescued when its workspace could not be asked**: nothing said it
+  held work, so nothing was pushed, and the removal went on. It answers `RESCUE_FAILED` and removes nothing.
+- **`task logs TASK LOG` failed on a log past 2 GiB**: it read the rest of the file into one buffer whose size was
+  cast to an int. It reads in blocks, carrying a character cut at a block's end into the next.
+- **The agent's output a run prints at its end reached the terminal as written.** Whatever the agent read can steer
+  what it writes, and an escape sequence printed raw rewrites what the person reads, their window's title or their
+  clipboard. Its terminal controls are written out, as `talk` and `gate review` write them.
+
+Read and left as they are:
+
+- **`task logs` prints the file as it is.** It is how a log is saved or piped, which a script reads; `task status`
+  already writes an agent's ending out, through the same rule as `talk`.
+- **A task's profile has two writers without a lock** - `task label` and `task clearance` - and is written in place,
+  so a label given while the clearance changes can be lost, and a read in between can find it half-written. It needs
+  a seam between the read and the write to be seen, as `TaskSecrets.keep`'s test had; the file is `porelo-wire`'s.
+- **A panic stops at a task whose stop throws.** The callees swallow their failures but for saving the task's state;
+  nothing reaches that without a seam.
+- **`task start --now` is read only by its refusal without `--detach`**, so a detached start still waits for the
+  build. Making it work is a feature, and removing it changes the command line.
+- **A destination's `auth_header`, `auth_prefix` or `auth_query` holding `|` breaks the broker's internal route**, and
+  the start says only that the broker did not come up: it fails closed. The check belongs in `Destination`, in
+  `app-base`.
+- **The route token files are not removed before the broker starts.** The broker writes them before the agent's own
+  token, which the launch waits on first.
+- **Helpers are started and never waited on**, by design: a task outlives whoever asked for it, and the JDK reaps them.
+- **`TaskWorkspace.freePort` races between choosing a port and the gate binding it**, which its comment accepts: the
+  firewall rule needs the port first.
+- **`StartCheck.undeclared(...).substring(...)` cannot throw**: every refusal it returns has a line break after the name.
+- **`BuildWatch` runs on one thread**, and a failed hand-in is tried again the next round.
+- Javadoc blocks sit above the wrong member in `TaskLaunch`, `TaskRunCommand`, `WorkspaceSetup`, `ClearanceWiring`,
+  `TaskControl` and `TaskStatusCommand`; style only, left.
 
 ## Plan
 

@@ -1,0 +1,2 @@
+title: The agent output a task run prints at its end has its terminal controls written out, where an escape sequence from the agent reached the terminal
+type: fixed

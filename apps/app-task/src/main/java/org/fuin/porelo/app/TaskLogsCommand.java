@@ -229,13 +229,35 @@ public class TaskLogsCommand implements Callable<Integer>, PoreloFactory.Context
         try (var channel = java.nio.channels.FileChannel.open(file,
                 java.nio.file.StandardOpenOption.READ)) {
             channel.position(from);
-            final java.nio.ByteBuffer buffer = java.nio.ByteBuffer.allocate((int) (size - from));
-            while (buffer.hasRemaining() && channel.read(buffer) > 0) {
-                continue;
+            // In blocks, never the whole rest at once: a log past 2 GiB did not fit one buffer. A character cut at
+            // a block's end is carried into the next; one cut at the file's end is printed as unreadable, as before.
+            final java.nio.charset.CharsetDecoder decoder = StandardCharsets.UTF_8.newDecoder()
+                    .onMalformedInput(java.nio.charset.CodingErrorAction.REPLACE)
+                    .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPLACE);
+            final java.nio.ByteBuffer bytes = java.nio.ByteBuffer.allocate(64 * 1024);
+            final java.nio.CharBuffer chars = java.nio.CharBuffer.allocate(64 * 1024);
+            long read = 0;
+            while (read < size - from) {
+                bytes.limit((int) Math.min(bytes.capacity(), bytes.position() + (size - from - read)));
+                final int got = channel.read(bytes);
+                if (got <= 0) {
+                    break;
+                }
+                read += got;
+                bytes.flip();
+                decoder.decode(bytes, chars, false);
+                bytes.compact();
+                chars.flip();
+                out.append(chars);
+                chars.clear();
             }
-            out.print(new String(buffer.array(), 0, buffer.position(), StandardCharsets.UTF_8));
+            bytes.flip();
+            decoder.decode(bytes, chars, true);
+            decoder.flush(chars);
+            chars.flip();
+            out.append(chars);
             out.flush();
-            return from + buffer.position();
+            return from + read;
         }
     }
 

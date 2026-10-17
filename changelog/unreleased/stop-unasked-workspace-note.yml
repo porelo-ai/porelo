@@ -1,0 +1,2 @@
+title: Stopping a task whose workspace could not be asked leaves no note that it held nothing, where the next task remove destroyed the workspace without --force
+type: fixed

@@ -151,7 +151,7 @@ public final class TaskLaunch {
         public Request withTask(String name) {
             return new Request(name, projectFile, agentName, providerName, credentialType,
                     tokenHours, upstream, noGate, dryRun, clearance, keep, mode, prompt, model,
-                    maxTurns, minutes, repository);
+                    maxTurns, minutes, repository, credentials);
         }
     }
 
