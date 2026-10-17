@@ -1,0 +1,2 @@
+title: The daemon keeps a loop waiting on a transport only for a running task with an account, where every exited task kept a thread that woke every five seconds, and a project whose tasks were all removed kept polling its conversation
+type: fixed

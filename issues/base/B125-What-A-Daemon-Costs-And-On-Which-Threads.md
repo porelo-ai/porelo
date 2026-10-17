@@ -1,7 +1,7 @@
 # B125 — What A Daemon Costs, And On Which Threads
 
 **Status:** Implementing.
-**Size:** M - the idle measurement is done; what is left: the run on virtual threads, one bound on loops in `app-messaging`, one listing fix.
+**Size:** M - the idle measurement and the bound on loops are done; what is left: the run on virtual threads, one listing fix.
 
 **What must be true.** What one `porelod` costs is measured, idle and at work, and its loops run on
 the kind of thread that the measurement and [B79](README.md#b79)'s fault support. The decision is written down with the
@@ -32,13 +32,18 @@ Built, read in the code at `30c8169b`: the pause (`caf9585d`, `MessageWaitPaceTe
 writes (`apps/app-base/.../ScreenFile.java`) and eight at once (`AgentWaiting.readScreens`); a heap bound for each
 helper; the leaks of the first round. Both measured rounds below say platform threads stay.
 
+Built after the idle measurement: **a loop only for a task that can be waited on.** `MessageWatch.waiting` starts a
+task's `porelo-direct-<container>` loop, and keeps it, only while its container runs and the vault holds an account
+for it; the loop also ends the moment that account cannot be read (the vault shut). A project's
+`porelo-conversation-<project>` loop runs only while one of its tasks qualifies so, and is still handed to every task
+of the project, a stopped one too. An exited task's messages wait for the timed pass, which delivers to stopped tasks
+as before. The 1.4 % of a project with no task is, read in the code and not yet measured, the same mechanism: the last
+mailbox removed, `passOnce` returned before it looked at the loops, so the conversation's loop kept the members of the
+last pass and woke every five seconds; that pass now ends them. `MessageWatchLoopsTest` holds all four cases, each seen to fail with its check
+undone.
+
 What is left, in this order:
 
-1. **The loops of exited tasks.** `MessageWatch.members` (`apps/app-messaging/.../MessageWatch.java`) takes every
-   mailbox of a project, and `waiting` starts a `porelo-direct-<container>` loop for each, so an exited task that was
-   not removed keeps a thread that waits on its transport. The loop is started, and kept, only for a running task with
-   an account in the vault. Red first: a test of `MessageWatch` whose member's container is exited, against the code
-   that starts its loop.
 2. **A container created and never started** is to be listed so `porelo task remove` can remove it: a test of
    `Podman.poreloTasks` (`runtime/.../Podman.java`) with a `Created` line and no recorded id shows whether the filter on
    the recorded id is what drops it, and `ContainerSummary` already reads `Created`.
@@ -164,4 +169,5 @@ directory, that hands out no secrets, so every task has no account and its `poll
   core after it. Below this issue's 5 %, but not nothing: each such task still has a loop of its own that wakes every
   five seconds (the three threads above the idle daemon's), which step 1 removes.
 - **A project that names a transport and has no task still costs 1.4 %**, the project's own poll with nothing to
-  poll for. Recorded for step 1's test; the same rest applies to it.
+  poll for. Read in the code, the poll kept the members of the last pass once the last mailbox was removed; ended
+  now with the loops of exited tasks. Measured again in step 3.

@@ -194,6 +194,9 @@ public final class MessageWatch implements AutoCloseable {
         synchronized (passing) {
             final List<Path> mailboxes = mailboxes();
             if (mailboxes.isEmpty()) {
+                // Its tasks removed, a conversation's poll still asked every five seconds for
+                // nobody.
+                waiting(context.paths().messaging().transportDirectory(), List.of());
                 return 0;
             }
             final Moving prepared = prepared(mailboxes);
@@ -717,6 +720,53 @@ public final class MessageWatch implements AutoCloseable {
     private final java.util.Map<String, List<TransportConversations.Member>> conversing =
             new java.util.concurrent.ConcurrentHashMap<>();
 
+    /** The direct chats whose loops are kept, by {@link TransportConversations#key}. */
+    private final java.util.Set<String> waitable =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    /**
+     * Returns the direct chats a loop may wait on: those of a running task with an account. An
+     * exited task that was never removed kept a thread that woke every few seconds, for as long as
+     * the daemon ran; what is said to it waits for the timed pass, which delivers to it stopped.
+     *
+     * @param transports Where the adapters are.
+     * @param members The tasks in a conversation.
+     * @return Their keys, each a transport and a task.
+     */
+    private java.util.Set<String> reachable(
+            final TransportDirectory transports,
+            final List<TransportConversations.Member> members) {
+        final java.util.Set<String> up = new java.util.HashSet<>();
+        if (!members.isEmpty()) {
+            try {
+                context.podman().poreloTasks().stream()
+                        .filter(org.fuin.porelo.runtime.ContainerSummary::running)
+                        .forEach(task -> up.add(task.name()));
+            } catch (final RuntimeException ex) {
+                // Nothing said which tasks run: no loop waits, and the timed pass asks for them.
+                up.clear();
+            }
+        }
+        final java.util.Set<String> keys = new java.util.HashSet<>();
+        for (final TransportConversations.Member member : members) {
+            if (up.contains(member.container()) && hasAccount(transports, member)) {
+                keys.add(TransportConversations.key(member.scheme(), member.container()));
+            }
+        }
+        return keys;
+    }
+
+    /**
+     * Tells whether a task can be asked with an account of its own here now: none in the vault, or
+     * the vault shut, and its wait came back at once with nothing.
+     */
+    private boolean hasAccount(
+            final TransportDirectory transports, final TransportConversations.Member member) {
+        return !new TransportLifecycle(context, transports)
+                .secrets(member.scheme(), "task/" + member.container())
+                .isEmpty();
+    }
+
     /**
      * Keeps a poll waiting on the server for each conversation whose transport can wait, so a
      * person's word reaches the task in seconds rather than at the next minute's pass (walk 10,
@@ -725,6 +775,15 @@ public final class MessageWatch implements AutoCloseable {
     private void waiting(
             final TransportDirectory transports,
             final List<TransportConversations.Member> members) {
+        if (interval.isZero() || interval.isNegative()) {
+            // A pass by hand, never a daemon: nothing keeps a loop running after it.
+            return;
+        }
+        final java.util.Set<String> reachable = reachable(transports, members);
+        waitable.retainAll(reachable);
+        waitable.addAll(reachable);
+        // Every task of a conversation is handed what its poll brings, a stopped one too; the poll
+        // waits only while one of them runs and can be asked with an account.
         final java.util.Map<String, List<TransportConversations.Member>> groups =
                 new java.util.LinkedHashMap<>();
         members.forEach(
@@ -734,18 +793,24 @@ public final class MessageWatch implements AutoCloseable {
                                                 member.scheme(), member.project()),
                                         key -> new ArrayList<>())
                                 .add(member));
+        groups.values()
+                .removeIf(
+                        group ->
+                                group.stream()
+                                        .noneMatch(
+                                                member ->
+                                                        reachable.contains(
+                                                                TransportConversations.key(
+                                                                        member.scheme(),
+                                                                        member.container()))));
         conversing.keySet().retainAll(groups.keySet());
         conversing.putAll(groups);
-        if (interval.isZero() || interval.isNegative()) {
-            // A pass by hand, never a daemon: nothing keeps a loop running after it.
-            return;
-        }
         // And each task's direct chats, in a loop of its own, so no other poll of its account runs
         // beside it.
         for (final TransportConversations.Member member : members) {
             final Path adapter = transports.find(member.scheme());
             final String key = TransportConversations.key(member.scheme(), member.container());
-            if (adapter == null) {
+            if (adapter == null || !reachable.contains(key)) {
                 continue;
             }
             final TransportDescription described =
@@ -755,17 +820,13 @@ public final class MessageWatch implements AutoCloseable {
                     || !TransportConversations.WAITING.add(key)) {
                 continue;
             }
-            final String group = TransportConversations.key(member.scheme(), member.project());
             BackgroundPass.start(
                     "porelo-direct-" + member.container(),
                     () -> {
                         try {
                             while (running
-                                    && conversing.getOrDefault(group, List.of()).stream()
-                                            .anyMatch(
-                                                    each ->
-                                                            each.container()
-                                                                    .equals(member.container()))) {
+                                    && waitable.contains(key)
+                                    && hasAccount(transports, member)) {
                                 final long asked = System.nanoTime();
                                 final TransportConversations conversations =
                                         new TransportConversations(context, transports);
