@@ -94,7 +94,7 @@ Why build this rather than use it? See [why](doc/why.md)
 sudo apt install -y ca-certificates curl gnupg
 curl -fsSL https://fuinorg.jfrog.io/artifactory/api/security/keypair/porelo-packages/public -o /tmp/porelo.asc
 gpg --show-keys --with-colons /tmp/porelo.asc \
-  | grep -q '^fpr:::::::::10EDAF73ECE5BB29A2E63E9C6B488A9326920DBE:' \
+  | grep -q '^fpr:::::::::BF27A2FA637F505CAFBE431768D19D175D904415:' \
   && sudo gpg --dearmor -o /usr/share/keyrings/porelo.gpg < /tmp/porelo.asc
 echo "deb [signed-by=/usr/share/keyrings/porelo.gpg] https://fuinorg.jfrog.io/artifactory/porelo-dist-deb releases main" \
   | sudo tee /etc/apt/sources.list.d/porelo.list

@@ -1,0 +1,2 @@
+title: The setup script and the documentation check the package repository's key against Porelo's own, which signs the packages, no longer against the key retired with the rename
+type: fixed

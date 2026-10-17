@@ -70,7 +70,7 @@ else
 fi
 
 # The repository key's fingerprint, as doc/getting-started.md gives it.
-KEY_FINGERPRINT=10EDAF73ECE5BB29A2E63E9C6B488A9326920DBE
+KEY_FINGERPRINT=BF27A2FA637F505CAFBE431768D19D175D904415
 
 say()  { printf '\n== %s ==\n' "$1"; }
 note() { printf '   %s\n' "$1"; }

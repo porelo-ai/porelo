@@ -47,7 +47,7 @@ runtime, so a new agent needs no new release of Porelo.
 sudo apt install -y ca-certificates curl gnupg
 curl -fsSL https://fuinorg.jfrog.io/artifactory/api/security/keypair/porelo-packages/public -o /tmp/porelo.asc
 gpg --show-keys --with-colons /tmp/porelo.asc \
-  | grep -q '^fpr:::::::::10EDAF73ECE5BB29A2E63E9C6B488A9326920DBE:' \
+  | grep -q '^fpr:::::::::BF27A2FA637F505CAFBE431768D19D175D904415:' \
   && sudo gpg --dearmor -o /usr/share/keyrings/porelo.gpg < /tmp/porelo.asc
 echo "deb [signed-by=/usr/share/keyrings/porelo.gpg] https://fuinorg.jfrog.io/artifactory/porelo-dist-deb releases main" \
   | sudo tee /etc/apt/sources.list.d/porelo.list
@@ -56,8 +56,8 @@ sudo apt install porelo porelo-agent-claude
 ```
 
 - **Check the key before trusting it.** Its fingerprint is
-  `10EDAF73ECE5BB29A2E63E9C6B488A9326920DBE` (Porelo Packages, RSA 4096, made 2026-09-06, valid to
-  2031-09-05). The line before `gpg --dearmor` installs it only when the downloaded key has exactly that
+  `BF27A2FA637F505CAFBE431768D19D175D904415` (Porelo Packages, RSA 4096, made 2026-10-16, valid to
+  2031-10-15). The line before `gpg --dearmor` installs it only when the downloaded key has exactly that
   fingerprint; when it does not, nothing is installed and `apt update` refuses the repository. The fingerprint
   is written here, on a page served from elsewhere than the key, so one compromised server cannot change both.
 - **Dearmor the key.** `apt` wants the binary form at that path. The armored `.asc` fails
@@ -422,7 +422,7 @@ manager installs whichever is newer: the latest build, and a release on the day 
 sudo apt install -y ca-certificates curl gnupg
 curl -fsSL https://fuinorg.jfrog.io/artifactory/api/security/keypair/porelo-packages/public -o /tmp/porelo.asc
 gpg --show-keys --with-colons /tmp/porelo.asc \
-  | grep -q '^fpr:::::::::10EDAF73ECE5BB29A2E63E9C6B488A9326920DBE:' \
+  | grep -q '^fpr:::::::::BF27A2FA637F505CAFBE431768D19D175D904415:' \
   && sudo gpg --dearmor -o /usr/share/keyrings/porelo.gpg < /tmp/porelo.asc
 sudo tee /etc/apt/sources.list.d/porelo.list <<'EOF'
 deb [signed-by=/usr/share/keyrings/porelo.gpg] https://fuinorg.jfrog.io/artifactory/porelo-dist-deb releases main
