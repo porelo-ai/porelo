@@ -86,8 +86,8 @@ What others read:
 - **No signed fixture to sign again:** every signature in the tests is made while the test runs.
 - **Kept, as agreed in the channel:** the changelog entry for `0.5.0` and one sentence in `doc/commands.md` on the
   deploy keys Sokar left at a forge, beside `changelog/v*`, `CHANGELOG.md`, this issue and its row.
-- **Open:** `doc/images/porelo.xcf` is renamed as it was; the word drawn in it is redrawn by the operator before the
-  window ends.
+- **The images draw no name after all:** `doc/images/porelo.xcf` holds none, as the operator found, and is used as
+  it is; the pitch SVG says it as text, replaced with the rest.
 - **The legs:** the `porelo=ci` images are built from this repository's `main`, so the Fedora image, which loads the
   SELinux policy, can only be built after this commit is pushed; its leg is run again then. The local Fedora VM
   cannot take the package (no root there), so the enforcing Fedora acceptance is that CI leg.
