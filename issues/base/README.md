@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b195"></a>[B195](B195-Sokar-Renamed-Porelo-Here.md) | L | - | One scripted commit: paths moved and `sokar` replaced by `porelo` but for released changelog entries and outside names; artifacts, varlink interfaces, `porelod`, packages, paths, variables, nft and SELinux names, the message signature namespace; images redrawn, signed fixtures signed again; red first a test refusing the old word; both legs. |
 | <a id="b157"></a>[B157](B157-Doctor-Says-Its-Findings-In-Colour.md) | S | - | Doctor colours its findings; `--color` and `NO_COLOR` work, no colour when piped; on `main`. |
 | <a id="b126"></a>[B126](B126-One-Source-For-A-Repository-Both-Ways.md) | L | - | One source per repository both ways; built on `main`, the walk is left. |
 | <a id="b127"></a>[B127](B127-An-Online-Task-Pushes-Through-The-Host.md) | L | - | An online task's push goes through the gate as `porelo/<task>`; on `main`, green on the VM, the operator's test is left. |
@@ -42,7 +43,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b195"></a>[B195](B195-Sokar-Renamed-Porelo-Here.md) | L | - | One scripted commit: paths moved and `sokar` replaced by `porelo` but for released changelog entries and outside names; artifacts, varlink interfaces, `porelod`, packages, paths, variables, nft and SELinux names, the message signature namespace; images redrawn, signed fixtures signed again; red first a test refusing the old word; both legs. |
 | <a id="b120"></a>[B120](B120-A-Wake-Waits-For-Rest-That-Holds.md) | S | - | The two-look wake and the second Enter are on `main`; left: the agent repositories' wake scenarios on both legs. |
 | <a id="b158"></a>[B158](B158-A-Refusal-That-Knows-The-Next-Command-Offers-It.md) | M | - | A refusal offers its remedy command; built for vault login, a start's credential refusals and resume's shut vault; a resume test is left. |
 | <a id="b137"></a>[B137](B137-An-Offline-Project-Never-Connects.md) | S | - | An offline project never connects; left: an acceptance round trip that follows a bundle, restores, backs up and refuses a `file://` follow. |

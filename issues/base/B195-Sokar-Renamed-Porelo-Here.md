@@ -1,6 +1,6 @@
 # B195 — Sokar Renamed Porelo Here
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** L - a script is a day; the rest is the whole reactor, the native build, the acceptance on Ubuntu and an
 enforcing Fedora, and reading the diff for the exceptions; contracts that four other repositories read change.
 
