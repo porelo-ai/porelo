@@ -2,3 +2,6 @@
 
 # The shared code style: google-java-format (AOSP), YAML and Gherkin at four spaces, shfmt.
 766387940535f2b1e6a5e1c1d2f1a301bc5f2c5c
+
+# The line comments google-java-format left broken, rejoined at 100 columns.
+496d817b9026d69b40b147eefe7637b656583876
