@@ -1,7 +1,7 @@
 # B125 — What A Daemon Costs, And On Which Threads
 
 **Status:** Implementing.
-**Size:** M - what is left: two measurements on the two-CPU VM, one bound on loops in `app-messaging`, one listing fix.
+**Size:** M - the idle measurement is done; what is left: the run on virtual threads, one bound on loops in `app-messaging`, one listing fix.
 
 **What must be true.** What one `porelod` costs is measured, idle and at work, and its loops run on
 the kind of thread that the measurement and [B79](README.md#b79)'s fault support. The decision is written down with the
@@ -138,3 +138,30 @@ answer, one in twenty refused with 429) and wrote 8 MiB to its disk.
   ms under this load. The interface's `Watch` recomputes the listing every 500 ms, so an open interface costs one
   `exec` per running task every 3 s. To fix: the screen is written to a file inside the task when it changes, and read
   from the host without `exec`.
+
+## Idle, measured 2026-10-17
+
+The native builds `6936d53f` (after `caf9585d`) and `7dda0bc9` (`caf9585d`'s parent, built under the product's former name) in one account
+on the two-CPU `fedora` VM (Fedora 44, 2 vCPUs), each `porelod` alone in the account. CPU is the daemon's own user and
+system time over 60 s from `/proc/<pid>/stat`, so it does not depend on what else the host runs; threads from
+`/proc/<pid>/status` at the end. Stub tasks in a guarded project, stopped with `task stop`. "Mail" is a project whose
+file names a transport, `mail.transports.idle`: an adapter of the measurement's own, in the account's transports
+directory, that hands out no secrets, so every task has no account and its `poll` comes back at once with exit 78.
+
+| Build | State | CPU of one core | Threads |
+|---|---|---|---|
+| after | no project followed, vault open | 0.02 % | 9 |
+| after | one running task | 0.05 % | 10 |
+| after | three exited tasks, no transport | 0.27 % | 10 |
+| after | the same, vault shut | 0.27 % | 13 |
+| after | three exited tasks in "mail", no account | **3.10 %** | 14 |
+| after | the same, vault shut | 2.83 % | 14 |
+| after | "mail" followed, its tasks removed | 1.43 % | 11 |
+| before | no project followed, vault open | 0.02 % | 7 |
+| before | three exited tasks in "mail", no account | **183.57 %** | 12 |
+
+- **`caf9585d` holds:** three exited tasks with no account kept nearly both CPUs busy before it, and keep 3 % of one
+  core after it. Below this issue's 5 %, but not nothing: each such task still has a loop of its own that wakes every
+  five seconds (the three threads above the idle daemon's), which step 1 removes.
+- **A project that names a transport and has no task still costs 1.4 %**, the project's own poll with nothing to
+  poll for. Recorded for step 1's test; the same rest applies to it.
