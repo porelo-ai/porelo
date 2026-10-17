@@ -1,7 +1,7 @@
 # B134 — A Task Terminal As The Terminal Outside
 
 **Status:** Implementing.
-**Size:** M - left are Pi's measurement, the per-key scenario's run on the VM and the joint test; the whole was L.
+**Size:** M - left are the per-key scenario's run on the VM and the joint test; the whole was L.
 
 **What must be true.** An agent in a task behaves at the keyboard and on the screen as it does in a plain terminal on
 the same machine. Scrolling, Esc, modified keys, colours, the clipboard, links, focus and images work as they do
@@ -137,5 +137,12 @@ tmux delivered nothing.
   `head -c <n> | od -An -tx1`, started after a READY mark built at run time, and the scenario waits for the hex it
   prints. Focus events are asked for first, as an agent's interface asks. Shift+PageUp and Shift+PageDown are left
   out: they scroll tmux's history and reach no program outside the alternate screen.
-- **Left:** the scenario run on the VM with the others, and seen red against an image from before `e55e8f0d`; Pi's
-  measurement (step 1); the joint test (step 4).
+- **Pi measured** on the ubuntu VM (step 1), 2026-10-17: Pi 0.85.0 in a task's image, in a tmux session started with
+  `/etc/porelo/tmux.conf` and `TERM=tmux-256color`, read through tmux's own flags. Pi runs **without the alternate
+  screen and asks for no mouse** (`alternate_on 0`, `mouse_any_flag 0`), as Claude Code does. **PageUp reaches Pi and
+  it scrolls nothing of its own**: the screen before and after is the same. Pi shortens a long output itself
+  ("... 281 more lines (ctrl+o to expand)"), so its own view, not tmux's history, is where a person reads back. No
+  difference the settings do not cover, so nothing new under "Not closed". Not measured: Shift+PageUp, since
+  `tmux send-keys` bypasses tmux's key bindings; `task-keys.feature` leaves it out for the same reason.
+- **Left:** the scenario run on the VM with the others, and seen red against an image from before `e55e8f0d`; the
+  joint test (step 4).
