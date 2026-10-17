@@ -84,7 +84,10 @@ The readings listed below were made before versions were recorded; which they us
     the acceptance     test-quality, security-audit, java-code-review,
     kit and suite      concurrency-review                                              ac40a26
     porelo-build-api   security-audit, java-code-review, concurrency-review,
-                       test-quality, at 2026.906.3                                     (this commit)
+                       test-quality, at 2026.906.3                                     2026-10-17, its fixes
+    porelo-build-stub  the same four, at 2026.906.3                                    (this commit)
+    porelo-dist-       test-quality, security-audit, java-code-review,
+    package-check      at 2026.906.3                                                   (this commit)
 
 "The commit below" is the one that also lets a leg's image cache report never fail the leg.
 
@@ -482,6 +485,30 @@ Read and left as they are:
   says when it fails is its own.
 - **One caller at a time.** A question and its answer share one connection, and the watch asks from one thread; the
   class says so instead of locking.
+
+### `porelo-build-stub` (`builds/stub`)
+
+Read on 2026-10-17 against the same four skills. Nothing to fix: it answers from a file it reads again at every call,
+keeps no state between calls, so the server's threads share nothing, and it is never installed but for the tests.
+
+### `porelo-dist-package-check` (`dist/package-check`)
+
+Read on 2026-10-17 against test-quality, security-audit and java-code-review, each at 2026.906.3. Fixed, with a test
+seen failing without its fix:
+
+- **A command that hung held the check to the job's own limit.** An image pull or an install in a container that did
+  not end ran until the job's twenty minutes, and the report of every check after it was lost with the job. Each
+  command now ends at five minutes - the whole check took 109 to 133 seconds in four green builds - with exit 124 and
+  a line saying so, and the checks after it run and report.
+
+Read and left as they are:
+
+- **A version the build did not write** - a run number that is not a number - throws out of `VersionOrder`. The
+  version comes from this tree's own build, which writes it.
+- **The file list is read from `dpkg-deb -c` by columns**, so a path with a space would be split. No packaged path
+  has one, and the payload comparison would fail loudly, not pass.
+- **The containers mount `target/` with `:Z`**, which relabels those directories for SELinux. They hold only what the
+  build made.
 
 ## Plan
 
