@@ -104,6 +104,16 @@ now holds the vault's reads. `doctor` then reports the hardening of those proces
 `/proc/<pid>/status` of each running one, not of itself - or drops the three lines (below). Red first: an
 acceptance step reading `Dumpable` of the running broker and daemon, which reads `1` today.
 
+**Built, 2026-10-17, for step 1:** `vault serve` (the broker, every credential of a task) and `vault agent` (the ssh
+key's seed) call `ProcessHardening.disableDumping()` before they read the first secret; the relay carries bytes only.
+`task-left-running.feature` checks it on the running broker: its entries under `/proc` belong to root, which is how
+the kernel shows a process that is not dumpable. `PR_SET_NO_NEW_PRIVS` is not set: it holds for the calling thread
+and its children only, so in a JVM it covers less than it says. **Not yet the daemon**, which holds the vault's reads
+too: a daemon that is not dumpable cannot have its `/proc/<pid>/exe` and `/proc/<pid>/fd` read by its own user, so
+the deploy's check of what it runs and the acceptance check that it binds no network port would both lose what they
+read - the second would pass whatever the daemon does. Doctor's three lines are unchanged: `doctor --json` carries
+them. Both are for the operator to decide.
+
 **2. The passphrase path closed (S).** `KernelKeyring` (`vault/.../KernelKeyring.java`) turns the passphrase into a
 `String` when storing (`new String(passphrase).getBytes`) and when reading; encode from the `char[]` through a
 `CharBuffer` instead, and zero the native segments before the arena closes. `VaultFile.enroll`, `revoke` and

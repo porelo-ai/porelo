@@ -32,6 +32,19 @@ Feature: A task left running, and what it holds
       """
     Then the task's broker saw a request
     And no log the task left contains the value of "PORELO_ACCEPTANCE_FAKE_CREDENTIAL"
+    # The broker holds the real credential: it cannot be core-dumped or read by a debugger of the same user. Its own
+    # entries under /proc then belong to root, which is how the kernel shows a process that is not dumpable.
+    When a script runs:
+      """
+      brokers=0; dumpable=0
+      for pid in $(pgrep -u "$(id -u)" -f '[p]orelo vault serve'); do
+        brokers=$((brokers + 1))
+        [ "$(stat -c %U "/proc/$pid/environ")" = root ] || dumpable=$((dumpable + 1))
+      done
+      echo "brokers running: $brokers, dumpable: $dumpable"
+      """
+    Then its output does not contain "brokers running: 0,"
+    And its output contains "dumpable: 0"
 
   Scenario: an agent whose provider refused it says so, with the provider's words, and is not called idle
     # The operator's run: the provider answered 402, the agent ended, and the task said "idle", then "working".

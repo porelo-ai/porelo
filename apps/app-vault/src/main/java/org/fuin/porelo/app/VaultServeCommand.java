@@ -137,6 +137,9 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
             err.flush();
             return 2;
         }
+        // Before the first credential is read: this process holds them all, and a core dump of it, or a debugger of
+        // the same user attached, is a copy of each. Process-wide, and kept for its life.
+        org.fuin.porelo.core.hardening.ProcessHardening.disableDumping();
         final Map<String, org.fuin.porelo.supervisor.TokenSource> purchases = new java.util.LinkedHashMap<>();
         final java.util.Set<String> ungranted = new java.util.LinkedHashSet<>();
         try {
