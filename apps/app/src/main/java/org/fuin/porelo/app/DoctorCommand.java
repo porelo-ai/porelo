@@ -131,17 +131,6 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
     }
 
     /**
-     * Reports a binary a task needs and the version it answers with.
-     *
-     * <p>By name, because each of these fails somewhere else entirely: without {@code nft} a
-     * container comes up with no ruleset, and without {@code git} the gate has no mirror to serve.
-     *
-     * @param name What to report it as.
-     * @param program The binary.
-     * @param consequence What breaks without it, for the line that says so.
-     * @return The probe.
-     */
-    /**
      * Reports the transports this machine can carry a message with, and whether each one answers.
      *
      * <p>Installed rather than built in, so the honest answer on a machine with none is that
@@ -214,6 +203,15 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
         return Probe.ok(name, filter.toString());
     }
 
+    /** Whether this account follows no project, so nothing needs a configuration key yet. */
+    private boolean followsNothing() {
+        try {
+            return new FollowedProjects(context.paths().projects().followed()).all().isEmpty();
+        } catch (final java.io.IOException ex) {
+            return false;
+        }
+    }
+
     /**
      * Reports whether this machine can tell configuration it may apply from configuration it may
      * not.
@@ -225,14 +223,6 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
      *
      * @return The probe.
      */
-    private boolean followsNothing() {
-        try {
-            return new FollowedProjects(context.paths().projects().followed()).all().isEmpty();
-        } catch (final java.io.IOException ex) {
-            return false;
-        }
-    }
-
     private Probe configurationAnchor() {
         final String name = "configuration key";
         final java.nio.file.Path signers = context.paths().projects().configurationSigners();
@@ -434,6 +424,17 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
                 "porelo prune shows them; --yes removes them");
     }
 
+    /**
+     * Reports a binary a task needs and the version it answers with.
+     *
+     * <p>By name, because each of these fails somewhere else entirely: without {@code nft} a
+     * container comes up with no ruleset, and without {@code git} the gate has no mirror to serve.
+     *
+     * @param name What to report it as.
+     * @param program The binary.
+     * @param consequence What breaks without it, for the line that says so.
+     * @return The probe.
+     */
     private Probe binary(String name, String program, String consequence) {
         try {
             final CommandResult result =
@@ -681,14 +682,6 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
     }
 
     /**
-     * Every external thing a task depends on, in the order an operator would work through them.
-     *
-     * <p>Package-private so the list itself can be checked - that each failure carries an action,
-     * and that nothing was dropped - without reading the printed page.
-     *
-     * @return The probes.
-     */
-    /**
      * Returns what this machine has of everything a task depends on.
      *
      * <p>Exists so the daemon can answer the same question without building a command-line object
@@ -808,6 +801,14 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
         }
     }
 
+    /**
+     * Every external thing a task depends on, in the order an operator would work through them.
+     *
+     * <p>Package-private so the list itself can be checked - that each failure carries an action,
+     * and that nothing was dropped - without reading the printed page.
+     *
+     * @return The probes.
+     */
     java.util.List<Probe> probes() {
         return java.util.List.of(
                 podmanVersion(),

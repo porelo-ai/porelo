@@ -50,11 +50,6 @@ public class PoreloCli implements Callable<Integer> {
     }
 
     /**
-     * Runs the command line.
-     *
-     * @param args Command line arguments.
-     */
-    /**
      * Returns the command line, wired the way the binary wires it.
      *
      * <p><strong>One place, because a test that builds its own is testing something else.</strong>
@@ -77,6 +72,11 @@ public class PoreloCli implements Callable<Integer> {
                 .setExecutionExceptionHandler(CliErrors.failures(context.paths()));
     }
 
+    /**
+     * Runs the command line.
+     *
+     * @param args Command line arguments.
+     */
     public static void main(String[] args) {
         quietLogging();
         try {

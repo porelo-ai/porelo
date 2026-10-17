@@ -103,11 +103,9 @@ class AgentIsolationTest {
         }
 
         final List<String> offences = new ArrayList<>();
-        try (Stream<Path> sources = Files.walk(root)) {
-            sources.filter(AgentIsolationTest::isProductSource)
-                    .filter(path -> !root.relativize(path).startsWith(AGENTS_DIRECTORY))
-                    .forEach(path -> scan(root, path, agentNames, offences));
-        }
+        sources(root, false).stream()
+                .filter(path -> !root.relativize(path).startsWith(AGENTS_DIRECTORY))
+                .forEach(path -> scan(root, path, agentNames, offences));
 
         assertThat(offences)
                 .as("agent names used as string literals outside %s/", AGENTS_DIRECTORY)
@@ -139,11 +137,7 @@ class AgentIsolationTest {
         }
 
         final List<String> offences = new ArrayList<>();
-        try (Stream<Path> sources = Files.walk(root)) {
-            sources.filter(AgentIsolationTest::isProductSource)
-                    .filter(path -> path.toString().contains("/src/main/java/"))
-                    .forEach(path -> scan(root, path, providerNames, offences));
-        }
+        sources(root, true).forEach(path -> scan(root, path, providerNames, offences));
 
         assertThat(offences).as("provider names used as string literals in Java").isEmpty();
     }
@@ -178,8 +172,10 @@ class AgentIsolationTest {
      * The first version was not, and reported a spike probe under {@code .porelo/} - a scratch file
      * from Phase 0 that is not compiled, not shipped, and not subject to any of this.
      */
-    private static boolean isProductSource(Path path) {
-        final String name = path.toString();
+    private static boolean isProductSource(Path root, Path path) {
+        // Below the root only: the checkout itself may sit under a hidden directory, and judged by
+        // its absolute path every file of it was left out and the scans passed on nothing.
+        final String name = "/" + root.relativize(path);
         // Nor under a hidden directory, which git ignores here: a worktree kept in '.worktrees/' is
         // another checkout
         // of this repository, and its sources were reported as this one's.
@@ -187,6 +183,28 @@ class AgentIsolationTest {
                 && !name.contains("/target/")
                 && !name.contains("/.")
                 && (name.contains("/src/main/java/") || name.contains("/src/test/java/"));
+    }
+
+    /**
+     * Returns the sources a scan reads, refusing to read none: a scan that finds no file passes
+     * whatever the sources say.
+     */
+    private static List<Path> sources(Path root, boolean mainOnly) throws IOException {
+        final List<Path> found;
+        try (Stream<Path> all = Files.walk(root)) {
+            found =
+                    all.filter(path -> isProductSource(root, path))
+                            .filter(
+                                    path ->
+                                            !mainOnly
+                                                    || path.toString().contains("/src/main/java/"))
+                            .toList();
+        }
+        assertThat(found)
+                .as("the sources scanned under %s", root)
+                .contains(
+                        root.resolve("apps/app/src/main/java/org/fuin/porelo/app/PoreloCli.java"));
+        return found;
     }
 
     private static void scan(Path root, Path file, List<String> agentNames, List<String> offences) {
