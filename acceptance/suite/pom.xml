@@ -16,6 +16,8 @@
     <description>Porelo - This repository's own scenarios, run through the kit (TESTING)</description>
 
     <properties>
+        <!-- Where the suite reports; a leg's second pass names its own, or it writes over the first's. -->
+        <porelo.acceptance.report>pretty, html:target/acceptance.html, json:target/acceptance.json, org.fuin.porelo.acceptance.GitHubReport</porelo.acceptance.report>
         <!-- Nothing here runs without a machine to run it against, so the suite is off unless a
              host is given. Naming one is what turns it on: see the module's README. -->
         <porelo.acceptance.host/>
@@ -84,7 +86,7 @@
                         <cucumber.execution.execution-mode.feature>same_thread</cucumber.execution.execution-mode.feature>
                         <!-- Repository-relative, so an annotation lands on the feature file. -->
                         <porelo.acceptance.features>acceptance/suite/src/test/resources/</porelo.acceptance.features>
-                        <cucumber.plugin>pretty, html:target/acceptance.html, json:target/acceptance.json, org.fuin.porelo.acceptance.GitHubReport</cucumber.plugin>
+                        <cucumber.plugin>${porelo.acceptance.report}</cucumber.plugin>
                     </systemPropertyVariables>
                     <environmentVariables>
                         <!-- Fake on purpose: a searched-for value proves the search, and no account is needed. -->

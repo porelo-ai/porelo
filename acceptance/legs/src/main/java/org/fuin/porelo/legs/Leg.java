@@ -38,6 +38,10 @@ public final class Leg {
     /** What the accounts beside the build user are called, numbered from 2. */
     private static final String EXTRA = "accept";
 
+    /** The second pass's reports, beside the first's: the pom's plugins with the JSON report under its own name. */
+    static final String RESTART_REPORT = "pretty, html:target/acceptance-restart.html, json:target/acceptance-restart.json,"
+            + " org.fuin.porelo.acceptance.GitHubReport";
+
     /** The tag of a scenario that touches the whole machine - a restart - and so runs alone. */
     private static final String MACHINE_WIDE = "@restart";
 
@@ -314,7 +318,10 @@ public final class Leg {
                 "-Dporelo.acceptance.parallelism=" + users.size(),
                 "-Dcucumber.filter.tags=" + MACHINE_WIDE_EXCLUDED));
         step("what touches the whole machine, alone");
-        suite(repository, address, credential, List.of("-Dcucumber.filter.tags=" + MACHINE_WIDE));
+        // A report of its own: the second pass wrote over the first's, and the step times read from it afterwards - how
+        // long an agent took to its ready screen - were the restart pass's alone.
+        suite(repository, address, credential, List.of("-Dcucumber.filter.tags=" + MACHINE_WIDE,
+                "-Dporelo.acceptance.report=" + RESTART_REPORT));
     }
 
     /**
