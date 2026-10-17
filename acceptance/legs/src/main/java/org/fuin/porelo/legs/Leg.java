@@ -194,8 +194,8 @@ public final class Leg {
             // How much of the CPU the host gave to others during the build: a build that took five times its usual
             // time with its threads busy could not be told from a slow host without it.
             final CpuSteal beforeBuild = CpuSteal.parse(build.run(CpuSteal.READ).out());
-            run(build, build(System.getenv("GITHUB_RUN_ID"),
-                    System.getenv("GITHUB_RUN_NUMBER")));
+            streamed(build, build(System.getenv("GITHUB_RUN_ID"),
+                    System.getenv("GITHUB_RUN_NUMBER")), "building");
             System.out.println("cpu during the build: "
                     + CpuSteal.between(beforeBuild, CpuSteal.parse(build.run(CpuSteal.READ).out())));
 
@@ -211,7 +211,7 @@ public final class Leg {
             step("installing as a package would");
             // Where the build put each binary is the tree's to say: ci/leg-install.sh and ci/leg-binaries, which
             // the tree's own build checks against its modules.
-            run(build, install());
+            streamed(build, install(), "installing");
 
             step("what porelo thinks of this machine");
             // The podman version too: it decides whether this leg is really covering podman 4 or
@@ -567,6 +567,20 @@ public final class Leg {
             return report.call();
         } catch (final Exception ex) {
             return "  could not be read: " + ex.getMessage() + System.lineSeparator();
+        }
+    }
+
+    /**
+     * Runs a long phase with its output reaching the job's log as it is written.
+     *
+     * @param ssh The machine.
+     * @param command What to run.
+     * @param phase What the phase is called when it is quiet.
+     * @throws IOException If it cannot be run, or does not exit zero.
+     */
+    private static void streamed(Ssh ssh, String command, String phase) throws IOException {
+        if (Streamed.run(ssh, command, phase) != 0) {
+            throw new IOException("the leg failed at: " + command);
         }
     }
 
