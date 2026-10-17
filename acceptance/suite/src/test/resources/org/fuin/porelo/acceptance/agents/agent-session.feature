@@ -4,7 +4,8 @@ Feature: A task that comes back continues the conversation it was having
   Where an agent declares how it names its sessions, Porelo records the one a task's agent was running -
   from an unattended run's records, or from an attached agent's own session files when the task stops -
   and starting the task again continues it, and says so. Removing the task forgets it. The stub is the
-  agent here: it names a session per run and, given '--resume', says it continued one.
+  agent here: it names a session per run and keeps its first prompt in it, and, given '--resume' with a
+  session it kept, says it continued it and what that first prompt was.
 
   Background:
     Given the environment variable "PORELO_ACCEPTANCE_FAKE_CREDENTIAL" is set
@@ -18,7 +19,7 @@ Feature: A task that comes back continues the conversation it was having
     And porelo says task "talk" of "cont" has a session to continue
     When a script runs "porelo task stop porelo-cont-talk"
     And a task called "talk" nobody is watching is started in "cont" for the "stub" agent and ends within 600 seconds
-    Then porelo says task "talk" of "cont" last said "stub: continued"
+    Then porelo says task "talk" of "cont" last said "stub: continued, remembering hello"
     # Removing the task forgets its session: a new task of the same name has nothing to continue.
     When a script runs "porelo task remove porelo-cont-talk --force"
     And a task called "talk" nobody is watching is started in "cont" for the "stub" agent and ends within 600 seconds

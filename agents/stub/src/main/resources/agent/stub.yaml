@@ -23,7 +23,9 @@ headless:
 session:
   # Resumable, and says where it names its sessions, so the suite can prove a task that comes back
   # continues its conversation: an unattended run names its session in a record, an attached one keeps
-  # a file per session, and '--resume <id>' continues one.
+  # a file per session, and '--resume <id>' continues one. The file keeps the session's first prompt, or the
+  # first line typed in it, and a continued session says that back - what only the earlier turn holds; an id
+  # with no file is a fresh session, said as one.
   supports_resume: true
   resume_flag: "--resume"
   session_id:
@@ -107,15 +109,18 @@ install:
     - "      '[ \"$1\" = \"--version\" ] && { echo \"${agent.cli.version} (Porelo stub agent)\"; exit 0; }' \\"
     - "      '[ \"$1\" = \"login\" ] && { mkdir -p \"$HOME/.porelo-stub\" && umask 077 && t=porelo-stub-fixture && ends=$(( $(date +%s) + 3600 ))000 && echo \"{\\\"stubOauth\\\":{\\\"accessToken\\\":\\\"$t-token\\\",\\\"refreshToken\\\":\\\"$t-refresh\\\",\\\"expiresAt\\\":\\\"$ends\\\",\\\"tokenUrl\\\":\\\"https://example.com/porelo-stub/token\\\",\\\"clientId\\\":\\\"porelo-stub\\\"}}\" > \"$HOME/.porelo-stub/.credentials.json\"; echo \"stub: logged in\"; linger=8; [ -n \"$PORELO_STUB_LINGER\" ] && linger=$PORELO_STUB_LINGER; sleep $linger; exit 0; }' \\"
     - "      '[ \"$1\" = \"--resume\" ] && { resumed=\"$2\"; shift 2; }' \\"
+    - "      's=\"$HOME/.porelo-stub-sessions\"; kept=\"\"; [ -n \"$resumed\" ] && [ ! -f \"$s/$resumed.session\" ] && { echo \"stub: no session $resumed to continue, so a fresh one\"; resumed=\"\"; }' \\"
+    - "      '[ -n \"$resumed\" ] && kept=$(head -n 1 \"$s/$resumed.session\" | tr -cd \"[:alnum:] ._-\")' \\"
     - "      'id=\"$resumed\"; [ -n \"$id\" ] || id=\"s-$$-$(date +%s)\"' \\"
-    - "      '[ -z \"$1\" ] && [ -t 0 ] && { mkdir -p \"$HOME/.porelo-stub-sessions\"; touch \"$HOME/.porelo-stub-sessions/$id.session\"; [ -n \"$resumed\" ] && echo \"stub: continuing $resumed\"; }' \\"
+    - "      '[ -z \"$1\" ] && [ -t 0 ] && { mkdir -p \"$s\"; touch \"$s/$id.session\"; [ -n \"$resumed\" ] && echo \"stub: continuing $resumed, remembering $kept\"; }' \\"
     - "      '[ -z \"$1\" ] && [ -t 0 ] && [ -e /workspace/.porelo-stub-covers ] && { echo \"stub: at work, nothing asked\"; sleep 1; printf \"\\033[2J\\033[HSetup step 1 of 5 \"; read answer; }' \\"
     - "      '[ -z \"$1\" ] && [ -t 0 ] && w=/workspace; [ -n \"$PORELO_STUB_WORKSPACE\" ] && w=$PORELO_STUB_WORKSPACE; [ -e \"$w/.porelo-stub-works\" ] && { echo \"stub: at work, nothing asked\"; cd \"$w\"; read p load < .porelo-stub-works; [ -n \"$p\" ] || p=2; n=0; while :; do n=$((n+1)); date > .porelo-stub-step; echo \"stub: step $n\"; [ \"$load\" = load ] && { curl -s -o /dev/null --max-time 60 --unix-socket \"$PORELO_STUB_SOCKET\" -H \"x-api-key: $ANTHROPIC_API_KEY\" -H \"anthropic-version: 2023-06-01\" -H \"content-type: application/json\" -X POST http://api.anthropic.com/v1/messages -d \"{\\\"stream\\\":true}\"; dd if=/dev/zero of=.porelo-stub-disk bs=1M count=8 conv=fsync 2>/dev/null; }; git add .porelo-stub-step >/dev/null 2>&1; git commit -q -m \"stub: step $n\" >/dev/null 2>&1; [ $((n % 10)) -eq 0 ] && git push -q >/dev/null 2>&1; sleep $p; done; }' \\"
-    - "      '[ -z \"$1\" ] && [ -t 0 ] && { [ -e /workspace/.porelo-stub-asks ] && { printf \"Trust this folder? [y/N] \"; read answer; }; echo \"stub: at work, nothing asked\"; exec cat; }' \\"
+    - "      '[ -z \"$1\" ] && [ -t 0 ] && { [ -e /workspace/.porelo-stub-asks ] && { printf \"Trust this folder? [y/N] \"; read answer; }; echo \"stub: at work, nothing asked\"; while IFS= read -r line; do echo \"$line\"; [ -s \"$s/$id.session\" ] || { printf \"%s\\\\n\" \"$line\" > \"$s/$id.session\"; echo \"stub: noted $line\"; }; done; exit 0; }' \\"
+    - "      '[ -n \"$1\" ] && { mkdir -p \"$s\"; [ -n \"$resumed\" ] || printf \"%s\\\\n\" \"$1\" > \"$s/$id.session\"; }' \\"
     - "      'getent hosts example.com >/dev/null 2>&1 && echo \"stub: example.com resolved\" || echo \"stub: example.com did not resolve\"' \\"
     - "      'getent hosts example.net >/dev/null 2>&1 && echo \"stub: example.net resolved\" || echo \"stub: example.net refused\"' \\"
     - "      'echo \"{\\\"stub\\\":\\\"session\\\",\\\"id\\\":\\\"$id\\\"}\"' \\"
-    - "      '[ -n \"$resumed\" ] && echo \"{\\\"stub\\\":\\\"result\\\",\\\"said\\\":\\\"stub: continued\\\"}\" || echo \"{\\\"stub\\\":\\\"result\\\",\\\"said\\\":\\\"stub: finished\\\"}\"' \\"
+    - "      '[ -n \"$resumed\" ] && echo \"{\\\"stub\\\":\\\"result\\\",\\\"said\\\":\\\"stub: continued, remembering $kept\\\"}\" || echo \"{\\\"stub\\\":\\\"result\\\",\\\"said\\\":\\\"stub: finished\\\"}\"' \\"
     - "      '[ -S \"$PORELO_STUB_SOCKET\" ] || { echo \"stub: no proxy socket\"; exit 0; }' \\"
     - "      'curl -s --max-time 30 --unix-socket \"$PORELO_STUB_SOCKET\" -H \"x-api-key: $ANTHROPIC_API_KEY\" -H \"anthropic-version: 2023-06-01\" -H \"content-type: application/json\" -X POST http://api.anthropic.com/v1/messages -d \"{}\"' \\"
     - "      'echo' \\"

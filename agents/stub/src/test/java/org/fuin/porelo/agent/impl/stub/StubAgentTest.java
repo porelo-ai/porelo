@@ -154,6 +154,121 @@ class StubAgentTest {
         assertThat(java.nio.file.Files.size(workspace.resolve(".porelo-stub-disk"))).isEqualTo(8L * 1024 * 1024);
     }
 
+    /**
+     * Runs the script with nobody at a terminal, as an unattended run does, in a home of its own and with nothing
+     * reached on the network: the lookups and the provider's call answer from fakes.
+     */
+    private String runUnattended(final java.nio.file.Path dir, final String... arguments) throws Exception {
+        final java.nio.file.Path script = dir.resolve("porelo-stub-cli");
+        java.nio.file.Files.writeString(script, renderedScript());
+        final java.nio.file.Path bin = java.nio.file.Files.createDirectories(dir.resolve("bin"));
+        for (final String fake : List.of("getent", "curl")) {
+            java.nio.file.Files.writeString(bin.resolve(fake), "#!/bin/sh\nexit 2\n");
+            bin.resolve(fake).toFile().setExecutable(true);
+        }
+        final List<String> command = new ArrayList<>(List.of("sh", script.toString()));
+        command.addAll(List.of(arguments));
+        final ProcessBuilder run = new ProcessBuilder(command).redirectErrorStream(true)
+                .redirectInput(ProcessBuilder.Redirect.from(new java.io.File("/dev/null")));
+        run.environment().put("HOME", dir.resolve("home").toString());
+        run.environment().put("PATH", bin + ":" + System.getenv("PATH"));
+        run.environment().remove("PORELO_STUB_SOCKET");
+        final Process process = run.start();
+        final String said = new String(process.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(process.waitFor()).as("the run exited non-zero:%n%s", said).isZero();
+        return said;
+    }
+
+    /** The session a run named in its record, which is what Porelo keeps and hands back. */
+    private static String sessionOf(final String said) {
+        final java.util.regex.Matcher id = java.util.regex.Pattern.compile("\\{\"stub\":\"session\",\"id\":\"([^\"]+)\"\\}")
+                .matcher(said);
+        assertThat(id.find()).as("the run named no session:%n%s", said).isTrue();
+        return id.group(1);
+    }
+
+    @Test
+    void anUnattendedRunContinuedSaysBackWhatOnlyItsFirstRunWasGiven(@org.junit.jupiter.api.io.TempDir
+            final java.nio.file.Path dir) throws Exception {
+
+        // A continuation is proved by what only the earlier turn holds: a run that merely said "continued" for any
+        // id would read as a kept conversation where a fresh one had started.
+        final String id = sessionOf(runUnattended(dir, "lantern"));
+
+        final String continued = runUnattended(dir, "--resume", id, "hello");
+
+        assertThat(continued).as("the continued run says back the first run's word, not its own prompt")
+                .contains("{\"stub\":\"result\",\"said\":\"stub: continued, remembering lantern\"}");
+        assertThat(sessionOf(continued)).as("it continues the session it was given").isEqualTo(id);
+    }
+
+    @Test
+    void aSessionIdItNeverKeptIsNotTakenForAContinuation(@org.junit.jupiter.api.io.TempDir
+            final java.nio.file.Path dir) throws Exception {
+
+        // A stale id - one whose session is gone - must not make a fresh session pretend to continue.
+        final String said = runUnattended(dir, "--resume", "s-gone", "hello");
+
+        assertThat(said).as("what a run handed an id it never kept says").doesNotContain("continued")
+                .contains("stub: no session s-gone to continue")
+                .contains("{\"stub\":\"result\",\"said\":\"stub: finished\"}");
+        assertThat(sessionOf(said)).as("it names the fresh session it started, not the stale one")
+                .isNotEqualTo("s-gone");
+    }
+
+    @Test
+    void anAttachedSessionContinuedSaysBackTheFirstLineTypedInIt(@org.junit.jupiter.api.io.TempDir
+            final java.nio.file.Path dir) throws Exception {
+
+        // The attached half: what a person typed is the earlier turn, kept in the session file Porelo reads the id
+        // from, and an attached agent continued with that id shows it on its screen.
+        final java.nio.file.Path script = dir.resolve("porelo-stub-cli");
+        java.nio.file.Files.writeString(script, renderedScript());
+        final java.nio.file.Path home = java.nio.file.Files.createDirectories(dir.resolve("home"));
+
+        final String first = attached(dir, home, "sh " + script, "lantern\n", "stub: noted lantern");
+        final java.nio.file.Path sessions = home.resolve(".porelo-stub-sessions");
+        final List<java.nio.file.Path> files;
+        try (java.util.stream.Stream<java.nio.file.Path> listed = java.nio.file.Files.list(sessions)) {
+            files = listed.toList();
+        }
+        assertThat(files).as("one session file, after:%n%s", first).hasSize(1);
+        final String name = files.get(0).getFileName().toString();
+        final String id = name.substring(0, name.length() - ".session".length());
+
+        final String again = attached(dir, home, "sh " + script + " --resume " + id, "", "stub: at work");
+
+        assertThat(again).as("the continued screen").contains("stub: continuing " + id + ", remembering lantern");
+    }
+
+    /** Runs the script at a terminal, types what is given, and returns the screen once it shows what is awaited. */
+    private static String attached(final java.nio.file.Path dir, final java.nio.file.Path home, final String command,
+            final String typed, final String awaited) throws Exception {
+        final java.nio.file.Path screen = java.nio.file.Files.createTempFile(dir, "screen", ".txt");
+        final ProcessBuilder terminal = new ProcessBuilder("script", "-qec", command, "/dev/null")
+                .redirectErrorStream(true).redirectOutput(screen.toFile());
+        terminal.environment().put("HOME", home.toString());
+        terminal.environment().remove("PORELO_STUB_WORKSPACE");
+        final Process process = terminal.start();
+        try {
+            final java.time.Instant ready = java.time.Instant.now().plusSeconds(10);
+            while (!java.nio.file.Files.readString(screen).contains("stub: at work") && java.time.Instant.now().isBefore(ready)) {
+                Thread.sleep(100);
+            }
+            process.getOutputStream().write(typed.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            process.getOutputStream().flush();
+            final java.time.Instant deadline = java.time.Instant.now().plusSeconds(10);
+            while (!java.nio.file.Files.readString(screen).contains(awaited) && java.time.Instant.now().isBefore(deadline)) {
+                Thread.sleep(100);
+            }
+            return java.nio.file.Files.readString(screen);
+        } finally {
+            process.destroy();
+            process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
+            process.destroyForcibly();
+        }
+    }
+
     @Test
     void reportsTheVersionItsDefinitionPins() throws Exception {
         final String version = agent.definition().version();
