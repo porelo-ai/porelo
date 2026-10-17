@@ -51,4 +51,30 @@ class VaultAuthorizeCommandTest {
             keyring.forget();
         }
     }
+
+    @Test
+    void aGrantIsKeptInAVaultADevicesShareOpened(@TempDir Path dir) {
+        Assumptions.assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+
+        // The daemon opens the vault with a device's share and has no terminal to ask a passphrase at: the person
+        // granted at the service, and keeping it asked for the passphrase alone, so the grant was lost.
+        final PoreloContext context = new PoreloContext(new FakeCommandRunner(),
+                new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin")), arguments -> 0);
+        final byte[] share = new byte[Keyslots.SHARE_BYTES];
+        new java.util.Random(7).nextBytes(share);
+        context.vault().write(Map.of(), PASSPHRASE);
+        context.vault().enroll(org.fuin.porelo.vault.VaultFile.Opener.passphrase(PASSPHRASE), share.clone(),
+                "the laptop", "USER_SCOPED");
+        VaultShare.keep(context.paths(), share, Duration.ofMinutes(5));
+        try {
+            final VaultAuthorizeCommand.Kept kept = VaultAuthorizeCommand.keepGranted(context, "forge",
+                    new DeviceGrant.Outcome("granted", "rt-1", "at-1", Duration.ofHours(1)));
+
+            assertThat(kept).as("kept with what opened the vault").isEqualTo(new VaultAuthorizeCommand.Kept(true, ""));
+            assertThat(context.vault().read(org.fuin.porelo.vault.VaultFile.Opener.passphrase(PASSPHRASE))
+                    .get(TaskSecrets.GRANT_PREFIX + "forge").value()).isEqualTo("rt-1");
+        } finally {
+            VaultShare.forget(context.paths());
+        }
+    }
 }

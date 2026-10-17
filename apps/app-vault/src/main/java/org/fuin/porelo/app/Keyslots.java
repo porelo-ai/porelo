@@ -245,11 +245,16 @@ public final class Keyslots {
             VaultShare.keep(context.paths(), bytes, howLong);
             final Keyslot opened = slotFor(bytes);
             // Written down now, while the share is in hand: "last used" is how an operator spots a
-            // device that has not been near this machine in months.
-            final Keyslot recorded = opened == null ? null
-                    : context.vault().used(VaultFile.Opener.share(bytes), opened.id());
+            // device that has not been near this machine in months. The vault is open whether or not it can be.
+            Keyslot recorded = opened;
+            String detail = "";
+            try {
+                recorded = opened == null ? null : context.vault().used(VaultFile.Opener.share(bytes), opened.id());
+            } catch (final VaultException ex) {
+                detail = "unlocked; when it was last used could not be written: " + ex.getMessage();
+            }
             return new Unlock(Unlocked.UNLOCKED, Instant.now().plus(howLong).toString(),
-                    recorded, "");
+                    recorded, detail);
         } catch (final VaultException ex) {
             return new Unlock(Unlocked.SHARE_REJECTED, "", null, String.valueOf(ex.getMessage()));
         } catch (final RuntimeException ex) {

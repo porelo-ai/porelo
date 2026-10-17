@@ -197,4 +197,21 @@ class VaultPutCommandTest {
                 .contains("declared to take a token").contains("an ssh key");
         assertThat(VaultPutCommand.useOf("forge-work", null, forToken).misfit()).isNull();
     }
+
+    @Test
+    void aConvertedKeyThatCannotBeOverwrittenIsRemovedAllTheSame(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dir)
+            throws IOException {
+        org.junit.jupiter.api.Assumptions.assumeFalse("root".equals(System.getProperty("user.name")),
+                "root writes a read-only file, so the overwrite cannot be made to fail");
+
+        // The private key converted for the vault lies in plain text in a directory of its own: overwriting it is the
+        // part that may fail, and removing it is what must happen either way.
+        final java.nio.file.Path directory = java.nio.file.Files.createDirectory(dir.resolve("porelo-key-1"));
+        final java.nio.file.Path key = java.nio.file.Files.writeString(directory.resolve("key"), "PRIVATE KEY");
+        java.nio.file.Files.setPosixFilePermissions(key, java.nio.file.attribute.PosixFilePermissions.fromString("r--------"));
+
+        VaultPutCommand.shred(directory);
+
+        assertThat(directory).as("the key and its directory are gone").doesNotExist();
+    }
 }

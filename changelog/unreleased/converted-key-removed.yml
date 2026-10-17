@@ -1,0 +1,2 @@
+title: porelo vault put removes the private key it converted even when overwriting it first fails, where the plain key stayed in its temporary directory
+type: fixed

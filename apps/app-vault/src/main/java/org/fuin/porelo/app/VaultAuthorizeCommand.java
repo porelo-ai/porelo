@@ -340,7 +340,10 @@ public class VaultAuthorizeCommand implements Callable<Integer>, PoreloFactory.C
     public static void keep(PoreloContext context, String name, String token, String type) {
         final VaultEntry kept = new VaultEntry(token, type,
                 Map.of("granted_by", System.getProperty("user.name", "unknown"), "granted_at", Instant.now().toString()));
-        context.vault().update(context.requirePassphrase(), entries -> {
+        // Whatever opens it without asking first - the daemon's way in is often a device's share - then the prompt.
+        final org.fuin.porelo.vault.VaultFile.Opener opener = context.opener()
+                .orElseGet(() -> org.fuin.porelo.vault.VaultFile.Opener.passphrase(context.requirePassphrase()));
+        context.vault().update(opener, entries -> {
             entries.put(TaskSecrets.GRANT_PREFIX + name, kept);
             return entries;
         });

@@ -91,7 +91,9 @@ The readings listed below were made before versions were recorded; which they us
     porelo-acceptance- test-quality, security-audit, java-code-review,
     legs               at 2026.906.3                                                   (this commit)
     porelod, again     security-audit, java-code-review, concurrency-review,
-                       test-quality at 2026.906.3, graal at 2026.910.3                 (this commit)
+                       test-quality at 2026.906.3, graal at 2026.910.3                 00db32ee
+    porelo-app-vault   security-audit, java-code-review, concurrency-review,
+                       test-quality, at 2026.906.3                                     (this commit)
 
 "The commit below" is the one that also lets a leg's image cache report never fail the leg.
 
@@ -573,6 +575,52 @@ Read and left as they are:
   daemon adds no FFM downcall of its own.
 - Javadoc blocks sit above the wrong member in `PoreloDaemon` (`read`, `request`, `text`, `flag`, `main`); style
   only, left.
+
+### `porelo-app-vault` (`apps/app-vault`)
+
+Read on 2026-10-17 whole - all of it is new under this path since `ac40a26` - against security-audit,
+java-code-review, concurrency-review and test-quality, each at 2026.906.3. Fixed, each with a test seen failing
+without its fix:
+
+- **A sign-in whose renewal failed was renewed again at every request.** The broker's `LoginRenewal` remembered
+  nothing of a refusal, so each request of the task opened the vault - a key derivation - and sent the ended refresh
+  token to the service again, one after another behind its lock. A failure is answered from memory for five seconds,
+  then asked again, so a sign-in made anew reaches a running broker.
+- **A grant authorized through the daemon was lost when a device's share had opened the vault.** Keeping it asked for
+  the passphrase alone, which the daemon has no terminal for: the person granted at the service, the stream said
+  `failed`, and the refresh token was gone. It is kept with whatever opens the vault, the share first, then the
+  prompt.
+- **The private key `vault put` converted could stay on disk in plain text.** When overwriting it failed, the removal
+  the comment promised was skipped, and the directory's removal failed behind it. It is removed either way.
+- **An unlock with a share answered `SHARE_REJECTED` with the vault open.** The share was held before "last used" was
+  written, and a failure there was reported as a refused device. It answers `UNLOCKED`, and the detail says the last
+  use could not be written.
+
+Read and left as they are:
+
+- **A provider reached with a key is never offered `vault put` by `vault authorize`.** The branch that offers it
+  cannot run - an earlier return takes every provider without a grant - so such a start ends with exit 2 and advice
+  meant for a grant. The offer is asked at a terminal only, which no unit test has; the refusal itself is right.
+- **A credential's name is not checked before it names a route's token file and a variable**
+  (`VaultServeCommand.routeTokenFile`, `CredentialWiring.variableSuffix`). The name comes from the project file or
+  the run, and the broker refuses one the vault does not hold before any file is written, so the vault's own names
+  bound it; checking the names narrows the project file's format, which other repositories read, so it is agreed
+  first.
+- **`KernelKeyring.store` casts a lifetime to `int` seconds**, so `vault unlock --for` or `UnlockWithShare` with years
+  wraps it; that is the `vault` module's, read with it.
+- **The broker's token files are owner-only in owner-only directories, and the token is logged abbreviated**; a route
+  that is not https, or a header holding `|`, is refused with exit 2.
+- **`LoginRenewal` takes its own monitor first and the vault's file lock second**, never the other way round, so two
+  brokers cannot deadlock; the vault's lock spans processes.
+- **Two brokers raising the same authorization question share one staging name**, so one move can fail. The question
+  is the same either way and the failure is passed over on purpose.
+- **`vault remove` revokes a grant at the service before the vault update**, so a failed update leaves a revoked grant,
+  which the broker answers as ended: it fails closed.
+- **`Keyslots` tells refusals apart by words in the vault's exception message.** Fragile, and right today; the words
+  are the vault module's, tested there.
+- **A device name or a credential name is printed as the account gave it**; the input is the account's own.
+- `AgentLogin` has Javadoc above the wrong member and a comment that says `BROWSER` is not set while the code sets it;
+  style only, left.
 
 ## Plan
 

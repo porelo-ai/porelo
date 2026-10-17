@@ -180,7 +180,7 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
      *
      * @param directory What to remove.
      */
-    private static void shred(final java.nio.file.Path directory) {
+    static void shred(final java.nio.file.Path directory) {
         try (var entries = java.nio.file.Files.list(directory)) {
             for (final java.nio.file.Path file : entries.toList()) {
                 try {
@@ -189,7 +189,6 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
                 } catch (final IOException ex) {
                     // Overwriting is the part that can fail harmlessly; removal below is what
                     // matters and is attempted either way.
-                    continue;
                 }
                 java.nio.file.Files.deleteIfExists(file);
             }

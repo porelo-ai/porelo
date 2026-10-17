@@ -139,6 +139,38 @@ class KeyslotsTest {
     }
 
     @Test
+    void a_share_that_unlocked_is_not_answered_as_rejected_when_its_last_use_cannot_be_written(
+            @TempDir final Path dir) throws java.io.IOException {
+        org.junit.jupiter.api.Assumptions.assumeTrue(
+                org.fuin.porelo.vault.KernelKeyring.available(),
+                "no kernel keyring here, so an unlock cannot be held");
+        org.junit.jupiter.api.Assumptions.assumeFalse("root".equals(System.getProperty("user.name")),
+                "root writes into a read-only directory, so the write cannot be made to fail");
+
+        // The share is held, and the vault open with it, before "last used" is written: a failure there answered
+        // SHARE_REJECTED while the vault stood open, and a person was told the device was refused.
+        final PoreloContext context = withVault(dir);
+        final String share = share(1);
+        context.vault().enroll(org.fuin.porelo.vault.VaultFile.Opener.passphrase(PASSPHRASE),
+                Base64.getDecoder().decode(share), "the laptop", "USER_SCOPED");
+        final Path directory = context.vault().path().getParent();
+        java.nio.file.Files.setPosixFilePermissions(directory,
+                java.nio.file.attribute.PosixFilePermissions.fromString("r-x------"));
+        try {
+            final Keyslots.Unlock unlocked = new Keyslots(context).unlock(share, 5);
+
+            assertThat(context.readableCredentials()).as("the vault is open with the share").isPresent();
+            assertThat(unlocked.outcome()).as("what the person is told is what happened")
+                    .isEqualTo(Keyslots.Unlocked.UNLOCKED);
+            assertThat(unlocked.until()).isNotEmpty();
+        } finally {
+            java.nio.file.Files.setPosixFilePermissions(directory,
+                    java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+            VaultShare.forget(context.paths());
+        }
+    }
+
+    @Test
     void forgetting_the_share_shuts_the_vault_again(@TempDir final Path dir) {
         org.junit.jupiter.api.Assumptions.assumeTrue(
                 org.fuin.porelo.vault.KernelKeyring.available(),

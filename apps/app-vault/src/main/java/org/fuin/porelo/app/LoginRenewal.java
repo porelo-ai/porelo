@@ -38,6 +38,13 @@ final class LoginRenewal implements org.fuin.porelo.supervisor.TokenSource {
 
     private Instant good;
 
+    /** How long a failed renewal is answered from memory: every request asks, and each would open the vault again. */
+    static final java.time.Duration FAILURE_HELD = java.time.Duration.ofSeconds(5);
+
+    private TokenPurchase.@Nullable Refused failed;
+
+    private Instant failedUntil = Instant.MIN;
+
     /**
      * Constructor, starting from what the vault holds.
      *
@@ -64,16 +71,24 @@ final class LoginRenewal implements org.fuin.porelo.supervisor.TokenSource {
         if (token != null && clock.instant().isBefore(good)) {
             return token;
         }
+        final TokenPurchase.Refused held = failed;
+        if (held != null && clock.instant().isBefore(failedUntil)) {
+            // Only for a moment, so a sign-in made anew reaches this broker without a restart.
+            throw held;
+        }
         final TokenPurchase.Refused[] refused = new TokenPurchase.Refused[1];
         try {
             renew(refused);
         } catch (final org.fuin.porelo.vault.VaultException ex) {
-            throw new TokenPurchase.Refused("the sign-in for '" + name + "' could not be renewed: " + ex.getMessage(),
-                    ex);
+            refused[0] = new TokenPurchase.Refused("the sign-in for '" + name + "' could not be renewed: "
+                    + ex.getMessage(), ex);
         }
         if (refused[0] != null) {
+            failed = refused[0];
+            failedUntil = clock.instant().plus(FAILURE_HELD);
             throw refused[0];
         }
+        failed = null;
         return java.util.Objects.requireNonNull(token);
     }
 

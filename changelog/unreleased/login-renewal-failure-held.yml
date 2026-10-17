@@ -1,0 +1,2 @@
+title: A task's broker answers a sign-in renewal that failed from memory for five seconds, where every request of the task opened the vault and sent the ended refresh token to the service again
+type: fixed

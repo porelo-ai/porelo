@@ -165,4 +165,43 @@ class LoginRenewalTest {
                 .hasMessageContaining("sign in again with 'porelo vault login'");
         assertThat(vault.read(PASSPHRASE).get("anthropic").value()).isEqualTo("at-1");
     }
+
+    @Test
+    void aRenewalThatFailedIsAnsweredFromMemoryForAMomentThenAskedAgain(@TempDir Path dir) {
+
+        // Every request of the task asks for the token: after a refusal each one opened the vault and spent the dead
+        // refresh token at the service again, one after another behind the lock. Asked again after a moment, so a
+        // sign-in made anew reaches a running broker.
+        status.set(400);
+        answer.set("{\"error\":\"invalid_grant\"}");
+        final VaultFile vault = vault(dir, signIn(NOW.plusSeconds(30)), true);
+        final Instant[] now = { NOW };
+        final Clock clock = new Clock() {
+            @Override
+            public java.time.ZoneId getZone() {
+                return ZoneOffset.UTC;
+            }
+
+            @Override
+            public Clock withZone(final java.time.ZoneId zone) {
+                return this;
+            }
+
+            @Override
+            public Instant instant() {
+                return now[0];
+            }
+        };
+        final LoginRenewal renewal = new LoginRenewal("anthropic", vault.read(PASSPHRASE).get("anthropic"), vault,
+                VaultFile.Opener.passphrase(PASSPHRASE), HttpClient.newHttpClient(), clock);
+
+        assertThatThrownBy(renewal::current).isInstanceOf(TokenPurchase.Ended.class);
+        assertThatThrownBy(renewal::current).as("the same answer, a moment later")
+                .isInstanceOf(TokenPurchase.Ended.class).hasMessageContaining("sign in again");
+        assertThat(bodies).as("the service is asked once for both").hasSize(1);
+
+        now[0] = NOW.plusSeconds(6);
+        assertThatThrownBy(renewal::current).isInstanceOf(TokenPurchase.Ended.class);
+        assertThat(bodies).as("asked again once the moment has passed").hasSize(2);
+    }
 }
