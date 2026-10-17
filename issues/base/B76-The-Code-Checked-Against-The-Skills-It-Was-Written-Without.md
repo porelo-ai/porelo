@@ -1,7 +1,7 @@
 # B76 — The Code Checked Against The Skills It Was Written Without
 
 **Status:** Implementing.
-**Size:** L - no open findings and every module read; left: `apps/*` and `daemon` read again whole, and one rule for the kit's bounds.
+**Size:** L - no open findings, every module read and `apps/*` and `daemon` read again whole; left: one rule for the kit's bounds.
 
 **What must be true.** Every Java module has been read against the skills that apply to it, and
 each finding is either fixed with a test that was watched to fail, or declined with the reason
@@ -98,6 +98,15 @@ The readings listed below were made before versions were recorded; which they us
                        test-quality, at 2026.906.3                                     6269ab80
     porelo-app-task    security-audit, java-code-review, concurrency-review,
                        test-quality, at 2026.906.3                                     (this commit)
+    porelo-app-model   security-audit, java-code-review, concurrency-review,
+                       test-quality at 2026.906.3, graal at 2026.910.3                 169c16b7
+    porelo-app-base    the same, and graal                                             9f84f8a9
+    porelo-app-project the same, and graal                                             393d35b5
+    porelo-app-egress  the same, and graal                                             36742ac1
+    porelo-app-        the same, and graal                                             9c91ec51
+    messaging
+    porelo (app),      the same, and graal                                             97b3db48
+    again
 
 "The commit below" is the one that also lets a leg's image cache report never fail the leg.
 
@@ -716,6 +725,238 @@ Read and left as they are:
 - **`BuildWatch` runs on one thread**, and a failed hand-in is tried again the next round.
 - Javadoc blocks sit above the wrong member in `TaskLaunch`, `TaskRunCommand`, `WorkspaceSetup`, `ClearanceWiring`,
   `TaskControl` and `TaskStatusCommand`; style only, left.
+
+### `porelo-app-model` (`apps/app-model`), read again
+
+Read on 2026-10-17 whole - all of it is new under this path since `ac40a26` - against security-audit, java-code-review,
+concurrency-review and test-quality, each at 2026.906.3, and graal at 2026.910.3, with the SHA-256 above. Fixed, each
+with a test seen failing without its fix:
+
+- **An agent's end was never read when its end line was longer than 64 KiB.** `AgentEnding` read the log's last 64 KiB
+  and offered only whole lines from it. One agent's end event carries every message of its run, tool output included,
+  so for any real run that line was cut, and the task never said it had ended or that a provider had refused it. 2 MiB
+  is read now; each line goes to the agent in one varlink message of at most 4 MiB, which leaves room for its escaping.
+  `AgentEndingTest` uses a 300 KiB end line.
+- **One declared value could erase every credential declaration.** `credentials.yml` was written with each value quoted
+  but not escaped. A username `CORP\jdoe` or a `"` made the file unreadable YAML, and a lookup reads an unreadable file
+  as no declarations, so the next declaration wrote the file again with only itself in it; measured, of three records
+  only the last survived. Values are escaped now. A second way to the same loss: `declare` and `forget` read the file
+  the lenient way too, so a typo made by hand had the file written over. They now read strictly and refuse, naming the
+  file, which stays as the person left it. Two tests in `CredentialDeclarationsTest`.
+- **Work waiting at the gate of any repository but the project's own read as nothing waiting.** `TaskInventory` asked
+  only `mirrors/<project>.git`, keyed by the sidecar's project, which a reboot removes; `ProjectInventory` counted
+  pending pushes only for projects with a mirror of their own. So every task of `default`, and of a project's other
+  repositories, said "0 waiting" in `task status`, the daemon's listing and the project row. Both now ask the mirror of
+  the task's repository, taken from its labels. Tests in `TaskActivityTest` and `ProjectInventoryTest`.
+- **A workspace git could not read was counted as holding nothing.** The census piped `git status` into `wc -l`, so a
+  git that failed (a config it cannot parse, an ownership it refuses) counted zero lines; the task then read as holding
+  nothing, and `task remove` went ahead without `--force`. A failing git now exits the census non-zero, and the answer
+  is that nobody could look. `UnhandedWorkTest` runs the census script against real git: one repository with a broken
+  config, and one on an unborn HEAD, which still counts "1 0" and then "1 1".
+- **A deploy key kept under its old vault name was never moved off it.** The move compared the entry it had read with
+  the one the vault update reads anew, by identity, so they never matched. The old name kept the secret half after a
+  clearing said the key was forgotten, and a later follow of the same upstream took it back as found. Compared by value
+  now (`DeployKeysTest`, which needs the kernel keyring; it ran).
+
+Read and left as they are:
+
+- **`AgentWaiting.lastMessage` reads and parses the whole `task.log` every time it changes**, so during an unattended
+  run each deriving listing pass reads it again. A cost, not a wrong answer; no measurement here shows its size.
+- **`TaskSession.fromRun` reads the whole log** once, at a run's end. A cost.
+- **`AgentEnding.seen` keeps one entry per container for the daemon's life.** Small, and a removed task's name is rarely
+  reused.
+- **`HostKeys.trust` rewrites `known_hosts` without a lock.** A person's act at a terminal; the file holds no secret.
+- **`FollowedProjects.follow` checks and writes the record outside one lock, and `unfollow` takes a name from the
+  socket unchecked.** The socket is the account's own, which can do the same at the terminal.
+- **`HandIns`' commands wait without a time limit.** Each is a `podman exec` into the task; one that hangs holds only
+  that task's hand-ins.
+- **`DeployKeys.make` with `--new` reads and writes the vault in two steps**, so two at once leave one key. Each is a
+  person's act.
+- **Graal:** neither reflection, resources nor FFM are added.
+
+### `porelo-app-base` (`apps/app-base`), read again
+
+Read on 2026-10-17 whole - all of it is new under this path since `ac40a26` - against security-audit, java-code-review,
+concurrency-review and test-quality, each at 2026.906.3, and graal at 2026.910.3. Fixed, each with a test seen failing
+without its fix:
+
+- **An `@` in a git address's path chose another host's credential.** `GitCredentialNames.hostOf` took the first `@`
+  anywhere after the scheme, so `ssh://git@forge.example.org/team/@github.com/x.git` read as github.com:
+  `git.ssh.github.com` was lent, and the agent it was lent through answered forge.example.org with it. The user part is
+  now taken from the authority alone. Test in `GitCredentialNamesTest`.
+- **A mailbox directory replaced with a link opened what the link pointed at to every account.** `Mailbox.create()`
+  runs at every start and resume, before any `refuseLinks()`, and setting permissions follows a link, so a box
+  directory a task replaced with a link made that directory of the account mode 0777. The link is refused before any
+  permission is set. Test in `MailboxTest`.
+
+Fixed without a test, since the window cannot be observed after the fact: the machine's message key was written and
+only then made owner-only. It is now created owner-only, under a temporary name of its own, and a process that loses
+the race to create it reads the winner's key.
+
+Read and left as they are:
+
+- **A destination's `auth_header`, `auth_prefix` or `auth_query` holding `|`** breaks the broker's route, the point the
+  app-task section deferred to here. It fails closed. Refusing it narrows the destination and provider file formats,
+  which other repositories write, so it is agreed first.
+- **`ConfigurationGate` reports a bad signature as `NOT_SIGNED`.** It reads wrong, but the commit is refused either way.
+- **`SignedBy.keyOf` can read the armor out of a commit message**, not only out of its header. A key read there is used
+  only once a person confirms its fingerprint, and the signature is checked by git.
+- **`VaultPaths.vaultKeyringKey` names the keyring entry by a 32-bit hash of the vault's path.** Two paths colliding
+  would share one cached passphrase; that needs a path made to collide.
+- **`TaskRunner.runOrFail` waits on `podman exec` without a limit** (the tmux settings and the screen writer). A hang
+  holds the start that ran it.
+- **`FileLocks.HELD` grows by one lock per file ever locked.** A handful of paths per task.
+- **`Destination.write` and `HostKeys`' temporary names are fixed per name**, so two writers at once can fail one of
+  them. Nothing is half-written.
+
+### `porelo-app-project` (`apps/app-project`), read again
+
+Read on 2026-10-17 whole - all of it is new under this path since `ac40a26` - against security-audit, java-code-review,
+concurrency-review and test-quality, each at 2026.906.3, and graal at 2026.910.3, with the SHA-256 above. Fixed, each
+with a test seen failing without its fix:
+
+- **A followed project's commit refused as unusable stayed in force.** `Reconcile` reset the clone to the fetched
+  commit before reading its file. The clone's file is the one in force, so a signed commit refused because the file
+  calls itself another project, or names an egress set this machine lacks, was read by the next task start and by
+  `KnownPeers`, while the record named the commit before it. The file is now judged as the commit holds it, before the
+  working tree moves (`ReconcileTest.a_signed_commit_refused_as_unusable_never_reaches_the_working_tree`).
+- **A prune removed the vault tokens of a task that started while it ran.** `Prune` listed the containers at its start
+  and removed every `task/<container>/...` entry missing from that list. A start in between kept its tokens and lost
+  them as a gone task's, so it could not come back after a reboot. The containers are asked again under the vault's
+  lock, as `TaskSecrets.keep` does (`PruneTest.aTaskThatStartsWhileAPruneRunsKeepsTheTokensItKeptInTheVault`).
+- **A follow with several keys that did not apply left them pinned.** `follow(name, url, signers, …)` pinned the keys
+  before reading what to put back, so a refused follow kept trusting them while it said nothing was recorded
+  (`ReconcileTest.several_keys_named_for_a_follow_that_did_not_apply_are_not_left_pinned`).
+- **A follow that did not apply put back the whole signers file.** Another project's keys, handed on by the daemon's
+  pass during the fetch, were reverted, and a retired key was trusted again for that project. Only the followed
+  project's own lines are put back now
+  (`ReconcileTest.a_follow_that_did_not_apply_leaves_what_another_project_pinned_meanwhile`).
+- **Asking a forge who this machine is learned unknown host keys.** `ForgeIdentity` ran ssh with
+  `StrictHostKeyChecking=accept-new` on the known_hosts every fetch trusts. A credential dry run over the socket
+  therefore trusted a host nobody had compared, and the fetch after it never asked. It now uses the fetch's strict
+  policy (`ForgeIdentityTest.askingAHostWhoWeAreNeverLearnsAHostKeyNobodyConfirmed`).
+- **An address whose user is an option ran a command.** For `ssh://-oProxyCommand=…@host/…`, which git itself refuses,
+  the hint after the refused fetch passed `-oProxyCommand=…@host` to ssh, and ssh runs that command. A user or host
+  starting with `-` is no longer asked about (`ForgeIdentityTest.anAddressWhoseUserIsAnOptionIsNotAskedAbout`).
+
+Fixed without a test, since it only read wrong: Javadoc on the wrong member in `Reconcile`, `FollowSignedBy` and
+`ForgeIdentity`, and the unused `Reconcile.vaultHint`.
+
+Read and left as they are:
+
+- **The signers file's read-modify-writes take no common lock** (`FollowSignedBy.pin`, its restore,
+  `SignerHandover.pin`). Since the restore now touches only its own project, what is left is the moment of one file
+  write; `SignerHandover.pin` replaces the file atomically.
+- **`prune` and `clear` compute again what they remove after "Remove them now?"**, so something that became left over
+  while the person read could go unlisted. What can appear in that time is a leftover of the same kind.
+- **A fetch's error text is printed as git and the forge wrote it** (`project following`, `project refresh`). It comes
+  from the followed repository's host, reached under strict host keys; git masks its own sideband.
+- **`ProjectDeletion` throws when a mirror cannot be asked.** It fails loud rather than answering "nothing waiting".
+- **`project enroll --as` takes a principal as typed**, and the result goes to a person's review in the gate.
+- **graal:** the module adds no reflection, resource or downcall; its commands' metadata is generated by picocli's
+  processor, which `AreaModulesTest` holds.
+
+### `porelo-app-egress` (`apps/app-egress`), read again
+
+Read on 2026-10-17 whole - all of it is new under this path since `ac40a26` - against security-audit, java-code-review,
+concurrency-review and test-quality, each at 2026.906.3, and graal at 2026.910.3. Fixed, each with a test seen failing
+without its fix:
+
+- **Widening a running task by a name that is no host name widened every name.** The name went into the resolver's
+  servers file as it came: `example.test/#` became `server=/example.test/#/…`, and dnsmasq forwards every name under
+  `#`; a line break wrote a line of its own. Such a name is now `REFUSED_NAME` and nothing is written
+  (`RunningEgressTest.aNameThatIsNoHostNameWritesNothingTheResolverReads`).
+- **The clearance watcher lost a blocked connection whose line it read half-written.** It counted lines, so a last line
+  caught without its line end counted as read, and the whole line was never handed on; the reader writes one line per
+  attempt, so the connection was never asked about. The file is now read by byte position, whole lines only
+  (`ShieldWatchEventsTest.aLineCaughtHalfWrittenIsReadWhenItIsWhole`).
+
+Fixed without a test, since the harm needs a second account, which no test here has: **`shield watch` without
+`--socket` made its socket and journal at fixed names in the shared temporary directory**
+(`porelo-clearance-<pid>.sock`, `clearance.jsonl`). A journal another account left there was taken back at start, its
+allows into the firewall. They now go into an owner-only directory of their own. A task's own watcher always names
+both, so it was not affected. Also fixed: Javadoc on the wrong member in `RunningEgress`.
+
+Read and left as they are:
+
+- **Narrowing a name the project declared and the run granted again removes both resolver lines.** It fails closed:
+  the task reaches less.
+- **`EgressControl.apply` writes the project file in place without a lock**, so a widening persisted from the daemon and
+  the command line at once can lose one. It is a rare pair of a person's own acts.
+- **`--task … --also-project` on a followed project edits the verified clone's file.** It is the account's own act, and
+  the next reconcile names it as a replaced local edit.
+- **The watcher prints a resolved name as dnsmasq logged it.** The name was one the resolver answered for an allowed
+  domain.
+- **`ShieldDnsCommand` and the default `8.8.8.8` upstream are for a resolver started by hand**; a task's resolver is
+  given its upstreams.
+- **graal:** no reflection, resource or downcall of its own; the netlink downcalls are `porelo-shield`'s, registered and
+  checked there.
+
+### `porelo-app-messaging` (`apps/app-messaging`), read again
+
+Read on 2026-10-17 whole, with its tests in `apps/app` - all of it is new under this path since `ac40a26` - against
+security-audit, java-code-review, concurrency-review and test-quality, each at 2026.906.3, and graal at 2026.910.3 for
+the `porelo` image it is part of. Fixed, each with a test seen failing without its fix:
+
+- **A task could stop every mailbox's messages on the machine.** To decide whether to wake an agent, the pass read every
+  file in the task's `inbox/new` as it lay there, in the task's own directory: a pipe named `*.json` held the read, and
+  with it the pass's lock, for as long as nothing wrote into it. What the host reads where the task writes is now only
+  a regular file, not through a link, of at most a message's size (`MessageIntake.taskWritten`). `AgentWakeTest` makes
+  a pipe with `mkfifo`; with the fix undone the pass was still held after 10 seconds.
+- **A person deciding about a refused message was shown the task's words as the filter's.** `talk read`, `talk held`
+  and the daemon's `Read` and `Held` took the filter's answer, and its "would have refused" verdict, from the task's
+  inbox, where the task writes. They now read only `feedback/` and the copy the host keeps of every answer it hands
+  over (`record/answers`), as the decision already did. `MessageReadTest`: with the fix undone, a forged "a false
+  positive, safe to deliver" was shown.
+- **Tasks of one project started at once lost each other's address in the conversation.** Each enroll read the
+  addresses, added its own and wrote the file back; a task whose address is lost gets its own words in the room handed
+  back to it as a peer's, and a message to it mentions nobody. It is now one read-modify-write under a lock, the file
+  written whole. `TransportConversationsTest` runs eight enrolls answered at once: with the fix undone, 1, 2 and 1 of 8
+  addresses were kept in three runs; with it, green three times.
+- **`talk verify` called an intact mailbox broken.** It checked signatures against the operator's `allowed_signers`
+  alone, while a delivery also believes this machine's own key, the shared keys and the signers of followed projects.
+  It now believes the same keys (`TalkVerifyCommandTest`).
+- **A file of gigabytes put where a delivered message lay ended `talk verify` with an `OutOfMemoryError`.** It is read
+  with the inbox's limit and named as no longer matching (`MessageVerifyTest`, a sparse 3 GB file).
+
+Fixed without a test: `remember()` writes the conversation's state file whole, beside it and renamed in, so a pass never
+reads it half-written; Javadoc on the wrong member in `MessageLookup`, `MessageRelease` and `MessageRecord`;
+`TalkReadCommand`'s class comment, which said a refused message is never shown.
+
+Read and left as they are:
+
+- **A message's principal names its key in a published `key.pub`, not the account that owns the file**, so one account
+  can publish under another's principal. Between accounts the local transport's owner attestation tells them apart.
+  Changing it changes how peers are named, which other repositories read, so it is agreed first.
+- **The check before reading a file in the box and the open are two steps**; a task swapping a pipe in between, in a
+  tight loop, can still hold one read. Closing it needs a read that cannot block, which Java's files do not offer.
+- **`InboundCheck` keeps the filter's refusal in `hold/` as `<message>.refusal-N.json`**, so `talk held` lists it as a
+  held message of its own; releasing it sends nothing. It reads oddly and does no harm.
+- **`Moderation.set` reads and writes the holds without a lock.** Holds are written by a person's command, one at a time.
+- **`TalkReadCommand.shown` leaves format characters such as right-to-left overrides.** They change how a line reads,
+  not what the terminal does.
+- **`MessageWatch`'s loops for exited tasks** are [B125](README.md#b125)'s step 1.
+
+### `porelo` (`apps/app`), read again
+
+Read on 2026-10-17 for its own main code - `PoreloCli`, `DoctorCommand`, `SetupCommand`, `DaemonConnectCommand`,
+`CompleteCommand`, `CompletionCommand`, the completion scripts and the native-image metadata - and its own tests and the
+guards over all sources (`AgentIsolationTest`, `NullMarkedPackagesTest`, `AreaModulesTest`, `OptionNullnessTest`,
+`CommandsDocumentedTest`); the other areas' tests in this module were read with their areas. Against the same four
+skills at 2026.906.3 and graal at 2026.910.3. Fixed, with a test seen failing without its fix:
+
+- **The rule that nothing outside `agents/` names an agent was checked against no file in a checkout below a hidden
+  directory.** `AgentIsolationTest` left out every path containing `/.` and judged the absolute path, so in a worktree
+  under `.claude/worktrees` both scans read nothing and passed. It judges the path below the root now, and fails when
+  the files it scans do not include `PoreloCli.java`.
+
+Fixed without a test: Javadoc on the wrong member in `PoreloCli` and `DoctorCommand`.
+
+Read and left as they are: the bash completion passes its candidates through `compgen -W`, which expands `$(...)`, but
+they are container names podman restricts and project names held to `[a-z0-9-]`; `SetupCommandTest`, `DoctorJsonTest`
+and `DoctorCommandTest` let the doctor's probe ask the account's real socket, and no assertion reads that line; the
+native image needs no new metadata; `daemon connect` half-closes the socket when its input ends, which is how one `ssh`
+invocation ends.
 
 ## Plan
 
