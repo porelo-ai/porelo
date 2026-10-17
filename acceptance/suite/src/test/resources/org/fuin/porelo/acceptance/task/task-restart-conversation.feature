@@ -68,9 +68,10 @@ Feature: After the machine restarts, a task goes on with the conversation it was
         Then its output has a line matching "^0$"
         And porelo says task "talk" of "recall" has a session to continue
 
-        # The attached agent continues the session the person typed into.
+        # The attached agent continues the session the person typed into. Its container is running again, so it is
+        # gone into: 'task start' says it is running and names 'task attach', which starts the agent again.
         Given a terminal on the machine
-        When I run "porelo task start attended --project recall --repository recall --agent stub --clearance deny"
+        When I run "porelo task attach porelo-recall-attended"
         Then the screen of task "attended" of "recall" shows "remembering compass"
         # The run nobody watches continues at its next start, and knows the word only its first run was given.
         When a task called "talk" nobody is watching is started in "recall" for the "stub" agent and ends within 600 seconds
