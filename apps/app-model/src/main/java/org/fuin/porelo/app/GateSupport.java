@@ -204,6 +204,21 @@ public final class GateSupport {
     }
 
     /**
+     * Returns the pushes waiting at a repository's gate that the upstream already has, as the last measurement of the
+     * upstream found them: work somebody pushed there by hand, past the gate.
+     *
+     * @param context The machine.
+     * @param project The project.
+     * @param repository The repository.
+     * @return Their names under {@code refs/porelo/incoming/}; empty when nothing was measured.
+     */
+    public static java.util.Set<String> alreadyUpstream(PoreloContext context, Project project,
+            Repository repository) {
+        return java.util.Set.copyOf(new UpstreamRecords(context.paths().projects().upstreamRecords())
+                .get(recordKey(project.name(), repository.name())).alreadyUpstream());
+    }
+
+    /**
      * Resolves the repository a command was told to work on, falling back to the project's own.
      * <p>
      * <strong>The fallback is not Porelo picking between equals.</strong> These are the commands

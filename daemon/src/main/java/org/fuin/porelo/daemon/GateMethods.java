@@ -43,6 +43,7 @@ final class GateMethods {
         server.method("Pending", (parameters, replies) -> {
             final GitGate gate = gate(parameters, context);
             final java.time.Instant now = java.time.Instant.now();
+            final java.util.Set<String> upstreamHas = PoreloDaemon.alreadyUpstream(parameters, context);
             final List<Map<String, Object>> waiting = gate.pendingDetail().stream().map(push -> {
                 final Map<String, Object> row = new LinkedHashMap<>();
                 row.put("name", push.name());
@@ -52,6 +53,7 @@ final class GateMethods {
                 row.put("at", push.at().toString());
                 // Read in a person's own clone, over their ssh: the line to paste. Nothing runs the work.
                 row.put("fetch", org.fuin.porelo.app.WaitingFetch.of(gate.mirror(), push.name()));
+                row.put("alreadyUpstream", upstreamHas.contains(push.name()));
                 return row;
             }).toList();
             replies.last(Map.of("mirror", gate.mirror().toString(),
@@ -161,7 +163,12 @@ final class GateMethods {
 
         server.method("Reject", (parameters, replies) -> {
             final GitGate gate = gate(parameters, context);
-            gate.reject(text(parameters, "name"));
+            final String name = text(parameters, "name");
+            if (PoreloDaemon.alreadyUpstream(parameters, context).contains(name) && !flag(parameters, "force")) {
+                // Discarding work somebody pushed upstream by hand records the opposite of what happened.
+                throw new VarlinkException(INTERFACE + ".AlreadyUpstream", Map.of("name", name));
+            }
+            gate.reject(name, false, true);
             // The task the work came from is told, reason or not: an agent whose work silently vanished hands it
             // over again.
             boolean told;

@@ -40,6 +40,11 @@ public class GateRejectCommand implements Callable<Integer>, PoreloFactory.Conte
             + " world-readable. The task the work came from is told them in its inbox.")
     private boolean reason;
 
+    @Option(names = "--force", description = "Discards a push the upstream already has, which somebody pushed there"
+            + " by hand; without it such a push is refused, since discarding it would record the opposite of what"
+            + " happened.")
+    private boolean force;
+
     private PoreloContext context = PoreloContext.real();
 
     @Override
@@ -63,7 +68,17 @@ public class GateRejectCommand implements Callable<Integer>, PoreloFactory.Conte
             gate.initialize();
             final String said = reason ? new String(System.in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
                     .strip() : null;
-            gate.reject(name);
+            final org.fuin.porelo.core.project.Repository chosen = GateSupport.repository(context, project, repository,
+                    name);
+            final boolean upstreamHas = GateSupport.alreadyUpstream(context, project, chosen).contains(name);
+            if (upstreamHas && !force) {
+                err.println("porelo: '" + name + "' is already on the upstream: somebody pushed it there by hand,"
+                        + " past the gate, so discarding it would record the opposite of what happened. Nothing was"
+                        + " discarded; 'porelo gate reject --force " + name + "' clears the ref anyway.");
+                err.flush();
+                return 1;
+            }
+            gate.reject(name, upstreamHas, force);
             out.println("discarded " + name);
             // Told whether or not a reason was given: an agent whose work silently vanished hands it over again.
             out.println(PersonNote.rejectedWork(context, project, name, said) ? "told      the task it came from"

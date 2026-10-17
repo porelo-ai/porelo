@@ -15,7 +15,10 @@ type PendingPush (
   # The host is this machine's own name; a client that reached it by another may put that one in.
   # Reading only: the work is the agent's and not reviewed - say to open it in the IDE's safe mode,
   # and never to build or test it outside a container.
-  fetch: string
+  fetch: string,
+  # Whether the upstream already has this work: somebody pushed it there by hand, past the gate, as the last
+  # measurement of the upstream found. Reject refuses it without 'force'. Absent from a daemon before this field.
+  alreadyUpstream: ?bool
 )
 
 # One file a pending push changes, as a person should meet it in a review.
@@ -157,8 +160,13 @@ error BundleTooLarge(bytes: int, limit: int)
 # The task the work came from is told in its inbox, with the person's words when 'reason' gives them - an
 # agent whose work silently vanished hands it over again. 'told' is false when no task of that name has a
 # mailbox here any more.
-method Reject(project: string, upstream: ?string, repository: ?string, name: string, reason: ?string)
+# 'force' discards a push the upstream already has (PendingPush.alreadyUpstream); without it such a push is
+# refused with AlreadyUpstream and nothing is discarded.
+method Reject(project: string, upstream: ?string, repository: ?string, name: string, reason: ?string, force: ?bool)
     -> (rejected: string, told: bool)
+
+# Reject was asked to discard a push the upstream already has, and was not given 'force': nothing was discarded.
+error AlreadyUpstream(name: string)
 
 # Approve was given the commit the person reviewed, and the push has moved since: nothing was
 # forwarded. Review it again (now is what it holds) and approve that.

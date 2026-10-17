@@ -302,7 +302,7 @@ Nothing an agent pushes reaches a real upstream without passing here.
 | `porelo gate review NAME` | Shows what a pending push would change. |
 | `porelo gate checkout NAME` | Opens waiting work as a read copy. It can only go back to the gate. |
 | `porelo gate approve NAME [--commit=ID] [--signed]` | Forwards a push. `--commit` names the commit you reviewed and refuses if the push moved since. `--signed` merges it as a commit signed with your own git key. |
-| `porelo gate reject NAME [--reason]` | Discards a push and tells the task. `--reason` reads why from standard input. |
+| `porelo gate reject NAME [--reason] [--force]` | Discards a push and tells the task. `--reason` reads why from standard input. A push somebody pushed upstream by hand, which `gate pending` marks "already upstream", is refused without `--force`, since discarding it would record the opposite of what happened. |
 | `porelo gate protect` | Installs a pre-push hook that catches unapproved agent work. |
 | `porelo gate check` | The check that hook runs. |
 | `porelo gate backup` | Writes the mirror to a verifiable bundle file. |

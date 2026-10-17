@@ -28,6 +28,10 @@ import picocli.CommandLine.Spec;
         description = "Lists what the agent pushed and how long it has been waiting.")
 public class GatePendingCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
+    /** Beside a push the upstream already has: it was pushed there by hand, so rejecting it needs --force. */
+    static final String ALREADY_UPSTREAM = "   <- already upstream, pushed past the gate; 'gate reject --force' clears it";
+
+
     @Option(names = { "-p", "--project" }, paramLabel = "<name>",
             description = "Project name, as 'porelo project list' prints it. Without it: what waits in every project.")
     private @org.jspecify.annotations.Nullable String projectName;
@@ -86,6 +90,8 @@ public class GatePendingCommand implements Callable<Integer>, PoreloFactory.Cont
 
             final String seededFrom = gate.seededFrom();
 
+            final java.util.Set<String> upstreamHas = GateSupport.alreadyUpstream(context, project,
+                    GateSupport.repository(project, repository));
             final List<PendingPush> pending = gate.pendingDetail();
             if (pending.isEmpty()) {
                 out.println("nothing pending in " + gate.mirror());
@@ -102,9 +108,10 @@ public class GatePendingCommand implements Callable<Integer>, PoreloFactory.Cont
             out.println("seeded    " + (seededFrom == null ? "nothing" : seededFrom));
             out.printf("%-20s %-10s %-10s %s%n", "NAME", "WAITING", "COMMIT", "SUBJECT");
             for (final PendingPush push : pending) {
-                out.printf("%-20s %-10s %-10s %s%s%n", push.name(), push.lagText(now),
+                out.printf("%-20s %-10s %-10s %s%s%s%n", push.name(), push.lagText(now),
                         push.commit(), TalkReadCommand.shown(push.subject()),
-                        push.isStale(now, stale) ? "   <- waiting over " + staleAfterHours + "h" : "");
+                        push.isStale(now, stale) ? "   <- waiting over " + staleAfterHours + "h" : "",
+                        upstreamHas.contains(push.name()) ? ALREADY_UPSTREAM : "");
                 fetches.add(WaitingFetch.of(gate.mirror(), push.name()));
             }
             fetchesTo(out);
@@ -143,12 +150,14 @@ public class GatePendingCommand implements Callable<Integer>, PoreloFactory.Cont
                 // Never made: nothing can wait in it, and asking must not make it.
                 continue;
             }
+            final java.util.Set<String> upstreamHas = GateSupport.alreadyUpstream(context, project, each);
             for (final PendingPush push : gate.pendingDetail()) {
                 fetches.add(WaitingFetch.of(gate.mirror(), push.name()));
                 rows.add((named ? String.format("%-20s ", project.name()) : "")
                         + String.format("%-20s %-20s %-10s %-10s %s%s", name, push.name(), push.lagText(now),
                                 push.commit(), TalkReadCommand.shown(push.subject()), push.isStale(now, stale)
-                                        ? "   <- waiting over " + staleAfterHours + "h" : ""));
+                                        ? "   <- waiting over " + staleAfterHours + "h" : "")
+                        + (upstreamHas.contains(push.name()) ? ALREADY_UPSTREAM : ""));
             }
         }
         return rows;

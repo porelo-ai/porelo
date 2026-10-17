@@ -1855,6 +1855,65 @@ class PoreloDaemonTest {
     }
 
     @Test
+    void workTheUpstreamAlreadyHasIsMarkedAndRejectedOnlyWithForce(@TempDir Path dir) throws Exception {
+
+        // The interface rejects through the daemon: a push somebody made upstream by hand was discarded there and
+        // recorded as discarded, the opposite of what happened, and the pending list never said it was upstream.
+        final Path origin = dir.resolve("origin.git");
+        git(dir, "init", "-q", "--bare", "-b", "main", origin.toString());
+        record(dir, Files.writeString(dir.resolve("project.yml"), """
+                project:
+                  name: "uc"
+                  security_class: "guarded"
+                  upstream: "%s"
+                image:
+                  base_image: "ubuntu:24.04"
+                """.formatted(origin)));
+        final Path upstreamRecords = Files.createDirectories(dir.resolve("data/porelo/upstream"));
+        Files.writeString(upstreamRecords.resolve(PROJECT), "MEASURED\t0\t" + java.time.Instant.now() + "\t\twriter\n");
+
+        serving(dir, socket -> {
+            try (VarlinkClient client = new VarlinkClient(socket)) {
+                final Path mirror = Path.of(String.valueOf(client.call(PoreloDaemon.INTERFACE + ".Pending",
+                        Map.of("project", PROJECT)).get("mirror")));
+                final Path work = dir.resolve("work");
+                git(dir, "init", "-q", "-b", "main", work.toString());
+                git(work, "-c", "user.email=t@example.com", "-c", "user.name=T", "commit", "-q", "--allow-empty",
+                        "-m", "pushed by hand");
+                git(work, "push", "-q", mirror.toString(), "HEAD:refs/porelo/incoming/writer");
+
+                assertThat((List<?>) client.call(PoreloDaemon.INTERFACE + ".Pending", Map.of("project", PROJECT))
+                        .get("pending")).singleElement().satisfies(push -> {
+                            final Map<?, ?> row = (Map<?, ?>) push;
+                            assertThat(row.get("name")).isEqualTo("writer");
+                            assertThat(row.get("alreadyUpstream")).as("marked as upstream already").isEqualTo(true);
+                        });
+
+                assertThatThrownBy(() -> client.call(PoreloDaemon.INTERFACE + ".Reject",
+                        Map.of("project", PROJECT, "name", "writer")))
+                        .isInstanceOfSatisfying(VarlinkException.class, refused -> assertThat(refused.getErrorName())
+                                .isEqualTo(PoreloDaemon.INTERFACE + ".AlreadyUpstream"));
+                assertThat(git(mirror, "for-each-ref", "refs/porelo/incoming/")).as("nothing was discarded")
+                        .contains("writer");
+
+                assertThat(client.call(PoreloDaemon.INTERFACE + ".Reject",
+                        Map.of("project", PROJECT, "name", "writer", "force", true)))
+                        .containsEntry("rejected", "writer");
+                assertThat(git(mirror, "for-each-ref", "refs/porelo/incoming/")).doesNotContain("writer");
+            }
+        });
+    }
+
+    private static String git(final Path in, final String... arguments) {
+        final List<String> command = new java.util.ArrayList<>(List.of("git", "-C", in.toString()));
+        command.addAll(List.of(arguments));
+        final org.fuin.porelo.core.process.CommandResult result = new org.fuin.porelo.core.process.ProcessCommandRunner()
+                .run(org.fuin.porelo.core.process.Command.of(command));
+        assertThat(result.successful()).as(String.join(" ", command) + ": " + result.standardError()).isTrue();
+        return result.standardOutput().strip();
+    }
+
+    @Test
     void deletingSomethingNoRecordNamesIsRefusedRatherThanGuessed(@TempDir Path dir)
             throws Exception {
 

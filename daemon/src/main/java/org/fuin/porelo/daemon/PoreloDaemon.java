@@ -223,6 +223,19 @@ public final class PoreloDaemon {
      * @param parameters The call's parameters.
      * @return The gate, initialized.
      */
+    /**
+     * Returns the pushes waiting at the gate the parameters name that the upstream already has, by name.
+     *
+     * @param parameters The call's parameters: project, repository.
+     * @param context The machine.
+     * @return Their names.
+     */
+    static java.util.Set<String> alreadyUpstream(Map<String, Object> parameters, PoreloContext context) {
+        final Project project = GateSupport.project(projectFile(parameters, context));
+        return GateSupport.alreadyUpstream(context, project,
+                GateSupport.repository(project, text(parameters, "repository")));
+    }
+
     static GitGate gate(Map<String, Object> parameters, PoreloContext context) {
         final Project project = GateSupport.project(projectFile(parameters, context));
         final String upstream = address(parameters, "upstream");

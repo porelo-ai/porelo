@@ -1,7 +1,7 @@
 # B13 — Unreviewed Work Leaving By The Side Door
 
 **Status:** Implementing.
-**Size:** M - the guard and `gate checkout` are on main; left: the already-upstream mark read in pending and reject, an optional field and `force` in `Tasks1`, and the hand-push scenario.
+**Size:** M - the guard, `gate checkout` and the already-upstream mark read in pending and reject are built; left: the hand-push scenario.
 
 **What must be true.** A person who carries an agent's unreviewed work to the upstream by hand hears about it at the
 moment they push, and the gate never records that work as something it is not.
@@ -280,8 +280,13 @@ is product code in `app-gate`, `app-model` and the daemon, and a change to `Task
 
 Steps:
 
-0. `gate pending` and the daemon's pending list read `UpstreamRecords` and mark a push already upstream; `gate reject`
-   and `Reject` refuse such a push without `--force` / `force`, naming it, red first in `app-gate`'s unit tests.
+0. **Built, 2026-10-17:** `gate pending` and the daemon's `Pending` read `UpstreamRecords` (`GateSupport.alreadyUpstream`)
+   and mark a push already upstream - the line says "already upstream", `PendingPush.alreadyUpstream` is true. `gate
+   reject` refuses such a push without `--force` (exit 1, naming it), and the daemon's `Reject` without `force`
+   answers `AlreadyUpstream`; nothing is discarded. `Tasks1` gains the optional field, the optional `force` and the
+   error, nothing removed. Red first: `GateRejectCommandTest` and
+   `PoreloDaemonTest.workTheUpstreamAlreadyHasIsMarkedAndRejectedOnlyWithForce`, the second seen red again with the
+   daemon's check undone.
 1. A scenario in `acceptance/suite/.../gate/gate-review.feature`, red first: a guarded project's task pushes, the
    incoming ref is pushed to the upstream's default branch by hand with plain git, the daemon's `SyncUpstream`
    measures it (`UpstreamSync`), then `gate pending` shows the push marked as already upstream, and `gate reject`

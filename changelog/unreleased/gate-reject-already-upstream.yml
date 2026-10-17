@@ -1,0 +1,2 @@
+title: 'gate pending' marks a push the upstream already has, pushed there by hand, and 'gate reject' and the daemon''s Reject refuse to discard it without --force, where they discarded it and recorded it as discarded
+type: fixed
