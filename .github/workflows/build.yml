@@ -122,7 +122,7 @@ jobs:
           PORELO_CI_LEG: ${{ matrix.os }}
         run: |
           ./mvnw -B -q -U -s settings.xml -pl acceptance/legs compile exec:exec@legs \
-              -Dlegs.args="leg --os ${{ matrix.os }} --repo . --acceptance --accounts 4 ${{ matrix.os == 'ubuntu' && '--fetch binaries' || '' }}"
+              -Dlegs.args="leg --os ${{ matrix.os }} --repo . --acceptance --accounts 4 ${{ matrix.os == 'ubuntu' && '--fetch binaries' || '' }} ${{ vars.LEG_TYPES && format('--type {0}', vars.LEG_TYPES) || '' }}"
 
       # Only the ubuntu leg: a native image links glibc, so one built on Fedora will not start here.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
