@@ -1,6 +1,6 @@
 # B120 — A Wake Waits For Rest That Holds
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - `AgentWake` in `app-messaging`, `Podman.enter` and their unit tests; no contract.
 
 **What must be true.** Porelo types its wake line into a task's session only when the agent's declared `at_rest` has
@@ -61,6 +61,10 @@ Built and on `origin/main` (`3f678c27`): `AgentWake.wake` and `rests`
 (`apps/app-messaging/src/main/java/org/fuin/porelo/app/AgentWake.java`), `Podman.enter`, `WakeLandsTest` and
 `AgentWakeTest`. What is left is no code here:
 
-- The wake scenarios of the agent repositories, on both legs, against a `porelo` snapshot that holds `3f678c27`. A red
-  one there is read for whether `LOOK` is too short for that agent's work line, before anything else changes.
+- The wake scenarios of the agent repositories, on both legs, against a `porelo` that holds `3f678c27`: **done**.
+  `3f678c27` is in porelo `v0.5.0`, and the three agents' `v0.5.0` Builds ran every `wake.feature` scenario green,
+  every step passed and none skipped, on ubuntu and on fedora: porelo-claude-code 39024738019 (`:16`, `:73`),
+  porelo-pi 39024744809 (`:17`), porelo-omp 39027123806 (`:18`, `:68`), read from each leg's log (2026-10-17).
+  Claude Code's ubuntu leg failed once on its first attempt, inside `:16`, where the model said it had no shell tool
+  and never read the message - not a wake that came too soon; the re-run of that job passed it.
 - [B118](README.md#b118) takes its rest by this rule; the test of `rests` moves into `app-model` then, and `AgentWake` calls it there.

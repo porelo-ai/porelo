@@ -16,11 +16,16 @@ is not counted.
 **Blocked by** names the issue that has to land first. An issue in another repository that waits for a row here says so
 from its side, as *blocked by*.
 
+## Review
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="b120"></a>[B120](B120-A-Wake-Waits-For-Rest-That-Holds.md) | S | - | Two looks at the screen 1.5 s apart before a wake is typed, Enter once more for a line left standing; the agent repositories' wake scenarios green on both legs with `v0.5.0`. |
+
 ## Implementing
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b120"></a>[B120](B120-A-Wake-Waits-For-Rest-That-Holds.md) | S | - | The two-look wake and the second Enter are on `main`; left: the agent repositories' wake scenarios on both legs. |
 | <a id="b158"></a>[B158](B158-A-Refusal-That-Knows-The-Next-Command-Offers-It.md) | M | - | A refusal offers its remedy command; built for vault login, a start's credential refusals and resume's shut vault; a resume test is left. |
 | <a id="b137"></a>[B137](B137-An-Offline-Project-Never-Connects.md) | S | - | An offline project never connects; left: an acceptance round trip that follows a bundle, restores, backs up and refuses a `file://` follow. |
 | <a id="b102"></a>[B102](B102-A-Vault-Cleared-In-One-Step.md) | S | - | `vault clear` is on `main`; left: a scenario in `vault-commands.feature` and the walk with a homeserver on a rented machine. |
