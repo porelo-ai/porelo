@@ -398,6 +398,14 @@ public final class TaskInventory {
      */
     public static final String RESTARTED = "the machine restarted; starting it brings it back whole";
 
+    /**
+     * What an unattended task the machine's restart took down says beside {@code RESUME} instead of {@link #RESTARTED}:
+     * a run nobody watches is never started again on its own, so it stays stopped, and its next start continues
+     * its conversation.
+     */
+    public static final String INTERRUPTED = "the machine's restart interrupted its run; it stays stopped with its"
+            + " session kept, and its next start continues it";
+
     private final PoreloContext context;
 
     private final @Nullable AgentWaiting agentWaiting;
@@ -609,7 +617,8 @@ public final class TaskInventory {
                 restartTookIt ? (needsLockedVault(summary.name()) ? "NEEDS_VAULT" : "RESUME")
                         : !summary.running() && !Files.isDirectory(state) ? "PREDATES_RESTART"
                         : summary.running() ? "RUNNING" : "RESUME",
-                restartTookIt ? RESTARTED
+                restartTookIt ? (profile != null && profile.mode() == org.fuin.porelo.wire.TaskMode.UNATTENDED
+                        ? INTERRUPTED : RESTARTED)
                         : !summary.running() && !Files.isDirectory(state)
                         ? "started before this machine restarted; copy the workspace out with"
                                 + " 'podman cp " + summary.name() + ":/workspace ./recovered',"

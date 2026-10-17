@@ -190,7 +190,9 @@ type Task (
   # Which refusal, when startAction is one: the StartOutcome value for NOT_READY, the task a
   # SUPERSEDED_NAME belonged to, free text otherwise. For RESUME, "" - or, for a task the
   # machine's restart took down, "the machine restarted; starting it brings it back whole", so an
-  # interface can say why it is down without reading a boot log. "" otherwise.
+  # interface can say why it is down without reading a boot log. For one started with a prompt and left
+  # to run, "the machine's restart interrupted its run; it stays stopped with its session kept, and its
+  # next start continues it": nothing starts it on its own. "" otherwise.
   startDetail: string,
   # What this task is doing that takes minutes and has no other visible sign, such as "building".
   # "" when it is in none.

@@ -85,6 +85,14 @@ public class TaskListCommand implements Callable<Integer>, PoreloFactory.Context
             out.println("down because the machine restarted: " + String.join(", ", restarted));
             out.println("'porelo task start --restarted' brings them all back, each whole or not at all");
         }
+        // Runs nobody watches are never brought back on their own, so they are not offered with those above.
+        final List<String> interrupted = tasks.stream()
+                .filter(task -> TaskInventory.INTERRUPTED.equals(task.startDetail())).map(TaskInventory.Task::name).toList();
+        if (!interrupted.isEmpty()) {
+            out.println();
+            out.println("interrupted by the machine's restart, staying stopped: " + String.join(", ", interrupted));
+            out.println("each keeps its session, and its next 'porelo task start' with a prompt continues it");
+        }
         out.flush();
         return 0;
     }

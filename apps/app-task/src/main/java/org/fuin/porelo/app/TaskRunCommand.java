@@ -151,7 +151,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
 
     @Option(names = "--restarted",
             description = "Brings back every task the machine took down when it restarted, each whole or not at"
-                    + " all, without naming them.")
+                    + " all, without naming them; a task started with a prompt stays stopped, its session kept.")
     private boolean restarted;
 
     @Spec
@@ -559,12 +559,22 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             err.flush();
             return 64;
         }
-        final java.util.List<TaskInventory.Task> down = new TaskInventory(context).tasks().stream()
-                .filter(each -> TaskInventory.RESTARTED.equals(each.startDetail())
-                        || "NEEDS_VAULT".equals(each.startAction()))
-                .toList();
+        final java.util.List<TaskInventory.Task> tasks = new TaskInventory(context).tasks();
+        final java.util.List<TaskInventory.Task> down = tasks.stream()
+                .filter(each -> TaskInventory.RESTARTED.equals(each.startDetail())).toList();
+        // A run nobody watches is not started on its own: it stays stopped, and its next start continues it.
+        final java.util.List<TaskInventory.Task> interrupted = tasks.stream()
+                .filter(each -> TaskInventory.INTERRUPTED.equals(each.startDetail())).toList();
+        for (final TaskInventory.Task each : interrupted) {
+            out.println("stays     " + each.name() + ": its run was interrupted by the restart; its session is kept,"
+                    + " and 'porelo task start " + (each.project() == null ? each.name()
+                            : org.fuin.porelo.runtime.ContainerName.taskIn(each.project(), each.name())
+                                    + " --project " + each.project()) + " --prompt ...' continues it");
+        }
         if (down.isEmpty()) {
-            out.println("no task is down because the machine restarted");
+            if (interrupted.isEmpty()) {
+                out.println("no task is down because the machine restarted");
+            }
             out.flush();
             return 0;
         }

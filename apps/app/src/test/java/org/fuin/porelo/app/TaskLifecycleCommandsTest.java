@@ -106,10 +106,52 @@ class TaskLifecycleCommandsTest {
 
     /** What a restart leaves: the runtime directory gone, the task's knowledge saved where a reboot does not reach. */
     private void takenDownByARestart(Path dir, String container) throws IOException {
+        takenDownByARestart(dir, container, org.fuin.porelo.wire.TaskMode.AGENT, null);
+    }
+
+    private void takenDownByARestart(Path dir, String container, org.fuin.porelo.wire.TaskMode mode,
+            @org.jspecify.annotations.Nullable String prompt) throws IOException {
         final Path saved = dir.resolve("state/porelo/tasks").resolve(container);
         Files.createDirectories(saved);
         new org.fuin.porelo.wire.TaskProfile(org.fuin.porelo.wire.TaskProfile.VERSION, "example",
-                org.fuin.porelo.wire.TaskMode.AGENT, null, null, "2026-10-01T06:00:00Z", "deny").writeTo(saved);
+                mode, prompt, null, "2026-10-01T06:00:00Z", "deny").writeTo(saved);
+    }
+
+    @Test
+    void anUnattendedTaskTheRestartInterruptedIsNotStartedAgainAndKeepsItsSession(@TempDir Path dir)
+            throws IOException {
+
+        // A run nobody watches must not start again on its own after a reboot, and the conversation its next
+        // start continues must not be lost on the way.
+        final PoreloContext context = context(dir);
+        runner.answering("ps", "porelo-uc-talk\tExited (143)\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
+        takenDownByARestart(dir, "porelo-uc-talk", org.fuin.porelo.wire.TaskMode.UNATTENDED, "hello");
+        new TaskSession(context).record("porelo-uc-talk", "s-1");
+
+        assertThat(execute(context, "task", "start", "--restarted")).as("nothing failed: nothing was started").isZero();
+
+        assertThat(out.toString()).as("what --restarted said").doesNotContain("back  porelo-uc-talk")
+                .doesNotContain("back      porelo-uc-talk")
+                .contains("stays     porelo-uc-talk: its run was interrupted by the restart; its session is kept");
+        assertThat(runner.lines()).as("what was run").noneMatch(line -> line.contains(" start "));
+        assertThat(new TaskSession(context).recorded("porelo-uc-talk")).as("its session").contains("s-1");
+    }
+
+    @Test
+    void theListDoesNotOfferToBringBackAnUnattendedTaskTheRestartInterrupted(@TempDir Path dir) throws IOException {
+
+        // Listed under the line that says '--restarted' brings it back, a person waits for a run that never comes.
+        final PoreloContext context = context(dir);
+        runner.answering("ps", "porelo-uc-talk\tExited (143)\t1700000000\t1700000100\tuc\tguarded\tuc\t\n"
+                + "porelo-uc-work\tExited (143)\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
+        takenDownByARestart(dir, "porelo-uc-talk", org.fuin.porelo.wire.TaskMode.UNATTENDED, "hello");
+        takenDownByARestart(dir, "porelo-uc-work");
+
+        assertThat(execute(context, "task", "list")).isZero();
+
+        assertThat(out.toString()).as("what the list said")
+                .contains("down because the machine restarted: porelo-uc-work\n")
+                .contains("interrupted by the machine's restart, staying stopped: porelo-uc-talk\n");
     }
 
     @Test

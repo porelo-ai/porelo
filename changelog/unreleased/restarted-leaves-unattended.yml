@@ -1,0 +1,2 @@
+title: After a reboot, a task started with a prompt and left to run stays stopped with its session kept, listed as interrupted by the restart, and its next start continues the conversation, where 'porelo task start --restarted' started it again with nobody watching
+type: changed

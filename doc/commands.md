@@ -132,9 +132,11 @@ takes `porelo approve TASK`; `--yes` answers for a script.
   before the task is named after it. `--no-input` asks nothing and refuses as without a terminal; `--yes`
   takes a harmless remedy without asking and never a trust decision.
 - After a reboot, `task list` shows which tasks went down and `porelo task start --restarted` brings
-  them all back. Nothing comes back by itself. The first start after a reboot needs the vault open,
-  even for a task with no credential of its own, because the task's gate token is kept there; at a
-  terminal it asks for the passphrase.
+  them all back. Nothing comes back by itself. A task started with a prompt and left to run is not among
+  them: it stays stopped, listed as interrupted by the restart, with its session kept, and its next
+  `porelo task start` with a prompt continues the conversation. The first start after a reboot needs
+  the vault open, even for a task with no credential of its own, because the task's gate token is kept
+  there; at a terminal it asks for the passphrase.
 - A task whose agent names its sessions continues the conversation it was having, after a stop or a
   reboot alike, and the start says whether it continued or began fresh. An agent that names no
   session, or a continuation that failed, begins fresh and says so; nothing runs twice unasked.

@@ -75,7 +75,7 @@ container, the workspace and any work that never reached the gate. `porelo task 
 brings it back. Only `porelo task remove` destroys anything, and it refuses while work has not
 reached the gate unless you say what to do with it. `--rm` at start throws the container away when
 you leave. After a reboot nothing comes back by itself: `porelo task start --restarted` brings back
-what went down. Where its agent can name the session, a task that comes back continues the
+what went down, except a run nobody watches, which stays stopped until it is started again. Where its agent can name the session, a task that comes back continues the
 conversation it was having, not only the files; `porelo task remove` forgets it with everything else the
 task owns. See [commands](commands.md#task).
 
