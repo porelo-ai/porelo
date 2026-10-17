@@ -270,6 +270,23 @@ class StubAgentTest {
     }
 
     @Test
+    void aCopyUnderTheSessionlessNameDeclaresNoSessionIdAndTheStubKeepsItsOwn() {
+
+        // The copy is how a suite proves an agent that cannot continue starts fresh and says so; still declaring an
+        // id, it would continue and the proof would be of nothing - and the stub itself losing its id would turn
+        // every continuation the suite proves into a fresh session.
+        final AgentDefinition plain = StubAgent.forExecutable("porelo-agent-stub").definition();
+        final AgentDefinition sessionless = StubAgent.forExecutable(StubAgent.SESSIONLESS).definition();
+
+        assertThat(plain.sessionIds()).as("the stub's own session id").isNotNull();
+        assertThat(plain.name()).isEqualTo("stub");
+        assertThat(sessionless.sessionIds()).as("the copy's session id").isNull();
+        assertThat(sessionless.name()).as("the copy's name, apart from the stub's").isEqualTo("stub-sessionless");
+        assertThat(sessionless.installAsRoot()).as("the copy installs the same tool").isEqualTo(plain.installAsRoot());
+        assertThat(sessionless.supportsResume()).as("only the id is missing").isEqualTo(plain.supportsResume());
+    }
+
+    @Test
     void reportsTheVersionItsDefinitionPins() throws Exception {
         final String version = agent.definition().version();
 

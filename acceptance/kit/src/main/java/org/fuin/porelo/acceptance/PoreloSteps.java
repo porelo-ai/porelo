@@ -48,7 +48,26 @@ public class PoreloSteps {
      */
     @Given("a vault of this scenario's own, unlocked with the passphrase {string}")
     public void aVaultOfItsOwn(String passphrase) throws IOException {
-        final Ssh.Output made = world.machine().run("mktemp -d");
+        aVaultIn("mktemp -d", passphrase);
+    }
+
+    /**
+     * Gives the scenario a vault of its own that the machine's restart keeps, and unlocks it.
+     * <p>
+     * In the account's home rather than the temporary directory, which a reboot may empty: a task's own tokens are
+     * kept in the vault, and a scenario that reboots proves a task coming back with them. Removed after the scenario
+     * like the other.
+     *
+     * @param passphrase The passphrase the new vault is made with, without whitespace.
+     * @throws IOException If the machine cannot be reached.
+     */
+    @Given("a vault of this scenario's own that a restart keeps, unlocked with the passphrase {string}")
+    public void aVaultARestartKeeps(String passphrase) throws IOException {
+        aVaultIn("mktemp -d \"$HOME/.porelo-acceptance-vault.XXXXXX\"", passphrase);
+    }
+
+    private void aVaultIn(String makeDirectory, String passphrase) throws IOException {
+        final Ssh.Output made = world.machine().run(makeDirectory);
         assertThat(made.status()).as("could not make a directory for the scenario's vault:%n%s", made.all()).isZero();
         world.vault(made.out().strip() + "/vault.bin");
         // Made by 'vault init', typed twice at the prompt as a person does: an unlock only caches a

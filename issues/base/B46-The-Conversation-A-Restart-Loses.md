@@ -1,8 +1,7 @@
 # B46 — The Conversation A Restart Loses
 
 **Status:** Implementing.
-**Size:** M - the mechanism is built; left are a scenario with a real reboot on a rented machine, a change to the stub,
-and how `--restarted` treats an unattended task.
+**Size:** M - everything is built; left is the scenario with a real reboot, run on a rented machine.
 
 **What must be true.** After a real reboot, a task continues the conversation its agent was having - in an
 unattended run and in a task somebody drove at a terminal - and a task whose conversation cannot continue says so
@@ -29,25 +28,31 @@ Built and on main:
   `task-reboot-reproduced.feature` reproduces what a reboot leaves; `task-restart.feature` (`@restart`) reboots, but
   with a shell task, and continues no conversation.
 
-Left, in order:
+Built, not yet on main:
 
-1. Red first: a new `@restart` feature beside `task-restart.feature`, with a vault of its own whose tokens are kept.
-   An unattended task and an attached task on the stub; the machine reboots; `porelo task start --restarted`; each
-   is asked for something only its earlier turn holds. It fails today, because the stub has nothing to remember.
-2. The stub (`agents/stub/src/main/resources/agent/stub.yaml`) remembers a word: the first run writes it into its
-   session file under `.porelo-stub-sessions`, and a resumed run prints it back. Today `stub: continued` is printed
-   for any `--resume`, which a fresh session handed a stale id would print too.
-3. In the same feature, an agent definition without `session_id`, staged by the scenario, reports a fresh session
-   after the reboot.
-4. It runs on a rented machine only, never on the shared VM.
-5. `--restarted` (`TaskRunCommand.restarted`) leaves out a task whose recorded mode is `UNATTENDED`: it does not
-   start it, and says it stays stopped, interrupted by the restart, with its session kept. `TaskInventory` gives
-   such a task a start detail of its own, not `RESTARTED` ("brings it back whole"), so `task list` names it under
-   its own line as interrupted by the restart, and never as running. `TaskSession` keeps its id; nothing removes
-   it. The next `porelo task start NAME` continues the conversation through the `record` and `key` route of
-   `SessionIds`, and says `session continuing <id>`. In the feature of step 1 the unattended task is asserted that
-   way: stopped and shown as interrupted after `--restarted`, then asked at its next start for what only its
-   earlier turn holds.
+- The stub (`stub.yaml`) keeps its session's first prompt, or the first line typed in it, in its session file under
+  `.porelo-stub-sessions`, and a continued session says it back: `stub: continued, remembering <word>` unattended,
+  `stub: continuing <id>, remembering <word>` attached. An id with no file is a fresh session, said as one
+  (`stub: no session <id> to continue`), where any `--resume` printed `stub: continued` before. `StubAgentTest`
+  runs the installed script both ways and with a stale id. `agent-session.feature` reads the new words.
+- A copy of the stub binary installed as `porelo-agent-stub-sessionless` is the agent `stub-sessionless`: the same
+  definition without `session_id` (`StubAgent.forExecutable`, by the binary's own file name).
+- `--restarted` leaves out a task whose recorded mode is `UNATTENDED`: `TaskInventory` gives it the start detail
+  `INTERRUPTED`, not `RESTARTED`; `--restarted` says `stays <name>: its run was interrupted by the restart; its
+  session is kept` and starts nothing; `task list` names it under `interrupted by the machine's restart, staying
+  stopped`, not under the line `--restarted` brings back. Its session record is untouched, so its next start
+  continues it. The contract's comment on `startDetail` names the new text (comment only).
+- The kit gains the step `a vault of this scenario's own that a restart keeps`, in the home directory.
+- `task/task-restart-conversation.feature` (`@slow @restart`): an unattended task given `lantern`, an attached one
+  typed `compass`, and an unattended run of `stub-sessionless`; the machine reboots; `--restarted` brings back only
+  the attached one; the unattended one is stopped, listed as interrupted, its session kept; attaching shows
+  `remembering compass`; the unattended one's next start says `session continuing` and `remembering lantern`; the
+  sessionless one starts fresh and says so.
+
+Left:
+
+- That scenario runs on a rented machine only, never on the shared VM. It has passed a Cucumber dry run (every step
+  defined); it has not run.
 
 ## Acceptance
 

@@ -1,7 +1,10 @@
 package org.fuin.porelo.agent.impl.stub;
 
+import org.fuin.porelo.agent.api.Agent;
+import org.fuin.porelo.agent.api.AgentDefinition;
+import org.fuin.porelo.agent.api.AgentDefinitionReader;
+import org.fuin.porelo.agent.api.AgentException;
 import org.fuin.porelo.agent.api.AgentMain;
-import org.fuin.porelo.agent.api.YamlAgent;
 
 /**
  * The agent the acceptance suite drives.
@@ -22,16 +25,46 @@ import org.fuin.porelo.agent.api.YamlAgent;
  * this agent needed behavior Porelo could not express as data, the suite would be testing the exception
  * rather than the rule.
  */
-public final class StubAgent extends YamlAgent {
+public final class StubAgent implements Agent {
 
     /** Where {@code stub.yaml} writes the tool; {@code binary} in the definition names it. */
     static final String TARGET = "/usr/local/bin/porelo-stub-cli";
 
     /**
+     * The file name a copy of this binary is installed under to be an agent that declares no session id - the same
+     * stub otherwise - so a suite can prove what Porelo says of an agent that cannot continue a conversation.
+     */
+    static final String SESSIONLESS = "porelo-agent-stub-sessionless";
+
+    /** The name that copy's agent has. */
+    static final String SESSIONLESS_NAME = "stub-sessionless";
+
+    private static final String RESOURCE = "/agent/stub.yaml";
+
+    private final AgentDefinition definition;
+
+    /**
      * Constructor.
      */
     public StubAgent() {
-        super("stub");
+        this(false);
+    }
+
+    private StubAgent(final boolean sessionless) {
+        this.definition = sessionless ? sessionless() : AgentDefinitionReader.fromResource(StubAgent.class, RESOURCE);
+        if (!definition.name().equals(sessionless ? SESSIONLESS_NAME : "stub")) {
+            throw new AgentException("the stub's definition names itself '" + definition.name() + "'");
+        }
+    }
+
+    /**
+     * Returns the agent a binary of this file name is.
+     *
+     * @param fileName The binary's own file name.
+     * @return The stub, or the stub that declares no session id under {@link #SESSIONLESS}.
+     */
+    static StubAgent forExecutable(final String fileName) {
+        return new StubAgent(SESSIONLESS.equals(fileName));
     }
 
     /**
@@ -40,7 +73,82 @@ public final class StubAgent extends YamlAgent {
      * @param args Command line arguments.
      */
     public static void main(String[] args) {
-        AgentMain.run(new StubAgent(), args);
+        AgentMain.run(forExecutable(executableName()), args);
+    }
+
+    /** The running binary's own file name: a copy is a file of its own, so its name is not the original's. */
+    private static String executableName() {
+        try {
+            return java.nio.file.Path.of("/proc/self/exe").toRealPath().getFileName().toString();
+        } catch (java.io.IOException ex) {
+            throw new AgentException("cannot read which binary runs: " + ex.getMessage(), ex);
+        }
+    }
+
+    @Override
+    public AgentDefinition definition() {
+        return definition;
+    }
+
+    @Override
+    public String toString() {
+        return definition.name();
+    }
+
+    /**
+     * Reads the stub's definition without its session id, and under its own name.
+     * <p>
+     * From the one file rather than a second copy of it, which would drift from the script it installs.
+     */
+    private static AgentDefinition sessionless() {
+        final String yaml;
+        try (java.io.InputStream in = StubAgent.class.getResourceAsStream(RESOURCE)) {
+            if (in == null) {
+                throw new AgentException("No agent definition at " + RESOURCE);
+            }
+            yaml = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (java.io.IOException ex) {
+            throw new AgentException("Cannot read " + RESOURCE, ex);
+        }
+        final String without = withoutSessionIds(yaml);
+        return AgentDefinitionReader.read(new java.io.StringReader(without), RESOURCE + " without session_id");
+    }
+
+    /**
+     * Drops {@code session.session_id} and renames the agent, refusing a definition whose shape no longer has them
+     * where this looks.
+     *
+     * @param yaml The stub's definition.
+     * @return The same definition without its session id, named {@link #SESSIONLESS_NAME}.
+     */
+    static String withoutSessionIds(final String yaml) {
+        final StringBuilder kept = new StringBuilder();
+        boolean inIds = false;
+        boolean dropped = false;
+        boolean renamed = false;
+        for (final String line : yaml.split("\n", -1)) {
+            if (line.equals("  session_id:")) {
+                inIds = true;
+                dropped = true;
+                continue;
+            }
+            if (inIds && line.startsWith("    ")) {
+                continue;
+            }
+            inIds = false;
+            if (line.equals("name: stub")) {
+                kept.append("name: ").append(SESSIONLESS_NAME).append('\n');
+                renamed = true;
+            } else if (line.startsWith("label: ")) {
+                kept.append("label: Stub Agent without session ids\n");
+            } else {
+                kept.append(line).append('\n');
+            }
+        }
+        if (!dropped || !renamed) {
+            throw new AgentException("the stub's definition has no 'session_id' block or 'name: stub' line to change");
+        }
+        return kept.toString();
     }
 
     /**
