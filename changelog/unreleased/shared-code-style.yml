@@ -1,0 +1,2 @@
+title: The code follows the shared code style, which validate checks - google-java-format in its AOSP style, shfmt for shell scripts, four spaces for YAML and Gherkin - and the reformatting commit is left out of git blame
+type: changed
