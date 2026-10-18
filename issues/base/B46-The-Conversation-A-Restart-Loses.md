@@ -64,8 +64,6 @@ Built, not yet on main:
 Left:
 
 - The scenario green on both of porelo's rented legs in the Build, after phase 0's push.
-- To decide, not blocking: whether `task start` on a running task whose agent has gone should start the agent again,
-  instead of pointing to `task attach`.
 
 ## Acceptance
 
