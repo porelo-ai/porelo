@@ -68,6 +68,7 @@ would change the answer.
 | Porelo does not replace a stored key at its provider | no `vault rotate`; per-provider code is what the split between agents and providers avoids | [entry](#porelo-does-not-replace-a-stored-key-at-its-provider) |
 | A task's own tokens are kept in the vault | gate and phantom token under `task/<container>/`; a start after a reboot needs the vault | [entry](#a-tasks-own-tokens-are-kept-in-the-vault) |
 | Clearing the vault is `clear`, not `delete` | `vault clear` lists, then acts on `--yes`, like the other clears; `remove` is for one entry | [entry](#clearing-the-vault-is-clear-not-delete) |
+| A vault `PORELO_VAULT` names clears only itself | its clear leaves the account's transport state and own homeserver, and lists nothing for them | [entry](#a-vault-porelo_vault-names-clears-only-itself) |
 | A cached passphrase is reported gone only when it is gone | `vault lock` answers cleared, nothing cached or unknown, and exits non-zero on unknown | [entry](#a-cached-passphrase-is-reported-gone-only-when-it-is-gone) |
 | The passphrase cache does not outlive a login, and a foreign keyring reads as empty | one mechanism, the kernel keyring; another user namespace would read it as empty | [entry](#the-passphrase-cache-does-not-outlive-a-login-and-a-foreign-keyring-reads-as-empty) |
 | Secrets in the daemon's memory stay strings | accepted: whoever reads that memory reads the vault file and the keyring too | [entry](#secrets-in-the-daemons-memory-stay-strings) |
@@ -397,6 +398,15 @@ start after a reboot needs the vault unlocked even for a task with no credential
 The vault is removed by `porelo vault clear`, in the same shape as `porelo clear` and `porelo project clear`: it lists
 what would go and acts only on `--yes`. `remove` stays the verb for one entry (`vault remove NAME`). A fourth verb
 for the same act would be one more to learn for nothing it says differently.
+
+## A vault `PORELO_VAULT` names clears only itself
+
+`PORELO_VAULT` exists so that a run, an acceptance run above all, does not read or write the account's own vault. Its
+`vault clear` removes what that vault holds and the accounts a project made elsewhere with its tokens. It leaves what
+the transports keep for the whole account, and the account's own homeserver, because those belong to the account's
+own vault, which still holds their tokens: clearing them left that vault with accounts on a server that was gone.
+Nothing is listed for the part it leaves. A `not removed` line would make the clear exit `1` for doing what it should,
+and a status of its own would widen what the daemon answers.
 
 ## A cached passphrase is reported gone only when it is gone
 

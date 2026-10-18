@@ -20,7 +20,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b205"></a>[B205](B205-A-Vault-Named-Elsewhere-Clears-Only-Itself.md) | S | - | `vault clear` on a vault named by `PORELO_VAULT` leaves the account's transport state and homeserver, which belong to the account and its own vault. |
 
 ## Implementing
 
@@ -147,6 +146,7 @@ from its side, as *blocked by*.
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="b205"></a>B205 | A Vault Named Elsewhere Clears Only Itself | `vault clear` on a vault `PORELO_VAULT` names runs the transports' account-wide clear only for the account's own vault, so a test vault no longer takes the account's transport state and homeserver. |
 | <a id="b102"></a>B102 | A Vault Cleared In One Step | `porelo vault clear` lists, then on `--yes` removes the vault, its backup, lock and cached passphrase, and what the transports keep, the account's own homeserver whole; it refuses while a task holds a token; walked on a rented machine. |
 | <a id="b06"></a>B06 | Remote Access | Tasks on another machine are reached over ssh, by `ssh -L` onto the daemon's socket or `ssh HOST porelo daemon connect`, with no network port bound, and the forward answers under an enforcing SELinux through `porelo_socket` 1.1, which an upgrade reloads and `doctor` checks. |
 | <a id="b79"></a>B79 | A Daemon That Answers Nothing | The daemon's connections and long-lived passes run on platform threads and `SIGQUIT` dumps its threads to the journal; seven runs right after a `SIGKILL` on two-CPU machines answered every bounded call. |
