@@ -1,7 +1,7 @@
 # B204 — Start On A Running Task Goes In
 
-**Status:** Implementing. Built with its tests seen red; green on the VM on `070fc2a9`: the whole check, and
-acceptance 233, 5 skipped; to Review once pushed and published.
+**Status:** Review. Green on the VM on `070fc2a9` (acceptance 233, 5 skipped) and in porelo's Build 39139568526 on
+`2a72b257`, published 2026-10-18.
 **Size:** S - one branch in `TaskLaunch` that hands over to the code `task attach` runs, a check of which options were
 given, and tests for the three cases; no new state and no change to `attach`.
 
