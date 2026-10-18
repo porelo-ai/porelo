@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b79"></a>[B79](B79-A-Daemon-That-Answers-Nothing.md) | S | - | Platform threads and the thread dump are built; seven runs on rented two-CPU machines right after a SIGKILL, platform and virtual threads, 2130 bounded calls and none past its bound. |
 | <a id="b102"></a>[B102](B102-A-Vault-Cleared-In-One-Step.md) | S | - | `vault clear` is on `main`; left: a scenario in `vault-commands.feature` and the walk with a homeserver on a rented machine. |
 | <a id="b31"></a>[B31](B31-An-Authorization-A-Person-Grants-Once.md) | S | - | Dynamic client registration built against a stand-in; left: a real GitHub grant and an hour-long stream with GitHub's remote MCP server on the VM. |
 
@@ -28,8 +29,7 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b23"></a>[B23](B23-Secrets-In-This-Process-Memory.md) | M | - | The broker, the ssh agent and the daemon are not dumpable; the deploy asks the daemon what it runs (`Tasks1.Process`) and the port scenario counts its unit's sockets, both green on the VM and in the Build; left: the passphrase path (step 2) and whether doctor reports hardening. |
-| <a id="b125"></a>[B125](B125-What-A-Daemon-Costs-And-On-Which-Threads.md) | M | - | Idle measured on the two-CPU VM, no loops for exited tasks or tasks without an account, and never-started containers kept as tasks; left: the idle measurement again and the run on virtual threads. |
-| <a id="b79"></a>[B79](B79-A-Daemon-That-Answers-Nothing.md) | S | - | Platform threads and the thread dump are built; left: runs on the two-CPU VM after SIGKILL, both thread kinds, reading a dump on a hang. |
+| <a id="b125"></a>[B125](B125-What-A-Daemon-Costs-And-On-Which-Threads.md) | M | - | Idle measured again after the loops for exited tasks went (1.7 % against 3.1 %), never-started containers kept as tasks, and the virtual-thread run with no hang and no difference; left: the operator's word on moving waiting threads to virtual ones. |
 | <a id="b49"></a>[B49](B49-What-The-Build-Trusts-To-Run-Beside-Its-Secrets.md) | S | - | Pins, Dependabot and `check-actions` are on `main`; left: a checksum-pinned JFrog CLI step, the hand check of `Publish`, the first Dependabot review. |
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
 | <a id="b06"></a>[B06](B06-Remote-Access.md) | M | - | Remote use over ssh; both shapes built, the socket check and a real ssh hop in the suite; the forwarded socket under an enforcing SELinux fixed in `porelo_socket` 1.1; left: green on the Build's rented Fedora leg. |

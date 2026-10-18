@@ -1,7 +1,7 @@
 # B125 — What A Daemon Costs, And On Which Threads
 
 **Status:** Implementing.
-**Size:** M - the idle measurement, the bound on loops and the listing of never-started containers are done; what is left: the idle measurement again and the run on virtual threads.
+**Size:** M - measured and built; left is the operator's word on which threads move to virtual ones.
 
 **What must be true.** What one `porelod` costs is measured, idle and at work, and its loops run on
 the kind of thread that the measurement and [B79](README.md#b79)'s fault support. The decision is written down with the
@@ -177,3 +177,34 @@ directory, that hands out no secrets, so every task has no account and its `poll
 - **A project that names a transport and has no task still costs 1.4 %**, the project's own poll with nothing to
   poll for. Read in the code, the poll kept the members of the last pass once the last mailbox was removed; ended
   now with the loops of exited tasks. Measured again in step 3.
+
+## Idle again and the virtual-thread run, measured 2026-10-18
+
+After the loops for exited tasks went (step 1). The same script as on 2026-10-17: CPU is the daemon's own user and
+system time over 60 s from `/proc/<pid>/stat`, threads from `/proc/<pid>/status`; stub tasks in a guarded project; "mail"
+names a transport of the measurement's own that answers `setup` and hands out no account. Two machines: a rented
+`ccx13` (2 dedicated vCPUs) in a fresh leg account, before anything else was followed, and the `fedora` VM (2 vCPUs) in
+`core`, which still follows 16 projects of earlier runs, so its "no project" row is not one.
+
+| State | rented, fresh account | `fedora`, 16 projects followed | 2026-10-17, `fedora` |
+|---|---|---|---|
+| no project followed (see above) | 0.01 %, 9 threads | 0.40 %, 10 | 0.02 %, 9 |
+| one running task | 0.13 %, 13 | 0.56 %, 10 | 0.05 %, 10 |
+| three exited tasks, no transport | 0.41 %, 10 | 0.90 %, 10 | 0.27 %, 10 |
+| three exited tasks in "mail", no account | not measured: the tasks did not start | **1.68 %, 13** | **3.10 %, 14** |
+| "mail" followed, its tasks removed | 0.66 %, 10 | 1.01 %, 13 | 1.43 %, 11 |
+
+- **Exited tasks with no account cost about half what they did**, 1.68 % of one core against 3.10 %, with sixteen
+  other projects followed beside them: step 1 removed their loops. Well under this issue's 5 %.
+- **A project with a transport and no task still costs about 1 %**, its own poll. Not a loop per task, and below the
+  bound, so left.
+- **The vault shut and open** were not measured again; the rows of 2026-10-17 differed by 0.27 points.
+- **The virtual-thread run is [B79](README.md#b79)'s:** three of its seven runs had `PORELO_THREADS=virtual`, each
+  right after a SIGKILL with 15 projects followed and a full acceptance run - 233 scenarios, 0 failures, 922 bounded
+  calls, none past its 10 s bound, slowest 3.05 s, median 0.22 to 0.26 s, the same as the platform runs. **No
+  difference that either measurement can see, and no hang with either.**
+
+**Left, for the operator:** the acceptance says that if none hangs in enough runs, the threads that only wait move to
+virtual threads. Nothing was measured that would gain from it: the counts are a few dozen threads, the work is
+processes, and the runs of 2026-10-07 and 2026-10-18 show no difference. Platform threads stay unless the operator
+wants the move made as the acceptance words it.

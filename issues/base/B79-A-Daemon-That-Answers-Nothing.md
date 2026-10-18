@@ -1,7 +1,7 @@
 # B79 — A Daemon That Answers Nothing
 
-**Status:** Implementing.
-**Size:** S - the mitigation is built; what is left is runs on the two-CPU VM and reading a dump if one hangs.
+**Status:** Review. Seven runs on rented two-CPU machines, 2026-10-18, no hang.
+**Size:** S - the mitigation is built and measured to hold; a dump is read the day one hangs.
 
 **What must be true.** A call on the daemon's socket, or on an agent's, is answered or refused within a bound,
 whatever the process's own background work is doing - and when one is not, the reason is known rather than
@@ -41,6 +41,31 @@ What is left, in order:
 
 Nothing goes red first in code: the red is a hang caught with its dump.
 
+**Run, 2026-10-18: seven times, no call past its bound.** Each on a rented `ccx13` (2 dedicated vCPUs, 8 GB) from
+the ubuntu CI image, prepared by porelo's own leg with 2 accounts. In the leg's account: the daemon's unit installed
+and `porelo setup`, 15 projects followed, then `porelod` killed with SIGKILL and started again at once (the run
+stopped unless the kill and the restart were seen, with the threads asked), a script asking `GetInfo`, `Agents`,
+`List` and a dry-run `Start` every 15 s with a 10 s bound and `SIGQUIT` past it, and the acceptance suite without
+`@restart`, two accounts in parallel.
+
+| Run | Threads | Suite | Bounded calls | Past the bound | Slowest | Median |
+|---|---|---|---|---|---|---|
+| c1 | platform | 233, 0 failed | 286 | 0 | 2.81 s | 0.24 s |
+| p1 | platform | 233, 0 failed | 312 | 0 | 1.37 s | 0.25 s |
+| p2 | platform | 233, 0 failed | 312 | 0 | 2.13 s | 0.23 s |
+| p3 | platform | 233, 1 failed | 298 | 0 | 2.21 s | 0.22 s |
+| v1 | virtual | 233, 0 failed | 292 | 0 | 2.18 s | 0.22 s |
+| v2 | virtual | 233, 0 failed | 302 | 0 | 3.05 s | 0.24 s |
+| v3 | virtual | 233, 0 failed | 328 | 0 | 2.31 s | 0.26 s |
+
+2130 bounded calls, none past 10 s, so no dump was taken; a few more were refused at once while a scenario had the
+account's daemon stopped. At the rate seen before the mitigation - three of 1200 lookups stuck - about five would
+have been expected, which is what "enough runs" was taken to mean. The first follow pass after the restart, with 15
+projects followed, kept nothing waiting: the slowest call of each run's first two rounds took 0.13 s. The one failed
+scenario on `p3` was no hang: "an agent whose provider refused it says so ... and is not called idle" took 160 s
+there against 32 to 36 s on the six others, and the task still said `activity idle` when its 90 s loop ended; the
+daemon answered the watcher throughout. Seen once in seven; an issue of its own if it comes again.
+
 ## Acceptance
 
 - The next time a daemon or an agent answers nothing, its thread dump (`SIGQUIT`) is read and names where the
@@ -51,8 +76,5 @@ Nothing goes red first in code: the red is a hang caught with its dump.
 
 ## To be checked
 
-- Whether the first follow pass after a start, with many projects followed, keeps calls waiting (Agent Core's,
-  read from the runs above).
 - On the fedora VM the daemon once started a second `porelo-agent-stub serve` on the socket the first one held;
-  whether that is the same fault or another (Agent Core's).
-- How many runs without a hang are enough to say the mitigation holds (Agent Core's).
+  whether that is the same fault or another (Agent Core's). Not seen in the seven runs.
