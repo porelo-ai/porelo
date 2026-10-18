@@ -37,6 +37,13 @@ peer is not `porelo`. A stand-in bound by any other process is refused at the ta
 of the operator's that deliberately enters `porelo` passes. The lock stops a process that is not Porelo, not one that
 claims to be it.
 
+**Decided 2026-10-18:**
+- **The lock is on the connecting side:** a task's profile may connect only to a peer in `porelo`. It holds the same
+  property for a task; a host-side client that is not Porelo's code is not covered, as `doc/security.md` will say.
+- **`porelo` and `porelod` enter the profile `porelo` themselves** (the plan's step 5), so a leg, a developer's build
+  and a `~/.local` install are covered as `/usr` is. Any process of the account could enter it too, the same bound
+  `chcon` gives on SELinux.
+
 ## Plan
 
 Read in today's code. Sockets a task reaches are opened by `SocketContext.openUnixSocket()` in `VarlinkServer`
@@ -101,17 +108,6 @@ into `~/.local/bin` and `~/.local/share/porelo/agents` (`ci/leg-install.sh`), no
   `doctor` reports `installed` where the kernel would not hold the rule.
 - `apt install` on Ubuntu 26.04 loads both profiles and `apt purge` leaves neither loaded nor on disk. Seen to fail: a
   profile missing after the install, or left after the purge.
-
-## Open questions
-
-- **The lock on the connecting side.** AppArmor cannot forbid the operator's own processes a bind, so the plan puts
-  the rule on the task: it may connect only to a peer in `porelo`. That holds the same property for a task, but not
-  for a host-side client that is not Porelo's code. Proposal: accept this shape; the alternative is to reject the
-  issue and let `doc/security.md` say for good that the second lock is SELinux-only.
-- **Porelo enters its own profile.** Path attachment covers only `/usr`; the leg and a developer's build run from
-  elsewhere. Proposal: `porelo` and `porelod` enter `porelo` themselves (step 5), which any process of the account could
-  equally do - the same bound `chcon` gives on SELinux. The alternative is to attach to `/usr` only and have a
-  developer and a `~/.local` install start Porelo through `aa-exec -p porelo`, by hand.
 
 ## To be checked
 

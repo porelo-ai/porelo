@@ -44,7 +44,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="b175"></a>[B175](B175-The-Profile-That-May-Bind-The-Socket.md) | L | `porelo` [B135](README.md#b135) | On an AppArmor machine a task connects only to a socket one of Porelo's binaries bound, by a task profile that refuses any other peer, as the SELinux domain does on SELinux machines. | 2 |
+| <a id="b175"></a>[B175](B175-The-Profile-That-May-Bind-The-Socket.md) | L | `porelo` [B135](README.md#b135) | On an AppArmor machine a task connects only to a socket one of Porelo's binaries bound, by a task profile that refuses any other peer, as the SELinux domain does on SELinux machines. | 0 |
 | <a id="b176"></a>[B176](B176-Comment-Threads-That-Follow-A-New-Push.md) | M | `porelo` [B166](README.md#b166) | A thread on waiting work moves to a new push's commit where its lines are unchanged, else stays and says why; each commented commit pinned under a hidden ref; `Thread` gains `from` and `stays`. | 1 |
 | <a id="b177"></a>[B177](B177-A-Cost-Ceiling-Per-Task.md) | M | `porelo` [B138](README.md#b138), [B191](README.md#b191) | A dollar ceiling per task from `limits.cost`, counted by the broker from the cost the provider reports, else at list price from the price table; a model with no price refuses the ceiling at the start or fail closed, never $0; under a subscription it caps list-price value. | - |
 | <a id="b178"></a>[B178](B178-A-Credential-With-No-Expiry-Said-So.md) | M | - | Storing a credential with no end says so (`vault put`, `vault login`, `ImportCredential`), and `vault list` and `Credentials()` mark it with `noExpiry`. | 1 |
