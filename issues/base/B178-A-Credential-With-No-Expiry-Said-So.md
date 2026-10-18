@@ -10,6 +10,9 @@ says so when it is stored, rather than refusing it, since some providers issue n
 replace it with a shorter-lived one. This is the decision "A credential with no expiry is stored and named" in
 `doc/decisions.md`, not yet built.
 
+**Decided 2026-10-18: the mark covers every entry without an end**, ssh keys and forge tokens as well as provider keys:
+a leaked ssh key or forge token does not decay either, and the decision names no kind.
+
 ## Plan
 
 Read in today's code. An entry is a `VaultEntry` (value, type, settings). What ends is recorded only as the setting
@@ -57,10 +60,3 @@ grant), a `PoreloDaemonTest` case that `Credentials()` answers `noExpiry` true a
   renewable sign-in, an entry with `expires_at`, or a refresh-token grant; seen to fail first as no mark at all.
 - In `vault-commands.feature`, a key stored with `vault put` is listed with `no expiry`.
 - `doc/credentials.md` says it.
-
-## Open questions
-
-- **Which entries the mark covers.** The rule marks every entry without an end - ssh keys and forge tokens as well as
-  provider keys - so `vault list` will mark most of a typical vault. The other choice is to mark only what a task's
-  broker attaches for a model provider, which is what the decision's reasoning is about. Proposal: every entry, since
-  a leaked ssh key or forge token does not decay either and the decision names no kind.

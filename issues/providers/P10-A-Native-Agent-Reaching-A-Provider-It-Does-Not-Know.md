@@ -10,6 +10,11 @@ its `SetupContext`, so it can register a provider whose name it does not recogni
 through the broker. An agent that can do this says so in its definition, which lifts the refusal
 [P09](README.md#p09) gives before the start, for a provider serving a dialect it can register.
 
+**Decided 2026-10-18:** keep [P09](README.md#p09)'s `knows` list and add `provider.registers: [openai,
+anthropic-messages]`. The refusal is lifted for a provider serving one of those dialects, and the resolved dialect is
+the first of the provider's dialects in that list. `knows: any` is not taken: it would tell Porelo neither which
+providers the agent knows nor which wire formats it can register.
+
 ## Plan
 
 Read in today's code. A `native` agent is handed the endpoint with the provider's first dialect's path already on it
@@ -65,17 +70,6 @@ the dialects the agent registers.
   chosen with `porelo task start --provider example-unknown --model <id>`, answers a prompt through the broker with
   the credential stored under `example-unknown`. Seen to fail: Pi answering that it does not know the provider, or
   the request leaving the broker for anything but OpenRouter's host.
-
-## Open questions
-
-- **How the agent says it can register an unknown provider.** The issue as written says `provider.knows: any`, but
-  `any` tells Porelo neither which providers the agent knows nor which wire formats it can register: a provider whose
-  first dialect the agent cannot map (Google's own `google-generative-ai`, or any name a provider file invents) would
-  start and fail inside the task - the failure [P09](README.md#p09) exists to remove - and a provider the agent does
-  know could no longer be told apart. *Proposal:* keep [P09](README.md#p09)'s `knows` list and add
-  `provider.registers: [openai, anthropic-messages]`; the refusal is lifted for a provider serving one of those, and
-  the resolved dialect is the first of the provider's dialects in that list. Alternative: `knows: any` as written,
-  the provider's first dialect always, and a dialect the agent cannot map failing in its setup.
 
 ## To be checked
 

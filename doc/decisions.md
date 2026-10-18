@@ -7,6 +7,7 @@ would change the answer.
 |---|---|---|
 | **Tasks and containers** | | |
 | A task is the container whose id Porelo recorded | never by name or label; a container with no record is acted on by nothing | [entry](#a-task-is-the-container-whose-id-porelo-recorded) |
+| A start at a terminal goes into a running task | as `attach` does; an option of creation is refused by name; a script still gets 65 | [entry](#a-start-at-a-terminal-goes-into-a-running-task) |
 | Waiting for a person is never inferred from silence | working and idle are observed from output; waiting only where something declares it; no status channel out of the container | [entry](#waiting-for-a-person-is-never-inferred-from-silence) |
 | Nothing comes back by itself after a reboot | only `start` brings a task back; no surprise restarts, no vault prompt at boot | [entry](#nothing-comes-back-by-itself-after-a-reboot) |
 | Only the last session is recorded, and a failed continuation is forgotten | a failed continuation is forgotten and the next start is fresh | [entry](#only-the-last-session-is-recorded-and-a-failed-continuation-is-forgotten) |
@@ -120,6 +121,17 @@ would change the answer.
 | **The documentation** | | |
 | The issue index stays one table per section | a conflict there is resolved by keeping both lines; split, nobody could read it whole | [entry](#the-issue-index-stays-one-table-per-section) |
 | The data protection page follows the federal ISDS concept template | in the template's chapters, each saying what Porelo provides and what the organisation regulates | [entry](#the-data-protection-page-follows-the-federal-isds-concept-template) |
+
+## A start at a terminal goes into a running task
+
+`porelo task start` on a task that is running, typed by a person at a terminal, goes into its session through the code
+`porelo task attach` runs: after a reboot the container is back with its agent's session gone, and someone who typed
+`start` wants to work in it, not to be sent to a second command. An option that takes effect only when a task is
+created or brought up (`--prompt`, `--model`, `--agent`, `--attach`, `--detach`, `--rm` and their kind) is refused
+with 64, naming each, since it would be dropped without a word. Without a terminal, or with `--no-input`, a start
+answers "is already running" and 65 as before, so a script never ends in a session; a playbook takes that as "already
+so". `attach` stays the verb that never creates anything. **What would change it:** a start over the daemon that
+should go in too, which has no terminal to go into.
 
 ## A task is the container whose id Porelo recorded
 

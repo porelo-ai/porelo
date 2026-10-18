@@ -20,7 +20,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b204"></a>[B204](B204-Start-On-A-Running-Task-Goes-In.md) | S | - | `task start` on a running task goes in through `attach`'s code at a terminal, refuses naming each creation or bring-up option given, and says it is running without a terminal, as today. |
 
 ## Implementing
 
@@ -45,9 +44,9 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
 | <a id="b175"></a>[B175](B175-The-Profile-That-May-Bind-The-Socket.md) | L | `porelo` [B135](README.md#b135) | On an AppArmor machine a task connects only to a socket one of Porelo's binaries bound, by a task profile that refuses any other peer, as the SELinux domain does on SELinux machines. | 0 |
-| <a id="b176"></a>[B176](B176-Comment-Threads-That-Follow-A-New-Push.md) | M | `porelo` [B166](README.md#b166) | A thread on waiting work moves to a new push's commit where its lines are unchanged, else stays and says why; each commented commit pinned under a hidden ref; `Thread` gains `from` and `stays`. |0 |
+| <a id="b176"></a>[B176](B176-Comment-Threads-That-Follow-A-New-Push.md) | M | `porelo` [B166](README.md#b166) | A thread on waiting work moves to a new push's commit where its lines are unchanged, else stays and says why; each commented commit pinned under a hidden ref; `Thread` gains `from` and `stays`. | 0 |
 | <a id="b177"></a>[B177](B177-A-Cost-Ceiling-Per-Task.md) | M | `porelo` [B138](README.md#b138), [B191](README.md#b191) | A dollar ceiling per task from `limits.cost`, counted by the broker from the cost the provider reports, else at list price from the price table; a model with no price refuses the ceiling at the start or fail closed, never $0; under a subscription it caps list-price value. | - |
-| <a id="b178"></a>[B178](B178-A-Credential-With-No-Expiry-Said-So.md) | M | - | Storing a credential with no end says so (`vault put`, `vault login`, `ImportCredential`), and `vault list` and `Credentials()` mark it with `noExpiry`. | 1 |
+| <a id="b178"></a>[B178](B178-A-Credential-With-No-Expiry-Said-So.md) | M | - | Storing a credential with no end says so (`vault put`, `vault login`, `ImportCredential`), and `vault list` and `Credentials()` mark it with `noExpiry`. | 0 |
 | <a id="b122"></a>[B122](B122-No-Direct-Chat-Between-Tasks.md) | M | - | Peers at an account accepted only for joined persons: checked at the start, in `talk peers`, in the dispatch and again at the send. | - |
 | <a id="b173"></a>[B173](B173-An-Agents-Sign-In-Kept-Without-A-Person.md) | S | - | `vault login <agent> --credentials-from <dir>`: an agent's sign-in read through its extractor and kept renewable without a person; `--token-url` on loopback only, for a kit's stand-in token endpoint. | - |
 | <a id="b121"></a>[B121](B121-A-Message-Record-Without-A-Chain.md) | M | `porelo` [B154](README.md#b154) | Drop `previous` and `hash` from `MessageRecord`, remove `porelo talk verify`, its rows and scenario, and update the docs and the decision. | - |
@@ -147,6 +146,7 @@ from its side, as *blocked by*.
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="b204"></a>B204 | Start On A Running Task Goes In | At a terminal `task start` on a running task goes in as `attach` does, refusing by name an option that would be dropped; without a terminal or with `--no-input` it still answers 65. |
 | <a id="b23"></a>B23 | Secrets In This Process's Memory | The daemon, the broker and the ssh agent are not dumpable; the vault's master key is cleared on every path and the cached passphrase never becomes a `String`; `doctor` reports the running daemon's hardening, read from its `/proc` entries. |
 | <a id="b205"></a>B205 | A Vault Named Elsewhere Clears Only Itself | `vault clear` on a vault `PORELO_VAULT` names runs the transports' account-wide clear only for the account's own vault, so a test vault no longer takes the account's transport state and homeserver. |
 | <a id="b102"></a>B102 | A Vault Cleared In One Step | `porelo vault clear` lists, then on `--yes` removes the vault, its backup, lock and cached passphrase, and what the transports keep, the account's own homeserver whole; it refuses while a task holds a token; walked on a rented machine. |
