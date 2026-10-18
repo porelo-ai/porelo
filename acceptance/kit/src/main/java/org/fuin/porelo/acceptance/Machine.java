@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import org.fuin.porelo.machines.Credential;
+import org.fuin.porelo.machines.HostKey;
 import org.fuin.porelo.machines.Ssh;
 import org.jspecify.annotations.Nullable;
 
@@ -45,6 +46,8 @@ public final class Machine implements AutoCloseable {
     private final String user;
 
     private final Credential credential;
+
+    private final HostKey hostKey;
 
     /**
      * Returns the connection of the account the calling thread acts as, opening it the first time
@@ -119,7 +122,25 @@ public final class Machine implements AutoCloseable {
         this.host = required("porelo.acceptance.host");
         this.user = user;
         this.credential = credential();
-        this.ssh = Ssh.to(host, user, credential);
+        this.hostKey = hostKey();
+        this.ssh = Ssh.to(host, user, credential, hostKey);
+    }
+
+    /**
+     * Takes the host key the machine must show from the properties, or any key where none is named.
+     *
+     * <p>A rented machine's leg names the key it made for it; the local VMs do not have one, and
+     * accepting theirs is the risk written in porelo-buildtools' decisions.
+     *
+     * @return What the connection accepts.
+     */
+    private static HostKey hostKey() {
+        final String pinned = System.getProperty("porelo.acceptance.hostkey");
+        return pinned == null || pinned.isBlank()
+                ? HostKey.any(
+                        "no porelo.acceptance.hostkey named: a local VM on this host's own libvirt"
+                                + " bridge, the risk accepted in porelo-buildtools' decisions")
+                : HostKey.pinned(pinned);
     }
 
     /**
@@ -153,7 +174,13 @@ public final class Machine implements AutoCloseable {
      * @return {@code true} if something is listening and authenticating.
      */
     public boolean reachable() {
-        return Ssh.reachable(host, user, credential);
+        try {
+            return Ssh.reachable(host, user, credential, hostKey);
+        } catch (HostKey.Refused ex) {
+            // Another key than the one the machine was made with is no "not up yet": waiting would
+            // turn it into a timeout that names the wrong thing.
+            throw new java.io.UncheckedIOException(ex);
+        }
     }
 
     /** Drops the session, for a restart that is about to take it away anyway. */

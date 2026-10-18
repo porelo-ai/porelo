@@ -7,6 +7,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.fuin.porelo.machines.Credential;
 import org.fuin.porelo.machines.Hetzner;
+import org.fuin.porelo.machines.HostKey;
 import org.fuin.porelo.machines.Spec;
 import org.fuin.porelo.machines.Ssh;
 
@@ -103,7 +104,11 @@ public final class Main {
         final Path root = Path.of(repo).toAbsolutePath().normalize();
         final String user = vm.substring(0, vm.indexOf('@'));
         final String host = vm.substring(vm.indexOf('@') + 1);
-        try (Ssh ssh = Ssh.to(host, user, new Credential.InFile(Path.of(key)))) {
+        // A machine of the operator's own, not one rented for the run: no key was made for it, and
+        // accepting the one it shows is the risk written in porelo-buildtools' decisions.
+        final HostKey anyKey =
+                HostKey.any("deploy to the operator's own machine, the risk accepted in decisions");
+        try (Ssh ssh = Ssh.to(host, user, new Credential.InFile(Path.of(key)), anyKey)) {
             final Deploy.Remote remote =
                     new Deploy.Remote() {
                         @Override

@@ -7,6 +7,7 @@ import java.util.List;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.fuin.porelo.machines.AgentLeg;
 import org.fuin.porelo.machines.Credential;
+import org.fuin.porelo.machines.HostKey;
 import org.fuin.porelo.machines.Lease;
 import org.fuin.porelo.machines.Machines;
 import org.fuin.porelo.machines.Spec;
@@ -212,7 +213,7 @@ public final class Leg {
             step("letting the acceptance user restart the machine");
             run(lease.ssh(), grantRestart(users));
 
-            try (Ssh build = Ssh.to(lease.address(), USER, credential)) {
+            try (Ssh build = Ssh.to(lease.address(), USER, credential, lease.hostKey())) {
                 step("sending the working tree");
                 build.upload(archive, "/tmp/tree.tar");
                 run(
@@ -312,7 +313,7 @@ public final class Leg {
                                     + " more accounts, to run features beside each other");
                     for (final String extra : users.subList(1, users.size())) {
                         run(lease.ssh(), prepare(extra));
-                        try (Ssh as = Ssh.to(lease.address(), extra, credential)) {
+                        try (Ssh as = Ssh.to(lease.address(), extra, credential, lease.hostKey())) {
                             run(as, "~/.local/bin/porelo setup");
                         }
                     }
@@ -325,7 +326,7 @@ public final class Leg {
 
                 if (suite != null) {
                     step("what a person does at a terminal");
-                    acceptance(suite, lease.address(), credential, users);
+                    acceptance(suite, lease.address(), lease.hostKey(), credential, users);
                     // Said after the scenarios, from the cache's own log: what every account's
                     // pulls were answered with. Without it a log cannot show that the images came
                     // from the machine and not from Docker Hub.
@@ -399,15 +400,20 @@ public final class Leg {
      *
      * @param repository Where to run Maven.
      * @param address The machine.
+     * @param hostKey The host key the machine was made with, which the suite's kit accepts alone.
      * @param credential The key the suite connects with.
      * @throws IOException If the suite fails, or proves nothing.
      */
     private static void acceptance(
-            Path repository, String address, Credential credential, List<String> users)
+            Path repository,
+            String address,
+            HostKey hostKey,
+            Credential credential,
+            List<String> users)
             throws IOException {
         if (users.size() == 1) {
             // EVERY scenario - see suite(), which says why there is no filter at all.
-            suite(repository, address, credential, List.of());
+            suite(repository, address, hostKey, credential, List.of());
             return;
         }
         // Features beside each other, one account each, and then what touches the whole machine,
@@ -417,6 +423,7 @@ public final class Leg {
         suite(
                 repository,
                 address,
+                hostKey,
                 credential,
                 List.of(
                         "-Dporelo.acceptance.users=" + String.join(",", users),
@@ -430,6 +437,7 @@ public final class Leg {
         suite(
                 repository,
                 address,
+                hostKey,
                 credential,
                 List.of(
                         "-Dcucumber.filter.tags=" + MACHINE_WIDE,
@@ -437,17 +445,15 @@ public final class Leg {
     }
 
     /**
-     * Runs the Cucumber suite once.
+     * The suite's command line for one pass.
      *
-     * @param repository Where to run Maven.
      * @param address The machine.
-     * @param credential The key the suite connects with.
-     * @param options What this pass adds to the command line.
-     * @throws IOException If the suite fails, or proves nothing.
+     * @param hostKey The host key it was made with; the kit accepts that one alone when it is
+     *     named.
+     * @param options What this pass adds.
+     * @return The command.
      */
-    private static void suite(
-            Path repository, String address, Credential credential, List<String> options)
-            throws IOException {
+    static List<String> suiteCommand(String address, HostKey hostKey, List<String> options) {
         final List<String> command =
                 new java.util.ArrayList<>(
                         List.of(
@@ -464,7 +470,31 @@ public final class Leg {
                                 // The suite would otherwise look for a key file that CI
                                 // deliberately does not have.
                                 "-Dporelo.acceptance.key=unused-the-material-is-in-the-environment"));
+        if (hostKey instanceof HostKey.Pinned pinned) {
+            command.add("-Dporelo.acceptance.hostkey=" + pinned.line());
+        }
         command.addAll(options);
+        return command;
+    }
+
+    /**
+     * Runs the Cucumber suite once.
+     *
+     * @param repository Where to run Maven.
+     * @param address The machine.
+     * @param hostKey The host key the machine was made with, which the suite's kit accepts alone.
+     * @param credential The key the suite connects with.
+     * @param options What this pass adds to the command line.
+     * @throws IOException If the suite fails, or proves nothing.
+     */
+    private static void suite(
+            Path repository,
+            String address,
+            HostKey hostKey,
+            Credential credential,
+            List<String> options)
+            throws IOException {
+        final List<String> command = suiteCommand(address, hostKey, options);
         final ProcessBuilder maven =
                 new ProcessBuilder(command)
                         // EVERY scenario, including @slow. Excluding them was reasonable - each

@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import org.fuin.porelo.machines.HostKey;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -153,5 +154,19 @@ class LegTest {
                         "accept2 ALL=(root) NOPASSWD: /usr/bin/systemd-run --on-active\\=1s /sbin/reboot, /sbin/reboot");
         assertThat(Leg.grantRestart(List.of("build")))
                 .endsWith("visudo -c -f " + Leg.RESTART_GRANT);
+    }
+
+    @Test
+    void theSuiteIsToldTheHostKeyTheMachineWasMadeWith() {
+        final String line =
+                "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII3/bFHe8RDBtZ4jigNCAqf10R0vZ7xxOXQP0q2kuD7m";
+
+        assertThat(Leg.suiteCommand("192.0.2.7", HostKey.pinned(line), List.of()))
+                .contains(
+                        "-Dporelo.acceptance.host=192.0.2.7",
+                        "-Dporelo.acceptance.hostkey=" + line);
+        assertThat(Leg.suiteCommand("192.0.2.7", HostKey.any("a test"), List.of()))
+                .as("a machine nobody made a key for names none")
+                .noneMatch(argument -> argument.startsWith("-Dporelo.acceptance.hostkey="));
     }
 }
