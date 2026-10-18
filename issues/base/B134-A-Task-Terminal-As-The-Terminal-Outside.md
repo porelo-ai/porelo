@@ -1,7 +1,7 @@
 # B134 — A Task Terminal As The Terminal Outside
 
 **Status:** Review. Green in porelo's Build 39083121366 on `842ff109`, on both rented legs, 2026-10-18. What is left is the joint test with the operator.
-**Size:** M - left are the per-key scenario's run on the VM and the joint test; the whole was L.
+**Size:** L - built; left is the joint test with the operator.
 
 **What must be true.** An agent in a task behaves at the keyboard and on the screen as it does in a plain terminal on
 the same machine. Scrolling, Esc, modified keys, colours, the clipboard, links, focus and images work as they do
@@ -147,5 +147,10 @@ tmux delivered nothing.
   ("... 281 more lines (ctrl+o to expand)"), so its own view, not tmux's history, is where a person reads back. No
   difference the settings do not cover, so nothing new under "Not closed". Not measured: Shift+PageUp, since
   `tmux send-keys` bypasses tmux's key bindings; `task-keys.feature` leaves it out for the same reason.
-- **Left:** the scenario run on the VM with the others, and seen red against an image from before `e55e8f0d`; the
-  joint test (step 4).
+- **Run with the others:** `task-keys.feature` passed in the gathered ubuntu VM run on `c8eabbf5` (2026-10-17) and on
+  both rented legs of Build 39083121366.
+- **Not done, and left so: the scenario seen red against an image from before `e55e8f0d`.** That image is a build of
+  the product under its former name from 2026-10-09; what it lacked - tmux delivering nothing for Shift+Enter in the
+  CSI u form - was measured that day with a script as the outside terminal, and `KeysTest` was seen red against an
+  empty table. A build of the old tree for one red would prove the same thing again.
+- **Left:** the joint test (step 4).

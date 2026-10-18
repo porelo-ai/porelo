@@ -1,7 +1,7 @@
 # B137 — An Offline Project Never Connects
 
 **Status:** Review. Green in porelo's Build 39083121366 on `842ff109`, on both rented legs, 2026-10-18.
-**Size:** S - left is one acceptance scenario with existing steps; the whole was M.
+**Size:** M - built; the last part was one acceptance scenario with existing steps.
 
 **What must be true.** A project of the class `offline` makes no connection out, neither from the task nor from the
 host on its behalf. A repository comes in as one file a person carries to the machine, and the work leaves the same
@@ -80,7 +80,8 @@ the prompts and what the agent reads leave the machine to the provider. The offl
 
 Built and on main (`f4cec6eb`): `Project`, `WorkspaceSetup`, `FollowedProjects.fromAFile`, `ConfigurationWatch`,
 `Reconcile`, the tests named above, `doc/security.md`. The follow over the socket from a file is a requirement of its
-own (`c91c82d0`). Left: the round trip on a clean machine.
+own (`c91c82d0`). The round trip on a clean machine is `project/project-offline-bundle.feature` (`a7f40d44`): the
+project and its code carried in and out as bundles. Green on both rented legs of Build 39083121366. Nothing is left.
 
 1. A scenario `acceptance/suite/.../project/project-offline-bundle.feature`, in one script on the machine: a project
    repository whose `porelo.yaml` says `offline`, written with `git bundle create`; `porelo project follow <name>

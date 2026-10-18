@@ -54,13 +54,16 @@ something the vendor states on purpose.
   says a description hidden by the account's and one not taken.
 - **Tested:** `AgentDescriptionTest` - found under the vendor's names, the refusals, the account's hiding the
   system's, removing the description removing the agent, and the old names beside it.
-- **Open:** the package check installing such an agent in a clean Debian and Fedora.
+- **Done since:** the package check installing such an agent in a clean Debian and Fedora (`a6db2ab7`).
 
 ## Plan
 
-Built and on main (`AgentDirectory`, `AgentDescriptionTest`, `DoctorCommand`, the docs). Left: the package check
-installing an agent that carries no file of Porelo's name. Both questions once under "To be checked" are answered in
-"As built": the old `porelo-agent-*` names are still read; transports and build readers stay as they are.
+Built and on main (`AgentDirectory`, `AgentDescriptionTest`, `DoctorCommand`, the docs), and the package check
+installing an agent that carries no file of Porelo's name (`a6db2ab7`, steps 1 and 2 below): its two markers pass in
+a clean Debian and Fedora - "the agent is found by its description under /usr/share/porelo/agents.d" and "no file of
+Porelo's name is installed for it under /usr/libexec/porelo/agents". Nothing is left. Both questions once under "To
+be checked" are answered in "As built": the old `porelo-agent-*` names are still read; transports and build readers
+stay as they are.
 
 1. **The stub is packaged as a vendor would.** `agents/pom.xml` maps the stub's executable to
    `/usr/lib/porelo-agent-stub/stub` instead of `${agent.install.dir}`, and adds

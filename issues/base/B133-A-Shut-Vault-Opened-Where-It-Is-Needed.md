@@ -1,7 +1,7 @@
 # B133 — A Shut Vault Opened Where It Is Needed
 
 **Status:** Review. Green in porelo's Build 39083121366 on `842ff109`, on both rented legs, 2026-10-18.
-**Size:** S - left is one acceptance scenario with the kit's terminal steps, no code; the whole was M.
+**Size:** M - built; the last part was one acceptance scenario with the kit's terminal steps, no code.
 
 **What must be true.** At a terminal, a command that needs a shut vault asks for the passphrase itself and carries
 on. Nobody is sent off to type `porelo vault unlock` and then the first command again. Without a terminal it still
@@ -88,7 +88,9 @@ machine becomes one command: the passphrase, the grant, the task.
 Built and on main (`95ff9462`): `PoreloContext.openerAsking` and `openIfShut`, `VaultPrompt`, every command listed
 above, `OpenerAskingTest`; the retry of a keyring that did not answer is on `main` too.
 The no-terminal path is already a scenario (`task/task-refused.feature`, "the vault is locked", no mirror, no
-container) and the login's is too (`agents/agent-login.feature`, asked before the login). Left: the start at a terminal.
+container) and the login's is too (`agents/agent-login.feature`, asked before the login). The start at a terminal is
+`task/task-shut-vault.feature` (`df66875c`): the vault locked, `task start` asks for the passphrase at the terminal and
+the task starts. Green on both rented legs of Build 39083121366. Nothing is left.
 
 1. A scenario in `acceptance/suite/.../task/task-refused.feature`, or a file `task-shut-vault.feature` beside it,
    with the kit's steps as they are (`TerminalSteps`): a vault of its own holding the fake credential as

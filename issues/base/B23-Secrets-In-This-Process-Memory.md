@@ -1,6 +1,7 @@
 # B23 — Secrets In This Process's Memory
 
-**Status:** Review. Green in porelo's Build 39083121366 on `842ff109`, on both rented legs, 2026-10-18.
+**Status:** Implementing. Step 1 is built and green in porelo's Build 39083121366 on `842ff109`; step 2 and doctor's
+hardening lines are left.
 **Size:** M - the daemon's hardening is one contract change (`Tasks1.Process`), the deploy's check and two acceptance
 scenarios, a few hours; the passphrase path is S on its own; a credential as bytes was dropped on 2026-10-11.
 
@@ -130,7 +131,12 @@ them ask elsewhere:
   `ServerSocket` planted in `main` the check counts 1, where the old `pid=` filter counted 0.
 
 `machine.feature` holds both: the port scenario above, and a scenario reading the owner of the running daemon's
-`/proc/<pid>/environ`, the same way `task-left-running.feature` reads the broker's. Neither has run on a VM yet.
+`/proc/<pid>/environ`, the same way `task-left-running.feature` reads the broker's. Both passed with the native
+`porelod` in the gathered ubuntu VM run on `c8eabbf5` (2026-10-17) and on both rented legs of Build 39083121366.
+
+**Left:** step 2 below, which is not built - `KernelKeyring.store` still makes a `String` of the passphrase - and the
+question under "To be checked" whether `doctor` reports hardening at all. Set back from Review on 2026-10-18, when a
+reading of the issue found step 2 recorded nowhere as built.
 
 **2. The passphrase path closed (S).** `KernelKeyring` (`vault/.../KernelKeyring.java`) turns the passphrase into a
 `String` when storing (`new String(passphrase).getBytes`) and when reading; encode from the `char[]` through a
@@ -163,5 +169,3 @@ documentation that erasure is not achieved, and why.
 - **Whether `doctor` should report hardening at all** or report the broker's and the daemon's state
   as read from `/proc`. Printing the state of its own process, which nothing hardens, is how a line that looks
   like a warning survives for months.
-- **The daemon's two `machine.feature` scenarios and an account deploy on the VMs**, with the native `porelod`: the
-  environment owned by root, `network listeners: 0`, and `daemon runs` naming the account's binary.

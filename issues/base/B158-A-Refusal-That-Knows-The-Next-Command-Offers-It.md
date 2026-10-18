@@ -1,7 +1,7 @@
 # B158 — A Refusal That Knows The Next Command Offers It
 
 **Status:** Review. Green in porelo's Build 39083121366 on `842ff109`, on both rented legs, 2026-10-18.
-**Size:** M - several command modules over one helper; what is left is one test, under an hour.
+**Size:** M - several command modules over one helper; built.
 
 **What must be true.** Where a command refuses only to tell the person which command to run next, and Porelo already
 knows that command's answer, it asks at a terminal and does it, instead of making the person type it. Without a
@@ -46,9 +46,10 @@ Built and on main:
 - `task resume` of a task whose vault is shut: `TaskResumeCommand.resume` asks for the passphrase through
   `PoreloContext.openIfShut` and decides again once it is open, as [B133](README.md#b133) built it.
 
-Left: the test the acceptance asks for the resume. In `apps/app`, a task whose resume answers `NEEDS_VAULT`, a
-`VaultPrompt` stood in that gives the passphrase: the task resumes; with `VaultPrompt.NOBODY` the refusal still says
-`Unlock it with 'porelo vault unlock'`. It may be green at once, as the code is there; then it is kept as the guard.
+The test the acceptance asks for the resume is `ResumeVaultOfferTest` (`1bf33498`, `apps/app`): a task whose resume
+answers `NEEDS_VAULT` and a `VaultPrompt` that gives the passphrase resumes; with `VaultPrompt.NOBODY` the refusal still
+says `Unlock it with 'porelo vault unlock'`. The code was there before it, so it is kept as the guard; whether it was
+first seen red is not recorded. Green in Build 39083121366. Nothing is left.
 
 ## Acceptance
 
