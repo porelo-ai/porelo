@@ -155,6 +155,109 @@ class TaskRunCommandTest {
         return cmd.execute(all.toArray(new String[0]));
     }
 
+    /**
+     * Runs {@code task start} on the task {@code shell} of {@code uc}, as a person at a terminal or
+     * as a script, which the test says since it has no terminal.
+     */
+    private int startAt(PoreloContext context, boolean terminal, String... args) {
+        final CommandLine cmd = PoreloCli.commandLine(context);
+        cmd.setOut(new PrintWriter(out));
+        cmd.setErr(new PrintWriter(err));
+        ((TaskRunCommand)
+                                cmd.getSubcommands()
+                                        .get("task")
+                                        .getSubcommands()
+                                        .get("start")
+                                        .getCommand())
+                        .terminal =
+                () -> terminal;
+        final List<String> all =
+                new ArrayList<>(List.of("task", "start", "shell", "--repository", "uc"));
+        all.addAll(List.of(args));
+        return cmd.execute(all.toArray(new String[0]));
+    }
+
+    private static final String RUNNING_SHELL =
+            "porelo-uc-shell\tUp 4 minutes\t1700000000\t0\tuc\tguarded\tuc\t\n";
+
+    @Test
+    void aStartAtATerminalGoesIntoARunningTaskAsAttachDoes(@TempDir Path dir) throws IOException {
+        // After a reboot the container is back and its agent's session is gone; whoever typed
+        // 'start' wants to work in it, and was sent to a second command instead.
+        final PoreloContext context = context(dir, true);
+        runner.answering("ps", RUNNING_SHELL);
+
+        assertThat(startAt(context, true, "-p", projectFile(dir, MINIMAL)))
+                .as("said: %s", err)
+                .isZero();
+
+        assertThat(err.toString()).doesNotContain("already running");
+        assertThat(execCalls).as("the session it went into").hasSize(1);
+        assertThat(String.join(" ", execCalls.get(0))).contains("porelo-uc-shell");
+    }
+
+    @Test
+    void aStartOnARunningTaskNamesEachOptionThatWouldNoLongerTakeEffect(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = context(dir, true);
+        runner.answering("ps", RUNNING_SHELL);
+
+        assertThat(
+                        startAt(
+                                context,
+                                true,
+                                "-p",
+                                projectFile(dir, MINIMAL),
+                                "--prompt",
+                                "x",
+                                "--model",
+                                "m"))
+                .as("said: %s", err)
+                .isEqualTo(64);
+
+        assertThat(err.toString())
+                .contains("porelo-uc-shell is already running; --prompt, --model take effect only")
+                .contains("'porelo task stop porelo-uc-shell'");
+        assertThat(execCalls).as("nothing gone into").isEmpty();
+    }
+
+    @Test
+    void aStartWithNoInputOnARunningTaskSaysItRunsEvenWithOptionsAndEvenAtATerminal(
+            @TempDir Path dir) throws IOException {
+        // A playbook's second run starts each task again with --detach --no-input and takes 65 as
+        // "already so": the options are looked at only on the path that goes in.
+        final PoreloContext context = context(dir, true);
+        runner.answering("ps", RUNNING_SHELL);
+
+        assertThat(
+                        startAt(
+                                context,
+                                true,
+                                "-p",
+                                projectFile(dir, MINIMAL),
+                                "--detach",
+                                "--no-input"))
+                .as("said: %s", err)
+                .isEqualTo(65);
+        assertThat(err.toString()).contains("porelo-uc-shell is already running");
+        assertThat(execCalls).isEmpty();
+    }
+
+    @Test
+    void aScriptsStartOnARunningTaskSaysItRunsAndEndsAsBefore(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = context(dir, true);
+        runner.answering("ps", RUNNING_SHELL);
+
+        assertThat(startAt(context, false, "-p", projectFile(dir, MINIMAL)))
+                .as("said: %s", err)
+                .isEqualTo(65);
+        assertThat(err.toString())
+                .contains("porelo-uc-shell is already running")
+                .contains("porelo task attach porelo-uc-shell");
+        assertThat(execCalls).isEmpty();
+    }
+
     @Test
     void startingATaskWithoutNamingARepositoryIsRefused(@TempDir Path dir) throws IOException {
 

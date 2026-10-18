@@ -1,6 +1,7 @@
 # B204 — Start On A Running Task Goes In
 
-**Status:** Backlog.
+**Status:** Implementing. Built with its tests seen red; green on the VM on `070fc2a9`: the whole check, and
+acceptance 233, 5 skipped; to Review once pushed and published.
 **Size:** S - one branch in `TaskLaunch` that hands over to the code `task attach` runs, a check of which options were
 given, and tests for the three cases; no new state and no change to `attach`.
 
@@ -24,8 +25,8 @@ Decided by the operator, 2026-10-18, as the open question left by continuing a c
 - **With such an option:** `start` refuses and names each option that no longer takes effect, for example
   `porelo: <task> is already running; --prompt takes effect only after 'porelo task stop'`. Among them: `-r`,
   `--prompt`/`-P`, `--provider`, `--credential`, `--rm`, `--attach`, `--detach`, and options of their kind.
-- **Without a terminal:** `start` says the task is running and ends with its own exit code, as today (65, `RUNNING`), so a
-  script never hangs in a session.
+- **Without a terminal:** `start` says the task is running and ends with its own exit code, as today (65, `RUNNING`),
+  so a script never hangs in a session.
 - `task attach` stays as it is: the verb that never creates anything.
 
 The running case is today's `summary.get().running()` branch in `TaskLaunch`, after the project and repository checks.
@@ -41,13 +42,21 @@ Whether a person is at a terminal is `Offer.atTerminal()`, as other offers of `s
 - [ ] `task attach` behaves as before; its tests are unchanged.
 - [ ] The CLI reference and the help text of `start` say what `start` does on a running task.
 
+## Built, 2026-10-18
+
+- `TaskLaunch.startExisting(out, err, goingIn)` answers a running task with code 0 and `RUNNING` and says nothing of it
+  when the caller goes in; the daemon's call is unchanged and still gets 65.
+- `TaskRunCommand` goes in when a person is at a terminal and `--no-input` was not given, through
+  `TaskAttachCommand.goInto`, the code `attach` itself now calls. Given any of `--agent`, `--provider`,
+  `--credential`, `--credential-type`, `--token-hours`, `--shell`, `--attach`, `--rm`, `--prompt`, `--model`,
+  `--max-turns`, `--minutes`, `--upstream`, `--no-gate`, `--clearance`, `--raw`, `--detach` or `--restarted`, it
+  refuses with 64 and names each.
+- `-r` naming the task's own repository is not counted: a different one is refused before, as today.
+- `--dry-run` never reaches this: the launch says what it would do and asks the runtime nothing.
+- Red first: `TaskRunCommandTest.aStartAtATerminalGoesIntoARunningTaskAsAttachDoes` and
+  `aStartOnARunningTaskNamesEachOptionThatWouldNoLongerTakeEffect` failed with going in turned off, and
+  `aScriptsStartOnARunningTaskSaysItRunsAndEndsAsBefore` passed there, as it should.
+
 ## To be checked
 
-- Which of `start`'s options count as "takes effect only at creation or bring-up". A first reading of
-  `TaskRunCommand`: `--agent`, `--provider`, `--credential`, `--credential-type`, `--token-hours`, `--shell`,
-  `--attach`, `--rm`, `-P`/`--prompt`, `--model`, `--max-turns`, `--minutes`, `--upstream`, `-r`/`--repository`,
-  `--no-gate`, `--clearance`, `--raw`, `--detach` and `--restarted` do. `-p`/`--project`, `--no-input`, `--yes`,
-  `--now` and `--dry-run` select or answer and do not. `--dry-run` on a running task should probably say what it would
-  do and go in nowhere.
-- Whether `-r` naming the task's own repository counts as given. Today a different repository is refused before the
-  running check, and the same one passes.
+- Whether the daemon's Start over the socket should go in too: it has no terminal, so it keeps 65 and `RUNNING`.

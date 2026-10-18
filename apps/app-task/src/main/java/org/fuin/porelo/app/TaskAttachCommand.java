@@ -208,6 +208,18 @@ public class TaskAttachCommand implements Callable<Integer>, PoreloFactory.Conte
         // container, and this is the one path where a person's own terminal is on the other end.
         // One handle for both calls - context.podman() builds a new one each time, so asking
         // through two of them would ask the container twice.
+        return goInto(context, container, out);
+    }
+
+    /**
+     * Goes into a running task, as {@code attach} does and {@code start} does at a terminal.
+     *
+     * @param context The machine.
+     * @param container The running task.
+     * @param out Where to report.
+     * @return The session's exit code.
+     */
+    static int goInto(final PoreloContext context, final String container, final PrintWriter out) {
         final org.fuin.porelo.runtime.Podman podman = context.podman();
         // An agent task whose session is gone starts its agent again, continuing where it can;
         // otherwise the session that is there, or a shell.

@@ -29,7 +29,9 @@ import picocli.CommandLine.Spec;
 @Command(
         name = "start",
         mixinStandardHelpOptions = true,
-        description = "Starts a task: creates it, or brings back the one that is stopped.")
+        description =
+                "Starts a task: creates it, brings back the one that is stopped, or at a terminal goes into"
+                        + " the one that is running.")
 public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
     /**
@@ -205,6 +207,9 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     private boolean restarted;
 
     @Spec private CommandSpec spec;
+
+    /** Whether a person is at a terminal; a test says so, since it has none. */
+    java.util.function.BooleanSupplier terminal = Offer::atTerminal;
 
     private PoreloContext context = PoreloContext.real();
 
@@ -436,8 +441,14 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                         // pipe is refused as before.
                         .offering(offer(noInput, yes, Offer.atTerminal(), err));
 
-        final TaskLaunch.Existing existing = launch.startExisting(out, err);
+        // A person at a terminal who typed 'start' wants to work in the task, running or not; a
+        // script is answered with RUNNING as before, so it never hangs in a session.
+        final boolean goingIn = terminal.getAsBoolean() && !noInput;
+        final TaskLaunch.Existing existing = launch.startExisting(out, err, goingIn);
         if (existing != null) {
+            if ("RUNNING".equals(existing.action()) && existing.code() == 0) {
+                return intoRunning(existing.container(), out, err);
+            }
             if (existing.code() != 0) {
                 return existing.code();
             }
@@ -887,5 +898,55 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
         return noInput || !atTerminal
                 ? Offer.NOBODY
                 : new Offer(Offer.Asker.terminal(), false, yes, err);
+    }
+
+    /**
+     * The options that take effect only when a task is created or brought up, so a start on one
+     * that is running would drop them without a word. {@code -r} is not among them: a different
+     * repository is refused before, and the task's own changes nothing.
+     */
+    private static final java.util.List<String> AT_START_ONLY =
+            java.util.List.of(
+                    "--agent",
+                    "--provider",
+                    "--credential",
+                    "--credential-type",
+                    "--token-hours",
+                    "--shell",
+                    "--attach",
+                    "--rm",
+                    "--prompt",
+                    "--model",
+                    "--max-turns",
+                    "--minutes",
+                    "--upstream",
+                    "--no-gate",
+                    "--clearance",
+                    "--raw",
+                    "--detach",
+                    "--restarted");
+
+    /**
+     * Goes into a running task as {@code attach} does, unless an option was given that it would
+     * drop; then names each of them and goes in nowhere.
+     */
+    private int intoRunning(final String container, final PrintWriter out, final PrintWriter err) {
+        final picocli.CommandLine.ParseResult parsed = spec.commandLine().getParseResult();
+        final java.util.List<String> given =
+                AT_START_ONLY.stream().filter(parsed::hasMatchedOption).toList();
+        if (!given.isEmpty()) {
+            err.println(
+                    "porelo: "
+                            + container
+                            + " is already running; "
+                            + String.join(", ", given)
+                            + (given.size() == 1 ? " takes" : " take")
+                            + " effect only after 'porelo task stop "
+                            + container
+                            + "'");
+            err.flush();
+            return 64;
+        }
+        return TaskAttachCommand.goInto(context, container, out);
     }
 }

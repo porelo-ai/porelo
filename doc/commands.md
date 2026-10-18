@@ -117,7 +117,11 @@ takes `porelo approve TASK`; `--yes` answers for a script.
 - By default you get the agent's session. `--attach shell` gives a shell, `-P`/`--prompt` runs the
   agent unattended, `--detach` hands over nothing, `--now` returns before the image is built.
 - `--rm` removes the container when you leave. By default it is kept.
-- A running task is refused; use `attach`.
+- **A running task is gone into**, as `attach` does: at a terminal, `start` on it starts its agent again where the
+  session is gone, continuing its conversation. An option that takes effect only when a task is created or brought
+  up (`--prompt`, `--model`, `--agent`, `--attach`, `--detach`, `--rm` and the like) is refused, naming each, since it
+  would be dropped: stop the task first. Without a terminal, or with `--no-input`, `start` says the task is running
+  and exits 65, so a script never ends up in a session.
 - **What is missing is offered, not only named.** At a terminal a start asks what it would otherwise tell you
   to type: at a host this machine never met, it shows the keys the host offers and asks whether to trust its
   key (no by default, compare it with what the host's owner publishes). Before anything is made, the start

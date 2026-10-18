@@ -392,6 +392,21 @@ public final class TaskLaunch {
      *     to be created.
      */
     public @Nullable Existing startExisting(PrintWriter out, PrintWriter err) {
+        return startExisting(out, err, false);
+    }
+
+    /**
+     * Brings an existing task back, or says it is running.
+     *
+     * @param out Where to report.
+     * @param err Where to refuse.
+     * @param goingIn Whether the caller goes into a running task itself, as a person's start at a
+     *     terminal does: then a running task is answered with code 0 and {@code RUNNING}, and
+     *     nothing is said of it here.
+     * @return What happened, or {@code null} when there is nothing to bring back and the task has
+     *     to be created.
+     */
+    public @Nullable Existing startExisting(PrintWriter out, PrintWriter err, boolean goingIn) {
 
         if (request.dryRun()) {
             // A dry run must touch nothing, and asking the runtime what exists is touching it. The
@@ -454,6 +469,9 @@ public final class TaskLaunch {
         }
 
         if (summary.get().running()) {
+            if (goingIn) {
+                return new Existing(container, project.name(), 0, "RUNNING");
+            }
             err.println("porelo: " + container + " is already running");
             err.println("       go into it with 'porelo task attach " + container + "'.");
             err.flush();

@@ -1,0 +1,2 @@
+title: "'porelo task start' on a running task goes into it at a terminal, as 'task attach' does, and refuses naming each option that would no longer take effect; a script still gets 65"
+type: changed
