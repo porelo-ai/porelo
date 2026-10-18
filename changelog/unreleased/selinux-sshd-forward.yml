@@ -1,0 +1,2 @@
+title: The SELinux module lets sshd connect to the daemon's socket, so a socket forward with ssh -L answers under selinux-policy 44 - load it again with install-selinux-policy.sh
+type: fixed

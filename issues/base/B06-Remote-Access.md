@@ -1,7 +1,8 @@
 # B06 — Remote Access
 
 **Status:** Implementing.
-**Size:** M - both shapes are built, and the hop and the socket check are in the suite; left: the forwarded socket under an enforcing SELinux.
+**Size:** M - both shapes are built, and the hop and the socket check are in the suite; the forwarded socket under an
+enforcing SELinux is fixed in the policy module; left: the Build's Fedora leg green.
 
 **What must be true.** Tasks on another machine are usable over an encrypted tunnel, without the
 daemon ever binding a network port.
@@ -112,28 +113,30 @@ Steps:
    costs (a socket file and its lifetime against one ssh session per stream).
 
 
-**Run in porelo's Build, 2026-10-18, and left open: the forwarded socket under an enforcing SELinux.** On both
+**Run in porelo's Build, 2026-10-18: the forwarded socket under an enforcing SELinux.** On both
 rented legs the bridge held: a watch over one ssh session saw a task start and go. On the ubuntu leg the forwarded
 socket answered the listing too. On the rented Fedora leg every connection through it was reset, five times over ten
 seconds, while the daemon kept running under the same pid (runs 39079073433 and 39081172132). Two other machines did
 not show it: the local Fedora 44 VM (enforcing, selinux-policy 43.3, OpenSSH 10.2) and the ubuntu VM.
 
-The cause is not known. A first reading: porelod labels its listening socket `porelo_socket_t` (`SocketContext`, the
-`porelo_socket` module), and the module lets only `unconfined_t`, `container_t` and `container_runtime_t` connect to
-it. Through a forward it is sshd that connects - `sshd_t`, or `sshd_session_t` with OpenSSH's split session process.
-But that is not the whole cause. The local Fedora 44 VM is enforcing with the module loaded, its sshd session runs as
-`sshd_session_t`, and the forward works there. Something on the rented Fedora image differs: its selinux-policy, its
-sshd settings, or how its accounts are made. The watch went through `porelo daemon connect`, run as the user. The
-interface and the IntelliJ plugin reach a machine through exactly this forward, so the case reaches them too.
+**The cause, measured 2026-10-18: selinux-policy 44 forbids sshd to connect to the daemon's socket.** A rented
+Fedora from the CI image (Fedora 44, selinux-policy 44.7, OpenSSH 10.2p1-14, enforcing, `porelo_socket` loaded)
+reset every connection through the forward: the interface's own forward Unix to Unix 5 of 5, one from a TCP port 3 of
+3, and one raised from outside the machine as the interface does 5 of 5. Under `setenforce 0` all 13 answered. The
+daemon runs `unconfined_t` and creates its listening socket as `porelo_socket_t` (`SocketContext`); for a forward it
+is `sshd_session_t`, OpenSSH's split session process, that connects, and the module let only `unconfined_t`,
+`container_t` and `container_runtime_t` do so. No denial reached an audit log on that image, even with the dontaudit
+rules off. The local Fedora 44 VM, where the forward worked, had selinux-policy 43.3; raised to 44.11 and OpenSSH
+10.2p1-14, it reset the forward the same way.
 
-**Left, after phase 0:**
-- Reproduce it on the rented Fedora image. Read what refuses the connection as root: the denial (`ausearch -m avc`) or
-  sshd's own log.
-- Fix what that shows. If it is the module: a rule letting sshd's domains `connectto` the daemon's socket, in an
-  `optional` block so a policy without `sshd_session_t` still loads; or porelod's own socket left unlabelled, if no
-  container needs to reach it.
-- Then take the scenario's exception for an enforcing SELinux out again. Until then the scenario says "the forward
-  is not asked under an enforcing SELinux" there, and asks it everywhere else.
+**Fixed:** `porelo_socket` 1.1 lets `sshd_t` and `sshd_session_t` `connectto` the daemon's socket, connect only, each in
+an `optional` block so a policy without `sshd_session_t` still loads it. Loaded on the raised VM, every connection
+answered again: 5 of 5 Unix to Unix, 3 of 3 from a TCP port, 5 of 5 from outside. A Fedora leg now loads its own
+tree's module as root before it builds, so the Build tests the module it carries rather than the one in the image.
+The scenario's exception for an enforcing SELinux is gone: the forward is asked everywhere.
+
+**Left:** the scenario green on the Build's rented Fedora leg, and an installed machine with an older module loads
+1.1 (`sudo /usr/share/porelo/selinux/install-selinux-policy.sh`, which `porelo doctor` names).
 
 ## Acceptance
 

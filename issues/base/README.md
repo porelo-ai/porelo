@@ -41,7 +41,7 @@ from its side, as *blocked by*.
 | <a id="b79"></a>[B79](B79-A-Daemon-That-Answers-Nothing.md) | S | - | Platform threads and the thread dump are built; left: runs on the two-CPU VM after SIGKILL, both thread kinds, reading a dump on a hang. |
 | <a id="b49"></a>[B49](B49-What-The-Build-Trusts-To-Run-Beside-Its-Secrets.md) | S | - | Pins, Dependabot and `check-actions` are on `main`; left: a checksum-pinned JFrog CLI step, the hand check of `Publish`, the first Dependabot review. |
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
-| <a id="b06"></a>[B06](B06-Remote-Access.md) | M | - | Remote use over ssh; both shapes built, the socket check and a real ssh hop in the suite; left: the forwarded socket under an enforcing SELinux. |
+| <a id="b06"></a>[B06](B06-Remote-Access.md) | M | - | Remote use over ssh; both shapes built, the socket check and a real ssh hop in the suite; the forwarded socket under an enforcing SELinux fixed in `porelo_socket` 1.1; left: green on the Build's rented Fedora leg. |
 
 ## Backlog
 

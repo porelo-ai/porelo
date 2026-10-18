@@ -1,4 +1,4 @@
-module porelo_socket 1.0;
+module porelo_socket 1.1;
 
 # Lets a task container reach Porelo's host sockets, and nothing else.
 #
@@ -21,6 +21,13 @@ module porelo_socket 1.0;
 #                      which puts it in this domain - measured, and refused before this rule
 #                      existed. It may only connect: it cannot create a socket of this type, so a
 #                      compromised container still cannot stand up a listener wearing the label.
+#   sshd_t, sshd_session_t
+#                      sshd, which connects to the daemon's socket for a forward ('ssh -L' onto it):
+#                      how the interface and the IntelliJ plugin reach a remote machine. It may only
+#                      connect. Under selinux-policy 44 every such connection was reset on Fedora 44,
+#                      and worked under 43.3 and with SELinux permissive (measured 2026-10-18). In
+#                      optional blocks: sshd_session_t exists only where OpenSSH splits its session
+#                      process, and a policy without it must still load this module.
 #
 # Install:  sudo ./install-selinux-policy.sh
 # Remove:   sudo semodule -r porelo_socket
@@ -52,3 +59,17 @@ allow unconfined_t porelo_socket_t:unix_stream_socket {
 allow container_t porelo_socket_t:unix_stream_socket connectto;
 
 allow container_runtime_t porelo_socket_t:unix_stream_socket connectto;
+
+optional {
+    require {
+        type sshd_t;
+    }
+    allow sshd_t porelo_socket_t:unix_stream_socket connectto;
+}
+
+optional {
+    require {
+        type sshd_session_t;
+    }
+    allow sshd_session_t porelo_socket_t:unix_stream_socket connectto;
+}

@@ -225,6 +225,20 @@ public final class Leg {
                                 + REPO
                                 + " -f /tmp/tree.tar && rm -f /tmp/tree.tar");
 
+                // The image carries the module of the tree it was built from, so a leg would test
+                // that one rather than its own: the fix letting sshd reach the daemon's socket
+                // would only have been seen after the next image. Loaded as root from this tree,
+                // which is what a person does after installing the package.
+                if ("fedora".equals(os)) {
+                    step("loading this tree's SELinux policy module");
+                    run(
+                            lease.ssh(),
+                            "cd "
+                                    + REPO
+                                    + " && bash selinux/install-selinux-policy.sh"
+                                    + " && semodule -l | grep -qx porelo_socket");
+                }
+
                 // Before anything here runs podman, because that is the only moment the fault
                 // shows. With NoNewPrivileges=yes the unit could not set up rootless podman's user
                 // namespace after a boot, and every daemon started any other way - by hand here, by
