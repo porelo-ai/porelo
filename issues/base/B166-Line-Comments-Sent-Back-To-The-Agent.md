@@ -37,7 +37,7 @@ way a comment travels - local, to and from a forge, from an agent reviewing - ke
 
 - **A, a local review to the task:** comments kept with the waiting push on the host. A reject delivers them to the task
   as one message, each with its anchor, its lines and the lines around them, and any suggestion; the agent is woken as
-  for any message ([B120](README.md#b120)).
+  for any message, once its screen has rested on two looks.
 - **B, the agent's replies, locally:** the agent replies in a thread ("done in commit …") through its message path;
   the sluice checks the reply as egress (text only, no encoded data, no links), the anchor is checked, and the reply
   shows in the review beside the person's comment, marked with its origin. Nothing leaves the machine.

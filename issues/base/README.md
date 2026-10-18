@@ -20,16 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b120"></a>[B120](B120-A-Wake-Waits-For-Rest-That-Holds.md) | S | - | Two looks at the screen 1.5 s apart before a wake is typed, Enter once more for a line left standing; the agent repositories' wake scenarios green on both legs with `v0.5.0`. |
-| <a id="b46"></a>[B46](B46-The-Conversation-A-Restart-Loses.md) | M | - | Session continuation, `--restarted` leaving an unattended task stopped with its session, a stub that remembers a word and the real-reboot `@restart` scenario are built, and it passed on the `fedora` VM; left: green in the Build's rented legs. |
-| <a id="b13"></a>[B13](B13-Unreviewed-Work-Leaving-By-The-Side-Door.md) | M | - | Guard and checkout on `main`; pending marks work already upstream and reject refuses it without `--force` (`Tasks1` gains an optional field and `force`); the hand-push scenario is written, to run on the VM and in the Build. |
-| <a id="b76"></a>[B76](B76-The-Code-Checked-Against-The-Skills-It-Was-Written-Without.md) | L | - | Every finding fixed or declined and every module read; `apps/*` and `daemon` read again whole; the kit's bounds capped at 120 s for every repository. |
-| <a id="b133"></a>[B133](B133-A-Shut-Vault-Opened-Where-It-Is-Needed.md) | S | - | A shut vault asks for its passphrase at a terminal instead of refusing; the start on a shut vault at a terminal is a scenario, green in the Build. |
-| <a id="b137"></a>[B137](B137-An-Offline-Project-Never-Connects.md) | S | - | An offline project never connects; the acceptance round trip with bundles is a scenario, green in the Build. |
 | <a id="b102"></a>[B102](B102-A-Vault-Cleared-In-One-Step.md) | S | - | `vault clear` is on `main`; left: a scenario in `vault-commands.feature` and the walk with a homeserver on a rented machine. |
-| <a id="b129"></a>[B129](B129-An-Agent-Found-By-Its-Description.md) | S | - | Agents found by an `agents.d/<name>.yaml` description; the stub packaged that way, and the package check proves it in a clean Debian and Fedora. |
-| <a id="b134"></a>[B134](B134-A-Task-Terminal-As-The-Terminal-Outside.md) | M | - | The task's tmux matches the terminal outside; a kit step and a scenario per key are built and Pi is measured; the key scenario green on the VM and in the Build; left: the joint test. |
-| <a id="b158"></a>[B158](B158-A-Refusal-That-Knows-The-Next-Command-Offers-It.md) | M | - | A refusal offers its remedy command; built for vault login, a start's credential refusals and resume's shut vault; the resume test `ResumeVaultOfferTest` is in, green in the Build. |
 | <a id="b31"></a>[B31](B31-An-Authorization-A-Person-Grants-Once.md) | S | - | Dynamic client registration built against a stand-in; left: a real GitHub grant and an hour-long stream with GitHub's remote MCP server on the VM. |
 
 ## Implementing
@@ -158,6 +149,15 @@ from its side, as *blocked by*.
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="b134"></a>B134 | A Task Terminal As The Terminal Outside | The task's tmux feels like the terminal outside: Esc within 10 ms, extended keys, truecolour, the clipboard, links and focus pass, the account's own `~/.config/porelo/tmux.conf` is read after Porelo's, and a scenario presses each key. |
+| <a id="b120"></a>B120 | A Wake Waits For Rest That Holds | A wake is typed only when `at_rest` holds on two looks 1.5 s apart, and a line left standing in the input box gets Enter once more or is said as not delivered. |
+| <a id="b133"></a>B133 | A Shut Vault Opened Where It Is Needed | At a terminal a command that needs a shut vault asks for the passphrase and carries on, keeping the vault open as `vault unlock` does where a task needs it afterwards; without a terminal it refuses as before. |
+| <a id="b158"></a>B158 | A Refusal That Knows The Next Command Offers It | A refusal that only names the next command offers it at a terminal through one `Offer` helper: `vault login` of an agent already signed in, a start's missing grant, sign-in or key, and resume's shut vault. |
+| <a id="b129"></a>B129 | An Agent Found By Its Description | An agent is found by an `agents.d/<name>.yaml` description naming its executable, under the vendor's own names; the stub is packaged that way and the package check finds it in a clean Debian and Fedora. |
+| <a id="b137"></a>B137 | An Offline Project Never Connects | An offline project makes no connection out: no `upstream` or `--upstream`, followed only from a bundle or a directory, its code carried in by `gate restore` and out by `gate backup`. |
+| <a id="b13"></a>B13 | Unreviewed Work Leaving By The Side Door | `gate protect`'s pre-push guard names unapproved agent commits, `gate checkout` opens waiting work where nothing reaches the upstream, and `gate pending` marks work pushed upstream by hand, which `reject` discards only with `--force`. |
+| <a id="b46"></a>B46 | The Conversation A Restart Loses | A task continues its agent's conversation after a reboot: `--restarted` brings back a task somebody drove, and a run left to itself stays stopped as interrupted, its session kept for its next start. |
+| <a id="b76"></a>B76 | The Code Checked Against The Skills It Was Written Without | Every Java module read against the house skills, each finding fixed with a test seen failing or declined with its reason, and the kit's bounds capped at 120 s for every repository. |
 | <a id="b157"></a>B157 | Doctor Says Its Findings In Colour | Doctor colours its findings; `--color` and `NO_COLOR` work, and there is no colour when piped. |
 | <a id="b126"></a>B126 | One Source For A Repository Both Ways | One source per repository both ways: a task clones from where its approved work goes. |
 | <a id="b127"></a>B127 | An Online Task Pushes Through The Host | An online task's push goes through the host's gate as `porelo/<task>`, with no key or route to the upstream in the container. |

@@ -176,7 +176,9 @@ so an audit reads the roster rather than the build logs.
 **`ready_marker` is what a check of the agent waits for**, attached, to prove it reached work
 with nothing asked first. The acceptance kit's step *"the … agent reaches work without being asked
 anything"* types nothing and waits for this text, within `ready_within_seconds` or the kit's
-default. Any question before it - a trust dialog, a login, a setup wizard - blocks it, so the step
+default. Declare about four times your measured time to the ready screen, counted from the session
+existing; the kit refuses a bound above 120 s, and the N of *"... ends within N seconds"* likewise.
+Any question before it - a trust dialog, a login, a setup wizard - blocks it, so the step
 fails the day a release adds one, including one nobody has seen. An agent whose ready screen has no
 stable text declares none, and the step then fails saying it cannot tell. `porelo agents --verbose`
 shows what each agent declares.

@@ -86,9 +86,11 @@ agent's branch into their own checkout and pushing it. Nothing stops that, so `p
 makes the safe way the convenient one: it opens the waiting work as a copy whose only remote is the
 gate and in which no hook runs. Two things to know about the shortcut:
 
-- **The gate then says something untrue.** `approve` pushes and deletes the incoming ref, and the
-  delete is what empties the queue. A push made by hand leaves the ref, so `gate pending` shows the
-  work as waiting for ever, and a later `reject` records it as discarded while it is live upstream.
+- **The gate marks it, where it can see it.** `approve` pushes and deletes the incoming ref, and the
+  delete is what empties the queue. A push made by hand leaves the ref. Once the upstream's default
+  branch has that work, `gate pending` marks it "already upstream", and `reject` discards it only with
+  `--force`, so the record never says thrown away what is live upstream. Work pushed by hand to
+  another branch is not found and still reads as waiting.
 - **The agent's own working copy cannot be offered instead.** It stays inside the container on
   purpose. A bind-mounted one would let the agent write `.git/hooks/`, which then run with the
   privileges of whoever next runs git in that directory.

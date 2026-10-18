@@ -8,8 +8,9 @@ the machine, and from a bundle the person has on their own computer, which the c
 
 ## Why
 
-Since [B137](README.md#b137) an offline project is followed only from a file, and the interface follows only from an address. So an
-offline project cannot be made from the interface at all. Two pieces are missing on Porelo's side, found on 2026-10-10:
+An offline project never connects, so it is followed only from a file, and the interface follows only from an address.
+So an offline project cannot be made from the interface at all. Two pieces are missing on Porelo's side, found on
+2026-10-10:
 
 - `Follow(name, url, ...)` already passes `url` to the same `Reconcile` as the command, so a path counts as a file.
   But the daemon does not make a relative path absolute, as the command does, and the contract does not say that `url`

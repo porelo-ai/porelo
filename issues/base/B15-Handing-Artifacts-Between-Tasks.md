@@ -72,7 +72,7 @@ second storage behind the host.
 
 **A task publishing to one** puts the storage's credential in the path, needs a new declared host in
 every participating project's egress set, and is exactly the side door
-[B13](README.md#b13) is about - built in on purpose and reviewed by
+a hand push past the gate is about - built in on purpose and reviewed by
 nobody.
 
 **A second storage behind the host** would avoid those, and would still be a second thing to run,

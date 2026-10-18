@@ -86,7 +86,7 @@ So the achievable goal is **fewer copies and shorter lifetimes**, never erasure.
 promising otherwise would be the kind of claim this project's own notes warn about, and any test of
 it would be asserting something the platform does not offer.
 
-### Found by [B76](README.md#b76)'s reading of `porelo-vault`
+### Found by reading `porelo-vault` against the house skills
 
 - `KernelKeyring` makes a `String` of the passphrase when storing and reading it, and leaves its
   native buffers unzeroed when the arena closes.

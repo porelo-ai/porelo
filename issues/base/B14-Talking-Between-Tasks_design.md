@@ -142,8 +142,8 @@ Every object is closed: a property the schema does not name is a refusal, not so
 - **One verification path for every transport**, whatever carried the two files.
 - **The key is the daemon user's**, held in that user's state directory at `0600` and never mounted
   anywhere. Porelo runs as a systemd *user* unit, so two people on one machine have two identities and
-  neither can read the other's key; the boundary is exactly Unix-user strength, as [B13](README.md#b13)
-  ([index](README.md)) already says for the guard.
+  neither can read the other's key; the boundary is exactly Unix-user strength, as it already is for
+  the pre-push guard of `porelo gate protect`.
 - **It is not the user's login key.** One lets a machine connect, the other says what it vouches for:
   a login key is often passphrase-protected, and revoking one should not invalidate the other.
 - **It says the installation vouched, not that the agent typed it.** The task never holds a key;

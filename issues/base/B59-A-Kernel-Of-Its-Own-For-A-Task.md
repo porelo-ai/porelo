@@ -58,7 +58,7 @@ The first two decide whether the rest is worth doing.
    whether the acceptance suite passes unchanged against a task started this way.
 7. **Can a task be frozen and brought back?** Snapshot and restore of a task, its running agent with
    it, is a goal: a task would then come back after a restart where it was, not only through `task
-   start --restarted` and the conversation [B46](README.md#b46) brings back. Measure whether the
+   start --restarted` and the conversation its session brings back. Measure whether the
    runtime can snapshot a running workload and restore it, on the same machine and after a reboot,
    and what podman lets through of it.
 

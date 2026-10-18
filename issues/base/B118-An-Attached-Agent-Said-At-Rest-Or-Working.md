@@ -20,8 +20,8 @@ declaration, not silence.
 It also closes, for attached tasks, the gap `porelo-frontend`'s `doc/Contract-Gaps.md` names: "a quiet task is shown
 as a guess".
 
-Rest is taken by [B120](README.md#b120)'s rule, held on two looks a short while apart, so status and the wake never disagree about
-an instant between a prompt and the agent's working line.
+Rest is taken by the wake's rule, held on two looks at the screen 1.5 s apart, so status and the wake never disagree
+about an instant between a prompt and the agent's working line.
 
 ## Plan
 

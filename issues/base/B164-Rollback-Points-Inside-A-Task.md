@@ -15,15 +15,15 @@ together, and that is much asked for.
 ## The shape
 
 - A state per step: a commit on a ref of the host's own in the task's workspace, never pushed and never seen by the gate
-  as work; what makes a step is the agent's turn ending, as the activity reading of [B120](README.md#b120) already knows it.
+  as work; what makes a step is the agent's turn ending, as the wake's reading of `at_rest` already knows it.
 - The last 20 states are kept by default; a project may set another number, or keep every state until the task ends.
   The oldest goes when a newer one is kept, and every state goes with the task.
 - `porelo task rewind TASK [--to <n>]` lists the states, and restores one after a question with what is lost (asked
   as a destructive step: no by default).
 - A running agent session is not restored over: the rewind offers to stop and restart the agent's session itself,
   default no. Declined, nothing is restored, and it says to stop the session first.
-- The conversation goes back where the agent names a session to resume from ([B46](README.md#b46)); otherwise only the files, and it
-  says so.
+- The conversation goes back where the agent names a session to resume from (`session_id`); otherwise only the files,
+  and it says so.
 - The resumption of a conversation by `session_id` and `resume_flag` is built (`agents/README.md`).
 
 ## Plan
@@ -34,7 +34,7 @@ Read in today's code:
   through `podman exec` and `podman cp`. A ref written inside the container is the agent's to change, so a state is
   only kept once it is on the host.
 - A step's end is already read from outside: `AgentWaiting` (an attached task's screen, the agent's declared
-  `at_rest` as [B120](README.md#b120) uses it) and `AgentEnding` (an unattended run's records).
+  `at_rest` as the wake uses it) and `AgentEnding` (an unattended run's records).
 - `TaskSession` records the session an agent ran, and a start again passes `resume_flag` with its id; the session's
   content lives in the agent's own files in the container.
 

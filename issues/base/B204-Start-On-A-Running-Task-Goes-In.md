@@ -9,12 +9,12 @@ given that would only take effect when a task is created or brought up.
 
 ## Why
 
-After a reboot ([B46](README.md#b46)) a task's container comes back running, but the agent's session in it is gone. `task start` on it
+After a reboot a task's container comes back running, but the agent's session in it is gone. `task start` on it
 then says the task "is already running" and points to `porelo task attach`. Only `attach` starts the agent again and
 continues its conversation. A person who typed `start` has said they want to work in the task. Sending them to a second
 command adds a step and nothing else.
 
-Decided by the operator, 2026-10-18, as [B46](README.md#b46)'s open question.
+Decided by the operator, 2026-10-18, as the open question left by continuing a conversation after a restart.
 
 ## The shape
 

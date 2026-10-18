@@ -28,7 +28,7 @@ Measured on the Ubuntu test VM, on a machine that had run real tasks:
 What is in them is not incidental:
 
 - **The gate mirror holds the work an agent pushed and nobody has reviewed yet.** That is the thing
-  [B13](README.md#b13) exists to keep from leaving unseen, and it
+  the pre-push guard and `gate checkout` exist to keep from leaving unseen, and it
   is the whole source of every project this machine has touched.
 - **The registry** names every project and the path to its project file.
 - **The upstream records** say what each project's upstream is and how far behind it has fallen.

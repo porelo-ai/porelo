@@ -26,6 +26,8 @@ would change the answer.
 | What carries an agent's words is kept for a period | `task.log` and a session's recording cut after 30 days, even while the task lives; a setting | [entry](#what-carries-an-agents-words-is-kept-for-a-period) |
 | A kernel of its own for a task is measured before it is decided | adopted only on measured answers: it works, the ruleset still fails closed, its cost | [entry](#a-kernel-of-its-own-for-a-task-is-measured-before-it-is-decided) |
 | A view of a task is guarded by Porelo's token, not by VNC's password | switched on per project, only through Porelo's relay, a strong one-time token before a byte reaches VNC | [entry](#a-view-of-a-task-is-guarded-by-porelos-token-not-by-vncs-password) |
+| A run left to itself comes back from a restart stopped | its session kept and shown as interrupted; only a task somebody drove comes back with `--restarted` | [entry](#a-run-left-to-itself-comes-back-from-a-restart-stopped) |
+| A task's terminal is tmux, and a person's own settings come after Porelo's | `~/.config/porelo/tmux.conf` read after Porelo's; `history-limit` and `default-terminal` set again after it | [entry](#a-tasks-terminal-is-tmux-and-a-persons-own-settings-come-after-porelos) |
 | **The machine and the daemon** | | |
 | A weaker machine is reported, not refused | `DEGRADED` exits zero and starts tasks; only `MISSING` fails | [entry](#a-weaker-machine-is-reported-not-refused) |
 | Doctor diagnoses and never repairs | each check names the next action; nothing runs a fix as root | [entry](#doctor-diagnoses-and-never-repairs) |
@@ -46,6 +48,9 @@ would change the answer.
 | A new dependency with a finding waits for a person | the approve asks for each, bound to the reviewed commit, and without a terminal is refused; Maven Central and npm first | [entry](#a-new-dependency-with-a-finding-waits-for-a-person) |
 | An approve lands as a merge carrying provenance; a fast-forward is a project's choice | models, agent and provider from the broker, never the agent; a fast-forward gives up the provenance | [entry](#an-approve-lands-as-a-merge-carrying-provenance-a-fast-forward-is-a-projects-choice) |
 | The owner approves alone unless a project asks for a second person | four eyes is a project setting; the approve then needs another signer's signature | [entry](#the-owner-approves-alone-unless-a-project-asks-for-a-second-person) |
+| Work is reviewed on the machine, never on an upstream branch | approved work goes back to the checkout the task started from; Porelo gets no write access to an upstream for review | [entry](#work-is-reviewed-on-the-machine-never-on-an-upstream-branch) |
+| No editor is attached to a task's container | no editor vendor's hosts declared, no editor server copied in; `gate checkout` is the way to look at the work | [entry](#no-editor-is-attached-to-a-tasks-container) |
+| The pre-push guard catches an accident, not the owner of the machine | four ways round it and a spoofable author are accepted; `--no-verify` is the named way past | [entry](#the-pre-push-guard-catches-an-accident-not-the-owner-of-the-machine) |
 | **The vault and credentials** | | |
 | A provider is a declaration; an agent is a package | providers are YAML data paired with agents by dialect; the vault is keyed by provider | [entry](#a-provider-is-a-declaration-an-agent-is-a-package) |
 | A service that is not a model provider is a destination | its own kind and file, not a widened provider; a provider resolves as one too | [entry](#a-service-that-is-not-a-model-provider-is-a-destination) |
@@ -76,6 +81,7 @@ would change the answer.
 | Where a followed project's file comes from | only the verified clone; nothing in force means no task, never a fallback to a local file | [entry](#where-a-followed-projects-file-comes-from) |
 | Clearing names what only a person's credentials can remove, and never attempts it | forge deploy keys and `machine-signers` lines are answered, not removed; the vault stays | [entry](#clearing-names-what-only-a-persons-credentials-can-remove-and-never-attempts-it) |
 | A digest pins an image; a tag-only image in a followed project needs a person's consent once | a followed tag-only project waits for one consent, then the digest is kept and a change said at every start | [entry](#a-digest-pins-an-image-a-tag-only-image-in-a-followed-project-needs-a-persons-consent-once) |
+| An offline project never connects, and its agent still reaches its provider | no upstream, followed only from a file; the agent's model calls go through the broker as in every class | [entry](#an-offline-project-never-connects-and-its-agent-still-reaches-its-provider) |
 | **Messages** | | |
 | A task holds no key and sees no address | one mailbox in the container; a host-side signing key, distinct from the login key | [entry](#a-task-holds-no-key-and-sees-no-address) |
 | No model decides what a message may contain | rules accept or refuse, a person holds; a classifier may only ever hold | [entry](#no-model-decides-what-a-message-may-contain) |
@@ -102,6 +108,8 @@ would change the answer.
 | A leg runs only the unit tests that need its machine | unit tests on the build host, except those only the target can run, which fail it when skipped | [entry](#a-leg-runs-only-the-unit-tests-that-need-its-machine) |
 | One key signs everything a machine installs from Porelo | packages, setup script and repository metadata with one key held by the owner; the publishing repositories switch on together | [entry](#one-key-signs-everything-a-machine-installs-from-porelo) |
 | A new name starts afresh | nothing of the name before is read, kept or migrated; a machine is set up afresh; a released changelog entry keeps the name it was released under | [entry](#a-new-name-starts-afresh) |
+| An agent is found by its description, and by Porelo's file name beside it | `agents.d/<name>.yaml` names any executable; `porelo-agent-*` is still read, so released agent packages keep working | [entry](#an-agent-is-found-by-its-description-and-by-porelos-file-name-beside-it) |
+| A bound in the acceptance kit is about four times what was measured | the ready bound and an unattended run's N at most 120 s; a bound above the cap fails by name | [entry](#a-bound-in-the-acceptance-kit-is-about-four-times-what-was-measured) |
 | **The documentation** | | |
 | The issue index stays one table per section | a conflict there is resolved by keeping both lines; split, nobody could read it whole | [entry](#the-issue-index-stays-one-table-per-section) |
 | The data protection page follows the federal ISDS concept template | in the template's chapters, each saying what Porelo provides and what the organisation regulates | [entry](#the-data-protection-page-follows-the-federal-isds-concept-template) |
@@ -889,3 +897,71 @@ vault, command, path or package of it is read or kept, and nothing is migrated, 
 Central keeps the old artifacts as they were, with no relocation, and a released changelog entry keeps the name it was
 released under. A reader of the old paths would have stayed in the code for good, for machines that are set up again
 in minutes.
+
+## A run left to itself comes back from a restart stopped
+
+A task started with a prompt and left to run is not started again by `porelo task start --restarted` or by anything
+else after the machine restarted. It stays stopped, `task list` shows it as interrupted by the restart, and its
+session is kept, so its next `task start` continues the conversation. A run nobody watches that came back by itself
+would spend tokens and push work at a moment nobody chose. A task somebody drove at a terminal comes back with
+`--restarted`, since that person is the one who asks for it.
+
+## A task's terminal is tmux, and a person's own settings come after Porelo's
+
+An agent runs in a tmux session in its container, because tmux carries reattaching, the screen Porelo reads for
+`at_rest` and the lines it types to wake an agent. Porelo's settings make it feel like the terminal outside; what they
+cannot close is written down in `running.md`. An account's own `~/.config/porelo/tmux.conf` is copied into each task
+at its start, read-only for the agent, and read after Porelo's settings, so bindings, the prefix, the mouse and colours
+are set once with no image rebuilt. What Porelo depends on, `history-limit` and `default-terminal`, is set again after
+it, so a person's file cannot break it unawares. **What would change the answer:** something configuration cannot
+reach, which would bring a relay without a terminal of its own to the operator as a proposal, with what it would lose.
+
+## Work is reviewed on the machine, never on an upstream branch
+
+Approved work goes back to the checkout the task was started from (`porelo approve`), and waiting work is read with
+`gate review` and `gate checkout` on the machine. Porelo gets no write access to an upstream for a review branch, and no
+project setting opts into one: a branch there would carry unreviewed work past the gate, which is what the gate is
+for.
+
+## No editor is attached to a task's container
+
+An editor that attaches to a container installs a server in it and downloads that server first, and a task's egress
+does not reach any editor vendor's hosts. Declaring them would widen what the agent may reach so that a person can
+look at its work, and copying an editor server in or baking it into the image would put a vendor's program beside the
+agent. Neither is done. `porelo gate checkout` opens waiting work as a copy whose only remote is the gate and in which
+no hook runs, and the pre-push guard of `porelo gate protect` catches the hand push.
+
+## The pre-push guard catches an accident, not the owner of the machine
+
+`porelo gate protect` installs a pre-push hook that names the commits an agent authored and nobody approved.
+**The exposure:** `git push --no-verify` skips it, a `core.hooksPath` pointing elsewhere disables it (`protect` says
+the repository is then not protected), a fresh clone has no hook, and a client built on a git library may run no
+hooks. The author it tests is preserved through a rebase but can be spoofed. **Why it stays:** it is the person's key,
+checkout and computer; the guard makes the accidental push loud, and `--no-verify` is the named way past for a person
+who means it. What the hook misses, the gate still records truthfully where it can: `gate pending` marks work the
+upstream's default branch already has, and `reject` discards it only with `--force`. **What would change the
+answer:** a way to see every push to the upstream, which would be the forge's, not Porelo's.
+
+## An offline project never connects, and its agent still reaches its provider
+
+An `offline` project makes no connection out, neither from the task nor from the host on its behalf: it names no
+`upstream`, a start takes no `--upstream`, it is followed only from a bundle or a directory and never fetched, and its
+code comes in by `gate restore` and leaves by `gate backup`. Offline only after the first start, as it once was, is not
+what a person choosing it for a machine without a route expects. **The exposure:** the agent's model calls still reach
+its AI provider through the host's broker, as in every class, so the prompts and what the agent reads leave the machine
+to the provider. **Why it stays:** without its model the agent does nothing; the class picture and `security.md` say so
+plainly. **What would change the answer:** a model reached on the machine itself.
+
+## An agent is found by its description, and by Porelo's file name beside it
+
+A vendor's package registers an agent with one file, `agents.d/<name>.yaml`, naming the absolute path of its
+executable, so the package, the program and its place keep the vendor's own names. An executable named
+`porelo-agent-*` in Porelo's agent directories is still found beside the descriptions, so the agent packages released
+before keep working; the account's own wins by name over the system's in both forms.
+
+## A bound in the acceptance kit is about four times what was measured
+
+The kit's ready bound (`ready_within_seconds`, counted from the session existing, so never covering an image build)
+and the N of an unattended run's *"ends within N seconds"* are about four times the agent's measured time, and the kit
+refuses either above its cap, 120 s, naming the cap. The caps are written beside the steps with the measurements they
+come from. A bound that grew then fails at once, where a generous one let stuck scenarios fill a whole step.
