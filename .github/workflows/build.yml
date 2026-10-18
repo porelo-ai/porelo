@@ -82,6 +82,35 @@ jobs:
                   GH_TOKEN: ${{ github.token }}
               run: gh run cancel ${{ github.run_id }} --repo ${{ github.repository }}
 
+    # Before anything is rented: a run of this repository that already proved this commit's tree on both legs - a
+    # squash merge of a branch that is up to date with main gives main that branch's tree - from a push, a dispatch
+    # or a schedule, at most a day old. Then the legs are taken from it and said so, and nothing is rented.
+    proven:
+        name: Proven legs
+        runs-on: ubuntu-24.04
+        timeout-minutes: 10
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        permissions:
+            contents: read
+            actions: read
+        outputs:
+            proven: ${{ steps.ask.outputs.proven }}
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - name: The pinned GraalVM
+              uses: ./.github/actions/pinned-jdk
+
+            - name: Ask whether a run already proved this tree
+              id: ask
+              env:
+                  GITHUB_TOKEN: ${{ github.token }}
+              run: |
+                  ./mvnw -B -q -U -s settings.xml -N exec:exec@release \
+                      -Drelease.args="proven-legs --repository $GITHUB_REPOSITORY --tree $(git rev-parse 'HEAD^{tree}') --jobs 'Leg - fedora,Leg - ubuntu'"
+
     # Only what has landed on main, plus a manual run - beside the unit tests rather than after them: a
     # leg builds the product on its own machine from the same commit and needs nothing they make.
     # Waiting for them cost 4.5 minutes of every run. A leg boots the newest snapshot, which
@@ -93,9 +122,12 @@ jobs:
         # About three times a normal leg (17 min). The step that rents the machine stops sooner, so the clean-up below
         # still runs inside this limit and deletes what the run created.
         timeout-minutes: 60
+        needs: [proven]
+        # Not when a run already proved this tree: 'proven' is skipped on a tag and a dispatch, which always run.
         if: >-
-            github.event_name == 'workflow_dispatch' || (github.event_name == 'push'
-                && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')))
+            !cancelled() && needs.proven.outputs.proven != 'yes'
+            && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push'
+                && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))))
 
         strategy:
             # One leg failing must not cancel the other - which of them fails is usually the finding.
@@ -146,15 +178,61 @@ jobs:
                   PORELO_CI_LEG: ${{ matrix.os }}
               run: ./mvnw -B -q -U -s settings.xml -N exec:exec@machines -Dmachines.args="sweep --mine"
 
+    # When the legs were taken from a proof, the binaries Publish packages are built here, from this commit, with main's own
+    # run number, which the binaries name: the proof's would carry its run's. Nothing is rented; the tree is the one the
+    # proof ran its suite against.
+    native:
+        name: Native binaries on the runner
+        runs-on: ubuntu-24.04
+        timeout-minutes: 40
+        needs: [proven]
+        if: needs.proven.outputs.proven == 'yes'
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - name: The pinned GraalVM
+              uses: ./.github/actions/pinned-jdk
+
+            # The hooks link statically against musl, which the pom expects under ~/.local/opt.
+            - name: The musl toolchain
+              run: ./mvnw -B -q -U -s settings.xml -N exec:exec@machines -Dmachines.args="musl"
+
+            - name: Build the native binaries
+              run: sh ci/leg-build.sh ${{ github.run_number }}
+
+            # The same layout the ubuntu leg sends: each binary at its path, and the list as fetched.txt.
+            - name: Gather them as the leg sends them
+              run: |
+                  set -eu
+                  mkdir -p binaries
+                  while read -r f; do
+                      [ -n "$f" ] || continue
+                      install -D -m 0755 "$f" "binaries/$f"
+                  done < ci/leg-binaries
+                  cp ci/leg-binaries binaries/fetched.txt
+
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              with:
+                  name: native-binaries
+                  path: binaries/
+                  retention-days: 1
+                  if-no-files-found: error
+
     # Snapshots of the agent API, so an agent repository can build without a checkout of this one.
     deploy:
         name: Publish
         # Pinned, not ubuntu-latest: the packages' C library floor is measured on what this builds.
         runs-on: ubuntu-24.04
         timeout-minutes: 20
-        needs: [build, legs]
+        needs: [build, proven, legs, native]
+        # With the legs passed, or taken from a proof and the binaries built on the runner.
         if: >-
-            github.event_name == 'push'
+            !cancelled() && needs.build.result == 'success'
+            && (needs.legs.result == 'success'
+                || (needs.proven.outputs.proven == 'yes' && needs.native.result == 'success'))
+            && github.event_name == 'push'
             && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
 
         steps:
@@ -223,7 +301,8 @@ jobs:
               run: ./mvnw -B clean install -s settings.xml -DskipTests -Dmaven.javadoc.skip=true -Dmaven.source.skip=true
 
 
-            # The binaries come from the ubuntu acceptance leg rather than being rebuilt here, for two reasons.
+            # The binaries come from the ubuntu acceptance leg, or, when the legs were taken from a proof, from the job that
+            # built them on the runner with this run's number.
             - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
               with:
                   name: native-binaries

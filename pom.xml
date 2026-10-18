@@ -71,6 +71,8 @@
         <package.glibc.ceiling>2.41</package.glibc.ceiling>
         <!-- The command line 'exec:exec@machines' gives porelo-machines, such as 'jdk' or 'sweep'. -->
         <machines.args></machines.args>
+        <!-- The command line 'exec:exec@release' gives porelo-release, such as 'proven-legs'. -->
+        <release.args></release.args>
         <!-- Appended to a package version when this is NOT a CI build. Empty here; the
              'local-package' profile at the end of this file sets it.
 
@@ -648,6 +650,23 @@
                                 <artifactId>porelo-machines</artifactId>
                             </executableDependency>
                             <commandlineArgs>-classpath %classpath org.fuin.porelo.machines.Main ${machines.args}</commandlineArgs>
+                        </configuration>
+                    </execution>
+                    <!-- Any other porelo-release command, in a JVM of its own: it exits with the command's code. -->
+                    <execution>
+                        <id>release</id>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>${java.home}/bin/java</executable>
+                            <includeProjectDependencies>false</includeProjectDependencies>
+                            <includePluginDependencies>true</includePluginDependencies>
+                            <executableDependency>
+                                <groupId>org.fuin.porelo</groupId>
+                                <artifactId>porelo-release</artifactId>
+                            </executableDependency>
+                            <commandlineArgs>-classpath %classpath org.fuin.porelo.release.Main ${release.args}</commandlineArgs>
                         </configuration>
                     </execution>
                     <!-- Every workflow step pinned by commit, refused in the build rather than found in review. -->
