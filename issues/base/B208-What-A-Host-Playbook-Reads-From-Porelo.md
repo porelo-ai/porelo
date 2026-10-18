@@ -7,12 +7,18 @@ asked for on 2026-10-18 from
 [PJ40](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj40)) calls only Porelo's commands and
 reads what it needs from Porelo as a contract, never by parsing text meant for a person:
 
-1. **An inventory with its variables, written by Porelo** from `project.yml`, the repositories' files and the person's
-   machine file. Its file, the variables' names and a version the role checks are the contract. The role needs:
+1. **The second play's inventory with its variables, written by Porelo on the host** once `porelo setup` ran there,
+   from `project.yml`, the repositories' files and the person's machine file on the mounted drive. Its file, the
+   variables' names and a version the role checks are the contract. The role needs:
    - the account;
    - the project's name and URL, and the key its project file is signed with;
    - the tasks to start, each with its name, `-p` and `-r`;
    - the keys to put into the vault, each as a name and a path on the person's drive, never a value.
+
+   The first play's part (the host's address, the account and the packages) needs nothing Porelo knows and is
+   written by porelo-frontend's host package
+   ([F131](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md#f131)), decided 2026-10-18, since no
+   Porelo runs on the person's computer before the host exists.
 2. **Answers a program can read**, so the role changes only what differs on a second run:
    - "this project is already followed, with this key";
    - "this task is already running" (today `task start` exits 65 with "is already running" only without a terminal or
