@@ -9,7 +9,9 @@ on:
         branches: ['**']
         # A release: v<version>, built and published to the 'releases' channel. Paths are not filtered for a tag.
         tags: ['v*']
-        paths-ignore: ['**/*.md', 'mkdocs.yml', 'doc/**', 'issues/**']
+        # Workflows alone build nothing: an action's move is checked by its pull request, and the next push with
+        # content builds with it.
+        paths-ignore: ['**/*.md', 'mkdocs.yml', 'doc/**', 'issues/**', '.github/**']
     pull_request:
         branches: ['**']
         paths-ignore: ['**/*.md', 'mkdocs.yml', 'doc/**', 'issues/**']
