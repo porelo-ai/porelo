@@ -40,7 +40,7 @@ business since 2026-09-13; this is a question the box genuinely cannot answer al
 
 **There is no way back in.** An authorization code is delivered to a redirect URI, conventionally
 `http://localhost:<port>`. The container has no inbound path, and when the person is not at this
-machine at all ([B06](README.md#b06)) the code has to land somewhere that can still hand it
+machine at all, and reaches it over ssh, the code has to land somewhere that can still hand it
 back.
 
 **And if the agent completes the flow, the token is in the box.** Audience-scoped and short-lived,
@@ -95,14 +95,15 @@ service, per project, per person, and asked once.
 **Porelo already has that mechanism under another name.** A clearance prompt is a question naming the
 project, the task and what was reached, answered out of band, taking effect on the connection that is
 waiting — and it is never asked twice for a task, across a resume. A consent link is the same object
-with a URL in it. [B06](README.md#b06) already owns the hard half of both: how long a prompt waits for somebody who is
-not at the machine.
+with a URL in it. The hard half of both, how long a prompt waits for somebody who is not at the machine, is
+[decided](../../doc/decisions.md#a-clearance-question-waits-60-seconds-and-an-expired-one-can-still-be-answered) for
+the clearance prompt: 60 seconds, and an expired question can still be answered.
 
 ### Where the code lands, which is the part with three answers
 
 - **A loopback listener on the node**, for an operator sitting at it. Simplest, and useless remotely.
-- **Forwarded over ssh**, reusing what [B06](README.md#b06) settled for the daemon socket: the browser is on the
-  operator's machine, the redirect comes back down the tunnel.
+- **Forwarded over ssh**, reusing the forward that carries the daemon's socket to another computer: the browser is
+  on the operator's machine, the redirect comes back down the tunnel.
 - **A device code, which has no redirect at all.** The person is shown a URL and a code and uses any
   browser anywhere; the broker polls. This is the only one of the three that works when nobody is
   near the node, and where a service offers it, it should be preferred rather than merely permitted.

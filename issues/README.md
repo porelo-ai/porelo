@@ -21,7 +21,7 @@ than discussed. A file that ends with a **To be checked** section has something 
 answer could change what the requirement says — or whether it survives at all; its index marks
 that as an open question.
 
-The number is identity, not order: `B06` is the sixth base requirement written, not the sixth to
+The number is identity, not order: `B10` is the tenth base requirement written, not the tenth to
 build. Each index orders its own set by what to do next.
 
 **A finished requirement is deleted, not marked done.** What it measured — the things that were

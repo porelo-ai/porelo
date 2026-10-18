@@ -20,9 +20,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b06"></a>[B06](B06-Remote-Access.md) | M | - | Remote use over ssh; both shapes built, the socket check and a real ssh hop in the suite; the forwarded socket under an enforcing SELinux fixed in `porelo_socket` 1.1, with doctor naming an older module and the rpm upgrade reloading it; green in the Build on both legs. |
-| <a id="b125"></a>[B125](B125-What-A-Daemon-Costs-And-On-Which-Threads.md) | M | - | Idle measured again after the loops for exited tasks went (1.7 % against 3.1 %), never-started containers kept as tasks, and the virtual-thread run with no hang and no difference: platform threads stay. |
-| <a id="b79"></a>[B79](B79-A-Daemon-That-Answers-Nothing.md) | S | - | Platform threads and the thread dump are built; seven runs on rented two-CPU machines right after a SIGKILL, platform and virtual threads, 2130 bounded calls and none past its bound. |
 | <a id="b102"></a>[B102](B102-A-Vault-Cleared-In-One-Step.md) | S | - | `vault clear` is on `main`; left: a scenario in `vault-commands.feature` and the walk with a homeserver on a rented machine. |
 | <a id="b31"></a>[B31](B31-An-Authorization-A-Person-Grants-Once.md) | S | - | Dynamic client registration built against a stand-in; left: a real GitHub grant and an hour-long stream with GitHub's remote MCP server on the VM. |
 
@@ -149,6 +146,9 @@ from its side, as *blocked by*.
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="b06"></a>B06 | Remote Access | Tasks on another machine are reached over ssh, by `ssh -L` onto the daemon's socket or `ssh HOST porelo daemon connect`, with no network port bound, and the forward answers under an enforcing SELinux through `porelo_socket` 1.1, which an upgrade reloads and `doctor` checks. |
+| <a id="b79"></a>B79 | A Daemon That Answers Nothing | The daemon's connections and long-lived passes run on platform threads and `SIGQUIT` dumps its threads to the journal; seven runs right after a `SIGKILL` on two-CPU machines answered every bounded call. |
+| <a id="b125"></a>B125 | What A Daemon Costs, And On Which Threads | What a daemon costs is measured idle and at work; a task gets a message loop only while it can be waited on, a container created and never started stays a task, and platform threads stay. |
 | <a id="b134"></a>B134 | A Task Terminal As The Terminal Outside | The task's tmux feels like the terminal outside: Esc within 10 ms, extended keys, truecolour, the clipboard, links and focus pass, the account's own `~/.config/porelo/tmux.conf` is read after Porelo's, and a scenario presses each key. |
 | <a id="b120"></a>B120 | A Wake Waits For Rest That Holds | A wake is typed only when `at_rest` holds on two looks 1.5 s apart, and a line left standing in the input box gets Enter once more or is said as not delivered. |
 | <a id="b133"></a>B133 | A Shut Vault Opened Where It Is Needed | At a terminal a command that needs a shut vault asks for the passphrase and carries on, keeping the vault open as `vault unlock` does where a task needs it afterwards; without a terminal it refuses as before. |
@@ -212,8 +212,8 @@ and saying so cost a paragraph and bought a screen that is not lying.
 Two open questions are worth knowing before any of this is planned in detail, because each
 changes what gets built rather than only how:
 
-- Whether a person away from the machine can be reached at all ([B06](README.md#b06)).
-  The transport itself is settled - the socket survives an ssh forward, measured - so what is left
+- Whether a person away from the machine can be reached at all.
+  The transport itself is settled - the daemon's socket survives an ssh forward, measured - so what is left
   is the half that decides how much of the interface's remote use and notifications is real, and how
   long a clearance prompt should wait for somebody who is not there.
 - Whether the guarantees can be re-derived at all on a second platform (`porelo-project` [PJ25](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj25)). It decides whether that project offers the same

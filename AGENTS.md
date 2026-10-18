@@ -183,6 +183,10 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
   NUL byte.
 - **`ausearch -m AVC -ts recent` can miss what `/var/log/audit/audit.log` holds**: grep the file.
 - **`podman unshare` runs as `container_runtime_t`**, which needs its own SELinux grant.
+- **A socket forward connects as `sshd_session_t`**, OpenSSH's split session process, which selinux-policy 44 refuses
+  on the daemon's socket with nothing audited, even with the dontaudit rules off; `porelo_socket` grants `sshd_t` and
+  `sshd_session_t` connect only, each in an `optional` block. The loaded module's version cannot be read, so `doctor`
+  asks `/sys/fs/selinux/access` what it grants.
 - **Hook descriptors count only where podman reads them**: each `hooks_dir` replaces the last, so a later drop-in
   switches Porelo's off; `HookInstaller.registration` tells the states apart, `doctor` exits 69, and a task refuses.
 - **A package upgrade does not re-run `porelo setup`**: `Registration.STALE` compares contents, and a task start
@@ -339,6 +343,8 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
   images belong to `build`, so ask as `build`.
 - **Hetzner's Fedora image ships SELinux permissive**: enforcing needs the config, `/.autorelabel` and a reboot, and
   Porelo's policy module is loaded and checked with `semodule -l`.
+- **A Fedora leg loads its own tree's policy module as root before it builds**, so the Build tests the module it
+  carries rather than the one in the image.
 - **`install -d -o build` owns only the last component**, so a root-owned parent stops rootless podman.
 - **Provisioning is verified by compiling a probe, ordinarily and `--static --libc=musl`**, and changed against a
   live server, never by rebuilding the image.

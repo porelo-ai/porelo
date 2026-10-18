@@ -36,6 +36,10 @@ would change the answer.
 | Account-wide settings live in one file | `$XDG_CONFIG_HOME/porelo/config.yml`; missing means every default, an unknown key refused by name | [entry](#account-wide-settings-live-in-one-file) |
 | Unused access is reported, and locked only on request | a slot or deploy key unused for 45 days named by `doctor`; locking is a setting, off by default | [entry](#unused-access-is-reported-and-locked-only-on-request) |
 | The event log is anchored in the user's journal and outlives a clearing | each line's hash in the user's journal, sent off the machine only by a setting; `porelo clear` keeps it | [entry](#the-event-log-is-anchored-in-the-users-journal-and-outlives-a-clearing) |
+| The daemon listens on no network port; another computer reaches it through ssh | `ssh -L` onto its socket or `ssh HOST porelo daemon connect`; a forward that breaks is repaired, not routed around | [entry](#the-daemon-listens-on-no-network-port-another-computer-reaches-it-through-ssh) |
+| An upgrade reloads a loaded SELinux module, and doctor names an older one | the rpm reloads `porelo_socket` where it is loaded; `doctor` asks the kernel what the loaded one grants | [entry](#an-upgrade-reloads-a-loaded-selinux-module-and-doctor-names-an-older-one) |
+| The daemon serves on platform threads, and a hang is read from its thread dump | connections and long-lived passes on platform threads; `SIGQUIT` dumps them to the journal; virtual threads kept for measuring | [entry](#the-daemon-serves-on-platform-threads-and-a-hang-is-read-from-its-thread-dump) |
+| A daemon at rest runs a loop only for what can be waited on | no loop for an exited task or one without an account; under 5 % of one core with exited tasks; about 1 % per project with a transport is left | [entry](#a-daemon-at-rest-runs-a-loop-only-for-what-can-be-waited-on) |
 | **Egress, the shield and the review** | | |
 | Port 53 to the upstream is the resolver's alone | matched by the resolver's uid 0 in the namespace; the agent's direct query is dropped and logged | [entry](#port-53-to-the-upstream-is-the-resolvers-alone) |
 | Porelo does not claim to detect a prompt injection | it bounds what a convinced agent is worth; each guard says control or accident-catcher | [entry](#porelo-does-not-claim-to-detect-a-prompt-injection) |
@@ -51,6 +55,7 @@ would change the answer.
 | Work is reviewed on the machine, never on an upstream branch | approved work goes back to the checkout the task started from; Porelo gets no write access to an upstream for review | [entry](#work-is-reviewed-on-the-machine-never-on-an-upstream-branch) |
 | No editor is attached to a task's container | no editor vendor's hosts declared, no editor server copied in; `gate checkout` is the way to look at the work | [entry](#no-editor-is-attached-to-a-tasks-container) |
 | The pre-push guard catches an accident, not the owner of the machine | four ways round it and a spoofable author are accepted; `--no-verify` is the named way past | [entry](#the-pre-push-guard-catches-an-accident-not-the-owner-of-the-machine) |
+| A clearance question waits 60 seconds, and an expired one can still be answered | the silence refuses and is recorded; `Decide` answers it later; `shield watch --timeout` waits longer | [entry](#a-clearance-question-waits-60-seconds-and-an-expired-one-can-still-be-answered) |
 | **The vault and credentials** | | |
 | A provider is a declaration; an agent is a package | providers are YAML data paired with agents by dialect; the vault is keyed by provider | [entry](#a-provider-is-a-declaration-an-agent-is-a-package) |
 | A service that is not a model provider is a destination | its own kind and file, not a widened provider; a provider resolves as one too | [entry](#a-service-that-is-not-a-model-provider-is-a-destination) |
@@ -965,3 +970,59 @@ The kit's ready bound (`ready_within_seconds`, counted from the session existing
 and the N of an unattended run's *"ends within N seconds"* are about four times the agent's measured time, and the kit
 refuses either above its cap, 120 s, naming the cap. The caps are written beside the steps with the measurements they
 come from. A bound that grew then fails at once, where a generous one let stuck scenarios fill a whole step.
+
+## The daemon listens on no network port; another computer reaches it through ssh
+
+The daemon binds only its Unix socket, and a check of the unit's control group finds no TCP or UDP listener. Another
+computer reaches it as the account it runs for, in one of two shapes: `ssh -L` forwards a local socket file onto the
+daemon's socket, and a client opens as many connections through it as it likes; `ssh HOST porelo daemon connect`
+carries one connection down the ssh session, with no socket file to tear down, so each stream a client keeps open is
+an ssh session of its own. No listener, certificate or token of Porelo's is added for it. **The exposure:** reaching a
+Porelo needs a shell on its machine; there is no browser and no other client. **Why it stays:** an ssh tunnel is
+already encrypted, already authenticated and already administered, and a forwarded socket is created owner-only, so
+it is no more exposed than the original. **The forward is repaired, not replaced** (decided 2026-10-18): it is how
+the interface and the IntelliJ plugin reach a remote machine, so when an enforcing SELinux reset it, the policy module
+was fixed rather than the clients routed through `daemon connect`, and nothing is multiplexed over that bridge, which
+stays for WSL, scripts and tests. **What would change the answer:** a client that cannot open an ssh session.
+
+## An upgrade reloads a loaded SELinux module, and doctor names an older one
+
+A package upgrade leaves a loaded policy module as it was, so a machine would keep the grants of the version it first
+loaded. The rpm's `%post` reloads `porelo_socket` on an upgrade where it is loaded, leaves a machine that never loaded
+it alone, and prints the command where `checkpolicy` is missing. `porelo doctor` cannot read the loaded module's
+version: the module store is root's, and a module's version is not kept. It asks the kernel instead what the loaded
+module grants (`/sys/fs/selinux/access`, which any process may ask), for every domain the package's module names, and
+one refused reads as "the loaded module is older than this package's", with what fails, such as sshd for a socket
+forward, and the reload command.
+
+## The daemon serves on platform threads, and a hang is read from its thread dump
+
+Every varlink connection and every long-lived background pass of the daemon runs on a platform thread, and an
+agent's handshake waits on one, so work pinned in a native call cannot take the carriers a call on the socket needs.
+`porelod` is built with thread dumps on, so `SIGQUIT` writes where each thread waits to the journal without stopping
+it. `PORELO_THREADS=virtual` puts the connections back on virtual threads, kept so the choice can be measured again.
+**The exposure:** a daemon once answered no call for minutes, and that virtual threads sharing two carriers caused it
+is inferred, not measured. **Why it stays:** measured on two-CPU machines right after a `SIGKILL` with fifteen
+projects followed, platform and virtual threads alike answered every bounded call well inside its bound, with no hang
+either way, and at thirty working tasks the kind of thread made no difference: the daemon holds a few dozen threads
+and its work is processes, which a virtual thread does not make faster. Where virtual threads fit, many long network
+waits in plain Java, Porelo uses them, as the credential proxy does. **What would change the answer:** a hang whose
+dump names the wait, or a measurement in which virtual threads gain.
+
+## A daemon at rest runs a loop only for what can be waited on
+
+A loop that waits on something outside the daemon rests when that thing came back without waiting, since a loop that
+never waits turns a core on any kind of thread. A task's direct-chat loop runs only while its container runs and the
+vault holds an account for it, and ends the moment that account cannot be read; a project's conversation loop runs
+only while one of its tasks qualifies so. An exited task's messages wait for the timed pass. A daemon with exited
+tasks and no account for them stays under 5 % of one core, and its threads at rest do not grow with every task ever
+started. **The exposure:** a project whose file names a transport and that has no task still costs about 1 % of one
+core, its own poll. **Why it stays:** it is one poll per project, not one per task, and below the bound. **What would
+change the answer:** enough such projects on one machine for their polls to add up to the bound.
+
+## A clearance question waits 60 seconds, and an expired one can still be answered
+
+A clearance prompt nobody answers within 60 seconds refuses, and nothing is measured for that wait. The expired
+question is recorded, replaced on screen by a notice that the destination stays blocked, and can still be answered
+afterwards through `Decide`, from the interface while the task runs. Whoever wants a longer wait sets it with
+`shield watch --timeout`.

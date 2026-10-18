@@ -176,9 +176,12 @@ ways:
 - **Through the ssh session itself.** `porelo daemon connect` joins its standard input and output to the
   socket, so `ssh HOST porelo daemon connect` (or the same as an ssh `ProxyCommand`) gives a client the
   daemon's stream. No socket file is made on your side, and the connection lasts as long as the ssh
-  command. If no daemon runs, it says so on standard error and exits with 69.
+  command. It is one connection, so each stream a client keeps open, such as a watch and two log tails, is an
+  ssh session of its own. If no daemon runs, it says so on standard error and exits with 69.
 - **Through a forwarded socket.** `ssh -L` can forward a local socket file to the remote
-  `$XDG_RUNTIME_DIR/porelo/porelod.sock`, and a client then opens the local file.
+  `$XDG_RUNTIME_DIR/porelo/porelod.sock`, and a client then opens the local file, as many times as it likes over
+  the one forward. The socket file and the forward's lifetime are yours to manage. Where SELinux enforces, the
+  forward needs this package's policy module loaded, and `porelo doctor` names an older one.
 
 If the daemon is not running, `ssh HOST systemctl --user start porelod` starts it under systemd, supervised
 and restarted on failure, instead of leaving an unsupervised process behind an ssh command. For it to keep
