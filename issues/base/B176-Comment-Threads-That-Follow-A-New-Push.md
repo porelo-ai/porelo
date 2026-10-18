@@ -17,6 +17,10 @@ A rework push is what a reject asks for, so under [B166](README.md#b166) every t
 earlier commit" after the very push that answers it, and the person reads the new work with the comments beside the old.
 Moving the threads that still fit, and saying plainly which do not, keeps the review on the work that waits.
 
+**Decided 2026-10-18: "unchanged" is byte for byte.** A whitespace-only change to the anchored lines is a change,
+so the thread stays on its old commit as `LINES_CHANGED`; it is the rule a person can predict, and a suggestion stays
+valid wherever a thread moves.
+
 ## Plan
 
 Read in today's code: a task pushes only to its own `refs/porelo/incoming/<name>` (`GitHttpServer`, `--ref` from
@@ -88,13 +92,6 @@ Steps:
   again.
 - No task's `git ls-remote` against its gate lists a `refs/porelo/reviewed/` ref.
 - `doc/commands.md` says when a thread moves and when it stays.
-
-## Open questions
-
-- **How strict "unchanged" is.** Proposal: the anchored lines must be byte for byte the same; a whitespace-only change
-  to them counts as a change, so the thread stays as `LINES_CHANGED`. It is the rule a person can predict, and it keeps
-  a suggestion valid wherever a thread moves. The alternative - also moving across a whitespace-only change, or an edit
-  within a line - would move threads more often and need a suggestion checked again after each move.
 
 ## To be checked
 
