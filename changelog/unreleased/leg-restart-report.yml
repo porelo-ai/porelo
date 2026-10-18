@@ -1,0 +1,2 @@
+title: A leg's restart pass writes a report of its own, acceptance-restart.json, so the parallel pass's report and its step times are kept
+type: changed

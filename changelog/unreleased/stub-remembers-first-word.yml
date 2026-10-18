@@ -1,0 +1,2 @@
+title: The stub agent keeps its session's first prompt or first typed line and says it back when the session is continued, so a continued conversation can be proved
+type: added
