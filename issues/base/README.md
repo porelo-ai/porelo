@@ -91,6 +91,7 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b179"></a>[B179](B179-A-Code-Beside-Why-A-Release-Cannot-Go.md) | - | - | A code beside `detail` when a release is answered `NOT_DELIVERABLE`, so a client can say what to do per case. |
 | <a id="b208"></a>[B208](B208-What-A-Host-Playbook-Reads-From-Porelo.md) | - | - | The host playbook reads from Porelo as a contract: an inventory with its variables and a version, written from `project.yml` and the machine file, and answers a program can read for followed, running and an open vault. |
+| <a id="b209"></a>[B209](B209-A-Vault-Unlocked-From-Standard-Input.md) | S | - | `vault unlock --passphrase-stdin` reads the passphrase as one line from its own standard input, so a program hands it over ssh from its memory, with no file anywhere; `--passphrase-command` cannot, since its command gets a closed pipe. |
 
 ## Estimated
 
