@@ -20,7 +20,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b102"></a>[B102](B102-A-Vault-Cleared-In-One-Step.md) | S | - | `vault clear` is on `main`, with its scenario in `vault-commands.feature`; walked on a rented machine with the account's own homeserver, which it removes whole; a homeserver elsewhere is not walked yet. |
 
 ## Implementing
 
@@ -35,6 +34,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b205"></a>[B205](B205-A-Vault-Named-Elsewhere-Clears-Only-Itself.md) | S | - | `vault clear` on a vault named by `PORELO_VAULT` leaves the account's transport state and homeserver, which belong to the account and its own vault. |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes. |
 | <a id="b189"></a>[B189](B189-Values-Handed-To-A-Task-At-Its-Start.md) | L | - | Values a project declares in `parameters:`, handed to a start by `--set`, `--set-file` or `--set-env`, checked by `StartCheck`, kept in `parameters.json`, shown with their origin by `task status` and `Task`, set in the container and usable as `{name}` in settings. |
 | <a id="b190"></a>[B190](B190-A-Tasks-Branch-Named-By-The-Projects-Scheme.md) | L | `porelo` [B189](README.md#b189) | `branch.template` and `branch.pattern` or `--branch` name a task's forge branch, kept in `task.json`; the gate passes on and keeps out of its mirror by them, an existing upstream branch refused at an online start, a guarded approval onto it by default and only within the pattern. |
@@ -146,6 +146,7 @@ from its side, as *blocked by*.
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="b102"></a>B102 | A Vault Cleared In One Step | `porelo vault clear` lists, then on `--yes` removes the vault, its backup, lock and cached passphrase, and what the transports keep, the account's own homeserver whole; it refuses while a task holds a token; walked on a rented machine. |
 | <a id="b06"></a>B06 | Remote Access | Tasks on another machine are reached over ssh, by `ssh -L` onto the daemon's socket or `ssh HOST porelo daemon connect`, with no network port bound, and the forward answers under an enforcing SELinux through `porelo_socket` 1.1, which an upgrade reloads and `doctor` checks. |
 | <a id="b79"></a>B79 | A Daemon That Answers Nothing | The daemon's connections and long-lived passes run on platform threads and `SIGQUIT` dumps its threads to the journal; seven runs right after a `SIGKILL` on two-CPU machines answered every bounded call. |
 | <a id="b125"></a>B125 | What A Daemon Costs, And On Which Threads | What a daemon costs is measured idle and at work; a task gets a message loop only while it can be waited on, a container created and never started stays a task, and platform threads stay. |
