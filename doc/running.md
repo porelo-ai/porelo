@@ -204,6 +204,12 @@ agent that asked for the mouse. Measured with tmux 3.4, the version of the defau
 - **Shift+Enter in xterm's form** arrives at the agent in the CSI u form.
 - **Images** reach the terminal only from a program that wraps them for tmux; most agents do not.
 
+**Leaving without ending it.** Press Ctrl+b, then d: tmux detaches, the session and the agent go on, and
+`porelo task attach TASK` or `porelo task start TASK` at a terminal brings you back. Porelo sets no prefix of its
+own, so this is tmux's default; a prefix set in your own `~/.config/porelo/tmux.conf` (below) takes its place.
+Closing the terminal window detaches the same way. Leaving the agent itself, with its own quit command, ends the
+session.
+
 **Your own settings.** A file `~/.config/porelo/tmux.conf` is copied into each task you start, read-only for the agent,
 and read after Porelo's settings: key bindings, the prefix, the mouse and colours, set once for all your tasks with no
 image rebuilt. It takes effect for tasks started after you change it. Two things are set again after it, because

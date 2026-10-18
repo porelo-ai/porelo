@@ -33,7 +33,9 @@ import picocli.CommandLine.Spec;
 @Command(
         name = "attach",
         mixinStandardHelpOptions = true,
-        description = "Opens a shell in a running task. Leaving it does not end it.")
+        description =
+                "Opens a running task's session. Ctrl+b then d leaves it without ending it; so does closing"
+                        + " the window.")
 public class TaskAttachCommand implements Callable<Integer>, PoreloFactory.ContextAware, Suggests {
 
     @Override

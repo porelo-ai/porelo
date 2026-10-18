@@ -99,7 +99,7 @@ takes `porelo approve TASK`; `--yes` answers for a script.
 | `porelo task status TASK` | Everything known about one task, including unpushed work. |
 | `porelo task logs TASK [LOG]` | Shows what the task's helpers on this machine wrote. |
 | `porelo task logs TASK --zip [FILE] [--with-agent-output]` | Keeps the task's logs, its status, files and talk log in one archive readable by you only, with `SHA256SUMS`. |
-| `porelo task attach TASK` | Opens a shell in a running task. Leaving it does not end it. |
+| `porelo task attach TASK` | Opens a running task's session. Ctrl+b then d leaves it without ending it. |
 | `porelo task stop TASK` | Stops a task and its helpers. Container and workspace stay. |
 | `porelo task remove TASK` | Removes a stopped task: container, state and workspace. |
 | `porelo task label TASK [CAPTION]` | Gives a task a caption. Not a rename. |
