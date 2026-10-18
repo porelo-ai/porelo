@@ -579,7 +579,23 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
             return Probe.ok(name, "not needed - this machine does not run SELinux");
         }
         if (SocketContext.available()) {
-            return Probe.ok(name, "installed");
+            // Loaded is not enough: a module from before an upgrade stays loaded, and the one
+            // before 1.1 let no sshd domain connect, so every socket forward was reset while this
+            // line said "installed" (2026-10-18). What the loaded one grants is asked instead.
+            final java.util.List<String> refused;
+            try {
+                refused = SocketContext.refused();
+            } catch (java.io.IOException ex) {
+                return Probe.ok(
+                        name, "installed; what it grants could not be asked: " + ex.getMessage());
+            }
+            if (refused.isEmpty()) {
+                return Probe.ok(name, "installed");
+            }
+            return Probe.missing(
+                    name,
+                    "the loaded module is older than this package's: " + String.join("; ", refused),
+                    context.paths().selinuxInstaller());
         }
         return Probe.missing(
                 name, "a task cannot reach the vault proxy", context.paths().selinuxInstaller());

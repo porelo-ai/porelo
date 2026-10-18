@@ -135,8 +135,16 @@ answered again: 5 of 5 Unix to Unix, 3 of 3 from a TCP port, 5 of 5 from outside
 tree's module as root before it builds, so the Build tests the module it carries rather than the one in the image.
 The scenario's exception for an enforcing SELinux is gone: the forward is asked everywhere.
 
-**Left:** the scenario green on the Build's rented Fedora leg, and an installed machine with an older module loads
-1.1 (`sudo /usr/share/porelo/selinux/install-selinux-policy.sh`, which `porelo doctor` names).
+**An older module on an installed machine, decided 2026-10-18 (b):** a package upgrade leaves a loaded module as it
+was. The rpm's `%post` now reloads `porelo_socket` on an upgrade when it is loaded, and leaves a machine that never
+loaded it alone; without checkpolicy it prints the command instead. `porelo doctor` cannot read the loaded module's
+version - the module store is root's, and a module's version is not kept - so it asks the kernel what the loaded one
+grants (`/sys/fs/selinux/access`, which any process may ask) for every domain the package's module names. One that is
+refused makes the line read "the loaded module is older than this package's" with what fails, such as sshd and a
+socket forward, and the reload command. Asked as `core` on the raised `fedora` VM with 1.1 loaded: `sshd_session_t`,
+`sshd_t` and `container_t` allowed, `httpd_t` refused.
+
+**Left:** the scenario green on the Build's rented Fedora leg.
 
 ## Acceptance
 

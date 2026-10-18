@@ -1,0 +1,2 @@
+title: porelo doctor asks the kernel what the loaded SELinux module grants and names an older one with what fails, and an rpm upgrade reloads a loaded module
+type: changed

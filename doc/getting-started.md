@@ -139,6 +139,10 @@ is tied to the policy version of the machine that built it. Without the policy, 
 connect to the vault socket, the denial is not audited, and you see an agent that cannot
 authenticate with **nothing in the audit log**.
 
+An upgrade of the package reloads the module where it is loaded. Where that could not happen,
+`doctor` names the module as older than the package's and what it refuses, such as sshd for a
+socket forward, with the same command.
+
 ## 4. Put a credential in the vault
 
 > [!WARNING]

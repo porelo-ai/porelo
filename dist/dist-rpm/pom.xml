@@ -104,6 +104,24 @@ Where SELinux is enforcing, a task container cannot reach porelo's sockets until
                             <recommends>
                                 <recommend>porelo-message-sluice-filter</recommend>
                             </recommends>
+                            <!-- On an upgrade only, and only where the module is loaded: a loaded module stays as it was
+                                 when its package is replaced, and the one before 1.1 let no sshd domain connect, so every
+                                 socket forward was reset. Reloading the same module is harmless; a machine that never
+                                 loaded it is left alone. Never fails the upgrade. -->
+                            <afterInstallation>
+                                <interpreter>/bin/sh</interpreter>
+                                <script><![CDATA[
+if [ "$1" -ge 2 ] && command -v semodule >/dev/null 2>&1 && semodule -l 2>/dev/null | grep -Eq "^porelo_socket([[:space:]]|$)"; then
+    if command -v checkmodule >/dev/null 2>&1 && command -v semodule_package >/dev/null 2>&1; then
+        /usr/share/porelo/selinux/install-selinux-policy.sh >/dev/null 2>&1 \
+            || echo "porelo: reloading the SELinux module failed; run: sudo /usr/share/porelo/selinux/install-selinux-policy.sh"
+    else
+        echo "porelo: the SELinux module was not reloaded, checkpolicy is not installed; install it and run: sudo /usr/share/porelo/selinux/install-selinux-policy.sh"
+    fi
+fi
+exit 0
+]]></script>
+                            </afterInstallation>
                             <signature>
                                 <skip>${rpm.sign.skip}</skip>
                             </signature>

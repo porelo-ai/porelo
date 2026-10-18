@@ -4,10 +4,15 @@ import java.io.Closeable;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.StandardProtocolFamily;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Labels a unix socket so a task container is allowed to connect to it under SELinux.
@@ -126,6 +131,131 @@ public final class SocketContext implements Closeable {
         // The directory alone is no answer: a kernel with SELinux built in but not running keeps it
         // as an empty mount point. 'enforce' is there only when selinuxfs is mounted.
         return Files.isRegularFile(selinuxfs.resolve("enforce"));
+    }
+
+    /** A question put to the kernel's policy, as {@code /sys/fs/selinux/access} takes it. */
+    @FunctionalInterface
+    interface Access {
+
+        /**
+         * Asks which permissions a source context has on a target context of a class.
+         *
+         * @param query {@code <source> <target> <class number>}.
+         * @return The kernel's answer, the allowed permissions first, in hexadecimal.
+         * @throws IOException If the kernel refuses the question.
+         */
+        String ask(String query) throws IOException;
+    }
+
+    /**
+     * Says, for every domain the package's module lets connect to the daemon's socket, which one
+     * the loaded module does not.
+     *
+     * @param selinuxfs Where selinuxfs is mounted.
+     * @param target The context the daemon's socket carries.
+     * @param access How the kernel is asked.
+     * @return One sentence per domain refused; empty when the loaded module grants them all.
+     * @throws IOException If the kernel answers no question at all.
+     */
+    static List<String> refused(Path selinuxfs, String target, Access access) throws IOException {
+        final Path socket = selinuxfs.resolve("class/unix_stream_socket");
+        final String index = Files.readString(socket.resolve("index")).strip();
+        final int bit =
+                Integer.parseInt(Files.readString(socket.resolve("perms/connectto")).strip());
+        final List<String> refused = new ArrayList<>();
+        for (final Grant grant : Grant.values()) {
+            final String answer;
+            try {
+                answer = access.ask(grant.source + " " + target + " " + index);
+            } catch (IOException ex) {
+                if (grant.optional) {
+                    // A type the policy does not have, which the module grants in an optional
+                    // block.
+                    continue;
+                }
+                throw new IOException(
+                        "the kernel answered no question about "
+                                + grant.source
+                                + ": "
+                                + ex.getMessage(),
+                        ex);
+            }
+            final long allowed = Long.parseLong(answer.strip().split("\\s+")[0], 16);
+            if ((allowed & (1L << (bit - 1))) == 0) {
+                refused.add(grant.refusal);
+            }
+        }
+        return refused;
+    }
+
+    /**
+     * Says which domains the loaded module refuses that the package's module lets connect, asking
+     * this machine's kernel.
+     *
+     * <p>The loaded module's version cannot be read without root - the module store is root's, and
+     * the version a module source names is not kept - so what it grants is asked instead, which
+     * {@code /sys/fs/selinux/access} answers for any process.
+     *
+     * @return One sentence per domain refused; empty when the loaded module grants them all.
+     * @throws IOException If the kernel cannot be asked.
+     */
+    public static List<String> refused() throws IOException {
+        final Path query = SELINUXFS.resolve("access");
+        return refused(
+                SELINUXFS,
+                socketContext(),
+                question -> {
+                    // A transaction file: the answer is read from the descriptor the question was
+                    // written to.
+                    try (FileChannel channel =
+                            FileChannel.open(
+                                    query, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
+                        channel.write(
+                                ByteBuffer.wrap(question.getBytes(StandardCharsets.US_ASCII)));
+                        final ByteBuffer answer = ByteBuffer.allocate(256);
+                        channel.read(answer, 0);
+                        return new String(
+                                answer.array(), 0, answer.position(), StandardCharsets.US_ASCII);
+                    }
+                });
+    }
+
+    /** The domains the package's module lets connect to the daemon's socket, and why each. */
+    private enum Grant {
+        CLIENT(
+                "unconfined_u:unconfined_r:unconfined_t:s0",
+                false,
+                "a client started by a person cannot connect to the daemon's socket"),
+        TASK(
+                "system_u:system_r:container_t:s0",
+                false,
+                "a task cannot connect to Porelo's sockets, so its agent cannot authenticate"),
+        RELAY(
+                "system_u:system_r:container_runtime_t:s0",
+                false,
+                "the relay that gives an agent its URL cannot connect to Porelo's sockets"),
+        SSHD(
+                "system_u:system_r:sshd_t:s0",
+                true,
+                "sshd cannot connect to the daemon's socket, so a socket forward with ssh -L is"
+                        + " reset"),
+        SSHD_SESSION(
+                "system_u:system_r:sshd_session_t:s0",
+                true,
+                "sshd's session process cannot connect to the daemon's socket, so a socket"
+                        + " forward with ssh -L is reset");
+
+        private final String source;
+
+        private final boolean optional;
+
+        private final String refusal;
+
+        Grant(String source, boolean optional, String refusal) {
+            this.source = source;
+            this.optional = optional;
+            this.refusal = refusal;
+        }
     }
 
     /**
