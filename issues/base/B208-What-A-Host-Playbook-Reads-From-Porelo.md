@@ -1,6 +1,6 @@
 # B208 — What A Host Playbook Reads From Porelo
 
-**Status:** Estimated.
+**Status:** Backlog.
 **Size:** M - one command that writes the inventory from a verified project file and the machine file, with
 its version; three answers a program reads (`project following`, `task status`, `vault status`); tests and docs. The
 role itself is porelo-host's.
