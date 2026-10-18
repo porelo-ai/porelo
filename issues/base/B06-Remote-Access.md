@@ -113,17 +113,20 @@ socket answered the listing too. On the rented Fedora leg every connection throu
 seconds, while the daemon kept running under the same pid (runs 39079073433 and 39081172132). Two other machines did
 not show it: the local Fedora 44 VM (enforcing, selinux-policy 43.3, OpenSSH 10.2) and the ubuntu VM.
 
-The likely cause, not yet proven: porelod labels its listening socket `porelo_socket_t` (`SocketContext`, the
+The cause is not known. A first reading: porelod labels its listening socket `porelo_socket_t` (`SocketContext`, the
 `porelo_socket` module), and the module lets only `unconfined_t`, `container_t` and `container_runtime_t` connect to
-it. Through a forward it is sshd that connects - `sshd_t`, or `sshd_session_t` with OpenSSH's split session process -
-and nothing allows that. The watch went through `porelo daemon connect`, run as the user, so it never needed it.
+it. Through a forward it is sshd that connects - `sshd_t`, or `sshd_session_t` with OpenSSH's split session process.
+But that is not the whole cause. The local Fedora 44 VM is enforcing with the module loaded, its sshd session runs as
+`sshd_session_t`, and the forward works there. Something on the rented Fedora image differs: its selinux-policy, its
+sshd settings, or how its accounts are made. The watch went through `porelo daemon connect`, run as the user. The
+interface and the IntelliJ plugin reach a machine through exactly this forward, so the case reaches them too.
 
 **Left, after phase 0:**
-- Reproduce it on an enforcing Fedora where the module is loaded. Read the denial (`ausearch -m avc`, which needs root,
-  so on a rented machine).
-- Fix it one of two ways. Either the module allows sshd's domains `connectto` on the daemon's socket, in an `optional`
-  block so a policy without `sshd_session_t` still loads. Or porelod's own socket goes unlabelled, if no container needs
-  to reach it.
+- Reproduce it on the rented Fedora image. Read what refuses the connection as root: the denial (`ausearch -m avc`) or
+  sshd's own log.
+- Fix what that shows. If it is the module: a rule letting sshd's domains `connectto` the daemon's socket, in an
+  `optional` block so a policy without `sshd_session_t` still loads; or porelod's own socket left unlabelled, if no
+  container needs to reach it.
 - Then take the scenario's exception for an enforcing SELinux out again. Until then the scenario says "the forward
   is not asked under an enforcing SELinux" there, and asks it everywhere else.
 
