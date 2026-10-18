@@ -1,7 +1,7 @@
 # B125 — What A Daemon Costs, And On Which Threads
 
-**Status:** Implementing.
-**Size:** M - measured and built; left is the operator's word on which threads move to virtual ones.
+**Status:** Review. Measured on rented two-CPU machines and the `fedora` VM, 2026-10-18.
+**Size:** M - measured and built.
 
 **What must be true.** What one `porelod` costs is measured, idle and at work, and its loops run on
 the kind of thread that the measurement and [B79](README.md#b79)'s fault support. The decision is written down with the
@@ -68,12 +68,11 @@ What is left, in this order:
 - **Every daemon loop that waits on something outside it rests when that thing did not wait**, each
   with a test watched to fail. Today these are the two transport loops (`MessageWaitPaceTest`). The
   others sleep or block (`porelo-messages`, `porelo-message-notices`, `porelo-follow`, `porelo-upstream`).
-- **Virtual or platform, decided with a measurement:** the [B79](README.md#b79) scenario (two-CPU VM, a daemon started
-  right after a SIGKILL, fifteen or more projects followed, a full acceptance run) run with the
-  passes and connections on virtual threads. If calls hang, a thread dump (`SIGQUIT`) names where they
-  wait, and the platform threads stay, with the reason recorded here. If none hangs in enough runs to
-  say so, the threads that only wait move to virtual threads, and those that block in native calls stay
-  on platform threads of their own.
+- **Virtual or platform, decided with a measurement:** the [B79](README.md#b79) scenario (two-CPU machine, a daemon started
+  right after a SIGKILL, fifteen or more projects followed, a full acceptance run), run with the passes and
+  connections on virtual threads and on platform threads. **Decided 2026-10-18: platform threads stay.** Three
+  virtual and four platform runs gave 2130 bounded calls, none past 10 s, slowest 3.05 s, median 0.22 to 0.26 s
+  either way: no hang and no measured gain from virtual threads, so nothing moves.
 - **The thread count at rest is bounded,** whichever kind: a loop per exited task is not one per
   task ever started. A task with no account in the vault is not waited on at all.
 
@@ -204,7 +203,6 @@ names a transport of the measurement's own that answers `setup` and hands out no
   calls, none past its 10 s bound, slowest 3.05 s, median 0.22 to 0.26 s, the same as the platform runs. **No
   difference that either measurement can see, and no hang with either.**
 
-**Left, for the operator:** the acceptance says that if none hangs in enough runs, the threads that only wait move to
-virtual threads. Nothing was measured that would gain from it: the counts are a few dozen threads, the work is
-processes, and the runs of 2026-10-07 and 2026-10-18 show no difference. Platform threads stay unless the operator
-wants the move made as the acceptance words it.
+**Platform threads stay, decided 2026-10-18:** nothing was measured that would gain from virtual ones - a few dozen
+threads, the work is processes, and the runs of 2026-10-07 and 2026-10-18 show no difference. `PORELO_THREADS=virtual`
+stays, so it can be measured again.
