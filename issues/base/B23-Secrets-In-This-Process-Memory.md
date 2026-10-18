@@ -1,7 +1,8 @@
 # B23 — Secrets In This Process's Memory
 
-**Status:** Implementing. Step 1 is built and green in porelo's Build 39083121366 on `842ff109`; step 2 is built;
-doctor's hardening lines are left.
+**Status:** Implementing. Step 1 is built and green in porelo's Build 39083121366 on `842ff109`; step 2 and doctor's
+hardening line are built and green on the VM on `a7bd5d4b` (acceptance 233, 5 skipped), where doctor said "daemon
+dumpable no" of the running daemon; to Review once pushed and published.
 **Size:** M - the daemon's hardening is one contract change (`Tasks1.Process`), the deploy's check and two acceptance
 scenarios, a few hours; the passphrase path is S on its own; a credential as bytes was dropped on 2026-10-11.
 
@@ -134,8 +135,12 @@ them ask elsewhere:
 `/proc/<pid>/environ`, the same way `task-left-running.feature` reads the broker's. Both passed with the native
 `porelod` in the gathered ubuntu VM run on `c8eabbf5` (2026-10-17) and on both rented legs of Build 39083121366.
 
-**Left:** the question under "To be checked" whether `doctor` reports hardening at all. Set back from Review on
-2026-10-18, when a reading of the issue found step 2 recorded nowhere as built.
+**Doctor's line, built 2026-10-18.** `doctor` printed `dumpable`, `no new privileges` and `hardening covers` of its
+own process, which nothing hardens and which holds no secret. It now prints `daemon dumpable` instead, read by
+`DaemonHardening` from the owner of the running daemon's `/proc/<pid>` entry, and `--json` carries it as
+`process.daemon`. `hardening covers` stays: it says whether this binary's hardening would cover its whole process,
+which is a fact of the build, and the exit code rests on it. Red first:
+`DoctorCommandTest.reportsTheDaemonsHardeningRatherThanItsOwnProcesss` failed against the old lines.
 
 **2. The passphrase path closed (S), built 2026-10-18.**
 - `KernelKeyring.utf8` and `chars` encode and decode the passphrase through a `CharsetEncoder` and `CharsetDecoder`,
@@ -170,9 +175,3 @@ documentation that erasure is not achieved, and why.
   not apply. Seen to fail: the entries under `/proc/<pid>` of the running daemon, broker or ssh-agent belong to
   their own user rather than root (`/proc/<pid>/status` has no dumpable field; root ownership is how the kernel
   shows the flag), or `doctor` reports hardening those processes do not have.
-
-## To be checked
-
-- **Whether `doctor` should report hardening at all** or report the broker's and the daemon's state
-  as read from `/proc`. Printing the state of its own process, which nothing hardens, is how a line that looks
-  like a warning survives for months.

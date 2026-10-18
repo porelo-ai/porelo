@@ -438,7 +438,7 @@ It ends by saying whether the account is ready. `--hooks-only` registers only th
 
 ## doctor
 
-`porelo doctor` reports paths, process hardening and whether this machine can run a task. Each
+`porelo doctor` reports paths, the daemon's hardening and whether this machine can run a task. Each
 dependency is checked by name: podman, the hook registration, podman's rootless network, dnsmasq's
 `nftset` support, `nft`, `git`, `nsenter`, the SELinux policy and the kernel keyring, beside the vault,
 the daemon and each followed project. Each line has one of four states:
@@ -467,6 +467,11 @@ not used /usr/libexec/porelo/agents/porelo-agent-<name>
 
 An agent's description in `agents.d/` hidden by the account's own is said the same way, and one that names no
 usable executable as `not taken <file>` with the reason.
+
+`daemon dumpable` is about the daemon, the process that holds the vault's secrets, not about `doctor` itself: `no`
+when its entries under `/proc` belong to root, which is how the kernel shows a process that cannot be core-dumped or
+traced by its own user; `yes` with the restart that fixes it; `not running`; or `unknown`. `--json` carries it as
+`process.daemon` with `pid` and `dumpable`.
 
 The `vault` line says whether a vault exists yet. The `daemon` line says whether `porelod` runs, and
 whether it is the same version as this command: after an update it restarts itself, and the line says

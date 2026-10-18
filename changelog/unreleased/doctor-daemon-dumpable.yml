@@ -1,0 +1,2 @@
+title: "'porelo doctor' reports whether the running daemon can be core-dumped, read from its /proc entry, instead of the flags of its own process, which holds no secret; '--json' carries it as process.daemon"
+type: changed

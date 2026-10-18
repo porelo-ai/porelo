@@ -61,6 +61,22 @@ class DoctorCommandTest {
     }
 
     @Test
+    void reportsTheDaemonsHardeningRatherThanItsOwnProcesss(@TempDir Path dir) {
+        // Its own process holds no secret and nothing hardens it, so "dumpable true" there was a
+        // finding about nothing; the daemon is the process that holds the vault's secrets.
+        final String said =
+                doctor(
+                        context(
+                                dir,
+                                dir.resolve("bin"),
+                                dir.resolve("libexec"),
+                                dir.resolve("agents")));
+
+        assertThat(said).contains("daemon dumpable").doesNotContain("\ndumpable ");
+        assertThat(said).doesNotContain("no new privileges");
+    }
+
+    @Test
     void everyFailureNamesTheOneThingToDoAboutIt(@TempDir Path dir) {
 
         // The rule this report lives or dies by, checked over the whole list rather than trusted

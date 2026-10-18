@@ -14,14 +14,18 @@ import picocli.CommandLine.Spec;
 /**
  * Reports what the binary can see of its own environment.
  *
- * <p>Useful on its own, and it keeps the hardening downcall reachable from the shipped binary, so a
- * missing FFM registration would surface here rather than in the middle of starting a container.
+ * <p>Of hardening it says what the running daemon has, since that process holds the vault's
+ * secrets; the downcalls themselves are reached by the broker and the ssh agent, which call them
+ * before reading a secret, and checked by the build's FFM check.
  */
 @Command(
         name = "doctor",
         mixinStandardHelpOptions = true,
-        description = "Reports paths and process hardening state.")
+        description = "Reports paths, the daemon's hardening and whether a task can run here.")
 public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAware {
+
+    /** Where the running processes are. */
+    private static final java.nio.file.Path PROC = java.nio.file.Path.of("/proc");
 
     @Spec private CommandSpec spec;
 
@@ -902,8 +906,10 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
         }
 
         out.println();
-        out.println("dumpable            " + ProcessHardening.dumpable());
-        out.println("no new privileges   " + ProcessHardening.noNewPrivileges());
+        // The daemon holds the vault's secrets; this process holds none, and nothing hardens it.
+        out.println(
+                "daemon dumpable     "
+                        + DaemonHardening.read(context.runner(), PROC, SetupCommand.DAEMON).said());
         out.println(
                 "hardening covers    "
                         + (ProcessHardening.appliesToWholeProcess()
@@ -984,8 +990,12 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
         where.put("agents", agentLocations().stream().map(java.nio.file.Path::toString).toList());
         report.put("paths", where);
         final java.util.Map<String, Object> process = new java.util.LinkedHashMap<>();
-        process.put("dumpable", String.valueOf(ProcessHardening.dumpable()));
-        process.put("noNewPrivileges", String.valueOf(ProcessHardening.noNewPrivileges()));
+        final DaemonHardening daemon =
+                DaemonHardening.read(context.runner(), PROC, SetupCommand.DAEMON);
+        final java.util.Map<String, Object> daemonState = new java.util.LinkedHashMap<>();
+        daemonState.put("pid", daemon.pid());
+        daemonState.put("dumpable", daemon.state().name().toLowerCase(java.util.Locale.ROOT));
+        process.put("daemon", daemonState);
         process.put("wholeProcess", ProcessHardening.appliesToWholeProcess());
         report.put("process", process);
         out.println(org.fuin.porelo.wire.Json.write(report));
