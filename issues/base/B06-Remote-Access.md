@@ -14,6 +14,11 @@ certificates, no tokens.
 
 **Where the other half lives.** The client's decisions are the interface's, recorded in porelo-frontend's `doc/decisions.md`: a unix socket forward, the interface managing `ssh` itself, and a cut stream shown as a disconnection rather than an empty machine. Nothing here blocks them, and the reconnection criteria below can point at those decisions instead of waiting on them.
 
+**The socket forward is repaired, not replaced, decided 2026-10-18.** `ssh -L` onto the daemon's socket stays the way
+the interface and the IntelliJ plugin reach a remote machine, so its reset under an enforcing SELinux is fixed rather
+than routed around. `porelo daemon connect` stays what it is for (WSL, scripts, tests), and nothing is multiplexed over
+it.
+
 ## What was measured
 
 **The tunnel carries the socket directly.** This requirement's central question is answered, so
