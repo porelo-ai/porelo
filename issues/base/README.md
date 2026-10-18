@@ -71,12 +71,12 @@ from its side, as *blocked by*.
 | <a id="b56"></a>[B56](B56-Programs-Porelo-Runs-That-Could-Be-Calls.md) | S | - | The table of programs Porelo runs completed, and a source-scanning test that fails on an unlisted one; each replacement its own issue. | - |
 | <a id="b116"></a>[B116](B116-A-Log-Read-Back-In-Windows.md) | M | - | `Tail` gets `before` to read back in windows, and a cap per line reported in `cut`. | - |
 | <a id="b165"></a>[B165](B165-A-Port-Of-A-Task-On-Loopback-Only.md) | M | - | `porelo task port`: a two-half relay, in the task's namespace and on host loopback only, over a `0700` socket, with `ports.log`, docs and a scenario. | - |
+| <a id="b192"></a>[B192](B192-An-Image-Chosen-Per-Repository.md) | L | - | A repository's `porelo.yml` (checked in) or `.porelo.yml` (a local override) names only its image - `base_image`, a snippet, `env` - read in a fixed order with `project.yml`'s `repositories.<name>.image` and the mirror's default branch; one cached image per repository, its source named at the start, the file ranked dangerous in review. | 2 |
 
 ## Accepted
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b192"></a>[B192](B192-An-Image-Chosen-Per-Repository.md) | - | `porelo` [B170](README.md#b170) | A task started on one repository of a project gets that repository's own image, built from its devcontainer file. |
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | - | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own. |
 | <a id="b194"></a>[B194](B194-A-File-Handed-In-At-Every-Start.md) | - | - | A host file such as `.AGENTS.md` handed into an agent's task read-only at every start; a changed copy written on the host only after approval. |
 | <a id="b203"></a>[B203](B203-Task-Names-Checked-By-What-The-Commands-Do.md) | - | - | The test that every task and talk command takes both spellings of a task runs the commands through picocli's tree instead of matching their source text. |
@@ -138,7 +138,6 @@ from its side, as *blocked by*.
 | <a id="b167"></a>[B167](B167-An-MCP-Gateway-On-The-Host.md) | L | - | An MCP gateway on the broker for servers over HTTP only: `kind: mcp`, JSON-RPC `tools/list` and `tools/call` read, tool lists compared per tool, `mcp.log`, a project `mcp:` list. |
 | <a id="b168"></a>[B168](B168-A-Recording-Of-Each-Session.md) | M | - | A session recording by a read-only tmux control-mode client run from the host, a `.cast` outside the task (an unattended run's `task.log`), kept 30 days, at most 64 MiB, `task replay`. |
 | <a id="b169"></a>[B169](B169-Containers-Inside-A-Task.md) | L | - | The nested-container assessment first, measured on both legs; then an opt-in `image.nested_containers`, never for `guarded`, and only on a task's own kernel if the assessment says so. |
-| <a id="b170"></a>[B170](B170-A-Devcontainer-File-As-Image-Source.md) | M | - | `image.devcontainer`: a JSONC reader takes `image` or `build.dockerfile` and `containerEnv`, lists the rest as ignored; features are not fetched, and said. |
 | <a id="b174"></a>[B174](B174-A-Running-Tasks-Commits-And-Their-Diff.md) | M | - | `TaskCommits` and `TaskDiff`: a running task's commits no remote holds and their diff, cut at a file boundary; a stopped task's list from its note. |
 | <a id="b196"></a>[B196](B196-The-Fedora-Repository-Checked-By-Its-Key.md) | S | - | On Fedora the setup script writes the repository with `gpgcheck=0`; it is to be checked against the pinned package key, as on Debian and Ubuntu. |
 | <a id="b197"></a>[B197](B197-A-Push-To-A-Slow-Forge-Has-A-Bound.md) | M | - | A push the gate passes on to a forge that is slow or down ends within `limits.pass_on` of the project file, two minutes unless set, with a named refusal that the forge did not answer. |
@@ -183,6 +182,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b170"></a>B170 | M | - | A devcontainer file as image source is not built: it gives only `image` or `build`, with the tools behind `features` that Porelo does not fetch; superseded by [B192](#b192)'s `porelo.yml`. |
 | <a id="b18"></a>B18 | M | - | `StoreCredential` is not built: a credential is entered only in a terminal, the interface's terminal included; the expiry note went to [B178](#b178). |
 
 ## Two things that dissolved rather than becoming requirements
