@@ -1,6 +1,6 @@
 # B209 — A Vault Unlocked From Standard Input
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** S - one option on `vault unlock` reading one line from its own standard input, the same in `vault init`, a
 refusal when standard input is a terminal, and tests; no change to how the vault is opened.
 

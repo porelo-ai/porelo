@@ -1,6 +1,6 @@
 # B208 — What A Host Playbook Reads From Porelo
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** M - one command that writes the inventory from a verified project file and the machine file, with
 its version; three answers a program reads (`project following`, `task status`, `vault status`); tests and docs. The
 role itself is porelo-host's.
@@ -34,6 +34,10 @@ of its own, not part of this one. The mechanism for it exists already: `vault in
 `--passphrase-command`; only where that command reads from on such a host is undecided.
 
 To be linked to porelo-host's issue for that role once it is published.
+
+**Decided 2026-10-18: the tasks and the keys come from the person's machine file**, not from `project.yml`: which
+tasks run on one person's host and which keys that person holds are the person's own. The file's two sections are
+defined in Porelo's `doc/hosts.md`; porelo-frontend's package reads the file only for the first play.
 
 ## Plan
 
@@ -93,17 +97,6 @@ To be linked to porelo-host's issue for that role once it is published.
 - `project following --json`, `task status --json` and `vault status` give what a second run of the role needs to
   change nothing: a second `up` changes nothing on a host that is up.
 - No output of these commands holds a secret: the keys only by name and path.
-
-## Open questions
-
-- **Who writes the machine file's `tasks` and `keys`**, and so its format. This plan reads them from the person's
-  machine file, beside the provider, offer and zone of
-  [PJ40](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj40). The other place would be
-  `project.yml`, but it is the project's, while which tasks run on one person's host and which keys that person holds
-  are the person's own. Proposal: the machine file, its two sections defined here in `doc/hosts.md` and read by
-  porelo-frontend's package
-  ([F131](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md#f131)) for nothing but the first
-  play.
 
 ## To be checked
 
