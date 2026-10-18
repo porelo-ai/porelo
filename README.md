@@ -146,6 +146,7 @@ The pages of this repository's chapter on [the site](https://porelo-ai.github.io
 - [FAQ](doc/faq.md), [three ways of working](doc/way-of-working.md)
 - [Adding an agent](agents/README.md#onboarding-a-new-agent), [requirements](issues/README.md),
   [building from source](doc/build.md)
+- [Contributing](CONTRIBUTING.md), and [reporting a vulnerability](SECURITY.md)
 
 ## Modules
 
