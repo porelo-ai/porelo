@@ -40,7 +40,7 @@ from its side, as *blocked by*.
 | <a id="b133"></a>[B133](B133-A-Shut-Vault-Opened-Where-It-Is-Needed.md) | S | - | A shut vault asks for its passphrase at a terminal instead of refusing; left: one scenario that starts a task on a shut vault. |
 | <a id="b129"></a>[B129](B129-An-Agent-Found-By-Its-Description.md) | S | - | Agents found by an `agents.d/<name>.yaml` description; left: the stub packaged that way and the package check proving it. |
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
-| <a id="b06"></a>[B06](B06-Remote-Access.md) | M | - | Remote use over ssh; both shapes built; left: a daemon-socket check and a real `ssh localhost` hop in the acceptance suite. |
+| <a id="b06"></a>[B06](B06-Remote-Access.md) | M | - | Remote use over ssh; both shapes built, the socket check and a real ssh hop in the suite; left: the forwarded socket under an enforcing SELinux. |
 | <a id="b23"></a>[B23](B23-Secrets-In-This-Process-Memory.md) | M | - | The broker, the ssh agent and the daemon are not dumpable; the deploy asks the daemon what it runs (`Tasks1.Process`) and the port scenario counts its unit's sockets; keyring and vault-file buffers closed; a credential as bytes dropped, kept as an accepted risk; left: the daemon's scenarios on the VMs. |
 
 ## Backlog

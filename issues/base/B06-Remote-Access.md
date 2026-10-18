@@ -1,7 +1,7 @@
 # B06 — Remote Access
 
 **Status:** Implementing.
-**Size:** M - both shapes are built; left are an ssh hop and a socket check in the acceptance suite, and a doc line.
+**Size:** M - both shapes are built, and the hop and the socket check are in the suite; left: the forwarded socket under an enforcing SELinux.
 
 **What must be true.** Tasks on another machine are usable over an encrypted tunnel, without the
 daemon ever binding a network port.
@@ -105,6 +105,27 @@ Steps:
    forward and `List` over the forwarded path.
 3. The measurements written into this file; `doc/running.md`'s section on another machine names both shapes'
    costs (a socket file and its lifetime against one ssh session per stream).
+
+
+**Run in porelo's Build, 2026-10-18, and left open: the forwarded socket under an enforcing SELinux.** On both
+rented legs the bridge held: a watch over one ssh session saw a task start and go. On the ubuntu leg the forwarded
+socket answered the listing too. On the rented Fedora leg every connection through it was reset, five times over ten
+seconds, while the daemon kept running under the same pid (runs 39079073433 and 39081172132). Two other machines did
+not show it: the local Fedora 44 VM (enforcing, selinux-policy 43.3, OpenSSH 10.2) and the ubuntu VM.
+
+The likely cause, not yet proven: porelod labels its listening socket `porelo_socket_t` (`SocketContext`, the
+`porelo_socket` module), and the module lets only `unconfined_t`, `container_t` and `container_runtime_t` connect to
+it. Through a forward it is sshd that connects - `sshd_t`, or `sshd_session_t` with OpenSSH's split session process -
+and nothing allows that. The watch went through `porelo daemon connect`, run as the user, so it never needed it.
+
+**Left, after phase 0:**
+- Reproduce it on an enforcing Fedora where the module is loaded. Read the denial (`ausearch -m avc`, which needs root,
+  so on a rented machine).
+- Fix it one of two ways. Either the module allows sshd's domains `connectto` on the daemon's socket, in an `optional`
+  block so a policy without `sshd_session_t` still loads. Or porelod's own socket goes unlabelled, if no container needs
+  to reach it.
+- Then take the scenario's exception for an enforcing SELinux out again. Until then the scenario says "the forward
+  is not asked under an enforcing SELinux" there, and asks it everywhere else.
 
 ## Acceptance
 
