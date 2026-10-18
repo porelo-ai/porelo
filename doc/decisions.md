@@ -89,6 +89,7 @@ would change the answer.
 | Where a followed project's file comes from | only the verified clone; nothing in force means no task, never a fallback to a local file | [entry](#where-a-followed-projects-file-comes-from) |
 | Clearing names what only a person's credentials can remove, and never attempts it | forge deploy keys and `machine-signers` lines are answered, not removed; the vault stays | [entry](#clearing-names-what-only-a-persons-credentials-can-remove-and-never-attempts-it) |
 | A digest pins an image; a tag-only image in a followed project needs a person's consent once | a followed tag-only project waits for one consent, then the digest is kept and a change said at every start | [entry](#a-digest-pins-an-image-a-tag-only-image-in-a-followed-project-needs-a-persons-consent-once) |
+| What a build runs beside its secrets is fixed by its content | every action by commit with its version, Maven and GraalVM by checksum, Artifactory spoken to with curl; `check-actions` refuses a tag | [entry](#what-a-build-runs-beside-its-secrets-is-fixed-by-its-content) |
 | An offline project never connects, and its agent still reaches its provider | no upstream, followed only from a file; the agent's model calls go through the broker as in every class | [entry](#an-offline-project-never-connects-and-its-agent-still-reaches-its-provider) |
 | **Messages** | | |
 | A task holds no key and sees no address | one mailbox in the container; a host-side signing key, distinct from the login key | [entry](#a-task-holds-no-key-and-sees-no-address) |
@@ -908,6 +909,18 @@ What protected an unlock is shown as worth more only when Porelo can prove it, b
 evidence such as a TPM2 attestation the node checks. A claim a client merely sends is recorded, but the command line
 and the interface show it exactly like a user-scoped slot: a label that reads stronger than it is does more harm than
 an honest weaker one.
+
+## What a build runs beside its secrets is fixed by its content
+
+A job that holds a signing key or a publishing token runs only what is named by its content. Every `uses:` names a
+commit with its version beside it, and `porelo-release check-actions`, bound to `validate`, refuses a tag, a branch, a
+commit without its version and an image without its digest. Maven comes through the wrapper's
+`distributionSha256Sum`, GraalVM through `pinned-jdk`'s SHA-256, and the signing key is imported by a step of our own.
+Artifactory is spoken to with `curl` over its REST interface (`.github/scripts/artifactory.sh`), so no client is
+downloaded into the job that holds its token; each upload carries its checksums, which Artifactory checks. Dependabot
+moves the pins weekly in one grouped pull request, merged by a person. Every job runs on `ubuntu-24.04`; the image
+behind that name still changes weekly, and is out of scope. **What would change it:** a step that needs a tool with no
+checksum to pin it by, which is then built from source or dropped, not trusted by its name.
 
 ## A digest pins an image; a tag-only image in a followed project needs a person's consent once
 

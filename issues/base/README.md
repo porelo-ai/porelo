@@ -26,7 +26,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b31"></a>[B31](B31-An-Authorization-A-Person-Grants-Once.md) | S | [PI27](https://github.com/porelo-ai/porelo-pi/blob/main/issues/README.md#pi27), [OM25](https://github.com/porelo-ai/porelo-omp/blob/main/issues/README.md#om25) | Dynamic client registration built against a stand-in; blocked: no installed agent declares `login.grants` yet, and GitHub's MCP server has no destination file; then a real GitHub grant and an hour-long stream. |
-| <a id="b49"></a>[B49](B49-What-The-Build-Trusts-To-Run-Beside-Its-Secrets.md) | S | - | Pins, Dependabot, `check-actions` and a `Publish` that downloads no client are on `main`; left: the hand check of `Publish` by a person. |
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
 
 ## Backlog
@@ -146,6 +145,7 @@ from its side, as *blocked by*.
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="b49"></a>B49 | What The Build Trusts To Run Beside Its Secrets | Every action pinned by commit and checked by `check-actions`, Maven and GraalVM by checksum, Dependabot moving the pins, and a `Publish` that downloads no client. |
 | <a id="b204"></a>B204 | Start On A Running Task Goes In | At a terminal `task start` on a running task goes in as `attach` does, refusing by name an option that would be dropped; without a terminal or with `--no-input` it still answers 65. |
 | <a id="b23"></a>B23 | Secrets In This Process's Memory | The daemon, the broker and the ssh agent are not dumpable; the vault's master key is cleared on every path and the cached passphrase never becomes a `String`; `doctor` reports the running daemon's hardening, read from its `/proc` entries. |
 | <a id="b205"></a>B205 | A Vault Named Elsewhere Clears Only Itself | `vault clear` on a vault `PORELO_VAULT` names runs the transports' account-wide clear only for the account's own vault, so a test vault no longer takes the account's transport state and homeserver. |
