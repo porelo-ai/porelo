@@ -89,6 +89,7 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b179"></a>[B179](B179-A-Code-Beside-Why-A-Release-Cannot-Go.md) | - | - | A code beside `detail` when a release is answered `NOT_DELIVERABLE`, so a client can say what to do per case. |
+| <a id="b210"></a>[B210](B210-Build-Plugins-Without-Their-Known-Advisories.md) | - | - | The plugins porelo-parent versions carry no dependency with a known advisory: newer releases where they exist, fixed dependencies where not; [B99](#b99)'s signing waits for the bouncycastle move. |
 
 ## Estimated
 
