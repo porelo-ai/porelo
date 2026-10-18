@@ -29,8 +29,8 @@ as a risk for now. This issue closes it.
   declares none keeps the environment until every published transport has moved, and `doctor` names it.
 - **Nothing else changes:** the environment keeps only `PATH`, `HOME`, the locale, `TMPDIR`, `XDG_*` and
   `DBUS_SESSION_BUS_ADDRESS`; secrets are still never arguments, never logged and never put into a task.
-- The matching change in the matrix transport is an issue of porelo-message-matrix, filed with this one, linked
-  here once it has its number.
+- The matching change in the matrix transport is
+  [MX23](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx23).
 
 ## Acceptance
 
