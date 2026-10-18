@@ -40,6 +40,7 @@ from its side, as *blocked by*.
 | <a id="b190"></a>[B190](B190-A-Tasks-Branch-Named-By-The-Projects-Scheme.md) | L | `porelo` [B189](README.md#b189) | `branch.template` and `branch.pattern` or `--branch` name a task's forge branch, kept in `task.json`; the gate passes on and keeps out of its mirror by them, an existing upstream branch refused at an online start, a guarded approval onto it by default and only within the pattern. |
 | <a id="b204"></a>[B204](B204-Start-On-A-Running-Task-Goes-In.md) | S | - | `task start` on a running task goes in through `attach`'s code at a terminal, refuses naming each creation or bring-up option given, and says it is running without a terminal, as today. |
 | <a id="b206"></a>[B206](B206-A-Transport-Takes-Its-Secrets-On-Its-Input.md) | L | - | A transport takes the secrets Porelo kept for it on its standard input, not in its environment, so no other process of the account can read them from `/proc`; a version declared in `describe`, with the matrix transport's matching change. |
+| <a id="b207"></a>[B207](B207-An-Image-Built-Within-The-Projects-Egress.md) | L | - | An image's build reaches only the project's egress and its trusted package sources, through the firewall or a proxy, so a snippet - a project's or a repository's `porelo.yml` - cannot fetch from anywhere while the image is made. |
 
 ## Analyzed
 
@@ -71,7 +72,7 @@ from its side, as *blocked by*.
 | <a id="b56"></a>[B56](B56-Programs-Porelo-Runs-That-Could-Be-Calls.md) | S | - | The table of programs Porelo runs completed, and a source-scanning test that fails on an unlisted one; each replacement its own issue. | - |
 | <a id="b116"></a>[B116](B116-A-Log-Read-Back-In-Windows.md) | M | - | `Tail` gets `before` to read back in windows, and a cap per line reported in `cut`. | - |
 | <a id="b165"></a>[B165](B165-A-Port-Of-A-Task-On-Loopback-Only.md) | M | - | `porelo task port`: a two-half relay, in the task's namespace and on host loopback only, over a `0700` socket, with `ports.log`, docs and a scenario. | - |
-| <a id="b192"></a>[B192](B192-An-Image-Chosen-Per-Repository.md) | L | - | A repository's `porelo.yml` (checked in) or `.porelo.yml` (a local override) names only its image - `base_image`, a snippet, `env` - read key by key in a fixed order with `project.yml`'s `repositories.<name>.image` and the mirror's default branch; one cached image per repository, its source named at the start, the file ranked dangerous in review. | 1 |
+| <a id="b192"></a>[B192](B192-An-Image-Chosen-Per-Repository.md) | L | - | A repository's `porelo.yml` (checked in) or `.porelo.yml` (a local override) names only its image - `base_image`, a snippet, `env` - read key by key in a fixed order with `project.yml`'s `repositories.<name>.image` and the mirror's default branch; one cached image per repository, its source named at the start, the file ranked dangerous in review. | 0 |
 
 ## Accepted
 

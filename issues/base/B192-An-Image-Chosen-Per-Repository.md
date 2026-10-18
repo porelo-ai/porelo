@@ -40,6 +40,10 @@ devcontainer file as a source, which would have given only `image` or `build`, w
 - The review ranks a change to `porelo.yml` as dangerous, like `.devcontainer/` and `.github/`, since the image is
   built outside the task's firewall, as root.
 - Each repository's image is built once and cached, as a project's image is today.
+- **The build's network stays as it is** (decided 2026-10-18): a repository's image is built with the network an
+  image build has today, as the project's image is. The guards are that `porelo.yml` is read only from the reviewed
+  default branch, that the review ranks it dangerous, and that `CODEOWNERS` gives it to the operator. A build limited
+  to the project's egress is [B207](README.md#b207), for later.
 
 ## Plan
 
@@ -103,13 +107,6 @@ Read in the code on 2026-10-18.
 - [ ] In the project `default`, a checkout's `.porelo.yml` wins over its `porelo.yml`, and approving a task's work
   leaves both files as they were.
 - [ ] The review shows a change to `porelo.yml` as dangerous.
-
-## Open questions
-
-- **The build's network.** A `porelo.yml` snippet runs at build time with the network the build has today, as a
-  project's snippet does. Now the repository's authors write it, behind review of its default branch. Is that review
-  enough, or does a repository's snippet get the project's egress at build time? That would be a change of its own,
-  not in this size.
 
 ## To be checked
 
