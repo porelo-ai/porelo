@@ -22,8 +22,10 @@ jobs:
             - name: The pinned GraalVM
               uses: ./.github/actions/pinned-jdk
 
-            - name: Delete anything older than an hour
+            # A server past the end its lease wrote into porelo-expires, or one that says nothing of its time: never one still
+            # within it, however old.
+            - name: Delete what is past its time
               env:
                   HETZNER_API: ${{ secrets.HETZNER_API }}
               # porelo-machines from Central, at the root pom's porelo.buildtools.version.
-              run: ./mvnw -B -q -U -s settings.xml -N exec:exec@machines -Dmachines.args="sweep --older-than 60 --now"
+              run: ./mvnw -B -q -U -s settings.xml -N exec:exec@machines -Dmachines.args="sweep --now"
