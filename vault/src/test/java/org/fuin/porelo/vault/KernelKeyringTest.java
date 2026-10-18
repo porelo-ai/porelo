@@ -1,6 +1,7 @@
 package org.fuin.porelo.vault;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.lang.foreign.Arena;
@@ -225,5 +226,23 @@ class KernelKeyringTest {
         Thread.sleep(1200);
 
         assertThat(keyring.read()).isPresent();
+    }
+
+    @Test
+    void encodesAPassphraseAsAStringWouldWithoutMakingOne() {
+        final String passphrase = "correct horse \u00e4\u00f6\u00fc \u20ac \ud83d\udc0e";
+        final byte[] bytes = KernelKeyring.utf8(passphrase.toCharArray());
+
+        assertThat(bytes).isEqualTo(passphrase.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        assertThat(new String(KernelKeyring.chars(bytes))).isEqualTo(passphrase);
+    }
+
+    @Test
+    void refusesAPassphraseUtf8CannotCarryRatherThanStoringAnotherOne() {
+        // A String would have turned the lone surrogate into '?', and stored a passphrase nobody
+        // typed.
+        assertThatThrownBy(() -> KernelKeyring.utf8(new char[] {'a', '\ud83d', 'b'}))
+                .isInstanceOf(VaultException.class)
+                .hasMessageContaining("UTF-8");
     }
 }

@@ -29,6 +29,66 @@ class KeyslotTest {
         return vault;
     }
 
+    /**
+     * Every master key opened while {@code body} runs, after it ran: each must be zeros, whether
+     * the operation succeeded or threw.
+     */
+    private static java.util.List<byte[]> mastersOpenedBy(final Runnable body) {
+        final java.util.List<byte[]> opened = new java.util.ArrayList<>();
+        VaultFile.unwrapped = opened::add;
+        try {
+            body.run();
+        } catch (final VaultException expected) {
+            // The refused operations are the point: a key must not outlive them either.
+        } finally {
+            VaultFile.unwrapped = master -> {};
+        }
+        return opened;
+    }
+
+    private static boolean zeros(final byte[] key) {
+        for (final byte each : key) {
+            if (each != 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Test
+    void no_master_key_outlives_an_enrollment_a_revocation_or_an_update_that_was_refused(
+            @TempDir final Path dir) {
+        final VaultFile vault = vault(dir);
+        final byte[] share = share(1);
+        vault.enroll(VaultFile.Opener.passphrase(PASSPHRASE), share, "the laptop", "USER_SCOPED");
+
+        final java.util.List<byte[]> opened = new java.util.ArrayList<>();
+        opened.addAll(
+                mastersOpenedBy(
+                        () ->
+                                vault.enroll(
+                                        VaultFile.Opener.passphrase(PASSPHRASE),
+                                        share,
+                                        "the laptop again",
+                                        "USER_SCOPED")));
+        opened.addAll(
+                mastersOpenedBy(
+                        () ->
+                                vault.revoke(
+                                        VaultFile.Opener.passphrase(PASSPHRASE), "no-such-slot")));
+        opened.addAll(
+                mastersOpenedBy(
+                        () ->
+                                vault.update(
+                                        VaultFile.Opener.passphrase(PASSPHRASE),
+                                        entries -> {
+                                            throw new VaultException("the change failed");
+                                        })));
+
+        assertThat(opened).as("a master key was opened each time").hasSizeGreaterThanOrEqualTo(3);
+        assertThat(opened).as("every master key is cleared").allMatch(KeyslotTest::zeros);
+    }
+
     @Test
     void a_new_vault_has_one_way_in_and_it_is_the_passphrase(@TempDir final Path dir) {
         assertThat(vault(dir).slots())

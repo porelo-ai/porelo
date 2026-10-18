@@ -1,0 +1,2 @@
+title: "The vault's master key is cleared when an enrollment, a revocation or a change is refused, and the cached passphrase never becomes a String on its way to and from the kernel keyring"
+type: security

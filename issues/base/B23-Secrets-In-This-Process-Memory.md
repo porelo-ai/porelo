@@ -1,7 +1,7 @@
 # B23 — Secrets In This Process's Memory
 
-**Status:** Implementing. Step 1 is built and green in porelo's Build 39083121366 on `842ff109`; step 2 and doctor's
-hardening lines are left.
+**Status:** Implementing. Step 1 is built and green in porelo's Build 39083121366 on `842ff109`; step 2 is built;
+doctor's hardening lines are left.
 **Size:** M - the daemon's hardening is one contract change (`Tasks1.Process`), the deploy's check and two acceptance
 scenarios, a few hours; the passphrase path is S on its own; a credential as bytes was dropped on 2026-10-11.
 
@@ -134,15 +134,22 @@ them ask elsewhere:
 `/proc/<pid>/environ`, the same way `task-left-running.feature` reads the broker's. Both passed with the native
 `porelod` in the gathered ubuntu VM run on `c8eabbf5` (2026-10-17) and on both rented legs of Build 39083121366.
 
-**Left:** step 2 below, which is not built - `KernelKeyring.store` still makes a `String` of the passphrase - and the
-question under "To be checked" whether `doctor` reports hardening at all. Set back from Review on 2026-10-18, when a
-reading of the issue found step 2 recorded nowhere as built.
+**Left:** the question under "To be checked" whether `doctor` reports hardening at all. Set back from Review on
+2026-10-18, when a reading of the issue found step 2 recorded nowhere as built.
 
-**2. The passphrase path closed (S).** `KernelKeyring` (`vault/.../KernelKeyring.java`) turns the passphrase into a
-`String` when storing (`new String(passphrase).getBytes`) and when reading; encode from the `char[]` through a
-`CharBuffer` instead, and zero the native segments before the arena closes. `VaultFile.enroll`, `revoke` and
-`update` clear the wrapping key and the master key in `finally`. Red first: a test that reads the buffers after
-`enroll` throws.
+**2. The passphrase path closed (S), built 2026-10-18.**
+- `KernelKeyring.utf8` and `chars` encode and decode the passphrase through a `CharsetEncoder` and `CharsetDecoder`,
+  never through a `String`, and clear the coder's own buffer.
+- `store` clears the native payload, and `read` the native buffer, before the arena closes, since an arena frees its
+  memory without clearing it.
+- A passphrase holding a lone surrogate is refused: a `String` turned it into `?` and cached a passphrase nobody typed.
+- `VaultFile` clears the master key in a `finally` at each of its six opens. `writeContent` already cleared it, but an
+  enrollment of a share already enrolled, a revocation of an unknown slot, or a change that threw left it in memory.
+- **Red first:** `KeyslotTest.no_master_key_outlives_an_enrollment_a_revocation_or_an_update_that_was_refused` found
+  every master key opened by the three refused operations still set; it is green now. It sees the keys through
+  `VaultFile.unwrapped`, which only a test sets.
+- That the keyring's copies are gone cannot be tested from outside: a cleared array and a collected one look the same.
+  The code says so at `KernelKeyring.utf8`, and `KernelKeyringTest` holds the encoding to what a `String` gave.
 
 **Dropped, 2026-10-11: a credential as bytes.** `VaultEntry.value()` stays a `String`, and so do its callers and
 the broker's HTTP header. The accepted risk, with what would change it, is in

@@ -213,47 +213,52 @@ public class VaultFile {
 
     private Keyslot enrolled(Opener opener, byte[] share, String name, String storage) {
         final Opened opened = opened(opener);
-        for (final VaultHeader.Slot existing : opened.header().slots()) {
-            if (keyFor(existing, Opener.share(share)) != null
-                    && takes(existing, Opener.share(share))) {
-                // Asked again after an answer was lost, most likely. Saying so beats making a
-                // second slot for one device, which would then need revoking twice.
-                throw new VaultException(
-                        "That share is already enrolled as '" + existing.slot().name() + "'");
-            }
-        }
-        final byte[] salt = new byte[SALT_LENGTH];
-        random.nextBytes(salt);
-        final byte[] nonce = new byte[NONCE_LENGTH];
-        random.nextBytes(nonce);
-        final byte[] key = wrappingKey(share, salt);
-        final Keyslot made;
-        final java.util.List<VaultHeader.Slot> slots;
         try {
-            made =
-                    new Keyslot(
-                            java.util.UUID.randomUUID().toString(),
-                            name,
-                            storage,
-                            java.time.Instant.now().toString(),
-                            "",
-                            false);
-            slots = new java.util.ArrayList<>(opened.header().slots());
-            slots.add(
-                    new VaultHeader.Slot(
-                            VaultHeader.SHARE_SLOT,
-                            made,
-                            salt,
-                            nonce,
-                            wrap(key, nonce, opened.master()),
-                            0,
-                            0,
-                            0));
+            for (final VaultHeader.Slot existing : opened.header().slots()) {
+                if (keyFor(existing, Opener.share(share)) != null
+                        && takes(existing, Opener.share(share))) {
+                    // Asked again after an answer was lost, most likely. Saying so beats making a
+                    // second slot for one device, which would then need revoking twice.
+                    throw new VaultException(
+                            "That share is already enrolled as '" + existing.slot().name() + "'");
+                }
+            }
+            final byte[] salt = new byte[SALT_LENGTH];
+            random.nextBytes(salt);
+            final byte[] nonce = new byte[NONCE_LENGTH];
+            random.nextBytes(nonce);
+            final byte[] key = wrappingKey(share, salt);
+            final Keyslot made;
+            final java.util.List<VaultHeader.Slot> slots;
+            try {
+                made =
+                        new Keyslot(
+                                java.util.UUID.randomUUID().toString(),
+                                name,
+                                storage,
+                                java.time.Instant.now().toString(),
+                                "",
+                                false);
+                slots = new java.util.ArrayList<>(opened.header().slots());
+                slots.add(
+                        new VaultHeader.Slot(
+                                VaultHeader.SHARE_SLOT,
+                                made,
+                                salt,
+                                nonce,
+                                wrap(key, nonce, opened.master()),
+                                0,
+                                0,
+                                0));
+            } finally {
+                Arrays.fill(key, (byte) 0);
+            }
+            writeContent(read(opened(opener)), slots, opened.master());
+            return made;
         } finally {
-            Arrays.fill(key, (byte) 0);
+            // A change that throws never reaches writeContent, which clears it otherwise.
+            Arrays.fill(opened.master(), (byte) 0);
         }
-        writeContent(read(opened(opener)), slots, opened.master());
-        return made;
     }
 
     /**
@@ -273,27 +278,31 @@ public class VaultFile {
 
     private java.util.List<Keyslot> revoked(Opener opener, String id) {
         final Opened opened = opened(opener);
-        final java.util.List<VaultHeader.Slot> kept = new java.util.ArrayList<>();
-        boolean found = false;
-        for (final VaultHeader.Slot slot : opened.header().slots()) {
-            if (slot.slot().id().equals(id)) {
-                found = true;
-            } else {
-                kept.add(slot);
+        try {
+            final java.util.List<VaultHeader.Slot> kept = new java.util.ArrayList<>();
+            boolean found = false;
+            for (final VaultHeader.Slot slot : opened.header().slots()) {
+                if (slot.slot().id().equals(id)) {
+                    found = true;
+                } else {
+                    kept.add(slot);
+                }
             }
+            if (!found) {
+                throw new VaultException("No keyslot of " + file + " is called '" + id + "'");
+            }
+            if (kept.isEmpty()) {
+                // A vault nothing can open is not a revoked device, it is a lost vault.
+                throw new VaultException(
+                        "That is the last way into "
+                                + file
+                                + ", and removing it would leave the vault openable by nothing");
+            }
+            writeContent(read(opened(opener)), kept, opened.master());
+            return kept.stream().map(VaultHeader.Slot::slot).toList();
+        } finally {
+            Arrays.fill(opened.master(), (byte) 0);
         }
-        if (!found) {
-            throw new VaultException("No keyslot of " + file + " is called '" + id + "'");
-        }
-        if (kept.isEmpty()) {
-            // A vault nothing can open is not a revoked device, it is a lost vault.
-            throw new VaultException(
-                    "That is the last way into "
-                            + file
-                            + ", and removing it would leave the vault openable by nothing");
-        }
-        writeContent(read(opened(opener)), kept, opened.master());
-        return kept.stream().map(VaultHeader.Slot::slot).toList();
     }
 
     /**
@@ -314,38 +323,42 @@ public class VaultFile {
 
     private Keyslot touched(Opener opener, String id) {
         final Opened opened = opened(opener);
-        final String now = java.time.Instant.now().toString();
-        final java.util.List<VaultHeader.Slot> slots = new java.util.ArrayList<>();
-        Keyslot touched = null;
-        for (final VaultHeader.Slot slot : opened.header().slots()) {
-            if (slot.slot().id().equals(id)) {
-                touched =
-                        new Keyslot(
-                                slot.slot().id(),
-                                slot.slot().name(),
-                                slot.slot().storage(),
-                                slot.slot().enrolled(),
-                                now,
-                                slot.slot().recovery());
-                slots.add(
-                        new VaultHeader.Slot(
-                                slot.kind(),
-                                touched,
-                                slot.salt(),
-                                slot.nonce(),
-                                slot.wrapped(),
-                                slot.iterations(),
-                                slot.memoryKib(),
-                                slot.parallelism()));
-            } else {
-                slots.add(slot);
+        try {
+            final String now = java.time.Instant.now().toString();
+            final java.util.List<VaultHeader.Slot> slots = new java.util.ArrayList<>();
+            Keyslot touched = null;
+            for (final VaultHeader.Slot slot : opened.header().slots()) {
+                if (slot.slot().id().equals(id)) {
+                    touched =
+                            new Keyslot(
+                                    slot.slot().id(),
+                                    slot.slot().name(),
+                                    slot.slot().storage(),
+                                    slot.slot().enrolled(),
+                                    now,
+                                    slot.slot().recovery());
+                    slots.add(
+                            new VaultHeader.Slot(
+                                    slot.kind(),
+                                    touched,
+                                    slot.salt(),
+                                    slot.nonce(),
+                                    slot.wrapped(),
+                                    slot.iterations(),
+                                    slot.memoryKib(),
+                                    slot.parallelism()));
+                } else {
+                    slots.add(slot);
+                }
             }
+            if (touched == null) {
+                throw new VaultException("No keyslot of " + file + " is called '" + id + "'");
+            }
+            writeContent(read(opened(opener)), slots, opened.master());
+            return touched;
+        } finally {
+            Arrays.fill(opened.master(), (byte) 0);
         }
-        if (touched == null) {
-            throw new VaultException("No keyslot of " + file + " is called '" + id + "'");
-        }
-        writeContent(read(opened(opener)), slots, opened.master());
-        return touched;
     }
 
     /**
@@ -482,6 +495,12 @@ public class VaultFile {
     private record Opened(byte[] master, VaultHeader header, byte[] file, VaultHeader.Slot slot) {}
 
     /**
+     * Sees each master key as it is unwrapped, for a test that it is cleared afterwards; nothing
+     * else sets it.
+     */
+    static volatile java.util.function.Consumer<byte[]> unwrapped = master -> {};
+
+    /**
      * What may open a vault.
      *
      * <p>Two things do, and they are not interchangeable: a passphrase is typed by a person and
@@ -554,7 +573,9 @@ public class VaultFile {
                         Cipher.DECRYPT_MODE,
                         new SecretKeySpec(key, "AES"),
                         new GCMParameterSpec(TAG_BITS, slot.nonce()));
-                return new Opened(cipher.doFinal(slot.wrapped()), header, content, slot);
+                final byte[] master = cipher.doFinal(slot.wrapped());
+                unwrapped.accept(master);
+                return new Opened(master, header, content, slot);
             } catch (GeneralSecurityException ex) {
                 // This slot is not the one. A share is tried against every share slot, because a
                 // device that lost its slot id must still be able to open the vault it enrolled
@@ -659,7 +680,11 @@ public class VaultFile {
             return;
         }
         final Opened opened = opened(Opener.passphrase(passphrase));
-        writeContent(entries, opened.header().slots(), opened.master());
+        try {
+            writeContent(entries, opened.header().slots(), opened.master());
+        } finally {
+            Arrays.fill(opened.master(), (byte) 0);
+        }
     }
 
     /**
@@ -950,10 +975,16 @@ public class VaultFile {
                                 "There is no vault at " + file + " to change. Create it first.");
                     }
                     final Opened opened = opened(opener);
-                    final Map<String, VaultEntry> current =
-                            new LinkedHashMap<>(read(opened(opener)));
-                    writeContent(change.apply(current), opened.header().slots(), opened.master());
-                    return null;
+                    try {
+                        final Map<String, VaultEntry> current =
+                                new LinkedHashMap<>(read(opened(opener)));
+                        writeContent(
+                                change.apply(current), opened.header().slots(), opened.master());
+                        return null;
+                    } finally {
+                        // not stay.
+                        Arrays.fill(opened.master(), (byte) 0);
+                    }
                 });
     }
 
@@ -1016,13 +1047,18 @@ public class VaultFile {
                 // the new one without opening again - opening with the new passphrase is exactly
                 // the mistake that would make a rekey impossible.
                 final Opened opened = opened(Opener.passphrase(passphrase));
-                final Map<String, VaultEntry> current =
-                        new LinkedHashMap<>(read(opened(Opener.passphrase(passphrase))));
-                final Map<String, VaultEntry> next = change.apply(current);
-                if (rekeying) {
-                    writeRekeyed(next, opened, writeWith);
-                } else {
-                    writeContent(next, opened.header().slots(), opened.master());
+                try {
+                    final Map<String, VaultEntry> current =
+                            new LinkedHashMap<>(read(opened(Opener.passphrase(passphrase))));
+                    final Map<String, VaultEntry> next = change.apply(current);
+                    if (rekeying) {
+                        writeRekeyed(next, opened, writeWith);
+                    } else {
+                        writeContent(next, opened.header().slots(), opened.master());
+                    }
+                } finally {
+                    // stay.
+                    Arrays.fill(opened.master(), (byte) 0);
                 }
             }
         } catch (IOException ex) {

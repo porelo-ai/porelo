@@ -9,7 +9,12 @@ import java.lang.foreign.SymbolLookup;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.VarHandle;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
@@ -162,98 +167,109 @@ public class KernelKeyring {
             char[] passphrase, java.time.@org.jspecify.annotations.Nullable Duration timeout) {
 
         requireAvailable();
-        final byte[] bytes = new String(passphrase).getBytes(StandardCharsets.UTF_8);
+        final byte[] bytes = utf8(passphrase);
 
         try (Arena arena = Arena.ofConfined()) {
 
             final MemorySegment errno = arena.allocate(ERRNO_LAYOUT);
-            final MethodHandle link =
-                    handle(
-                            "keyctl_link",
-                            ValueLayout.JAVA_LONG,
-                            ValueLayout.JAVA_INT,
-                            ValueLayout.JAVA_INT);
-            final MethodHandle addKey =
-                    handle(
-                            "add_key",
-                            ValueLayout.JAVA_INT,
-                            ValueLayout.ADDRESS,
-                            ValueLayout.ADDRESS,
-                            ValueLayout.ADDRESS,
-                            ValueLayout.JAVA_LONG,
-                            ValueLayout.JAVA_INT);
-            final MethodHandle setPermissions =
-                    handle(
-                            "keyctl_setperm",
-                            ValueLayout.JAVA_LONG,
-                            ValueLayout.JAVA_INT,
-                            ValueLayout.JAVA_INT);
-
-            // Link the user keyring into the session keyring first, or a key added to the user
-            // keyring is not findable from a later process in the same session.
-            final long linked =
-                    (long) link.invokeExact(errno, KEY_SPEC_USER_KEYRING, KEY_SPEC_SESSION_KEYRING);
-            if (linked == -1L) {
-                throw new VaultException(
-                        "Cannot link the user keyring into the session keyring"
-                                + " (errno="
-                                + errorNumber(errno)
-                                + ")");
-            }
-
-            final MemorySegment payload = arena.allocate(bytes.length);
-            MemorySegment.copy(bytes, 0, payload, ValueLayout.JAVA_BYTE, 0, bytes.length);
-
-            final int serial =
-                    (int)
-                            addKey.invokeExact(
-                                    errno,
-                                    arena.allocateFrom(TYPE),
-                                    arena.allocateFrom(description),
-                                    payload,
-                                    (long) bytes.length,
-                                    KEY_SPEC_USER_KEYRING);
-            if (serial == -1) {
-                throw new VaultException(
-                        "Cannot store the passphrase in the keyring"
-                                + " (errno="
-                                + errorNumber(errno)
-                                + ")");
-            }
-
-            final long permissions =
-                    (long) setPermissions.invokeExact(errno, serial, KEY_PERMISSIONS);
-            if (permissions == -1L) {
-                throw new VaultException(
-                        "Cannot restrict the keyring entry"
-                                + " (errno="
-                                + errorNumber(errno)
-                                + ")");
-            }
-
-            if (timeout != null) {
-                // Set last, on a key that is already stored and already restricted: a bound on a
-                // key that failed to be locked down would be the wrong thing to get right. The
-                // kernel keeps the expiry in whole seconds of the clock, so a bound of n seconds
-                // lasts from n-1 to n: one second short at most, which no bound a person sets
-                // notices.
-                final MethodHandle setTimeout =
+            MemorySegment payload = MemorySegment.NULL;
+            try {
+                final MethodHandle link =
                         handle(
-                                "keyctl_set_timeout",
+                                "keyctl_link",
                                 ValueLayout.JAVA_LONG,
                                 ValueLayout.JAVA_INT,
                                 ValueLayout.JAVA_INT);
-                final long bounded =
+                final MethodHandle addKey =
+                        handle(
+                                "add_key",
+                                ValueLayout.JAVA_INT,
+                                ValueLayout.ADDRESS,
+                                ValueLayout.ADDRESS,
+                                ValueLayout.ADDRESS,
+                                ValueLayout.JAVA_LONG,
+                                ValueLayout.JAVA_INT);
+                final MethodHandle setPermissions =
+                        handle(
+                                "keyctl_setperm",
+                                ValueLayout.JAVA_LONG,
+                                ValueLayout.JAVA_INT,
+                                ValueLayout.JAVA_INT);
+
+                // Link the user keyring into the session keyring first, or a key added to the user
+                // keyring is not findable from a later process in the same session.
+                final long linked =
                         (long)
-                                setTimeout.invokeExact(
-                                        errno, serial, (int) Math.max(1L, timeout.toSeconds()));
-                if (bounded == -1L) {
+                                link.invokeExact(
+                                        errno, KEY_SPEC_USER_KEYRING, KEY_SPEC_SESSION_KEYRING);
+                if (linked == -1L) {
                     throw new VaultException(
-                            "Cannot bound how long the passphrase is kept"
+                            "Cannot link the user keyring into the session keyring"
                                     + " (errno="
                                     + errorNumber(errno)
                                     + ")");
                 }
+
+                payload = arena.allocate(bytes.length);
+                MemorySegment.copy(bytes, 0, payload, ValueLayout.JAVA_BYTE, 0, bytes.length);
+
+                final int serial =
+                        (int)
+                                addKey.invokeExact(
+                                        errno,
+                                        arena.allocateFrom(TYPE),
+                                        arena.allocateFrom(description),
+                                        payload,
+                                        (long) bytes.length,
+                                        KEY_SPEC_USER_KEYRING);
+                if (serial == -1) {
+                    throw new VaultException(
+                            "Cannot store the passphrase in the keyring"
+                                    + " (errno="
+                                    + errorNumber(errno)
+                                    + ")");
+                }
+
+                final long permissions =
+                        (long) setPermissions.invokeExact(errno, serial, KEY_PERMISSIONS);
+                if (permissions == -1L) {
+                    throw new VaultException(
+                            "Cannot restrict the keyring entry"
+                                    + " (errno="
+                                    + errorNumber(errno)
+                                    + ")");
+                }
+
+                if (timeout != null) {
+                    // Set last, on a key that is already stored and already restricted: a bound on
+                    // a
+                    // key that failed to be locked down would be the wrong thing to get right. The
+                    // kernel keeps the expiry in whole seconds of the clock, so a bound of n
+                    // seconds
+                    // lasts from n-1 to n: one second short at most, which no bound a person sets
+                    // notices.
+                    final MethodHandle setTimeout =
+                            handle(
+                                    "keyctl_set_timeout",
+                                    ValueLayout.JAVA_LONG,
+                                    ValueLayout.JAVA_INT,
+                                    ValueLayout.JAVA_INT);
+                    final long bounded =
+                            (long)
+                                    setTimeout.invokeExact(
+                                            errno, serial, (int) Math.max(1L, timeout.toSeconds()));
+                    if (bounded == -1L) {
+                        throw new VaultException(
+                                "Cannot bound how long the passphrase is kept"
+                                        + " (errno="
+                                        + errorNumber(errno)
+                                        + ")");
+                    }
+                }
+            } finally {
+                // The arena frees its memory but does not clear it; the next allocation could be
+                // read back with the passphrase still in it.
+                payload.fill((byte) 0);
             }
 
         } catch (VaultException ex) {
@@ -261,7 +277,7 @@ public class KernelKeyring {
         } catch (Throwable ex) {
             throw new VaultException("The kernel keyring call failed", ex);
         } finally {
-            java.util.Arrays.fill(bytes, (byte) 0);
+            Arrays.fill(bytes, (byte) 0);
         }
     }
 
@@ -322,12 +338,78 @@ public class KernelKeyring {
             }
 
             final byte[] bytes = buffer.asSlice(0, length).toArray(ValueLayout.JAVA_BYTE);
-            final char[] passphrase = new String(bytes, StandardCharsets.UTF_8).toCharArray();
-            java.util.Arrays.fill(bytes, (byte) 0);
-            return Optional.of(passphrase);
+            buffer.fill((byte) 0);
+            try {
+                return Optional.of(chars(bytes));
+            } finally {
+                Arrays.fill(bytes, (byte) 0);
+            }
 
         } catch (Throwable ex) {
             return Optional.empty();
+        }
+    }
+
+    /**
+     * Encodes a passphrase as UTF-8 without making a {@code String} of it, which nothing can clear;
+     * the encoder's own buffer is cleared before it is let go.
+     *
+     * <p>That the copies are gone cannot be tested from here, since a cleared array and a collected
+     * one look the same from outside; the tests hold the encoding to what a {@code String} would
+     * give.
+     *
+     * @param passphrase The passphrase.
+     * @return Its UTF-8 bytes, for the caller to clear.
+     * @throws VaultException If it holds a lone surrogate, which UTF-8 cannot carry.
+     */
+    static byte[] utf8(final char[] passphrase) {
+        final ByteBuffer encoded;
+        try {
+            encoded =
+                    StandardCharsets.UTF_8
+                            .newEncoder()
+                            .onMalformedInput(CodingErrorAction.REPORT)
+                            .onUnmappableCharacter(CodingErrorAction.REPORT)
+                            .encode(CharBuffer.wrap(passphrase));
+        } catch (CharacterCodingException ex) {
+            throw new VaultException("The passphrase holds a character UTF-8 cannot carry", ex);
+        }
+        try {
+            return Arrays.copyOfRange(
+                    encoded.array(),
+                    encoded.arrayOffset() + encoded.position(),
+                    encoded.arrayOffset() + encoded.limit());
+        } finally {
+            Arrays.fill(encoded.array(), (byte) 0);
+        }
+    }
+
+    /**
+     * Decodes UTF-8 into a passphrase without making a {@code String} of it.
+     *
+     * @param bytes The bytes the kernel kept.
+     * @return The passphrase, for the caller to clear.
+     */
+    static char[] chars(final byte[] bytes) {
+        final CharBuffer decoded;
+        try {
+            decoded =
+                    StandardCharsets.UTF_8
+                            .newDecoder()
+                            .onMalformedInput(CodingErrorAction.REPLACE)
+                            .onUnmappableCharacter(CodingErrorAction.REPLACE)
+                            .decode(ByteBuffer.wrap(bytes));
+        } catch (CharacterCodingException ex) {
+            // REPLACE never reports; kept for the signature.
+            throw new VaultException("The cached passphrase is not UTF-8", ex);
+        }
+        try {
+            return Arrays.copyOfRange(
+                    decoded.array(),
+                    decoded.arrayOffset() + decoded.position(),
+                    decoded.arrayOffset() + decoded.limit());
+        } finally {
+            Arrays.fill(decoded.array(), '\0');
         }
     }
 
