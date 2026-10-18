@@ -1,8 +1,8 @@
 # B06 — Remote Access
 
-**Status:** Implementing.
+**Status:** Review. Green in porelo's Build 39103478961 on `c31a94bc`, on both rented legs, 2026-10-18.
 **Size:** M - both shapes are built, and the hop and the socket check are in the suite; the forwarded socket under an
-enforcing SELinux is fixed in the policy module; left: the Build's Fedora leg green.
+enforcing SELinux is fixed in the policy module.
 
 **What must be true.** Tasks on another machine are usable over an encrypted tunnel, without the
 daemon ever binding a network port.
@@ -144,7 +144,9 @@ refused makes the line read "the loaded module is older than this package's" wit
 socket forward, and the reload command. Asked as `core` on the raised `fedora` VM with 1.1 loaded: `sshd_session_t`,
 `sshd_t` and `container_t` allowed, `httpd_t` refused.
 
-**Left:** the scenario green on the Build's rented Fedora leg.
+**Proven on the CI image, 2026-10-18:** Build 39103478961 on `c31a94bc`. The Fedora leg loaded the tree's module
+("installed the porelo_socket policy module") and, enforcing, the scenario printed "the forwarded socket answered the
+listing"; 233 scenarios, 0 failures, on both legs. Nothing is left.
 
 ## Acceptance
 
