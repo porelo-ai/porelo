@@ -120,14 +120,14 @@ them ask elsewhere:
   method, nothing else changed) answers its pid and where `/proc/self/exe` points, which a process reads of itself
   whatever its dumpable flag. The deploy's `runsItsOwn` takes the executable only when the pid equals the unit's
   `MainPID`, so a daemon started by hand that still holds the socket is not taken for the unit's.
-- **That it binds no network port** is asked of the kernel, not of the daemon: `ss -ltun --cgroup` names the control
-  group each socket was made in, the daemon's unit has a group of its own, and the scenario counts the listeners in
-  it. That is better than a list the daemon makes of its own sockets: the guard does not depend on the code it
-  guards, and it also counts a socket of anything else the unit runs. It refuses to judge on a machine where `ss`
-  does not name a control group on every listener, as an older kernel or `ss` would not. Measured
-  on the developer machine with the daemon on the JVM in a user unit: with the hardening, `readlink
-  /proc/<pid>/exe` and `ss -p` show its own user nothing, and with a loopback `ServerSocket` planted in `main` the
-  check counts 1, where the old `pid=` filter counted 0.
+- **That it binds no network port** is asked of the kernel, not of the daemon, decided 2026-10-18 (the plan had the
+  daemon report its own network view): `ss -ltun --cgroup` names the control group each socket was made in, the
+  daemon's unit has a group of its own, and the scenario counts the listeners in it. That is better than a list the
+  daemon makes of its own sockets: the guard does not depend on the code it guards, and it also counts a socket of
+  anything else the unit runs. It refuses to judge on a machine where `ss` does not name a control group on every
+  listener, as an older kernel or `ss` would not. Measured on the developer machine with the daemon on the JVM in a
+  user unit: with the hardening, `readlink /proc/<pid>/exe` and `ss -p` show its own user nothing, and with a loopback
+  `ServerSocket` planted in `main` the check counts 1, where the old `pid=` filter counted 0.
 
 `machine.feature` holds both: the port scenario above, and a scenario reading the owner of the running daemon's
 `/proc/<pid>/environ`, the same way `task-left-running.feature` reads the broker's. Neither has run on a VM yet.
