@@ -2,7 +2,6 @@
 # documentation chapter somebody can find their way through, and the tests that read documents. Of its own because the build ignores a change to Markdown
 # alone, which is exactly the change this is for, and it leases no machine.
 name: Shared rules check
-run-name: "${{ github.workflow }} · ${{ github.ref_name }}: ${{ github.event.head_commit.message || github.event.pull_request.title || github.workflow }}"
 
 # Once a day, not on a push: every hand-over runs the same checks locally on its exact commit first, and a run per
 # push spent build minutes on what was already known. 03:17 UTC lies outside the hours the repositories are worked in.
