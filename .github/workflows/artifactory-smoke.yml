@@ -22,6 +22,11 @@ jobs:
             RPM_REPO: porelo-dist-rpm
 
         steps:
+            # For .github/scripts/artifactory.sh, the file Publish speaks to Artifactory through.
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
             - name: The settings exist at all
               run: |
                   set -eu
