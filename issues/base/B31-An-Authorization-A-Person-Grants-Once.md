@@ -1,7 +1,15 @@
 # B31 — An Authorization A Person Grants Once
 
-**Status:** Review. Green in porelo's Build 39083121366 on `842ff109`, on both rented legs, 2026-10-18. What is left is the operator's: the real GitHub grant and the hour-long stream with its remote MCP server.
+**Status:** Implementing. Set back from Review on 2026-10-18: its test cannot run yet.
 **Size:** S - what is left is two runs against GitHub with the operator, which change code only if they break.
+
+**Blocked, found 2026-10-18 when the operator tried the test:** `porelo vault authorize github-copilot` answers "no
+installed agent signs in to 'github-copilot', so there is no client id to grant". No installed agent declares
+`login.grants` yet: that is Pi's [PI27](https://github.com/porelo-ai/porelo-pi/blob/main/issues/README.md#pi27) and
+Oh My Pi's [OM25](https://github.com/porelo-ai/porelo-omp/blob/main/issues/README.md#om25). And the hour-long stream
+needs GitHub's remote MCP server as a destination of its own, `~/.local/share/porelo/destinations/<name>.yaml` with
+its entry, which no file in this repository ships. The test guide of 2026-10-18 named the command without running it
+on an installed machine.
 
 **What must be true.** A person grants an authorization once, where a person actually is, and every task afterwards
 uses it without holding it and without asking again.
