@@ -21,7 +21,10 @@ devcontainer file as a source, which would have given only `image` or `build`, w
   `env`. Nothing else: egress, limits, the class and every other key are refused by name, so a repository cannot widen
   what its own tasks may do.
 - **`.porelo.yml`** has the same format, is never checked in, and overrides it locally.
-- **What wins, first found:**
+- **What wins, key by key** (decided 2026-10-18): along the order below, the first source that sets a key gives it.
+  `base_image` and the snippet (`snippet` or `snippet_file`) are each taken whole from one source; `env` is merged
+  per variable. A local `.porelo.yml` that sets only one variable changes only that one.
+- **The order:**
   - in a project with a `project.yml`:
     1. the person's `~/.config/porelo/projects/<project>/<repository>/.porelo.yml`;
     2. `project.yml`'s `repositories.<name>.image`, which is new;
@@ -63,9 +66,10 @@ Read in the code on 2026-10-18.
      `GateSupport.java:126`), then `git show <branch>:porelo.yml`, and `snippet_file` the same way.
    - It is read after the mirror's fetch, so the first start of a repository fetches before it builds.
    - Branches named `porelo/*` are never read.
-4. **Choosing.** One method, `ImageChoice.of(project, repository, checkout)`, walks the order above and returns the
-   `ImageSource`. `TaskLaunch` (`TaskLaunch.java:864`) prints it in place of `base image` and `task image`, and so do
-   `task prepare` and its dry run (`Preparation.java:117`).
+4. **Choosing.** One method, `ImageChoice.of(project, repository, checkout)`, walks the order above, key by key, and
+   returns the `ImageSource`, which keeps for `base_image`, the snippet and each `env` variable the source it came
+   from. `TaskLaunch` (`TaskLaunch.java:864`) prints one line per key with its source in place of `base image` and
+   `task image`, and so do `task prepare` and its dry run (`Preparation.java:117`).
    - For the project `default`, the checkout is `DefaultProject`'s entry (`DefaultProject.java:65`, from
      `WorkOrigin.fromCheckout`). The files are read from the working tree, as the person sees them.
 5. **One image per repository.**
@@ -90,8 +94,9 @@ Read in the code on 2026-10-18.
 
 - [ ] A repository whose default branch carries a `porelo.yml` with a snippet gets an image with that snippet. A task
   on another repository of the same project gets the project's image, and both dry runs name their source.
-- [ ] A `.porelo.yml` under `~/.config/porelo/projects/<project>/<repository>/` wins over `project.yml`'s entry and
-  over the repository's file, and the start says so.
+- [ ] A `.porelo.yml` under `~/.config/porelo/projects/<project>/<repository>/` that sets only `base_image` and one
+  `env` variable wins for those two over `project.yml`'s entry and the repository's file. The snippet and the other
+  variables still come from those, and the start names each key's source.
 - [ ] A `porelo.yml` on a branch other than the default, or on `porelo/<task>`, changes nothing.
 - [ ] A `porelo.yml` naming `egress`, `limits` or any key outside `image` is refused at the start with that key's name,
   and no image is built. The test is watched to fail first.
@@ -101,9 +106,6 @@ Read in the code on 2026-10-18.
 
 ## Open questions
 
-- **A whole file, or key by key?** The plan takes the first source that has an `image` whole, so a local override
-  replaces and never merges. Key by key, a local `.porelo.yml` could change `env` alone, but then where each key came
-  from needs a line of its own in the start's output.
 - **The build's network.** A `porelo.yml` snippet runs at build time with the network the build has today, as a
   project's snippet does. Now the repository's authors write it, behind review of its default branch. Is that review
   enough, or does a repository's snippet get the project's egress at build time? That would be a change of its own,
