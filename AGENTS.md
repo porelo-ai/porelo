@@ -356,8 +356,9 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
 - **Four artifacts reach Central: `porelo-agent-api`, `porelo-wire`, `porelo-acceptance-kit` and `porelo-bom`**; the
   packages and the agents' go to Artifactory, `porelo-dist-deb` and `porelo-dist-rpm`.
 - **Under `-Pcentral-sonatype-release` only `skipPublishing` counts**, default-deny in the root and off in those four.
-- **`jf rt upload` needs `--flat=true`**, and a Debian upload needs `deb.distribution`, `deb.component` and
-  `deb.architecture` (Annotate permission), or it is stored and never indexed; build-info is not published.
+- **Artifactory is spoken to with curl, through `.github/scripts/artifactory.sh`**: no client is downloaded into a job
+  holding the token. A Debian upload needs `deb.distribution`, `deb.component` and `deb.architecture` (Annotate
+  permission), or it is stored and never indexed; build-info is not published.
 - **`.github/workflows/artifactory-smoke.yml` checks the upload path without building**; run it after rotating the
   token.
 - **The bill a package installs is its own** (`dist-deb`'s `makeBom`, its subject `porelo-dist-deb`).

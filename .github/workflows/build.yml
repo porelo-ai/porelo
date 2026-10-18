@@ -342,14 +342,6 @@ jobs:
                   OSS_SONATYPE_GPG_PASSPHRASE: ${{ secrets.OSS_SONATYPE_GPG_PASSPHRASE }}
               run: ./mvnw -B deploy -Pcentral-sonatype-release -s settings.xml -DskipTests
 
-            # The action publishes build-info by itself at the end of the workflow.
-            - uses: jfrog/setup-jfrog-cli@1e584506871998c267b7c100c02628a5b9c81db6 # v5.3.0
-              with:
-                  disable-auto-build-publish: true
-              env:
-                  JF_URL: ${{ vars.JF_URL }}
-                  JF_ACCESS_TOKEN: ${{ secrets.JF_ACCESS_TOKEN }}
-
             # Into the channel this run publishes to. A release that is already there is refused: a published release
             # is never replaced, as on Central.
             - name: Publish the packages
@@ -357,30 +349,32 @@ jobs:
                   JF_URL: ${{ vars.JF_URL }}
                   JF_ACCESS_TOKEN: ${{ secrets.JF_ACCESS_TOKEN }}
                   CHANNEL: ${{ steps.channel.outputs.channel }}
+              # Over Artifactory's REST interface with curl (.github/scripts/artifactory.sh): no client is downloaded into
+              # the job that holds the token.
               run: |
                   set -eux
+                  . .github/scripts/artifactory.sh
+                  art_login
                   if [ "$CHANNEL" = releases ] && curl -sfL "${JF_URL}/artifactory/porelo-dist-deb/dists/releases/main/binary-amd64/Packages" \
                           | grep -qF "Filename: pool/main/p/porelo/$(basename dist/dist-deb/target/porelo_*.deb)"; then
                       echo "::error::this release is published already"; exit 1
                   fi
-                  # --flat, or the source directory travels and the package lands away from its siblings.
-                  jf rt upload "dist/dist-deb/target/*.deb" "porelo-dist-deb/pool/main/p/porelo/" \
-                      --flat=true \
-                      --target-props="deb.distribution=${CHANNEL};deb.component=main;deb.architecture=amd64"
-                  jf rt upload "dist/dist-rpm/target/*.rpm" "porelo-dist-rpm/${CHANNEL}/" --flat=true
+                  DEB_PROPS="deb.distribution=${CHANNEL};deb.component=main;deb.architecture=amd64"
+                  for f in dist/dist-deb/target/*.deb; do art_put "$f" "porelo-dist-deb/pool/main/p/porelo/" "$DEB_PROPS"; done
+                  for f in dist/dist-rpm/target/*.rpm; do art_put "$f" "porelo-dist-rpm/${CHANNEL}/"; done
                   # Porelo's own test agent, for a machine a leg leases ('lease --package porelo-agent-stub'): snapshots only,
                   # and never offered as an agent to install - it declares no 'Provides: porelo-agent', so it is taken by its
                   # name alone. A scenario that needs it fails where it is missing rather than skipping.
                   if [ "$CHANNEL" != releases ]; then
-                      jf rt upload "agents/stub/target/*.deb" "porelo-dist-deb/pool/main/p/porelo-agent-stub/" \
-                          --flat=true \
-                          --target-props="deb.distribution=${CHANNEL};deb.component=main;deb.architecture=amd64"
-                      jf rt upload "agents/stub/target/*.rpm" "porelo-dist-rpm/${CHANNEL}/" --flat=true
+                      for f in agents/stub/target/*.deb; do
+                          art_put "$f" "porelo-dist-deb/pool/main/p/porelo-agent-stub/" "$DEB_PROPS"
+                      done
+                      for f in agents/stub/target/*.rpm; do art_put "$f" "porelo-dist-rpm/${CHANNEL}/"; done
                   fi
 
                   # The bill beside the package, so it can be read without installing anything.
-                  jf rt upload "target/porelo.cdx.json" "porelo-dist-deb/pool/main/p/porelo/" --flat=true
-                  jf rt upload "target/porelo.cdx.json" "porelo-dist-rpm/${CHANNEL}/" --flat=true
+                  art_put target/porelo.cdx.json "porelo-dist-deb/pool/main/p/porelo/"
+                  art_put target/porelo.cdx.json "porelo-dist-rpm/${CHANNEL}/"
 
                   # The setup script, versioned with the packages it installs. A machine being
                   # prepared has no daemon to ask, so this is the one Porelo interface that is a file: the
@@ -394,9 +388,9 @@ jobs:
                   DEB="$(ls -t dist/dist-deb/target/porelo_*.deb | head -1)"
                   VERSION="$(dpkg-deb -f "$DEB" Version)"
                   [ -n "$VERSION" ] || { echo "::error::no version in $DEB"; exit 1; }
-                  jf rt upload "dist/dist-setup/porelo-setup.sh" "porelo-dist-deb/setup/porelo-setup-${VERSION}.sh" --flat=true
+                  art_put dist/dist-setup/porelo-setup.sh "porelo-dist-deb/setup/porelo-setup-${VERSION}.sh"
                   if [ "$CHANNEL" = releases ] || ! curl -sfI "${JF_URL}/artifactory/porelo-dist-deb/dists/releases/Release" >/dev/null; then
-                      jf rt upload "dist/dist-setup/porelo-setup.sh" "porelo-dist-deb/setup/porelo-setup-latest.sh" --flat=true
+                      art_put dist/dist-setup/porelo-setup.sh "porelo-dist-deb/setup/porelo-setup-latest.sh"
                   fi
 
             # Uploaded is not the same as installable.

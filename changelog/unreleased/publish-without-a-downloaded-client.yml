@@ -1,0 +1,2 @@
+title: "Packages are published to Artifactory with curl over its REST interface; no JFrog CLI is downloaded into the job that holds the token"
+type: security

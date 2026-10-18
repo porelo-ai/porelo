@@ -65,14 +65,15 @@ and it is why this finding is the same in every repository.
   with loopback pinentry from `settings.xml`.
 - **GitHub's own actions are held to the same rule.** `actions/checkout`, the artifact pair and
   `actions/cache` are pinned like any other; the check has no exception for them.
-- **The runner image is out of scope**, deliberately. `ubuntu-24.04` instead of `ubuntu-latest` would
-  still change weekly and would add a chore; this is recorded so it is not mistaken for an oversight.
+- **The runner is named by its version, the image within it is out of scope.** Every job runs on `ubuntu-24.04`, as
+  the builds of the packages do; the image behind that name still changes weekly, which is recorded so it is not
+  mistaken for an oversight.
 
 ### How it is built here
 
 - Every `uses:` names a commit with its version beside it: `actions/checkout@3d3c42e… # v7.0.1`,
   `actions/upload-artifact@043fb46… # v7.0.1`, `actions/download-artifact@3e5f45b… # v8.0.1`,
-  `jfrog/setup-jfrog-cli@68c0efd… # v5.2.0`, `actions/cache@55cc834… # v6.1.0`. Each commit was read from
+  `actions/cache@55cc834… # v6.1.0`. Each commit was read from
   the release tag it stands for.
 - **The check is `porelo-release check-actions [DIRECTORY]`**, default `.github`. It refuses a tag, a
   branch, a commit without its version, and a container image without its digest, and says how to pin
@@ -84,8 +85,10 @@ and it is why this finding is the same in every repository.
     `distributionSha256Sum` in `.mvn/wrapper/maven-wrapper.properties`. The SHA-256 was taken from a
     download whose SHA-512 matched the one Maven Central publishes.
   - GraalVM (`pinned-jdk`, and on the snapshots): already checked against its pinned SHA-256.
-  - The JFrog CLI, which `setup-jfrog-cli` downloads into `Publish`: the version (2.124.0) is fixed by
-    the action's pinned commit, but it is downloaded without a checksum. That is what remains here.
+  - The JFrog CLI is gone, decided 2026-10-18. `setup-jfrog-cli` downloaded it into `Publish` without a checksum;
+    `Publish` and `artifactory-smoke.yml` now speak to Artifactory's REST interface with `curl`, through
+    `.github/scripts/artifactory.sh`. The token goes into a curl config file of mode 600, never onto a command line,
+    and each upload carries its SHA-1 and SHA-256, which Artifactory checks against the bytes.
   - `Publish` reads Artifactory's package indexes with `curl`, and runs nothing it reads.
 
 ## Plan
@@ -98,13 +101,10 @@ signing key imported by our own step.
 
 Left here, in order:
 
-1. The JFrog CLI, which `jfrog/setup-jfrog-cli` downloads without a checksum into `Publish` (`build.yml`) and into
-   `artifactory-smoke.yml`. Replace the action by a composite action of our own, `.github/actions/pinned-jf`, that
-   downloads `jf` at a fixed version and checks a pinned SHA-256 before it runs, as `pinned-jdk` does for GraalVM.
-   Build-info publishing is already off (`disable-auto-build-publish: true`), so nothing the action did is lost.
-   Red first: one branch run with a wrong checksum fails the job before `jf` runs.
+1. **The first `Publish` without the JFrog CLI**, on the next push of code: its packages uploaded, indexed and
+   installable on both legs as before. Before that push, `artifactory-smoke.yml` started by hand on a branch with
+   the change: it makes the same calls from the same file, against the real repositories.
 2. The hand check of `Publish` after this pinning: a person reads each step and the commit each pin names.
-3. Dependabot's first grouped pull request, reviewed by a person before it lands.
 
 The agent repositories and the interface pin, add the same `dependabot.yml` and run `check-actions` themselves.
 
@@ -119,7 +119,7 @@ The agent repositories and the interface pin, add the same `dependabot.yml` and 
 - Adding a step that names a tag fails a build, and the failure says what to do about it. Seen to fail: the unit
   test running `check-actions` over this repository's `.github` fails `Build and unit tests`.
 - The update process exists, has run at least once, and its result was reviewed by a person before
-  it landed. Open: Dependabot's first pull request, reviewed by a person before it lands.
+  it landed. Met: Dependabot's first grouped pull request, porelo #5, was merged by a person as `9e8c4c19`.
 - **Dependabot's first grouped pull requests, prepared for that review, 2026-10-18:** porelo #5 and porelo-build-github
   #2, "Bump the actions group", made after phase 0's push. Each new pin was read back against its release tag through
   GitHub's API, and each is that tag's commit:
@@ -138,10 +138,7 @@ The agent repositories and the interface pin, add the same `dependabot.yml` and 
   only thing a workflow runs: a release binary downloaded into a publishing job has the same
   trust and none of the ceremony, and the worst case is the one that writes the packages
   themselves. Porelo is believed to fetch nothing this way and that has not been proved, which is
-  exactly why it is a criterion rather than a note. Open: the JFrog CLI download in `Publish`, pinned by version
-  only. Seen to fail: a download in a credential-holding job whose checksum is changed still runs.
-
-## To be checked
-
-- **Whether `Publish` keeps the JFrog CLI at all** (Agent Core's). It speaks to Artifactory's REST interface, which
-  `curl` and the access token reach without a download; dropping it removes the last thing fetched by a name.
+  exactly why it is a criterion rather than a note. Built: the JFrog CLI, the one such download, is dropped for
+  `curl`; open until the first `Publish` without it is green. Checked on this machine against a stand-in server: the
+  paths, the properties and both checksums arrive as Artifactory expects them; a token it refuses, a missing file
+  and a missing token each fail the step; and `set -x` shows no token.

@@ -34,21 +34,26 @@ jobs:
                   esac
                   echo "  OK    JF_URL is set and is a platform url"
 
-            - uses: jfrog/setup-jfrog-cli@1e584506871998c267b7c100c02628a5b9c81db6 # v5.3.0
-              with:
-                  disable-auto-build-publish: true
-
+            # The calls Publish makes, from the same file: what passes here passes there.
             - name: Artifactory answers, and the token authenticates
-              run: jf rt ping
+              run: |
+                  set -eu
+                  . .github/scripts/artifactory.sh
+                  art_login
+                  # With the token in the request: a token Artifactory does not accept answers 401, even here.
+                  [ "$(art_api GET /api/system/ping)" = OK ]
+                  echo "  OK    Artifactory answers, and the token is accepted"
 
             # A repository of the wrong type accepts uploads and indexes nothing.
             - name: Both repositories exist and are the right type
               run: |
                   set -eu
+                  . .github/scripts/artifactory.sh
+                  art_login
                   # 'rpm' is what the API reports;
                   check_type() {
                       repo="$1"; shift
-                      got="$(jf rt curl -s -XGET "/api/repositories/$repo" \
+                      got="$(art_api GET "/api/repositories/$repo" \
                           | jq -r '.packageType // "MISSING"' | tr 'A-Z' 'a-z')"
                       for want in "$@"; do
                           if [ "$got" = "$want" ]; then
@@ -66,8 +71,10 @@ jobs:
             - name: What the API says about signing
               run: |
                   set -eu
+                  . .github/scripts/artifactory.sh
+                  art_login
                   for repo in "$DEB_REPO" "$RPM_REPO"; do
-                      body="$(jf rt curl -s -XGET "/api/repositories/$repo")"
+                      body="$(art_api GET "/api/repositories/$repo")"
                       key="$(echo "$body" | jq -r '.primaryKeyPairRef // ""')"
                       if [ -n "$key" ]; then
                           echo "  OK    $repo reports keypair '$key'"
@@ -83,16 +90,18 @@ jobs:
             - name: The token can write, annotate and delete
               run: |
                   set -eu
+                  . .github/scripts/artifactory.sh
+                  art_login
                   echo "porelo smoke ${GITHUB_RUN_ID}" > smoke.txt
                   FAILED=0
                   for repo in "$DEB_REPO" "$RPM_REPO"; do
                       path="$repo/.smoke/${GITHUB_RUN_ID}.txt"
 
-                      jf rt upload smoke.txt "$path" --flat=true >/dev/null
+                      art_put smoke.txt "$path" >/dev/null
                       echo "  OK    $repo accepts an upload"
 
-                      jf rt sp "$path" "smoke=${GITHUB_RUN_ID}" >/dev/null
-                      got="$(jf rt curl -s -XGET "/api/storage/$path?properties" \
+                      art_api PUT "/api/storage/$path?properties=smoke=${GITHUB_RUN_ID}" >/dev/null
+                      got="$(art_api GET "/api/storage/$path?properties" \
                           | jq -r '.properties.smoke[0] // ""')"
                       if [ "$got" = "$GITHUB_RUN_ID" ]; then
                           echo "  OK    $repo stores properties, so Annotate is granted"
@@ -101,7 +110,7 @@ jobs:
                           FAILED=1
                       fi
 
-                      jf rt del "$path" --quiet >/dev/null
+                      art_api DELETE "/$path" >/dev/null
                       echo "  OK    $repo allows delete, so the probe left nothing behind"
                   done
                   rm -f smoke.txt
