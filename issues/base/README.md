@@ -26,7 +26,7 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b31"></a>[B31](B31-An-Authorization-A-Person-Grants-Once.md) | S | [PI27](https://github.com/porelo-ai/porelo-pi/blob/main/issues/README.md#pi27), [OM25](https://github.com/porelo-ai/porelo-omp/blob/main/issues/README.md#om25) | Dynamic client registration built against a stand-in; blocked: no installed agent declares `login.grants` yet, and GitHub's MCP server has no destination file; then a real GitHub grant and an hour-long stream. |
-| <a id="b49"></a>[B49](B49-What-The-Build-Trusts-To-Run-Beside-Its-Secrets.md) | S | - | Pins, Dependabot and `check-actions` are on `main`; left: a checksum-pinned JFrog CLI step, the hand check of `Publish`, the first Dependabot review. |
+| <a id="b49"></a>[B49](B49-What-The-Build-Trusts-To-Run-Beside-Its-Secrets.md) | S | - | Pins, Dependabot, `check-actions` and a `Publish` that downloads no client are on `main`; left: the hand check of `Publish` by a person. |
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
 
 ## Backlog

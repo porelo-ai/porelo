@@ -1,7 +1,7 @@
 # B49 — What The Build Trusts To Run Beside Its Secrets
 
 **Status:** Implementing.
-**Size:** S - what is left here is one workflow step and two checks by a person; the other repositories' share is
+**Size:** S - what is left here is one check by a person; the other repositories' share is
 theirs.
 
 **What must be true.** Nothing runs beside this product's credentials, in any of its repositories' builds, that was
@@ -99,12 +99,8 @@ bound to the root POM's `validate` (`pom.xml`, execution `check-actions`, `porel
 `release/src/main/java/org/fuin/porelo/release/CheckActions.java`); the Maven wrapper by `distributionSha256Sum`; the
 signing key imported by our own step.
 
-Left here, in order:
-
-1. **The first `Publish` without the JFrog CLI**, on the next push of code: its packages uploaded, indexed and
-   installable on both legs as before. Before that push, `artifactory-smoke.yml` started by hand on a branch with
-   the change: it makes the same calls from the same file, against the real repositories.
-2. The hand check of `Publish` after this pinning: a person reads each step and the commit each pin names.
+Left here: **the hand check of `Publish`**, now that nothing in it is fetched by a name: a person reads each step and
+the commit each pin names.
 
 The agent repositories and the interface pin, add the same `dependabot.yml` and run `check-actions` themselves.
 
@@ -138,7 +134,9 @@ The agent repositories and the interface pin, add the same `dependabot.yml` and 
   only thing a workflow runs: a release binary downloaded into a publishing job has the same
   trust and none of the ceremony, and the worst case is the one that writes the packages
   themselves. Porelo is believed to fetch nothing this way and that has not been proved, which is
-  exactly why it is a criterion rather than a note. Built: the JFrog CLI, the one such download, is dropped for
-  `curl`; open until the first `Publish` without it is green. Checked on this machine against a stand-in server: the
-  paths, the properties and both checksums arrive as Artifactory expects them; a token it refuses, a missing file
-  and a missing token each fail the step; and `set -x` shows no token.
+  exactly why it is a criterion rather than a note. Met 2026-10-18: the JFrog CLI, the one such download, is
+  dropped for `curl`. `artifactory-smoke.yml` was green through the new file on a branch (run 39144304113), and the
+  first `Publish` without the client, Build 39144471855 on `7633cb9f`, uploaded each package with its checksums and
+  the Debian properties, and both indexes listed what it uploaded. Checked before on this machine against a stand-in
+  server: the paths, the properties and both checksums arrive as Artifactory expects them; a token it refuses, a
+  missing file and a missing token each fail the step; and `set -x` shows no token.
