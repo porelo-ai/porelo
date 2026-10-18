@@ -120,6 +120,16 @@ The agent repositories and the interface pin, add the same `dependabot.yml` and 
   test running `check-actions` over this repository's `.github` fails `Build and unit tests`.
 - The update process exists, has run at least once, and its result was reviewed by a person before
   it landed. Open: Dependabot's first pull request, reviewed by a person before it lands.
+- **Dependabot's first grouped pull requests, prepared for that review, 2026-10-18:** porelo #5 and porelo-build-github
+  #2, "Bump the actions group", made after phase 0's push. Each new pin was read back against its release tag through
+  GitHub's API, and each is that tag's commit:
+  - `jfrog/setup-jfrog-cli` v5.2.0 to v5.3.0 at `1e58450` (released 2026-10-14);
+  - `actions/upload-artifact` v7.0.1 to v7.0.2 at `cf430e0` (2026-10-07);
+  - `actions/download-artifact` v8.0.1 to v8.0.2 at `9000827` (2026-10-07), porelo only.
+
+  Both pull requests' Builds are green, and so is `check-actions` on the new pins; a pull request's Build runs no
+  rented leg. What is left is the person's: read the three releases' notes, then merge, which starts one Build on
+  `main` with both legs.
 - The most privileged workflow - the one holding the signing key - is checked by hand after the
   first pinning, because that is the one where being wrong costs the most. Open: the hand check of `Publish`,
   which holds the signing key, after this first pinning.
