@@ -1,6 +1,6 @@
 # B192 — An Image Chosen Per Repository
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** L - a new file format with its reader and refusals, four places to read it from in a fixed order, a read of a
 mirror's default branch that Java does not make today, one image per repository with its own cache, the start and its
 dry run naming the source, a review rank, the docs and acceptance steps; several modules and one new contract a

@@ -69,7 +69,8 @@ from its side, as *blocked by*.
 | <a id="b56"></a>[B56](B56-Programs-Porelo-Runs-That-Could-Be-Calls.md) | S | - | The table of programs Porelo runs completed, and a source-scanning test that fails on an unlisted one; each replacement its own issue. | - |
 | <a id="b116"></a>[B116](B116-A-Log-Read-Back-In-Windows.md) | M | - | `Tail` gets `before` to read back in windows, and a cap per line reported in `cut`. | - |
 | <a id="b165"></a>[B165](B165-A-Port-Of-A-Task-On-Loopback-Only.md) | M | - | `porelo task port`: a two-half relay, in the task's namespace and on host loopback only, over a `0700` socket, with `ports.log`, docs and a scenario. | - |
-| <a id="b192"></a>[B192](B192-An-Image-Chosen-Per-Repository.md) | L | - | A repository's `porelo.yml` (checked in) or `.porelo.yml` (a local override) names only its image - `base_image`, a snippet, `env` - read key by key in a fixed order with `project.yml`'s `repositories.<name>.image` and the mirror's default branch; one cached image per repository, its source named at the start, the file ranked dangerous in review. | 0 |
+| <a id="b209"></a>[B209](B209-A-Vault-Unlocked-From-Standard-Input.md) | S | - | `vault unlock --passphrase-stdin` reads the passphrase as one line from its own standard input, so a program hands it over ssh from its memory, with no file anywhere; `--passphrase-command` cannot, since its command gets a closed pipe. | 0 |
+| <a id="b208"></a>[B208](B208-What-A-Host-Playbook-Reads-From-Porelo.md) | M | - | The host playbook reads from Porelo as a contract: the second play's inventory with its variables and a version, written on the host from `project.yml` and the machine file, and answers a program can read for followed, running and an open vault. | 1 |
 
 ## Accepted
 
@@ -89,8 +90,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b179"></a>[B179](B179-A-Code-Beside-Why-A-Release-Cannot-Go.md) | - | - | A code beside `detail` when a release is answered `NOT_DELIVERABLE`, so a client can say what to do per case. |
-| <a id="b208"></a>[B208](B208-What-A-Host-Playbook-Reads-From-Porelo.md) | - | - | The host playbook reads from Porelo as a contract: the second play's inventory with its variables and a version, written on the host from `project.yml` and the machine file, and answers a program can read for followed, running and an open vault. |
-| <a id="b209"></a>[B209](B209-A-Vault-Unlocked-From-Standard-Input.md) | S | - | `vault unlock --passphrase-stdin` reads the passphrase as one line from its own standard input, so a program hands it over ssh from its memory, with no file anywhere; `--passphrase-command` cannot, since its command gets a closed pipe. |
 
 ## Estimated
 
@@ -141,6 +140,7 @@ from its side, as *blocked by*.
 | <a id="b174"></a>[B174](B174-A-Running-Tasks-Commits-And-Their-Diff.md) | M | - | `TaskCommits` and `TaskDiff`: a running task's commits no remote holds and their diff, cut at a file boundary; a stopped task's list from its note. |
 | <a id="b196"></a>[B196](B196-The-Fedora-Repository-Checked-By-Its-Key.md) | S | - | On Fedora the setup script writes the repository with `gpgcheck=0`; it is to be checked against the pinned package key, as on Debian and Ubuntu. |
 | <a id="b197"></a>[B197](B197-A-Push-To-A-Slow-Forge-Has-A-Bound.md) | M | - | A push the gate passes on to a forge that is slow or down ends within `limits.pass_on` of the project file, two minutes unless set, with a named refusal that the forge did not answer. |
+| <a id="b192"></a>[B192](B192-An-Image-Chosen-Per-Repository.md) | L | - | A repository's `porelo.yml` (checked in) or `.porelo.yml` (a local override) names only its image - `base_image`, a snippet, `env` - read key by key in a fixed order with `project.yml`'s `repositories.<name>.image` and the mirror's default branch; one cached image per repository, its source named at the start, the file ranked dangerous in review. |
 
 ## Finished
 

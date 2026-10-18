@@ -1,6 +1,9 @@
 # B208 — What A Host Playbook Reads From Porelo
 
-**Status:** Idea.
+**Status:** Analyzed.
+**Size:** M - one command that writes the inventory from a verified project file and the machine file, with
+its version; three answers a program reads (`project following`, `task status`, `vault status`); tests and docs. The
+role itself is porelo-host's.
 
 **What must be true.** The playbook that puts a project on a server (porelo-host, its role for Porelo's own commands,
 asked for on 2026-10-18 from
@@ -31,3 +34,80 @@ of its own, not part of this one. The mechanism for it exists already: `vault in
 `--passphrase-command`; only where that command reads from on such a host is undecided.
 
 To be linked to porelo-host's issue for that role once it is published.
+
+## Plan
+
+1. **`porelo project inventory --machine-file FILE`** prints the second play's inventory as YAML on standard output.
+   The role writes it to a file, so Porelo writes nothing on the drive. It reads:
+   - from the machine file, the project's URL and its key, the tasks and the keys;
+   - the project file, fetched from that URL and checked against the key exactly as `project follow` checks it,
+     but recording nothing. An unverified project file is refused with 65, so the play never follows what it did
+     not check.
+
+   The YAML it writes:
+
+   ```yaml
+   porelo_inventory_version: 1
+   all:
+       hosts:
+           localhost:
+               ansible_connection: local
+               porelo_account: core
+               porelo_project:
+                   name: porelo
+                   url: "git@github.com:porelo-ai/porelo-project.git"
+                   signed_by: "<fingerprint>"
+               porelo_tasks:
+                   - { name: core-1, project: porelo, repository: core }
+               porelo_vault_keys:
+                   - { name: github-deploy, path: "/mnt/drive/keys/github-deploy" }
+   ```
+
+   - A task naming a repository the project file does not have is refused with 65, naming both.
+   - A key's path must be under the machine file's directory and must not be read. Only its name and path go out,
+     never a value.
+   - `porelo_inventory_version` is raised on any change of a name or a meaning, and the role refuses a version it
+     does not know.
+2. **`porelo project following --json`**: each follow with `name`, `url`, `signed_by` (the key's fingerprint, or
+   `null` when unverified) and `verified`. The role compares, and follows only when one of them differs.
+3. **`porelo task status NAME --json`**: `state` (`running`, `stopped` or `absent`), `project` and `repository`. The
+   role starts only what is not `running`; the 65 of `task start` stays the guard for a race.
+4. **`porelo vault status`**: exit 0 with "open", 3 with "shut" and 4 with "none". `--json` gives `{ "exists",
+   "open" }`. "Open" is a cached passphrase in the keyring that opens the vault, proved as `vault unlock` proves it.
+   The role's second play stops with the line for the person (`ssh -t <host> porelo vault unlock`) at 3.
+5. **Tests:**
+   - unit tests of the inventory over a project file and a machine file in a temporary directory: a good one, an
+     unverified project file, an unknown repository, a key outside the directory;
+   - one test per `--json` output that pins its names, so a rename fails a build rather than a play;
+   - one scenario in a feature: `project inventory` on the VM over a fixture project, then `ansible-inventory -i -
+     --list` reading it.
+6. **Docs:** a page `doc/hosts.md` (the contract: the file, the names, the version, and what each answer means),
+   the three outputs in `doc/commands.md`, and the changelog.
+
+## Acceptance
+
+- `porelo project inventory --machine-file m.yml` on a host after `porelo setup` prints an inventory that
+  `ansible-inventory` reads, carrying the account, the project with its key, the tasks and the keys by path.
+  Seen red first: the command is unknown.
+- A project file that fails its signature check gives 65 and no inventory.
+- `project following --json`, `task status --json` and `vault status` give what a second run of the role needs to
+  change nothing: a second `up` changes nothing on a host that is up.
+- No output of these commands holds a secret: the keys only by name and path.
+
+## Open questions
+
+- **Who writes the machine file's `tasks` and `keys`**, and so its format. This plan reads them from the person's
+  machine file, beside the provider, offer and zone of
+  [PJ40](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj40). The other place would be
+  `project.yml`, but it is the project's, while which tasks run on one person's host and which keys that person holds
+  are the person's own. Proposal: the machine file, its two sections defined here in `doc/hosts.md` and read by
+  porelo-frontend's package
+  ([F131](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md#f131)) for nothing but the first
+  play.
+
+## To be checked
+
+- **`vault status`'s exit codes.** 3 and 4 are chosen to stay clear of 64, 65 and 70, which mean a refusal; nothing
+  in Porelo uses them yet.
+- **Proving "open" costs one key derivation**, about a second. If a role asks often, `--json` could say "cached"
+  without proving; this plan proves, since "cached but wrong" would let the play go on to a vault that refuses.
