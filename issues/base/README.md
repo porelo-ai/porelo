@@ -20,7 +20,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b23"></a>[B23](B23-Secrets-In-This-Process-Memory.md) | M | - | The broker, the ssh agent and the daemon are not dumpable; the deploy asks the daemon what it runs (`Tasks1.Process`) and the port scenario counts its unit's sockets, both green on the VM and in the Build; left: the passphrase path (step 2) and whether doctor reports hardening. |
 
 ## Implementing
 
@@ -146,6 +145,7 @@ from its side, as *blocked by*.
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="b23"></a>B23 | Secrets In This Process's Memory | The daemon, the broker and the ssh agent are not dumpable; the vault's master key is cleared on every path and the cached passphrase never becomes a `String`; `doctor` reports the running daemon's hardening, read from its `/proc` entries. |
 | <a id="b205"></a>B205 | A Vault Named Elsewhere Clears Only Itself | `vault clear` on a vault `PORELO_VAULT` names runs the transports' account-wide clear only for the account's own vault, so a test vault no longer takes the account's transport state and homeserver. |
 | <a id="b102"></a>B102 | A Vault Cleared In One Step | `porelo vault clear` lists, then on `--yes` removes the vault, its backup, lock and cached passphrase, and what the transports keep, the account's own homeserver whole; it refuses while a task holds a token; walked on a rented machine. |
 | <a id="b06"></a>B06 | Remote Access | Tasks on another machine are reached over ssh, by `ssh -L` onto the daemon's socket or `ssh HOST porelo daemon connect`, with no network port bound, and the forward answers under an enforcing SELinux through `porelo_socket` 1.1, which an upgrade reloads and `doctor` checks. |

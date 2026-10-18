@@ -72,6 +72,7 @@ would change the answer.
 | A cached passphrase is reported gone only when it is gone | `vault lock` answers cleared, nothing cached or unknown, and exits non-zero on unknown | [entry](#a-cached-passphrase-is-reported-gone-only-when-it-is-gone) |
 | The passphrase cache does not outlive a login, and a foreign keyring reads as empty | one mechanism, the kernel keyring; another user namespace would read it as empty | [entry](#the-passphrase-cache-does-not-outlive-a-login-and-a-foreign-keyring-reads-as-empty) |
 | Secrets in the daemon's memory stay strings | accepted: whoever reads that memory reads the vault file and the keyring too | [entry](#secrets-in-the-daemons-memory-stay-strings) |
+| Doctor reports the daemon's hardening, not its own | read from the owner of the running daemon's `/proc/<pid>/environ` | [entry](#doctor-reports-the-daemons-hardening-not-its-own) |
 | A task's spending is capped in tokens, and in money where a price is known | tokens for every provider, the streamed count asked for; money from the reported cost, else the dated list price; no price refuses the money ceiling, never $0; under a subscription it caps list-price value | [entry](#a-tasks-spending-is-capped-in-tokens-and-in-money-where-a-price-is-known) |
 | A credential is entered only in a terminal | no method of the daemon's contract takes a secret; a forced-command account is not served | [entry](#a-credential-is-entered-only-in-a-terminal) |
 | A credential with no expiry is stored and named | accepted, never refused; the store says so and the list marks it | [entry](#a-credential-with-no-expiry-is-stored-and-named) |
@@ -435,7 +436,9 @@ explanation.
 
 A credential read from the vault is a `String` in the daemon and the broker: `VaultEntry.value()`, every caller that
 reads it, and the HTTP header the broker sends. It is not turned into bytes that could be wiped. The vault document
-and the passphrase are the exceptions, held in buffers that are overwritten when the work is done. **The exposure:**
+and the passphrase are the exceptions, held in buffers that are overwritten when the work is done: the vault's
+master key is cleared in a `finally` at each open, also when an enrollment, a revocation or a change is refused, and
+the passphrase cached in the kernel keyring is encoded and decoded without ever becoming a `String`. **The exposure:**
 a `String` cannot be cleared; it lives until the collector reaches it, and a heap dump or a core dump shows it. Even
 bytes would not be erased for certain, since a moving collector leaves the old copy behind. **Why it stays:** reading
 another process's memory takes the same uid that already reads the vault file and the passphrase in the kernel
@@ -446,6 +449,15 @@ before they read a secret; the relay carries bytes only. **What would change the
 reading its memory is no longer the same as reading the vault; a core dump that cannot be turned off; or an HTTP
 client that takes a header as bytes, which would make the change much cheaper than the thirty-odd callers it touches
 today.
+
+## Doctor reports the daemon's hardening, not its own
+
+`porelo doctor` says whether the running daemon can be core-dumped, since that process holds the vault's secrets. It
+used to print the flags of its own process, which holds none and which nothing hardens, so `dumpable 1` read as a
+finding about nothing. The flag is read from outside: the kernel gives the entries under a non-dumpable process's
+`/proc/<pid>` to root, and leaves the directory itself to the user, so the owner of `/proc/<pid>/environ` is what
+counts. Reading the directory said "dumpable" of a daemon that was not, which the VM showed and the unit test, built
+on the same wrong picture, did not.
 
 ## A project file describes constraints, not instructions
 
