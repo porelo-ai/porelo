@@ -1,6 +1,6 @@
 # B158 — A Refusal That Knows The Next Command Offers It
 
-**Status:** Implementing.
+**Status:** Review. Green in porelo's Build 39083121366 on `842ff109`, on both rented legs, 2026-10-18.
 **Size:** M - several command modules over one helper; what is left is one test, under an hour.
 
 **What must be true.** Where a command refuses only to tell the person which command to run next, and Porelo already

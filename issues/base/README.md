@@ -21,27 +21,27 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b120"></a>[B120](B120-A-Wake-Waits-For-Rest-That-Holds.md) | S | - | Two looks at the screen 1.5 s apart before a wake is typed, Enter once more for a line left standing; the agent repositories' wake scenarios green on both legs with `v0.5.0`. |
+| <a id="b46"></a>[B46](B46-The-Conversation-A-Restart-Loses.md) | M | - | Session continuation, `--restarted` leaving an unattended task stopped with its session, a stub that remembers a word and the real-reboot `@restart` scenario are built, and it passed on the `fedora` VM; left: green in the Build's rented legs. |
+| <a id="b13"></a>[B13](B13-Unreviewed-Work-Leaving-By-The-Side-Door.md) | M | - | Guard and checkout on `main`; pending marks work already upstream and reject refuses it without `--force` (`Tasks1` gains an optional field and `force`); the hand-push scenario is written, to run on the VM and in the Build. |
+| <a id="b23"></a>[B23](B23-Secrets-In-This-Process-Memory.md) | M | - | The broker, the ssh agent and the daemon are not dumpable; the deploy asks the daemon what it runs (`Tasks1.Process`) and the port scenario counts its unit's sockets; keyring and vault-file buffers closed; a credential as bytes dropped, kept as an accepted risk; left: the daemon's scenarios on the VMs. |
+| <a id="b76"></a>[B76](B76-The-Code-Checked-Against-The-Skills-It-Was-Written-Without.md) | L | - | Every finding fixed or declined and every module read; `apps/*` and `daemon` read again whole; the kit's bounds capped at 120 s for every repository. |
+| <a id="b133"></a>[B133](B133-A-Shut-Vault-Opened-Where-It-Is-Needed.md) | S | - | A shut vault asks for its passphrase at a terminal instead of refusing; left: one scenario that starts a task on a shut vault. |
+| <a id="b137"></a>[B137](B137-An-Offline-Project-Never-Connects.md) | S | - | An offline project never connects; left: an acceptance round trip that follows a bundle, restores, backs up and refuses a `file://` follow. |
+| <a id="b102"></a>[B102](B102-A-Vault-Cleared-In-One-Step.md) | S | - | `vault clear` is on `main`; left: a scenario in `vault-commands.feature` and the walk with a homeserver on a rented machine. |
+| <a id="b129"></a>[B129](B129-An-Agent-Found-By-Its-Description.md) | S | - | Agents found by an `agents.d/<name>.yaml` description; left: the stub packaged that way and the package check proving it. |
+| <a id="b134"></a>[B134](B134-A-Task-Terminal-As-The-Terminal-Outside.md) | M | - | The task's tmux matches the terminal outside; a kit step and a scenario per key are built and Pi is measured; left: the scenario's VM run, then the joint test. |
+| <a id="b158"></a>[B158](B158-A-Refusal-That-Knows-The-Next-Command-Offers-It.md) | M | - | A refusal offers its remedy command; built for vault login, a start's credential refusals and resume's shut vault; a resume test is left. |
+| <a id="b31"></a>[B31](B31-An-Authorization-A-Person-Grants-Once.md) | S | - | Dynamic client registration built against a stand-in; left: a real GitHub grant and an hour-long stream with GitHub's remote MCP server on the VM. |
 
 ## Implementing
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b158"></a>[B158](B158-A-Refusal-That-Knows-The-Next-Command-Offers-It.md) | M | - | A refusal offers its remedy command; built for vault login, a start's credential refusals and resume's shut vault; a resume test is left. |
-| <a id="b137"></a>[B137](B137-An-Offline-Project-Never-Connects.md) | S | - | An offline project never connects; left: an acceptance round trip that follows a bundle, restores, backs up and refuses a `file://` follow. |
-| <a id="b102"></a>[B102](B102-A-Vault-Cleared-In-One-Step.md) | S | - | `vault clear` is on `main`; left: a scenario in `vault-commands.feature` and the walk with a homeserver on a rented machine. |
-| <a id="b76"></a>[B76](B76-The-Code-Checked-Against-The-Skills-It-Was-Written-Without.md) | L | - | Every finding fixed or declined and every module read; `apps/*` and `daemon` read again whole; the kit's bounds capped at 120 s for every repository. |
 | <a id="b125"></a>[B125](B125-What-A-Daemon-Costs-And-On-Which-Threads.md) | M | - | Idle measured on the two-CPU VM, no loops for exited tasks or tasks without an account, and never-started containers kept as tasks; left: the idle measurement again and the run on virtual threads. |
 | <a id="b79"></a>[B79](B79-A-Daemon-That-Answers-Nothing.md) | S | - | Platform threads and the thread dump are built; left: runs on the two-CPU VM after SIGKILL, both thread kinds, reading a dump on a hang. |
-| <a id="b13"></a>[B13](B13-Unreviewed-Work-Leaving-By-The-Side-Door.md) | M | - | Guard and checkout on `main`; pending marks work already upstream and reject refuses it without `--force` (`Tasks1` gains an optional field and `force`); the hand-push scenario is written, to run on the VM and in the Build. |
 | <a id="b49"></a>[B49](B49-What-The-Build-Trusts-To-Run-Beside-Its-Secrets.md) | S | - | Pins, Dependabot and `check-actions` are on `main`; left: a checksum-pinned JFrog CLI step, the hand check of `Publish`, the first Dependabot review. |
-| <a id="b31"></a>[B31](B31-An-Authorization-A-Person-Grants-Once.md) | S | - | Dynamic client registration built against a stand-in; left: a real GitHub grant and an hour-long stream with GitHub's remote MCP server on the VM. |
-| <a id="b46"></a>[B46](B46-The-Conversation-A-Restart-Loses.md) | M | - | Session continuation, `--restarted` leaving an unattended task stopped with its session, a stub that remembers a word and the real-reboot `@restart` scenario are built, and it passed on the `fedora` VM; left: green in the Build's rented legs. |
-| <a id="b134"></a>[B134](B134-A-Task-Terminal-As-The-Terminal-Outside.md) | M | - | The task's tmux matches the terminal outside; a kit step and a scenario per key are built and Pi is measured; left: the scenario's VM run, then the joint test. |
-| <a id="b133"></a>[B133](B133-A-Shut-Vault-Opened-Where-It-Is-Needed.md) | S | - | A shut vault asks for its passphrase at a terminal instead of refusing; left: one scenario that starts a task on a shut vault. |
-| <a id="b129"></a>[B129](B129-An-Agent-Found-By-Its-Description.md) | S | - | Agents found by an `agents.d/<name>.yaml` description; left: the stub packaged that way and the package check proving it. |
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
 | <a id="b06"></a>[B06](B06-Remote-Access.md) | M | - | Remote use over ssh; both shapes built, the socket check and a real ssh hop in the suite; left: the forwarded socket under an enforcing SELinux. |
-| <a id="b23"></a>[B23](B23-Secrets-In-This-Process-Memory.md) | M | - | The broker, the ssh agent and the daemon are not dumpable; the deploy asks the daemon what it runs (`Tasks1.Process`) and the port scenario counts its unit's sockets; keyring and vault-file buffers closed; a credential as bytes dropped, kept as an accepted risk; left: the daemon's scenarios on the VMs. |
 
 ## Backlog
 

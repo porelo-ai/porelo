@@ -1,6 +1,6 @@
 # B133 — A Shut Vault Opened Where It Is Needed
 
-**Status:** Implementing.
+**Status:** Review. Green in porelo's Build 39083121366 on `842ff109`, on both rented legs, 2026-10-18.
 **Size:** S - left is one acceptance scenario with the kit's terminal steps, no code; the whole was M.
 
 **What must be true.** At a terminal, a command that needs a shut vault asks for the passphrase itself and carries

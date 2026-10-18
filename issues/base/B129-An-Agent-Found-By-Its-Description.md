@@ -1,6 +1,6 @@
 # B129 — An Agent Found By Its Description
 
-**Status:** Implementing.
+**Status:** Review. Green in porelo's Build 39083121366 on `842ff109`, on both rented legs, 2026-10-18.
 **Size:** S - the stub's package and the package check, two build modules, no contract.
 
 **What must be true.** An agent of another vendor is found once its package is installed, under the vendor's own

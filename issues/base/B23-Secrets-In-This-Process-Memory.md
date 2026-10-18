@@ -1,6 +1,6 @@
 # B23 — Secrets In This Process's Memory
 
-**Status:** Implementing.
+**Status:** Review. Green in porelo's Build 39083121366 on `842ff109`, on both rented legs, 2026-10-18.
 **Size:** M - the daemon's hardening is one contract change (`Tasks1.Process`), the deploy's check and two acceptance
 scenarios, a few hours; the passphrase path is S on its own; a credential as bytes was dropped on 2026-10-11.
 

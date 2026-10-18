@@ -1,6 +1,6 @@
 # B134 — A Task Terminal As The Terminal Outside
 
-**Status:** Implementing.
+**Status:** Review. Green in porelo's Build 39083121366 on `842ff109`, on both rented legs, 2026-10-18. What is left is the joint test with the operator.
 **Size:** M - left are the per-key scenario's run on the VM and the joint test; the whole was L.
 
 **What must be true.** An agent in a task behaves at the keyboard and on the screen as it does in a plain terminal on

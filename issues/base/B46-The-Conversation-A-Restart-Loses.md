@@ -1,6 +1,6 @@
 # B46 — The Conversation A Restart Loses
 
-**Status:** Implementing.
+**Status:** Review. Green in porelo's Build 39083121366 on `842ff109`, on both rented legs, 2026-10-18.
 **Size:** M - everything is built, and the real-reboot scenario passed on the `fedora` VM; left is the scenario green in the Build's rented legs.
 
 **What must be true.** After a real reboot, a task continues the conversation its agent was having - in an

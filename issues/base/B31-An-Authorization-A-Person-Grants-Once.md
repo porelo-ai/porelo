@@ -1,6 +1,6 @@
 # B31 — An Authorization A Person Grants Once
 
-**Status:** Implementing.
+**Status:** Review. Green in porelo's Build 39083121366 on `842ff109`, on both rented legs, 2026-10-18. What is left is the operator's: the real GitHub grant and the hour-long stream with its remote MCP server.
 **Size:** S - what is left is two runs against GitHub with the operator, which change code only if they break.
 
 **What must be true.** A person grants an authorization once, where a person actually is, and every task afterwards

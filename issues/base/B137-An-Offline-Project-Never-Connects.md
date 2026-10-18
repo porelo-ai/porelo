@@ -1,6 +1,6 @@
 # B137 — An Offline Project Never Connects
 
-**Status:** Implementing.
+**Status:** Review. Green in porelo's Build 39083121366 on `842ff109`, on both rented legs, 2026-10-18.
 **Size:** S - left is one acceptance scenario with existing steps; the whole was M.
 
 **What must be true.** A project of the class `offline` makes no connection out, neither from the task nor from the

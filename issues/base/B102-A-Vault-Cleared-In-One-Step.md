@@ -1,6 +1,6 @@
 # B102 — A Vault Cleared In One Step
 
-**Status:** Implementing.
+**Status:** Review. Green in porelo's Build 39083121366 on `842ff109`, on both rented legs, 2026-10-18. What is left is the operator's: the walk on a rented machine with a homeserver.
 **Size:** S - built and on main; what is left is the walk on a rented machine and what it finds.
 
 **What must be true.** `porelo vault clear --yes` on a real machine leaves it as a new one: the vault, its

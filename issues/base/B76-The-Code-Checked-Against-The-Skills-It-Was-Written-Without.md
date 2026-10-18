@@ -1,6 +1,6 @@
 # B76 — The Code Checked Against The Skills It Was Written Without
 
-**Status:** Implementing.
+**Status:** Review. Green in porelo's Build 39083121366 on `842ff109`, on both rented legs, 2026-10-18.
 **Size:** L - no open findings, every module read and `apps/*` and `daemon` read again whole, and the kit's bounds capped.
 
 **What must be true.** Every Java module has been read against the skills that apply to it, and

@@ -1,6 +1,6 @@
 # B13 — Unreviewed Work Leaving By The Side Door
 
-**Status:** Implementing.
+**Status:** Review. Green in porelo's Build 39083121366 on `842ff109`, on both rented legs, 2026-10-18.
 **Size:** M - the guard, `gate checkout`, the already-upstream mark read in pending and reject, and the hand-push scenario are built; left: that scenario green on the VM and in the Build.
 
 **What must be true.** A person who carries an agent's unreviewed work to the upstream by hand hears about it at the
