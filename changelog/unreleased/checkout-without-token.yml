@@ -1,0 +1,2 @@
+title: The build checks out without keeping the job's token in .git/config, so no later step can use it
+type: changed
