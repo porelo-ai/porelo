@@ -270,7 +270,9 @@ A transport's account goes with it. First, for each project whose `mail.transpor
 settings of its own - a server elsewhere - the transport's `clear --project` runs while the vault still
 holds that account's token; then the vault goes; then the transport's account-wide `clear` runs. For
 the matrix transport with the account's own homeserver, that removes the homeserver whole: its unit,
-its database, its port and its registration token, so a later start sets up a new one. It refuses,
+its database, its port and its registration token, so a later start sets up a new one. A vault that
+`PORELO_VAULT` names leaves the account-wide part alone, since that belongs to the account's own vault.
+It refuses,
 removing nothing of the vault:
 - while a task runs with a token from the vault, even with `--force`: stop the task first. With the
   vault locked, every running task is named, since what it holds cannot be read;

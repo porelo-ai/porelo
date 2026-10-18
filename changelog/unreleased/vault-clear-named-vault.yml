@@ -1,0 +1,2 @@
+title: "'porelo vault clear' on a vault that PORELO_VAULT names leaves what the transports keep for the account and its own homeserver, which belong to the account's own vault"
+type: fixed

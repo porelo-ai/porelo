@@ -1,6 +1,7 @@
 # B205 — A Vault Named Elsewhere Clears Only Itself
 
-**Status:** Backlog.
+**Status:** Review. Built with its test seen red; green on the VM on `324ea5c9`: unit, documents, acceptance (233,
+5 skipped), 2026-10-18.
 **Size:** S - one condition in `Clearing.transports` as `VaultClearing` calls it, one line in the listing, and a unit
 test in `VaultClearingTest`; no change to the transports.
 
@@ -25,8 +26,8 @@ set removed the account's `~/.local/state/porelo/transport/idle`.
    state directory present, must leave that directory and must not run the transport's account-wide `clear`. The test
    is watched to fail against today's code.
 2. In `VaultClearing`, the account-wide transport step runs only when the vault cleared is the account's own
-   (`PORELO_VAULT` unset or naming the default path). Otherwise the listing says, for each transport, `not removed`
-   with "it belongs to the account, not to the vault named by PORELO_VAULT".
+   (`VaultPaths.ownVaultFile`). Nothing is listed for it otherwise: a `not removed` line would make the clear exit
+   `1`, and a new status would widen what the daemon answers.
 3. Each project's account elsewhere is still cleared while the named vault holds its token, since that account was
    made with that vault's token.
 4. `doc/commands.md` under `vault clear` gets one sentence for a vault named by `PORELO_VAULT`.

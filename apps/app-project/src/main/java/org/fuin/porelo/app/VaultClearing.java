@@ -25,7 +25,8 @@ import org.jspecify.annotations.Nullable;
  * <p>Cleared by hand, the vault left a homeserver knowing an account Porelo held no token for any
  * more, and the next start of a project with messages was refused. So a transport clears a
  * project's account on a server elsewhere while the vault still holds its secrets, and its
- * account-wide {@code clear} runs once the vault is gone.
+ * account-wide {@code clear} runs once the vault is gone - for the account's own vault only, not
+ * for one {@code PORELO_VAULT} names.
  *
  * <p><strong>A running task that holds a token from the vault stops it, even with force:</strong>
  * its proxy holds what it read, and a task that cannot come back after a reboot is not what a
@@ -37,13 +38,26 @@ public final class VaultClearing {
 
     private final PoreloContext context;
 
+    private final Path own;
+
     /**
      * Constructor.
      *
      * @param context The machine.
      */
     public VaultClearing(final PoreloContext context) {
+        this(context, context.paths().vault().ownVaultFile());
+    }
+
+    /**
+     * Constructor for a test, which cannot set {@code PORELO_VAULT}.
+     *
+     * @param context The machine.
+     * @param own Where the account's own vault is.
+     */
+    VaultClearing(final PoreloContext context, final Path own) {
         this.context = context;
+        this.own = own;
     }
 
     /**
@@ -159,10 +173,18 @@ public final class VaultClearing {
                                     dryRun || gone ? "" : "the vault file stays"));
         }
         keyring(dryRun, items);
-        if (gone || dryRun) {
+        // What the transports keep for the account, and its own homeserver, belong to the account's
+        // own vault: a vault named by PORELO_VAULT clearing them left that one with accounts on a
+        // server that was gone. Nothing is listed for them, so the clear still succeeds.
+        if ((gone || dryRun) && ownVault(vault)) {
             new Clearing(context).transports(dryRun, items);
         }
         return new Clearing.Result(List.copyOf(items), List.copyOf(keys), "", refused);
+    }
+
+    /** Whether the vault cleared is the account's own, not one {@code PORELO_VAULT} names. */
+    private boolean ownVault(final VaultFile vault) {
+        return vault.path().toAbsolutePath().normalize().equals(own.toAbsolutePath().normalize());
     }
 
     /** The vault's entries, or {@code null} when it is locked or cannot be read. */

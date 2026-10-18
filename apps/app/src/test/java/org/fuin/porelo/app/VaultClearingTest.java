@@ -333,6 +333,37 @@ class VaultClearingTest {
     }
 
     @Test
+    void aVaultOtherThanTheAccountsOwnLeavesWhatTheTransportsKeepForTheAccount()
+            throws IOException {
+        // PORELO_VAULT names another vault so that a run does not touch the account's own; the
+        // transports' account-wide state and the account's own homeserver belong to that one.
+        final PoreloContext context = unlockedVault();
+        transport("room");
+        project("p", "mail:\n  transports:\n    room:\n      server: https://example.org\n");
+        final Path kept = Files.createDirectories(dir.resolve("state/porelo/transport/room"));
+        Files.writeString(kept.resolve("position"), "42");
+        runner.answering(" clear", "{\"removed\":[\"the room\"],\"kept\":[]}");
+        final Path own = dir.resolve("own/vault.bin");
+
+        final Clearing.Result listed = new VaultClearing(context, own).clear(true, false);
+        assertThat(listed.items())
+                .as("nothing of the account's is listed")
+                .noneMatch(item -> "transport".equals(item.kind()));
+
+        final Clearing.Result cleared = new VaultClearing(context, own).clear(false, false);
+
+        assertThat(cleared.refused()).isFalse();
+        assertThat(cleared.items()).noneMatch(item -> item.status() == Clearing.Status.NOT_REMOVED);
+        assertThat(context.vault().path()).doesNotExist();
+        assertThat(kept.resolve("position")).as("the account's transport state").exists();
+        assertThat(runner.lines())
+                .as("the project's account was made with this vault's token, so it goes")
+                .anyMatch(line -> line.contains(" clear --project p"))
+                .as("the account-wide clear is the account's own vault's")
+                .noneMatch(line -> line.endsWith(" clear"));
+    }
+
+    @Test
     void aTransportThatCannotClearAProjectKeepsTheVaultUnlessForced() throws IOException {
         final PoreloContext context = unlockedVault();
         transport("room");

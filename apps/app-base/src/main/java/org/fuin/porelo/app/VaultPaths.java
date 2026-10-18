@@ -23,9 +23,16 @@ public record VaultPaths(PoreloPaths paths) {
      */
     public Path vaultFile() {
         final String override = System.getenv(PoreloPaths.VAULT_VARIABLE);
-        return override == null || override.isBlank()
-                ? paths.xdg().data().resolve("vault.bin")
-                : Path.of(override);
+        return override == null || override.isBlank() ? ownVaultFile() : Path.of(override);
+    }
+
+    /**
+     * Returns where the account's own vault is, whatever {@code PORELO_VAULT} names.
+     *
+     * @return Path of the account's own vault file.
+     */
+    public Path ownVaultFile() {
+        return paths.xdg().data().resolve("vault.bin");
     }
 
     /**
