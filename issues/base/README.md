@@ -70,6 +70,7 @@ from its side, as *blocked by*.
 | <a id="b56"></a>[B56](B56-Programs-Porelo-Runs-That-Could-Be-Calls.md) | S | - | The table of programs Porelo runs completed, and a source-scanning test that fails on an unlisted one; each replacement its own issue. | - |
 | <a id="b116"></a>[B116](B116-A-Log-Read-Back-In-Windows.md) | M | - | `Tail` gets `before` to read back in windows, and a cap per line reported in `cut`. | - |
 | <a id="b165"></a>[B165](B165-A-Port-Of-A-Task-On-Loopback-Only.md) | M | - | `porelo task port`: a two-half relay, in the task's namespace and on host loopback only, over a `0700` socket, with `ports.log`, docs and a scenario. | - |
+| <a id="b211"></a>[B211](B211-A-Keyring-The-Process-Cannot-Reach-Is-Unavailable.md) | S | - | `KernelKeyring.available()` probes the system call once, so a keyring a container's seccomp refuses counts as unavailable and its tests skip. | 0 |
 
 ## Accepted
 
@@ -83,7 +84,6 @@ from its side, as *blocked by*.
 | <a id="b198"></a>[B198](B198-Settings-Inherited-Down-An-Organisations-Tree.md) | - | - | An organisation file pinned by the machine's administrator passes settings down signed teams to projects by repository address; `fixed` and `narrow-only` locks no file below can undo, every file verified through the chain of keys, `project show --resolved`; folds in porelo-project [PJ16](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj16). |
 | <a id="b199"></a>[B199](B199-A-Transport-Reaches-Only-What-It-Names.md) | - | - | A transport's adapter reaches only the hosts its `reaches` names, as `doc/transports.md` promises; today nothing builds a rule from them. |
 | <a id="b200"></a>[B200](B200-A-Varlink-Call-Has-A-Read-Deadline.md) | - | - | A call through `VarlinkClient` to a side that accepted and never answers ends within a stated time with a named error; no contract changes. |
-| <a id="b211"></a>[B211](B211-A-Keyring-The-Process-Cannot-Reach-Is-Unavailable.md) | - | - | `KernelKeyring.available()` probes the system call once, so a keyring a container's seccomp refuses counts as unavailable and its tests skip. |
 
 ## Idea
 
