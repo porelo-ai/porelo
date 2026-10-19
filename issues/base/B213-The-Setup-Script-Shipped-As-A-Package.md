@@ -1,6 +1,6 @@
 # B213 — The Setup Script Shipped As A Package
 
-**Status:** Analyzed.
+**Status:** Backlog.
 **Size:** S - one more file in the `porelo` package, the script reading where it came from, docs, and a check in
 `package-check`; no new module, no new upload.
 
