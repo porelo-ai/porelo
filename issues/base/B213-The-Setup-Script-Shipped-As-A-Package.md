@@ -1,8 +1,6 @@
 # B213 — The Setup Script Shipped As A Package
 
-**Status:** Implementing. Built: the script in both packages, its channel kept, `package-check`'s two checks,
-the docs in `doc/running.md` and `doc/hosts.md` (`getting-started.md` never names the script). Left: the whole
-check and the VM on the commit, then the first Publish.
+**Status:** Review. Published in porelo `0.5.1~snapshot.313` (Build 39256243657, green), for the operator's test.
 **Size:** S - one more file in the `porelo` package, the script reading where it came from, docs, and a check in
 `package-check`; no new module, no new upload.
 

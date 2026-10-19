@@ -1,7 +1,6 @@
 # B211 — A Keyring The Process Cannot Reach Is Unavailable
 
-**Status:** Implementing. Built: the probe, its native-image shape, the reason in four messages, the docs. Left:
-the whole check, the FFM check and the VM suite.
+**Status:** Review. Published in porelo `0.5.1~snapshot.313` (Build 39256243657, green), for the operator's test.
 **Size:** S - one probe in `KernelKeyring` with its native-image metadata, the reason it gives used where callers
 say why nothing is cached, and tests; one run in a container to show it.
 
