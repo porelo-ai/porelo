@@ -160,6 +160,32 @@ class VaultRemoveCommandTest {
     }
 
     @Test
+    void namesTheListGitHubShowsTheAppIn() {
+
+        // Measured on 2026-10-19: Pi's app, Iv1.b507a08c87ecfe98, is a GitHub App, shown under
+        // "Authorized
+        // GitHub Apps"; the message sent the person to "Authorized OAuth Apps", where it is not.
+        final String tokenUrl = "https://github.com/login/oauth/access_token";
+
+        assertThat(VaultRemoveCommand.revokedWhere(entry("Iv1.b507a08c87ecfe98", tokenUrl)))
+                .as("a GitHub App")
+                .contains("Authorized GitHub Apps")
+                .doesNotContain("OAuth");
+        assertThat(VaultRemoveCommand.revokedWhere(entry("Ov23li8tweQw6odWQebz", tokenUrl)))
+                .as("an OAuth App")
+                .contains("Authorized OAuth Apps");
+        assertThat(VaultRemoveCommand.revokedWhere(entry("unknown", tokenUrl)))
+                .as("a client id of neither kind names both")
+                .contains("Authorized GitHub Apps")
+                .contains("Authorized OAuth Apps");
+    }
+
+    private static VaultEntry entry(final String clientId, final String tokenUrl) {
+        return new VaultEntry(
+                "-", "oauth-device", Map.of("client_id", clientId, "token_url", tokenUrl));
+    }
+
+    @Test
     void aTokenThatNeverExpiresIsKeptUntilThePersonSaysTheyKnowItLivesOnAndThenSaysWhereToRevokeIt(
             @TempDir Path dir) {
         org.junit.jupiter.api.Assumptions.assumeTrue(

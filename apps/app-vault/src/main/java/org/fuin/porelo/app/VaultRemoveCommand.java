@@ -240,7 +240,19 @@ public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.Cont
         final String url = entry == null ? null : entry.settings().get("token_url");
         final String host = url == null ? null : java.net.URI.create(url).getHost();
         if (host != null && (host.equals("github.com") || host.endsWith(".github.com"))) {
-            return "on GitHub under Settings → Applications → Authorized OAuth Apps";
+            // GitHub lists the two kinds apart, and a client id says which it is: a GitHub App's
+            // begins
+            // with 'Iv', an OAuth App's with 'Ov'. Told the wrong list, a person finds nothing
+            // there.
+            final String client =
+                    entry == null ? "" : entry.settings().getOrDefault("client_id", "");
+            if (client.startsWith("Iv")) {
+                return "on GitHub under Settings → Applications → Authorized GitHub Apps";
+            }
+            if (client.startsWith("Ov")) {
+                return "on GitHub under Settings → Applications → Authorized OAuth Apps";
+            }
+            return "on GitHub under Settings → Applications → Authorized GitHub Apps, or Authorized OAuth Apps";
         }
         return "in the service's own settings for authorized applications"
                 + (host == null ? "" : ", at " + host);

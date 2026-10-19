@@ -301,7 +301,8 @@ app: an access token, no refresh token, no expiry.
   that one.
 - **It cannot be revoked from here.** GitHub revokes an OAuth app's token only for the application's owner, which a
   machine using a public client is not. `vault remove` keeps such an entry, saying where to revoke it - on GitHub,
-  Settings → Applications → Authorized OAuth Apps - and forgets it with `--without-revoking`, saying it still works
+  Settings → Applications → Authorized GitHub Apps for a client id beginning `Iv`, Authorized OAuth Apps for
+  one beginning `Ov` - and forgets it with `--without-revoking`, saying it still works
   there until it is revoked.
 - **Found on the way:** `vault remove` looked a grant up among the credentials, which hide grants, so it never found
   one: every grant was deleted here without the service being told. It is now found where grants are kept.
