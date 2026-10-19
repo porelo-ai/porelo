@@ -18,6 +18,13 @@ import picocli.CommandLine.Spec;
         description = "Lists the project repositories this account follows.")
 public class ProjectFollowingCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
+    @picocli.CommandLine.Option(
+            names = "--json",
+            description =
+                    "Prints the follows as one JSON object, for a program: name, url, commit,"
+                            + " outcome, verified and the keys each is signed by.")
+    private boolean json;
+
     @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
@@ -31,6 +38,9 @@ public class ProjectFollowingCommand implements Callable<Integer>, PoreloFactory
     public Integer call() throws Exception {
         final PrintWriter out = spec.commandLine().getOut();
         final var followed = new FollowedProjects(context.paths().projects().followed()).all();
+        if (json) {
+            return json(out, followed);
+        }
         if (followed.isEmpty()) {
             out.println("this account follows no project repository");
             out.println("start with: porelo projects follow <name> <url>");
@@ -69,6 +79,36 @@ public class ProjectFollowingCommand implements Callable<Integer>, PoreloFactory
                                 + (one.signer().isEmpty() ? "" : "  signed by " + one.signer()));
             }
         }
+        out.flush();
+        return 0;
+    }
+
+    /**
+     * Prints the follows for a program, so a playbook follows a project only where one of these
+     * differs. The names are kept: a program reads them, and a rename fails its test, not a play.
+     *
+     * @param out Where to print.
+     * @param followed The follows, as {@link FollowedProjects} has them.
+     * @return Zero.
+     */
+    private int json(
+            final PrintWriter out, final java.util.List<FollowedProjects.Followed> followed) {
+        final java.util.Map<String, java.util.List<String>> signers =
+                PinnedSigners.of(context.paths().projects().configurationSigners());
+        final java.util.List<Object> follows = new java.util.ArrayList<>();
+        for (final var one : followed) {
+            final java.util.Map<String, Object> entry = new java.util.LinkedHashMap<>();
+            entry.put("name", one.name());
+            entry.put("url", one.url());
+            entry.put("commit", one.commit());
+            entry.put("outcome", one.outcome().toLowerCase(java.util.Locale.ROOT));
+            entry.put("verified", !one.unverified());
+            entry.put("signed_by", signers.getOrDefault(one.name(), java.util.List.of()));
+            entry.put("detail", one.detail());
+            entry.put("refused", one.refused());
+            follows.add(entry);
+        }
+        out.println(org.fuin.porelo.wire.Json.write(java.util.Map.of("follows", follows)));
         out.flush();
         return 0;
     }

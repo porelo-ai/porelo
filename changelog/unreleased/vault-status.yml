@@ -1,0 +1,2 @@
+title: "'porelo vault status' says whether the vault is open, shut or not there, by its exit code (0, 3, 4), and as JSON with --json"
+type: added

@@ -235,6 +235,7 @@ Credentials, and the broker that lets a task use one without holding it. See
 | `porelo vault remove NAME [--without-revoking]` | Removes an entry, revoking a granted authorization first. If revoking fails, the entry is kept unless `--without-revoking`. |
 | `porelo vault unlock` | Caches the passphrase in the kernel's user keyring, where the daemon finds it too; `--for` bounds how long. |
 | `porelo vault lock` | Drops the cached passphrase. |
+| `porelo vault status [--json]` | Says whether the vault is open, shut or not there, by its exit code: 0, 3 or 4. |
 | `porelo vault passphrase` | Re-encrypts the vault under a new passphrase. |
 | `porelo vault devices` | Lists what can open the vault: the passphrase and each device. |
 | `porelo vault revoke ID` | Removes a device's way in. The last way in is never removed. |
@@ -254,6 +255,12 @@ Credentials, and the broker that lets a task use one without holding it. See
 - Either may instead name only `resource_url`: the endpoints come from the service's metadata, and a client is
   registered there once where the entry has no `client_id`
   ([A service that publishes its own endpoints](credentials.md#a-service-that-publishes-its-own-endpoints)).
+
+**`vault status`** is for a program as much as for a person: a playbook branches on its exit code, 0 when what this
+account keeps (a cached passphrase or a device's share) opens the vault, 3 when the vault is there and nothing kept
+opens it, 4 when there is no vault, and 70 when the file is not a vault at all. "Open" is proved by reading the vault,
+so a cached passphrase that no longer opens it answers 3. `--json` prints `{"exists", "open", "path"}`; those names
+are kept.
 
 **`vault lock`** answers one of three things: the passphrase was cleared, nothing was cached, or
 whether one is cached could not be established. The last exits 70 and says what to check: treat the
