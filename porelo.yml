@@ -1,0 +1,31 @@
+# The image a Porelo task builds this repository in: the whole local build: unit tests, -Pnative,dist and
+# the package check.
+# Tools only, never a rule: egress, limits and the class stay the project's. A draft: nothing reads this file
+# until Porelo reads a repository's own image settings, and the acceptance of that work reads it then.
+image:
+    base_image: "ubuntu:24.04@sha256:a853f94d226358a79c740cfc7bce0c289748f3fe3488d921d038ccd752c61b60"
+    snippet: |
+        # From the distribution's own archive, by name, at what the pinned base image's archive serves.
+        RUN apt-get update -qq \
+            && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
+                ca-certificates curl git unzip openssh-client libkeyutils1 build-essential zlib1g-dev dpkg-dev \
+            && rm -rf /var/lib/apt/lists/*
+        # GraalVM at the pin porelo-buildtools' porelo-machines holds (machines.graalvm.url and .sha256), checked
+        # against its digest. Moved by hand with that pin until a reader can take it from there.
+        RUN tag=graal-25.4.4.1.1 file=graalvm-community-jdk-25i4-25.0.4.1.1_linux-x64_bin.tar.gz \
+            && curl -fsSL -o /tmp/graalvm.tar.gz \
+                "https://github.com/graalvm/graalvm-ce-builds/releases/download/$tag/$file" \
+            && echo "05ccbbe783210b6886ff7b08fcd0b061c5dce4852b05db87284fc0e24abb08e2  /tmp/graalvm.tar.gz" \
+                | sha256sum -c - \
+            && mkdir -p /opt/graalvm \
+            && tar -xzf /tmp/graalvm.tar.gz -C /opt/graalvm --strip-components=1 \
+            && rm /tmp/graalvm.tar.gz
+        # The shfmt porelo-parent pins (shfmt.version), which Spotless checks every *.sh against and does not
+        # download.
+        RUN curl -fsSL -o /usr/local/bin/shfmt \
+                "https://github.com/mvdan/sh/releases/download/v3.12.0/shfmt_v3.12.0_linux_amd64" \
+            && echo "d9fbb2a9c33d13f47e7618cf362a914d029d02a6df124064fff04fd688a745ea  /usr/local/bin/shfmt" \
+                | sha256sum -c - \
+            && chmod 0755 /usr/local/bin/shfmt
+    env:
+        JAVA_HOME: /opt/graalvm

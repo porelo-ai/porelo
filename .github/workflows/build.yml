@@ -10,10 +10,10 @@ on:
         tags: ['v*']
         # Workflows alone build nothing: an action's move is checked by its pull request, and the next push with
         # content builds with it.
-        paths-ignore: ['**/*.md', 'mkdocs.yml', 'doc/**', 'issues/**', '.github/**']
+        paths-ignore: ['**/*.md', 'mkdocs.yml', 'doc/**', 'issues/**', '.github/**', 'porelo.yml']
     pull_request:
         branches: ['**']
-        paths-ignore: ['**/*.md', 'mkdocs.yml', 'doc/**', 'issues/**']
+        paths-ignore: ['**/*.md', 'mkdocs.yml', 'doc/**', 'issues/**', 'porelo.yml']
     workflow_dispatch:
 
 # One run per branch.
