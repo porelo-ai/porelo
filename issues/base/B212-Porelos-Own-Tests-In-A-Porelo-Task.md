@@ -1,6 +1,11 @@
 # B212 — Porelo's Own Tests In A Porelo Task
 
-**Status:** Backlog.
+**Status:** Implementing. Built: the five groups, and two more the measurement found. Item 4 was the test's own
+context, which set no `XDG_RUNTIME_DIR`. `Podman.execute` starts `podman exec` itself, so a stand-in podman is
+named through `porelo.podman` as the gate is through `porelo.binary`. `vault unlock` now refuses a wrong passphrase
+source (64) before a refused keyring (69), as `vault init` did, and the tilde test reads `$HOME` as the code does.
+**Measured on 2026-10-19 in the draft image as a task runs it: `clean verify` green, 2639 tests, 0 failed, 77
+skipped by name** (it was 92 red). Left: the whole check and the VM on the commit.
 **Size:** M - five groups of tests in two modules, one test seam in `PoreloBinary` with the launcher Surefire names,
 and one path that reads the real runtime directory; no behaviour a person sees changes.
 

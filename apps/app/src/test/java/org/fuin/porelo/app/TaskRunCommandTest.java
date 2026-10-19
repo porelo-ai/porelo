@@ -22,6 +22,7 @@ import picocli.CommandLine;
  * this test had none, so running it built images, started containers and then replaced the test
  * process with a shell.
  */
+@org.junit.jupiter.api.extension.ExtendWith({OwnPorelo.class, NoPodman.class})
 class TaskRunCommandTest {
 
     private static final String MINIMAL =

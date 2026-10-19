@@ -24,7 +24,8 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class BackupRestoreTest {
 
-    private final CommandRunner runner = new ProcessCommandRunner(Duration.ofSeconds(60));
+    private final CommandRunner runner =
+            NoTasks.over(new ProcessCommandRunner(Duration.ofSeconds(60)));
 
     private String git(Path directory, String... arguments) {
         final List<String> all = new ArrayList<>(List.of("git"));

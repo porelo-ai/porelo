@@ -18,11 +18,19 @@ import java.util.Optional;
  * local build shadows a packaged one: a developer testing a build must get their own helpers, not
  * the installed ones. Otherwise the answer is the {@code porelo} beside whatever is running, and
  * only then the one on the path.
+ *
+ * <p><strong>A test names its own.</strong> Under a JVM the running program is {@code java}, so the
+ * answer fell through to the {@code porelo} on the path: the developer's installed one, not the
+ * build under test, and none at all in a Porelo task. {@value #NAMED} names the program instead,
+ * which a test sets to a launcher of its own classes.
  */
 final class PoreloBinary {
 
     /** Name of the CLI, which is also what every helper is started as. */
     private static final String NAME = "porelo";
+
+    /** The system property that names the program outright, for a test. */
+    static final String NAMED = "porelo.binary";
 
     private PoreloBinary() {
         throw new UnsupportedOperationException("Utility class");
@@ -34,6 +42,10 @@ final class PoreloBinary {
      * @return Path to the CLI, or its bare name when nothing better can be found.
      */
     static String path() {
+        final String named = System.getProperty(NAMED);
+        if (named != null && !named.isBlank()) {
+            return named;
+        }
         final Optional<String> self = ProcessHandle.current().info().command();
         if (self.isEmpty()) {
             return NAME;

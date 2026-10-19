@@ -1,0 +1,2 @@
+title: "porelo vault unlock refuses a passphrase given wrongly (at a terminal, or beside another source) with 64 before it says the keyring is refused, as vault init already did"
+type: fixed

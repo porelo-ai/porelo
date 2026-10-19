@@ -30,8 +30,16 @@ class DaemonHardeningTest {
     }
 
     @Test
-    void aDaemonWhoseEntriesBelongToAnotherUserIsNotDumpable() {
+    void aDaemonWhoseEntriesBelongToAnotherUserIsNotDumpable() throws IOException {
         // The machine's own init stands in for a daemon whose entries the kernel gave to root.
+        // In a container pid 1 is the first process it started, this user's own, so there is no
+        // other user's entry to read.
+        org.junit.jupiter.api.Assumptions.assumeFalse(
+                Files.getOwner(Path.of("/proc/1/environ"))
+                                .getName()
+                                .equals(System.getProperty("user.name"))
+                        && !"root".equals(System.getProperty("user.name")),
+                "pid 1's /proc entry belongs to another user");
         runner.answering("MainPID", "1\n");
 
         final DaemonHardening read = DaemonHardening.read(runner, Path.of("/proc"), "porelod");

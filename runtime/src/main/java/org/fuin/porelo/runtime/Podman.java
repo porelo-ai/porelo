@@ -36,6 +36,15 @@ public class Podman {
     private final @Nullable Path networkConfiguration;
 
     /**
+     * The system property that names the program {@link #execute} starts, for a test.
+     *
+     * <p>Every other command goes through the runner, which a test fakes. This one starts its
+     * process itself, so a unit test reached the developer's real podman, and failed where there is
+     * none, as in a Porelo task. A test names a stand-in instead.
+     */
+    public static final String NAMED = "porelo.podman";
+
+    /**
      * Constructor using the {@code podman} on the path.
      *
      * @param runner Runs the commands.
@@ -954,7 +963,12 @@ public class Podman {
         // sees it closed. Adding the flag here would hang an unattended run forever, and it would
         // look like a task that is WORKING, because the agent's own "still starting" lines keep the
         // log growing. A test asserts this flag stays absent.
-        final List<String> arguments = executeArguments(container, environment, command);
+        final List<String> arguments =
+                new ArrayList<>(executeArguments(container, environment, command));
+        final String named = System.getProperty(NAMED);
+        if (named != null && !named.isBlank()) {
+            arguments.set(0, named);
+        }
 
         try {
             final ProcessBuilder builder =

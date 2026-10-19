@@ -51,10 +51,23 @@ class ProcessHardeningTest {
     }
 
     @Test
-    void noNewPrivilegesIsReadableWithoutBeingSet() {
+    void noNewPrivilegesIsReadableWithoutBeingSet() throws java.io.IOException {
 
-        // Reading must not change anything - the flag is irreversible once set.
-        assertThat(ProcessHardening.noNewPrivileges()).isFalse();
+        // Reading must not change anything - the flag is irreversible once set. Not "it is off":
+        // a Porelo task sets it on purpose, so a build inside one starts with it on.
+        final boolean before = kernelSaysNoNewPrivileges();
+        final boolean read = ProcessHardening.noNewPrivileges();
+
+        assertThat(read).as("what the call reads is what the kernel says").isEqualTo(before);
+        assertThat(kernelSaysNoNewPrivileges())
+                .as("and reading it changed nothing")
+                .isEqualTo(before);
+    }
+
+    private static boolean kernelSaysNoNewPrivileges() throws java.io.IOException {
+        return java.nio.file.Files.readAllLines(java.nio.file.Path.of("/proc/self/status")).stream()
+                .filter(line -> line.startsWith("NoNewPrivs:"))
+                .anyMatch(line -> line.endsWith("1"));
     }
 
     @Test

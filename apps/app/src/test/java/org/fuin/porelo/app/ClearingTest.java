@@ -147,7 +147,7 @@ class ClearingTest {
         context(dir);
         final PoreloContext context =
                 new PoreloContext(
-                        new org.fuin.porelo.core.process.ProcessCommandRunner(),
+                        NoTasks.over(new org.fuin.porelo.core.process.ProcessCommandRunner()),
                         new PoreloPaths(
                                 XdgPaths.of(
                                         name ->

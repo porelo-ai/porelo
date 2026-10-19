@@ -28,7 +28,7 @@ class CheckoutApprovalTest {
 
     @TempDir Path dir;
 
-    private final CommandRunner runner = new ProcessCommandRunner();
+    private final CommandRunner runner = NoTasks.over(new ProcessCommandRunner());
 
     private PoreloContext context;
 

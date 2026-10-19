@@ -13,7 +13,9 @@ class VaultImportCommandTest {
 
         // Agents declare '~/.claude', because the definition is data and has no home directory.
         assertThat(VaultImportCommand.expand("~/.example"))
-                .isEqualTo(Path.of(System.getProperty("user.home"), ".example"));
+                .isEqualTo(
+                        org.fuin.porelo.core.config.XdgPaths.home(System::getenv)
+                                .resolve(".example"));
     }
 
     @Test

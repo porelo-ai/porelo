@@ -162,6 +162,16 @@ public class VaultUnlockCommand implements Callable<Integer>, PoreloFactory.Cont
             return 1;
         }
 
+        // A command given wrongly is said so first, as 'vault init' does: in a container whose
+        // keyring is refused, the 69 below hid the 64 of a passphrase typed at a terminal.
+        final String refused =
+                VaultStdin.refusal(context, passphraseStdin, passphraseCommand, systemdCredential);
+        if (refused != null) {
+            err.println("porelo: " + refused);
+            err.flush();
+            return 64;
+        }
+
         if (!KernelKeyring.available()) {
             err.println(
                     "porelo: "
@@ -173,13 +183,6 @@ public class VaultUnlockCommand implements Callable<Integer>, PoreloFactory.Cont
 
         final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
 
-        final String refused =
-                VaultStdin.refusal(context, passphraseStdin, passphraseCommand, systemdCredential);
-        if (refused != null) {
-            err.println("porelo: " + refused);
-            err.flush();
-            return 64;
-        }
         final var runner = new ProcessCommandRunner();
         final PassphraseTiers tiers =
                 new PassphraseTiers(

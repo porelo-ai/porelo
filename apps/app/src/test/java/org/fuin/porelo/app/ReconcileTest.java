@@ -31,6 +31,8 @@ class ReconcileTest {
                                     case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
                                     case "XDG_DATA_HOME" -> dir.resolve("data").toString();
                                     case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    // Its own, or the real /run/user, which a Porelo task has not.
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
                                     default -> null;
                                 },
                         dir);
