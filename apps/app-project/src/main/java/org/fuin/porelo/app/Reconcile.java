@@ -209,8 +209,24 @@ public final class Reconcile {
      * @param result What a follow would do.
      * @param key The public key that signed it, as ssh-keygen prints it, or {@code null} when it
      *     was not signed or not reached.
+     * @param projectFile The text of {@code project.yml} at the commit a follow would put in force,
+     *     or {@code null} unless the check found that commit good to apply.
      */
-    public record Checked(Result result, @org.jspecify.annotations.Nullable String key) {}
+    public record Checked(
+            Result result,
+            @org.jspecify.annotations.Nullable String key,
+            @org.jspecify.annotations.Nullable String projectFile) {
+
+        /**
+         * Constructor for a check that kept no project file.
+         *
+         * @param result What a follow would do.
+         * @param key The key that signed it, or {@code null}.
+         */
+        public Checked(final Result result, final @org.jspecify.annotations.Nullable String key) {
+            this(result, key, null);
+        }
+    }
 
     /**
      * Brings one followed project up to date.
@@ -282,7 +298,10 @@ public final class Reconcile {
                             clone);
             // Read whatever the gate said: with no key pinned here it verifies nothing and names no
             // signer.
-            return new Checked(result, SignedBy.keyOf(context.runner(), clone, "FETCH_HEAD"));
+            return new Checked(
+                    result,
+                    SignedBy.keyOf(context.runner(), clone, "FETCH_HEAD"),
+                    projectFile(clone, result));
         } catch (final IOException ex) {
             return new Checked(
                     new Result(
@@ -295,6 +314,29 @@ public final class Reconcile {
                 deleteTree(scratch);
             }
         }
+    }
+
+    /**
+     * Reads the project file a follow would put in force, from the scratch clone before it goes,
+     * and only when the check found that commit good: a caller must never read a file that failed
+     * its signature.
+     */
+    private @org.jspecify.annotations.Nullable String projectFile(
+            final Path clone, final Result result) {
+        if ((result.outcome() != Outcome.APPLIED && result.outcome() != Outcome.UNCHANGED)
+                || result.commit().isEmpty()) {
+            return null;
+        }
+        final CommandResult shown =
+                context.runner()
+                        .run(
+                                Command.of(
+                                        "git",
+                                        "-C",
+                                        clone.toString(),
+                                        "show",
+                                        result.commit() + ":project.yml"));
+        return shown.successful() ? shown.standardOutput() : null;
     }
 
     private static void deleteTree(final Path root) {

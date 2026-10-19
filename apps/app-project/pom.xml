@@ -47,6 +47,10 @@
             <artifactId>porelo-wire</artifactId>
         </dependency>
         <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.fuin.porelo</groupId>
             <artifactId>porelo-runtime</artifactId>
         </dependency>

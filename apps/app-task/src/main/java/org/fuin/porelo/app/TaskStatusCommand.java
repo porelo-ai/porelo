@@ -37,6 +37,13 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
                     "Container name, as shown by 'porelo task list'. Default: the task started from the checkout you stand in.")
     private @org.jspecify.annotations.Nullable String container;
 
+    @picocli.CommandLine.Option(
+            names = "--json",
+            description =
+                    "Prints name, state, running, project and repository as one JSON object, for a"
+                            + " program. A task that is not there is state 'absent', exit 0.")
+    private boolean json;
+
     @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
@@ -98,6 +105,9 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
             err.println("porelo: " + TaskInventory.unrecognizedNote(container));
             err.flush();
             return 69;
+        }
+        if (json) {
+            return json(out, container, task);
         }
         if (task == null) {
             err.println("porelo: there is no task called " + container);
@@ -337,5 +347,30 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
         return derived.unproven()
                 ? reading + " (its rules have not matched in a day - check the agent's version)"
                 : reading;
+    }
+
+    /**
+     * Prints the task for a program, so a playbook starts only what is not running. A task that is
+     * not there is an answer, not a failure: "absent" is what a first run of the playbook meets.
+     * The names are kept; a rename fails its test, not a play.
+     *
+     * @param out Where to print.
+     * @param name The task asked about.
+     * @param task The task, or null when there is none of that name.
+     * @return Zero.
+     */
+    private int json(
+            final PrintWriter out,
+            final String name,
+            final TaskInventory.@org.jspecify.annotations.Nullable Task task) {
+        final java.util.Map<String, Object> report = new java.util.LinkedHashMap<>();
+        report.put("name", name);
+        report.put("state", task == null ? "absent" : task.state());
+        report.put("running", task != null && task.running());
+        report.put("project", task == null ? null : task.project());
+        report.put("repository", task == null ? null : task.repository());
+        out.println(org.fuin.porelo.wire.Json.write(report));
+        out.flush();
+        return 0;
     }
 }

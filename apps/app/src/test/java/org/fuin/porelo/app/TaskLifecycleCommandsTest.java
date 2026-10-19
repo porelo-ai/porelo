@@ -395,6 +395,43 @@ class TaskLifecycleCommandsTest {
     }
 
     @Test
+    void answersAProgramWhatARunningTaskIsAndWhereItBelongs(@TempDir Path dir) throws IOException {
+
+        // A playbook starts only what is not running, so the names it reads are pinned here.
+        final PoreloContext context = context(dir);
+        runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\t1700000000\t0\tuc\tguarded\n");
+        stateOf("porelo-uc-shell-1");
+        workspaceReports(dir, "3 2");
+
+        assertThat(execute(context, "task", "status", "porelo-uc-shell-1", "--json"))
+                .as("exit code")
+                .isZero();
+
+        assertThat(out.toString().strip())
+                .as("one JSON object, its names in order")
+                .startsWith("{\"name\":\"porelo-uc-shell-1\",\"state\":")
+                .contains("\"running\":true,\"project\":\"uc\",\"repository\":");
+    }
+
+    @Test
+    void answersAProgramThatATaskIsAbsentRatherThanFailing(@TempDir Path dir) {
+
+        // What a first run of a playbook meets: no task yet. An answer, so the play starts it.
+        final PoreloContext context = context(dir);
+        runner.answering("ps", "");
+
+        assertThat(execute(context, "task", "status", "porelo-uc-shell-9", "--json"))
+                .as("exit code")
+                .isZero();
+
+        assertThat(out.toString().strip())
+                .as("one JSON object")
+                .isEqualTo(
+                        "{\"name\":\"porelo-uc-shell-9\",\"state\":\"absent\",\"running\":false,"
+                                + "\"project\":null,\"repository\":null}");
+    }
+
+    @Test
     void paintsNothingWhenTheOutputIsNotATerminal(@TempDir Path dir) throws IOException {
 
         // The colour marks work that exists nowhere else, and it must reach a person's terminal and

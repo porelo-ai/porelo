@@ -21,6 +21,7 @@ Feature: The vault commands
             | agent      |
             | unlock     |
             | lock       |
+            | status     |
             | passphrase |
             | login      |
 
@@ -58,6 +59,23 @@ Feature: The vault commands
         Then its output contains "created"
         And its output contains "exit 0"
         And its output contains "there is already a vault at"
+
+    Scenario: a program reads whether the vault is open, shut or not there by the exit code alone
+        When a script runs:
+            """
+            dir=$(mktemp -d); export PORELO_VAULT="$dir/vault.bin"
+            porelo vault status >/dev/null; echo "none $?"
+            porelo vault init --passphrase-command 'printf acceptance' >/dev/null
+            porelo vault status >/dev/null; echo "open $?"
+            porelo vault lock >/dev/null
+            porelo vault status >/dev/null; echo "shut $?"
+            porelo vault status --json
+            rm -rf "$dir"
+            """
+        Then its output contains "none 4"
+        And its output contains "open 0"
+        And its output contains "shut 3"
+        And its output contains "{\"exists\":true,\"open\":false,"
 
     Scenario: a passphrase command that produces nothing makes no vault
         When a script runs:

@@ -1,6 +1,8 @@
 # B208 — What A Host Playbook Reads From Porelo
 
-**Status:** Implementing. Built: `porelo vault status` and `project following --json`.
+**Status:** Implementing. Built: `porelo vault status`, `project following --json`, `task status --json` and
+`porelo project inventory`, with `doc/hosts.md`. `ansible-inventory` (ansible-core 2.21.5) reads the inventory it
+prints. Left: the VM run.
 **Size:** M - one command that writes the inventory from a verified project file and the machine file, with
 its version; three answers a program reads (`project following`, `task status`, `vault status`); tests and docs. The
 role itself is porelo-host's.

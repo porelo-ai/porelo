@@ -22,6 +22,7 @@ nav:
           - What a task can reach: reach.md
           - Credentials: credentials.md
     - Running it: running.md
+    - A host a playbook brings up: hosts.md
     - Decisions: decisions.md
     - For security officers: corporate-security.md
     - Background:

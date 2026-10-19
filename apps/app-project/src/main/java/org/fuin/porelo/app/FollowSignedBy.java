@@ -111,6 +111,30 @@ public final class FollowSignedBy {
     }
 
     /**
+     * Checks a project against the key a person named and keeps its project file, recording
+     * nothing: what {@code project inventory} reads, so it reads only a file that passed its
+     * signature, exactly as {@link #check} would let a follow apply it.
+     *
+     * @param name The project's name.
+     * @param url Its repository.
+     * @param signedBy The key or fingerprint it must be signed with.
+     * @return What a follow would do, with the project file when it would apply.
+     * @throws Refused If the name is reserved, or another key signed it.
+     */
+    public Reconcile.Checked checkedWithFile(
+            final String name, final String url, final String signedBy) throws Refused {
+        refuseReserved(name);
+        final FollowedProjects.Followed followed =
+                new FollowedProjects.Followed(name, url, "", "", "", "", "", "", false);
+        if (!SignedBy.isFingerprint(signedBy)) {
+            return withKey(name, line(name, signedBy), followed);
+        }
+        final Reconcile.Checked first = new Reconcile(context).checked(followed);
+        final String key = keyNamed(signedBy.strip(), first);
+        return key == null ? first : withKey(name, line(name, key), followed);
+    }
+
+    /**
      * Follows, pinning the named key, and reconciles once.
      *
      * <p>A first follow that cannot apply leaves nothing behind; a project already followed keeps

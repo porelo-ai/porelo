@@ -96,7 +96,7 @@ takes `porelo approve TASK`; `--yes` answers for a script.
 |---|---|
 | `porelo task start [TASK]` | Creates a task, or brings back a stopped one with its workspace. |
 | `porelo task list` | Lists the tasks, with how long each has been in its state. |
-| `porelo task status TASK` | Everything known about one task, including unpushed work. |
+| `porelo task status TASK [--json]` | Everything known about one task, including unpushed work; `--json` answers a program, `absent` for none. |
 | `porelo task logs TASK [LOG]` | Shows what the task's helpers on this machine wrote. |
 | `porelo task logs TASK --zip [FILE] [--with-agent-output]` | Keeps the task's logs, its status, files and talk log in one archive readable by you only, with `SHA256SUMS`. |
 | `porelo task attach TASK` | Opens a running task's session. Ctrl+b then d leaves it without ending it. |
@@ -384,7 +384,8 @@ recorded as such, and the receiving peer may refuse it again.
 
 ```
 porelo project follow NAME URL|FILE [--signed-by=<key> | --unverified] [--dry-run] [--accept-rewrite]
-porelo project following
+porelo project following [--json]
+porelo project inventory --machine-file FILE
 porelo project refresh [NAME]
 porelo project list
 porelo project unfollow NAME [--dry-run] [--force]
@@ -399,7 +400,10 @@ porelo project enroll PROJECT [--remove] [--as=PRINCIPAL]
   file - a bundle of the repository, or a directory on this machine - it is read once and never fetched;
   following it again from a newer file is how its settings change. An offline project is followed only
   from a file, and a fetch from an address that turns a project offline is refused.
-- **`following`** lists the follows; **`list`** (also `porelo projects`) lists the projects.
+- **`following`** lists the follows; **`list`** (also `porelo projects`) lists the projects. `following --json`
+  answers a program, as [A host a playbook brings up](hosts.md) says.
+- **`inventory`** prints a host's second play's inventory from the person's machine file and the project file it
+  names, checked against its key and recording nothing ([A host a playbook brings up](hosts.md)).
 - **`refresh`** fetches a followed project's repository now, or every one's without a name, instead of
   waiting for the next round. It prints what each fetch found and exits non-zero when one failed. A
   project followed from a file is not fetched; it says `from_a_file` and how it changes.
