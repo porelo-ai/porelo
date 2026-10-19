@@ -1,6 +1,6 @@
 # B211 — A Keyring The Process Cannot Reach Is Unavailable
 
-**Status:** Idea.
+**Status:** Accepted, 2026-10-19.
 
 **What must be true.** `KernelKeyring.available()` answers true only where this process can use the kernel keyring,
 not where libkeyutils merely loads. Where the system call is refused, as under a container's default seccomp profile,
