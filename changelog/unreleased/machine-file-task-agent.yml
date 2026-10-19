@@ -1,0 +1,2 @@
+title: "A machine file's task may name its agent and the package that installs it, and porelo project inventory writes them into porelo_tasks as agent and agent_package"
+type: added

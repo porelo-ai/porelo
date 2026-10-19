@@ -30,13 +30,40 @@ import org.yaml.snakeyaml.constructor.SafeConstructor;
 public record MachineFile(
         String project, String url, String signedBy, List<Task> tasks, List<Key> keys) {
 
+    /** An agent's name, as {@code task start --agent} and {@code vault login} take it. */
+    private static final java.util.regex.Pattern AGENT =
+            java.util.regex.Pattern.compile("[a-z0-9][a-z0-9-]*");
+
+    /** A package's name, as both Debian and RPM allow it. */
+    private static final java.util.regex.Pattern PACKAGE =
+            java.util.regex.Pattern.compile("[a-z0-9][a-z0-9+.-]*");
+
     /**
      * A task to start.
      *
      * @param name Its name, as {@code porelo task start NAME} takes it.
      * @param repository The project's repository it works on, as {@code -r} takes it.
+     * @param agent The agent it runs, as {@code --agent} takes it, or {@code null} for the
+     *     project's default.
+     * @param agentPackage The package that installs that agent, or {@code null} for the default
+     *     name; always {@code null} without an agent.
      */
-    public record Task(String name, String repository) {}
+    public record Task(
+            String name,
+            String repository,
+            @org.jspecify.annotations.Nullable String agent,
+            @org.jspecify.annotations.Nullable String agentPackage) {
+
+        /**
+         * A task that runs the project's default agent.
+         *
+         * @param name Its name.
+         * @param repository The project's repository it works on.
+         */
+        public Task(final String name, final String repository) {
+            this(name, repository, null, null);
+        }
+    }
 
     /**
      * A key to put into the vault.
@@ -99,7 +126,16 @@ public record MachineFile(
         final List<Task> tasks = new ArrayList<>();
         for (final Map<?, ?> each : entries(section, "tasks", origin)) {
             final String where = origin + ": tasks";
-            tasks.add(new Task(text(each, "name", where), text(each, "repository", where)));
+            final String name = text(each, "name", where);
+            final String task = where + ": '" + name + "'";
+            final String agent = optional(each, "agent", AGENT, task);
+            final String agentPackage = optional(each, "package", PACKAGE, task);
+            // A package without the agent it installs would be installed and never started.
+            if (agentPackage != null && agent == null) {
+                throw new IllegalArgumentException(
+                        task + " names a 'package' and no 'agent' it installs");
+            }
+            tasks.add(new Task(name, text(each, "repository", where), agent, agentPackage));
         }
         return List.copyOf(tasks);
     }
@@ -144,6 +180,23 @@ public record MachineFile(
             entries.add(entry);
         }
         return entries;
+    }
+
+    private static @org.jspecify.annotations.Nullable String optional(
+            final Map<?, ?> section,
+            final String key,
+            final java.util.regex.Pattern form,
+            final String where) {
+        if (!section.containsKey(key)) {
+            return null;
+        }
+        final String said = text(section, key, where);
+        // It reaches a command line on the host, so only a name passes, never words or options.
+        if (!form.matcher(said).matches()) {
+            throw new IllegalArgumentException(
+                    where + ": '" + key + "' is no " + key + "'s name: " + said);
+        }
+        return said;
     }
 
     private static String text(final Map<?, ?> section, final String key, final String where) {

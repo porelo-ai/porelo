@@ -210,6 +210,77 @@ class ProjectInventoryCommandTest {
     }
 
     @Test
+    void writesEachTasksAgentAndItsPackageAndNothingForATaskWithoutOne(@TempDir final Path dir)
+            throws IOException {
+
+        final PoreloContext context = context(dir);
+        final Path key = key(dir, "operator");
+        final Path repo = published(dir, key);
+        final Path file =
+                machineFile(
+                        dir,
+                        repo,
+                        fingerprint(key),
+                        """
+                        tasks:
+                            - { name: core-1, repository: core, agent: pi }
+                            - { name: core-2, repository: core, agent: claude, package: vendor-claude }
+                            - { name: core-3, repository: core }
+                        """);
+
+        assertThat(execute(context, "project", "inventory", "--machine-file", file.toString()))
+                .as("exit code; " + err)
+                .isZero();
+
+        assertThat(host(out.toString()).get("porelo_tasks"))
+                .as(
+                        "the agent and its package beside the container; a task without one has neither")
+                .isEqualTo(
+                        List.of(
+                                Map.of(
+                                        "name", "core-1",
+                                        "project", "demo",
+                                        "repository", "core",
+                                        "container", "porelo-demo-core-1",
+                                        "agent", "pi",
+                                        "agent_package", "porelo-agent-pi"),
+                                Map.of(
+                                        "name", "core-2",
+                                        "project", "demo",
+                                        "repository", "core",
+                                        "container", "porelo-demo-core-2",
+                                        "agent", "claude",
+                                        "agent_package", "vendor-claude"),
+                                Map.of(
+                                        "name", "core-3",
+                                        "project", "demo",
+                                        "repository", "core",
+                                        "container", "porelo-demo-core-3")));
+        assertThat(out.toString())
+                .as("an added name changes no meaning")
+                .contains("porelo_inventory_version: 1");
+    }
+
+    @Test
+    void refusesAnAgentInAnotherFormWithNothingWritten(@TempDir final Path dir) throws IOException {
+
+        final Path key = key(dir, "operator");
+        final Path repo = published(dir, key);
+        final Path file =
+                machineFile(
+                        dir,
+                        repo,
+                        fingerprint(key),
+                        "tasks:\n    - { name: core-1, repository: core, agent: \"../pi\" }\n");
+
+        assertThat(execute(context(dir), "project", "inventory", "--machine-file", file.toString()))
+                .as("exit code")
+                .isEqualTo(65);
+        assertThat(out.toString()).as("no inventory").isEmpty();
+        assertThat(err.toString()).as("the refusal").contains("core-1").contains("agent");
+    }
+
+    @Test
     void refusesAProjectFileNobodySigned(@TempDir final Path dir) throws IOException {
 
         final PoreloContext context = context(dir);

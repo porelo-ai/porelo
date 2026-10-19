@@ -1,6 +1,7 @@
 # B217 — A Machine File's Task Names Its Agent
 
-**Status:** Backlog.
+**Status:** Implementing. Built: both fields read and checked, written by `project inventory`, the page, a
+changelog line. Left: the whole check and the VM on the commit.
 **Size:** S - two optional fields read and checked in `MachineFile`, written by `project inventory`, the page and
 tests; no command changes.
 

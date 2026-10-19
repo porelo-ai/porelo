@@ -96,6 +96,75 @@ class MachineFileTest {
     }
 
     @Test
+    void aTaskNamesItsAgentAndThePackageThatInstallsIt() {
+
+        final MachineFile file =
+                read(
+                        """
+                        project: { name: porelo, url: /srv/p.git, signed_by: SHA256:a }
+                        tasks:
+                            - { name: core-1, repository: core, agent: pi }
+                            - { name: core-2, repository: core, agent: claude, package: vendor-claude }
+                            - { name: core-3, repository: core }
+                        """);
+
+        assertThat(file.tasks())
+                .as("the agent each task runs, and what installs it where the file says")
+                .containsExactly(
+                        new MachineFile.Task("core-1", "core", "pi", null),
+                        new MachineFile.Task("core-2", "core", "claude", "vendor-claude"),
+                        new MachineFile.Task("core-3", "core", null, null));
+    }
+
+    @Test
+    void refusesAnAgentNamedInAnotherForm() {
+
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        """
+                                        project: { name: porelo, url: /srv/p.git, signed_by: SHA256:a }
+                                        tasks:
+                                            - { name: core-1, repository: core, agent: "Pi --force" }
+                                        """))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("core-1")
+                .hasMessageContaining("agent");
+    }
+
+    @Test
+    void refusesAPackageThatIsNoPackagesName() {
+
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        """
+                                        project: { name: porelo, url: /srv/p.git, signed_by: SHA256:a }
+                                        tasks:
+                                            - { name: core-1, repository: core, agent: pi, package: "pi; rm -rf /" }
+                                        """))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("core-1")
+                .hasMessageContaining("package");
+    }
+
+    @Test
+    void refusesAPackageWithoutTheAgentItInstalls() {
+
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        """
+                                        project: { name: porelo, url: /srv/p.git, signed_by: SHA256:a }
+                                        tasks:
+                                            - { name: core-1, repository: core, package: porelo-agent-pi }
+                                        """))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("core-1")
+                .hasMessageContaining("no 'agent' it installs");
+    }
+
+    @Test
     void refusesTasksThatAreNotAList() {
 
         assertThatThrownBy(

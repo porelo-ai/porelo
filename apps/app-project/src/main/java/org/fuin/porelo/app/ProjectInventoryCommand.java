@@ -129,6 +129,15 @@ public class ProjectInventoryCommand implements Callable<Integer>, PoreloFactory
             entry.put("project", project.name());
             entry.put("repository", task.repository());
             entry.put("container", ContainerName.of(project, task.name()));
+            if (task.agent() != null) {
+                entry.put("agent", task.agent());
+                // A default, not a rule: a vendor names its package freely, and the file says so.
+                entry.put(
+                        "agent_package",
+                        task.agentPackage() != null
+                                ? task.agentPackage()
+                                : "porelo-agent-" + task.agent());
+            }
             tasks.add(entry);
         }
         final List<Object> keys = new ArrayList<>();
