@@ -502,13 +502,19 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
      */
     private static Probe keyring() {
         final String name = "keyring";
-        return org.fuin.porelo.vault.KernelKeyring.available()
-                ? Probe.ok(name, "available")
-                : Probe.degraded(
-                        name,
-                        "libkeyutils is missing, so no passphrase can be cached and"
-                                + " every vault command asks again",
-                        "install keyutils");
+        if (org.fuin.porelo.vault.KernelKeyring.available()) {
+            return Probe.ok(name, "available");
+        }
+        // The library missing has a remedy here; a kernel that refuses it, as a container's seccomp
+        // profile does, has none on this side, and naming a package to install would mislead.
+        final String why = org.fuin.porelo.vault.KernelKeyring.unavailable();
+        return Probe.degraded(
+                name,
+                why + ", so no passphrase can be cached and every vault command asks again",
+                why.startsWith("libkeyutils")
+                        ? "install keyutils"
+                        : "nothing to install: type the passphrase when asked, or run where the kernel"
+                                + " offers the keyring");
     }
 
     /**

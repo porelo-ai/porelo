@@ -61,6 +61,9 @@ public class KernelKeyring {
     /** A key whose keyring was revoked, which is what {@code pam_keyinit} does at logout. */
     private static final int EKEYREVOKED = 128;
 
+    /** A system call the kernel, or a seccomp profile in front of it, does not offer. */
+    private static final int ENOSYS = 38;
+
     /** Special serial for the calling session's keyring. */
     static final int KEY_SPEC_SESSION_KEYRING = -3;
 
@@ -118,10 +121,19 @@ public class KernelKeyring {
     /**
      * Tells whether the kernel keyring can be used here.
      *
-     * @return {@code true} if {@code libkeyutils} is present.
+     * @return {@code true} if {@code libkeyutils} is present and the kernel answers it.
      */
     public static boolean available() {
-        return KEYUTILS != null;
+        return UNAVAILABLE.isEmpty();
+    }
+
+    /**
+     * Says why the kernel keyring cannot be used here.
+     *
+     * @return The reason as a sentence, or empty when it can be used.
+     */
+    public static String unavailable() {
+        return UNAVAILABLE;
     }
 
     private static MethodHandle handle(
@@ -515,6 +527,67 @@ public class KernelKeyring {
             throw new VaultException(
                     "libkeyutils is not available, so the kernel keyring"
                             + " cannot be used on this host");
+        }
+    }
+
+    /**
+     * Says why the keyring cannot be used, from what asking it answered.
+     *
+     * @param loaded Whether libkeyutils loaded.
+     * @param result What {@code request_key} for a key nobody made returned: a key, or -1.
+     * @param errno The errno it left when it returned -1; ENOKEY means the kernel answered.
+     * @return The reason as a sentence, or empty when the keyring can be used.
+     */
+    static String reason(final boolean loaded, final int result, final int errno) {
+        if (!loaded) {
+            return "libkeyutils is not installed";
+        }
+        if (result != -1 || errno == ENOKEY) {
+            return "";
+        }
+        // ENOSYS is what a container's default seccomp profile answers for add_key and keyctl; it
+        // is named, since "the keyring is unavailable" alone reads as a missing package.
+        return errno == ENOSYS
+                ? "the kernel refuses the keyring here (errno "
+                        + errno
+                        + "), as a container's seccomp profile does"
+                : "the kernel refuses the keyring here (errno " + errno + ")";
+    }
+
+    /** Why the keyring cannot be used by this process, asked once: empty when it can. */
+    private static final String UNAVAILABLE = probe();
+
+    /**
+     * Asks the kernel for a key nobody made, which changes nothing: it answers ENOKEY where the
+     * keyring works. Measured on 2026-10-19 under podman's default seccomp profile: {@code keyctl}
+     * still answered there, reading the keyring's id and searching it, while {@code request_key}
+     * and {@code add_key} answered ENOSYS. So the probe is a call that storing needs, not one that
+     * merely reads.
+     */
+    private static String probe() {
+        if (KEYUTILS == null) {
+            return reason(false, -1, 0);
+        }
+        try (Arena arena = Arena.ofConfined()) {
+            final MemorySegment errno = arena.allocate(ERRNO_LAYOUT);
+            final int key =
+                    (int)
+                            handle(
+                                            "request_key",
+                                            ValueLayout.JAVA_INT,
+                                            ValueLayout.ADDRESS,
+                                            ValueLayout.ADDRESS,
+                                            ValueLayout.ADDRESS,
+                                            ValueLayout.JAVA_INT)
+                                    .invokeExact(
+                                            errno,
+                                            arena.allocateFrom(TYPE),
+                                            arena.allocateFrom("porelo:probe:nobody-made-this"),
+                                            MemorySegment.NULL,
+                                            0);
+            return reason(true, key, errorNumber(errno));
+        } catch (Throwable ex) {
+            return "the kernel keyring could not be asked: " + ex.getMessage();
         }
     }
 

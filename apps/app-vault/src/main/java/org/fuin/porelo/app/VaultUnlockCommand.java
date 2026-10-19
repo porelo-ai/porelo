@@ -163,7 +163,10 @@ public class VaultUnlockCommand implements Callable<Integer>, PoreloFactory.Cont
         }
 
         if (!KernelKeyring.available()) {
-            err.println("porelo: libkeyutils is not available, so the passphrase cannot be cached");
+            err.println(
+                    "porelo: "
+                            + KernelKeyring.unavailable()
+                            + ", so the passphrase cannot be cached");
             err.flush();
             return 69;
         }

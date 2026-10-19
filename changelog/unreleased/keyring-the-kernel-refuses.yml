@@ -1,0 +1,2 @@
+title: "Porelo counts the kernel keyring as unavailable where the kernel refuses it, as a container's seccomp profile does, and says so instead of naming a missing package"
+type: fixed

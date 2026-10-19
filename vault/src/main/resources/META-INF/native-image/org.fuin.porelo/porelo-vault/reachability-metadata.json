@@ -5,7 +5,8 @@
       {"returnType":"jlong","parameterTypes":["jint","void*","jlong"],"options":{"captureCallState":true}},
       {"returnType":"jlong","parameterTypes":["jint","void*","void*","jint"],"options":{"captureCallState":true}},
       {"returnType":"jint","parameterTypes":["void*","void*","void*","jlong","jint"],"options":{"captureCallState":true}},
-      {"returnType":"jint","parameterTypes":["void*"]}
+      {"returnType":"jint","parameterTypes":["void*"]},
+      {"returnType":"jint","parameterTypes":["void*","void*","void*","jint"],"options":{"captureCallState":true}}
     ]
   }
 }

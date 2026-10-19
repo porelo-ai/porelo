@@ -1,6 +1,7 @@
 # B211 — A Keyring The Process Cannot Reach Is Unavailable
 
-**Status:** Backlog. Estimated S on 2026-10-19.
+**Status:** Implementing. Built: the probe, its native-image shape, the reason in four messages, the docs. Left:
+the whole check, the FFM check and the VM suite.
 **Size:** S - one probe in `KernelKeyring` with its native-image metadata, the reason it gives used where callers
 say why nothing is cached, and tests; one run in a container to show it.
 
@@ -29,19 +30,20 @@ tests in a Porelo task until this holds.
 ## Plan
 
 1. **The probe.** `KernelKeyring.available()` stays the one question callers ask, and answers true only when
-   libkeyutils loads **and** `keyctl_get_keyring_ID(KEY_SPEC_USER_KEYRING, 0)` returns an id. The call changes
-   nothing: with `create` 0 it makes no keyring. It runs once per process and its answer is kept.
+   libkeyutils loads **and** `request_key` for a key nobody made answers ENOKEY. The call changes nothing. It runs
+   once per process and its answer is kept. **Changed while building, measured 2026-10-19:** the plan's
+   `keyctl_get_keyring_ID` still answers under podman's default seccomp, which refuses `request_key` and `add_key`
+   alone, so a probe that merely reads saw nothing (9 errors as before); `request_key` is a call storing needs.
    - A refusal (-1) with ENOSYS, EPERM or EACCES means unavailable. Any other errno means unavailable too, since the
      keyring is not shown usable, and the errno is kept for the reason.
    - `KernelKeyring.unavailable()` gives the reason as a sentence, or empty: "libkeyutils is not installed", or "the
      kernel refuses the keyring here (errno 38), as a container's default seccomp profile does".
-2. **Its native-image metadata.** The call is a downcall of a shape the vault does not register yet, `jint(jint,
-   jint)` with the call state captured. It is added to `porelo-vault`'s `reachability-metadata.json`, and
-   `-Pnative,ffm-check` proves it as it proves the others.
-3. **The reason where it is said.** The callers that tell a person nothing can be cached take the sentence from
-   `unavailable()` instead of naming libkeyutils: `vault unlock`, `vault init`, `vault lock`, `vault import`,
-   `vault passphrase`, `doctor`'s keyring probe (its remedy then says what the reason calls for), and
-   `PoreloContext`'s asking. `VaultShare`, `VaultClearing` and the daemon only branch on it, and stay as they are.
+2. **Its native-image metadata.** The call is a downcall of a shape the vault does not register yet,
+   `jint(void*, void*, void*, jint)` with the call state captured. It is added to `porelo-vault`'s
+   `reachability-metadata.json`, and `-Pnative,ffm-check` proves it as it proves the others.
+3. **The reason where it is said.** The four messages that named libkeyutils take the sentence from
+   `unavailable()`: `vault unlock`, `vault init`, `vault lock`, and `doctor`'s keyring probe, whose remedy says
+   "install keyutils" only when that is the reason. The other callers only branch on `available()`, and stay.
 4. **Tests.**
    - A unit test of the mapping from a call's result and errno to available or the reason, seen red first: ENOSYS
      taken as available today.

@@ -245,4 +245,24 @@ class KernelKeyringTest {
                 .isInstanceOf(VaultException.class)
                 .hasMessageContaining("UTF-8");
     }
+
+    @Test
+    void aKeyringTheKernelRefusesIsNotAvailableAndSaysWhy() {
+
+        // Measured 2026-10-19: under podman's default seccomp profile the library loads and every
+        // call answers ENOSYS, so a keyring that only had to load was taken as usable and 19 test
+        // classes ran against it instead of skipping.
+        assertThat(KernelKeyring.reason(true, -1, 38))
+                .as("refused by a seccomp profile")
+                .contains("errno 38")
+                .contains("seccomp");
+        assertThat(KernelKeyring.reason(true, -1, 1)).as("not permitted").contains("errno 1");
+        assertThat(KernelKeyring.reason(false, -1, 0))
+                .as("no library")
+                .isEqualTo("libkeyutils is not installed");
+        assertThat(KernelKeyring.reason(true, -1, 126))
+                .as("no such key: the kernel answered")
+                .isEmpty();
+        assertThat(KernelKeyring.reason(true, 123_456, 0)).as("a key").isEmpty();
+    }
 }

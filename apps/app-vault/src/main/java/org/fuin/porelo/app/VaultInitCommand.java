@@ -175,7 +175,10 @@ public class VaultInitCommand implements Callable<Integer>, PoreloFactory.Contex
      */
     private boolean cache(final char[] passphrase, final java.io.PrintWriter err) {
         if (!org.fuin.porelo.vault.KernelKeyring.available()) {
-            err.println("porelo: libkeyutils is not available, so the passphrase cannot be cached");
+            err.println(
+                    "porelo: "
+                            + org.fuin.porelo.vault.KernelKeyring.unavailable()
+                            + ", so the passphrase cannot be cached");
             err.flush();
             return false;
         }

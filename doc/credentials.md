@@ -117,6 +117,10 @@ no process's arguments. `--passphrase-command` cannot serve there, since its com
 not the ssh channel. `--passphrase-stdin` is the only source when given, takes one line of at most 1024 bytes, and
 is refused at a terminal, where the passphrase would echo.
 
+**Where the kernel refuses the keyring**, as a container's default seccomp profile does, nothing can be cached: every
+vault command asks for the passphrase, and `porelo doctor` says the kernel refuses it rather than that a package is
+missing. Porelo asks the kernel once per command, for a key nobody made, so it knows before it tries to store one.
+
 | Command | What it does |
 |---|---|
 | `porelo vault put <name>` | stores a value you type or pipe in, such as an API key or an ssh key |

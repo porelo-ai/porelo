@@ -47,7 +47,9 @@ public class VaultLockCommand implements Callable<Integer>, PoreloFactory.Contex
             // Nothing can be cached without the keyring, so nothing is. Reporting "locked" would
             // claim a change that did not happen.
             out.println(
-                    "nothing is cached: libkeyutils is not installed, so no passphrase is kept");
+                    "nothing is cached: "
+                            + KernelKeyring.unavailable()
+                            + ", so no passphrase is kept");
             out.flush();
             return 0;
         }
