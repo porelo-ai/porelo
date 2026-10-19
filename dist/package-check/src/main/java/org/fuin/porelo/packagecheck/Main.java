@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,6 +27,11 @@ import org.jspecify.annotations.Nullable;
 public final class Main {
 
     private static final String BILL_DIR = "/usr/share/porelo/sbom/";
+
+    /** Where both packages put the setup script, and where this tree keeps it. */
+    static final String SETUP_SCRIPT = "/usr/share/porelo/setup/porelo-setup.sh";
+
+    static final String SETUP_SOURCE = "dist/dist-setup/porelo-setup.sh";
 
     /** What porelo's bill must name: the modules the package is built from, and what they link. */
     static final Set<String> SHIPS = Set.of("porelo-app", "porelod", "porelo-core", "picocli");
@@ -158,14 +164,21 @@ public final class Main {
         final String poreloBill = Bill.mavenVersion(poreloVersion);
         final String agentBill = Bill.mavenVersion(debField(agentDeb, "Version"));
         new Bill("the porelo deb", "porelo-dist-deb", poreloBill, SHIPS, NEVER)
-                .check(debBill(deb, "porelo"), billPath("porelo"), report);
+                .check(debFile(deb, billPath("porelo")), billPath("porelo"), report);
         new Bill("the porelo rpm", "porelo-dist-deb", poreloBill, SHIPS, NEVER)
-                .check(rpmBill(rpm, "porelo"), billPath("porelo"), report);
+                .check(rpmFile(rpm, billPath("porelo")), billPath("porelo"), report);
         final String stub = "porelo-agent-stub";
         new Bill("the agent deb", stub, agentBill, Set.of(), Set.of())
-                .check(debBill(agentDeb, stub), billPath(stub), report);
+                .check(debFile(agentDeb, billPath(stub)), billPath(stub), report);
         new Bill("the agent rpm", stub, agentBill, Set.of(), Set.of())
-                .check(rpmBill(agentRpm, stub), billPath(stub), report);
+                .check(rpmFile(agentRpm, billPath(stub)), billPath(stub), report);
+
+        // A host gets the script through the package, checked by apt; it must be the one this tree
+        // keeps, not an older copy left in a build directory.
+        report.section("the setup script");
+        final String source = read(root.resolve(SETUP_SOURCE));
+        sameScript("the deb", debFile(deb, SETUP_SCRIPT), source, report);
+        sameScript("the rpm", rpmFile(rpm, SETUP_SCRIPT), source, report);
 
         report.section("versions");
         final String rpmVersion =
@@ -254,20 +267,37 @@ public final class Main {
         return Commands.run(List.of("dpkg-deb", "-f", deb.toString(), field)).output().strip();
     }
 
-    private static @Nullable String debBill(Path deb, String name) {
-        final Commands.Result bill =
+    static void sameScript(String label, @Nullable String packaged, String source, Report report) {
+        report.check(
+                source.equals(packaged),
+                label + " holds " + SETUP_SCRIPT + " as " + SETUP_SOURCE + " is",
+                packaged == null
+                        ? label + " holds no " + SETUP_SCRIPT
+                        : label + "'s " + SETUP_SCRIPT + " is not " + SETUP_SOURCE);
+    }
+
+    private static String read(Path file) {
+        try {
+            return Files.readString(file, StandardCharsets.UTF_8);
+        } catch (IOException ex) {
+            throw new UncheckedIOException(ex);
+        }
+    }
+
+    private static @Nullable String debFile(Path deb, String path) {
+        final Commands.Result file =
                 Commands.pipe(
                         List.of(
                                 List.of("dpkg-deb", "--fsys-tarfile", deb.toString()),
-                                List.of("tar", "-xO", "." + billPath(name))),
+                                List.of("tar", "-xO", "." + path)),
                         false);
-        return bill.ok() ? bill.output() : null;
+        return file.ok() ? file.output() : null;
     }
 
-    private static @Nullable String rpmBill(Path rpm, String name) {
+    private static @Nullable String rpmFile(Path rpm, String path) {
         // rpm2archive, not rpm2cpio: the fedora image has no cpio, and that pipe read as a missing
         // file.
-        final Commands.Result bill =
+        final Commands.Result file =
                 inFedora(
                         rpm,
                         "sh",
@@ -275,9 +305,9 @@ public final class Main {
                         "rpm2archive -n - < '/pkg/"
                                 + rpm.getFileName()
                                 + "' | tar -xO '."
-                                + billPath(name)
+                                + path
                                 + "'");
-        return bill.ok() ? bill.output() : null;
+        return file.ok() ? file.output() : null;
     }
 
     private static Commands.Result inFedora(Path rpm, String... command) {

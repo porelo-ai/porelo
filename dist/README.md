@@ -7,4 +7,5 @@ only groups them.
 - [dist-rpm](dist-rpm/README.md) - the `.rpm`.
 - [dist-check](dist-check/README.md) - reads the packages the build wrote and checks their version.
 - [package-check](package-check/README.md) - checks the `.deb` and the `.rpm` against each other and against a real install.
-- `dist-setup/porelo-setup.sh` - not a module: it prepares a machine that has nothing installed, run as root.
+- `dist-setup/porelo-setup.sh` - not a module: it prepares a machine that has nothing installed, run as root. Both
+  packages carry it at `/usr/share/porelo/setup/porelo-setup.sh`, and Publish uploads it beside them.

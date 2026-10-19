@@ -9,7 +9,8 @@
 # Usage:  porelo-setup.sh [options]
 #
 #   --user <name>       The account tasks run as. Default: agents
-#   --distribution <d>  Which published distribution to install from. Default: releases
+#   --distribution <d>  Which published distribution to install from. Default: the one the
+#                       installed Porelo came from, snapshots for a snapshot, else releases
 #   --with <package>    Also install this package. May be given several times.
 #   --between-users off
 #                       Removes what an earlier version set up for messaging between the Unix users
@@ -36,7 +37,7 @@
 set -eu
 
 USER_NAME=agents
-DISTRIBUTION=releases
+DISTRIBUTION=
 SHOW=no
 LIST=no
 JSON=no
@@ -80,7 +81,7 @@ while [ $# -gt 0 ]; do
         shift 2
         ;;
     --help)
-        sed -n '2,41p' "$0" | sed 's/^# \{0,1\}//'
+        sed -n '2,/^# Running it twice/p' "$0" | sed 's/^# \{0,1\}//'
         exit 0
         ;;
     *)
@@ -136,6 +137,28 @@ if [ "$FAMILY" = none ]; then
     echo "porelo-setup: this is '${PRETTY_NAME:-$ID}', which Porelo does not know how to prepare." >&2
     echo "Prepare it by hand from doc/getting-started.md or -fedora.md, or ask for it to be added." >&2
     exit 3
+fi
+
+# The channel the installed Porelo came from, unless one was asked for. The script ships inside the
+# package and runs again on a machine that has Porelo; a fixed 'releases' would switch a snapshot
+# machine to releases on that second run, without anyone asking. Only asked, never changed, so it
+# runs under --show too.
+CHANNEL_WHY="as asked"
+if [ -z "$DISTRIBUTION" ]; then
+    if [ "$FAMILY" = apt ]; then
+        INSTALLED="$(dpkg-query -W -f='${Version}' porelo 2>/dev/null || true)"
+    else
+        INSTALLED="$(rpm -q --qf '%{VERSION}' porelo 2>/dev/null || true)"
+    fi
+    case "$INSTALLED" in
+    *snapshot*) DISTRIBUTION=snapshots ;;
+    *) DISTRIBUTION=releases ;;
+    esac
+    if [ -n "$INSTALLED" ]; then
+        CHANNEL_WHY="as the installed porelo $INSTALLED"
+    else
+        CHANNEL_WHY="since no porelo is installed"
+    fi
 fi
 
 if [ "$SHOW" != yes ] && [ "$(id -u)" != 0 ]; then
@@ -195,6 +218,7 @@ fi
 # ---------------------------------------------------------------- where Porelo comes from
 
 say "the repository Porelo is published to"
+note "distribution '$DISTRIBUTION', $CHANNEL_WHY"
 if [ "$FAMILY" = apt ]; then
     if [ -f /usr/share/keyrings/porelo.gpg ]; then
         note "/usr/share/keyrings/porelo.gpg is already there"

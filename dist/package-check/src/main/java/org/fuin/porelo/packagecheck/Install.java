@@ -52,6 +52,9 @@ record Install(Path deb, Path rpm, Path agentDeb) {
             porelo agents 2>/dev/null | grep -q stub && echo DISCOVERY-OK
             porelo agents --verbose 2>/dev/null | grep -q "found by: /usr/share/porelo/agents.d/" && echo DESCRIBED
             ls /usr/libexec/porelo/agents/porelo-agent-* >/dev/null 2>&1 || echo NO-PORELO-NAME
+            /usr/share/porelo/setup/porelo-setup.sh --show --user x 2>&1 \
+                | grep -q "as the installed porelo $(porelo --version 2>/dev/null | cut -d' ' -f2)" \
+                && echo SETUP-SCRIPT-RUNS
             """;
 
     private static Map<String, String> markers() {
@@ -67,6 +70,9 @@ record Install(Path deb, Path rpm, Path agentDeb) {
         markers.put(
                 "NO-PORELO-NAME",
                 "no file of Porelo's name is installed for it under /usr/libexec/porelo/agents");
+        markers.put(
+                "SETUP-SCRIPT-RUNS",
+                "the packaged setup script runs and takes the channel of the porelo installed");
         return Collections.unmodifiableMap(markers);
     }
 

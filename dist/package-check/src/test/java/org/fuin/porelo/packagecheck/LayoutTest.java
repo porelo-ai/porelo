@@ -27,5 +27,8 @@ class LayoutTest {
                     .isTrue();
         }
         assertThat(Main.BINARY).as("the binary the app module builds").endsWith("/target/porelo");
+        assertThat(root.resolve(Main.SETUP_SOURCE))
+                .as("the setup script the packages hold")
+                .isRegularFile();
     }
 }

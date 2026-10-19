@@ -26,6 +26,7 @@
         <egress.install.dir>/usr/share/porelo/egress</egress.install.dir>
         <selinux.install.dir>/usr/share/porelo/selinux</selinux.install.dir>
         <sbom.install.dir>/usr/share/porelo/sbom</sbom.install.dir>
+        <setup.install.dir>/usr/share/porelo/setup</setup.install.dir>
     </properties>
 
     <!-- Not used for a classpath - this module produces no code. It is here so the reactor builds
@@ -196,6 +197,19 @@
                                             <mapper>
                                                 <type>perm</type>
                                                 <prefix>${selinux.install.dir}</prefix>
+                                                <filemode>755</filemode>
+                                                <user>root</user>
+                                                <group>root</group>
+                                            </mapper>
+                                        </data>
+                                        <!-- The setup script, so a machine that added the repository by its pinned
+                                             key gets it checked by apt, as it checks this package. -->
+                                        <data>
+                                            <src>${project.basedir}/../dist-setup/porelo-setup.sh</src>
+                                            <type>file</type>
+                                            <mapper>
+                                                <type>perm</type>
+                                                <prefix>${setup.install.dir}</prefix>
                                                 <filemode>755</filemode>
                                                 <user>root</user>
                                                 <group>root</group>

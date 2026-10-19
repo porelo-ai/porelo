@@ -23,6 +23,7 @@
         <egress.install.dir>/usr/share/porelo/egress</egress.install.dir>
         <selinux.install.dir>/usr/share/porelo/selinux</selinux.install.dir>
         <sbom.install.dir>/usr/share/porelo/sbom</sbom.install.dir>
+        <setup.install.dir>/usr/share/porelo/setup</setup.install.dir>
         <!-- Signing is off for local and CI builds and on for releases, where the key exists. -->
         <rpm.sign.skip>true</rpm.sign.skip>
     </properties>
@@ -201,6 +202,14 @@ exit 0
                                 <entry>
                                     <name>${selinux.install.dir}/install-selinux-policy.sh</name>
                                     <file>${project.basedir}/../../selinux/install-selinux-policy.sh</file>
+                                    <mode>0755</mode>
+                                    <user>root</user>
+                                    <group>root</group>
+                                </entry>
+                                <!-- The setup script, as in dist-deb. -->
+                                <entry>
+                                    <name>${setup.install.dir}/porelo-setup.sh</name>
+                                    <file>${project.basedir}/../dist-setup/porelo-setup.sh</file>
                                     <mode>0755</mode>
                                     <user>root</user>
                                     <group>root</group>

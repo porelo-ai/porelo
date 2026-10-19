@@ -1,6 +1,8 @@
 # B213 — The Setup Script Shipped As A Package
 
-**Status:** Backlog.
+**Status:** Implementing. Built: the script in both packages, its channel kept, `package-check`'s two checks,
+the docs in `doc/running.md` and `doc/hosts.md` (`getting-started.md` never names the script). Left: the whole
+check and the VM on the commit, then the first Publish.
 **Size:** S - one more file in the `porelo` package, the script reading where it came from, docs, and a check in
 `package-check`; no new module, no new upload.
 
@@ -77,5 +79,4 @@ with this order for a caller: the key by its fingerprint, the source line, `apt 
   until [B99](README.md#b99) signs the RPMs, or until the repository's metadata is signed (`repo_gpgcheck=1`), which is not measured.
 - **How the test runs the channel choice without root:** the choice as a function the script calls, run alone with
   `bash -c`, or the whole script under `--show` with a `PATH` holding stand-ins for `dpkg-query` and `rpm`.
-- **Whether the operator prefers a package of its own** after all, for a machine that should get the script without
-  Porelo: the plan above says why not, and the choice is the operator's.
+- **Inside `porelo`, not a package of its own:** confirmed by the operator on 2026-10-19.

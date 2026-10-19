@@ -11,14 +11,29 @@ with one script: `porelo-setup.sh`. It is published beside the packages and vers
 what you want to install.
 
 It is the one part of Porelo that is a file and not a command. A machine being prepared has no packages, no
-daemon and no account for the daemon to run as yet. It is not a package either: a package needs a package
-manager that already knows Porelo's repository, and telling it is one of the things the script does.
+daemon and no account for the daemon to run as yet.
+
+**The download is checked only by HTTPS.** Its `.sha256` comes from the same server, so it proves nothing
+against that server. Where that matters, as on a host a program prepares, take the script from the `porelo`
+package instead, which apt checks against the repository's key:
+
+1. add the key by its fingerprint and the source line, as [Getting started](getting-started.md#debian-and-ubuntu)
+   does;
+2. `sudo apt install porelo`;
+3. `sudo /usr/share/porelo/setup/porelo-setup.sh --user agents`. It finds the key, the source line and Porelo in
+   place, says each is already so, and does the rest.
+
+On Fedora the packages are not signed yet, so `dnf` checks the script no better than the download.
 
 ### What it does, as root
 
 ```
 sh porelo-setup-latest.sh [--user agents] [--distribution releases] [--with <package>]... [--show] [--list [--json]]
 ```
+
+- **Keeps the distribution the installed Porelo came from**, `snapshots` for a snapshot, unless
+  `--distribution` names one, so running it again never moves a machine to another. Without Porelo installed
+  it takes `releases`. It says which, and why.
 
 - **Configures Porelo's package repository** and installs Porelo, the message filter, and every package
   `--with` names. `--list` says what there is to choose from: agents, transports and homeservers.

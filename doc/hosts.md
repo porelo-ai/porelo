@@ -5,9 +5,11 @@ which form. A playbook reads Porelo as a contract, never text meant for a person
 where one changes, the version a reader checks changes with it.
 
 A host comes up in two plays. The first prepares the machine and needs nothing Porelo knows: the host package that
-runs it writes that play's inventory itself. The second runs on the host, as the account Porelo's setup made, once
-`porelo setup` has run there. It reads its inventory from `porelo project inventory`, and its answers from the
-commands below.
+runs it writes that play's inventory itself. It ends with Porelo's setup script, taken from the `porelo` package
+rather than downloaded, once the repository is added by the key's pinned fingerprint, as
+[Running Porelo](running.md#preparing-a-machine) says; the script makes the account. The second play runs on the
+host, as that account, once `porelo setup` has run there. It reads its inventory from `porelo project inventory`,
+and its answers from the commands below.
 
 ## The machine file
 

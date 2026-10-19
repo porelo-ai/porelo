@@ -1,0 +1,2 @@
+title: "The setup script is in the porelo package at /usr/share/porelo/setup/porelo-setup.sh, so a machine that added the repository by its key gets it checked by apt, and run again it keeps the distribution the installed Porelo came from"
+type: added

@@ -19,6 +19,7 @@ class InstallTest {
             SETUP-OK
             HOOKS-PACKAGED
             DISCOVERY-OK
+            SETUP-SCRIPT-RUNS
             """;
 
     private final Reports out = new Reports();
@@ -133,6 +134,29 @@ class InstallTest {
                     .contains("/usr/libexec/porelo/agents/porelo-agent-")
                     .contains("echo NO-PORELO-NAME");
         }
+    }
+
+    @Test
+    void runsThePackagedSetupScriptAndAsksForTheInstalledVersion() {
+        final Install install =
+                new Install(
+                        Path.of("/d/porelo.deb"), Path.of("/r/porelo.rpm"), Path.of("/a/stub.deb"));
+
+        for (final String script :
+                java.util.List.of(install.debian(), install.ubuntu(), install.fedora())) {
+            assertThat(script)
+                    .contains("/usr/share/porelo/setup/porelo-setup.sh --show")
+                    .contains("as the installed porelo $(porelo --version")
+                    .contains("echo SETUP-SCRIPT-RUNS");
+        }
+    }
+
+    @Test
+    void anInstallWhosePackagedSetupScriptDidNotRunFails() {
+        Install.verdicts(
+                "Ubuntu", EVERYTHING.replace("SETUP-SCRIPT-RUNS\n", ""), VERSION, out.report);
+
+        assertThat(out.text()).contains("FAIL  SETUP-SCRIPT-RUNS on Ubuntu");
     }
 
     @Test
