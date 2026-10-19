@@ -1,6 +1,6 @@
 # B212 — Porelo's Own Tests In A Porelo Task
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** porelo's whole local check is green inside a Porelo task: rootless, as the task's own user,
 with the default seccomp profile, `no-new-privileges` set, and no podman, `porelo` or `/run/user` of the host. A test
