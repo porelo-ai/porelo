@@ -1,6 +1,6 @@
 # B218 — Whether An Agent Is Signed In, As A Contract
 
-**Status:** Estimated.
+**Status:** Backlog.
 **Size:** S - one `--json` form of `porelo agents` with one vault read, the page and tests.
 
 **What must be true.** A program can ask Porelo, in a form kept stable, which agents are installed and whether

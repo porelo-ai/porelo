@@ -35,6 +35,8 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b217"></a>[B217](B217-A-Machine-File-Task-Names-Its-Agent.md) | S | - | Each task in a machine file may name its agent, and `project inventory` carries it into `porelo_tasks`, so a host installs and starts each task with its own |
+| <a id="b218"></a>[B218](B218-Whether-An-Agent-Is-Signed-In-As-A-Contract.md) | S | - | `porelo agents --json` names each agent with its package and whether the vault holds its credential, so a host stops for a sign-in only where one is missing |
 | <a id="b192"></a>[B192](B192-An-Image-Chosen-Per-Repository.md) | L | - | A repository's `porelo.yml` (checked in) or `.porelo.yml` (a local override) names only its image - `base_image`, a snippet, `env` - read key by key in a fixed order with `project.yml`'s `repositories.<name>.image` and the mirror's default branch; one cached image per repository, its source named at the start, the file ranked dangerous in review. |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes. |
 | <a id="b189"></a>[B189](B189-Values-Handed-To-A-Task-At-Its-Start.md) | L | - | Values a project declares in `parameters:`, handed to a start by `--set`, `--set-file` or `--set-env`, checked by `StartCheck`, kept in `parameters.json`, shown with their origin by `task status` and `Task`, set in the container and usable as `{name}` in settings. |
@@ -100,8 +102,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b217"></a>[B217](B217-A-Machine-File-Task-Names-Its-Agent.md) | S | - | Each task in a machine file may name its agent, and `project inventory` carries it into `porelo_tasks`, so a host installs and starts each task with its own |
-| <a id="b218"></a>[B218](B218-Whether-An-Agent-Is-Signed-In-As-A-Contract.md) | S | - | `porelo agents --json` names each agent with its package and whether the vault holds its credential, so a host stops for a sign-in only where one is missing |
 | <a id="b184"></a>[B184](B184-Only-What-Porelo-Delivered-Counts-As-A-Message.md) | M | - | A message in the inbox counts only when the account running Porelo owns it (root inside); the host reads the inbox without following links and names a planted file; the guide and the agent kit check the owner. |
 | <a id="b185"></a>[B185](B185-A-Bound-On-What-A-Task-Writes-To-This-Disk.md) | M | - | The daemon measures a task's box and writable layer and pauses it over `limits.disk` (10 GiB), `limits.mailbox` (256 MiB) or under `limits.disk_free` (2 GiB), each settable in `project.yml`, and says how to go on. |
 | <a id="b95"></a>[B95](B95-A-Container-To-Try-Waiting-Work-In.md) | XL | - | `gate try` and a streaming `Try` in a container without gate or vault; the IDE split into an issue of its own. |
