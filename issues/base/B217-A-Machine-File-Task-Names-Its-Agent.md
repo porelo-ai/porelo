@@ -1,6 +1,8 @@
 # B217 — A Machine File's Task Names Its Agent
 
-**Status:** Idea.
+**Status:** Analyzed.
+**Size:** S - two optional fields read and checked in `MachineFile`, written by `project inventory`, the page and
+tests; no command changes.
 
 **What must be true.** Each task in a person's machine file may name the agent it runs, and `porelo project
 inventory --machine-file` carries that name into the second play's inventory. So a host's play installs the agents
@@ -28,7 +30,30 @@ exists.
 - **`porelo_inventory_version` stays 1:** an added name changes no meaning, and a play that knows version 1 ignores
   what it does not read. The page says that adding a name does not raise the version.
 
+## Plan
+
+Read on 2026-10-19 in `MachineFile` and `ProjectInventoryCommand`:
+
+1. **`MachineFile.Task`** gains `@Nullable String agent` and `@Nullable String agentPackage`, read from each entry's
+   optional `agent` and `package`. An agent's name is checked as `task start --agent` takes it (lower case, digits and
+   `-`), a package's as a Debian and RPM package name (`[a-z0-9][a-z0-9+.-]*`). Anything else, or `package` without
+   `agent`, is refused with 65, naming the entry, as the other faults of Porelo's part are.
+2. **`ProjectInventoryCommand`** writes `agent` and `agent_package` into the task's `porelo_tasks` entry when the task
+   names an agent, `agent_package` defaulting to `porelo-agent-<agent>`. A task that names none gets neither, and the
+   play starts it without `--agent`, so `task start` takes the project's default as it does today.
+3. **`doc/hosts.md`:** the machine file's example and the inventory's example show both, and the page says that an
+   added name keeps `porelo_inventory_version` at 1.
+4. **Tests, each seen red first:** the fields read; the default package; a task without an agent written without
+   either; each refusal with 65 and nothing on standard output.
+5. A changelog line.
+
+## Acceptance
+
+- A machine file naming `agent: pi` gives `agent: pi` and `agent_package: porelo-agent-pi` in the inventory; one
+  naming `package` too gives that package.
+- A bad name, or `package` alone, is refused with 65 and no inventory.
+- Machines' `tasks.yml` reads both from the inventory.
+
 ## To be checked
 
-- Whether a task that names no agent takes the project's default, as `task start` does, and how the play says which
-  agent that is.
+- Nothing left: a task that names no agent is started without `--agent`, as item 2 says.
