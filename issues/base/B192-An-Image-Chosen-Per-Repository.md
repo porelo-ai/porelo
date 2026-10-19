@@ -45,6 +45,11 @@ devcontainer file as a source, which would have given only `image` or `build`, w
   default branch, that the review ranks it dangerous, and that `CODEOWNERS` gives it to the operator. A build limited
   to the project's egress is [B207](README.md#b207), for later.
 
+**Required too, decided 2026-10-19:** every task image Porelo builds sets a UTF-8 locale, `LANG=C.UTF-8`, in
+`Containerfile.render`, not each repository's `porelo.yml`. Measured: without it, Java in the task reads a file name
+holding `ü` as malformed, and `GitGateTest` failed on `.github/workflows/büild.yml`. Every agent and every build reads
+file names.
+
 ## Plan
 
 Read in the code on 2026-10-18.
