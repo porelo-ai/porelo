@@ -1,6 +1,6 @@
 # B212 — Porelo's Own Tests In A Porelo Task
 
-**Status:** Analyzed.
+**Status:** Backlog.
 **Size:** M - five groups of tests in two modules, one test seam in `PoreloBinary` with the launcher Surefire names,
 and one path that reads the real runtime directory; no behaviour a person sees changes.
 
