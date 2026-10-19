@@ -96,6 +96,7 @@ from its side, as *blocked by*.
 | <a id="b215"></a>[B215](B215-A-Helper-Started-With-A-UTF-8-Locale.md) | - | - | A transport and the message filter run with `LANG=C.UTF-8` where porelod has no locale, so a non-ASCII argument or path reaches them whole |
 | <a id="b216"></a>[B216](B216-A-Second-Setup-Says-Nothing-Changed.md) | - | - | A second `porelo-setup.sh` run changes nothing and says so, as a last line and in `--json`, so a playbook reports it truly |
 | <a id="b217"></a>[B217](B217-A-Machine-File-Task-Names-Its-Agent.md) | - | - | Each task in a machine file may name its agent, and `project inventory` carries it into `porelo_tasks`, so a host installs and starts each task with its own |
+| <a id="b218"></a>[B218](B218-Whether-An-Agent-Is-Signed-In-As-A-Contract.md) | - | - | `porelo agents --json` names each agent with its package and whether the vault holds its credential, so a host stops for a sign-in only where one is missing |
 
 ## Estimated
 

@@ -16,10 +16,14 @@ exists.
 
 ## The shape proposed
 
-- **`MachineFile`:** reads an optional `agent` in each entry of `tasks`, and refuses a name that is no agent's form,
-  with 65 as for the other faults of Porelo's part.
-- **`porelo project inventory`:** writes it into each `porelo_tasks` entry beside `container`, and leaves it out when
-  the task names none.
+- **`MachineFile`:** reads an optional `agent` in each entry of `tasks`, the name `task start --agent` takes, and an
+  optional `package`, what installs it. A name that is no agent's or package's form is refused with 65, as for the
+  other faults of Porelo's part.
+- **`porelo project inventory`:** writes both into each `porelo_tasks` entry beside `container`, as `agent` and
+  `agent_package`, and leaves them out when the task names no agent. Without `package`, `agent_package` is
+  `porelo-agent-<agent>`, which the three agents published today follow. It is a default, not a rule: a vendor
+  names its package freely and registers its agent by a description under `agents.d`, so the person names any other
+  package.
 - **`doc/hosts.md`:** names the field.
 - **`porelo_inventory_version` stays 1:** an added name changes no meaning, and a play that knows version 1 ignores
   what it does not read. The page says that adding a name does not raise the version.
