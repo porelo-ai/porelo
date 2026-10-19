@@ -11,6 +11,13 @@ needs GitHub's remote MCP server as a destination of its own, `~/.local/share/po
 its entry, which no file in this repository ships. The test guide of 2026-10-18 named the command without running it
 on an installed machine.
 
+**Measured 2026-10-19, for step 4:** the server's document (`/.well-known/oauth-protected-resource/mcp/`) names
+`https://github.com/login/oauth` as its authorization server, and that server's metadata offers the device flow
+(`https://github.com/login/device/code`) and no registration endpoint. So the entry takes the client id an installed
+agent declares, as `vault authorize github-copilot` does, and the destination is the operator's file, now in
+`doc/credentials.md`: `github-mcp`, upstream `https://api.githubcopilot.com`, `Authorization: Bearer`, read back by
+`Destination.read`. A POST to `https://api.githubcopilot.com/mcp/` without a token answers 401.
+
 **What must be true.** A person grants an authorization once, where a person actually is, and every task afterwards
 uses it without holding it and without asking again.
 

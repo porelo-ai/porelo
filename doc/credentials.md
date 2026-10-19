@@ -188,6 +188,22 @@ porelo vault authorize forge
 - A setting you put on the entry yourself wins over what the metadata says. The kind still chooses the flow:
   `oauth-device` needs a device endpoint, `oauth-code` an authorization endpoint.
 
+**GitHub's remote MCP server**, measured on 2026-10-19: its document names `https://github.com/login/oauth` as its
+authorization server, which offers the device flow but no client registration. So the entry takes the client id of
+an installed agent that declares GitHub's grant, as `porelo vault authorize github-copilot` does, and the server is a
+destination of its own, `~/.local/share/porelo/destinations/github-mcp.yaml`:
+
+```
+name: github-mcp
+label: GitHub's remote MCP server
+upstream: https://api.githubcopilot.com
+auth_header: Authorization
+auth_prefix: "Bearer "
+```
+
+A task then names it as `--credential github-copilot=github-mcp` and reaches the server at
+`$PORELO_URL_GITHUB_COPILOT/mcp/`.
+
 ## A sign-in that ends, renewed on the host
 
 A subscription sign-in leaves an access token that ends within hours and a refresh token that
