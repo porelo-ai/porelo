@@ -1,6 +1,6 @@
 # B211 — A Keyring The Process Cannot Reach Is Unavailable
 
-**Status:** Analyzed.
+**Status:** Backlog. Estimated S on 2026-10-19.
 **Size:** S - one probe in `KernelKeyring` with its native-image metadata, the reason it gives used where callers
 say why nothing is cached, and tests; one run in a container to show it.
 

@@ -26,14 +26,13 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b208"></a>[B208](B208-What-A-Host-Playbook-Reads-From-Porelo.md) | M | - | The host playbook reads from Porelo as a contract: the second play's inventory with its variables and a version, written on the host from `project.yml` and the machine file, and answers a program can read for followed, running and an open vault. |
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
-| <a id="b209"></a>[B209](B209-A-Vault-Unlocked-From-Standard-Input.md) | S | - | `vault unlock --passphrase-stdin` reads the passphrase as one line from its own standard input, so a program hands it over ssh from its memory, with no file anywhere; `--passphrase-command` cannot, since its command gets a closed pipe. |
 
 ## Backlog
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b211"></a>[B211](B211-A-Keyring-The-Process-Cannot-Reach-Is-Unavailable.md) | S | - | `KernelKeyring.available()` probes the system call once, so a keyring a container's seccomp refuses counts as unavailable and its tests skip. |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes. |
 | <a id="b189"></a>[B189](B189-Values-Handed-To-A-Task-At-Its-Start.md) | L | - | Values a project declares in `parameters:`, handed to a start by `--set`, `--set-file` or `--set-env`, checked by `StartCheck`, kept in `parameters.json`, shown with their origin by `task status` and `Task`, set in the container and usable as `{name}` in settings. |
 | <a id="b190"></a>[B190](B190-A-Tasks-Branch-Named-By-The-Projects-Scheme.md) | L | `porelo` [B189](README.md#b189) | `branch.template` and `branch.pattern` or `--branch` name a task's forge branch, kept in `task.json`; the gate passes on and keeps out of its mirror by them, an existing upstream branch refused at an online start, a guarded approval onto it by default and only within the pattern. |
@@ -70,7 +69,6 @@ from its side, as *blocked by*.
 | <a id="b56"></a>[B56](B56-Programs-Porelo-Runs-That-Could-Be-Calls.md) | S | - | The table of programs Porelo runs completed, and a source-scanning test that fails on an unlisted one; each replacement its own issue. | - |
 | <a id="b116"></a>[B116](B116-A-Log-Read-Back-In-Windows.md) | M | - | `Tail` gets `before` to read back in windows, and a cap per line reported in `cut`. | - |
 | <a id="b165"></a>[B165](B165-A-Port-Of-A-Task-On-Loopback-Only.md) | M | - | `porelo task port`: a two-half relay, in the task's namespace and on host loopback only, over a `0700` socket, with `ports.log`, docs and a scenario. | - |
-| <a id="b211"></a>[B211](B211-A-Keyring-The-Process-Cannot-Reach-Is-Unavailable.md) | S | - | `KernelKeyring.available()` probes the system call once, so a keyring a container's seccomp refuses counts as unavailable and its tests skip. | 0 |
 
 ## Accepted
 
@@ -147,6 +145,8 @@ from its side, as *blocked by*.
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="b208"></a>B208 | What A Host Playbook Reads From Porelo | `porelo project inventory` writes a host's second inventory from the machine file, checked against the project's key; `vault status`, `project following --json` and `task status --json` answer a program. |
+| <a id="b209"></a>B209 | A Vault Unlocked From Standard Input | `vault unlock` and `vault init` take the passphrase as one line of standard input with `--passphrase-stdin`, refused at a terminal and beside another source. |
 | <a id="b49"></a>B49 | What The Build Trusts To Run Beside Its Secrets | Every action pinned by commit and checked by `check-actions`, Maven and GraalVM by checksum, Dependabot moving the pins, and a `Publish` that downloads no client. |
 | <a id="b204"></a>B204 | Start On A Running Task Goes In | At a terminal `task start` on a running task goes in as `attach` does, refusing by name an option that would be dropped; without a terminal or with `--no-input` it still answers 65. |
 | <a id="b23"></a>B23 | Secrets In This Process's Memory | The daemon, the broker and the ssh agent are not dumpable; the vault's master key is cleared on every path and the cached passphrase never becomes a `String`; `doctor` reports the running daemon's hardening, read from its `/proc` entries. |
