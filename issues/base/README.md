@@ -20,13 +20,13 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b31"></a>[B31](B31-An-Authorization-A-Person-Grants-Once.md) | S | - | A person grants GitHub once through an installed agent's app; tasks then spend it on GitHub's MCP server through the broker, one session held for an hour, never holding the token. |
 
 ## Implementing
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b208"></a>[B208](B208-What-A-Host-Playbook-Reads-From-Porelo.md) | M | - | The host playbook reads from Porelo as a contract: the second play's inventory with its variables and a version, written on the host from `project.yml` and the machine file, and answers a program can read for followed, running and an open vault. |
-| <a id="b31"></a>[B31](B31-An-Authorization-A-Person-Grants-Once.md) | S | [PI27](https://github.com/porelo-ai/porelo-pi/blob/main/issues/README.md#pi27), [OM25](https://github.com/porelo-ai/porelo-omp/blob/main/issues/README.md#om25) | Dynamic client registration built against a stand-in; blocked: no installed agent declares `login.grants` yet, and GitHub's MCP server has no destination file; then a real GitHub grant and an hour-long stream. |
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
 | <a id="b209"></a>[B209](B209-A-Vault-Unlocked-From-Standard-Input.md) | S | - | `vault unlock --passphrase-stdin` reads the passphrase as one line from its own standard input, so a program hands it over ssh from its memory, with no file anywhere; `--passphrase-command` cannot, since its command gets a closed pipe. |
 

@@ -1,6 +1,6 @@
 # B31 — An Authorization A Person Grants Once
 
-**Status:** Implementing. Set back from Review on 2026-10-18: its test cannot run yet.
+**Status:** Review. Step 4 ran on `ubuntu26.04` on 2026-10-19, with the operator's own sign-in.
 **Size:** S - what is left is two runs against GitHub with the operator, which change code only if they break.
 
 **Blocked, found 2026-10-18 when the operator tried the test:** `porelo vault authorize github-copilot` answers "no
@@ -10,6 +10,20 @@ Oh My Pi's [OM25](https://github.com/porelo-ai/porelo-omp/blob/main/issues/READM
 needs GitHub's remote MCP server as a destination of its own, `~/.local/share/porelo/destinations/<name>.yaml` with
 its entry, which no file in this repository ships. The test guide of 2026-10-18 named the command without running it
 on an installed machine.
+
+**Step 4, run on 2026-10-19 on `ubuntu26.04` as `core`, with the machine-wide `porelo-agent-pi`
+`0.5.3~snapshot.126`:**
+- `porelo vault authorize github-copilot` names both agents that declare the grant and asks for `--agent`; with
+  `--agent pi` it writes the entry from Pi's app (`scopes = read:user`) and the operator signed in once.
+- A task given the entry as `github-copilot: github-mcp` by its project reached GitHub's MCP server through the
+  broker: `initialize` 200 with a session, `notifications/initialized` 202, `tools/list` 49 tools, and `get_me`
+  answered with the account that signed in. The token in the task was Porelo's own, and a scan of the task's
+  environment, `/workspace`, `/tmp`, `/root` and `/home` found no GitHub token.
+- **One MCP session held for an hour:** opened at 07:33:41Z, 13 calls of `get_me` five minutes apart until
+  08:33:49Z, each 200 without `isError`.
+- The same task restarted, and a second task of the project, each answered `initialize` with 200, and nobody was
+  asked again.
+- Not tried: a tool that needs `repo`, since Pi's app asks for `read:user` only.
 
 **Measured 2026-10-19, for step 4:** the server's document (`/.well-known/oauth-protected-resource/mcp/`) names
 `https://github.com/login/oauth` as its authorization server, and that server's metadata offers the device flow
