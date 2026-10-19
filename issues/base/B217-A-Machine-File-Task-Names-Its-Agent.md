@@ -1,6 +1,6 @@
 # B217 — A Machine File's Task Names Its Agent
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** S - two optional fields read and checked in `MachineFile`, written by `project inventory`, the page and
 tests; no command changes.
 
