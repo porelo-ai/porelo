@@ -226,14 +226,14 @@ Credentials, and the broker that lets a task use one without holding it. See
 
 | Command | What it does |
 |---|---|
-| `porelo vault init` | Creates an empty vault; asks for its passphrase twice. |
+| `porelo vault init` | Creates an empty vault; asks for its passphrase twice, or takes one line with `--passphrase-stdin`. |
 | `porelo vault login [AGENT]` | Runs the agent's own login in a throwaway container and stores the result. |
 | `porelo vault import [AGENT]` | Copies a credential the agent already holds on this host. |
 | `porelo vault put NAME` | Stores a value from standard input under the provider's name. |
 | `porelo vault authorize NAME` | Grants an OAuth authorization once in any browser and keeps it. |
 | `porelo vault list` | Lists the names held. Never the values. |
 | `porelo vault remove NAME [--without-revoking]` | Removes an entry, revoking a granted authorization first. If revoking fails, the entry is kept unless `--without-revoking`. |
-| `porelo vault unlock` | Caches the passphrase in the kernel's user keyring, where the daemon finds it too; `--for` bounds how long. |
+| `porelo vault unlock` | Caches the passphrase in the kernel's user keyring, where the daemon finds it too; `--for` bounds how long, `--passphrase-stdin` takes it from a program. |
 | `porelo vault lock` | Drops the cached passphrase. |
 | `porelo vault status [--json]` | Says whether the vault is open, shut or not there, by its exit code: 0, 3 or 4. |
 | `porelo vault passphrase` | Re-encrypts the vault under a new passphrase. |

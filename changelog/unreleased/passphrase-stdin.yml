@@ -1,0 +1,2 @@
+title: "'porelo vault unlock' and 'vault init' take the passphrase as one line of standard input with --passphrase-stdin, for a program handing it over an ssh channel"
+type: added

@@ -22,6 +22,9 @@ import org.fuin.porelo.runtime.HookInstaller;
  *     context; a test that builds one itself says whether it wants it.
  * @param prompt Who is asked for the vault passphrase when the vault is shut: the terminal for
  *     {@link #real()}, nobody for a context a test builds unless it says otherwise.
+ * @param input This process's standard input, for a command that reads one line a program hands it:
+ *     the real one for {@link #real()}, an empty one for a context a test builds unless it says
+ *     otherwise.
  */
 public record PoreloContext(
         CommandRunner runner,
@@ -29,7 +32,28 @@ public record PoreloContext(
         java.util.function.ToIntFunction<List<String>> exec,
         java.util.function.UnaryOperator<String> environment,
         boolean recognizesTasks,
-        VaultPrompt prompt) {
+        VaultPrompt prompt,
+        StandardInput input) {
+
+    /**
+     * Constructor for a context that reads nothing on standard input.
+     *
+     * @param runner Runs commands.
+     * @param paths Where files go.
+     * @param exec Runs a command on this process's terminal.
+     * @param environment Reads an environment variable.
+     * @param recognizesTasks Whether a container is a task only by the id Porelo recorded.
+     * @param prompt Who is asked for the vault passphrase.
+     */
+    public PoreloContext(
+            CommandRunner runner,
+            PoreloPaths paths,
+            java.util.function.ToIntFunction<List<String>> exec,
+            java.util.function.UnaryOperator<String> environment,
+            boolean recognizesTasks,
+            VaultPrompt prompt) {
+        this(runner, paths, exec, environment, recognizesTasks, prompt, StandardInput.none());
+    }
 
     /**
      * How often a wrong passphrase is asked again before the command refuses as it would without a
@@ -102,7 +126,7 @@ public record PoreloContext(
      * @return The context.
      */
     public PoreloContext recognizingTasks() {
-        return new PoreloContext(runner, paths, exec, environment, true, prompt);
+        return new PoreloContext(runner, paths, exec, environment, true, prompt, input);
     }
 
     /**
@@ -112,7 +136,18 @@ public record PoreloContext(
      * @return The context.
      */
     public PoreloContext asking(final VaultPrompt asking) {
-        return new PoreloContext(runner, paths, exec, environment, recognizesTasks, asking);
+        return new PoreloContext(runner, paths, exec, environment, recognizesTasks, asking, input);
+    }
+
+    /**
+     * Returns this context reading the given standard input.
+     *
+     * @param reading What a command reads on standard input.
+     * @return The context.
+     */
+    public PoreloContext reading(final StandardInput reading) {
+        return new PoreloContext(
+                runner, paths, exec, environment, recognizesTasks, prompt, reading);
     }
 
     /**
@@ -170,7 +205,8 @@ public record PoreloContext(
                 PoreloContext::runInTerminal,
                 System::getenv,
                 true,
-                VaultPrompt.terminal());
+                VaultPrompt.terminal(),
+                StandardInput.real());
     }
 
     /**

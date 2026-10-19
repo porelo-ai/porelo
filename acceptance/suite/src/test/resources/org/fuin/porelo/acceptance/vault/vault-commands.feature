@@ -77,6 +77,22 @@ Feature: The vault commands
         And its output contains "shut 3"
         And its output contains "{\"exists\":true,\"open\":false,"
 
+    Scenario: a program hands the passphrase over on standard input, which a passphrase command cannot read
+        When a script runs:
+            """
+            dir=$(mktemp -d); export PORELO_VAULT="$dir/vault.bin"
+            printf '%s\n' acceptance | porelo vault init --passphrase-stdin >/dev/null; echo "init $?"
+            porelo vault lock >/dev/null
+            printf '%s\n' acceptance | porelo vault unlock --passphrase-command cat >/dev/null 2>&1; echo "command $?"
+            printf '%s\n' acceptance | porelo vault unlock --passphrase-stdin >/dev/null; echo "stdin $?"
+            porelo vault status >/dev/null; echo "status $?"
+            porelo vault lock >/dev/null; rm -rf "$dir"
+            """
+        Then its output contains "init 0"
+        And its output contains "command 70"
+        And its output contains "stdin 0"
+        And its output contains "status 0"
+
     Scenario: a passphrase command that produces nothing makes no vault
         When a script runs:
             """

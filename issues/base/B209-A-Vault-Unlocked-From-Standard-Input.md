@@ -1,6 +1,7 @@
 # B209 — A Vault Unlocked From Standard Input
 
-**Status:** Backlog.
+**Status:** Implementing. Built: `--passphrase-stdin` on `vault unlock` and `vault init`, `PoreloContext`'s
+standard input, the docs and a scenario. Left: the VM run.
 **Size:** S - one option on `vault unlock` reading one line from its own standard input, the same in `vault init`, a
 refusal when standard input is a terminal, and tests; no change to how the vault is opened.
 

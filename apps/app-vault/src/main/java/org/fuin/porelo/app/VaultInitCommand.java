@@ -8,6 +8,7 @@ import org.fuin.porelo.core.process.ProcessCommandRunner;
 import org.fuin.porelo.vault.CommandPassphrase;
 import org.fuin.porelo.vault.ConsolePassphrase;
 import org.fuin.porelo.vault.PassphraseTiers;
+import org.fuin.porelo.vault.StdinPassphrase;
 import org.fuin.porelo.vault.VaultEntry;
 import org.fuin.porelo.vault.VaultException;
 import org.fuin.porelo.vault.VaultFile;
@@ -44,6 +45,13 @@ public class VaultInitCommand implements Callable<Integer>, PoreloFactory.Contex
                             + " because a command cannot mistype.")
     private @Nullable String passphraseCommand;
 
+    @Option(
+            names = "--passphrase-stdin",
+            description =
+                    "Reads the passphrase as one line of standard input, for a program that hands it"
+                            + " over. Asked once, as with --passphrase-command. Not at a terminal.")
+    private boolean passphraseStdin;
+
     @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
@@ -59,6 +67,14 @@ public class VaultInitCommand implements Callable<Integer>, PoreloFactory.Contex
         final PrintWriter err = spec.commandLine().getErr();
         final VaultFile vault = context.vault();
 
+        final String refused =
+                VaultStdin.refusal(context, passphraseStdin, passphraseCommand, null);
+        if (refused != null) {
+            err.println("porelo: " + refused);
+            err.flush();
+            return 64;
+        }
+
         if (vault.exists()) {
             // Never silently: a second init over an existing vault would replace a file holding
             // credentials nobody can get back.
@@ -73,7 +89,15 @@ public class VaultInitCommand implements Callable<Integer>, PoreloFactory.Contex
         char[] chosen = null;
         char[] again = null;
         try {
-            if (passphraseCommand != null) {
+            if (passphraseStdin) {
+                chosen =
+                        new StdinPassphrase(context.input().stream())
+                                .passphrase()
+                                .orElseThrow(
+                                        () ->
+                                                new VaultException(
+                                                        "standard input gave no passphrase"));
+            } else if (passphraseCommand != null) {
                 chosen =
                         new CommandPassphrase(new ProcessCommandRunner(), passphraseCommand)
                                 .passphrase()

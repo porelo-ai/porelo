@@ -7,6 +7,7 @@ import org.fuin.porelo.vault.CommandPassphrase;
 import org.fuin.porelo.vault.ConsolePassphrase;
 import org.fuin.porelo.vault.KernelKeyring;
 import org.fuin.porelo.vault.PassphraseTiers;
+import org.fuin.porelo.vault.StdinPassphrase;
 import org.fuin.porelo.vault.SystemdCredential;
 import org.fuin.porelo.vault.VaultException;
 import org.jspecify.annotations.Nullable;
@@ -40,6 +41,13 @@ public class VaultUnlockCommand implements Callable<Integer>, PoreloFactory.Cont
             paramLabel = "<command>",
             description = "Command whose first output line is the passphrase.")
     private @Nullable String passphraseCommand;
+
+    @Option(
+            names = "--passphrase-stdin",
+            description =
+                    "Reads the passphrase as one line of standard input, for a program that hands it"
+                            + " over, as over an ssh channel. Not at a terminal.")
+    private boolean passphraseStdin;
 
     @Option(
             names = "--systemd-credential",
@@ -162,6 +170,13 @@ public class VaultUnlockCommand implements Callable<Integer>, PoreloFactory.Cont
 
         final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
 
+        final String refused =
+                VaultStdin.refusal(context, passphraseStdin, passphraseCommand, systemdCredential);
+        if (refused != null) {
+            err.println("porelo: " + refused);
+            err.flush();
+            return 64;
+        }
         final var runner = new ProcessCommandRunner();
         final PassphraseTiers tiers =
                 new PassphraseTiers(
@@ -173,7 +188,18 @@ public class VaultUnlockCommand implements Callable<Integer>, PoreloFactory.Cont
                         new ConsolePassphrase("Vault passphrase: "));
 
         try {
-            final char[] passphrase = tiers.require();
+            // Standard input is the only source when given: its caller has no terminal to fall
+            // back to, and a prompt it cannot answer would hang it.
+            final char[] passphrase =
+                    passphraseStdin
+                            ? new StdinPassphrase(context.input().stream())
+                                    .passphrase()
+                                    .orElseThrow(
+                                            () ->
+                                                    new VaultException(
+                                                            "standard input gave no passphrase"
+                                                                    + " - nothing was cached"))
+                            : tiers.require();
             // Caching an unverified passphrase moves the failure to the next command, where it
             // reads as a possibly corrupt vault.
             final var vault = context.vault();

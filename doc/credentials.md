@@ -110,6 +110,13 @@ Each is reached through the broker, with the credential on the host and a stand-
 All of these happen on the host. When the vault is shut, Porelo asks for its passphrase at the terminal and
 carries on; a script, which has no terminal, runs `porelo vault unlock` first.
 
+**A program on another machine** that holds the passphrase in its own memory hands it over on standard input:
+`ssh HOST porelo vault unlock --passphrase-stdin`, with the passphrase written as one line into the ssh channel,
+and `porelo vault init --passphrase-stdin` for a new vault. Nothing on either side holds it in a file, and it is in
+no process's arguments. `--passphrase-command` cannot serve there, since its command reads a pipe of Porelo's own,
+not the ssh channel. `--passphrase-stdin` is the only source when given, takes one line of at most 1024 bytes, and
+is refused at a terminal, where the passphrase would echo.
+
 | Command | What it does |
 |---|---|
 | `porelo vault put <name>` | stores a value you type or pipe in, such as an API key or an ssh key |
