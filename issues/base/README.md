@@ -74,6 +74,20 @@ from its side, as *blocked by*.
 | <a id="b56"></a>[B56](B56-Programs-Porelo-Runs-That-Could-Be-Calls.md) | S | - | The table of programs Porelo runs completed, and a source-scanning test that fails on an unlisted one; each replacement its own issue. | - |
 | <a id="b116"></a>[B116](B116-A-Log-Read-Back-In-Windows.md) | M | - | `Tail` gets `before` to read back in windows, and a cap per line reported in `cut`. | - |
 | <a id="b165"></a>[B165](B165-A-Port-Of-A-Task-On-Loopback-Only.md) | M | - | `porelo task port`: a two-half relay, in the task's namespace and on host loopback only, over a `0700` socket, with `ports.log`, docs and a scenario. | - |
+| <a id="b224"></a>[B224](B224-An-Agent-Protocol-That-Only-Grows.md) | M | - | The agent handshake accepts an agent at or above the lowest contract version, `Agent1` only grows, and a missing method reads as "cannot say", so agents need not release in step with `porelo`. | 0 |
+| <a id="b220"></a>[B220](B220-Build-Tool-Plugins-Found-At-Run-Time.md) | M | - | Build-tool plugins as native executables of their own over `Ecosystem1` (`detect`, `configure`), found at run time and started without network; the contract, discovery and a stub. | 0 |
+| <a id="b222"></a>[B222](B222-A-Tasks-Tool-Settings-Written-At-Its-Start.md) | M | `porelo` [B220](README.md#b220), [B219](README.md#b219) | A task's start has the plugins `configure` it and places their tool settings, pointing at the broker with no credential. | 0 |
+| <a id="b221"></a>[B221](B221-A-Project-Proposed-From-A-Checkout.md) | L | `porelo` [B220](README.md#b220), [B192](README.md#b192) | `porelo project init <checkout>`: the plugins' answers merged into a tools draft and a `project.yml` draft, each value with its source, disagreements named, no credential copied. | 0 |
+| <a id="b225"></a>[B225](B225-The-Agent-Found-On-The-Machine.md) | L | `porelo` [B224](README.md#b224) | A start without `--agent` and `--provider` takes the agent signed in on the machine and names where it was found; `Agent1.Find` answers presence only, with "cannot say". | 0 |
+| <a id="b226"></a>[B226](B226-An-Imported-Credential-Names-Its-Provider.md) | M | `porelo` [B224](README.md#b224) | `ExtractCredential` takes an optional provider, so an agent signed in to several imports the one named, stored under that provider. | 0 |
+| <a id="b228"></a>[B228](B228-A-Key-Pasted-At-The-Prompt-Is-Read-Whole.md) | S | - | A private key pasted at `vault put`'s prompt is read whole, as from a file or a pipe, and an unreadable key is called unreadable, not the wrong algorithm. | 0 |
+| <a id="b227"></a>[B227](B227-A-Project-Followed-From-A-Path-Is-Refreshed.md) | S | - | `porelo project refresh` reads a project followed from a directory or bundle on the machine again, under the checks a fetch has, so a local project repository needs no second follow. | 0 |
+| <a id="b229"></a>[B229](B229-A-Follow-Of-A-Repository-Without-A-Commit-Says-So.md) | S | - | `project follow` of a repository whose `HEAD` has no commit says so and names the branch and the next step, instead of git's `couldn't find remote ref HEAD`. | 0 |
+| <a id="b201"></a>[B201](B201-A-Start-Now-Built-Or-Removed.md) | S | - | `task start --now` is accepted and does nothing: built or removed, after finding what it was meant for. | 0 |
+| <a id="b200"></a>[B200](B200-A-Varlink-Call-Has-A-Read-Deadline.md) | M | - | A call through `VarlinkClient` to a side that accepted and never answers ends within a stated time with a named error; no contract changes. | 0 |
+| <a id="b179"></a>[B179](B179-A-Code-Beside-Why-A-Release-Cannot-Go.md) | M | - | A code beside `detail` when a release is answered `NOT_DELIVERABLE`, so a client can say what to do per case. | 0 |
+| <a id="b230"></a>[B230](B230-The-Package-Provides-The-Lowest-Agent-Protocol.md) | M | `porelo` [B224](README.md#b224) | The `.deb` and `.rpm` provide `porelo-agent-protocol-<LOWEST>`, held to `AgentProtocol.LOWEST` by a test, so an agent's package refuses only what `porelo` refuses. | 0 |
+| <a id="b231"></a>[B231](B231-The-Usage-Records-Kept-Off-The-Machine.md) | M | `porelo` [B148](README.md#b148) | `porelo keep <dir>` copies the usage records up to their last complete line, `keep --restore <dir>` puts them back before a task runs and never shortens one. | 0 |
 
 ## Accepted
 
@@ -82,17 +96,15 @@ from its side, as *blocked by*.
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | - | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own. |
 | <a id="b194"></a>[B194](B194-A-File-Handed-In-At-Every-Start.md) | - | - | A host file such as `.AGENTS.md` handed into an agent's task read-only at every start; a changed copy written on the host only after approval. |
 | <a id="b203"></a>[B203](B203-Task-Names-Checked-By-What-The-Commands-Do.md) | - | - | The test that every task and talk command takes both spellings of a task runs the commands through picocli's tree instead of matching their source text. |
-| <a id="b201"></a>[B201](B201-A-Start-Now-Built-Or-Removed.md) | - | - | `task start --now` is accepted and does nothing: built or removed, after finding what it was meant for. |
 | <a id="b202"></a>[B202](B202-Credential-Names-In-A-Project-File-Checked.md) | - | - | A credential's name in a project file is checked when read, since it becomes a token file's and a variable's name; what an existing file does is decided. |
 | <a id="b198"></a>[B198](B198-Settings-Inherited-Down-An-Organisations-Tree.md) | - | - | An organisation file pinned by the machine's administrator passes settings down signed teams to projects by repository address; `fixed` and `narrow-only` locks no file below can undo, every file verified through the chain of keys, `project show --resolved`; folds in porelo-project [PJ16](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj16). |
 | <a id="b199"></a>[B199](B199-A-Transport-Reaches-Only-What-It-Names.md) | - | - | A transport's adapter reaches only the hosts its `reaches` names, as `doc/transports.md` promises; today nothing builds a rule from them. |
-| <a id="b200"></a>[B200](B200-A-Varlink-Call-Has-A-Read-Deadline.md) | - | - | A call through `VarlinkClient` to a side that accepted and never answers ends within a stated time with a named error; no contract changes. |
+| <a id="b223"></a>[B223](B223-The-Image-Build-Reads-A-Private-Package-Repository.md) | - | `porelo` [B219](README.md#b219), [B192](README.md#b192) | An image's `snippet` fetches from a declared private repository during the build, the credential in no layer; with [B207](README.md#b207). |
 
 ## Idea
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b179"></a>[B179](B179-A-Code-Beside-Why-A-Release-Cannot-Go.md) | - | - | A code beside `detail` when a release is answered `NOT_DELIVERABLE`, so a client can say what to do per case. |
 | <a id="b210"></a>[B210](B210-Build-Plugins-Without-Their-Known-Advisories.md) | - | - | The plugins porelo-parent versions carry no dependency with a known advisory: newer releases where they exist, fixed dependencies where not; [B99](#b99)'s signing waits for the bouncycastle move. |
 | <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | - | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
 | <a id="b215"></a>[B215](B215-A-Helper-Started-With-A-UTF-8-Locale.md) | - | - | A transport and the message filter run with `LANG=C.UTF-8` where porelod has no locale, so a non-ASCII argument or path reaches them whole |
@@ -147,6 +159,7 @@ from its side, as *blocked by*.
 | <a id="b174"></a>[B174](B174-A-Running-Tasks-Commits-And-Their-Diff.md) | M | - | `TaskCommits` and `TaskDiff`: a running task's commits no remote holds and their diff, cut at a file boundary; a stopped task's list from its note. |
 | <a id="b196"></a>[B196](B196-The-Fedora-Repository-Checked-By-Its-Key.md) | S | - | On Fedora the setup script writes the repository with `gpgcheck=0`; it is to be checked against the pinned package key, as on Debian and Ubuntu. |
 | <a id="b197"></a>[B197](B197-A-Push-To-A-Slow-Forge-Has-A-Bound.md) | M | - | A push the gate passes on to a forge that is slow or down ends within `limits.pass_on` of the project file, two minutes unless set, with a named refusal that the forge did not answer. |
+| <a id="b219"></a>[B219](B219-A-Private-Package-Repository-Through-The-Broker.md) | L | - | A task reads a company's authenticated package repository through a second, token-less broker on its own socket and relay: GET and HEAD under a declared prefix, the vault's credential added, no credential or phantom token in the task. |
 
 ## Finished
 
