@@ -157,7 +157,7 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
      */
     private @Nullable String headerValues(
             org.fuin.porelo.vault.@Nullable VaultEntry entry, Map<String, String> headers) {
-        final String lacking = LoginCredentials.lacking(entry, credentialHeaders);
+        final String lacking = CredentialHeaders.lacking(entry, credentialHeaders);
         if (lacking != null) {
             return "holds no usable '" + lacking + "'; sign in again with 'porelo vault login'";
         }

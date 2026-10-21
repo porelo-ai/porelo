@@ -235,6 +235,28 @@ public record ProviderDefinition(
                                 + "': expected a header name and a setting of lower-case letters,"
                                 + " digits and underscores");
             }
+            if (header.getValue().matches(".*(token|secret|password).*")) {
+                // A setting is printed by 'vault list'; a provider file naming a secret would put
+                // it on the terminal and send it upstream beside the token.
+                throw new AgentException(
+                        "Provider '"
+                                + name
+                                + "' credential header '"
+                                + header.getKey()
+                                + "' names '"
+                                + header.getValue()
+                                + "', which is a secret; only an identifier is sent beside the token");
+            }
+            if (java.util.Set.of("connection", "content-length", "expect", "host", "upgrade")
+                    .contains(header.getKey().toLowerCase(java.util.Locale.ROOT))) {
+                // The HTTP client refuses to set these, which failed every request at the broker.
+                throw new AgentException(
+                        "Provider '"
+                                + name
+                                + "' credential header '"
+                                + header.getKey()
+                                + "' is one the request sets itself");
+            }
             if (authHeader.values().stream().anyMatch(header.getKey()::equalsIgnoreCase)
                     || "Authorization".equalsIgnoreCase(header.getKey())) {
                 throw new AgentException(

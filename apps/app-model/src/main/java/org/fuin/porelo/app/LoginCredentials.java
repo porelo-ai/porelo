@@ -82,8 +82,9 @@ final class LoginCredentials {
         final Map<String, String> settings = new LinkedHashMap<>();
         for (final String name : kept) {
             final String attribute = value.attributes().get(name);
-            if (attribute != null && !attribute.isBlank()) {
-                settings.put(name, attribute);
+            // Settings are printed; a value too long or unprintable for a header is a token.
+            if (CredentialHeaders.usable(attribute)) {
+                settings.put(name, java.util.Objects.requireNonNull(attribute));
             }
         }
         final String expires = value.attributes().get(Credential.EXPIRES_AT);
@@ -128,29 +129,6 @@ final class LoginCredentials {
         return selection == null
                 ? java.util.Set.of()
                 : java.util.Set.copyOf(selection.definition().credentialHeaders().values());
-    }
-
-    /**
-     * Returns the setting a stored credential lacks that its provider sends beside the token.
-     *
-     * <p>A start and the broker both ask: a provider that wants the setting answers a request
-     * without it as a wrong credential, so a credential lacking it is refused before it is used.
-     *
-     * @param entry The stored credential, or {@code null} when there is none.
-     * @param credentialHeaders The provider's header to the setting it is filled from.
-     * @return The first setting missing or unusable as a header value, or {@code null} when none
-     *     is.
-     */
-    static @org.jspecify.annotations.Nullable String lacking(
-            final @org.jspecify.annotations.Nullable VaultEntry entry,
-            final Map<String, String> credentialHeaders) {
-        for (final String setting : credentialHeaders.values()) {
-            final String value = entry == null ? null : entry.settings().get(setting);
-            if (value == null || !value.matches("[\\x21-\\x7e]{1,256}")) {
-                return setting;
-            }
-        }
-        return null;
     }
 
     /**

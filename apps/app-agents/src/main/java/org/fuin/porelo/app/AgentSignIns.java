@@ -44,8 +44,10 @@ public final class AgentSignIns {
      *
      * <p>{@code signed_in} is given only while the vault is open: shut, whether anything is stored
      * is unknown, and with no vault the play has a vault to make before any sign-in. {@code
-     * credential} and {@code signed_in} are both left out for an agent that names no default
-     * provider, since a start would have to choose one first.
+     * credential} and {@code signed_in} are both left out for an agent whose default provider
+     * cannot be used - none named, none declared, or a dialect it does not serve - since a start is
+     * refused whatever the vault holds. A sign-in lacking a setting its provider sends beside the
+     * token is not signed in.
      *
      * @param agents The installed agents, in the order they are listed.
      * @param providers The providers this machine declares.
@@ -59,7 +61,7 @@ public final class AgentSignIns {
             boolean vaultExists,
             Optional<Map<String, VaultEntry>> readable) {
         final String vault = !vaultExists ? NONE : readable.isPresent() ? OPEN : SHUT;
-        final java.util.Set<String> stored = readable.orElseGet(Map::of).keySet();
+        final Map<String, VaultEntry> stored = readable.orElseGet(Map::of);
         final List<Map<String, Object>> rows =
                 agents.stream()
                         .map(found -> row(found, providers, stored, vault.equals(OPEN)))
@@ -73,21 +75,30 @@ public final class AgentSignIns {
     private static Map<String, Object> row(
             Found found,
             Map<String, ProviderDefinition> providers,
-            java.util.Set<String> stored,
+            Map<String, VaultEntry> stored,
             boolean open) {
         final AgentDefinition agent = found.definition();
         final Map<String, Object> row = new LinkedHashMap<>();
         row.put("name", agent.name());
         row.put("found_by", found.foundBy().toString());
         final SelectedProvider.Choice choice = SelectedProvider.consider(providers, agent, null);
-        if (choice.refusal() == SelectedProvider.Refusal.NO_PROVIDER_CHOSEN) {
+        if (choice.refusal() != null) {
+            // A start is refused whatever the vault holds, so a sign-in would change nothing.
             return row;
         }
         final String credential =
-                SelectedProvider.credentialKey(stored, agent.name(), choice.wanted());
+                SelectedProvider.credentialKey(stored.keySet(), agent.name(), choice.wanted());
         row.put("credential", credential);
         if (open) {
-            row.put("signed_in", stored.contains(credential));
+            final SelectedProvider selection = choice.selection();
+            final Map<String, String> headers =
+                    selection == null ? Map.of() : selection.definition().credentialHeaders();
+            // As a start judges it: a sign-in lacking what its provider sends beside the token is
+            // refused there, so it is no sign-in here.
+            row.put(
+                    "signed_in",
+                    stored.containsKey(credential)
+                            && CredentialHeaders.lacking(stored.get(credential), headers) == null);
         }
         return row;
     }

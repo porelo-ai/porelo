@@ -284,7 +284,7 @@ final class CredentialChoice {
         final String lacking =
                 entry == null
                         ? null
-                        : LoginCredentials.lacking(
+                        : CredentialHeaders.lacking(
                                 entry, selection.definition().credentialHeaders());
         if (reason == null && lacking != null) {
             // The broker would refuse to start without it; said here, before a container is made

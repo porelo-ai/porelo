@@ -179,6 +179,65 @@ class AgentSignInsTest {
     }
 
     @Test
+    void aSignInLackingWhatItsProviderSendsBesideTheTokenIsNotSignedIn() {
+
+        // A start refuses it and asks for a sign-in; a play told "signed in" would skip that and
+        // start a task that is refused.
+        final AgentSignIns.Found agent =
+                agent(
+                        "codex",
+                        """
+                provider:
+                  default: chatgpt
+                  dialect: openai
+                  endpoint: url
+                """);
+
+        final Map<String, Object> without =
+                AgentSignIns.report(
+                        List.of(agent),
+                        providers(),
+                        true,
+                        Optional.of(Map.of("chatgpt", new VaultEntry(SECRET, "oauth", Map.of()))));
+        final Map<String, Object> with =
+                AgentSignIns.report(
+                        List.of(agent),
+                        providers(),
+                        true,
+                        Optional.of(
+                                Map.of(
+                                        "chatgpt",
+                                        new VaultEntry(
+                                                SECRET, "oauth", Map.of("account_id", "acct-1")))));
+
+        assertThat(rows(without).get(0)).as("no account kept").containsEntry("signed_in", false);
+        assertThat(rows(with).get(0)).as("the account kept").containsEntry("signed_in", true);
+    }
+
+    @Test
+    void anAgentWhoseProviderCannotBeUsedNamesNoEntry() {
+
+        // Its start is refused whatever the vault holds, so a play asking for a sign-in would ask
+        // a person for nothing.
+        final Map<String, Object> report =
+                AgentSignIns.report(
+                        List.of(
+                                agent(
+                                        "nowhere",
+                                        """
+                                provider:
+                                  default: nowhere
+                                  dialect: openai
+                                  endpoint: url
+                                """)),
+                        providers(),
+                        true,
+                        Optional.of(Map.of()));
+
+        assertThat(rows(report).get(0)).containsOnlyKeys("name", "found_by");
+    }
+
+    @Test
     void theReportCarriesNoCredentialValue() {
 
         final String json =

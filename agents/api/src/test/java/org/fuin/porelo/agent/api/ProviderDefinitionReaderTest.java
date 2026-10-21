@@ -72,6 +72,12 @@ class ProviderDefinitionReaderTest {
         assertThatThrownBy(() -> read(OPENROUTER + "credential_headers:\n  X-Account: \"a b\"\n"))
                 .as("a setting that is no name")
                 .isInstanceOf(AgentException.class);
+        assertThatThrownBy(() -> read(OPENROUTER + "credential_headers:\n  X-Id: id_token\n"))
+                .as("a secret, which vault list would print")
+                .isInstanceOf(AgentException.class);
+        assertThatThrownBy(() -> read(OPENROUTER + "credential_headers:\n  Host: account_id\n"))
+                .as("a header the request sets itself")
+                .isInstanceOf(AgentException.class);
     }
 
     @Test

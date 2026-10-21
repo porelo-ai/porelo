@@ -137,6 +137,7 @@ class LoginRenewalTest {
         final Map<String, String> attributes = new LinkedHashMap<>(signIn.attributes());
         attributes.put("account_id", "the-account");
         attributes.put("id_token", "a-token-nobody-asked-for");
+        attributes.put("org_id", "x".repeat(300));
         final VaultFile vault = new VaultFile(dir.resolve("vault.bin"));
         final Map<String, VaultEntry> entries = new LinkedHashMap<>();
         LoginCredentials.put(
@@ -144,13 +145,15 @@ class LoginRenewalTest {
                 "anthropic",
                 new Credential(signIn.type(), signIn.secret(), attributes),
                 true,
-                java.util.Set.of("account_id"));
+                java.util.Set.of("account_id", "org_id"));
         vault.write(entries, PASSPHRASE);
 
         assertThat(vault.read(PASSPHRASE).get("anthropic").settings())
                 .as("as stored")
                 .containsEntry("account_id", "the-account")
-                .doesNotContainValue("a-token-nobody-asked-for");
+                .doesNotContainValue("a-token-nobody-asked-for")
+                .as("a value too long for a header is a token, never a printed setting")
+                .doesNotContainKey("org_id");
         assertThat(renewal(vault, NOW).current()).as("renewed").isEqualTo("at-2");
         assertThat(vault.read(PASSPHRASE).get("anthropic").settings())
                 .as("after a renewal")
@@ -164,26 +167,26 @@ class LoginRenewalTest {
         // in it would write a header of its own into the request.
         final Map<String, String> headers = Map.of("ChatGPT-Account-Id", "account_id");
 
-        assertThat(LoginCredentials.lacking(null, headers))
+        assertThat(CredentialHeaders.lacking(null, headers))
                 .as("nothing stored")
                 .isEqualTo("account_id");
-        assertThat(LoginCredentials.lacking(new VaultEntry("at", "oauth", Map.of()), headers))
+        assertThat(CredentialHeaders.lacking(new VaultEntry("at", "oauth", Map.of()), headers))
                 .as("a sign-in kept before the setting was")
                 .isEqualTo("account_id");
         assertThat(
-                        LoginCredentials.lacking(
+                        CredentialHeaders.lacking(
                                 new VaultEntry(
                                         "at", "oauth", Map.of("account_id", "a\r\nX-Other: b")),
                                 headers))
                 .as("a value that is no header value")
                 .isEqualTo("account_id");
         assertThat(
-                        LoginCredentials.lacking(
+                        CredentialHeaders.lacking(
                                 new VaultEntry("at", "oauth", Map.of("account_id", "the-account")),
                                 headers))
                 .as("a sign-in that has it")
                 .isNull();
-        assertThat(LoginCredentials.lacking(null, Map.of()))
+        assertThat(CredentialHeaders.lacking(null, Map.of()))
                 .as("a provider that wants nothing beside the token")
                 .isNull();
     }
