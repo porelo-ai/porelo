@@ -74,6 +74,30 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     private @Nullable String providerName;
 
     @Option(
+            names = "--set",
+            paramLabel = "<name>[=<value>]",
+            description =
+                    "A value the project declares under 'parameters': NAME=VALUE, or NAME alone for the"
+                            + " value of its variable in this shell. Repeatable; wins over --set-file and"
+                            + " --set-env.")
+    private java.util.List<String> sets = new java.util.ArrayList<>();
+
+    @Option(
+            names = "--set-file",
+            paramLabel = "<file>",
+            description =
+                    "Values from a YAML file of NAME: VALUE. Repeatable, the last file winning; wins over"
+                            + " --set-env.")
+    private java.util.List<Path> setFiles = new java.util.ArrayList<>();
+
+    @Option(
+            names = "--set-env",
+            description =
+                    "Every declared value whose variable is set in this shell. Nothing is taken from the"
+                            + " shell without this or --set NAME.")
+    private boolean setEnv;
+
+    @Option(
             names = "--credential",
             paramLabel = "<entry>=<destination>",
             description =
@@ -413,6 +437,18 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             return 2;
         }
 
+        // Read here, where the caller's shell and files are; checked against the declarations by
+        // the
+        // start itself, as a daemon's start is.
+        final java.util.Map<String, org.fuin.porelo.core.project.Parameters.Given> given;
+        try {
+            given = given(ProjectReader.read(projectFile).parameters());
+        } catch (final ProjectException ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return 2;
+        }
+
         // Starting the task is the domain's job; what this class adds is the terminal. The daemon
         // builds the same request and gets the same behavior without running a CLI.
         final TaskLaunch launch =
@@ -436,7 +472,8 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                         maxTurns,
                                         minutes,
                                         repository,
-                                        credentials))
+                                        credentials,
+                                        given))
                         // What a refusal would name is offered at a terminal instead; a script or a
                         // pipe is refused as before.
                         .offering(offer(noInput, yes, Offer.atTerminal(), err));
@@ -901,6 +938,88 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     }
 
     /**
+     * Reads the values handed in, the environment's first so a file and then the command line win
+     * over it.
+     *
+     * @param declared The project's declarations, which name each value's variable.
+     * @return Each value with where it came from.
+     * @throws ProjectException When a file cannot be read or a value names no variable that is set.
+     */
+    java.util.Map<String, org.fuin.porelo.core.project.Parameters.Given> given(
+            final org.fuin.porelo.core.project.Parameters declared) {
+        final java.util.Map<String, org.fuin.porelo.core.project.Parameters.Given> given =
+                new java.util.LinkedHashMap<>();
+        if (setEnv) {
+            for (final var parameter : declared.declared().values()) {
+                final String value =
+                        parameter.env() == null
+                                ? null
+                                : context.environment().apply(parameter.env());
+                if (value != null) {
+                    given.put(
+                            parameter.name(),
+                            new org.fuin.porelo.core.project.Parameters.Given(
+                                    value, "environment"));
+                }
+            }
+        }
+        for (final Path file : setFiles) {
+            final Object loaded;
+            try {
+                loaded =
+                        new org.yaml.snakeyaml.Yaml(
+                                        new org.yaml.snakeyaml.constructor.SafeConstructor(
+                                                new org.yaml.snakeyaml.LoaderOptions()))
+                                .load(java.nio.file.Files.readString(file));
+            } catch (final java.io.IOException | RuntimeException ex) {
+                throw new ProjectException("Cannot read " + file + ": " + ex.getMessage(), ex);
+            }
+            if (!(loaded instanceof java.util.Map<?, ?> values)) {
+                throw new ProjectException(file + " is not a YAML mapping of NAME: VALUE");
+            }
+            values.forEach(
+                    (name, value) ->
+                            given.put(
+                                    String.valueOf(name),
+                                    new org.fuin.porelo.core.project.Parameters.Given(
+                                            String.valueOf(value), "file " + file)));
+        }
+        for (final String set : sets) {
+            final int equals = set.indexOf('=');
+            if (equals >= 0) {
+                given.put(
+                        set.substring(0, equals),
+                        new org.fuin.porelo.core.project.Parameters.Given(
+                                set.substring(equals + 1), "command line"));
+                continue;
+            }
+            final var parameter = declared.declared().get(set);
+            if (parameter == null || parameter.env() == null) {
+                throw new ProjectException(
+                        "--set "
+                                + set
+                                + " reads a variable from this shell, and the project declares no"
+                                + " parameter '"
+                                + set
+                                + "' with one; say --set "
+                                + set
+                                + "=VALUE");
+            }
+            final String value = context.environment().apply(parameter.env());
+            if (value == null) {
+                throw new ProjectException(
+                        "--set "
+                                + set
+                                + " reads "
+                                + parameter.env()
+                                + ", which this shell does not set");
+            }
+            given.put(set, new org.fuin.porelo.core.project.Parameters.Given(value, "environment"));
+        }
+        return given;
+    }
+
+    /**
      * The options that take effect only when a task is created or brought up, so a start on one
      * that is running would drop them without a word. {@code -r} is not among them: a different
      * repository is refused before, and the task's own changes nothing.
@@ -910,6 +1029,9 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                     "--agent",
                     "--provider",
                     "--credential",
+                    "--set",
+                    "--set-file",
+                    "--set-env",
                     "--credential-type",
                     "--token-hours",
                     "--shell",

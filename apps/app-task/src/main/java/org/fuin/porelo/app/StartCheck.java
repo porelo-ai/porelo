@@ -46,6 +46,12 @@ public final class StartCheck {
         /** The task name is one Start would refuse. {@code detail} says why. */
         BAD_TASK_NAME,
 
+        /**
+         * A value the start hands in is one the project's declaration does not allow, names no
+         * declaration, or a required one is missing. {@code detail} names it and what is allowed.
+         */
+        PARAMETER_REFUSED,
+
         /** No repository was named, and Start never picks one. {@code detail} names the choices. */
         NO_REPOSITORY_CHOSEN,
 
@@ -325,10 +331,50 @@ public final class StartCheck {
             @Nullable String repository,
             boolean needsRepository,
             Map<String, String> credentials) {
+        return check(
+                context,
+                projectFile,
+                taskName,
+                agentName,
+                providerName,
+                credentialType,
+                repository,
+                needsRepository,
+                credentials,
+                Map.of());
+    }
 
-        final Result rest =
+    /**
+     * Settles everything a start would, the values it hands in among them.
+     *
+     * @param context Where the machine's state comes from.
+     * @param projectFile The project file, or {@code null}.
+     * @param taskName The task's name, or {@code null}.
+     * @param agentName Agent to run, or {@code null} for the only one installed.
+     * @param providerName Provider to route through, or {@code null}.
+     * @param credentialType Overrides the stored credential kind, or {@code null}.
+     * @param repository Which repository the task is for, or {@code null}.
+     * @param needsRepository Whether this run would have a gate at all.
+     * @param credentials The credentials the run adds.
+     * @param parameters The values the start hands in, each with where it came from.
+     * @return What was found.
+     */
+    public static Result check(
+            PoreloContext context,
+            @Nullable Path projectFile,
+            @Nullable String taskName,
+            @Nullable String agentName,
+            @Nullable String providerName,
+            @Nullable String credentialType,
+            @Nullable String repository,
+            boolean needsRepository,
+            Map<String, String> credentials,
+            Map<String, org.fuin.porelo.core.project.Parameters.Given> parameters) {
+
+        final Result checked =
                 checkEverythingElse(
                         context, projectFile, taskName, agentName, providerName, credentialType);
+        final Result rest = withParameters(checked, projectFile, parameters);
         final Result chosen =
                 withRepository(
                         withCredentials(context, rest, projectFile, credentials),
@@ -342,6 +388,44 @@ public final class StartCheck {
                         projectFile,
                         repository)
                 : chosen;
+    }
+
+    /**
+     * Returns the answer with the start's values settled against the project's declarations: in
+     * every mode, since a value nothing allows must never reach a task.
+     *
+     * @param rest What everything else answered.
+     * @param projectFile The project file, or {@code null}.
+     * @param parameters The values handed in.
+     * @return The answer.
+     */
+    static Result withParameters(
+            Result rest,
+            @Nullable Path projectFile,
+            Map<String, org.fuin.porelo.core.project.Parameters.Given> parameters) {
+        if (rest.outcome() == Outcome.NO_PROJECT_FILE
+                || rest.outcome() == Outcome.BAD_TASK_NAME
+                || projectFile == null) {
+            return rest;
+        }
+        final org.fuin.porelo.core.project.Parameters declared;
+        try {
+            declared = org.fuin.porelo.core.project.ProjectReader.read(projectFile).parameters();
+        } catch (RuntimeException ex) {
+            // A file that cannot be read is the other checks' to say, not a refused value.
+            return rest;
+        }
+        try {
+            declared.resolve(parameters);
+        } catch (org.fuin.porelo.core.project.ProjectException ex) {
+            return new Result(
+                    Outcome.PARAMETER_REFUSED,
+                    rest.agent(),
+                    rest.provider(),
+                    rest.credential(),
+                    String.valueOf(ex.getMessage()));
+        }
+        return rest;
     }
 
     /**

@@ -597,7 +597,8 @@ final class TaskMethods {
                                                     // for one would be asking about something that
                                                     // does not exist for that run.
                                                     !flag(parameters, "noGate"),
-                                                    credentials(parameters))
+                                                    credentials(parameters),
+                                                    values(parameters))
                                             .asMap());
                     // What the host offers, asked only when it is the question: it reaches the
                     // network.

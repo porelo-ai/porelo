@@ -84,7 +84,99 @@ public final class TaskInventory {
             @Nullable String provider,
             AgentEnding.@Nullable Ended agentEnded,
             HandIns.Summary handIns,
-            TaskBuilds.View builds) {
+            TaskBuilds.View builds,
+            Map<String, Map<String, String>> parameters) {
+
+        /**
+         * Constructor for a task started with no values, as every task was before a project could
+         * declare them.
+         *
+         * @param name Container name.
+         * @param project Project, or {@code null}.
+         * @param securityClass Class, or {@code null}.
+         * @param state Container state.
+         * @param running Whether it is up.
+         * @param helpers How many host processes it has.
+         * @param agent Agent, or {@code null}.
+         * @param mode Mode, or {@code null}.
+         * @param prompt Prompt, or {@code null}.
+         * @param branch Branch, or {@code null}.
+         * @param since When it last changed.
+         * @param activity What it is doing.
+         * @param waitingFor What it waits for, or {@code null}.
+         * @param clearance Clearance, or {@code null}.
+         * @param label Its label, or {@code null}.
+         * @param waiting How much waits.
+         * @param startAction What a start would do.
+         * @param startDetail Why.
+         * @param repository Repository, or {@code null}.
+         * @param commit Commit, or {@code null}.
+         * @param derived What its agent's declaration reads.
+         * @param credentials Credentials beyond the agent's.
+         * @param grants Whom it acts as.
+         * @param provider Provider, or {@code null}.
+         * @param agentEnded How its agent ended, or {@code null}.
+         * @param handIns What was handed in.
+         * @param builds Its builds.
+         */
+        public Task(
+                String name,
+                @Nullable String project,
+                @Nullable String securityClass,
+                String state,
+                boolean running,
+                long helpers,
+                @Nullable String agent,
+                @Nullable String mode,
+                @Nullable String prompt,
+                @Nullable String branch,
+                String since,
+                Activity activity,
+                @Nullable String waitingFor,
+                @Nullable String clearance,
+                @Nullable String label,
+                int waiting,
+                String startAction,
+                String startDetail,
+                @Nullable String repository,
+                @Nullable String commit,
+                AgentWaiting.Derived derived,
+                Map<String, String> credentials,
+                Map<String, Map<String, String>> grants,
+                @Nullable String provider,
+                AgentEnding.@Nullable Ended agentEnded,
+                HandIns.Summary handIns,
+                TaskBuilds.View builds) {
+            this(
+                    name,
+                    project,
+                    securityClass,
+                    state,
+                    running,
+                    helpers,
+                    agent,
+                    mode,
+                    prompt,
+                    branch,
+                    since,
+                    activity,
+                    waitingFor,
+                    clearance,
+                    label,
+                    waiting,
+                    startAction,
+                    startDetail,
+                    repository,
+                    commit,
+                    derived,
+                    credentials,
+                    grants,
+                    provider,
+                    agentEnded,
+                    handIns,
+                    builds,
+                    Map.of());
+        }
 
         /**
          * Constructor for a task that names no provider, the shape before it was recorded.
@@ -536,6 +628,8 @@ public final class TaskInventory {
             // Whom it acts as, for each of those a person granted: an audit fact, never the grant
             // itself.
             map.put("grants", grants);
+            // The values it was started with, each with where it came from; fixed for its life.
+            map.put("parameters", parameters);
 
             // The container this task is, so a record entry of a name another task carried before
             // can be told apart; "" for a task with none recorded.
@@ -959,7 +1053,11 @@ public final class TaskInventory {
                         summary.securityClass() != null
                                 ? summary.securityClass()
                                 : sidecar == null ? null : sidecar.securityClass(),
-                        summary.running()));
+                        summary.running()),
+                parametersGiven(
+                        restartTookIt
+                                ? context.paths().tasks().taskRecord(summary.name())
+                                : state));
     }
 
     /**
@@ -1052,6 +1150,44 @@ public final class TaskInventory {
                                                 String.valueOf(fields.get("grantedBy")),
                                                 "grantedAt",
                                                 String.valueOf(fields.get("grantedAt"))));
+                            }
+                        });
+                return given;
+            }
+        } catch (java.io.IOException | RuntimeException ex) {
+            // A file that cannot be read says nothing; the task is still listed.
+        }
+        return Map.of();
+    }
+
+    /** The values a task was started with, each with its origin, written when it is launched. */
+    static final String PARAMETERS_FILE = "parameters.json";
+
+    /**
+     * Reads the values a task was started with from its record.
+     *
+     * @param directory The task's state directory.
+     * @return Each value by its name, with {@code value} and {@code origin}; empty when there is no
+     *     record or it cannot be read.
+     */
+    static Map<String, Map<String, String>> parametersGiven(Path directory) {
+        final Path file = directory.resolve(PARAMETERS_FILE);
+        if (!Files.isRegularFile(file)) {
+            return Map.of();
+        }
+        try {
+            if (org.fuin.porelo.wire.Json.parse(
+                            Files.readString(file, java.nio.charset.StandardCharsets.UTF_8))
+                    instanceof Map<?, ?> named) {
+                final Map<String, Map<String, String>> given = new java.util.LinkedHashMap<>();
+                named.forEach(
+                        (name, value) -> {
+                            if (value instanceof Map<?, ?> fields) {
+                                // In this order on every read, so a program sees one shape.
+                                final Map<String, String> one = new java.util.LinkedHashMap<>();
+                                one.put("value", String.valueOf(fields.get("value")));
+                                one.put("origin", String.valueOf(fields.get("origin")));
+                                given.put(String.valueOf(name), one);
                             }
                         });
                 return given;

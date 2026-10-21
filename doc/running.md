@@ -289,6 +289,32 @@ builds:
   GitHub, `sudo apt install porelo-build-github` or `sudo dnf install porelo-build-github`, which puts it at
   `/usr/libexec/porelo/builds/github`. Writing one is in [writing a build reader](build-readers.md).
 
+## Values a task is started with
+
+A project can declare values a task of it is started with, under `parameters` in the
+[project file](project-file.md): the kind of work, a ticket, a label. Each is handed in at the start:
+
+- `--set type=bugfix` gives the value itself.
+- `--set ticket` takes the value of the declaration's variable (`env`, `PORELO_PARAM_TICKET` by default) from your
+  shell.
+- `--set-file values.yml` reads `NAME: VALUE` lines from a file; repeatable, the last file winning.
+- `--set-env` takes every declared variable your shell has set.
+
+Nothing is taken from your shell without `--set NAME` or `--set-env`, so a variable left over from yesterday does not
+name today's task. Given more than once, `--set` wins over a file, a file over your shell, your shell over the
+declaration's `default`.
+
+- **Checked before anything is made.** A value outside its declaration, a name the project does not declare, or a
+  required value missing refuses the start, naming what is allowed. The daemon's `CanStart` answers the same,
+  `PARAMETER_REFUSED`.
+- **Fixed for the task's life.** The task holds its values in its environment and its record; a later change to the
+  project file does not reach it, and starting a stopped task again with `--set` is refused.
+- **Shown with where each came from**: `porelo task status TASK` says `type=bugfix (command line)`, and the daemon's
+  `Task` carries the same.
+- **Seen by the agent, never changed by it**, in the declared variable and in its guide, below.
+- **Not secrets.** They stand in the task's record, its listing and its environment. A credential belongs in the
+  vault.
+
 ## What a task's agent is told
 
 An agent learns what Porelo gives it in its task from one guide, which it takes into its standing instructions at
@@ -302,7 +328,8 @@ at its prompt, Porelo types one line naming it, as it does for a message: never 
 open, and never for an agent whose definition says nothing about what its screen shows at rest. A file that arrived
 while the agent worked is announced once it rests; a verdict that changes is announced again.
 
-The text is the same for every task of one Porelo version, word for word:
+The text is the same for every task of one Porelo version, word for word; a task started with
+[values](#values-a-task-is-started-with) has a part naming each, and the variable it is in, after all of it:
 
 ## Porelo in this task
 

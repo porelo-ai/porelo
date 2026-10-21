@@ -25,6 +25,7 @@ package org.fuin.porelo.core.project;
  * @param imageVariant The repository whose own image this project's copy carries, or {@code null}
  *     for the project's image; it names the image apart, so two repositories' images never replace
  *     each other.
+ * @param parameters The values a task of it may be started with.
  */
 public record Project(
         String name,
@@ -40,7 +41,60 @@ public record Project(
         java.util.List<Repository> repositories,
         java.util.Map<String, String> credentials,
         @org.jspecify.annotations.Nullable Builds builds,
-        @org.jspecify.annotations.Nullable String imageVariant) {
+        @org.jspecify.annotations.Nullable String imageVariant,
+        Parameters parameters) {
+
+    /**
+     * Constructor for a project that declares no parameters, as every project did before they
+     * could.
+     *
+     * @param name Project name.
+     * @param description What it is for.
+     * @param securityClass How contained its tasks are.
+     * @param baseImage Image its task image is built from.
+     * @param imageSnippet Extra build fragment, or {@code null}.
+     * @param upstream Where approved work goes, or {@code null}.
+     * @param limits What a task may consume.
+     * @param egress What a task may reach.
+     * @param packageSources Where apt fetches from, or {@code null}.
+     * @param mail The peers its tasks may address.
+     * @param repositories The work repositories it names.
+     * @param credentials Vault entries every task holds, by the destination each is for.
+     * @param builds Where its builds are read, or {@code null}.
+     * @param imageVariant The repository whose own image this is, or {@code null}.
+     */
+    public Project(
+            String name,
+            String description,
+            SecurityClass securityClass,
+            String baseImage,
+            @org.jspecify.annotations.Nullable String imageSnippet,
+            @org.jspecify.annotations.Nullable String upstream,
+            Limits limits,
+            Egress egress,
+            java.util.@org.jspecify.annotations.Nullable List<String> packageSources,
+            Mail mail,
+            java.util.List<Repository> repositories,
+            java.util.Map<String, String> credentials,
+            @org.jspecify.annotations.Nullable Builds builds,
+            @org.jspecify.annotations.Nullable String imageVariant) {
+        this(
+                name,
+                description,
+                securityClass,
+                baseImage,
+                imageSnippet,
+                upstream,
+                limits,
+                egress,
+                packageSources,
+                mail,
+                repositories,
+                credentials,
+                builds,
+                imageVariant,
+                Parameters.none());
+    }
 
     /**
      * Constructor for a project built from its own image, as every project was before a repository
@@ -438,6 +492,7 @@ public record Project(
     }
 
     public Project {
+        parameters = parameters == null ? Parameters.none() : parameters;
         if (name.isBlank()) {
             throw new ProjectException("The project name is required");
         }
@@ -774,6 +829,7 @@ public record Project(
                 repositories,
                 credentials,
                 builds,
-                repository);
+                repository,
+                parameters);
     }
 }

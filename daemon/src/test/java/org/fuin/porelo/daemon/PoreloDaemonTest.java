@@ -399,6 +399,113 @@ class PoreloDaemonTest {
     }
 
     @Test
+    void aValueTheProjectDoesNotAllowIsRefusedByCanStartAndStartAlike(@TempDir Path dir)
+            throws Exception {
+
+        // An interface offered a start by CanStart must not see Start refuse it, and the reverse.
+        final PoreloContext context = hooked(dir);
+        final Path project = projectFile(dir);
+        Files.writeString(
+                project,
+                Files.readString(project) + "parameters:\n  type:\n    values: [feature, bugfix]\n",
+                java.nio.charset.StandardCharsets.UTF_8);
+        runner.answering("podman version", "5.8.1");
+
+        servingContext(
+                context,
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> reply =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Start",
+                                        Map.of(
+                                                "project",
+                                                PROJECT,
+                                                "task",
+                                                "shell",
+                                                "repository",
+                                                "uc",
+                                                "parameters",
+                                                Map.of(
+                                                        "type",
+                                                        Map.of(
+                                                                "value", "hotfix", "origin",
+                                                                "form"))));
+                        assertThat(((Number) reply.get("exitCode")).intValue()).isEqualTo(64);
+                        @SuppressWarnings("unchecked")
+                        final List<String> output = (List<String>) reply.get("output");
+                        assertThat(String.join("\n", output)).contains("[feature, bugfix]");
+
+                        assertThat(
+                                        client.call(
+                                                PoreloDaemon.INTERFACE + ".CanStart",
+                                                Map.of(
+                                                        "project",
+                                                        PROJECT,
+                                                        "task",
+                                                        "shell",
+                                                        "repository",
+                                                        "uc",
+                                                        "parameters",
+                                                        Map.of(
+                                                                "type",
+                                                                Map.of(
+                                                                        "value", "hotfix", "origin",
+                                                                        "form")))))
+                                .containsEntry("outcome", "PARAMETER_REFUSED")
+                                .containsEntry("ready", false);
+                        assertThat(
+                                        client.call(
+                                                PoreloDaemon.INTERFACE + ".CanStart",
+                                                Map.of(
+                                                        "project",
+                                                        PROJECT,
+                                                        "task",
+                                                        "shell",
+                                                        "repository",
+                                                        "uc",
+                                                        "parameters",
+                                                        Map.of(
+                                                                "type",
+                                                                Map.of(
+                                                                        "value", "bugfix", "origin",
+                                                                        "form")))))
+                                .doesNotContainEntry("outcome", "PARAMETER_REFUSED");
+
+                        // The origin is the client's to say: it read the value where its person is.
+                        final Map<String, Object> dry =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Start",
+                                        Map.of(
+                                                "project",
+                                                PROJECT,
+                                                "task",
+                                                "shell",
+                                                "repository",
+                                                "uc",
+                                                "dryRun",
+                                                true,
+                                                "parameters",
+                                                Map.of(
+                                                        "type",
+                                                        Map.of(
+                                                                "value", "bugfix", "origin",
+                                                                "form"))));
+                        @SuppressWarnings("unchecked")
+                        final List<String> said = (List<String>) dry.get("output");
+                        assertThat(String.join("\n", said)).contains("type=bugfix (form)");
+                    }
+                });
+        assertThat(runner.lines())
+                .as("nothing is built or created for a value nothing allows")
+                .noneMatch(
+                        line ->
+                                line.startsWith("podman build")
+                                        || line.startsWith("podman create"));
+    }
+
+    @Test
     void refusesABadTaskNameBeforeAnythingIsBuiltOrWritten(@TempDir Path dir) throws Exception {
 
         // Reported from the interface: 'Foo Bar' built an image and wrote a policy, a resolver and

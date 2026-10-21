@@ -39,6 +39,7 @@ public final class TaskState {
                     org.fuin.porelo.wire.Sidecar.RECORDED_ID,
                     "task.json",
                     TaskInventory.CREDENTIALS_FILE,
+                    TaskInventory.PARAMETERS_FILE,
                     TaskInventory.GRANTS_FILE,
                     TaskHelpers.FILE,
                     UnhandedWork.FILE,

@@ -238,6 +238,9 @@ type Task (
   # For each of those credentials a person granted: who and when, as it stood when the task started - the
   # person this task acts as. Empty when none is a grant.
   grants: [string]Authorization,
+  # The values it was started with, by the name project.yml declares under 'parameters:', each with where
+  # it came from. Fixed for the task's life, as its environment is. Empty when it was started with none.
+  parameters: [string]ParameterValue,
   # The container this task is: the id Porelo recorded when it was created. A task's name is the next free one
   # in its project, so after a remove a later task can carry the same name; HandIns tells their records apart
   # by this. "" for a task with none recorded.
@@ -433,6 +436,12 @@ method Start(
   # destination or provider it is for. They add to the project's and cannot point one of its elsewhere.
   # Each reaches the task as PORELO_TOKEN_<ENTRY> and PORELO_URL_<ENTRY>, a token worthless anywhere else.
   credentials: ?[string]string,
+  # Values for what project.yml declares under 'parameters:', by name. Each is checked against its
+  # declaration before anything is made, a declared default fills one left out, and the task records each
+  # with the origin the client gives ("client" when it gives none). Refused when a value is not allowed, names nothing declared, or a required one
+  # is missing: CanStart answers PARAMETER_REFUSED. A task brought back keeps the values it was made with
+  # and refuses new ones.
+  parameters: ?[string]ParameterValue,
   # Runs with no workspace and no git gate: the agent gets an empty directory and can commit
   # nowhere.
   noGate: ?bool,
@@ -617,6 +626,13 @@ method Lock() -> (
   holding: int
 )
 
+# A value a task was started with, and where it came from: "command line", "file <path>", "environment",
+# "default", or what a client of Start says, such as "form" - "client" when it says nothing.
+type ParameterValue (
+  value: string,
+  origin: string
+)
+
 # Why work could not start here, or that it could.
 #
 # New values may appear; render an unrecognised one rather than throwing, by the same rule as
@@ -631,6 +647,10 @@ type StartOutcome (
   # The task name is one Start would refuse: lowercase letters, digits and inner hyphens, not
   # only digits, and 'porelo-<project>-<task>' at most 65 characters. 'detail' says which.
   BAD_TASK_NAME,
+  # A value handed in is one project.yml's 'parameters:' does not allow, names no declaration, or a required
+  # one is missing. 'detail' names it and what is allowed. Answered in every mode: no value nothing allows
+  # reaches a task.
+  PARAMETER_REFUSED,
   # No repository was named and Start never picks one, not even for a project that has exactly
   # one. Somebody chooses a REPOSITORY; Project.repositories lists them, its own first, and
   # 'detail' names them too. This is the outcome a start dialog turns into its required choice.
@@ -722,7 +742,10 @@ method CanStart(
   credentialType: ?string,
   # The credentials the run would add, as Start takes them. Each the project or the run names must be for a
   # destination declared here, or the answer is UNKNOWN_DESTINATION.
-  credentials: ?[string]string
+  credentials: ?[string]string,
+  # The values Start would be handed, as it takes them. One the project's declaration does not allow is
+  # PARAMETER_REFUSED.
+  parameters: ?[string]ParameterValue
 ) -> (
   # Whether work could start. True exactly when outcome is READY, so branch on whichever suits -
   # but never infer the ACTION from this alone: three different things somebody has to do all

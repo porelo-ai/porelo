@@ -1,6 +1,6 @@
 # B189 — Values Handed To A Task At Its Start
 
-**Status:** Backlog.
+**Status:** Implementing. Built, each test seen red first: steps 1 to 8 - the declaration, its checks and its reader; `{name}`; `--set`, `--set-file`, `--set-env`; the check before anything exists, in the start and in `StartCheck`, and a stopped task brought back refusing new values; the record `parameters.json` with each origin, the declared variables in the container, and `task status` (line and `--json`); the daemon's `Start` and `CanStart` take `parameters`, `Task` carries them, outcome `PARAMETER_REFUSED`.
 **Size:** L - a new project file block in `core`, four start options in the CLI, three types and a refusal in the
 daemon's contract, a durable record, the container's environment, the guide, `task status` and an acceptance feature.
 

@@ -370,6 +370,149 @@ class TaskRunCommandTest {
         return name;
     }
 
+    private static final String WITH_PARAMETERS =
+            MINIMAL
+                    + """
+                    parameters:
+                      type:
+                        values: [feature, bugfix]
+                        default: feature
+                      ticket:
+                        pattern: "[A-Z]+-[0-9]+"
+                        env: "TASK_TICKET"
+                      label:
+                        required: false
+                    """;
+
+    @Test
+    void eachValueIsSettledFromTheWaysItWasGivenAndShownWithItsOrigin(@TempDir Path dir)
+            throws IOException {
+
+        // The command line wins over a file, a file over the shell, the shell over a default.
+        final Path file = dir.resolve("values.yml");
+        Files.writeString(file, "ticket: FILE-1\nlabel: from-the-file\n");
+        final int code =
+                execute(
+                        context(dir, true, name -> "TASK_TICKET".equals(name) ? "ENV-1" : null),
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, WITH_PARAMETERS),
+                        "--set-env",
+                        "--set-file",
+                        file.toString(),
+                        "--set",
+                        "ticket=CLI-1",
+                        "--dry-run");
+
+        assertThat(code).as(err.toString()).isZero();
+        assertThat(out.toString())
+                .contains("value          type=feature (default)")
+                .contains("value          ticket=CLI-1 (command line)")
+                .contains("value          label=from-the-file (file " + file + ")");
+    }
+
+    @Test
+    void aValueTheDeclarationDoesNotAllowCreatesNothing(@TempDir Path dir) throws IOException {
+
+        // Refused before anything exists: no container, no state, no gate.
+        final int code =
+                execute(
+                        context(dir, true),
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, WITH_PARAMETERS),
+                        "--set",
+                        "type=hotfix");
+
+        assertThat(code).isEqualTo(64);
+        assertThat(err.toString()).contains("[feature, bugfix]").contains("nothing was created");
+        assertThat(runner.invocations())
+                .as("no container made")
+                .noneMatch(command -> command.arguments().contains("create"));
+    }
+
+    @Test
+    void aStoppedTaskBroughtBackKeepsItsValuesAndRefusesNewOnes(@TempDir Path dir)
+            throws IOException {
+
+        // Its environment and record were fixed when it was created; a value handed in now would
+        // change neither and look applied.
+        final PoreloContext context = context(dir, true);
+        runner.answering(
+                "ps",
+                "porelo-uc-shell\tExited (0) 4 minutes ago\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "shell",
+                        "-p",
+                        projectFile(dir, WITH_PARAMETERS),
+                        "--set",
+                        "type=bugfix");
+
+        assertThat(code).as(err.toString()).isEqualTo(64);
+        assertThat(err.toString()).contains("stay as they were");
+    }
+
+    @Test
+    void aTaskIsGivenItsValuesInItsEnvironmentAndRecordsWhereEachCameFrom(@TempDir Path dir)
+            throws IOException {
+
+        // The declaration's variable carries the value in; the record keeps the origin, so a branch
+        // named from a value can be traced back after the shell that gave it is gone.
+        final PoreloContext context = context(dir, true);
+        execute(
+                context,
+                "task",
+                "start",
+                "--attach",
+                "shell",
+                "--detach",
+                "-p",
+                projectFile(dir, WITH_PARAMETERS),
+                "--set",
+                "ticket=AB-12");
+
+        assertThat(runner.only("create").environment())
+                .containsEntry("TASK_TICKET", "AB-12")
+                .containsEntry("PORELO_PARAM_TYPE", "feature")
+                .doesNotContainKey("PORELO_PARAM_LABEL");
+        final String recorded =
+                Files.readString(
+                        dir.resolve("state/porelo/tasks/porelo-uc-shell")
+                                .resolve(TaskInventory.PARAMETERS_FILE));
+        assertThat(recorded).contains("AB-12").contains("command line").contains("default");
+        // And its agent is told, after the text every task shares.
+        final String guide =
+                Files.readString(new TaskGuide(context.paths(), "porelo-uc-shell").file());
+        assertThat(guide)
+                .startsWith(TaskGuideText.text(false).substring(0, 40))
+                .contains("- `ticket`: `AB-12`, in `$TASK_TICKET`")
+                .contains("- `type`: `feature`, in `$PORELO_PARAM_TYPE`");
+    }
+
+    @Test
+    void nothingIsTakenFromTheShellUnasked(@TempDir Path dir) throws IOException {
+
+        // A variable left in a shell from yesterday must not name today's task.
+        final int code =
+                execute(
+                        context(dir, true, name -> "TASK_TICKET".equals(name) ? "ENV-1" : null),
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, WITH_PARAMETERS),
+                        "--dry-run");
+
+        assertThat(code).isZero();
+        assertThat(out.toString()).doesNotContain("ticket=");
+    }
+
     @Test
     void reportsTheResolvedProject(@TempDir Path dir) throws IOException {
 

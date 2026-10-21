@@ -117,6 +117,8 @@ takes `porelo approve TASK`; `--yes` answers for a script.
 - By default you get the agent's session. `--attach shell` gives a shell, `-P`/`--prompt` runs the
   agent unattended, `--detach` hands over nothing, `--now` returns before the image is built.
 - `--rm` removes the container when you leave. By default it is kept.
+- `--set NAME=VALUE`, `--set NAME`, `--set-file FILE` and `--set-env` hand in the
+  [values the project declares](running.md#values-a-task-is-started-with), checked before anything is made.
 - **A running task is gone into**, as `attach` does: at a terminal, `start` on it starts its agent again where the
   session is gone, continuing its conversation. An option that takes effect only when a task is created or brought
   up (`--prompt`, `--model`, `--agent`, `--attach`, `--detach`, `--rm` and the like) is refused, naming each, since it

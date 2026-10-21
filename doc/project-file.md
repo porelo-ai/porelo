@@ -172,6 +172,21 @@ credentials:
 #   credential: github-actions
 #   api: https://ghe.example/api/v3   # optional; unset is the forge's own public API
 #   logs: failure                     # optional: failure (default) or all
+
+# Optional. The values a task of this project may be started with, each checked against its
+# declaration before anything is created and fixed for the task's life. A start hands them in with
+# --set NAME=VALUE, --set NAME (from the caller's shell), --set-file FILE or --set-env. They are
+# not secrets: they stand in the task's record and environment; credentials belong in the vault.
+parameters:
+  type:
+    description: "The kind of work"
+    values: [feature, bugfix, hotfix, release]   # a fixed list, or
+    default: feature
+  ticket:
+    description: "The ticket in the tracker"
+    pattern: "[A-Z]+-[0-9]+"                     # a regular expression the whole value matches
+    required: false
+    env: "TASK_TICKET"                           # default PORELO_PARAM_TICKET; none keeps it out
 ```
 
 ## A repository's own image

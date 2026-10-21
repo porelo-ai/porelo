@@ -34,8 +34,12 @@ final class ProjectSchema {
                         "mail",
                         "repositories",
                         "credentials",
-                        "builds"));
+                        "builds",
+                        "parameters"));
         SECTIONS.put("builds", Set.of("forge", "credential", "api", "logs"));
+        SECTIONS.put(
+                "parameters.<parameter>",
+                Set.of("description", "values", "pattern", "default", "required", "env"));
         SECTIONS.put(
                 "project", Set.of("name", "description", "security_class", "upstream", "signers"));
         SECTIONS.put("image", Set.of("base_image", "snippet", "snippet_file", "package_sources"));
@@ -100,6 +104,56 @@ final class ProjectSchema {
                             "Vault entries every task holds, each named with the destination it is for;"
                                     + " only names, never values.",
                             "map",
+                            "",
+                            false),
+                    key(
+                            "",
+                            "parameters",
+                            "The values a task of the project may be started with, by name; not secrets.",
+                            "map",
+                            "",
+                            false),
+                    key(
+                            "parameters.<parameter>",
+                            "description",
+                            "For people: what the value is for.",
+                            "string",
+                            "",
+                            false),
+                    key(
+                            "parameters.<parameter>",
+                            "values",
+                            "The values allowed; not with pattern.",
+                            "list",
+                            "",
+                            false),
+                    key(
+                            "parameters.<parameter>",
+                            "pattern",
+                            "A regular expression the whole value must match; not with values.",
+                            "string",
+                            "",
+                            false),
+                    key(
+                            "parameters.<parameter>",
+                            "default",
+                            "The value when a start gives none.",
+                            "string",
+                            "",
+                            false),
+                    key(
+                            "parameters.<parameter>",
+                            "required",
+                            "Whether a start without a value is refused.",
+                            "boolean",
+                            "false",
+                            false),
+                    key(
+                            "parameters.<parameter>",
+                            "env",
+                            "The variable the task sees it in, and a shell is read from;"
+                                    + " PORELO_PARAM_<NAME> by default, none keeps it out of the task.",
+                            "string",
                             "",
                             false),
                     key(
@@ -456,6 +510,19 @@ final class ProjectSchema {
                         }
                     });
         }
+        if (root.get("parameters") instanceof Map<?, ?> parameters) {
+            parameters.forEach(
+                    (name, parameter) -> {
+                        if (parameter instanceof Map<?, ?> map) {
+                            keys(
+                                    map,
+                                    "parameters.<parameter>",
+                                    "parameters." + name,
+                                    origin,
+                                    unknown);
+                        }
+                    });
+        }
         if (root.get("repositories") instanceof Map<?, ?> repositories) {
             repositories.forEach(
                     (name, repository) -> {
@@ -531,7 +598,8 @@ final class ProjectSchema {
                         ? "the top level"
                         : section.getKey()
                                 .replace(".<peer>", ".<name>")
-                                .replace(".<repository>", ".<name>");
+                                .replace(".<repository>", ".<name>")
+                                .replace(".<parameter>", ".<name>");
             }
         }
         return null;

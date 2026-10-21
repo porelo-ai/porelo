@@ -671,6 +671,35 @@ public final class PoreloDaemon {
         return credentials;
     }
 
+    /**
+     * Reads the values a call hands in, each with its origin as the client says it: the client read
+     * them where its person is, from a form, a file or its own environment.
+     *
+     * @param parameters The call's parameters.
+     * @return Each value with its origin; empty when the call names none.
+     */
+    static Map<String, org.fuin.porelo.core.project.Parameters.Given> values(
+            Map<String, Object> parameters) {
+        final Map<String, org.fuin.porelo.core.project.Parameters.Given> values =
+                new LinkedHashMap<>();
+        if (parameters.get("parameters") instanceof Map<?, ?> named) {
+            named.forEach(
+                    (name, value) -> {
+                        if (value instanceof Map<?, ?> fields) {
+                            final Object origin = fields.get("origin");
+                            values.put(
+                                    String.valueOf(name),
+                                    new org.fuin.porelo.core.project.Parameters.Given(
+                                            String.valueOf(fields.get("value")),
+                                            origin == null || String.valueOf(origin).isBlank()
+                                                    ? "client"
+                                                    : String.valueOf(origin)));
+                        }
+                    });
+        }
+        return values;
+    }
+
     static TaskLaunch.Request request(Map<String, Object> parameters, PoreloContext context) {
         final String task = text(parameters, "task");
         final String repository = text(parameters, "repository");
@@ -715,7 +744,8 @@ public final class PoreloDaemon {
                 // and a client that does not say which one the task is for gets the same refusal
                 // the CLI gives, naming what there is to choose from.
                 empty(parameters, "repository"),
-                credentials(parameters));
+                credentials(parameters),
+                values(parameters));
     }
 
     /**

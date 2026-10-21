@@ -49,6 +49,40 @@ class StartCheckTest {
     }
 
     @Test
+    void aValueTheProjectDoesNotAllowIsRefusedAsTheStartRefusesIt(@TempDir Path dir)
+            throws Exception {
+
+        // The daemon's CanStart and Start must not disagree: an interface offered a start here
+        // would see it refused there.
+        Files.createDirectories(dir.resolve("project"));
+        final Path project = dir.resolve("project/project.yml");
+        Files.writeString(
+                project,
+                "project:\n  name: \"uc\"\n  security_class: \"guarded\"\n"
+                        + "image:\n  base_image: \"ubuntu:24.04\"\n"
+                        + "parameters:\n  type:\n    values: [feature, bugfix]\n");
+
+        final StartCheck.Result result =
+                StartCheck.check(
+                        context(dir),
+                        project,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        false,
+                        java.util.Map.of(),
+                        java.util.Map.of(
+                                "type",
+                                new org.fuin.porelo.core.project.Parameters.Given(
+                                        "hotfix", "command line")));
+
+        assertThat(result.outcome()).isEqualTo(StartCheck.Outcome.PARAMETER_REFUSED);
+        assertThat(result.detail()).contains("[feature, bugfix]");
+    }
+
+    @Test
     void answersWithoutAProjectFileWhenNoneIsGiven(@TempDir Path dir) {
 
         // The start dialog asks before a project is necessarily chosen, so the project is optional

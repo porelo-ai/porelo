@@ -67,6 +67,10 @@ class DocumentedProjectFileTest {
         assertThat(project.limitsFor(frontend).memory()).isEqualTo("16g");
         assertThat(project.limitsFor(frontend).pids()).isEqualTo(project.limits().pids());
         assertThat(project.credentials()).containsEntry("search", "brave-search");
+        assertThat(project.parameters().declared())
+                .as("the documented parameters")
+                .containsOnlyKeys("type", "ticket");
+        assertThat(project.parameters().declared().get("ticket").env()).isEqualTo("TASK_TICKET");
         assertThat(project.mail().peers())
                 .singleElement()
                 .satisfies(

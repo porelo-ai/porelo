@@ -170,7 +170,9 @@ public final class ProjectReader {
                         root,
                         origin,
                         SecurityClass.parse(
-                                required(project, "security_class", origin, "project"))));
+                                required(project, "security_class", origin, "project"))),
+                null,
+                parameters(root, origin));
     }
 
     /**
@@ -250,6 +252,64 @@ public final class ProjectReader {
      * @param securityClass The project's class.
      * @return What it declared, or {@code null} when it declared nothing.
      */
+    /** Reads {@code parameters}: the values a task of the project may be started with. */
+    private static Parameters parameters(Map<?, ?> root, String origin) {
+        final Object block = root.get("parameters");
+        if (block == null) {
+            return Parameters.none();
+        }
+        if (!(block instanceof Map<?, ?> declared)) {
+            throw new ProjectException(
+                    origin + ": 'parameters' must be a mapping of name to declaration");
+        }
+        final Map<String, Parameter> read = new java.util.LinkedHashMap<>();
+        for (final Map.Entry<?, ?> entry : declared.entrySet()) {
+            final String name = String.valueOf(entry.getKey());
+            final Map<?, ?> one =
+                    entry.getValue() == null
+                            ? Map.of()
+                            : entry.getValue() instanceof Map<?, ?> map ? map : null;
+            if (one == null) {
+                throw new ProjectException(
+                        origin + ": 'parameters." + name + "' must be a mapping");
+            }
+            final Object values = one.get("values");
+            if (values != null && !(values instanceof java.util.List<?>)) {
+                throw new ProjectException(
+                        origin + ": 'parameters." + name + ".values' must be a list");
+            }
+            final String env = one.get("env") == null ? null : String.valueOf(one.get("env"));
+            try {
+                read.put(
+                        name,
+                        new Parameter(
+                                name,
+                                text(one.get("description")),
+                                values == null
+                                        ? null
+                                        : ((java.util.List<?>) values)
+                                                .stream().map(String::valueOf).toList(),
+                                one.get("pattern") == null
+                                        ? null
+                                        : String.valueOf(one.get("pattern")),
+                                one.get("default") == null
+                                        ? null
+                                        : String.valueOf(one.get("default")),
+                                Boolean.TRUE.equals(one.get("required")),
+                                env == null
+                                        ? Parameter.defaultEnv(name)
+                                        : Parameter.NO_ENV.equals(env) ? null : env));
+            } catch (ProjectException ex) {
+                throw new ProjectException(origin + ": " + ex.getMessage(), ex);
+            }
+        }
+        try {
+            return new Parameters(read);
+        } catch (ProjectException ex) {
+            throw new ProjectException(origin + ": " + ex.getMessage(), ex);
+        }
+    }
+
     private static @Nullable Builds builds(
             Map<?, ?> root, String origin, SecurityClass securityClass) {
         final Object value = root.get("builds");

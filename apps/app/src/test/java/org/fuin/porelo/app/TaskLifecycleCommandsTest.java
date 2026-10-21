@@ -395,6 +395,32 @@ class TaskLifecycleCommandsTest {
     }
 
     @Test
+    void saysTheValuesATaskWasStartedWithAndWhereEachCameFrom(@TempDir Path dir)
+            throws IOException {
+
+        // The shell that gave a value is gone by the time somebody asks why the branch has its
+        // name; the record answers it, for a person and for a program.
+        final PoreloContext context = context(dir);
+        runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\t1700000000\t0\tuc\tguarded\n");
+        Files.writeString(
+                stateOf("porelo-uc-shell-1").resolve(TaskInventory.PARAMETERS_FILE),
+                "{\"ticket\":{\"value\":\"AB-12\",\"origin\":\"command line\"},"
+                        + "\"type\":{\"value\":\"feature\",\"origin\":\"default\"}}");
+        workspaceReports(dir, "0 0");
+
+        assertThat(execute(context, "task", "status", "porelo-uc-shell-1")).isZero();
+        assertThat(out.toString())
+                .contains("values     ticket=AB-12 (command line), type=feature (default)");
+
+        out.getBuffer().setLength(0);
+        assertThat(execute(context, "task", "status", "porelo-uc-shell-1", "--json")).isZero();
+        assertThat(out.toString())
+                .contains(
+                        "\"parameters\":{\"ticket\":{\"value\":\"AB-12\",\"origin\":\"command"
+                                + " line\"}");
+    }
+
+    @Test
     void answersAProgramWhatARunningTaskIsAndWhereItBelongs(@TempDir Path dir) throws IOException {
 
         // A playbook starts only what is not running, so the names it reads are pinned here.
@@ -428,7 +454,7 @@ class TaskLifecycleCommandsTest {
                 .as("one JSON object")
                 .isEqualTo(
                         "{\"name\":\"porelo-uc-shell-9\",\"state\":\"absent\",\"running\":false,"
-                                + "\"project\":null,\"repository\":null}");
+                                + "\"project\":null,\"repository\":null,\"parameters\":{}}");
     }
 
     @Test

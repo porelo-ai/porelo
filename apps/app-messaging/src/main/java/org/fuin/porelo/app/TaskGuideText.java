@@ -32,6 +32,21 @@ public final class TaskGuideText {
      * @return Markdown.
      */
     public static String text(final boolean mailbox) {
+        return text(mailbox, java.util.Map.of());
+    }
+
+    /**
+     * Returns the guide with the values this task was started with, in a part after everything
+     * every task shares, so a provider's cache of the shared beginning still holds.
+     *
+     * @param mailbox Whether the task has a mailbox, whose guide then follows.
+     * @param values Each value by its name: the value and the variable it is in, or {@code null}
+     *     for one its declaration keeps out of the task.
+     * @return Markdown.
+     */
+    public static String text(
+            final boolean mailbox,
+            final java.util.Map<String, java.util.Map.Entry<String, String>> values) {
         final String files =
                 """
                 # Porelo in this task
@@ -77,7 +92,33 @@ public final class TaskGuideText {
                 done.** On `failure`, read the log each failed `job` line names, fix the cause, and push again.
                 """
                         .replace("@FILES@", Containerfile.HAND_IN_FILES);
-        return mailbox ? files + "\n" + MailboxGuide.text() : files;
+        final String shared = mailbox ? files + "\n" + MailboxGuide.text() : files;
+        if (values.isEmpty()) {
+            return shared;
+        }
+        final StringBuilder part =
+                new StringBuilder(
+                        """
+
+                        # The values this task was started with
+
+                        A person chose these when the task was started. They are fixed for the task's life, and
+                        not secrets.
+
+                        """);
+        values.forEach(
+                (name, given) -> {
+                    part.append("- `")
+                            .append(name)
+                            .append("`: `")
+                            .append(given.getKey())
+                            .append('`');
+                    if (given.getValue() != null) {
+                        part.append(", in `$").append(given.getValue()).append('`');
+                    }
+                    part.append('\n');
+                });
+        return shared + part;
     }
 
     /**
@@ -88,13 +129,30 @@ public final class TaskGuideText {
      * @throws IOException Writing failed.
      */
     public static void write(final TaskGuide guide, final boolean mailbox) throws IOException {
+        write(guide, mailbox, java.util.Map.of());
+    }
+
+    /**
+     * Writes the guide with the task's values into its directory, made when missing, and only when
+     * it changed.
+     *
+     * @param guide Where it goes.
+     * @param mailbox Whether the task has a mailbox.
+     * @param values Each value by its name, with the variable it is in or {@code null}.
+     * @throws IOException Writing failed.
+     */
+    public static void write(
+            final TaskGuide guide,
+            final boolean mailbox,
+            final java.util.Map<String, java.util.Map.Entry<String, String>> values)
+            throws IOException {
         final Path directory = guide.directory();
         if (Files.isSymbolicLink(directory)) {
             throw new IOException(directory + " is a link; the guide is not written through it");
         }
         Files.createDirectories(directory);
         Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwxr-xr-x"));
-        final String text = text(mailbox);
+        final String text = text(mailbox, values);
         final Path file = guide.file();
         if (Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)
                 && Files.readString(file, StandardCharsets.UTF_8).equals(text)) {

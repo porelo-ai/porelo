@@ -177,6 +177,23 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
         line(out, "reviewing", task.waiting() > 0 ? task.waiting() + " waiting at the gate" : null);
         line(out, "workspace", workspace(task));
         line(out, "prompt", task.prompt());
+        // What it was started with, each with where it came from: the shell that gave a value is
+        // gone by the time somebody asks why the branch has that name.
+        line(
+                out,
+                "values",
+                task.parameters().isEmpty()
+                        ? null
+                        : task.parameters().entrySet().stream()
+                                .map(
+                                        given ->
+                                                given.getKey()
+                                                        + "="
+                                                        + given.getValue().get("value")
+                                                        + " ("
+                                                        + given.getValue().get("origin")
+                                                        + ")")
+                                .collect(java.util.stream.Collectors.joining(", ")));
         // What was handed to it, from the record: name, size, by whom - so a person returning to a
         // task sees what it was given without going in and looking.
         for (final HandIns.HandedFile file : task.handIns().files()) {
@@ -369,6 +386,7 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
         report.put("running", task != null && task.running());
         report.put("project", task == null ? null : task.project());
         report.put("repository", task == null ? null : task.repository());
+        report.put("parameters", task == null ? java.util.Map.of() : task.parameters());
         out.println(org.fuin.porelo.wire.Json.write(report));
         out.flush();
         return 0;

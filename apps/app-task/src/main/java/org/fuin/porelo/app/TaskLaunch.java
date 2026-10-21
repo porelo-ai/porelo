@@ -50,6 +50,8 @@ public final class TaskLaunch {
      * @param repository Which of the project's repositories the task works on. Never guessed: a
      *     request that names none is refused, because a command whose meaning depends on how many
      *     repositories exist today is one nobody can read.
+     * @param parameters The values a start hands in, each with where it came from, not yet checked
+     *     against the project's declarations.
      */
     public record Request(
             String task,
@@ -69,7 +71,72 @@ public final class TaskLaunch {
             @Nullable Integer maxTurns,
             int minutes,
             @Nullable String repository,
-            java.util.Map<String, String> credentials) {
+            java.util.Map<String, String> credentials,
+            java.util.Map<String, org.fuin.porelo.core.project.Parameters.Given> parameters) {
+
+        /**
+         * Constructor for a request that hands in no values, as every start did before a project
+         * could declare them.
+         *
+         * @param task Task name.
+         * @param projectFile Project file.
+         * @param agentName Agent to use, or {@code null}.
+         * @param providerName Provider, or {@code null}.
+         * @param credentialType Credential type override, or {@code null}.
+         * @param tokenHours Phantom token lifetime.
+         * @param upstream Upstream override, or {@code null}.
+         * @param noGate Whether to skip the gate.
+         * @param dryRun Whether to stop before starting.
+         * @param clearance Clearance mode.
+         * @param keep Whether to keep the container.
+         * @param mode What the task is for.
+         * @param prompt Prompt, or {@code null}.
+         * @param model Model, or {@code null}.
+         * @param maxTurns Turn limit, or {@code null}.
+         * @param minutes Minutes an unattended run may take.
+         * @param repository Which repository, or {@code null}.
+         * @param credentials Further credentials, by vault entry.
+         */
+        public Request(
+                String task,
+                Path projectFile,
+                @Nullable String agentName,
+                @Nullable String providerName,
+                @Nullable String credentialType,
+                int tokenHours,
+                @Nullable String upstream,
+                boolean noGate,
+                boolean dryRun,
+                String clearance,
+                boolean keep,
+                org.fuin.porelo.wire.TaskMode mode,
+                @Nullable String prompt,
+                @Nullable String model,
+                @Nullable Integer maxTurns,
+                int minutes,
+                @Nullable String repository,
+                java.util.Map<String, String> credentials) {
+            this(
+                    task,
+                    projectFile,
+                    agentName,
+                    providerName,
+                    credentialType,
+                    tokenHours,
+                    upstream,
+                    noGate,
+                    dryRun,
+                    clearance,
+                    keep,
+                    mode,
+                    prompt,
+                    model,
+                    maxTurns,
+                    minutes,
+                    repository,
+                    credentials,
+                    java.util.Map.of());
+        }
 
         /**
          * Constructor for a request that names no credentials of its own beyond the project's.
@@ -259,7 +326,8 @@ public final class TaskLaunch {
                     maxTurns,
                     minutes,
                     repository,
-                    credentials);
+                    credentials,
+                    parameters);
         }
     }
 
@@ -441,6 +509,18 @@ public final class TaskLaunch {
         final String theirs = ofAnotherProject(summary.get(), project.name());
         if (theirs != null) {
             err.println("porelo: " + theirs);
+            err.flush();
+            return new Existing(container, project.name(), 64);
+        }
+        // A task's values were fixed when it was created, in its environment and its record; a
+        // value handed to a start that brings it back would change neither, and said nothing.
+        if (!request.parameters().isEmpty()) {
+            err.println(
+                    "porelo: "
+                            + container
+                            + " was started with its values, which stay as they were; start it"
+                            + " again without --set, --set-file and --set-env, or remove it and start"
+                            + " a new task");
             err.flush();
             return new Existing(container, project.name(), 64);
         }
@@ -918,6 +998,26 @@ public final class TaskLaunch {
         image.envFrom()
                 .forEach((name, from) -> out.println("image env      " + name + " from " + from));
         out.println("task image     " + project.imageName());
+        // Settled before anything exists, as the daemon's CanStart settles them: a value nothing
+        // allows must never reach a task, and a start that names the wrong one hears it now.
+        try {
+            values = project.parameters().resolve(request.parameters());
+        } catch (ProjectException ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.println("porelo: nothing was created");
+            err.flush();
+            return 64;
+        }
+        values.forEach(
+                (name, given) ->
+                        out.println(
+                                "value          "
+                                        + name
+                                        + "="
+                                        + given.value()
+                                        + " ("
+                                        + given.origin()
+                                        + ")"));
         out.flush();
 
         // Resolved here rather than at the point of use: a set name that does not exist is a
@@ -1384,6 +1484,31 @@ public final class TaskLaunch {
 
             final CredentialWiring.CredentialPlumbing plumbing =
                     wiring().startVault(selected, container, this.extras, out, err);
+            if (!values.isEmpty()) {
+                // With each value's origin, so a branch named from one can be traced back; fixed
+                // for the task's life, as its environment is.
+                final java.util.Map<String, Object> recorded = new java.util.LinkedHashMap<>();
+                values.forEach(
+                        (name, given) ->
+                                recorded.put(
+                                        name,
+                                        java.util.Map.of(
+                                                "value", given.value(), "origin", given.origin())));
+                try {
+                    java.nio.file.Files.writeString(
+                            context.paths()
+                                    .tasks()
+                                    .containerState(container)
+                                    .resolve(TaskInventory.PARAMETERS_FILE),
+                            org.fuin.porelo.wire.Json.write(recorded),
+                            java.nio.charset.StandardCharsets.UTF_8);
+                } catch (java.io.IOException ex) {
+                    err.println(
+                            "porelo: could not record the values this task was started with: "
+                                    + ex.getMessage());
+                    err.flush();
+                }
+            }
             if (!this.extras.isEmpty()) {
                 // By name and destination, for anything that asks what the task holds; never a
                 // token.
@@ -1430,6 +1555,14 @@ public final class TaskLaunch {
             // The issue prefixes the task's repository owns, so its agent names and cites issues as
             // the repository does; empty where the repository names none.
             environmentCache.put(ISSUE_PREFIXES, String.join(",", repository.issues()));
+            // The values it was started with, each under its declaration's variable; one declared
+            // 'env: none' stays out. Fixed with the container, so a resume cannot change one.
+            for (final var parameter : project.parameters().declared().values()) {
+                final var given = values.get(parameter.name());
+                if (given != null && parameter.env() != null) {
+                    environmentCache.put(parameter.env(), given.value());
+                }
+            }
             if (workspace != null) {
                 environmentCache.putAll(workspace.environment(project, request.task()));
             }
@@ -2266,6 +2399,10 @@ public final class TaskLaunch {
         }
     }
 
+    /** The values the task was started with, settled when it is launched; empty until then. */
+    private java.util.Map<String, org.fuin.porelo.core.project.Parameters.Given> values =
+            java.util.Map.of();
+
     /** The project's other credentials, resolved when the task is launched; empty until then. */
     private java.util.Map<String, Destination> extras = java.util.Map.of();
 
@@ -2533,7 +2670,26 @@ public final class TaskLaunch {
         final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox(container));
         final TaskGuide guide = new TaskGuide(context.paths(), container);
         if (created || guide.exists()) {
-            TaskGuideText.write(guide, mailbox.exists());
+            // A task brought back has no values in hand; its record has the ones it was made with,
+            // so the guide says the same after a resume.
+            final java.util.Map<String, String> started = new java.util.LinkedHashMap<>();
+            if (!values.isEmpty()) {
+                values.forEach((name, given) -> started.put(name, given.value()));
+            } else {
+                TaskInventory.parametersGiven(context.paths().tasks().containerState(container))
+                        .forEach((name, given) -> started.put(name, given.get("value")));
+            }
+            final java.util.Map<String, java.util.Map.Entry<String, String>> told =
+                    new java.util.LinkedHashMap<>();
+            started.forEach(
+                    (name, value) -> {
+                        final var declared = project.parameters().declared().get(name);
+                        told.put(
+                                name,
+                                new java.util.AbstractMap.SimpleImmutableEntry<>(
+                                        value, declared == null ? null : declared.env()));
+                    });
+            TaskGuideText.write(guide, mailbox.exists(), told);
         }
         if (!mailbox.exists()) {
             return;
