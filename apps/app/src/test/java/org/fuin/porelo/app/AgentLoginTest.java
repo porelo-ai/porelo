@@ -128,11 +128,14 @@ class AgentLoginTest {
 
         // Off by one user, and it would have looked like a login that produced nothing: the agent
         // runs as 'agent' in the image, so '~/.claude' is /home/agent/.claude there while the
-        // node's expansion gives whoever is running Porelo.
-        assertThat(AgentLogin.inContainer("~/.claude")).isEqualTo("/home/agent/.claude");
-        assertThat(AgentLogin.inContainer("/etc/somewhere")).isEqualTo("/etc/somewhere");
+        // node's expansion gives whoever is running Porelo. Pinned to the container's path, never
+        // compared with this machine's: run as 'agent' in a task, the two are the same.
         assertThat(AgentLogin.inContainer("~/.claude"))
-                .isNotEqualTo(VaultImportCommand.expand("~/.claude").toString());
+                .as("the container's home, whoever runs Porelo")
+                .isEqualTo("/home/agent/.claude");
+        assertThat(AgentLogin.inContainer("/etc/somewhere"))
+                .as("an absolute path as it is")
+                .isEqualTo("/etc/somewhere");
     }
 
     @Test
