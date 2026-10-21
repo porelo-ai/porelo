@@ -280,6 +280,23 @@ final class CredentialChoice {
         }
         final String type = credentialType(credentialName(agent));
         final String reason = selection.route().unbrokerableReason(type);
+        final var entry = context.credentials().get(credentialName(agent));
+        final String lacking =
+                entry == null
+                        ? null
+                        : LoginCredentials.lacking(
+                                entry, selection.definition().credentialHeaders());
+        if (reason == null && lacking != null) {
+            // The broker would refuse to start without it; said here, before a container is made
+            // for nothing.
+            return "the credential stored for '"
+                    + agent.name()
+                    + "' holds no usable '"
+                    + lacking
+                    + "', which '"
+                    + selection.name()
+                    + "' needs on every request; sign in again with 'porelo vault login'.";
+        }
         return reason == null
                 ? null
                 : "the '"

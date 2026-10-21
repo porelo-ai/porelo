@@ -1,6 +1,6 @@
 # P11 — Provider ChatGPT Sign-In
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** M - a provider file, one new provider key the broker and the agent API carry, the sign-in kept whole with
 one more setting, tests at each place, a doc row; the agent side is porelo-codex's.
 
@@ -31,7 +31,8 @@ subscription; a change of the route or a refusal by the provider would change th
 
 Read in today's code: a sign-in is already kept whole and renewed on the host (`LoginCredentials`, `LoginRenewal`,
 `TokenPurchase.Refresh`), and the renewal stores a rotated refresh token and the new access token in one vault update
-under its lock before the token is handed to a request. What is missing is a header whose value is not the token.
+under its lock before the token is handed to a request (`LoginRenewalTest`); a broker stopped before that update
+loses the answer, and the next renewal uses the refresh token still stored. A renewal keeps the entry's settings. What is missing is a header whose value is not the token.
 
 1. **Red first:** `SelectedProviderTest` that `chatgpt` is shipped, serves `openai` under `/backend-api/codex`, takes
    `oauth` in `Authorization: Bearer` and refuses an API key before the start; a `VaultProxyTest` that a request on a
@@ -43,7 +44,8 @@ under its lock before the token is handed to a request. What is missing is a hea
 3. **A new provider key, `credential_headers`:** header name to the setting of the vault entry it is filled from,
    here `ChatGPT-Account-Id: account_id`. Read by `ProviderDefinitionReader` into `ProviderDefinition`, carried by
    `ProviderRoute` and `VaultProxy.Route`; the broker sets each header from the entry and drops the container's own
-   value of it. An entry lacking a named setting is refused before the start (`StartCheck`), never sent without it.
+   value of it. An entry lacking a named setting is refused before the start (`CredentialChoice.unbrokerable`, read by
+   `StartCheck`) and by `vault serve`, through one check, `LoginCredentials.lacking`; never sent without it.
 4. **`LoginCredentials.put`** keeps the credential attributes the provider's `credential_headers` name as settings
    beside `expires_at`, `token_url` and `client_id`; none is a secret.
 5. **`doc/credentials.md`:** a row in "The providers Porelo ships", and the accepted risk in `doc/decisions.md`.
@@ -69,6 +71,4 @@ under its lock before the token is handed to a request. What is missing is a hea
 
 - Whether the CLI pointed at the broker with a dummy token contacts `ab.chatgpt.com` at all; Agent Codex measures it
   in the task.
-- Whether an existing test already interrupts a renewal between the token endpoint's answer and the vault update;
-  if not, it is written here.
 - The CLI's client id and how the access token's end is read (its JWT `exp`), from Agent Codex.

@@ -43,6 +43,38 @@ class ProviderDefinitionReaderTest {
     }
 
     @Test
+    void readsTheHeadersFilledFromTheStoredCredential() {
+
+        assertThat(
+                        read(OPENROUTER + "credential_headers:\n  ChatGPT-Account-Id: account_id\n")
+                                .credentialHeaders())
+                .as("header to setting")
+                .containsExactly(java.util.Map.entry("ChatGPT-Account-Id", "account_id"));
+        assertThat(read(OPENROUTER).credentialHeaders()).as("declared by none").isEmpty();
+    }
+
+    @Test
+    void refusesACredentialHeaderThatCouldWriteAnotherOrReplaceTheToken() {
+
+        // The name reaches an HTTP request: a colon or a line break would let a provider file add
+        // a header of its own choosing, and the token's own header would be overwritten.
+        assertThatThrownBy(
+                        () -> read(OPENROUTER + "credential_headers:\n  \"X-A: b\": account_id\n"))
+                .as("a colon in the name")
+                .isInstanceOf(AgentException.class);
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        OPENROUTER
+                                                + "credential_headers:\n  authorization: account_id\n"))
+                .as("the token's own header")
+                .isInstanceOf(AgentException.class);
+        assertThatThrownBy(() -> read(OPENROUTER + "credential_headers:\n  X-Account: \"a b\"\n"))
+                .as("a setting that is no name")
+                .isInstanceOf(AgentException.class);
+    }
+
+    @Test
     void theFirstDialectDeclaredIsTheOneTheProviderIs() {
 
         // Order is meaning here, so the reader must not use a map that loses it. An agent asking

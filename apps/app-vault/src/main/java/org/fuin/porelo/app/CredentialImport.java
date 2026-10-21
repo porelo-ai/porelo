@@ -140,7 +140,12 @@ public final class CredentialImport {
                     .update(
                             way.get(),
                             entries -> {
-                                LoginCredentials.put(entries, key, value, false);
+                                LoginCredentials.put(
+                                        entries,
+                                        key,
+                                        value,
+                                        false,
+                                        LoginCredentials.kept(selection));
                                 return entries;
                             });
 

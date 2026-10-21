@@ -91,6 +91,14 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
     private Map<String, String> routeSpecs = new java.util.LinkedHashMap<>();
 
     @Option(
+            names = "--credential-header",
+            paramLabel = "<header>=<setting>",
+            description =
+                    "A header set on the credential's requests beside its key, filled from that setting of"
+                            + " the stored credential. Repeatable. A credential without the setting is refused.")
+    private Map<String, String> credentialHeaders = new java.util.LinkedHashMap<>();
+
+    @Option(
             names = "--route-tokens",
             paramLabel = "<dir>",
             description =
@@ -138,6 +146,34 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
     }
 
     /**
+     * Fills each {@code --credential-header} from the stored credential's settings.
+     *
+     * <p>Refused rather than sent without: a provider that asks for a header answers a request
+     * lacking it as if the credential were wrong.
+     *
+     * @param entry The credential, or {@code null} when the vault holds none.
+     * @param headers Filled with each header and its value.
+     * @return What is missing, or {@code null} when every header has its value.
+     */
+    private @Nullable String headerValues(
+            org.fuin.porelo.vault.@Nullable VaultEntry entry, Map<String, String> headers) {
+        final String lacking = LoginCredentials.lacking(entry, credentialHeaders);
+        if (lacking != null) {
+            return "holds no usable '" + lacking + "'; sign in again with 'porelo vault login'";
+        }
+        credentialHeaders.forEach(
+                (header, setting) ->
+                        headers.put(
+                                header,
+                                java.util.Objects.requireNonNull(
+                                        java.util.Objects.requireNonNull(entry, "checked above")
+                                                .settings()
+                                                .get(setting),
+                                        "checked above")));
+        return null;
+    }
+
+    /**
      * Reads the token a previous run left, or {@code null} when there is none to reuse.
      *
      * @return Token value.
@@ -162,6 +198,7 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
         final TokenBroker broker;
         final Map<String, VaultProxy.Route> routes = new java.util.LinkedHashMap<>();
         final Map<String, PhantomToken> routeTokenValues = new java.util.LinkedHashMap<>();
+        final Map<String, String> headers = new java.util.LinkedHashMap<>();
         try {
             routeSpecs.forEach((name, spec) -> routes.put(name, route(name, spec)));
         } catch (IllegalArgumentException ex) {
@@ -185,6 +222,12 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
         try {
             final Map<String, org.fuin.porelo.vault.VaultEntry> entries = context.credentials();
             entries.forEach((key, entry) -> credentials.put(key, entry.value()));
+            final String lacking = headerValues(entries.get(credential), headers);
+            if (lacking != null) {
+                err.println("porelo: credential '" + credential + "' " + lacking);
+                err.flush();
+                return 2;
+            }
             // A credential that has to be bought: the broker buys the token here, on the host, and
             // keeps it in memory. What it holds is the client secret, which never leaves this
             // process.
@@ -327,6 +370,7 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
                         authHeader,
                         authPrefix,
                         authQuery,
+                        headers,
                         routes,
                         requests)) {
 

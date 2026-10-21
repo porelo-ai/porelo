@@ -532,7 +532,8 @@ public final class AgentLogin {
                 .update(
                         way,
                         entries -> {
-                            LoginCredentials.put(entries, key, value, true);
+                            LoginCredentials.put(
+                                    entries, key, value, true, LoginCredentials.kept(selection));
                             return entries;
                         });
     }

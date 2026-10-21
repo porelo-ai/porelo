@@ -150,6 +150,8 @@ public class VaultProxy implements AutoCloseable, Runnable {
 
     private final Map<String, Route> routes;
 
+    private final Map<String, String> ownHeaders;
+
     private final HttpClient http;
 
     private final ServerSocketChannel server;
@@ -235,12 +237,31 @@ public class VaultProxy implements AutoCloseable, Runnable {
      * @param authHeader The header the key goes in.
      * @param authPrefix Text before the key in that header.
      * @param authQuery The URL parameter the key goes in instead, or {@code null}.
+     * @param headers Headers set on every request beside the key, by name; whatever the container
+     *     sent under those names is dropped. Values taken from the stored credential, never secret.
      */
     public record Route(
             String upstream,
             String authHeader,
             String authPrefix,
-            @org.jspecify.annotations.Nullable String authQuery) {
+            @org.jspecify.annotations.Nullable String authQuery,
+            Map<String, String> headers) {
+
+        /**
+         * Constructor for a route that sets nothing beside the key.
+         *
+         * @param upstream The destination.
+         * @param authHeader The header.
+         * @param authPrefix The prefix.
+         * @param authQuery The URL parameter, or {@code null}.
+         */
+        public Route(
+                String upstream,
+                String authHeader,
+                String authPrefix,
+                @org.jspecify.annotations.Nullable String authQuery) {
+            this(upstream, authHeader, authPrefix, authQuery, Map.of());
+        }
 
         /**
          * Constructor.
@@ -249,6 +270,7 @@ public class VaultProxy implements AutoCloseable, Runnable {
          * @param authHeader The header.
          * @param authPrefix The prefix.
          * @param authQuery The URL parameter, or {@code null}.
+         * @param headers Headers set beside the key.
          */
         public Route {
             upstream =
@@ -256,6 +278,7 @@ public class VaultProxy implements AutoCloseable, Runnable {
                             ? upstream.substring(0, upstream.length() - 1)
                             : upstream;
             authQuery = authQuery == null || authQuery.isBlank() ? null : authQuery;
+            headers = Map.copyOf(headers);
         }
     }
 
@@ -287,7 +310,34 @@ public class VaultProxy implements AutoCloseable, Runnable {
             @org.jspecify.annotations.Nullable String authQuery,
             Map<String, Route> routes,
             java.util.function.Consumer<String> log) {
+        this(socket, upstream, exchange, authHeader, authPrefix, authQuery, Map.of(), routes, log);
+    }
 
+    /**
+     * Constructor for a task whose own credential carries headers beside its key.
+     *
+     * @param socket Path to bind.
+     * @param upstream The agent's own destination, for a token scoped to no other route.
+     * @param exchange Turns a presented token into a credential and the scope it stands for.
+     * @param authHeader The agent's own header.
+     * @param authPrefix The agent's own prefix.
+     * @param authQuery The agent's own URL parameter, or {@code null}.
+     * @param headers Headers set on the agent's own requests beside its key, by name.
+     * @param routes The other credentials' routes, by the credential a token is scoped to.
+     * @param log Receives one line per request.
+     */
+    public VaultProxy(
+            Path socket,
+            String upstream,
+            TokenExchange exchange,
+            String authHeader,
+            String authPrefix,
+            @org.jspecify.annotations.Nullable String authQuery,
+            Map<String, String> headers,
+            Map<String, Route> routes,
+            java.util.function.Consumer<String> log) {
+
+        this.ownHeaders = Map.copyOf(headers);
         this.routes = Map.copyOf(routes);
         this.authQuery = authQuery == null || authQuery.isBlank() ? null : authQuery;
         this.log = log;
@@ -768,6 +818,9 @@ public class VaultProxy implements AutoCloseable, Runnable {
         final java.util.Set<String> keyHeaders = new java.util.HashSet<>(CREDENTIAL_HEADERS);
         keyHeaders.add(authHeader.toLowerCase(Locale.ROOT));
         routes.values().forEach(each -> keyHeaders.add(each.authHeader().toLowerCase(Locale.ROOT)));
+        // Set from the credential below; the container's own value would otherwise travel beside
+        // it.
+        route.headers().keySet().forEach(name -> keyHeaders.add(name.toLowerCase(Locale.ROOT)));
         for (int i = 0; i < head.names().size(); i++) {
             final String name = head.names().get(i).toLowerCase(Locale.ROOT);
             if (keyHeaders.contains(name)
@@ -783,11 +836,12 @@ public class VaultProxy implements AutoCloseable, Runnable {
         if (route.authQuery() == null) {
             request.header(route.authHeader(), route.authPrefix() + real);
         }
+        route.headers().forEach(request::header);
         return request.build();
     }
 
     private Route own() {
-        return new Route(upstream, authHeader, authPrefix, authQuery);
+        return new Route(upstream, authHeader, authPrefix, authQuery, ownHeaders);
     }
 
     private java.util.Set<String> queryParameters() {

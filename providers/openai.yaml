@@ -19,4 +19,4 @@ token_env:
 # A ChatGPT sign-in is served by the subscription's own backend, not by this API, so it is refused before
 # a start rather than failing inside the task.
 unbrokerable:
-    oauth: "A ChatGPT sign-in is served by the subscription's own backend, not by api.openai.com, which takes an API key (porelo vault put openai)"
+    oauth: "A ChatGPT sign-in is served by the subscription's own backend, the provider 'chatgpt', not by api.openai.com, which takes an API key (porelo vault put openai)"

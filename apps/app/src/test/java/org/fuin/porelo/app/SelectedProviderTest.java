@@ -147,6 +147,42 @@ class SelectedProviderTest {
     }
 
     @Test
+    void chatGptIsReachedWithASignInAndItsAccountAndRefusesAnApiKey() {
+
+        // The subscription's backend answers a request without the account as a wrong sign-in, and
+        // an API key sent there fails inside the task instead of being refused before the start.
+        final ProviderDefinition chatgpt = shipped().get("chatgpt");
+        final AgentDefinition agent =
+                agent(
+                        """
+                provider:
+                  default: chatgpt
+                  dialect: openai
+                  endpoint: url
+                """);
+
+        assertThat(chatgpt).as("chatgpt is shipped").isNotNull();
+        assertThat(chatgpt.upstreamHost()).isEqualTo("chatgpt.com");
+        assertThat(chatgpt.authHeaderFor("oauth")).isEqualTo("Authorization");
+        assertThat(chatgpt.authPrefixFor("oauth")).isEqualTo("Bearer ");
+        assertThat(chatgpt.unbrokerableReason("oauth")).as("a sign-in is brokered").isNull();
+        assertThat(chatgpt.unbrokerableReason("api-key"))
+                .as("an API key is refused, naming where it belongs")
+                .contains("'openai'");
+        assertThat(chatgpt.credentialHeaders())
+                .as("the account beside the token")
+                .containsExactly(java.util.Map.entry("ChatGPT-Account-Id", "account_id"));
+        assertThat(shipped().get("openai").unbrokerableReason("oauth"))
+                .as("a sign-in stored for openai names chatgpt")
+                .contains("'chatgpt'");
+        assertThat(
+                        SelectedProvider.choose(shipped(), agent, null)
+                                .route()
+                                .endpointFor("http://127.0.0.1:9419"))
+                .isEqualTo("http://127.0.0.1:9419/backend-api/codex");
+    }
+
+    @Test
     void twoAgentsReachTheSameProviderWithoutEitherDescribingIt() {
 
         // The whole point. Anthropic is declared once; an agent speaking its dialect and an agent

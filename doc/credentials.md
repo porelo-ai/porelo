@@ -97,10 +97,15 @@ Each is reached through the broker, with the credential on the host and a stand-
 | Provider | Upstream | Reached by | Credential |
 |---|---|---|---|
 | `anthropic` | `https://api.anthropic.com` | its own agent, and any agent speaking `anthropic-messages` | an API key, sent as `x-api-key`, or a subscription token, sent as `Authorization: Bearer`; stored with `porelo vault put anthropic`, `vault import` or `vault login` |
-| `openai` | `https://api.openai.com` | its own agent, and any agent speaking `openai`, served under `/v1` | an API key, sent as `Authorization: Bearer`; stored with `porelo vault put openai`. A ChatGPT sign-in is refused before the start: the subscription's own backend serves it, not this API |
+| `openai` | `https://api.openai.com` | its own agent, and any agent speaking `openai`, served under `/v1` | an API key, sent as `Authorization: Bearer`; stored with `porelo vault put openai`. A ChatGPT sign-in is refused before the start: it belongs to `chatgpt` |
+| `chatgpt` | `https://chatgpt.com`, the subscription's own backend | any agent speaking `openai`, served under `/backend-api/codex` | a ChatGPT sign-in, stored with `porelo vault login`, sent as `Authorization: Bearer` with its account as `ChatGPT-Account-Id`, and renewed on the host. An API key is refused before the start: it belongs to `openai`. An accepted risk, see [the decision](decisions.md#a-subscriptions-own-backend-is-served-as-a-provider) |
 | `openrouter` | `https://openrouter.ai` | any agent speaking `openai`, served under `/api/v1`, or `anthropic-messages`, served under `/api` | an API key, sent as `Authorization: Bearer`; stored with `porelo vault put openrouter` |
 | `github-copilot` | `https://api.githubcopilot.com`, every path at its root | any agent speaking `openai` | a GitHub token granted once through the device flow, sent as `Authorization: Bearer`; see [a subscription granted once](#a-subscription-granted-once-github-copilot) |
 
+- **A provider may want more than the token on each request.** `credential_headers` names a header and the setting
+  of the stored sign-in its value comes from (`ChatGPT-Account-Id: account_id`). A sign-in keeps that setting when it
+  is stored, the broker sets the header and drops the container's own value of it, and a sign-in without it is
+  refused before the start.
 - **OpenRouter's path depends on the dialect.** A base URL that misses it answers "model not found"
   rather than 404, which reads as a bad model name.
 

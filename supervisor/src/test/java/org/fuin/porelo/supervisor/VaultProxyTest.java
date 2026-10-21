@@ -435,6 +435,47 @@ class VaultProxyTest {
     }
 
     @Test
+    void setsTheCredentialsOwnHeaderAndDropsTheContainersValueOfIt(@TempDir Path dir)
+            throws IOException {
+
+        // A provider that wants the account beside the token answers a request without it as a
+        // wrong credential; a value the container chose would send its request on another account.
+        final Path socket = dir.resolve("vault.sock");
+        final VaultProxy proxy =
+                new VaultProxy(
+                        socket,
+                        "http://127.0.0.1:" + upstream.getAddress().getPort(),
+                        presented ->
+                                PHANTOM.equals(presented)
+                                        ? new TokenExchange.Granted(REAL)
+                                        : new TokenExchange.Rejected(),
+                        "Authorization",
+                        "Bearer ",
+                        null,
+                        Map.of("ChatGPT-Account-Id", "account-from-the-vault"),
+                        Map.of(),
+                        line -> {});
+        Thread.ofPlatform().daemon().start(proxy);
+        try (proxy) {
+
+            send(
+                    socket,
+                    "POST /backend-api/codex/responses HTTP/1.1\r\nauthorization: Bearer "
+                            + PHANTOM
+                            + "\r\nchatgpt-account-id: account-the-container-chose"
+                            + "\r\ncontent-length: 0\r\n\r\n");
+
+            assertThat(received).as("requests upstream").hasSize(1);
+            assertThat(received.get(0).get("chatgpt-account-id"))
+                    .as("the account header, from the vault only")
+                    .isEqualTo("account-from-the-vault");
+            assertThat(received.get(0).get("authorization"))
+                    .as("the token")
+                    .isEqualTo("Bearer " + REAL);
+        }
+    }
+
+    @Test
     void theProviderNeverSeesThePhantomToken(@TempDir Path dir) throws IOException {
 
         // The point of the whole scheme. An agent may also send its token in a header the route

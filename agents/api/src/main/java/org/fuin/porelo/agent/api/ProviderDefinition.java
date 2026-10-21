@@ -29,6 +29,8 @@ import org.jspecify.annotations.Nullable;
  * @param grant What a person grants once for it: the flow's {@code kind}, its URLs and {@code
  *     scopes}, the same for everyone; empty for a provider reached with a key. The client id is the
  *     signing-in agent's.
+ * @param credentialHeaders Header to the setting of the stored credential its value is taken from,
+ *     for a provider that wants more than the token on each request; empty for most.
  */
 public record ProviderDefinition(
         String name,
@@ -40,7 +42,48 @@ public record ProviderDefinition(
         Map<String, String> unbrokerable,
         Map<String, String> tokenEnvironment,
         Map<String, String> authQuery,
-        Map<String, String> grant) {
+        Map<String, String> grant,
+        Map<String, String> credentialHeaders) {
+
+    /**
+     * Constructor for a provider whose requests carry nothing from the credential but the token, as
+     * every provider did before {@code credential_headers}.
+     *
+     * @param name Short name.
+     * @param label Human-readable name.
+     * @param upstream Base URL.
+     * @param dialects Dialect to path.
+     * @param authHeader Credential type to header name.
+     * @param authPrefix Credential type to prefix.
+     * @param unbrokerable Credential type to why it cannot be brokered.
+     * @param tokenEnvironment Credential type to the variable its token goes in.
+     * @param authQuery Credential type to the URL parameter its key travels in.
+     * @param grant What a person grants once, as everyone does.
+     */
+    public ProviderDefinition(
+            String name,
+            String label,
+            String upstream,
+            Map<String, String> dialects,
+            Map<String, String> authHeader,
+            Map<String, String> authPrefix,
+            Map<String, String> unbrokerable,
+            Map<String, String> tokenEnvironment,
+            Map<String, String> authQuery,
+            Map<String, String> grant) {
+        this(
+                name,
+                label,
+                upstream,
+                dialects,
+                authHeader,
+                authPrefix,
+                unbrokerable,
+                tokenEnvironment,
+                authQuery,
+                grant,
+                Map.of());
+    }
 
     /**
      * Constructor for a provider a person grants nothing for, as every provider was before {@code
@@ -129,6 +172,7 @@ public record ProviderDefinition(
      * @param tokenEnvironment Variable by credential type.
      * @param authQuery URL parameter by credential type.
      * @param grant What a person grants once, as everyone does.
+     * @param credentialHeaders Header to the setting its value is taken from.
      */
     public ProviderDefinition {
         if (!name.matches("[a-z0-9][a-z0-9-]{0,30}")) {
@@ -176,6 +220,34 @@ public record ProviderDefinition(
         authPrefix = Map.copyOf(authPrefix);
         unbrokerable = Map.copyOf(unbrokerable);
         tokenEnvironment = Map.copyOf(tokenEnvironment);
+        for (final Map.Entry<String, String> header : credentialHeaders.entrySet()) {
+            if (!header.getKey().matches("[A-Za-z0-9-]{1,64}")
+                    || !header.getValue().matches("[a-z0-9_]{1,64}")) {
+                // Both reach a command line and an HTTP request; a header name with a colon or a
+                // line break would let a provider file write a second header.
+                throw new AgentException(
+                        "Provider '"
+                                + name
+                                + "' credential header '"
+                                + header.getKey()
+                                + "' from '"
+                                + header.getValue()
+                                + "': expected a header name and a setting of lower-case letters,"
+                                + " digits and underscores");
+            }
+            if (authHeader.values().stream().anyMatch(header.getKey()::equalsIgnoreCase)
+                    || "Authorization".equalsIgnoreCase(header.getKey())) {
+                throw new AgentException(
+                        "Provider '"
+                                + name
+                                + "' credential header '"
+                                + header.getKey()
+                                + "' is the header its token goes in");
+            }
+        }
+        credentialHeaders =
+                java.util.Collections.unmodifiableMap(
+                        new java.util.LinkedHashMap<>(credentialHeaders));
     }
 
     /**

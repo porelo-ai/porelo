@@ -101,7 +101,10 @@ public final class ProviderDefinitionReader {
                 // What a person grants once, as everyone does: the kind of flow, its URLs and
                 // scopes. The client id is not here; it is the agent's that signs in, in its own
                 // definition.
-                ordered(root.get("grant"), origin));
+                ordered(root.get("grant"), origin),
+                // Header to the setting of the stored credential its value comes from: what a
+                // provider wants on each request beside the token, such as an account's id.
+                ordered(root.get("credential_headers"), origin));
     }
 
     private static String required(Map<?, ?> section, String key, String origin) {

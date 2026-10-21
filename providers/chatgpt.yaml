@@ -1,0 +1,24 @@
+# ChatGPT, through a person's subscription sign-in. Not a documented API: the subscription's own backend, which
+# can change without notice (doc/decisions.md). An API key is the provider 'openai'.
+name: chatgpt
+label: ChatGPT sign-in
+upstream: https://chatgpt.com
+
+# Clients append '/responses'.
+dialects:
+    openai: "/backend-api/codex"
+
+auth_header:
+    _default: Authorization
+auth_prefix:
+    _default: "Bearer "
+
+token_env:
+    _default: CHATGPT_TOKEN
+
+# The account a sign-in belongs to travels beside its token on every request, from what the sign-in left.
+credential_headers:
+    ChatGPT-Account-Id: account_id
+
+unbrokerable:
+    api-key: "An API key is served by api.openai.com, the provider 'openai' (porelo vault put openai); 'chatgpt' takes a ChatGPT sign-in (porelo vault login)"

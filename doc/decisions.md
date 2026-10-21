@@ -64,6 +64,7 @@ would change the answer.
 | The project declares credentials, and the run adds | a run adds but never withdraws or redirects; never in an agent's definition | [entry](#the-project-declares-credentials-and-the-run-adds) |
 | The route is picked by the token | one broker, a route per credential; the token, not the path, decides where a key goes | [entry](#the-route-is-picked-by-the-token) |
 | Where a key goes is declared, never inferred | `auth_header` or `auth_query` per service; only a consumer whose endpoint can be configured; no TLS interception | [entry](#where-a-key-goes-is-declared-never-inferred) |
+| A subscription's own backend is served as a provider | accepted: `chatgpt` reaches an undocumented route that can change; a request carries the account beside the token, from the stored sign-in | [entry](#a-subscriptions-own-backend-is-served-as-a-provider) |
 | One credential type reaches one variable | `token_env` maps a type to one variable; changed in the reader when an agent needs two | [entry](#one-credential-type-reaches-one-variable) |
 | A bought token is per task and kept in memory | never on disk, never shared; costs one exchange per task per hour | [entry](#a-bought-token-is-per-task-and-kept-in-memory) |
 | A purchase that fails at start is a missing key | unattended and agent runs are refused before a container exists; a shell warns | [entry](#a-purchase-that-fails-at-start-is-a-missing-key) |
@@ -387,6 +388,16 @@ guesses neither, since a wrong header name fails like a wrong key and is the fir
 wrong. A consumer is supported only when its endpoint can be configured, so it can be pointed at the proxy: a tool
 with its host compiled in is not, because reaching it would mean intercepting TLS with a certificate authority in the
 image, which Porelo does not do. A key carried in the request body is not rewritten.
+
+## A subscription's own backend is served as a provider
+
+The provider `chatgpt` serves a person's ChatGPT sign-in at `chatgpt.com/backend-api/codex`, the subscription's own
+backend, not a documented API. Each request carries the sign-in's account as `ChatGPT-Account-Id` beside its token;
+the provider declares it under `credential_headers`, the sign-in keeps it as a setting, and the broker sets it and
+drops whatever the container sent under that name. **The exposure:** the route can change without notice, and
+whether the provider's terms allow it was not checked. **Why it stays:** the agent that reaches it is mostly used with
+that subscription, and the tokens stay on the host as every other sign-in's do. **What would change the answer:** a
+change of the route, or a refusal by the provider.
 
 ## One credential type reaches one variable
 

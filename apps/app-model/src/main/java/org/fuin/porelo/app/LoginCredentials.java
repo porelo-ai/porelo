@@ -59,7 +59,33 @@ final class LoginCredentials {
             final String key,
             final Credential value,
             final boolean own) {
+        put(entries, key, value, own, java.util.Set.of());
+    }
+
+    /**
+     * Puts a credential and what renews it into the vault's entries, keeping the attributes its
+     * provider sends beside the token as settings.
+     *
+     * @param entries The vault's entries, changed in place.
+     * @param key The name it is kept under.
+     * @param value What the agent's sign-in left.
+     * @param own Whether the sign-in is Porelo's alone, so that the broker may renew it.
+     * @param kept The attributes kept as settings, as the provider's {@code credential_headers}
+     *     name them; none of them a secret.
+     */
+    static void put(
+            final Map<String, VaultEntry> entries,
+            final String key,
+            final Credential value,
+            final boolean own,
+            final java.util.Set<String> kept) {
         final Map<String, String> settings = new LinkedHashMap<>();
+        for (final String name : kept) {
+            final String attribute = value.attributes().get(name);
+            if (attribute != null && !attribute.isBlank()) {
+                settings.put(name, attribute);
+            }
+        }
         final String expires = value.attributes().get(Credential.EXPIRES_AT);
         if (expires != null && expires.matches("\\d{1,15}")) {
             settings.put(
@@ -89,6 +115,42 @@ final class LoginCredentials {
             // not this one's.
             entries.remove(TaskSecrets.GRANT_PREFIX + key);
         }
+    }
+
+    /**
+     * Returns the attributes a provider sends beside the token, which a stored sign-in keeps.
+     *
+     * @param selection The provider the credential is stored for, or {@code null} for none.
+     * @return The settings its {@code credential_headers} are filled from.
+     */
+    static java.util.Set<String> kept(
+            final @org.jspecify.annotations.Nullable SelectedProvider selection) {
+        return selection == null
+                ? java.util.Set.of()
+                : java.util.Set.copyOf(selection.definition().credentialHeaders().values());
+    }
+
+    /**
+     * Returns the setting a stored credential lacks that its provider sends beside the token.
+     *
+     * <p>A start and the broker both ask: a provider that wants the setting answers a request
+     * without it as a wrong credential, so a credential lacking it is refused before it is used.
+     *
+     * @param entry The stored credential, or {@code null} when there is none.
+     * @param credentialHeaders The provider's header to the setting it is filled from.
+     * @return The first setting missing or unusable as a header value, or {@code null} when none
+     *     is.
+     */
+    static @org.jspecify.annotations.Nullable String lacking(
+            final @org.jspecify.annotations.Nullable VaultEntry entry,
+            final Map<String, String> credentialHeaders) {
+        for (final String setting : credentialHeaders.values()) {
+            final String value = entry == null ? null : entry.settings().get(setting);
+            if (value == null || !value.matches("[\\x21-\\x7e]{1,256}")) {
+                return setting;
+            }
+        }
+        return null;
     }
 
     /**

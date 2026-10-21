@@ -337,6 +337,16 @@ final class CredentialWiring {
             command.add("--auth-query");
             command.add(primary.authQuery());
         }
+        // Named here and filled by the broker from the stored credential, so no value is on a
+        // command line.
+        if (own != null) {
+            own.credentialHeaders()
+                    .forEach(
+                            (header, setting) -> {
+                                command.add("--credential-header");
+                                command.add(header + "=" + setting);
+                            });
+        }
         if (!routes.isEmpty()) {
             command.add("--route-tokens");
             command.add(routeTokens.toString());
@@ -463,7 +473,8 @@ final class CredentialWiring {
             String credential,
             String variable,
             org.fuin.porelo.agent.api.ProviderRoute route,
-            Destination destination) {}
+            Destination destination,
+            java.util.Map<String, String> credentialHeaders) {}
 
     private @Nullable AgentRoute agentRoute(
             org.fuin.porelo.agent.api.InstalledAgent agent, PrintWriter out, PrintWriter err) {
@@ -516,7 +527,10 @@ final class CredentialWiring {
                         route.upstream(),
                         route.authHeaderFor(type),
                         route.authPrefixFor(type),
-                        query));
+                        query),
+                java.util.Objects.requireNonNull(selection, "a route has a provider")
+                        .definition()
+                        .credentialHeaders());
     }
 
     /**
