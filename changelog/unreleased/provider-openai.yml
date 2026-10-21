@@ -1,0 +1,2 @@
+title: Porelo ships the provider 'openai', serving OpenAI's API to any agent speaking its dialect with an API key on the host, and refusing a ChatGPT sign-in before the start
+type: added

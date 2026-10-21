@@ -105,6 +105,48 @@ class SelectedProviderTest {
     }
 
     @Test
+    void openAiIsReachedWithItsApiKeyAndRefusesASignIn() {
+
+        // A key sent to the wrong host or header leaks it or fails like a wrong key; a ChatGPT
+        // sign-in sent here would fail inside the task instead of being refused before the start.
+        final ProviderDefinition openai = shipped().get("openai");
+        final AgentDefinition native_ =
+                agent(
+                        """
+                provider:
+                  default: openai
+                  dialect: native
+                  endpoint: url
+                """);
+        final AgentDefinition openaiDialect =
+                agent(
+                        """
+                provider:
+                  default: openai
+                  dialect: openai
+                  endpoint: url
+                """);
+
+        assertThat(openai).as("openai is shipped").isNotNull();
+        assertThat(openai.upstreamHost()).isEqualTo("api.openai.com");
+        assertThat(openai.authHeaderFor("api-key")).isEqualTo("Authorization");
+        assertThat(openai.authPrefixFor("api-key")).isEqualTo("Bearer ");
+        assertThat(openai.tokenVariable("api-key")).isEqualTo("OPENAI_API_KEY");
+        assertThat(openai.unbrokerableReason("api-key")).as("the key is brokered").isNull();
+        assertThat(openai.unbrokerableReason("oauth"))
+                .as("a sign-in is refused before a start")
+                .isNotBlank();
+        for (final AgentDefinition agent : java.util.List.of(native_, openaiDialect)) {
+            assertThat(
+                            SelectedProvider.choose(shipped(), agent, null)
+                                    .route()
+                                    .endpointFor("http://127.0.0.1:9419"))
+                    .as("dialect %s", agent.provider().dialect())
+                    .isEqualTo("http://127.0.0.1:9419/v1");
+        }
+    }
+
+    @Test
     void twoAgentsReachTheSameProviderWithoutEitherDescribingIt() {
 
         // The whole point. Anthropic is declared once; an agent speaking its dialect and an agent

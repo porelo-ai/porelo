@@ -1,0 +1,22 @@
+# OpenAI. Reached by its own agent natively, and by any agent speaking its dialect, which is the most
+# widely imitated one. Its keys are made at https://platform.openai.com.
+name: openai
+label: OpenAI
+upstream: https://api.openai.com
+
+# Clients append '/chat/completions' or '/responses' to a base URL ending in '/v1'.
+dialects:
+    openai: "/v1"
+
+auth_header:
+    _default: Authorization
+auth_prefix:
+    _default: "Bearer "
+
+token_env:
+    _default: OPENAI_API_KEY
+
+# A ChatGPT sign-in is served by the subscription's own backend, not by this API, so it is refused before
+# a start rather than failing inside the task.
+unbrokerable:
+    oauth: "A ChatGPT sign-in is served by the subscription's own backend, not by api.openai.com, which takes an API key (porelo vault put openai)"

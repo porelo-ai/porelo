@@ -1,6 +1,6 @@
 # P05 — Provider OpenAI
 
-**Status:** Estimated.
+**Status:** Implementing.
 **Size:** S - a provider file, a test reading it, a row in `doc/credentials.md`, and a live scenario in an agent
 repository; the account sign-in is measured apart and stays refused until it is.
 

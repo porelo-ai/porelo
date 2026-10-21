@@ -97,6 +97,7 @@ Each is reached through the broker, with the credential on the host and a stand-
 | Provider | Upstream | Reached by | Credential |
 |---|---|---|---|
 | `anthropic` | `https://api.anthropic.com` | its own agent, and any agent speaking `anthropic-messages` | an API key, sent as `x-api-key`, or a subscription token, sent as `Authorization: Bearer`; stored with `porelo vault put anthropic`, `vault import` or `vault login` |
+| `openai` | `https://api.openai.com` | its own agent, and any agent speaking `openai`, served under `/v1` | an API key, sent as `Authorization: Bearer`; stored with `porelo vault put openai`. A ChatGPT sign-in is refused before the start: the subscription's own backend serves it, not this API |
 | `openrouter` | `https://openrouter.ai` | any agent speaking `openai`, served under `/api/v1`, or `anthropic-messages`, served under `/api` | an API key, sent as `Authorization: Bearer`; stored with `porelo vault put openrouter` |
 | `github-copilot` | `https://api.githubcopilot.com`, every path at its root | any agent speaking `openai` | a GitHub token granted once through the device flow, sent as `Authorization: Bearer`; see [a subscription granted once](#a-subscription-granted-once-github-copilot) |
 
