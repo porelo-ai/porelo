@@ -57,7 +57,9 @@ class VaultLockCommandTest {
     @Test
     void unlockingCachesThePassphraseAndLockingDropsIt(@TempDir Path dir) {
 
-        assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         final PoreloContext context = context(dir);
         context.vault().write(Map.of("anthropic", VaultEntry.of("sk-not-a-real-key")), PASSPHRASE);
@@ -87,7 +89,9 @@ class VaultLockCommandTest {
 
         // Caching an unverified passphrase moves the failure to the next command, where a wrong one
         // reads as a corrupt store rather than as a typo.
-        assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         final PoreloContext context = context(dir);
         context.vault().write(Map.of("anthropic", VaultEntry.of("sk-not-a-real-key")), PASSPHRASE);
@@ -113,7 +117,9 @@ class VaultLockCommandTest {
 
         // The wanted state is "not cached", and it already holds; failing would stop a script that
         // locks on its way out.
-        assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         assertThat(execute(context(dir), "vault", "lock")).isEqualTo(0);
         assertThat(out.toString()).contains("nothing was cached");
@@ -125,7 +131,9 @@ class VaultLockCommandTest {
         // Measured on the shared VM: an interface enrolled as a device held its share here, 'lock'
         // said "locked", and every command - a restarted task's start included - still opened the
         // vault.
-        assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         final PoreloContext context = context(dir);
         try {
@@ -177,7 +185,9 @@ class VaultLockCommandTest {
         // A running task's proxy read its credential when it started and holds it in its own
         // memory. Locking cannot reach that, and an operator who believes otherwise has locked
         // nothing they think they locked.
-        assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
 
@@ -188,7 +198,9 @@ class VaultLockCommandTest {
     @Test
     void theOlderFlagIsTheSameOperation(@TempDir Path dir) {
 
-        assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
 

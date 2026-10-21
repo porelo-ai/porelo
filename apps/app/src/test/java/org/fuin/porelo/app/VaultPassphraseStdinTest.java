@@ -66,7 +66,9 @@ class VaultPassphraseStdinTest {
     @Test
     void unlocksWithTheLineAProgramHandsOver(@TempDir final Path dir) {
 
-        assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         final PoreloContext context = context(dir, PASSPHRASE + "\n", false);
         context.vault()
@@ -87,7 +89,9 @@ class VaultPassphraseStdinTest {
     @Test
     void initMakesAVaultFromOneLineAndCachesIt(@TempDir final Path dir) {
 
-        assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         final PoreloContext context = context(dir, PASSPHRASE + "\n", false);
         try {
@@ -145,7 +149,9 @@ class VaultPassphraseStdinTest {
     @Test
     void anEmptyLineLeavesTheVaultShut(@TempDir final Path dir) {
 
-        assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         final PoreloContext context = context(dir, "\n", false);
         context.vault()

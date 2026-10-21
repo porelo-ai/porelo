@@ -101,7 +101,8 @@ class VaultRemoveCommandTest {
         // kept with the same type as what renews an agent's own sign-in, and was taken for one:
         // forgotten here, never revoked there.
         org.junit.jupiter.api.Assumptions.assumeTrue(
-                org.fuin.porelo.vault.KernelKeyring.available(), "libkeyutils is not installed");
+                org.fuin.porelo.vault.KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
         final java.util.List<String> revoked = new java.util.concurrent.CopyOnWriteArrayList<>();
         final com.sun.net.httpserver.HttpServer service =
                 com.sun.net.httpserver.HttpServer.create(
@@ -189,7 +190,8 @@ class VaultRemoveCommandTest {
     void aTokenThatNeverExpiresIsKeptUntilThePersonSaysTheyKnowItLivesOnAndThenSaysWhereToRevokeIt(
             @TempDir Path dir) {
         org.junit.jupiter.api.Assumptions.assumeTrue(
-                org.fuin.porelo.vault.KernelKeyring.available(), "libkeyutils is not installed");
+                org.fuin.porelo.vault.KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
         final PoreloContext context = context(dir);
         final org.fuin.porelo.vault.KernelKeyring keyring =
                 new org.fuin.porelo.vault.KernelKeyring(context.paths().vault().vaultKeyringKey());

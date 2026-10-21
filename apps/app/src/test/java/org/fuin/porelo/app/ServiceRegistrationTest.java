@@ -60,7 +60,9 @@ class ServiceRegistrationTest {
 
     @BeforeEach
     void start(@TempDir Path dir) throws IOException {
-        Assumptions.assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        Assumptions.assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         base = "http://127.0.0.1:" + server.getAddress().getPort();
         document(

@@ -188,7 +188,8 @@ class TaskStateTest {
         // Found: every task start pruned every reserved name whose "owner" was no running container
         // - and a grant or a transport's secrets are owned by no task, so they went every time.
         org.junit.jupiter.api.Assumptions.assumeTrue(
-                org.fuin.porelo.vault.KernelKeyring.available(), "libkeyutils is not installed");
+                org.fuin.porelo.vault.KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
         final PoreloContext context = context();
         final char[] passphrase = "correct horse battery staple".toCharArray();
         final org.fuin.porelo.vault.KernelKeyring keyring =
@@ -244,7 +245,8 @@ class TaskStateTest {
         // could not come back after a reboot. Asked under the vault's lock, every container whose
         // tokens are in the file is in the list.
         org.junit.jupiter.api.Assumptions.assumeTrue(
-                org.fuin.porelo.vault.KernelKeyring.available(), "libkeyutils is not installed");
+                org.fuin.porelo.vault.KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
         final PoreloContext context = context();
         final char[] passphrase = "correct horse battery staple".toCharArray();
         final org.fuin.porelo.vault.KernelKeyring keyring =

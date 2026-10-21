@@ -36,7 +36,9 @@ class KernelKeyringTest {
     @Test
     void storesAndReadsBackAPassphrase() {
 
-        assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         keyring.store("correct horse battery staple".toCharArray());
 
@@ -51,7 +53,9 @@ class KernelKeyringTest {
     @Test
     void readsNothingBeforeAnythingIsStored() {
 
-        assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         // The ordinary case before the first unlock: empty, not an error.
         assertThat(new KernelKeyring("porelo-never-stored-" + UUID.randomUUID()).read()).isEmpty();
@@ -60,7 +64,9 @@ class KernelKeyringTest {
     @Test
     void forgettingRemovesIt() {
 
-        assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         keyring.store("secret".toCharArray());
         assertThat(keyring.read()).isPresent();
@@ -72,7 +78,9 @@ class KernelKeyringTest {
     @Test
     void forgettingSomethingThatIsNotThereIsNotAnError() {
 
-        assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         assertThat(new KernelKeyring("porelo-absent-" + UUID.randomUUID()).forget())
                 .isEqualTo(KernelKeyring.Forgotten.NOTHING_CACHED);
@@ -102,7 +110,9 @@ class KernelKeyringTest {
         // The key is added to the user keyring and was searched for in the session keyring, which
         // finds it only through a link - and pam_keyinit revokes a session keyring at logout, so a
         // process outliving its login searched a revoked keyring while the key sat in @u.
-        assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         keyring.store("secret".toCharArray());
         // A new, empty session keyring for this process alone: the link store() made is gone, as
@@ -133,7 +143,9 @@ class KernelKeyringTest {
     @Test
     void replacingOverwritesTheOldValue() {
 
-        assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         keyring.store("first".toCharArray());
         keyring.store("second".toCharArray());
@@ -146,7 +158,9 @@ class KernelKeyringTest {
     @Test
     void survivesANonAsciiPassphrase() {
 
-        assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         // The payload is bytes, so anything that is not encoded and decoded consistently comes back
         // as a passphrase that no longer opens the vault.
@@ -160,7 +174,9 @@ class KernelKeyringTest {
     @Test
     void worksAsAPassphraseTier() {
 
-        assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         keyring.store("tiered".toCharArray());
 
@@ -172,7 +188,9 @@ class KernelKeyringTest {
     void unlocksTheVaultItStoredThePassphraseFor(
             @org.junit.jupiter.api.io.TempDir java.nio.file.Path dir) {
 
-        assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         // The point of the tier: unlock once per login rather than once per command.
         final VaultFile vault = new VaultFile(dir.resolve("vault.bin"));
@@ -194,7 +212,9 @@ class KernelKeyringTest {
         // and a process that dies leaves nothing behind that outlives its welcome. Measured against
         // the real kernel, because "we asked for a timeout" is not the same claim as "the
         // passphrase is gone".
-        assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         // The kernel keeps the expiry in whole seconds of the clock, so a bound of n seconds lasts
         // from n-1 to n. Stored just before a second turns over and read just after it - the case a
@@ -220,7 +240,9 @@ class KernelKeyringTest {
         // The default is unchanged: one behaviour, kept until it is dropped or the session ends. A
         // bound that crept in as a default would start asking people for a passphrase they never
         // used to be asked for.
-        assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         keyring.store("correct horse battery staple".toCharArray(), null);
         Thread.sleep(1200);

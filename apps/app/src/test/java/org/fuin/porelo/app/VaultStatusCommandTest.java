@@ -80,7 +80,9 @@ class VaultStatusCommandTest {
     @Test
     void aVaultTheCachedPassphraseOpensAnswersZero(@TempDir Path dir) {
 
-        assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         final PoreloContext context = context(dir);
         context.vault().write(Map.of("anthropic", VaultEntry.of("sk-not-a-real-key")), PASSPHRASE);
@@ -98,7 +100,9 @@ class VaultStatusCommandTest {
     void aCachedPassphraseThatNoLongerOpensTheVaultIsShutNotOpen(@TempDir Path dir) {
 
         // A playbook told "open" here would go on to a vault that refuses its first read.
-        assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         final PoreloContext context = context(dir);
         context.vault().write(Map.of("anthropic", VaultEntry.of("sk-not-a-real-key")), PASSPHRASE);

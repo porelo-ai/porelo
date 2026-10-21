@@ -24,7 +24,9 @@ class VaultAuthorizeCommandTest {
     @Test
     void aTokenThatNeverExpiresIsKeptAsItIsAndOneThatExpiresWithNothingToRenewItIsRefused(
             @TempDir Path dir) {
-        Assumptions.assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        Assumptions.assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
         final PoreloContext context =
                 new PoreloContext(
                         new FakeCommandRunner(),
@@ -70,7 +72,9 @@ class VaultAuthorizeCommandTest {
 
     @Test
     void aGrantIsKeptInAVaultADevicesShareOpened(@TempDir Path dir) {
-        Assumptions.assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        Assumptions.assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         // The daemon opens the vault with a device's share and has no terminal to ask a passphrase
         // at: the person granted at the service, and keeping it asked for the passphrase alone, so

@@ -81,7 +81,9 @@ class VaultClearingTest {
      * unlocked.
      */
     private PoreloContext unlockedVault() throws IOException {
-        assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
         final PoreloContext context = context();
         Files.createDirectories(context.vault().path().getParent());
         final Map<String, VaultEntry> entries = new LinkedHashMap<>();

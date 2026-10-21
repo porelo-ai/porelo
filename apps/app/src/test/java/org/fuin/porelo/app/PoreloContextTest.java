@@ -74,7 +74,9 @@ class PoreloContextTest {
         // unreadable if "readable" is inferred from the list being empty, and an interface acting
         // on that tells somebody to unlock a vault that is already open - the one instruction that
         // cannot help them.
-        assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         final PoreloContext context = context(dir);
         writeVault(context, Map.of(), PASSPHRASE);
@@ -115,7 +117,9 @@ class PoreloContextTest {
 
         // A wrong cached passphrase or a damaged file. The operator has something to fix, and
         // reporting it as an empty vault hides it behind a state that looks fine.
-        assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         final PoreloContext context = context(dir);
         writeVault(context, Map.of("anthropic", VaultEntry.of("sk-test-value")), PASSPHRASE);
@@ -127,7 +131,9 @@ class PoreloContextTest {
     @Test
     void anUnlockedVaultAnswersWhatItHolds(@TempDir Path dir) throws IOException {
 
-        assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         final PoreloContext context = context(dir);
         writeVault(context, Map.of("anthropic", VaultEntry.of("sk-test-value")), PASSPHRASE);

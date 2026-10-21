@@ -95,7 +95,9 @@ class DeployKeysTest {
 
     @Test
     void projectsWhoseNamesMeetKeepKeysOfTheirOwnAndClearingOneLeavesTheOther() throws Exception {
-        Assumptions.assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        Assumptions.assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         // 'web' with 'app-api' and 'web-app' with 'api' were both 'deploy-web-app-api': the second
         // was given the first one's key, and clearing 'web' deleted 'web-app''s.
@@ -124,7 +126,9 @@ class DeployKeysTest {
 
     @Test
     void aKeyKeptUnderTheOldNameIsTakenOnlyByTheRepositoryItWasMadeFor() throws Exception {
-        Assumptions.assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        Assumptions.assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         // Machines hold keys under the old name; the one that registered it at a forge keeps it,
         // and a project whose names only meet it does not inherit it.
@@ -162,7 +166,9 @@ class DeployKeysTest {
 
     @Test
     void aKeyKeptUnderTheOldNameMovesToItsOwnAndAClearingLeavesNoCopy() throws Exception {
-        Assumptions.assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        Assumptions.assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         // The move compared the entry it read with the one the update read anew by identity, so the
         // old name was never removed: a clearing that said the key was forgotten left its secret

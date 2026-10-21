@@ -50,7 +50,9 @@ class MessageWatchLoopsTest {
     private MessageWatch watch;
 
     private void machine(final String containers) throws IOException {
-        Assumptions.assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        Assumptions.assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
         final XdgPaths xdg =
                 XdgPaths.of(
                         name ->

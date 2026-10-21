@@ -260,7 +260,8 @@ class DefaultProjectTest {
     void aRepositoryTakenOutForgetsThisMachinesDeployKeyForItAndSaysWhichToRemoveAtTheForge()
             throws Exception {
         org.junit.jupiter.api.Assumptions.assumeTrue(
-                org.fuin.porelo.vault.KernelKeyring.available(), "libkeyutils is not installed");
+                org.fuin.porelo.vault.KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
         final PoreloContext context = context();
         final char[] passphrase = "correct horse battery staple".toCharArray();
         final org.fuin.porelo.vault.KernelKeyring keyring =

@@ -348,7 +348,8 @@ class StartCheckTest {
     void aCredentialNobodyGrantedIsItsOwnOutcomeWithTheCommandThatGrantsIt(@TempDir Path dir)
             throws Exception {
         org.junit.jupiter.api.Assumptions.assumeTrue(
-                org.fuin.porelo.vault.KernelKeyring.available(), "libkeyutils is not installed");
+                org.fuin.porelo.vault.KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
         final PoreloContext context = context(dir);
         Files.createDirectories(dir.resolve("data/porelo/destinations"));
         Files.writeString(

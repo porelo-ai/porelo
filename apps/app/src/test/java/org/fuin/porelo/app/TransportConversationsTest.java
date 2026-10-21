@@ -147,7 +147,9 @@ class TransportConversationsTest {
 
     @Test
     void aPassPollsOncePerProjectWithTheProjectsSecretsAndMarksWhatWasTaken() throws Exception {
-        Assumptions.assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        Assumptions.assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
         final PoreloContext context = context();
         final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
         try {
@@ -216,7 +218,9 @@ class TransportConversationsTest {
     @Test
     void aReadTheHomeserverRefusesIsReportedAndNeverRecordedAsMarkedWhileATemporaryOneIsAskedAgain()
             throws Exception {
-        Assumptions.assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        Assumptions.assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         // 77 is the homeserver refusing - a rejected token, an account in no room that holds the
         // event - and was recorded as marked, so the sender's receipt said its message was read
@@ -279,7 +283,9 @@ class TransportConversationsTest {
 
     @Test
     void aTransportThatTakesTheMachinesNameIsGivenItAndOneThatDoesNotIsNot() throws Exception {
-        Assumptions.assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        Assumptions.assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
         final PoreloContext context = context();
         final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
         try {
@@ -312,7 +318,9 @@ class TransportConversationsTest {
     @Test
     void aMachineNotLetIntoASharedConversationKeepsItsAccountAndStartsNoTaskUntilItIs()
             throws Exception {
-        Assumptions.assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        Assumptions.assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
         final PoreloContext context = context();
         final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
         try {
@@ -358,7 +366,9 @@ class TransportConversationsTest {
 
     @Test
     void whatATaskSentIsAskedAboutByTheRecipientsAddressAndRecordedReadOnce() throws Exception {
-        Assumptions.assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        Assumptions.assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
         final PoreloContext context = context();
         final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
         try {
@@ -413,7 +423,9 @@ class TransportConversationsTest {
 
     @Test
     void tasksOfOneProjectEnrolledAtOnceAreEachNamedInItsConversation() throws Exception {
-        Assumptions.assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        Assumptions.assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
         // Two starts of one project's tasks at once each wrote the addresses as they had read them,
         // and one task's address was lost: its own words in the room then came back to it.
         final int tasks = 8;
@@ -506,7 +518,9 @@ class TransportConversationsTest {
 
     @Test
     void anOfflineProjectsConversationMustNotReachBeyondLoopback() throws Exception {
-        Assumptions.assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        Assumptions.assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
         final PoreloContext context = context();
         final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
         try {
@@ -569,7 +583,9 @@ class TransportConversationsTest {
     @Test
     void clearingAProjectRunsTheTransportsClearAndForgetsWhatPoreloKeptForItThenTheAccountsToo()
             throws Exception {
-        Assumptions.assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        Assumptions.assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         // With them kept, a task started again after the transport had cleared ran no setup and
         // stayed outside a conversation that was gone (measured by porelo-message-matrix,
@@ -620,7 +636,9 @@ class TransportConversationsTest {
     @Test
     void aWaitingPollAsksForPersonsAndHoldsTheServerOpenAndAPassThenLeavesFetchingToIt()
             throws Exception {
-        Assumptions.assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        Assumptions.assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
         final PoreloContext context = context();
         final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
         try {
@@ -671,7 +689,9 @@ class TransportConversationsTest {
 
     @Test
     void whatAPollSaysOnItsErrorIsSaidEvenWhenItSucceeds() throws Exception {
-        Assumptions.assumeTrue(KernelKeyring.available(), "libkeyutils is not installed");
+        Assumptions.assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
         final PoreloContext context = context();
         final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
         try {

@@ -1897,7 +1897,8 @@ class PoreloDaemonTest {
         // A browser elsewhere redirects to this machine's loopback; the interface has to know which
         // port to forward before it opens the link, and learns how it ended on the same stream.
         org.junit.jupiter.api.Assumptions.assumeTrue(
-                org.fuin.porelo.vault.KernelKeyring.available(), "libkeyutils is not installed");
+                org.fuin.porelo.vault.KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
         final int port;
         try (java.net.ServerSocket free = new java.net.ServerSocket(0)) {
             port = free.getLocalPort();
@@ -2178,7 +2179,8 @@ class PoreloDaemonTest {
         // empty was indistinguishable from one nobody had unlocked. A client acting on that told
         // somebody to unlock a vault that was already open.
         org.junit.jupiter.api.Assumptions.assumeTrue(
-                org.fuin.porelo.vault.KernelKeyring.available(), "libkeyutils is not installed");
+                org.fuin.porelo.vault.KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
 
         final PoreloContext context = context(dir);
         final org.fuin.porelo.vault.KernelKeyring keyring =
