@@ -30,6 +30,54 @@ class RepositoriesTest {
             """;
 
     @Test
+    void aRepositorysImageInTheProjectFileIsReadAsItsOwnFileIs() {
+
+        final Project project =
+                read(
+                        HEAD
+                                + """
+                repositories:
+                  backend:
+                    image:
+                      base_image: "debian:13"
+                      env:
+                        JAVA_HOME: /opt/graalvm
+                  frontend: {}
+                """);
+
+        final java.util.Map<String, Repository> byName = new java.util.HashMap<>();
+        project.repositories().forEach(repository -> byName.put(repository.name(), repository));
+        assertThat(byName.get("backend").image())
+                .as("the backend's image")
+                .isNotNull()
+                .satisfies(
+                        image -> {
+                            assertThat(image.baseImage()).isEqualTo("debian:13");
+                            assertThat(image.env()).containsEntry("JAVA_HOME", "/opt/graalvm");
+                            assertThat(image.from()).contains("repositories.backend.image");
+                        });
+        assertThat(byName.get("frontend").image()).as("a repository that names none").isNull();
+    }
+
+    @Test
+    void aRepositorysImageMayNotCarryARuleOfTheProject() {
+
+        // Under image, egress would read as a rule of the image and widen what the task reaches.
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        HEAD
+                                                + """
+                repositories:
+                  backend:
+                    image:
+                      egress: {domains: ["example.com"]}
+                """))
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("'image.egress' cannot be set here");
+    }
+
+    @Test
     void aProjectThatNamesNoneStillHasItsOwn() {
         final Project project = read(HEAD);
         assertThat(project.repositories()).isEmpty();

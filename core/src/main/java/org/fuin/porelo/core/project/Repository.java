@@ -38,6 +38,8 @@ import org.jspecify.annotations.Nullable;
  *     value.
  * @param issues The issue prefixes this repository owns, each one or more capital letters; empty
  *     when it has none.
+ * @param image What the project file says this repository's image is built from, or {@code null}
+ *     when it says nothing; a later source in the order gives what it leaves unset.
  */
 public record Repository(
         String name,
@@ -45,7 +47,28 @@ public record Repository(
         String description,
         Egress egress,
         Limits.Declared limits,
-        java.util.List<String> issues) {
+        java.util.List<String> issues,
+        @Nullable ImageSource image) {
+
+    /**
+     * Constructor for a repository whose image the project file does not name.
+     *
+     * @param name Repository name.
+     * @param upstream Where approved work goes, or {@code null}.
+     * @param description What it is for.
+     * @param egress Added to the project's.
+     * @param limits Replacing the project's key by key.
+     * @param issues The issue prefixes it owns.
+     */
+    public Repository(
+            String name,
+            @Nullable String upstream,
+            String description,
+            Egress egress,
+            Limits.Declared limits,
+            java.util.List<String> issues) {
+        this(name, upstream, description, egress, limits, issues, null);
+    }
 
     /** What an issue prefix looks like: one or more capital letters. */
     public static final String ISSUES_PATTERN = "[A-Z]+";

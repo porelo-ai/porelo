@@ -46,7 +46,7 @@ final class ProjectSchema {
         SECTIONS.put("mail.peers.<peer>", Set.of("address", "trust", "per_day", "mode"));
         SECTIONS.put(
                 "repositories.<repository>",
-                Set.of("upstream", "description", "egress", "limits", "issues"));
+                Set.of("upstream", "description", "egress", "limits", "issues", "image"));
     }
 
     /**
@@ -378,6 +378,14 @@ final class ProjectSchema {
                             "limits",
                             "What a task on this repository may consume, replacing the"
                                     + " project's key by key: memory, pids, cpus.",
+                            "map",
+                            "",
+                            false),
+                    key(
+                            "repositories.<repository>",
+                            "image",
+                            "What a task on this repository is built from, over the repository's own"
+                                    + " porelo.yml: base_image, snippet or snippet_file, env.",
                             "map",
                             "",
                             false),

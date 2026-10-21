@@ -337,7 +337,8 @@ public final class ProjectReader {
                             text(repository.get("description")),
                             egress(repository, origin, "repositories." + name + "."),
                             declaredLimits(repository, origin, name),
-                            issues(repository, origin, name)));
+                            issues(repository, origin, name),
+                            repositoryImage(repository, origin, name)));
         }
         // A prefix tells whose an issue is at a glance only while one repository owns it.
         final Map<String, String> owner = new java.util.LinkedHashMap<>();
@@ -767,6 +768,26 @@ public final class ProjectReader {
             return null;
         }
         return SnippetFiles.beside(Path.of(origin)).read(String.valueOf(file), origin);
+    }
+
+    /**
+     * Reads {@code repositories.<name>.image}, the second source in the order an image is chosen
+     * by, with the same keys and refusals as a repository's own {@code porelo.yml}.
+     */
+    private static @Nullable ImageSource repositoryImage(
+            Map<?, ?> repository, String origin, String name) {
+        final Object image = repository.get("image");
+        if (image == null) {
+            return null;
+        }
+        if (!(image instanceof Map<?, ?> map)) {
+            throw new ProjectException(
+                    origin + ": 'repositories." + name + ".image' must be a mapping");
+        }
+        return RepositoryImageReader.image(
+                map,
+                origin + " (repositories." + name + ".image)",
+                SnippetFiles.beside(Path.of(origin)));
     }
 
     private static String text(@Nullable Object value) {
