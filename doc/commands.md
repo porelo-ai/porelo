@@ -107,7 +107,7 @@ takes `porelo approve TASK`; `--yes` answers for a script.
 | `porelo task take-back TASK NAME` | Takes a handed-in file out of a running task's `/porelo/files` again. |
 | `porelo task files TASK` | Every file handed to a task, also after it is gone: who, when, size and sha256. |
 | `porelo task watch-builds TASK ...` | Run by an online task's launch, not by hand: follows what the task pushes and hands each build's verdict into `/porelo/files`. |
-| `porelo task prepare -p PROJECT` | Builds the project's task image without starting a task. |
+| `porelo task prepare -p PROJECT [-r REPOSITORY]` | Builds the project's task image without starting a task; with `-r`, the image a task on that repository gets, chosen as a start chooses it. |
 | `porelo task clearance TASK MODE` | Sets what happens to a blocked connection: `prompt`, `allow`, `deny` or `off`. |
 
 **`task start`**

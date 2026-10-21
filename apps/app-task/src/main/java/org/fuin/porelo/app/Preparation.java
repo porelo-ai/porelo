@@ -50,8 +50,31 @@ public final class Preparation {
     }
 
     /**
-     * Prepares a project's environment.
+     * Prepares a project's own image, as before a repository could name its own.
      *
+     * @param context The machine.
+     * @param projectFile The project file to build from.
+     * @param agentName Whose tooling to install, or {@code null} for the only agent installed.
+     * @param rebuild How much of any previous build to discard.
+     * @param dryRun Says what it would do and does nothing.
+     * @param out Where progress goes.
+     * @return What happened.
+     */
+    public static Result prepare(
+            PoreloContext context,
+            java.nio.file.Path projectFile,
+            @Nullable String agentName,
+            Podman.Rebuild rebuild,
+            boolean dryRun,
+            PrintWriter out) {
+        return prepare(context, projectFile, null, agentName, rebuild, dryRun, out);
+    }
+
+    /**
+     * Prepares the image a task on one of a project's repositories is built from.
+     *
+     * @param repositoryName The repository, whose image is chosen as a start chooses it, or {@code
+     *     null} for the project's own image.
      * @param context The machine.
      * @param projectFile The project file to build from.
      * @param agentName Whose tooling to install, or {@code null} for the only agent installed.
@@ -64,16 +87,51 @@ public final class Preparation {
     public static Result prepare(
             PoreloContext context,
             java.nio.file.Path projectFile,
+            @Nullable String repositoryName,
             @Nullable String agentName,
             Podman.Rebuild rebuild,
             boolean dryRun,
             PrintWriter out) {
 
-        final Project project;
+        final Project declared;
         try {
-            project = org.fuin.porelo.core.project.ProjectReader.read(projectFile);
+            declared = org.fuin.porelo.core.project.ProjectReader.read(projectFile);
         } catch (RuntimeException ex) {
             return new Result(Outcome.NO_SUCH_PROJECT, "", rebuild, CliErrors.reason(ex));
+        }
+        final Project project;
+        if (repositoryName == null) {
+            project = declared;
+        } else {
+            final var repository =
+                    declared.allRepositories().stream()
+                            .filter(each -> each.name().equals(repositoryName))
+                            .findFirst();
+            if (repository.isEmpty()) {
+                return new Result(
+                        Outcome.FAILED,
+                        "",
+                        rebuild,
+                        "'"
+                                + declared.name()
+                                + "' has no repository '"
+                                + repositoryName
+                                + "'; it has "
+                                + declared.repositoryNames());
+            }
+            final ImageChoice choice;
+            try {
+                choice = ImageChoice.of(context, declared, repository.get());
+            } catch (RuntimeException ex) {
+                return new Result(Outcome.FAILED, "", rebuild, CliErrors.reason(ex));
+            }
+            project = choice.applyTo(declared, repository.get());
+            out.println("base image " + project.baseImage() + "  (from " + choice.baseFrom() + ")");
+            if (choice.snippetFrom() != null) {
+                out.println("lines      from " + choice.snippetFrom());
+            }
+            choice.envFrom()
+                    .forEach((name, from) -> out.println("env        " + name + " from " + from));
         }
 
         try (var agents = context.agents()) {

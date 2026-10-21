@@ -30,6 +30,14 @@ public class TaskPrepareCommand implements Callable<Integer>, PoreloFactory.Cont
     private String projectName;
 
     @Option(
+            names = {"-r", "--repository"},
+            paramLabel = "<name>",
+            description =
+                    "Builds the image a task on this repository gets, as a start chooses it. Default:"
+                            + " the project's own image.")
+    private @Nullable String repositoryName;
+
+    @Option(
             names = "--agent",
             paramLabel = "<name>",
             description = "Whose tooling to install. Default: the only one installed.")
@@ -65,6 +73,7 @@ public class TaskPrepareCommand implements Callable<Integer>, PoreloFactory.Cont
                 Preparation.prepare(
                         context,
                         ProjectSource.require(context, projectName),
+                        repositoryName,
                         agentName,
                         rebuild,
                         dryRun,

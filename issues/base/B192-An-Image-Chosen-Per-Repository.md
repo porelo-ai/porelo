@@ -6,8 +6,9 @@
 source printed and chosen again after the gate's fetch; one image per repository (`porelo/<project>_<repository>`);
 the review rank; `doc/project-file.md`. The UTF-8 locale was already in every task image. Also built: the project
 `default`'s order from a person's checkout, and `prune` and project deletion telling a repository's image apart.
-Left: `task prepare` building and naming a repository's image, a build directory per repository, and the acceptance
-for the local override and for the project `default`.
+And `task prepare -r <repository>`, choosing and naming as a start does. Left: a build directory per repository
+(today one per project, shared, so two repositories' builds wait for each other's lock), and the acceptance for the
+local override and for the project `default`.
 **Measured on 2026-10-21 on the VM in `core`** (snapshots 923 and 924 of this branch), `task-repository-image.feature`: a
 repository's `porelo.yml` on its default branch gave its task's image its snippet and a variable, both seen inside the
 container, the start named `porelo.yml at refs/heads/main of tooled` for each and built `porelo/imaged_tooled` (snapshot 924, after the separator became `_`); a

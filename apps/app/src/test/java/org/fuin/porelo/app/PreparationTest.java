@@ -106,6 +106,64 @@ class PreparationTest {
     }
 
     @Test
+    void aRepositorysImageIsPreparedUnderItsOwnNameFromItsOwnSources(@TempDir Path dir)
+            throws Exception {
+
+        // Prepared under the project's name, it would be an image no start on that repository
+        // uses, and the start would build its own anyway.
+        final Path file = dir.resolve("project.yml");
+        Files.writeString(
+                file,
+                """
+                project:
+                  name: "demo"
+                  security_class: "guarded"
+                image:
+                  base_image: "ubuntu:24.04"
+                repositories:
+                  backend:
+                    image:
+                      env:
+                        FROM_ENTRY: "yes"
+                """);
+
+        final Preparation.Result result =
+                Preparation.prepare(
+                        context(dir),
+                        file,
+                        "backend",
+                        null,
+                        Podman.Rebuild.CACHED,
+                        true,
+                        new PrintWriter(out, true));
+
+        assertThat(result.outcome()).isEqualTo(Preparation.Outcome.PREVIEWED);
+        assertThat(result.image()).as("the repository's image").isEqualTo("porelo/demo_backend");
+        assertThat(out.toString())
+                .as("each key's source")
+                .contains("env        FROM_ENTRY from ")
+                .contains("project.yml (repositories.backend.image)");
+    }
+
+    @Test
+    void aRepositoryTheProjectDoesNotHaveIsNamed(@TempDir Path dir) throws Exception {
+
+        final Preparation.Result result =
+                Preparation.prepare(
+                        context(dir),
+                        projectFile(dir),
+                        "nowhere",
+                        null,
+                        Podman.Rebuild.CACHED,
+                        true,
+                        new PrintWriter(out, true));
+
+        assertThat(result.outcome()).isEqualTo(Preparation.Outcome.FAILED);
+        assertThat(result.detail()).contains("has no repository 'nowhere'");
+        assertThat(build()).isEmpty();
+    }
+
+    @Test
     void aPreviewBuildsNothingAtAll(@TempDir Path dir) throws Exception {
 
         // Somebody checking what a rebuild would cost must not pay it by asking.
