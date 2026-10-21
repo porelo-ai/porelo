@@ -86,6 +86,7 @@ A playbook changes only what differs, so a second `up` on a host that is up chan
 |---|---|
 | `porelo project following --json` | `{"follows": [...]}`, each with `name`, `url`, `commit`, `outcome`, `verified`, `signed_by` (the keys pinned for it), `detail` and `refused`. The play follows a project only where its `url` or key differs. |
 | `porelo task status CONTAINER --json` | `{"name", "state", "running", "project", "repository"}`. A task that is not there answers `"state": "absent"` and exit 0. The play starts only what is not `running`; `task start` answering 65 "is already running" stays the guard for a race. |
+| `porelo agents --json` | `{"vault": "open"\|"shut"\|"none", "agents": [...]}`, each with `name`, `found_by` (the description or executable that named it), `credential` (the vault entry it signs in under: its default provider's, or its own name when it is not brokered) and `signed_in`. `signed_in` is given only while the vault is open; both are left out for an agent with no default provider. No value is printed. The play stops for an agent's sign-in only where `signed_in` is false. |
 | `porelo vault status` | Exit 0 open, 3 shut, 4 no vault, 70 for a file that is not a vault. `--json` gives `{"exists", "open", "path"}`. "Open" is proved by reading the vault with what the account keeps. |
 
 **A host nobody sits at.** The second play stops when `porelo vault status` answers 3 or 4, and the vault is

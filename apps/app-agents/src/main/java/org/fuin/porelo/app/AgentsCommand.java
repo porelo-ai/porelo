@@ -25,7 +25,7 @@ import picocli.CommandLine.Spec;
         name = "agents",
         mixinStandardHelpOptions = true,
         description = "Lists the agents installed on this machine.")
-public class AgentsCommand implements Callable<Integer> {
+public class AgentsCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
     @Option(names = "--verbose", description = "Also show what each agent needs to reach.")
     private boolean verbose;
@@ -41,7 +41,21 @@ public class AgentsCommand implements Callable<Integer> {
             description = "Show what each agent installs, and whether it can be verified.")
     private boolean supplyChain;
 
+    @Option(
+            names = "--json",
+            description =
+                    "Prints one JSON object: the vault's state, and each agent with the entry it signs"
+                            + " in under and whether the vault holds it.")
+    private boolean json;
+
     @Spec private CommandSpec spec;
+
+    private PoreloContext context = PoreloContext.real();
+
+    @Override
+    public void setContext(PoreloContext context) {
+        this.context = context;
+    }
 
     private void supplyChain(PrintWriter out, InstalledAgent agent) {
 
@@ -69,7 +83,7 @@ public class AgentsCommand implements Callable<Integer> {
         final PrintWriter out = spec.commandLine().getOut();
         final PrintWriter err = spec.commandLine().getErr();
 
-        final XdgPaths xdg = XdgPaths.current();
+        final XdgPaths xdg = context.paths().xdg();
         final AgentDirectory locations =
                 directory == null
                         ? AgentDirectory.standard(xdg.data())
@@ -87,6 +101,12 @@ public class AgentsCommand implements Callable<Integer> {
 
         try (InstalledAgents agents = new InstalledAgents(locations, xdg.runtime())) {
 
+            if (json) {
+                out.println(org.fuin.porelo.wire.Json.write(signIns(agents, locations, providers)));
+                out.flush();
+                reportFailures(agents, err);
+                return agents.failures().isEmpty() ? 0 : 1;
+            }
             if (agents.size() == 0 && agents.failures().isEmpty()) {
                 out.println("no agents installed. Looked in:");
                 locations.locations().forEach(path -> out.println("  " + path));
@@ -219,17 +239,46 @@ public class AgentsCommand implements Callable<Integer> {
                             });
             out.flush();
 
-            // Reported rather than thrown: one broken package must not make the machine look as
-            // though it has no agents.
-            for (final Map.Entry<String, String> failure : agents.failures().entrySet()) {
-                err.println(
-                        "porelo: "
-                                + failure.getKey()
-                                + " is installed but unusable: "
-                                + failure.getValue());
-            }
-            err.flush();
+            reportFailures(agents, err);
             return agents.failures().isEmpty() ? 0 : 1;
         }
+    }
+
+    private Map<String, Object> signIns(
+            InstalledAgents agents,
+            AgentDirectory locations,
+            Map<String, org.fuin.porelo.agent.api.ProviderDefinition> providers) {
+        final java.util.List<AgentSignIns.Found> found =
+                agents.all().stream()
+                        .map(
+                                agent ->
+                                        new AgentSignIns.Found(
+                                                agent.definition(),
+                                                locations.descriptions().stream()
+                                                        .filter(
+                                                                description ->
+                                                                        agent.executable()
+                                                                                .equals(
+                                                                                        description
+                                                                                                .executable()))
+                                                        .map(AgentDirectory.Description::file)
+                                                        .findFirst()
+                                                        .orElse(agent.executable())))
+                        .toList();
+        return AgentSignIns.report(
+                found, providers, context.vault().exists(), context.readableCredentials());
+    }
+
+    private static void reportFailures(InstalledAgents agents, PrintWriter err) {
+        // Reported rather than thrown: one broken package must not make the machine look as
+        // though it has no agents.
+        for (final Map.Entry<String, String> failure : agents.failures().entrySet()) {
+            err.println(
+                    "porelo: "
+                            + failure.getKey()
+                            + " is installed but unusable: "
+                            + failure.getValue());
+        }
+        err.flush();
     }
 }

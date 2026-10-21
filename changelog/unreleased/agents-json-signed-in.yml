@@ -1,0 +1,2 @@
+title: "'porelo agents --json' names each installed agent with the vault entry it signs in under and whether the vault holds it, so a host's play stops for a sign-in only where one is missing"
+type: added

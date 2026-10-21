@@ -1,6 +1,6 @@
 # B218 — Whether An Agent Is Signed In, As A Contract
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - one `--json` form of `porelo agents` with one vault read, the page and tests.
 
 **What must be true.** A program can ask Porelo, in a form kept stable, which agents are installed and whether
@@ -28,7 +28,8 @@ Read on 2026-10-19 in `AgentsCommand`, `AgentLogin` and `StartCheck`:
    "the vault holds an entry under that name". That is the same rule the login itself follows, and no new knowledge.
 2. **`porelo agents --json`** prints one object:
    `{"vault": "open"|"shut"|"none", "agents": [{"name", "found_by", "credential", "signed_in"}]}`.
-   - `credential` is the entry's name by item 1;
+   - `credential` is the entry's name by item 1, which is also where `vault authorize` stores a grant (the
+     provider's name); with no default provider, `credential` and `signed_in` are left out;
    - `signed_in` is true or false while the vault is open, and left out otherwise; `vault` says why. The vault is
      read with what the account keeps (`context.readableCredentials()`, as `StartCheck` reads it), so nothing asks
      for a passphrase.
@@ -45,8 +46,3 @@ Read on 2026-10-19 in `AgentsCommand`, `AgentLogin` and `StartCheck`:
 - On the VM as `core`, with the vault open: `porelo agents --json` names each installed agent with `signed_in` true
   only for one whose credential is in the vault; with it shut, `vault` is `shut` and no `signed_in` is given.
 - Machines' `tasks.yml` names `agent-login:<agent>` exactly for the agents answered `signed_in: false`.
-
-## To be checked
-
-- Whether an agent granted by `vault authorize` rather than `vault login` stores under the same name; if not, item
-  1's rule takes the grant's name as well.
