@@ -69,7 +69,7 @@ with this order for a caller: the key by its fingerprint, the source line, `apt 
 - On a clean Ubuntu with the repository added by the README's lines, `apt install porelo` and then the packaged
   script with `--user NAME` make the account as the downloaded one does, and a second run changes nothing.
 - A snapshot install's packaged script keeps `snapshots`; seen red first.
-- HO02's role takes this path on Ubuntu.
+- porelo-host [HO02](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho02)'s role takes this path on Ubuntu.
 
 ## To be checked
 
