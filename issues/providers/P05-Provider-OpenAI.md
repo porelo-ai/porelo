@@ -1,6 +1,11 @@
 # P05 — Provider OpenAI
 
-**Status:** Implementing.
+**Status:** Implementing; the API key's acceptance is met, and it goes to Review with its push. **Measured on
+2026-10-21** in porelo-codex [CX01](https://github.com/porelo-ai/porelo-codex/blob/main/issues/README.md#cx01)'s live leg,
+with this build (snapshot 922) in a per-account install: Codex CLI in a task, on `providers/openai.yaml`, answered
+through the broker, which recorded exactly one `POST /v1/responses -> 200 from the provider`. The real key was absent
+from the CLI's output, the container's metadata, its profile and workspace, and its exported root filesystem. The
+account sign-in is the provider `chatgpt`, [P11](README.md#p11).
 **Size:** S - a provider file, a test reading it, a row in `doc/credentials.md`, and a live scenario in an agent
 repository; the account sign-in is measured apart and stays refused until it is.
 
