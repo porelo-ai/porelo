@@ -224,4 +224,26 @@ class ProjectDeletionTest {
         assertThat(runner.lines())
                 .anyMatch(line -> line.contains("rmi") && line.contains("porelo/uc"));
     }
+
+    @Test
+    void removesItsRepositoriesImagesAndNoOtherProjects(@TempDir Path dir) throws IOException {
+
+        // Left behind, a repository's image outlived its project; taken by prefix alone, the
+        // project 'uc' would have taken 'uc-two''s images with it.
+        final PoreloContext context = context(dir);
+        project("uc");
+        runner.answering("for-each-ref", "");
+        runner.answering(
+                "images",
+                "localhost/porelo/uc\nlocalhost/porelo/uc_backend\nlocalhost/porelo/uc-two_backend\n");
+
+        new ProjectDeletion(context).delete("uc", false, false);
+
+        assertThat(runner.lines())
+                .as("the repository's image")
+                .anyMatch(line -> line.contains("rmi") && line.endsWith("porelo/uc_backend"));
+        assertThat(runner.lines())
+                .as("another project's")
+                .noneMatch(line -> line.contains("rmi") && line.contains("porelo/uc-two"));
+    }
 }

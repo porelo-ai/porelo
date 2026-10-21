@@ -3,13 +3,13 @@
 **Status:** Implementing. Built, each test seen red first: the format, its reader and refusals (`RepositoryImageReader`,
 `ImageSource`, `SnippetFiles`); `repositories.<name>.image`; the mirror read at the reviewed default branch, never
 `porelo/*` and never a link (`MirrorFile`); the choice key by key (`ImageChoice`), applied at the start with each key's
-source printed and chosen again after the gate's fetch; one image per repository (`porelo/<project>--<repository>`);
+source printed and chosen again after the gate's fetch; one image per repository (`porelo/<project>_<repository>`);
 the review rank; `doc/project-file.md`. The UTF-8 locale was already in every task image. Left: the project
 `default`'s checkout (step 4's second order), `task prepare` naming the sources, `clear` removing the repositories'
 images, and the acceptance for the local override and for the project `default`.
 **Measured on 2026-10-21 on the VM in `core`** (snapshot 923 of this branch), `task-repository-image.feature`: a
 repository's `porelo.yml` on its default branch gave its task's image its snippet and a variable, both seen inside the
-container, the start named `porelo.yml at refs/heads/main of tooled` for each and built `porelo/imaged--tooled`; a
+container, the start named `porelo.yml at refs/heads/main of tooled` for each and built `porelo/imaged--tooled` (the separator was then `--`); a
 `porelo.yml` naming `egress` was refused by that key's name, with no image built. Both scenarios were seen red on
 snapshot 922, which lacks this work.
 **Size:** L - a new file format with its reader and refusals, four places to read it from in a fixed order, a read of a
@@ -94,7 +94,9 @@ Read in the code on 2026-10-18.
      `WorkOrigin.fromCheckout`). The files are read from the working tree, as the person sees them.
 5. **One image per repository.**
    - The name is `porelo/<project>` when the source is the project's own `image`. Otherwise it is
-     `porelo/<project>--<repository>`, so a project that does not use the feature keeps its one image.
+     `porelo/<project>_<repository>`, so a project that does not use the feature keeps its one image. An underscore,
+     not `--`: neither name may hold one, while a project may be called `a--b`, and `prune` and project deletion read
+     the project back out of an image's name (`Project.projectOfImage`).
    - The recipe label (`Containerfile.fingerprint`, `:126`) takes in the source's base, snippet and `env`, so a changed
      `porelo.yml` makes the image stale through the comparison that exists (`ProjectInventory.java:799`).
    - The build context is `data/build/<project>/<repository>`, with its own build lock (`TaskRunner.java:273`).

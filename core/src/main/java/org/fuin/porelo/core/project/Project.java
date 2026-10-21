@@ -714,7 +714,25 @@ public record Project(
      * @return Image name without a tag.
      */
     public String imageName() {
-        return "porelo/" + name + (imageVariant == null ? "" : "--" + imageVariant);
+        return "porelo/" + name + (imageVariant == null ? "" : IMAGE_VARIANT + imageVariant);
+    }
+
+    /**
+     * Between a project's name and a repository's in the name of the repository's own image. An
+     * underscore, because neither name may hold one: a dash would make {@code a--b} either the
+     * project {@code a--b} or the repository {@code b} of {@code a}.
+     */
+    public static final String IMAGE_VARIANT = "_";
+
+    /**
+     * Returns the project an image of Porelo's belongs to.
+     *
+     * @param image The image's name after {@code porelo/}: a project's, or a repository's of it.
+     * @return The project's name.
+     */
+    public static String projectOfImage(String image) {
+        final int variant = image.indexOf(IMAGE_VARIANT);
+        return variant < 0 ? image : image.substring(0, variant);
     }
 
     /**

@@ -239,6 +239,26 @@ class PruneTest {
     }
 
     @Test
+    void aRepositorysImageBelongsToItsProject() throws IOException {
+
+        // Taken for a project of its own, a followed project's repository image was a leftover, and
+        // its next task built it again from nothing.
+        final PoreloContext context = context();
+        new FollowedProjects(context.paths().projects().followed())
+                .follow("kept", "git@example.org:kept.git", true);
+        runner.answering(
+                "images", "localhost/porelo/kept_backend\nlocalhost/porelo/gone_backend\n");
+
+        final Prune.Result found = new Prune(context).run(false, false);
+
+        assertThat(found.removes())
+                .extracting(Prune.Item::name)
+                .as("a vanished project's repository image goes, a followed one's stays")
+                .contains("porelo/gone_backend")
+                .doesNotContain("porelo/kept_backend");
+    }
+
+    @Test
     void aCloneLeftBesideNoFollowRecordIsALeftoverAndAFollowedOnesIsNot() throws IOException {
         final PoreloContext context = context();
         Files.createDirectories(context.paths().projects().followedClone("refused"));

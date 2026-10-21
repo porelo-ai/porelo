@@ -421,7 +421,9 @@ public final class Prune {
             final List<Item> removes,
             final List<Item> keeps) {
         for (final String image : context.podman().poreloImages()) {
-            final String project = image.substring("porelo/".length());
+            final String project =
+                    org.fuin.porelo.core.project.Project.projectOfImage(
+                            image.substring("porelo/".length()));
             if (!LOGIN.equals(project)
                     && !remaining.contains(project)
                     && !named.contains("image " + image)) {

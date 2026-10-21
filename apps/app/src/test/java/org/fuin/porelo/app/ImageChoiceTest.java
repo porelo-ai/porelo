@@ -107,7 +107,7 @@ class ImageChoiceTest {
                                 .applyTo(project, backend)
                                 .imageName())
                 .as("a repository's own snippet")
-                .isEqualTo("porelo/acme--backend");
+                .isEqualTo("porelo/acme_backend");
     }
 
     @Test

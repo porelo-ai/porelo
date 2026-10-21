@@ -258,6 +258,13 @@ public final class ProjectDeletion {
                 }
             }
             context.podman().removeImage("porelo/" + project);
+            // Its repositories' own images too, which are named after it.
+            for (final String image : context.podman().poreloImages()) {
+                if (image.startsWith(
+                        "porelo/" + project + org.fuin.porelo.core.project.Project.IMAGE_VARIANT)) {
+                    context.podman().removeImage(image);
+                }
+            }
             for (final Path mirror : mirrorsOf(project)) {
                 deleteTree(mirror);
             }

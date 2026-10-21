@@ -200,7 +200,7 @@ image:
   repository's `porelo.yml`, then the project's `image`. `base_image` and the snippet are each taken whole from one of
   them; `env` per variable, so an override that sets one variable changes only that one.
 - **The start and its dry run name each key's source** (`base image ... (from ...)`, `image lines from ...`,
-  `image env NAME from ...`). An image a repository's own sources shape is built as `porelo/<project>--<repository>`,
+  `image env NAME from ...`). An image a repository's own sources shape is built as `porelo/<project>_<repository>`,
   so two repositories' images never replace each other; one shaped by the project's `image` alone keeps
   `porelo/<project>`.
 - **The review ranks a change to `porelo.yml` as dangerous:** the image it chooses is built as root, outside the task's

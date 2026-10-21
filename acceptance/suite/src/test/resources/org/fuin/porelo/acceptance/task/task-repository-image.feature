@@ -34,12 +34,12 @@ Feature: A repository says what its tasks are built in
         Then it exits zero
         And its output has a line matching "image lines +from porelo.yml at refs/heads/main of tooled.*"
         And its output has a line matching "image env +REPOSITORY_IMAGE from porelo.yml at refs/heads/main of tooled.*"
-        And its output has a line matching "task image +porelo/imaged--tooled"
+        And its output has a line matching "task image +porelo/imaged_tooled"
         When a script runs:
             """
             podman exec porelo-imaged-shaped sh -c 'cat /etc/porelo-repository-image; echo "env: $REPOSITORY_IMAGE"'
             porelo task remove porelo-imaged-shaped --force > /dev/null
-            podman rmi porelo/imaged--tooled > /dev/null 2>&1 || true
+            podman rmi porelo/imaged_tooled > /dev/null 2>&1 || true
             """
         Then it exits zero
         And its output contains "from-the-repository"
@@ -61,7 +61,7 @@ Feature: A repository says what its tasks are built in
             timeout 600 porelo task start widening --project imaged --repository widened --agent stub \
                 --attach shell --detach --clearance deny
             echo "exit $?"
-            podman image exists porelo/imaged--widened && echo "an image was built" || echo "no image was built"
+            podman image exists porelo/imaged_widened && echo "an image was built" || echo "no image was built"
             porelo task remove porelo-imaged-widening --force > /dev/null 2>&1 || true
             """
         Then its output contains "'egress' cannot be set here; only image may be set here"
