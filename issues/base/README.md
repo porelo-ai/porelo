@@ -49,6 +49,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="b194"></a>[B194](B194-A-File-Handed-In-At-Every-Start.md) | L | - | A host file such as `.AGENTS.md` handed into an agent's task read-only at every start; a changed copy written on the host only after approval; analyzed: the hand-in at every start on `HandIns`, the way back needs the decision changed | 1 |
 | <a id="b175"></a>[B175](B175-The-Profile-That-May-Bind-The-Socket.md) | L | `porelo` [B135](README.md#b135) | On an AppArmor machine a task connects only to a socket one of Porelo's binaries bound, by a task profile that refuses any other peer, as the SELinux domain does on SELinux machines. | 0 |
 | <a id="b176"></a>[B176](B176-Comment-Threads-That-Follow-A-New-Push.md) | M | `porelo` [B166](README.md#b166) | A thread on waiting work moves to a new push's commit where its lines are unchanged, else stays and says why; each commented commit pinned under a hidden ref; `Thread` gains `from` and `stays`. | 0 |
 | <a id="b177"></a>[B177](B177-A-Cost-Ceiling-Per-Task.md) | M | `porelo` [B138](README.md#b138), [B191](README.md#b191) | A dollar ceiling per task from `limits.cost`, counted by the broker from the cost the provider reports, else at list price from the price table; a model with no price refuses the ceiling at the start or fail closed, never $0; under a subscription it caps list-price value. | - |
@@ -95,7 +96,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | - | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own. |
-| <a id="b194"></a>[B194](B194-A-File-Handed-In-At-Every-Start.md) | - | - | A host file such as `.AGENTS.md` handed into an agent's task read-only at every start; a changed copy written on the host only after approval. |
 | <a id="b203"></a>[B203](B203-Task-Names-Checked-By-What-The-Commands-Do.md) | - | - | The test that every task and talk command takes both spellings of a task runs the commands through picocli's tree instead of matching their source text. |
 | <a id="b202"></a>[B202](B202-Credential-Names-In-A-Project-File-Checked.md) | - | - | A credential's name in a project file is checked when read, since it becomes a token file's and a variable's name; what an existing file does is decided. |
 | <a id="b198"></a>[B198](B198-Settings-Inherited-Down-An-Organisations-Tree.md) | - | - | An organisation file pinned by the machine's administrator passes settings down signed teams to projects by repository address; `fixed` and `narrow-only` locks no file below can undo, every file verified through the chain of keys, `project show --resolved`; folds in porelo-project [PJ16](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj16). |
