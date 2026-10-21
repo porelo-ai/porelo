@@ -184,7 +184,7 @@ public final class Preparation {
                     context.podman()
                             .buildImage(
                                     project,
-                                    context.paths().tasks().buildContext(project.name()),
+                                    context.paths().tasks().buildContext(project.imageKey()),
                                     layers,
                                     rebuild);
             out.println("image     " + image);

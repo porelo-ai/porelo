@@ -438,11 +438,14 @@ public final class Prune {
             // Beside each context lies the lock an image build holds, '<project>.build.lock': a
             // file of the project, never a project of its own name. Read as one, it was offered
             // while a task of the project ran.
-            final String project =
+            final String key =
                     entry.endsWith(BUILD_LOCK)
                             ? entry.substring(0, entry.length() - BUILD_LOCK.length())
                             : entry;
-            final Path lock = builds == null ? null : builds.resolve(project + BUILD_LOCK);
+            // A repository's own image is built in '<project>_<repository>', which is its
+            // project's.
+            final String project = org.fuin.porelo.core.project.Project.projectOfImage(key);
+            final Path lock = builds == null ? null : builds.resolve(key + BUILD_LOCK);
             if (LOGIN.equals(project)
                     || remaining.contains(project)
                     || named.contains("build " + builds.resolve(entry))

@@ -87,7 +87,7 @@ final class AgentStaging {
                                 + ", and nothing is there - reinstall the agent");
             }
             final java.nio.file.Path staged =
-                    paths.tasks().buildContext(project.name()).resolve(tree.stagingName());
+                    paths.tasks().buildContext(project.imageKey()).resolve(tree.stagingName());
             try {
                 if (upToDate(source, staged)) {
                     // Staged by an earlier run of the same package. Unpacking hundreds of megabytes

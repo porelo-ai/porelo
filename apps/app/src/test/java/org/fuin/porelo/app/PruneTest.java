@@ -248,14 +248,18 @@ class PruneTest {
                 .follow("kept", "git@example.org:kept.git", true);
         runner.answering(
                 "images", "localhost/porelo/kept_backend\nlocalhost/porelo/gone_backend\n");
+        final Path kept =
+                Files.createDirectories(context.paths().tasks().buildContext("kept_backend"));
+        final Path gone =
+                Files.createDirectories(context.paths().tasks().buildContext("gone_backend"));
 
         final Prune.Result found = new Prune(context).run(false, false);
 
         assertThat(found.removes())
                 .extracting(Prune.Item::name)
                 .as("a vanished project's repository image goes, a followed one's stays")
-                .contains("porelo/gone_backend")
-                .doesNotContain("porelo/kept_backend");
+                .contains("porelo/gone_backend", gone.toString())
+                .doesNotContain("porelo/kept_backend", kept.toString());
     }
 
     @Test

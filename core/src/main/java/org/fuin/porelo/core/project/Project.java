@@ -714,7 +714,18 @@ public record Project(
      * @return Image name without a tag.
      */
     public String imageName() {
-        return "porelo/" + name + (imageVariant == null ? "" : IMAGE_VARIANT + imageVariant);
+        return "porelo/" + imageKey();
+    }
+
+    /**
+     * Returns what names this project's image apart: the project's name, or for a repository's own
+     * image the project's and the repository's. Its build directory and lock are named by it too,
+     * so two repositories' images are built apart.
+     *
+     * @return The image's name without {@code porelo/}.
+     */
+    public String imageKey() {
+        return name + (imageVariant == null ? "" : IMAGE_VARIANT + imageVariant);
     }
 
     /**

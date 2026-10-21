@@ -273,6 +273,22 @@ public final class ProjectDeletion {
             // parent and stays findable rather than being orphaned under a deleted path.
             Files.deleteIfExists(context.paths().xdg().data().resolve("mirrors").resolve(project));
             deleteTree(context.paths().tasks().buildContext(project));
+            // And its repositories' own build directories and locks, named after it.
+            final Path builds = context.paths().tasks().buildContext(project).getParent();
+            if (builds != null && Files.isDirectory(builds)) {
+                try (var entries = Files.list(builds)) {
+                    for (final Path entry : entries.toList()) {
+                        if (entry.getFileName()
+                                .toString()
+                                .startsWith(
+                                        project
+                                                + org.fuin.porelo.core.project.Project
+                                                        .IMAGE_VARIANT)) {
+                            deleteTree(entry);
+                        }
+                    }
+                }
+            }
             deleteTree(context.paths().projects().followedClone(project));
             Files.deleteIfExists(context.paths().projects().projectRegistry().resolve(project));
             Files.deleteIfExists(context.paths().projects().upstreamRecords().resolve(project));

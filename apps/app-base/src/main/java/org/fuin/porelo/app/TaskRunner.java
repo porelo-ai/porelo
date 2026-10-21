@@ -271,7 +271,7 @@ public class TaskRunner {
 
         // One build of a project at a time: the daemon and a terminal starting it at once wrote one
         // Containerfile over the other and tagged one image with either's.
-        final Path context = paths.tasks().buildContext(project.name());
+        final Path context = paths.tasks().buildContext(project.imageKey());
         final String image;
         try {
             image =

@@ -237,8 +237,13 @@ class ProjectDeletionTest {
                 "images",
                 "localhost/porelo/uc\nlocalhost/porelo/uc_backend\nlocalhost/porelo/uc-two_backend\n");
 
+        final Path own = Files.createDirectories(dir.resolve("data/porelo/build/uc_backend"));
+        final Path other = Files.createDirectories(dir.resolve("data/porelo/build/uc-two_backend"));
+
         new ProjectDeletion(context).delete("uc", false, false);
 
+        assertThat(own).as("its repository's build directory").doesNotExist();
+        assertThat(other).as("another project's").exists();
         assertThat(runner.lines())
                 .as("the repository's image")
                 .anyMatch(line -> line.contains("rmi") && line.endsWith("porelo/uc_backend"));
