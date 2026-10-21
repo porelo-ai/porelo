@@ -106,6 +106,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b238"></a>[B238](B238-An-Unfollow-Leaves-Nothing-Of-The-Project.md) | - | - | `project unfollow` removes the project's build lock and upstream copies, which `porelo prune` finds left over today |
 | <a id="b236"></a>[B236](B236-The-Inventory-Names-The-Projects-Transports.md) | - | - | `project inventory` names the packages of the transports a project's tasks use, as [B217](#b217) does for `agent_package`, so a host installs them; porelo-host [HO02](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho02) waits on it |
 | <a id="b237"></a>[B237](B237-A-Name-Granted-Live-Through-A-CNAME.md) | - | - | A name granted to a running task that answers through a CNAME is reached as it is when named at the start, where today its connections are dropped |
 | <a id="b235"></a>[B235](B235-A-Dry-Run-Shows-The-Agents-Refusals.md) | - | - | `task start --dry-run` names a host the agent refuses as refused, where today it lists it as reachable and the running task refuses it |
