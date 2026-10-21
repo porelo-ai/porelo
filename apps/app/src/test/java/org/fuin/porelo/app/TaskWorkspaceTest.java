@@ -73,6 +73,68 @@ class TaskWorkspaceTest {
                         null));
     }
 
+    /** Starts a server that records the Authorization header of each request and answers 404. */
+    private static com.sun.net.httpserver.HttpServer recording(List<String> seen)
+            throws IOException {
+        final com.sun.net.httpserver.HttpServer server =
+                com.sun.net.httpserver.HttpServer.create(
+                        new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext(
+                "/",
+                exchange -> {
+                    final String authorization =
+                            exchange.getRequestHeaders().getFirst("Authorization");
+                    seen.add(authorization == null ? "none" : authorization);
+                    exchange.sendResponseHeaders(404, -1);
+                    exchange.close();
+                });
+        server.start();
+        return server;
+    }
+
+    @Test
+    void theGatesCredentialGoesToTheGateAndToNoOtherHostGitReaches() throws Exception {
+
+        // An unscoped header went with every request git made, so a task fetching a dependency
+        // from a declared forge handed that forge the gate's token.
+        final List<String> atGate = new java.util.concurrent.CopyOnWriteArrayList<>();
+        final List<String> elsewhere = new java.util.concurrent.CopyOnWriteArrayList<>();
+        final com.sun.net.httpserver.HttpServer gate = recording(atGate);
+        final com.sun.net.httpserver.HttpServer other = recording(elsewhere);
+        try {
+            final String gateUrl = "http://127.0.0.1:" + gate.getAddress().getPort() + "/";
+            final Map<String, String> environment =
+                    new java.util.HashMap<>(
+                            TaskWorkspace.gateCredential(gateUrl, "the-gate-token"));
+            environment.put("GIT_CONFIG_GLOBAL", "/dev/null");
+            environment.put("GIT_CONFIG_NOSYSTEM", "1");
+            environment.put("GIT_TERMINAL_PROMPT", "0");
+            for (final String url :
+                    List.of(
+                            gateUrl + "demo.git",
+                            "http://127.0.0.1:" + other.getAddress().getPort() + "/demo.git")) {
+                runner.run(
+                        new Command(
+                                List.of("git", "ls-remote", url),
+                                Path.of(System.getProperty("java.io.tmpdir")),
+                                environment,
+                                null));
+            }
+
+            assertThat(atGate)
+                    .as("what the gate was sent")
+                    .isNotEmpty()
+                    .allSatisfy(value -> assertThat(value).startsWith("Basic "));
+            assertThat(elsewhere)
+                    .as("what another host was sent")
+                    .isNotEmpty()
+                    .containsOnly("none");
+        } finally {
+            gate.stop(0);
+            other.stop(0);
+        }
+    }
+
     @Test
     void aRemoteThatNeverAnswersIsGivenUpOnAndSaidRatherThanWaitedForSilently(@TempDir Path root)
             throws Exception {

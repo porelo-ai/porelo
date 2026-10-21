@@ -1,6 +1,7 @@
 # B232 — The Gate Credential Goes Only To The Gate
 
-**Status:** Idea.
+**Status:** Implementing.
+**Size:** XS - one configuration key in `TaskWorkspace`, and a test with real git.
 
 **What must be true.** A task's git sends the gate's credential to the gate alone, never to another host it fetches
 from, so a git dependency on a public forge is fetched and the gate's token stays inside the machine.
@@ -16,10 +17,11 @@ credential is never passed on to another host.
 
 ## Plan
 
-- `TaskWorkspace.environment` sets the key scoped to the gate's own URL, `http.<gate base URL>.extraHeader`, which
-  git applies only to requests to that URL.
-- Red first: a test in `TaskWorkspaceTest` that the key names the gate's URL and no other, and an acceptance step
-  that a task's git sends no `Authorization` to a declared host other than the gate.
+- `TaskWorkspace.gateCredential` sets the key scoped to the gate's own URL, `http.<gate base URL>.extraHeader`, which
+  git applies only to requests under that URL.
+- Red first: `TaskWorkspaceTest` runs real git with the task's configuration against two local servers, the gate and
+  another host, and reads which of them received `Authorization`; the unscoped key fails it.
+- The acceptance suite's existing clone and push scenarios show the gate still takes the scoped header.
 
 ## Acceptance
 

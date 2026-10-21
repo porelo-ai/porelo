@@ -177,22 +177,38 @@ public class TaskWorkspace {
      * @return Variables to set in the container.
      */
     public Map<String, String> environment(Project project, String taskName) {
-        final Map<String, String> environment = new LinkedHashMap<>();
-        final String header =
-                "Authorization: Basic "
-                        + Base64.getEncoder()
-                                .encodeToString(
-                                        ("porelo:" + token.value())
-                                                .getBytes(StandardCharsets.UTF_8));
-        environment.put("GIT_CONFIG_COUNT", "1");
-        environment.put("GIT_CONFIG_KEY_0", "http.extraHeader");
-        environment.put("GIT_CONFIG_VALUE_0", header);
+        final Map<String, String> environment =
+                new LinkedHashMap<>(
+                        gateCredential("http://" + host + ":" + port() + "/", token.value()));
         environment.put("PORELO_REMOTE_URL", url(project));
         // A push goes to a ref no branch points at, so nothing an operator is reading moves
         // underneath them. An online task's gate passes it on as porelo/<task> at the upstream at
         // once; a guarded one's keeps it for approval.
         environment.put("PORELO_TASK_REF", GitGate.INCOMING + taskName);
         return Map.copyOf(environment);
+    }
+
+    /**
+     * Returns the git configuration that hands the gate its token, and nobody else.
+     *
+     * <p>Scoped to the gate's URL: an unscoped {@code http.extraHeader} goes with every HTTPS
+     * request git makes, so a fetch from a declared forge carried the gate's token there.
+     *
+     * @param gate The gate's base URL, ending in a slash.
+     * @param token The token the gate and the container share.
+     * @return {@code GIT_CONFIG_*} variables.
+     */
+    static Map<String, String> gateCredential(String gate, String token) {
+        return Map.of(
+                "GIT_CONFIG_COUNT",
+                "1",
+                "GIT_CONFIG_KEY_0",
+                "http." + gate + ".extraHeader",
+                "GIT_CONFIG_VALUE_0",
+                "Authorization: Basic "
+                        + Base64.getEncoder()
+                                .encodeToString(
+                                        ("porelo:" + token).getBytes(StandardCharsets.UTF_8)));
     }
 
     /**
