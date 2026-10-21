@@ -19,6 +19,12 @@ providers as a class, the others one provider each.
 |---|---|---|---|
 | <a id="p05"></a>[P05](P05-Provider-OpenAI.md) | S | - | `providers/openai.yaml` (`api.openai.com`, `openai` under `/v1`, Bearer), a ChatGPT sign-in refused before a start; file, test and doc row built, the live run on an API key next. |
 
+## Backlog
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="p11"></a>[P11](P11-Provider-ChatGPT-Sign-In.md) | M | - | `providers/chatgpt.yaml` (`chatgpt.com`, `openai` under `/backend-api/codex`, the sign-in as Bearer) and a provider key `credential_headers` that fills `ChatGPT-Account-Id` from the stored sign-in; the agent side is porelo-codex's. |
+
 ## Analyzed
 
 | # | Size | Blocked by | What it covers | Open questions |
