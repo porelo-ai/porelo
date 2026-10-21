@@ -93,6 +93,9 @@ public final class ReviewRanking {
     private static final String ON_CHECKOUT =
             "it runs, or is read by a tool, when the repository is checked out or opened";
 
+    private static final String IMAGE =
+            "it chooses the image a task is built from, as root and outside the task's firewall";
+
     private static final String SIGNERS =
             "a signer list: it decides whose messages and which machines are believed";
 
@@ -249,6 +252,8 @@ public final class ReviewRanking {
         // small.
         names.put("allowed_signers", SIGNERS);
         names.put("machine-signers", SIGNERS);
+        names.put("porelo.yml", IMAGE);
+        names.put(".porelo.yml", "a local override of a task's image, never to be checked in");
         return Map.copyOf(names);
     }
 

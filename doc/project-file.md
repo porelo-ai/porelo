@@ -174,6 +174,38 @@ credentials:
 #   logs: failure                     # optional: failure (default) or all
 ```
 
+## A repository's own image
+
+A repository says what it needs to be built in, in a file of its own: `porelo.yml` at its top, checked in. It holds
+`image:` and nothing else - `base_image`, `snippet` or `snippet_file`, and `env`:
+
+```yaml
+image:
+  base_image: "ubuntu:24.04@sha256:..."
+  snippet: |
+    RUN apt-get update && apt-get install -y --no-install-recommends rpm
+  env:
+    JAVA_HOME: /opt/graalvm
+```
+
+- **Only the image.** Egress, limits, the class and every other rule stay the project's: a repository that could name
+  them would widen what its own tasks may do. Any other key is refused by its name, at the start, before an image is
+  built. A variable Porelo sets in every task (`PATH`, `HOME`, `LANG`, `PORELO_*`) is refused too.
+- **Read from reviewed work only:** the repository's mirror at its default branch, never a branch a task pushed
+  (`porelo/*`), and a `snippet_file` only as a plain file of the repository, never a link or a path that leaves it.
+- **The project file can say it as well**, under `repositories.<name>.image`, with the same keys.
+- **A local override** lies in `~/.config/porelo/projects/<project>/<repository>/.porelo.yml`, in the same format,
+  never checked in.
+- **What wins, key by key:** the local override, then the project file's entry for the repository, then the
+  repository's `porelo.yml`, then the project's `image`. `base_image` and the snippet are each taken whole from one of
+  them; `env` per variable, so an override that sets one variable changes only that one.
+- **The start and its dry run name each key's source** (`base image ... (from ...)`, `image lines from ...`,
+  `image env NAME from ...`). An image a repository's own sources shape is built as `porelo/<project>--<repository>`,
+  so two repositories' images never replace each other; one shaped by the project's `image` alone keeps
+  `porelo/<project>`.
+- **The review ranks a change to `porelo.yml` as dangerous:** the image it chooses is built as root, outside the task's
+  firewall.
+
 ## How the file reaches a machine: following
 
 A machine **follows** a project's repository: `porelo project follow <project> <git-url> --signed-by "<key>"`.

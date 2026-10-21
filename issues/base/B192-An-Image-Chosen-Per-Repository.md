@@ -1,8 +1,12 @@
 # B192 — An Image Chosen Per Repository
 
-**Status:** Implementing. Built: step 1, the format, its reader and refusals (`RepositoryImageReader`,
-`ImageSource`, `SnippetFiles`, which `ProjectReader` now uses too). The UTF-8 locale was already in every task image
-(`Containerfile`, `ENV LANG=C.UTF-8`), so nothing is left of it here.
+**Status:** Implementing. Built, each test seen red first: the format, its reader and refusals (`RepositoryImageReader`,
+`ImageSource`, `SnippetFiles`); `repositories.<name>.image`; the mirror read at the reviewed default branch, never
+`porelo/*` and never a link (`MirrorFile`); the choice key by key (`ImageChoice`), applied at the start with each key's
+source printed and chosen again after the gate's fetch; one image per repository (`porelo/<project>--<repository>`);
+the review rank; `doc/project-file.md`. The UTF-8 locale was already in every task image. Left: the project
+`default`'s checkout (step 4's second order), `task prepare` naming the sources, `clear` removing the repositories'
+images, and the acceptance steps.
 **Size:** L - a new file format with its reader and refusals, four places to read it from in a fixed order, a read of a
 mirror's default branch that Java does not make today, one image per repository with its own cache, the start and its
 dry run naming the source, a review rank, the docs and acceptance steps; several modules and one new contract a

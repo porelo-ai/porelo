@@ -25,6 +25,10 @@ class ReviewRankingTest {
         assertThat(ReviewRanking.dangerByPath(".gitattributes")).contains("checked out");
         assertThat(ReviewRanking.dangerByPath("docker-compose.override.yml"))
                 .contains("build script");
+        // The image it chooses is built as root outside the task's firewall: a task changing it
+        // changes what the next task runs in.
+        assertThat(ReviewRanking.dangerByPath("porelo.yml")).contains("image a task is built from");
+        assertThat(ReviewRanking.dangerByPath(".porelo.yml")).contains("never to be checked in");
     }
 
     @Test

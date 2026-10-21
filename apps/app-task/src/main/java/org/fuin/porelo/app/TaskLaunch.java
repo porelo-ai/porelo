@@ -902,8 +902,9 @@ public final class TaskLaunch {
         // Chosen per repository, key by key, and each key named with where it came from: the image
         // is built as root outside the task's firewall, so which file said what is not a detail.
         final ImageChoice image;
+        final Project asDeclared = project;
         try {
-            image = ImageChoice.of(context, project, repository);
+            image = ImageChoice.of(context, asDeclared, repository);
         } catch (ProjectException ex) {
             err.println("porelo: " + ex.getMessage());
             err.flush();
@@ -1257,6 +1258,39 @@ public final class TaskLaunch {
                 err.println("porelo: nothing was created");
                 err.flush();
                 return 65;
+            }
+            // Chosen again once the gate fetched: a repository's porelo.yml is read from its
+            // mirror,
+            // and on the first start there was none to read before this.
+            if (workspace != null) {
+                final ImageChoice fetched;
+                try {
+                    fetched = ImageChoice.of(context, asDeclared, repository);
+                } catch (ProjectException ex) {
+                    err.println("porelo: " + ex.getMessage());
+                    err.println("porelo: nothing was created");
+                    err.flush();
+                    return 64;
+                }
+                if (!fetched.equals(image)) {
+                    project = fetched.applyTo(asDeclared, repository);
+                    out.println(
+                            "base image     "
+                                    + project.baseImage()
+                                    + "  (from "
+                                    + fetched.baseFrom()
+                                    + ", read after the fetch)");
+                    if (fetched.snippetFrom() != null) {
+                        out.println("image lines    from " + fetched.snippetFrom());
+                    }
+                    fetched.envFrom()
+                            .forEach(
+                                    (name, from) ->
+                                            out.println(
+                                                    "image env      " + name + " from " + from));
+                    out.println("task image     " + project.imageName());
+                    out.flush();
+                }
             }
             // No shell offered in its place: a shell without a gate has an empty workspace and
             // fixes nothing about what stopped the gate, which is said above.
