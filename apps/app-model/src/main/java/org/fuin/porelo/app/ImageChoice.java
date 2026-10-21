@@ -139,6 +139,47 @@ public record ImageChoice(
     }
 
     /**
+     * Returns the project as a task on the repository builds it: with this image, and named apart
+     * whenever a source other than the project's own image gave a key.
+     *
+     * @param project The project.
+     * @param repository The repository.
+     * @return The copy to build and start from.
+     */
+    public Project applyTo(Project project, Repository repository) {
+        final String own = ImageSource.of(project).from();
+        final boolean projects =
+                baseFrom.equals(own)
+                        && (snippetFrom == null || snippetFrom.equals(own))
+                        && env.isEmpty();
+        return project.forImage(baseImage, withEnv(), projects ? null : repository.name());
+    }
+
+    /**
+     * The snippet with each variable as an ENV line after it, so a variable can read a tool's path.
+     */
+    private @Nullable String withEnv() {
+        if (env.isEmpty()) {
+            return snippet;
+        }
+        final StringBuilder lines = new StringBuilder(snippet == null ? "" : snippet);
+        if (!lines.isEmpty() && lines.charAt(lines.length() - 1) != '\n') {
+            lines.append('\n');
+        }
+        env.forEach(
+                (name, value) ->
+                        lines.append("ENV ")
+                                .append(name)
+                                .append("=\"")
+                                .append(
+                                        value.replace("\\", "\\\\")
+                                                .replace("\"", "\\\"")
+                                                .replace("$", "\\$"))
+                                .append("\"\n"));
+        return lines.toString();
+    }
+
+    /**
      * Returns where a person's local override for a repository lies, whether or not it exists.
      *
      * @param context Where the configuration is.

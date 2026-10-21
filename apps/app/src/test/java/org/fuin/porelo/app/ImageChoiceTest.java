@@ -72,6 +72,66 @@ class ImageChoiceTest {
         assertThat(choice.env()).isEmpty();
     }
 
+    private static Project acme() {
+        return ProjectReader.read(
+                new StringReader(
+                        """
+                        project:
+                          name: "acme"
+                          security_class: "guarded"
+                        image:
+                          base_image: "project-base"
+                        repositories:
+                          backend: {}
+                        """),
+                "project.yml");
+    }
+
+    @Test
+    void aRepositorysOwnImageIsNamedApartAndTheProjectsKeepsItsName() {
+
+        // One name for both would let a task on one repository replace the other's image.
+        final Project project = acme();
+        final var backend = project.repositories().getFirst();
+        final ImageSource own = ImageSource.of(project);
+
+        assertThat(ImageChoice.merge(List.of(own)).applyTo(project, backend).imageName())
+                .as("only the project's image")
+                .isEqualTo("porelo/acme");
+        assertThat(
+                        ImageChoice.merge(
+                                        List.of(
+                                                new ImageSource(
+                                                        null, "RUN x", Map.of(), "porelo.yml"),
+                                                own))
+                                .applyTo(project, backend)
+                                .imageName())
+                .as("a repository's own snippet")
+                .isEqualTo("porelo/acme--backend");
+    }
+
+    @Test
+    void aVariableBecomesOneEnvLineWhateverItHolds() {
+
+        // A quote or a dollar sign left as written would end the value early or read another
+        // variable while the image is built as root.
+        final Project project = acme();
+        final Project built =
+                ImageChoice.merge(
+                                List.of(
+                                        new ImageSource(
+                                                null,
+                                                "RUN true",
+                                                Map.of("A", "say \"hi\" for $HOME \\ now"),
+                                                "porelo.yml"),
+                                        ImageSource.of(project)))
+                        .applyTo(project, project.repositories().getFirst());
+
+        assertThat(built.imageSnippet())
+                .isEqualTo("RUN true\nENV A=\"say \\\"hi\\\" for \\$HOME \\\\ now\"\n");
+        assertThat(built.baseImage()).isEqualTo("project-base");
+    }
+
     private void git(Path directory, String... arguments) {
         final List<String> all =
                 new ArrayList<>(

@@ -899,7 +899,23 @@ public final class TaskLaunch {
                         + repository.name()
                         + (repository.name().equals(project.name()) ? " (the project's own)" : ""));
         out.println("security class " + project.securityClass().name().toLowerCase());
-        out.println("base image     " + project.baseImage());
+        // Chosen per repository, key by key, and each key named with where it came from: the image
+        // is built as root outside the task's firewall, so which file said what is not a detail.
+        final ImageChoice image;
+        try {
+            image = ImageChoice.of(context, project, repository);
+        } catch (ProjectException ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return 64;
+        }
+        project = image.applyTo(project, repository);
+        out.println("base image     " + project.baseImage() + "  (from " + image.baseFrom() + ")");
+        if (image.snippetFrom() != null) {
+            out.println("image lines    from " + image.snippetFrom());
+        }
+        image.envFrom()
+                .forEach((name, from) -> out.println("image env      " + name + " from " + from));
         out.println("task image     " + project.imageName());
         out.flush();
 

@@ -21,6 +21,10 @@ package org.fuin.porelo.core.project;
  * @param credentials What every task of the project holds beyond its agent's own credential: a
  *     vault entry's name to the destination it is for, in the order the file names them. A run may
  *     add to these and never withdraw one. Anyone who can start a task in the project can use them.
+ * @param builds Where the project's builds are read, or {@code null}.
+ * @param imageVariant The repository whose own image this project's copy carries, or {@code null}
+ *     for the project's image; it names the image apart, so two repositories' images never replace
+ *     each other.
  */
 public record Project(
         String name,
@@ -35,7 +39,57 @@ public record Project(
         Mail mail,
         java.util.List<Repository> repositories,
         java.util.Map<String, String> credentials,
-        @org.jspecify.annotations.Nullable Builds builds) {
+        @org.jspecify.annotations.Nullable Builds builds,
+        @org.jspecify.annotations.Nullable String imageVariant) {
+
+    /**
+     * Constructor for a project built from its own image, as every project was before a repository
+     * could name its own.
+     *
+     * @param name Project name.
+     * @param description What it is for.
+     * @param securityClass How contained its tasks are.
+     * @param baseImage Image its task image is built from.
+     * @param imageSnippet Extra build fragment, or {@code null}.
+     * @param upstream Where approved work goes, or {@code null}.
+     * @param limits What a task may consume.
+     * @param egress What a task may reach.
+     * @param packageSources Where apt fetches from, or {@code null}.
+     * @param mail The peers its tasks may address.
+     * @param repositories The work repositories it names.
+     * @param credentials Vault entries every task holds, by the destination each is for.
+     * @param builds Where its builds are read, or {@code null}.
+     */
+    public Project(
+            String name,
+            String description,
+            SecurityClass securityClass,
+            String baseImage,
+            @org.jspecify.annotations.Nullable String imageSnippet,
+            @org.jspecify.annotations.Nullable String upstream,
+            Limits limits,
+            Egress egress,
+            java.util.@org.jspecify.annotations.Nullable List<String> packageSources,
+            Mail mail,
+            java.util.List<Repository> repositories,
+            java.util.Map<String, String> credentials,
+            @org.jspecify.annotations.Nullable Builds builds) {
+        this(
+                name,
+                description,
+                securityClass,
+                baseImage,
+                imageSnippet,
+                upstream,
+                limits,
+                egress,
+                packageSources,
+                mail,
+                repositories,
+                credentials,
+                builds,
+                null);
+    }
 
     /**
      * Constructor for a project whose tasks learn nothing of a build elsewhere - every project
@@ -660,6 +714,37 @@ public record Project(
      * @return Image name without a tag.
      */
     public String imageName() {
-        return "porelo/" + name;
+        return "porelo/" + name + (imageVariant == null ? "" : "--" + imageVariant);
+    }
+
+    /**
+     * Returns this project as a task on one repository builds it: with that repository's chosen
+     * image, and named apart when the image is the repository's own.
+     *
+     * @param base The image to build on.
+     * @param snippet The Containerfile lines, or {@code null}.
+     * @param repository The repository whose own image it is, or {@code null} when it is the
+     *     project's.
+     * @return The copy; everything but the image is this project's.
+     */
+    public Project forImage(
+            String base,
+            @org.jspecify.annotations.Nullable String snippet,
+            @org.jspecify.annotations.Nullable String repository) {
+        return new Project(
+                name,
+                description,
+                securityClass,
+                base,
+                snippet,
+                upstream,
+                limits,
+                egress,
+                packageSources,
+                mail,
+                repositories,
+                credentials,
+                builds,
+                repository);
     }
 }
