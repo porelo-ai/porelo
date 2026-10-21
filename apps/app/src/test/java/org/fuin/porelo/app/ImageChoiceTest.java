@@ -243,6 +243,9 @@ class ImageChoiceTest {
         git(dir, "clone", "-q", "--mirror", source.toString(), mirror.toString());
 
         final Path override = ImageChoice.override(context, project, backend);
+        assertThat(override)
+                .as("where the page tells a person to put it, not a path derived the same way")
+                .isEqualTo(dir.resolve("config/porelo/projects/acme/backend/.porelo.yml"));
         Files.createDirectories(override.getParent());
         Files.writeString(override, "image:\n  base_image: \"local-base\"\n");
 

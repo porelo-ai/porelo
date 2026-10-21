@@ -216,7 +216,6 @@ public record ImageChoice(
         return context.paths()
                 .xdg()
                 .config()
-                .resolve("porelo")
                 .resolve("projects")
                 .resolve(project.name())
                 .resolve(repository.name())
