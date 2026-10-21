@@ -3,7 +3,7 @@
 # Tools only, never a rule: egress, limits and the class stay the project's. A draft: nothing reads this file
 # until Porelo reads a repository's own image settings, and the acceptance of that work reads it then.
 image:
-    base_image: "ubuntu:24.04@sha256:a853f94d226358a79c740cfc7bce0c289748f3fe3488d921d038ccd752c61b60"
+    base_image: "ubuntu:24.04@sha256:68ee22004a9109b44973313b02ff7b1de250f1de0f5ecb628d73f579aaff33ac"
     snippet: |
         # From the distribution's own archive, by name, at what the pinned base image's archive serves.
         RUN apt-get update -qq \
