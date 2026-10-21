@@ -108,6 +108,7 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b240"></a>[B240](B240-A-Repository-Named-With-Dots.md) | - | - | A project names a repository by its real name, dots included, where today `porelo-ai.github.io` is refused |
 | <a id="b241"></a>[B241](B241-A-Debian-Base-Image-Builds.md) | - | - | A Debian base image builds: the default mirror is Ubuntu's alone, and a replacement leaves the security stanza as it was; today no value builds `python:3.13-slim` |
+| <a id="b242"></a>[B242](B242-An-Agents-Records-Read-By-A-Nested-Key.md) | - | - | An agent definition reads its session id and last message by a dotted key, and a session file by its own record, as Codex CLI writes them; the agent API only grows |
 | <a id="b239"></a>[B239](B239-The-Hooks-Run-Nft-By-A-Fixed-Path.md) | - | - | The hooks run `nsenter` and `nft` from fixed, root-owned paths, never through the caller's `PATH`, which today decides which `nft` loads a task's firewall |
 | <a id="b238"></a>[B238](B238-An-Unfollow-Leaves-Nothing-Of-The-Project.md) | - | - | `project unfollow` removes the project's build lock and upstream copies, which `porelo prune` finds left over today |
 | <a id="b236"></a>[B236](B236-The-Inventory-Names-The-Projects-Transports.md) | - | - | `project inventory` names the packages of the transports a project's tasks use, as [B217](#b217) does for `agent_package`, so a host installs them; porelo-host [HO02](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho02) waits on it |
