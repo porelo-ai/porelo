@@ -7,12 +7,14 @@ source printed and chosen again after the gate's fetch; one image per repository
 the review rank; `doc/project-file.md`. The UTF-8 locale was already in every task image. Also built: the project
 `default`'s order from a person's checkout, and `prune` and project deletion telling a repository's image apart.
 And `task prepare -r <repository>`, choosing and naming as a start does. And a build directory and lock per image (`build/<project>_<repository>`), which `prune` and project
-deletion read back to their project. Left: the acceptance for the local override and for the project `default`.
+deletion read back to their project. Every part of the plan is built.
 **Measured on 2026-10-21 on the VM in `core`** (snapshots 923 and 924 of this branch), `task-repository-image.feature`: a
 repository's `porelo.yml` on its default branch gave its task's image its snippet and a variable, both seen inside the
 container, the start named `porelo.yml at refs/heads/main of tooled` for each and built `porelo/imaged_tooled` (snapshot 924, after the separator became `_`); a
-`porelo.yml` naming `egress` was refused by that key's name, with no image built. Both scenarios were seen red on
-snapshot 922, which lacks this work.
+`porelo.yml` naming `egress` was refused by that key's name, with no image built. On snapshot 926 two more are green: a
+person's local override changed only the variable it set, and a task started from a checkout in `default` took the
+checkout's `.porelo.yml` over its `porelo.yml`. All four were seen red on snapshot 922, which lacks this work; the
+override's path was wrong until the VM run found it (`porelo` twice), fixed with a unit test seen red first.
 **Size:** L - a new file format with its reader and refusals, four places to read it from in a fixed order, a read of a
 mirror's default branch that Java does not make today, one image per repository with its own cache, the start and its
 dry run naming the source, a review rank, the docs and acceptance steps; several modules and one new contract a

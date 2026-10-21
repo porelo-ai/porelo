@@ -82,13 +82,14 @@ Feature: A repository says what its tasks are built in
             git -C ~/imaged add project.yml && git -C ~/imaged commit -q -m tooled
             porelo project follow imaged ~/imaged --unverified > /dev/null
             override=~/.config/porelo/projects/imaged/tooled
+            # Taken back whatever happens below: a leftover override would speak in the next run.
+            trap 'rm -rf ~/.config/porelo/projects/imaged' EXIT
             mkdir -p "$override"
             printf '%s\n' 'image:' '  env:' '    REPOSITORY_IMAGE: "said by the person"' > "$override/.porelo.yml"
             timeout 600 porelo task start overridden --project imaged --repository tooled --agent stub \
                 --attach shell --detach --clearance deny
             podman exec porelo-imaged-overridden sh -c 'echo "env: $REPOSITORY_IMAGE / $KEPT"; cat /etc/porelo-repository-image'
             porelo task remove porelo-imaged-overridden --force > /dev/null
-            rm -rf ~/.config/porelo/projects/imaged
             podman rmi porelo/imaged_tooled > /dev/null 2>&1 || true
             """
         Then it exits zero
@@ -103,6 +104,7 @@ Feature: A repository says what its tasks are built in
             set -e
             base=$(mktemp -d)
             repo="dimg$(basename "$base" | tr 'A-Z' 'a-z' | tr -dc 'a-z0-9')"
+            trap 'porelo task remove porelo-default-fromco --force > /dev/null 2>&1; porelo project default remove "$repo" > /dev/null 2>&1; podman rmi "porelo/default_$repo" > /dev/null 2>&1; rm -rf "$base"' EXIT
             git init -q --bare --initial-branch=main "$base/$repo.git"
             git init -q --initial-branch=main "$base/seed"
             printf '%s\n' 'image:' '  snippet: |' '    RUN echo from-the-checkout > /etc/porelo-checkout-image' \
@@ -117,10 +119,6 @@ Feature: A repository says what its tasks are built in
             timeout 600 porelo task start fromco --agent stub --attach shell --detach --clearance deny
             echo "start exit $?"
             podman exec porelo-default-fromco sh -c 'echo "env: $CHECKOUT_IMAGE"; cat /etc/porelo-checkout-image'
-            porelo task remove porelo-default-fromco --force > /dev/null 2>&1
-            porelo project default remove "$repo" > /dev/null 2>&1
-            podman rmi "porelo/default_$repo" > /dev/null 2>&1 || true
-            rm -rf "$base"
             """
         Then its output contains "start exit 0"
         And its output has a line matching "image lines +from .*/dimg[a-z0-9]*/porelo.yml"
