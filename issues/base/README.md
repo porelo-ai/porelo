@@ -105,6 +105,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b232"></a>[B232](B232-The-Gate-Credential-Goes-Only-To-The-Gate.md) | - | - | A task's git sends the gate's credential only to the gate: `http.extraHeader` scoped to the gate's URL, where today it goes to every HTTPS host, `github.com` included |
 | <a id="b210"></a>[B210](B210-Build-Plugins-Without-Their-Known-Advisories.md) | - | - | The plugins porelo-parent versions carry no dependency with a known advisory: newer releases where they exist, fixed dependencies where not; [B99](#b99)'s signing waits for the bouncycastle move. |
 | <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | - | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
 | <a id="b215"></a>[B215](B215-A-Helper-Started-With-A-UTF-8-Locale.md) | - | - | A transport and the message filter run with `LANG=C.UTF-8` where porelod has no locale, so a non-ASCII argument or path reaches them whole |
