@@ -115,6 +115,10 @@ Read in the code on 2026-10-18.
 
 ## To be checked
 
+- A snippet runs where the image is built (`data/build/<project>/<repository>`), not in the repository, so `COPY` of a
+  repository file finds nothing there (measured by reading, in porelo-ai.github.io's draft). Whether the repository's
+  files the snippet names are handed into that context, or the page says to install them at run time instead.
+
 - Whether every mirror's bare `HEAD` follows the upstream's default branch after a fetch. `GitGate` makes a mirror
   with `--initial-branch=main` (`GitGate.java:136`), so an upstream whose default is `master` may leave it pointing at
   a branch that does not exist; then step 3 sets it from `ls-remote --symref`.
