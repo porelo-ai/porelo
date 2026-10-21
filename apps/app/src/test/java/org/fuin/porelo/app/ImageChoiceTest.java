@@ -132,6 +132,52 @@ class ImageChoiceTest {
         assertThat(built.baseImage()).isEqualTo("project-base");
     }
 
+    @Test
+    void aTaskStartedFromACheckoutReadsItsOverrideThenItsFile(@TempDir Path dir) throws Exception {
+
+        // In the project default, the files are the person's own working tree, the override first.
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    default -> null;
+                                },
+                        dir);
+        final PoreloContext context =
+                new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+        final Path checkout = Files.createDirectories(dir.resolve("work"));
+        Files.writeString(checkout.resolve(".porelo.yml"), "image:\n  base_image: \"local\"\n");
+        Files.writeString(
+                checkout.resolve("porelo.yml"),
+                "image:\n  base_image: \"checked-in\"\n  snippet: \"RUN from-the-checkout\"\n");
+        new DefaultProject(context).add(checkout.toString(), "work", checkout.toString());
+        final Project project =
+                ProjectReader.read(
+                        new StringReader(
+                                """
+                                project:
+                                  name: "default"
+                                  security_class: "guarded"
+                                image:
+                                  base_image: "default-base"
+                                repositories:
+                                  work: {}
+                                """),
+                        "project.yml");
+
+        final ImageChoice choice =
+                ImageChoice.of(context, project, project.repositories().getFirst());
+
+        assertThat(choice.baseImage()).as("from the override").isEqualTo("local");
+        assertThat(choice.snippet())
+                .as("from the checked-in file")
+                .isEqualTo("RUN from-the-checkout");
+        assertThat(choice.snippetFrom()).endsWith("work/porelo.yml");
+    }
+
     private void git(Path directory, String... arguments) {
         final List<String> all =
                 new ArrayList<>(

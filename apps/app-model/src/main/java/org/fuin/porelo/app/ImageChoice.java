@@ -22,8 +22,10 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>The order, first that sets a key wins: the person's local override, the project file's entry
  * for the repository, the repository's own {@code porelo.yml} at its reviewed default branch, and
- * the project's {@code image}. {@code base_image} and the snippet are each taken whole from one
- * source; {@code env} per variable.
+ * the project's {@code image}. In the project {@code default}, a task started from a person's
+ * checkout reads that checkout's {@code .porelo.yml}, then its {@code porelo.yml}, then the default
+ * image. {@code base_image} and the snippet are each taken whole from one source; {@code env} per
+ * variable.
  *
  * @param baseImage The image to build on.
  * @param baseFrom Where it came from.
@@ -107,6 +109,29 @@ public record ImageChoice(
      */
     public static ImageChoice of(PoreloContext context, Project project, Repository repository) {
         final List<ImageSource> order = new ArrayList<>();
+        if (DefaultProject.is(project.name())) {
+            // A person's own checkout, read as they see it: approved work lands on porelo/<task>,
+            // never on the branch they have checked out, so a task cannot change either file.
+            final String checkout =
+                    new DefaultProject(context)
+                            .entries().stream()
+                                    .filter(entry -> entry.name().equals(repository.name()))
+                                    .map(DefaultProject.Entry::checkout)
+                                    .findFirst()
+                                    .orElse("");
+            if (!checkout.isEmpty()) {
+                for (final String name : List.of("." + FILE, FILE)) {
+                    final Path file = Path.of(checkout).resolve(name);
+                    if (Files.isRegularFile(file)) {
+                        order.add(
+                                RepositoryImageReader.read(
+                                        text(file), file.toString(), SnippetFiles.beside(file)));
+                    }
+                }
+            }
+            order.add(ImageSource.of(project));
+            return merge(order);
+        }
         final Path override = override(context, project, repository);
         if (Files.isRegularFile(override)) {
             order.add(
