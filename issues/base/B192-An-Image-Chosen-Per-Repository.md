@@ -1,6 +1,8 @@
 # B192 — An Image Chosen Per Repository
 
-**Status:** Backlog.
+**Status:** Implementing. Built: step 1, the format, its reader and refusals (`RepositoryImageReader`,
+`ImageSource`, `SnippetFiles`, which `ProjectReader` now uses too). The UTF-8 locale was already in every task image
+(`Containerfile`, `ENV LANG=C.UTF-8`), so nothing is left of it here.
 **Size:** L - a new file format with its reader and refusals, four places to read it from in a fixed order, a read of a
 mirror's default branch that Java does not make today, one image per repository with its own cache, the start and its
 dry run naming the source, a review rank, the docs and acceptance steps; several modules and one new contract a

@@ -766,36 +766,7 @@ public final class ProjectReader {
         if (file == null) {
             return null;
         }
-        // From the repository and nowhere else: resolved as written, an absolute path, '../' or a
-        // link read any file the person can - a key included - into the image the agent runs in, or
-        // into an error on their screen.
-        final Path base = Path.of(origin).toAbsolutePath().getParent();
-        final String named = String.valueOf(file);
-        if (base == null || Path.of(named).isAbsolute()) {
-            throw new ProjectException(
-                    origin
-                            + ": 'image.snippet_file' must name a file of the repository, not "
-                            + named);
-        }
-        final Path path = base.resolve(named).normalize();
-        if (!Files.isRegularFile(path)) {
-            throw new ProjectException(origin + ": no image snippet at " + path);
-        }
-        try {
-            if (!path.toRealPath().startsWith(base.toRealPath())) {
-                throw new ProjectException(
-                        origin
-                                + ": 'image.snippet_file' must name a file of the repository, not "
-                                + named);
-            }
-        } catch (IOException ex) {
-            throw new ProjectException("Cannot read " + path, ex);
-        }
-        try {
-            return Files.readString(path, StandardCharsets.UTF_8);
-        } catch (IOException ex) {
-            throw new ProjectException("Cannot read " + path, ex);
-        }
+        return SnippetFiles.beside(Path.of(origin)).read(String.valueOf(file), origin);
     }
 
     private static String text(@Nullable Object value) {
