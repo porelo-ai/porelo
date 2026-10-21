@@ -4,7 +4,7 @@
 `ImageSource`, `SnippetFiles`); `repositories.<name>.image`; the mirror read at the reviewed default branch, never
 `porelo/*` and never a link (`MirrorFile`); the choice key by key (`ImageChoice`), applied at the start with each key's
 source printed and chosen again after the gate's fetch; one image per repository (`porelo/<project>_<repository>`);
-the review rank; `doc/project-file.md`. The UTF-8 locale was already in every task image. Also built: the project
+the review rank, which names `porelo.yml` wherever it lies though only the top one is read; `doc/project-file.md`. The UTF-8 locale was already in every task image. Also built: the project
 `default`'s order from a person's checkout, and `prune` and project deletion telling a repository's image apart.
 And `task prepare -r <repository>`, choosing and naming as a start does. And a build directory and lock per image (`build/<project>_<repository>`), which `prune` and project
 deletion read back to their project. Every part of the plan is built.
@@ -131,12 +131,10 @@ Read in the code on 2026-10-18.
 
 ## To be checked
 
-- A snippet runs where the image is built (`data/build/<project>/<repository>`), not in the repository, so `COPY` of a
+- A snippet runs where the image is built (`data/build/<project>_<repository>`), not in the repository, so `COPY` of a
   repository file finds nothing there (measured by reading, in porelo-ai.github.io's draft). Whether the repository's
   files the snippet names are handed into that context, or the page says to install them at run time instead.
-
-- Whether every mirror's bare `HEAD` follows the upstream's default branch after a fetch. `GitGate` makes a mirror
-  with `--initial-branch=main` (`GitGate.java:136`), so an upstream whose default is `master` may leave it pointing at
-  a branch that does not exist; then step 3 sets it from `ls-remote --symref`.
-- Whether `ReviewRanking` sees a file at the repository's top only, or `porelo.yml` anywhere; only the top-level one is
-  read.
+- Whether every mirror's bare `HEAD` follows the upstream's default branch, read and not measured: a mirror with an
+  upstream is made by `git clone --bare` (`GitGate.initialize`), which sets `HEAD` to the upstream's default branch;
+  only one without an upstream starts as `init --bare --initial-branch=main`. To be measured with an upstream whose
+  default is `master`, and what happens when an upstream changes its default later.
