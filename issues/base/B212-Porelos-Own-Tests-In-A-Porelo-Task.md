@@ -1,11 +1,13 @@
 # B212 — Porelo's Own Tests In A Porelo Task
 
-**Status:** Implementing. Built: the five groups, and two more the measurement found. Item 4 was the test's own
-context, which set no `XDG_RUNTIME_DIR`. `Podman.execute` starts `podman exec` itself, so a stand-in podman is
-named through `porelo.podman` as the gate is through `porelo.binary`. `vault unlock` now refuses a wrong passphrase
-source (64) before a refused keyring (69), as `vault init` did, and the tilde test reads `$HOME` as the code does.
-**Measured on 2026-10-19 in the draft image as a task runs it: `clean verify` green, 2639 tests, 0 failed, 77
-skipped by name** (it was 92 red). Left: the whole check and the VM on the commit.
+**Status:** Implementing; its acceptance is met and it goes to Review with its push. **Measured on 2026-10-21 in a
+real Porelo task on the VM** (porelo `0.5.1~snapshot.922`, agent `stub`, `guarded`, `--clearance deny`, 6g, 3 CPUs,
+the image from `porelo.yml`): `./mvnw clean verify` green, **2662 tests, 0 failed, 77 skipped by name**, then the shared
+checks and the tests tagged `documents` green. The first run found one more test that held only on a developer's
+machine, `AgentLoginTest`, which compared the container's home with the machine's; run as `agent`, the two are the
+same. The skips: the kernel keyring 68 (the container's seccomp refuses it, [B211](README.md#b211); their text still
+says "libkeyutils is not installed", which the image has), `varlinkctl` missing 3, SELinux off 2, and pid 1 owned by
+the same user in the user namespace 1.
 **Size:** M - five groups of tests in two modules, one test seam in `PoreloBinary` with the launcher Surefire names,
 and one path that reads the real runtime directory; no behaviour a person sees changes.
 
@@ -78,9 +80,3 @@ Read on 2026-10-19 in the tests and the in-image run's log (`runs/in-image/porel
 - On a developer's machine and the VM, the same tests run as before, and `TaskRunCommandTest` starts the build's
   gate, not the installed one: seen in a test that the started gate names the build's version.
 - Every changed test seen red first in the image.
-
-## To be checked
-
-- **The launcher's start-up time:** a gate started as `java` takes longer than the native binary; whether any of
-  `TaskRunCommandTest`'s waits needs more time for it.
-- **Which path reads `/run/user`** in `ReconcileTest`'s case (item 4).
