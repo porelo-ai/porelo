@@ -7,9 +7,9 @@ source printed and chosen again after the gate's fetch; one image per repository
 the review rank; `doc/project-file.md`. The UTF-8 locale was already in every task image. Left: the project
 `default`'s checkout (step 4's second order), `task prepare` naming the sources, `clear` removing the repositories'
 images, and the acceptance for the local override and for the project `default`.
-**Measured on 2026-10-21 on the VM in `core`** (snapshot 923 of this branch), `task-repository-image.feature`: a
+**Measured on 2026-10-21 on the VM in `core`** (snapshots 923 and 924 of this branch), `task-repository-image.feature`: a
 repository's `porelo.yml` on its default branch gave its task's image its snippet and a variable, both seen inside the
-container, the start named `porelo.yml at refs/heads/main of tooled` for each and built `porelo/imaged--tooled` (the separator was then `--`); a
+container, the start named `porelo.yml at refs/heads/main of tooled` for each and built `porelo/imaged_tooled` (snapshot 924, after the separator became `_`); a
 `porelo.yml` naming `egress` was refused by that key's name, with no image built. Both scenarios were seen red on
 snapshot 922, which lacks this work.
 **Size:** L - a new file format with its reader and refusals, four places to read it from in a fixed order, a read of a
