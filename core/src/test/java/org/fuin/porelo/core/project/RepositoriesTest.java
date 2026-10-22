@@ -1,10 +1,13 @@
 package org.fuin.porelo.core.project;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.StringReader;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * What a project made of several repositories accepts, and what it refuses.
@@ -28,6 +31,25 @@ class RepositoriesTest {
             image:
               base_image: "ubuntu:24.04"
             """;
+
+    @Test
+    void aRepositoryNamedWithDotsIsAccepted() {
+        assertThatCode(() -> read(HEAD + "repositories:\n  porelo-ai.github.io: {}\n"))
+                .as("a task can name the repository by its real name")
+                .doesNotThrowAnyException();
+        assertThat(read(HEAD + "repositories:\n  porelo-ai.github.io: {}\n").repositoryNames())
+                .as("the repository's dots survive reading the project file")
+                .contains("porelo-ai.github.io");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"..x", ".x", "x.", "a.-b", "a-.b", "abc-"})
+    void aRepositoryNameWithTwoDotsOrALeadingDotIsRefused(String name) {
+        assertThatThrownBy(() -> read(HEAD + "repositories:\n  \"" + name + "\": {}\n"))
+                .as("'%s' cannot safely name a repository's directory and image", name)
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("Invalid repository name");
+    }
 
     @Test
     void aRepositorysImageInTheProjectFileIsReadAsItsOwnFileIs() {

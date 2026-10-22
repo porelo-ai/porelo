@@ -21,7 +21,7 @@ import org.jspecify.annotations.Nullable;
  * review changes when a project names a second one.
  *
  * @param name What a person names when starting a task, and what the mirror directory is called.
- *     Held to the same shape as a project name, because it reaches a directory name.
+ *     Dots separate labels; each label starts and ends with a letter or digit.
  * @param upstream Where approved work goes, or {@code null}. Required by an {@link
  *     SecurityClass#ONLINE} project, where the agent's own remote is the upstream; for the other
  *     classes a repository without one is a repository whose work stays on this machine, which is a
@@ -105,9 +105,9 @@ public record Repository(
     /**
      * What a repository name looks like, for a caller that names one before a repository exists.
      */
-    public static final String NAME_PATTERN = "[a-z0-9][a-z0-9-]{0,62}";
+    public static final String NAME_PATTERN = "(?=.{1,63}$)[a-z0-9]+(?:(?:-+|\\.)[a-z0-9]+)*";
 
-    /** A repository name: the same shape as a project name, for the same reason. */
+    /** A repository name that can safely reach a directory and an image name. */
     private static final java.util.regex.Pattern NAME =
             java.util.regex.Pattern.compile(NAME_PATTERN);
 
@@ -132,12 +132,14 @@ public record Repository(
         egress = egress == null ? Egress.none() : egress;
         limits = limits == null ? Limits.Declared.none() : limits;
         if (name == null || !NAME.matcher(name).matches()) {
-            // It becomes a directory under the mirrors, so it is refused here rather than where a
-            // path turns out to hold a slash or a dot-dot.
+            // It becomes a mirror directory and part of an image's name, so it is refused here,
+            // not where a path turns out to hold a slash or a dot-dot.
             throw new ProjectException(
                     "Invalid repository name '"
                             + name
-                            + "', expected lower-case letters, digits and hyphens");
+                            + "', expected lower-case letters, digits, hyphens and dots"
+                            + " between them, starting and ending with a letter or digit,"
+                            + " at most 63 characters");
         }
         upstream = upstream == null || upstream.isBlank() ? null : upstream;
         if (upstream != null) {

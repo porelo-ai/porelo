@@ -1,6 +1,7 @@
 package org.fuin.porelo.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.nio.file.Files;
@@ -15,6 +16,9 @@ import org.fuin.porelo.core.project.ProjectReader;
 import org.fuin.porelo.core.project.SecurityClass;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for the project {@code default}: work on a repository no followed project names, with
@@ -39,6 +43,61 @@ class DefaultProjectTest {
                                 },
                         dir);
         return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+    }
+
+    @Test
+    void aChosenRepositoryNameKeepsItsDots() {
+        final DefaultProject project = new DefaultProject(context());
+
+        assertThatCode(() -> project.add("git@github.com:you/site.git", "porelo-ai.github.io", ""))
+                .as("a chosen name can be the repository's real name")
+                .doesNotThrowAnyException();
+        assertThat(ProjectReader.read(project.file()).repositoryNames())
+                .as("the chosen name remains usable through the generated project file")
+                .contains("porelo-ai.github.io");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"..x", ".x", "x.", "a.-b", "a-.b", "abc-"})
+    void anInvalidChosenRepositoryNameIsRefused(String name) {
+        final DefaultProject project = new DefaultProject(context());
+
+        assertThatThrownBy(() -> project.add("git@github.com:you/site.git", name, ""))
+                .as("'%s' must be refused before it becomes a directory or image name", name)
+                .isInstanceOf(DefaultProject.Refused.class);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "porelo-ai.github.io, porelo-ai.github.io",
+        "a..b, a-b",
+        "a.-b, a-b",
+        "a-.b, a-b",
+        ".x, x",
+        "abc-, abc",
+        "x., x",
+        "---..., repository"
+    })
+    void aNameDerivedFromAnAddressKeepsValidDotsAndCollapsesInvalidPunctuation(
+            String checkout, String expected) {
+        final String name = RepositoryAddress.nameOf("git@github.com:you/" + checkout + ".git");
+
+        assertThat(name)
+                .as("the checkout's name is preserved where valid and otherwise made usable")
+                .isEqualTo(expected);
+        assertThatCode(() -> new org.fuin.porelo.core.project.Repository(name, null))
+                .as("a derived name can always be used to create a repository")
+                .doesNotThrowAnyException();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {".", "-"})
+    void truncatingADerivedNameStillEndsWithALetterOrDigit(String punctuation) {
+        final String label = "a".repeat(62);
+
+        assertThat(RepositoryAddress.nameOf("/checkout/" + label + punctuation + "b.git"))
+                .as("truncating to 63 characters must not leave punctuation at the end")
+                .isEqualTo(label);
     }
 
     @Test

@@ -1,6 +1,6 @@
 # B240 — A Repository Named With Dots
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - one pattern in `core`, a parallel check in `app-model`, their tests and a line of the project file's page.
 
 **What must be true.** A project names a repository by its real name, dots included (`porelo-ai.github.io`), as a
@@ -28,6 +28,8 @@ Read in `Repository`, `DefaultProject`, `RepositoryAddress`, `GateSupport`, `Ima
 4. **Red first:** `RepositoriesTest.aRepositoryNamedWithDotsIsAccepted`, then
    `aRepositoryNameWithTwoDotsOrALeadingDotIsRefused`.
 
+Measured: podman 5 builds and lists `porelo/demo_porelo-ai.github.io` (a rootless build and `podman image ls`).
+
 **Decided:**
 - A name ending in a hyphen is refused from now on, since its image cannot be built anyway; the refusal names the rule.
 
@@ -36,7 +38,3 @@ Read in `Repository`, `DefaultProject`, `RepositoryAddress`, `GateSupport`, `Ima
 - A project naming `porelo-ai.github.io` reads, and its task's image is `porelo/<project>_porelo-ai.github.io` and its
   mirror `porelo-ai.github.io.git`. Seen to fail first: the refusal today.
 - `..x`, `.x`, `x.` and `a.-b` are still refused.
-
-## To be checked
-
-- That podman builds and lists `porelo/demo_porelo-ai.github.io`, on the VM.

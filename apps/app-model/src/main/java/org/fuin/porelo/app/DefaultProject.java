@@ -276,7 +276,9 @@ public final class DefaultProject {
             throw new Refused(
                     "'"
                             + chosen
-                            + "' is not a repository name: lowercase letters, digits and dashes,"
+                            + "' is not a repository name: lower-case letters, digits, hyphens"
+                            + " and dots between them, starting and ending with a letter or"
+                            + " digit, at most 63 characters,"
                             + " and not '"
                             + NAME
                             + "'");

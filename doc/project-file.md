@@ -52,6 +52,8 @@ project:
 # checkout it is started in; there is no default. Each has its own mirror, gate and review branch.
 repositories:
 
+  # Names use lower-case letters, digits and hyphens, with single dots between letters or digits;
+  # they start and end with a letter or digit and have at most 63 characters.
   backend:
     # Optional. Without an upstream, the work stays on this machine.
     upstream: "git@github.com:you/backend.git"

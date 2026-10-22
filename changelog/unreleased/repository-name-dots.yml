@@ -1,0 +1,2 @@
+title: "A project names a repository by its real name with dots, such as `porelo-ai.github.io`; a name ending in a hyphen is refused, since its image cannot be built"
+type: changed

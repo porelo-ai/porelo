@@ -43,12 +43,17 @@ final class RepositoryAddress {
             path = path.substring(0, path.length() - ".git".length());
         }
         final int cut = Math.max(path.lastIndexOf('/'), path.lastIndexOf(':'));
-        final String last =
+        String last =
                 path.substring(cut + 1)
                         .toLowerCase(Locale.ROOT)
-                        .replaceAll("[^a-z0-9-]", "-")
-                        .replaceAll("^-+", "");
-        return last.isEmpty() ? "repository" : last.length() > 63 ? last.substring(0, 63) : last;
+                        .replaceAll("[^a-z0-9.-]+", "-")
+                        .replaceAll("[.-]*\\.[.-]+|[.-]+\\.[.-]*", "-")
+                        .replaceAll("^[.-]+", "");
+        if (last.length() > 63) {
+            last = last.substring(0, 63);
+        }
+        last = last.replaceAll("[.-]+$", "");
+        return last.isEmpty() ? "repository" : last;
     }
 
     /**
