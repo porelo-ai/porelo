@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -163,6 +164,7 @@ public class ProjectInventoryCommand implements Callable<Integer>, PoreloFactory
         host.put("porelo_account", System.getProperty("user.name"));
         host.put("porelo_project", projectVars);
         host.put("porelo_tasks", tasks);
+        host.put("porelo_transports", transports(project));
         host.put("porelo_vault_keys", keys);
         final Map<String, Object> all = new LinkedHashMap<>();
         all.put("vars", Map.of("porelo_inventory_version", VERSION));
@@ -174,6 +176,19 @@ public class ProjectInventoryCommand implements Callable<Integer>, PoreloFactory
         options.setIndentWithIndicator(true);
         return "# Written by 'porelo project inventory'; the play's contract is doc/hosts.md.\n"
                 + new Yaml(options).dump(Map.of("all", all));
+    }
+
+    private static List<Object> transports(final Project project) {
+        final Set<String> schemes = new LinkedHashSet<>(project.mail().conversations());
+        project.mail().peers().forEach(peer -> schemes.add(peer.transport()));
+        final List<Object> transports = new ArrayList<>();
+        for (final String scheme : schemes) {
+            final Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("scheme", scheme);
+            entry.put("package", TransportDirectory.PREFIX + scheme);
+            transports.add(entry);
+        }
+        return transports;
     }
 
     private static int refuse(final PrintWriter err, final int code, final String message) {

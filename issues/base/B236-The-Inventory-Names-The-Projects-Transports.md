@@ -1,6 +1,6 @@
 # B236 — The Inventory Names The Project's Transports
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** M - one module, `app-project`, but the inventory is a contract porelo-host's play reads, with `doc/hosts.md`.
 
 **What must be true.** `porelo project inventory` names the packages of the transports a project's tasks use, so a

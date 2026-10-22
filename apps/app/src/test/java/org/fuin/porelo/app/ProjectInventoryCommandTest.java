@@ -81,6 +81,11 @@ class ProjectInventoryCommandTest {
 
     /** A project repository with one commit naming the repository 'core', signed or not. */
     private Path published(final Path dir, final Path signingKey) throws IOException {
+        return published(dir, signingKey, "");
+    }
+
+    private Path published(final Path dir, final Path signingKey, final String mail)
+            throws IOException {
         final Path repo = dir.resolve("published");
         Files.createDirectories(repo);
         git(repo, "init", "-q", "-b", "main", ".");
@@ -99,7 +104,8 @@ class ProjectInventoryCommandTest {
                     description: The core
                 image:
                   base_image: ubuntu:24.04
-                """);
+                """
+                        + mail);
         git(repo, "add", "project.yml");
         if (signingKey == null) {
             git(repo, "commit", "-q", "--no-gpg-sign", "-m", "configuration");
@@ -258,6 +264,77 @@ class ProjectInventoryCommandTest {
                                         "container", "porelo-demo-core-3")));
         assertThat(out.toString())
                 .as("an added name changes no meaning")
+                .contains("porelo_inventory_version: 1");
+    }
+
+    @Test
+    void writesEachTransportTheProjectUsesWithItsPackage(@TempDir final Path dir)
+            throws IOException {
+
+        final Path key = key(dir, "operator");
+        final Path repo =
+                published(
+                        dir,
+                        key,
+                        """
+                        mail:
+                          transports:
+                            matrix: {}
+                            room: {}
+                          peers:
+                            conversation: { address: "chat:", trust: external }
+                            reviewer: { address: "matrix:review", trust: external }
+                            operator: { address: "ssh:operator", trust: vouched }
+                            backup: { address: "ssh:backup", trust: vouched }
+                        """);
+        final Path file = machineFile(dir, repo, fingerprint(key), "");
+
+        assertThat(execute(context(dir), "project", "inventory", "--machine-file", file.toString()))
+                .as("exit code; " + err)
+                .isZero();
+
+        assertThat(host(out.toString()).get("porelo_transports"))
+                .as("the play installs each conversation and peer transport once in file order")
+                .isEqualTo(
+                        List.of(
+                                Map.of(
+                                        "scheme",
+                                        "matrix",
+                                        "package",
+                                        "porelo-message-transport-matrix"),
+                                Map.of(
+                                        "scheme",
+                                        "room",
+                                        "package",
+                                        "porelo-message-transport-room"),
+                                Map.of(
+                                        "scheme",
+                                        "chat",
+                                        "package",
+                                        "porelo-message-transport-chat"),
+                                Map.of(
+                                        "scheme",
+                                        "ssh",
+                                        "package",
+                                        "porelo-message-transport-ssh")));
+    }
+
+    @Test
+    void writesNoTransportsForAProjectWithoutMail(@TempDir final Path dir) throws IOException {
+
+        final Path key = key(dir, "operator");
+        final Path repo = published(dir, key);
+        final Path file = machineFile(dir, repo, fingerprint(key), "");
+
+        assertThat(execute(context(dir), "project", "inventory", "--machine-file", file.toString()))
+                .as("exit code; " + err)
+                .isZero();
+
+        assertThat(host(out.toString()).get("porelo_transports"))
+                .as("a project without mail requires no transport packages")
+                .isEqualTo(List.of());
+        assertThat(out.toString())
+                .as("an added inventory key keeps the contract version")
                 .contains("porelo_inventory_version: 1");
     }
 

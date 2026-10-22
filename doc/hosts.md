@@ -62,6 +62,9 @@ all:
                   container: porelo-porelo-core-1
                   agent: pi
                   agent_package: porelo-agent-pi
+            porelo_transports:
+              -   scheme: matrix
+                  package: porelo-message-transport-matrix
             porelo_vault_keys:
               -   name: github-deploy
                   path: /mnt/drive/keys/github-deploy
@@ -73,6 +76,9 @@ all:
 - **`porelo_account`** is the account the command ran as.
 - **`porelo_tasks`** carries each task's `container`, the name `porelo task status` takes, and, where the task names
   one, its `agent` and the `agent_package` that installs it. A task without an agent has neither.
+- **`porelo_transports`** lists the transports the project's mail conversations and peers use, once each, in
+  file order, with their `scheme` and `package`, `porelo-message-transport-<scheme>`. A project without mail gets an
+  empty list. The machine file names no transport package; any homeserver package is the playbook's decision.
 - **Refusals**, with nothing printed on standard output: 66 when the machine file is not there; 65 when Porelo's part
   of it is wrong (a task's `agent` or `package` that is no such name among them), when the project file fails its
   check against the key, when a task names a repository the project file does not have, or a task name a container
