@@ -21,17 +21,17 @@ providers as a class, the others one provider each.
 | <a id="p11"></a>[P11](P11-Provider-ChatGPT-Sign-In.md) | M | - | `providers/chatgpt.yaml` (`chatgpt.com`, `openai` under `/backend-api/codex`, the sign-in as Bearer) and a provider key `credential_headers` that fills `ChatGPT-Account-Id` from the stored sign-in; the agent side is porelo-codex's; built and unit-tested, the VM next. |
 | <a id="p06"></a>[P06](P06-Provider-Google.md) | S | - | `providers/google.yaml`: its own format under `/v1beta` and `openai` under `/v1beta/openai`, `x-goog-api-key`. |
 
+## Backlog
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="p12"></a>[P12](P12-The-Google-Sign-In-As-A-Provider.md) | L | - | Antigravity CLI served through the person's Google sign-in, brokered on the host, beside the API key of [P06](README.md#p06); the sign-in is measured first, attended |
+
 ## Analyzed
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
 | <a id="p10"></a>[P10](P10-A-Native-Agent-Reaching-A-Provider-It-Does-Not-Know.md) | M | `porelo` [P09](README.md#p09) | A native agent is told the resolved dialect in `SetupContext`, so it can register a provider it does not know with that wire format; a definition key saying so lifts [P09](#p09)'s refusal for such a provider. | 0 |
-
-## Idea
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="p12"></a>[P12](P12-The-Google-Sign-In-As-A-Provider.md) | - | - | Antigravity CLI served through the person's Google sign-in, brokered on the host, beside the API key of [P06](README.md#p06); the sign-in is measured first, attended |
 
 ## Estimated
 
