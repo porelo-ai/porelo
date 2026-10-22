@@ -34,18 +34,22 @@ class NftHookTest {
                         "/usr/bin/porelo",
                         dir.toString())
                 .writeTo(sidecar);
+        return execute(new NftHook(), dir, arguments);
+    }
+
+    private int execute(final NftHook hook, final Path dir, final String... arguments)
+            throws Exception {
+        Sidecar.recordId(dir, "abc123abc123");
         final String state =
-                "{\"ociVersion\":\"1.0.2\",\"id\":\"abc123\",\"status\":\"created\",\"pid\":4711,"
-                        + "\"annotations\":{\""
+                "{\"id\":\"abc123abc123\",\"pid\":4711,\"annotations\":{\""
                         + Sidecar.ANNOTATION
                         + "\":\""
-                        + sidecar
+                        + dir.resolve("sidecar.json")
                         + "\"}}";
-        return new NftHook()
-                .execute(
-                        arguments,
-                        new ByteArrayInputStream(state.getBytes(StandardCharsets.UTF_8)),
-                        new PrintStream(new ByteArrayOutputStream(), true, StandardCharsets.UTF_8));
+        return hook.execute(
+                arguments,
+                new ByteArrayInputStream(state.getBytes(StandardCharsets.UTF_8)),
+                new PrintStream(new ByteArrayOutputStream(), true, StandardCharsets.UTF_8));
     }
 
     @ParameterizedTest
@@ -55,7 +59,9 @@ class NftHookTest {
 
         // Every stage but createRuntime was a successful nothing - also none at all - so a
         // descriptor without the stage, or with another, started the container with no ruleset.
-        assertThat(stage.isEmpty() ? execute(dir) : execute(dir, stage)).isEqualTo(1);
+        assertThat(stage.isEmpty() ? execute(dir) : execute(dir, stage))
+                .as("only the ruleset stage may start the container")
+                .isEqualTo(1);
     }
 
     @Test
@@ -102,18 +108,63 @@ class NftHookTest {
 
         assertThat(exit).as("the container is refused").isEqualTo(1);
         assertThat(Files.readString(dir.resolve("hooks.log")))
+                .as("a timed out firewall must leave a diagnostic")
                 .contains("createRuntime failed: ")
                 .contains("timed out");
     }
 
     @Test
+    void anUnsafeProgramRefusesTheContainerAndNamesThePath(@TempDir final Path dir)
+            throws Exception {
+        execute(dir, "poststop");
+        Files.writeString(dir.resolve("ruleset.nft"), "table inet porelo {}\n");
+        final NftHook hook =
+                new NftHook(
+                        pid ->
+                                NftHook.command(
+                                        pid,
+                                        name -> {
+                                            final String reason =
+                                                    "Refusing /usr/sbin/"
+                                                            + name
+                                                            + ": not owned by root";
+                                            throw new java.io.UncheckedIOException(
+                                                    reason, new java.io.IOException(reason));
+                                        }),
+                        NftHook.LIMIT);
+
+        assertThat(execute(hook, dir, "createRuntime"))
+                .as("a refused program must never leave a container running without its firewall")
+                .isEqualTo(1);
+        assertThat(Files.readString(dir.resolve("hooks.log")))
+                .as("the operator needs the unsafe path and the reason for the refusal")
+                .contains("createRuntime failed: Refusing /usr/sbin/nsenter: not owned by root");
+    }
+
+    @Test
+    void theRulesetCommandUsesCheckedAbsolutePrograms() {
+        assertThat(NftHook.command(4711, name -> Path.of("/usr/sbin", name)))
+                .as("PATH must not choose either program that loads the firewall")
+                .containsExactly(
+                        "/usr/sbin/nsenter",
+                        "--target",
+                        "4711",
+                        "--net",
+                        "/usr/sbin/nft",
+                        "--file",
+                        "-");
+    }
+
+    @Test
     void theHooksLimitIsBelowTheRuntimes() {
-        assertThat(NftHook.LIMIT).isLessThan(Duration.ofSeconds(30));
+        assertThat(NftHook.LIMIT)
+                .as("the hook must report before the runtime kills it")
+                .isLessThan(Duration.ofSeconds(30));
     }
 
     @Test
     void poststopHasNothingToUnload(@TempDir final Path dir) throws Exception {
 
-        assertThat(execute(dir, "poststop")).isZero();
+        assertThat(execute(dir, "poststop")).as("a stopped namespace needs no firewall").isZero();
     }
 }

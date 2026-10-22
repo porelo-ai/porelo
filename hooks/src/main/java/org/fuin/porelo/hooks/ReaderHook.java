@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.fuin.porelo.wire.Sidecar;
+import org.fuin.porelo.wire.SystemProgram;
 
 /**
  * Starts the reader that turns dropped packets into an audit trail.
@@ -59,7 +60,7 @@ public class ReaderHook extends Hook {
 
         final List<String> command =
                 List.of(
-                        "nsenter",
+                        SystemProgram.find("nsenter").toString(),
                         "--target",
                         String.valueOf(state.pid()),
                         "--net",

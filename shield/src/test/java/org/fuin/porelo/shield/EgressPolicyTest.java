@@ -18,7 +18,29 @@ class EgressPolicyTest {
 
     private final FakeCommandRunner runner = new FakeCommandRunner();
 
-    private final EgressPolicy policy = new EgressPolicy(runner, 4711L);
+    private final EgressPolicy policy =
+            new EgressPolicy(runner, 4711L, name -> java.nio.file.Path.of("/usr/sbin", name));
+
+    @Test
+    void theFirewallCommandUsesCheckedAbsolutePrograms() {
+        policy.allow("1.1.1.1");
+        assertThat(runner.only("nft").arguments())
+                .as("PATH must not choose either program that changes the firewall")
+                .containsExactly(
+                        "podman",
+                        "unshare",
+                        "/usr/sbin/nsenter",
+                        "--target",
+                        "4711",
+                        "--net",
+                        "/usr/sbin/nft",
+                        "add",
+                        "element",
+                        "inet",
+                        "porelo",
+                        "allowed_v4",
+                        "{ 1.1.1.1 }");
+    }
 
     @Test
     void addsAnIpv4AddressToTheLiveSet() {
@@ -28,9 +50,10 @@ class EgressPolicyTest {
         // Adding to the live set rather than reloading the ruleset: a reload drops conntrack state
         // and kills every connection the agent already had open.
         assertThat(runner.only("nft").describe())
+                .as("the requested address reaches the container firewall")
                 .isEqualTo(
-                        "podman unshare nsenter --target 4711 --net"
-                                + " nft add element inet porelo allowed_v4 { 1.1.1.1 }");
+                        "podman unshare /usr/sbin/nsenter --target 4711 --net"
+                                + " /usr/sbin/nft add element inet porelo allowed_v4 { 1.1.1.1 }");
     }
 
     @Test
@@ -38,7 +61,9 @@ class EgressPolicyTest {
 
         policy.allow("2606:50c0::1");
 
-        assertThat(runner.only("nft").describe()).contains("allowed_v6 { 2606:50c0::1 }");
+        assertThat(runner.only("nft").describe())
+                .as("the requested address reaches the container firewall")
+                .contains("allowed_v6 { 2606:50c0::1 }");
     }
 
     @Test
@@ -50,7 +75,8 @@ class EgressPolicyTest {
         // 'podman unshare' is needed as well: a rootless container's namespaces belong to the
         // operator's user namespace, and nsenter cannot join them from outside it.
         assertThat(runner.only("nft").describe())
-                .startsWith("podman unshare nsenter --target 4711 --net ");
+                .as("the requested address reaches the container firewall")
+                .startsWith("podman unshare /usr/sbin/nsenter --target 4711 --net ");
     }
 
     @Test
@@ -70,6 +96,7 @@ class EgressPolicyTest {
         runner.failing("nft", 1, "Error: Could not process rule: No such file or directory");
 
         assertThatThrownBy(() -> policy.allow("1.1.1.1"))
+                .as("a failed firewall update must be reported")
                 .isInstanceOf(CommandException.class)
                 .hasMessageContaining("No such file or directory");
     }
@@ -88,9 +115,13 @@ class EgressPolicyTest {
         // The set takes intervals, so a range opened everything, and nft reads ';' in its arguments
         // as a next command.
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> policy.allow(address))
+                .as("an allow must not inject a firewall command")
                 .isInstanceOf(IllegalArgumentException.class);
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> policy.withdraw(address))
+                .as("a withdrawal must not inject a firewall command")
                 .isInstanceOf(IllegalArgumentException.class);
-        org.assertj.core.api.Assertions.assertThat(runner.invocations()).isEmpty();
+        org.assertj.core.api.Assertions.assertThat(runner.invocations())
+                .as("invalid addresses must not reach a process")
+                .isEmpty();
     }
 }

@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.fuin.porelo.wire.Sidecar;
+import org.fuin.porelo.wire.SystemProgram;
 
 /**
  * Starts the per-container services, and reaps them once the container is gone.
@@ -57,7 +58,7 @@ public class SupervisorHook extends Hook {
         // must not join the container's network namespace itself.
         final List<String> command =
                 List.of(
-                        "nsenter",
+                        SystemProgram.find("nsenter").toString(),
                         "--target",
                         String.valueOf(state.pid()),
                         "--net",

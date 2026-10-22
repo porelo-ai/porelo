@@ -42,13 +42,13 @@ from its side, as *blocked by*.
 | <a id="b241"></a>[B241](B241-A-Debian-Base-Image-Builds.md) | S | - | A Debian base image builds: the default mirror is Ubuntu's alone, and a replacement leaves the security stanza as it was; today no value builds `python:3.13-slim` |
 | <a id="b236"></a>[B236](B236-The-Inventory-Names-The-Projects-Transports.md) | M | - | `project inventory` names the packages of the transports a project's tasks use, as [B217](#b217) does for `agent_package`, so a host installs them; porelo-host [HO02](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho02) waits on it |
 | <a id="b238"></a>[B238](B238-An-Unfollow-Leaves-Nothing-Of-The-Project.md) | XS | - | `project unfollow` removes the project's build lock and upstream copies, which `porelo prune` finds left over today |
+| <a id="b239"></a>[B239](B239-The-Hooks-Run-Nft-By-A-Fixed-Path.md) | M | - | The hooks run `nsenter` and `nft` from fixed, root-owned paths, never through the caller's `PATH`, which today decides which `nft` loads a task's firewall |
 
 ## Backlog
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b248"></a>[B248](B248-A-Base-URL-Without-The-Dialects-Path.md) | S | - | An agent definition says its agent adds the dialect's path itself, and gets the broker's address alone in `base_url_env`, where Antigravity CLI doubles `/v1beta` today |
-| <a id="b239"></a>[B239](B239-The-Hooks-Run-Nft-By-A-Fixed-Path.md) | - | - | The hooks run `nsenter` and `nft` from fixed, root-owned paths, never through the caller's `PATH`, which today decides which `nft` loads a task's firewall |
 | <a id="b206"></a>[B206](B206-A-Transport-Takes-Its-Secrets-On-Its-Input.md) | L | - | A transport takes the secrets Porelo kept for it on its standard input, not in its environment, so no other process of the account can read them from `/proc`; a version declared in `describe`, with the matrix transport's matching change. |
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | XL | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own; analyzed: filled only from reviewed work, mounted `:ro,z`, read through `maven.repo.local.tail`, filled by `dependency:go-offline` on request and when the default branch moved, Maven first |
 | <a id="b233"></a>[B233](B233-A-Host-Service-Reached-By-Name.md) | L | - | A task reaches a service on its own host, a forge or a registry, by a declared name on 443 and nothing else there; the reach through pasta measured first |

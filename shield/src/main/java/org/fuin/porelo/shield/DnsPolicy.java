@@ -1,10 +1,13 @@
 package org.fuin.porelo.shield;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 import org.fuin.porelo.core.project.SecurityClass;
+import org.fuin.porelo.wire.SystemProgram;
 
 /**
  * Generates the dnsmasq configuration for a task container's resolver.
@@ -284,8 +287,8 @@ public class DnsPolicy {
      * @return The configuration's path, for a caller that passes it to dnsmasq.
      * @throws java.io.IOException If either file cannot be written.
      */
-    public java.nio.file.Path writeTo(java.nio.file.Path configFile) throws java.io.IOException {
-        final java.nio.file.Path servers = configFile.resolveSibling(SERVERS_FILE);
+    public Path writeTo(Path configFile) throws java.io.IOException {
+        final Path servers = configFile.resolveSibling(SERVERS_FILE);
         java.nio.file.Files.writeString(
                 servers, renderServers(), java.nio.charset.StandardCharsets.UTF_8);
         java.nio.file.Files.writeString(
@@ -301,8 +304,14 @@ public class DnsPolicy {
      * @return Full argument list.
      */
     public static List<String> command(long containerPid, String configFile) {
+        return command(containerPid, configFile, SystemProgram::find);
+    }
+
+    static List<String> command(
+            long containerPid, String configFile, Function<String, Path> programs) {
         return EgressPolicy.inNamespace(
                 containerPid,
-                List.of("dnsmasq", "--keep-in-foreground", "--conf-file=" + configFile));
+                List.of("dnsmasq", "--keep-in-foreground", "--conf-file=" + configFile),
+                programs);
     }
 }

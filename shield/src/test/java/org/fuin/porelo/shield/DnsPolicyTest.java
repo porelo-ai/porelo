@@ -134,9 +134,16 @@ class DnsPolicyTest {
     @Test
     void runsInsideTheContainersNamespace() {
 
-        assertThat(String.join(" ", DnsPolicy.command(4711L, "/tmp/dns.conf")))
+        assertThat(
+                        String.join(
+                                " ",
+                                DnsPolicy.command(
+                                        4711L,
+                                        "/tmp/dns.conf",
+                                        name -> java.nio.file.Path.of("/usr/sbin", name))))
+                .as("the resolver must join the container namespace through a checked program")
                 .isEqualTo(
-                        "podman unshare nsenter --target 4711 --net"
+                        "podman unshare /usr/sbin/nsenter --target 4711 --net"
                                 + " dnsmasq --keep-in-foreground --conf-file=/tmp/dns.conf");
     }
 

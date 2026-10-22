@@ -1,9 +1,13 @@
 package org.fuin.porelo.shield;
 
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
+import org.fuin.porelo.wire.SystemProgram;
 
 /**
  * Changes a running container's egress policy without restarting it.
@@ -27,6 +31,8 @@ public class EgressPolicy {
 
     private final long containerPid;
 
+    private final Function<String, Path> programs;
+
     /**
      * Constructor.
      *
@@ -34,6 +40,11 @@ public class EgressPolicy {
      * @param containerPid Host process id of the container's init process.
      */
     public EgressPolicy(CommandRunner runner, long containerPid) {
+        this(runner, containerPid, SystemProgram::find);
+    }
+
+    EgressPolicy(CommandRunner runner, long containerPid, Function<String, Path> programs) {
+        this.programs = programs;
         this.runner = runner;
         this.containerPid = containerPid;
     }
@@ -149,12 +160,17 @@ public class EgressPolicy {
      * @return Full argument list.
      */
     public static List<String> inNamespace(long containerPid, List<String> command) {
+        return inNamespace(containerPid, command, SystemProgram::find);
+    }
+
+    static List<String> inNamespace(
+            long containerPid, List<String> command, Function<String, Path> programs) {
         final List<String> all =
-                new java.util.ArrayList<>(
+                new ArrayList<>(
                         List.of(
                                 "podman",
                                 "unshare",
-                                "nsenter",
+                                programs.apply("nsenter").toString(),
                                 "--target",
                                 String.valueOf(containerPid),
                                 "--net"));
@@ -163,6 +179,8 @@ public class EgressPolicy {
     }
 
     private List<String> nsenter(String... command) {
-        return inNamespace(containerPid, List.of(command));
+        final List<String> resolved = new ArrayList<>(List.of(command));
+        resolved.set(0, programs.apply(command[0]).toString());
+        return inNamespace(containerPid, resolved, programs);
     }
 }

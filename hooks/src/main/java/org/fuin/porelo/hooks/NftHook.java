@@ -10,8 +10,10 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.function.LongFunction;
 import org.fuin.porelo.wire.Sidecar;
+import org.fuin.porelo.wire.SystemProgram;
 
 /**
  * Loads the generated nftables ruleset into the container's network namespace.
@@ -46,17 +48,22 @@ public class NftHook extends Hook {
         // transitions into a confined domain that cannot open the operator's runtime files, and the
         // denial is dontaudit'ed - so a path fails as "Permission denied" with nothing in the audit
         // log.
-        this(
-                pid ->
-                        List.of(
-                                "nsenter",
-                                "--target",
-                                String.valueOf(pid),
-                                "--net",
-                                "nft",
-                                "--file",
-                                "-"),
-                LIMIT);
+        this(NftHook::command, LIMIT);
+    }
+
+    static List<String> command(long pid, Function<String, Path> lookup) {
+        return List.of(
+                lookup.apply("nsenter").toString(),
+                "--target",
+                String.valueOf(pid),
+                "--net",
+                lookup.apply("nft").toString(),
+                "--file",
+                "-");
+    }
+
+    private static List<String> command(long pid) {
+        return command(pid, SystemProgram::find);
     }
 
     /**
