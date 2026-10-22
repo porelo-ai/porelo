@@ -47,6 +47,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b248"></a>[B248](B248-A-Base-URL-Without-The-Dialects-Path.md) | S | - | An agent definition says its agent adds the dialect's path itself, and gets the broker's address alone in `base_url_env`, where Antigravity CLI doubles `/v1beta` today |
 | <a id="b239"></a>[B239](B239-The-Hooks-Run-Nft-By-A-Fixed-Path.md) | - | - | The hooks run `nsenter` and `nft` from fixed, root-owned paths, never through the caller's `PATH`, which today decides which `nft` loads a task's firewall |
 | <a id="b206"></a>[B206](B206-A-Transport-Takes-Its-Secrets-On-Its-Input.md) | L | - | A transport takes the secrets Porelo kept for it on its standard input, not in its environment, so no other process of the account can read them from `/proc`; a version declared in `describe`, with the matrix transport's matching change. |
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | XL | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own; analyzed: filled only from reviewed work, mounted `:ro,z`, read through `maven.repo.local.tail`, filled by `dependency:go-offline` on request and when the default branch moved, Maven first |
@@ -121,7 +122,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b248"></a>[B248](B248-A-Base-URL-Without-The-Dialects-Path.md) | - | - | An agent definition says its agent adds the dialect's path itself, and gets the broker's address alone in `base_url_env`, where Antigravity CLI doubles `/v1beta` today |
 | <a id="b246"></a>[B246](B246-A-Task-Name-No-Other-Project-Shares.md) | - | - | A task's container name is one project's and one task's, where `porelo-a-b-c` today names project `a-b`'s task `c` and project `a`'s task `b-c`; proposed: `_` between them |
 
 ## Estimated
