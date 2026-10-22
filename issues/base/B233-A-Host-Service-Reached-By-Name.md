@@ -1,6 +1,6 @@
 # B233 — A Host Service Reached By Name
 
-**Status:** Idea.
+**Status:** Backlog.
 
 **What must be true.** A task reaches a service on its own host, such as a forge or a registry, by a name the project
 declares, on 443, without the task reaching anything else on the host.

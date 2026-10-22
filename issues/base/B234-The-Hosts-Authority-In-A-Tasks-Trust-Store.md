@@ -1,6 +1,6 @@
 # B234 — The Host's Authority In A Task's Trust Store
 
-**Status:** Idea.
+**Status:** Backlog.
 
 **What must be true.** A task trusts a certificate authority the host names, so it reaches a service on the host
 served under that authority's certificate without a project putting the certificate into its image.
