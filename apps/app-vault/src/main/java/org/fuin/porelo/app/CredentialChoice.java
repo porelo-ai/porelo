@@ -1,6 +1,8 @@
 package org.fuin.porelo.app;
 
 import java.io.PrintWriter;
+import java.util.Map;
+import org.fuin.porelo.vault.VaultEntry;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -66,11 +68,14 @@ final class CredentialChoice {
      * @return Vault key.
      */
     String credentialName(org.fuin.porelo.agent.api.InstalledAgent agent) {
+        return credentialName(agent, context.credentials());
+    }
+
+    private String credentialName(
+            org.fuin.porelo.agent.api.InstalledAgent agent, Map<String, VaultEntry> entries) {
         final SelectedProvider selection = provider(agent);
         return SelectedProvider.credentialKey(
-                context.credentials().keySet(),
-                agent.name(),
-                selection == null ? null : selection.name());
+                entries.keySet(), agent.name(), selection == null ? null : selection.name());
     }
 
     /**
@@ -265,22 +270,29 @@ final class CredentialChoice {
         }
     }
 
+    /** A credential refusal and the next action, chosen from the same vault snapshot. */
+    record Refusal(String reason, String remedy) {}
+
     /**
      * Says why this task cannot authenticate, before anything is built.
      *
      * @param agent The selected agent, or {@code null}.
-     * @return The reason, or {@code null} when there is nothing in the way.
+     * @return The refusal and remedy, or {@code null} when there is nothing in the way.
      */
     @org.jspecify.annotations.Nullable
-    String unbrokerable(
+    Refusal unbrokerable(
             org.fuin.porelo.agent.api.@org.jspecify.annotations.Nullable InstalledAgent agent) {
         final SelectedProvider selection = provider(agent);
         if (agent == null || selection == null) {
             return null;
         }
-        final String type = credentialType(credentialName(agent));
+        final var entries = context.credentials();
+        final var entry = entries.get(credentialName(agent, entries));
+        if (entry == null && requestedType == null) {
+            return null;
+        }
+        final String type = credentialType(entry);
         final String reason = selection.route().unbrokerableReason(type);
-        final var entry = context.credentials().get(credentialName(agent));
         final String lacking =
                 entry == null
                         ? null
@@ -289,23 +301,36 @@ final class CredentialChoice {
         if (reason == null && lacking != null) {
             // The broker would refuse to start without it; said here, before a container is made
             // for nothing.
-            return "the credential stored for '"
-                    + agent.name()
-                    + "' holds no usable '"
-                    + lacking
-                    + "', which '"
-                    + selection.name()
-                    + "' needs on every request; sign in again with 'porelo vault login'.";
+            return refusal(
+                    "the credential stored for '"
+                            + agent.name()
+                            + "' holds no usable '"
+                            + lacking
+                            + "', which '"
+                            + selection.name()
+                            + "' needs on every request; sign in again with 'porelo vault login'.");
         }
         return reason == null
                 ? null
-                : "the '"
-                        + type
-                        + "' credential stored for '"
-                        + agent.name()
-                        + "' cannot be used. "
-                        + reason
-                        + ".";
+                : refusal(
+                        "the '"
+                                + type
+                                + (requestedType != null
+                                        ? "' credential asked for '"
+                                        : "' credential stored for '")
+                                + agent.name()
+                                + "' cannot be used. "
+                                + reason
+                                + ".");
+    }
+
+    private Refusal refusal(String reason) {
+        return new Refusal(
+                reason,
+                "import or store a usable one, then run again;"
+                        + (requestedType != null
+                                ? " --credential-type selects the kind for one run"
+                                : " --credential-type overrides the stored kind for one run"));
     }
 
     /**
@@ -322,7 +347,13 @@ final class CredentialChoice {
         if (requestedType != null) {
             return requestedType;
         }
-        final var entry = context.credentials().get(agentName);
+        return credentialType(context.credentials().get(agentName));
+    }
+
+    private String credentialType(@Nullable VaultEntry entry) {
+        if (requestedType != null) {
+            return requestedType;
+        }
         return entry == null || entry.type() == null ? DEFAULT_CREDENTIAL_TYPE : entry.type();
     }
 

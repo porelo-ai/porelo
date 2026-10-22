@@ -1,7 +1,7 @@
 # B255 — No Stored Kind Is Invented for an Empty Vault
 
-**Status:** Idea.
-**Size, proposed:** XS - one condition in `CredentialChoice.unbrokerable` and a test.
+**Status:** Implementing: built, each test seen red first; the VM run on the commit is to come.
+**Size:** XS - one condition in `CredentialChoice.unbrokerable` and a test.
 
 **What must be true.** A start with no credential stored for its agent, and none asked for with `--credential-type`,
 says that the credential is missing. It never names one "stored" that is not there.

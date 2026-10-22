@@ -159,6 +159,184 @@ class TaskRunCommandTest {
                 context.environment());
     }
 
+    private PoreloContext refusingProviderContext(Path dir, boolean stored) throws IOException {
+        final PoreloContext context =
+                previewContext(dir).asking(shown -> "test-passphrase".toCharArray());
+        previewAgent(context, "preview");
+        Files.writeString(
+                context.paths().xdg().data().resolve("providers/preview.yaml"),
+                """
+                token_env: { _default: PREVIEW_TOKEN }
+                unbrokerable:
+                  api-key: "This provider takes a sign-in; use the key provider for an API key"
+                """,
+                java.nio.file.StandardOpenOption.APPEND);
+        hookBinaries(dir);
+        new org.fuin.porelo.runtime.HookInstaller(
+                        context.paths().hooksDirectory(), context.paths().binaryDirectory())
+                .install();
+        context.vault()
+                .write(
+                        stored
+                                ? java.util.Map.of(
+                                        "preview",
+                                        new org.fuin.porelo.vault.VaultEntry("test-key", "api-key"))
+                                : java.util.Map.of(),
+                        "test-passphrase".toCharArray());
+        assertThat(context.openerAsking(false, new PrintWriter(err)))
+                .as("the fixture opens its own vault without depending on the machine's keyring")
+                .isPresent();
+        return context;
+    }
+
+    private int unattendedStart(PoreloContext context, Path dir, String... options)
+            throws IOException {
+        final List<String> args =
+                new ArrayList<>(
+                        List.of(
+                                "-p",
+                                projectFile(dir, MINIMAL),
+                                "--agent",
+                                "preview",
+                                "--prompt",
+                                "do the work",
+                                "--no-gate"));
+        args.addAll(List.of(options));
+        return startAt(context, false, args.toArray(String[]::new));
+    }
+
+    private void refusesBeforeCreatingATask(int code) {
+        assertThat(code)
+                .as("an unauthenticated unattended start is refused: %s", err)
+                .isEqualTo(69);
+        assertThat(runner.lines())
+                .as("a credential refusal must leave no image or container")
+                .noneMatch(line -> line.contains("podman build") || line.contains("podman create"));
+        assertThat(execCalls).as("a refused start must not enter a task").isEmpty();
+    }
+
+    @Test
+    void anEmptyVaultDoesNotInventAStoredKindForAnUnattendedStart(@TempDir Path dir)
+            throws IOException {
+        // Inventing a refused kind sends the operator to a different provider instead of signing
+        // in.
+        final PoreloContext context = refusingProviderContext(dir, false);
+        try {
+            refusesBeforeCreatingATask(unattendedStart(context, dir));
+            assertThat(err.toString())
+                    .as("the missing credential reaches the existing availability check")
+                    .contains("the vault holds no credential for 'preview'")
+                    .doesNotContain("stored");
+        } finally {
+            PoreloContext.forgetAsked();
+        }
+    }
+
+    @Test
+    void anExplicitRefusedKindIsRejectedWithoutInventingAStoredEntry(@TempDir Path dir)
+            throws IOException {
+        // An explicit incompatible kind must be refused before a task can start without
+        // authentication.
+        final PoreloContext context = refusingProviderContext(dir, false);
+        try {
+            refusesBeforeCreatingATask(
+                    unattendedStart(context, dir, "--credential-type", "api-key"));
+            assertThat(err.toString())
+                    .as("the refusal identifies the requested kind and the provider's remedy")
+                    .contains(
+                            "the 'api-key' credential asked for 'preview' cannot be used.",
+                            "This provider takes a sign-in; use the key provider for an API key.")
+                    .doesNotContain("stored", "the vault holds no credential");
+        } finally {
+            PoreloContext.forgetAsked();
+        }
+    }
+
+    @Test
+    void aStoredRefusedKindStillPreventsAnUnattendedStart(@TempDir Path dir) throws IOException {
+        // A stored incompatible credential must never reach a container that cannot authenticate.
+        final PoreloContext context = refusingProviderContext(dir, true);
+        try {
+            refusesBeforeCreatingATask(unattendedStart(context, dir));
+            assertThat(err.toString())
+                    .as("the stored-kind refusal keeps its existing explanation")
+                    .contains(
+                            "the 'api-key' credential stored for 'preview' cannot be used.",
+                            "This provider takes a sign-in; use the key provider for an API key.")
+                    .doesNotContain("asked for", "the vault holds no credential");
+        } finally {
+            PoreloContext.forgetAsked();
+        }
+    }
+
+    @Test
+    void anExplicitRefusedKindOverridesTheStoredSignInWithoutCallingItStored(@TempDir Path dir)
+            throws IOException {
+        // An incompatible override must be refused without blaming a usable stored sign-in.
+        final PoreloContext context = refusingProviderContext(dir, true);
+        try {
+            context.vault()
+                    .write(
+                            java.util.Map.of(
+                                    "preview",
+                                    new org.fuin.porelo.vault.VaultEntry("test-sign-in", "oauth")),
+                            "test-passphrase".toCharArray());
+
+            refusesBeforeCreatingATask(
+                    unattendedStart(context, dir, "--credential-type", "api-key"));
+
+            assertThat(err.toString())
+                    .as(
+                            "both refusal lines describe the explicit override rather than the stored sign-in")
+                    .contains(
+                            "the 'api-key' credential asked for 'preview' cannot be used.",
+                            "This provider takes a sign-in; use the key provider for an API key.",
+                            "--credential-type selects the kind for one run")
+                    .doesNotContain("stored");
+        } finally {
+            PoreloContext.forgetAsked();
+        }
+    }
+
+    @Test
+    void aRefusedStoredKindIsCheckedAfterTheStartOpensTheVault(@TempDir Path dir)
+            throws IOException {
+        // Unlocking must not let an incompatible credential bypass the guard before the build.
+        final List<String> prompts = new ArrayList<>();
+        final PoreloContext context =
+                refusingProviderContext(dir, true)
+                        .asking(
+                                shown -> {
+                                    prompts.add(shown);
+                                    return "test-passphrase".toCharArray();
+                                });
+        final var keyring =
+                new org.fuin.porelo.vault.KernelKeyring(context.paths().vault().vaultKeyringKey());
+        try {
+            PoreloContext.forgetAsked();
+            assertThat(context.readableCredentials())
+                    .as("the vault must be shut when the start begins")
+                    .isEmpty();
+            runner.failing(" build ", 1, "the credential guard must refuse before building");
+
+            final int code = unattendedStart(context, dir);
+
+            assertThat(prompts).as("the start opens the vault exactly once").hasSize(1);
+            assertThat(err.toString())
+                    .as("the newly readable stored kind is refused before the build")
+                    .contains(
+                            "the 'api-key' credential stored for 'preview' cannot be used.",
+                            "This provider takes a sign-in; use the key provider for an API key.",
+                            "--credential-type overrides the stored kind for one run");
+            refusesBeforeCreatingATask(code);
+        } finally {
+            PoreloContext.forgetAsked();
+            if (org.fuin.porelo.vault.KernelKeyring.available()) {
+                keyring.forget();
+            }
+        }
+    }
+
     private PoreloContext context(Path dir, boolean hooksInstalled) throws IOException {
         return context(dir, hooksInstalled, name -> null);
     }

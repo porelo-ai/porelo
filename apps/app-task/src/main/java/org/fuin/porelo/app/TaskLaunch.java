@@ -1142,15 +1142,7 @@ public final class TaskLaunch {
             credentials().reportStaleCredential(select(agents), out);
             credentials().reportLegacyCredential(select(agents), out);
 
-            final String refusal = credentials().unbrokerable(select(agents));
-            if (refusal != null) {
-                // Before the image, the container and the token: a task that cannot authenticate
-                // fails inside the box with a message about the operator's network.
-                err.println("porelo: " + refusal);
-                err.println(
-                        "porelo: import or store a usable one, then run again;"
-                                + " --credential-type overrides the stored kind for one run");
-                err.flush();
+            if (refusesCredential(select(agents), err)) {
                 return 69;
             }
 
@@ -1265,6 +1257,10 @@ public final class TaskLaunch {
                     !declaredOrAdded.isEmpty() || wiring().unavailableFor(select(agents)) != null,
                     true,
                     err);
+            // Unlocking can reveal a refused kind that the early check could not read.
+            if (refusesCredential(select(agents), err)) {
+                return 69;
+            }
             for (final java.util.Map.Entry<String, String> named : declaredOrAdded.entrySet()) {
                 final org.fuin.porelo.vault.VaultEntry entry =
                         context.readableCredentials()
@@ -2409,6 +2405,18 @@ public final class TaskLaunch {
                                                         .toList())
                                 == 0,
                 holds);
+    }
+
+    private boolean refusesCredential(
+            org.fuin.porelo.agent.api.@Nullable InstalledAgent agent, PrintWriter err) {
+        final var refusal = credentials().unbrokerable(agent);
+        if (refusal == null) {
+            return false;
+        }
+        err.println("porelo: " + refusal.reason());
+        err.println("porelo: " + refusal.remedy());
+        err.flush();
+        return true;
     }
 
     private CredentialChoice credentials() {

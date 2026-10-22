@@ -999,10 +999,14 @@ public final class StartCheck {
                                                 + agent.name()
                                                 + "'"));
             }
-            final String unusable = choice.unbrokerable(agent);
+            final var unusable = choice.unbrokerable(agent);
             if (unusable != null) {
                 return new Result(
-                        Outcome.CREDENTIAL_UNUSABLE, agent.name(), provider, credential, unusable);
+                        Outcome.CREDENTIAL_UNUSABLE,
+                        agent.name(),
+                        provider,
+                        credential,
+                        unusable.reason());
             }
             return new Result(
                     Outcome.READY,

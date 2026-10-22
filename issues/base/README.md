@@ -30,6 +30,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b255"></a>[B255](B255-No-Stored-Kind-Is-Invented-For-An-Empty-Vault.md) | XS | - | A start with nothing stored for its agent says the credential is missing, where today an empty vault reads as a stored `api-key` its default provider refuses |
 | <a id="b192"></a>[B192](B192-An-Image-Chosen-Per-Repository.md) | L | - | A repository's `porelo.yml` (checked in) or `.porelo.yml` (a local override) names only its image - `base_image`, a snippet, `env` - read key by key in a fixed order with `project.yml`'s `repositories.<name>.image` and the mirror's default branch; one cached image per repository, its source named at the start, the file ranked dangerous in review.; step 1 (the reader and its refusals) built |
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
 | <a id="b212"></a>[B212](B212-Porelos-Own-Tests-In-A-Porelo-Task.md) | M | - | porelo's whole local check is green inside a Porelo task: no test needs the host's podman, `porelo`, `/run/user` or an unset `no-new-privileges`; green in a task on the VM, 2662 tests, 77 skips named |
@@ -123,7 +124,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b255"></a>[B255](B255-No-Stored-Kind-Is-Invented-For-An-Empty-Vault.md) | - | - | A start with nothing stored for its agent says the credential is missing, where today an empty vault reads as a stored `api-key` its default provider refuses |
 | <a id="b254"></a>[B254](B254-A-Task-Has-Its-Work-Built-On-A-Declared-Kind.md) | - | `porelo` [B253](README.md#b253) | A task asks for its work to be built on a machine kind the project declares and reads the verdict and log in `/porelo/files`; an undeclared kind or command is refused |
 | <a id="b249"></a>[B249](B249-The-Hooks-Run-Dnsmasq-And-Podman-By-A-Fixed-Path.md) | - | - | The hooks start `dnsmasq` and `podman` by a fixed root-owned path, as [B239](#b239) does `nsenter` and `nft`, where today both are found through the caller's `PATH` |
 | <a id="b250"></a>[B250](B250-No-Broker-Address-For-A-Task-Without-One.md) | - | - | An agent's setup hears the broker's address only when the task has a broker, where an agent reached by URL hears the relay's address without one and takes itself for brokered |
