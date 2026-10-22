@@ -146,6 +146,32 @@ class PreparationTest {
     }
 
     @Test
+    void aPreparedSnippetNamesTheRepositoryEntryThatSuppliedIt(@TempDir Path dir) throws Exception {
+        final Path file = projectFile(dir);
+        Files.writeString(
+                file,
+                Files.readString(file)
+                        + "repositories:\n  backend:\n    image:\n      snippet: RUN true\n");
+
+        final Preparation.Result result =
+                Preparation.prepare(
+                        context(dir),
+                        file,
+                        "backend",
+                        null,
+                        Podman.Rebuild.CACHED,
+                        true,
+                        new PrintWriter(out, true));
+
+        assertThat(result.outcome())
+                .as("a valid snippet can be previewed")
+                .isEqualTo(Preparation.Outcome.PREVIEWED);
+        assertThat(out.toString())
+                .as("the snippet must identify the source that will run as root")
+                .contains("snippet   1 lines from " + file + " (repositories.backend.image)");
+    }
+
+    @Test
     void aRepositoryTheProjectDoesNotHaveIsNamed(@TempDir Path dir) throws Exception {
 
         final Preparation.Result result =

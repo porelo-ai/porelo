@@ -1,0 +1,2 @@
+title: "Task starts refuse invalid local image sources before host-side preparation and defer only refusals from the mirror"
+type: fixed

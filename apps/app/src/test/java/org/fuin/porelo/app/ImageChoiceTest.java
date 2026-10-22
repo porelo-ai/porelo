@@ -1,6 +1,7 @@
 package org.fuin.porelo.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.StringReader;
 import java.nio.file.Files;
@@ -196,6 +197,101 @@ class ImageChoiceTest {
                         directory,
                         Map.of("GIT_CONFIG_GLOBAL", "/dev/null", "GIT_CONFIG_NOSYSTEM", "1"),
                         null));
+    }
+
+    private PoreloContext imageContext(Path dir) {
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    default -> null;
+                                },
+                        dir);
+        return new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+    }
+
+    @Test
+    void aPreviewReturnsTheMirrorsRefusalAndKeepsTheOtherSources(@TempDir Path dir)
+            throws Exception {
+        // Only the mirror can be repaired by a fetch; valid local choices must survive its refusal.
+        final PoreloContext context = imageContext(dir);
+        final Project project = acme();
+        final var repository = project.repositories().getFirst();
+        final Path source = Files.createDirectories(dir.resolve("source"));
+        git(source, "init", "-q");
+        Files.writeString(source.resolve("porelo.yml"), "egress: {}\n");
+        git(source, "add", "porelo.yml");
+        git(source, "commit", "-q", "-m", "refused image");
+        final Path mirror = GateSupport.mirror(context, project, repository);
+        Files.createDirectories(mirror.getParent());
+        git(dir, "clone", "-q", "--bare", source.toString(), mirror.toString());
+        final Path override = ImageChoice.override(context, project, repository);
+        Files.createDirectories(override.getParent());
+        Files.writeString(
+                override, "image:\n  base_image: local-base\n  env: {LOCAL: local-value}\n");
+
+        final ImageChoice.Preview preview = ImageChoice.preview(context, project, repository);
+
+        assertThat(preview.choice().baseImage())
+                .as("the refused mirror must not discard a local choice")
+                .isEqualTo("local-base");
+        assertThat(preview.choice().env())
+                .as("local variables remain in the provisional image")
+                .containsEntry("LOCAL", "local-value");
+        assertThat(preview.mirrorRefusal())
+                .as("only the mirror's refusal is deferred")
+                .isInstanceOf(org.fuin.porelo.core.project.ProjectException.class)
+                .hasMessageContaining("egress")
+                .hasMessageContaining("porelo.yml at refs/heads/main of backend");
+        assertThatThrownBy(() -> ImageChoice.of(context, project, repository))
+                .as("the ordinary read stays strict")
+                .hasMessageContaining("egress");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {"override", ".porelo.yml", "porelo.yml"})
+    void aPreviewStillThrowsForARefusedLocalSource(String source, @TempDir Path dir)
+            throws Exception {
+        // Host-side work must never start for a local file a fetch cannot repair.
+        final PoreloContext context = imageContext(dir);
+        final Project project;
+        final Path file;
+        if (source.equals("override")) {
+            project = acme();
+            file = ImageChoice.override(context, project, project.repositories().getFirst());
+        } else {
+            final Path checkout = Files.createDirectories(dir.resolve("work"));
+            new DefaultProject(context).add(checkout.toString(), "backend", checkout.toString());
+            project =
+                    ProjectReader.read(
+                            new StringReader(
+                                    """
+                    project:
+                      name: default
+                      security_class: guarded
+                    image:
+                      base_image: default-base
+                    repositories:
+                      backend: {}
+                    """),
+                            "project.yml");
+            file = checkout.resolve(source);
+        }
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, "limits: {}\n");
+
+        assertThatThrownBy(
+                        () ->
+                                ImageChoice.preview(
+                                        context, project, project.repositories().getFirst()))
+                .as("a refused local source must be thrown before the mirror is read")
+                .isInstanceOf(org.fuin.porelo.core.project.ProjectException.class)
+                .hasMessageContaining(file.toString())
+                .hasMessageContaining("limits");
     }
 
     @Test

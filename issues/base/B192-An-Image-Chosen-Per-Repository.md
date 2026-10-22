@@ -1,6 +1,6 @@
 # B192 — An Image Chosen Per Repository
 
-**Status:** Rework: a start read a refused `porelo.yml` from the mirror before fetching (the operator's hand check, 2026-10-22). Before that: Built, each test seen red first: the format, its reader and refusals (`RepositoryImageReader`,
+**Status:** Implementing: the rework below is built and seen red first; its VM run on the commit is to come. Before it: Built, each test seen red first: the format, its reader and refusals (`RepositoryImageReader`,
 `ImageSource`, `SnippetFiles`); `repositories.<name>.image`; the mirror read at the reviewed default branch, never
 `porelo/*` and never a link (`MirrorFile`); the choice key by key (`ImageChoice`), applied at the start with each key's
 source printed and chosen again after the gate's fetch; one image per repository (`porelo/<project>_<repository>`);
@@ -114,6 +114,15 @@ Read in the code on 2026-10-18.
    - Acceptance, beside `task-guarded.feature:29`: a project with two repositories, one carrying a `porelo.yml` with a
      snippet; a task on each gets its own image, and the dry run names where each came from. A `porelo.yml` that names
      `egress` is refused at the start, by name.
+
+## Reworked
+
+From the operator's hand check of 2026-10-22: a start read a repository's `porelo.yml` from its mirror before the
+fetch and ended on a refusal there, so a repository that had fixed a refused file upstream could never start a task.
+Now, on a start that fetches, that first read is a preview: its refusal is kept, the start fetches, and the fetched
+file decides. A start that does not fetch (`--dry-run`, `--no-gate`) still refuses on the mirror's file and says it
+was read as of the mirror's last fetch. The `snippet` line names the file the lines came from. Each seen red first,
+with a mirror one commit behind its upstream.
 
 ## Acceptance
 

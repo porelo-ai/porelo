@@ -99,6 +99,14 @@ public record ImageChoice(
     }
 
     /**
+     * An image preview with any refusal that a mirror refresh may repair.
+     *
+     * @param choice The image chosen without a refused mirror source.
+     * @param mirrorRefusal The mirror's refusal, or {@code null}.
+     */
+    public record Preview(ImageChoice choice, @Nullable ProjectException mirrorRefusal) {}
+
+    /**
      * Chooses the image for a task on a repository of a project.
      *
      * @param context Where the override, the mirror and git are.
@@ -108,6 +116,23 @@ public record ImageChoice(
      * @throws ProjectException If a source is unreadable or names more than its image.
      */
     public static ImageChoice of(PoreloContext context, Project project, Repository repository) {
+        final Preview preview = preview(context, project, repository);
+        if (preview.mirrorRefusal() != null) {
+            throw preview.mirrorRefusal();
+        }
+        return preview.choice();
+    }
+
+    /**
+     * Previews an image before the gate refreshes its mirror.
+     *
+     * @param context Where the sources and git are.
+     * @param project The project.
+     * @param repository The repository.
+     * @return The choice and the mirror's refusal, if any.
+     * @throws ProjectException If a local source is refused.
+     */
+    public static Preview preview(PoreloContext context, Project project, Repository repository) {
         final List<ImageSource> order = new ArrayList<>();
         if (DefaultProject.is(project.name())) {
             // A person's own checkout, read as they see it: approved work lands on porelo/<task>,
@@ -130,7 +155,7 @@ public record ImageChoice(
                 }
             }
             order.add(ImageSource.of(project));
-            return merge(order);
+            return new Preview(merge(order), null);
         }
         final Path override = override(context, project, repository);
         if (Files.isRegularFile(override)) {
@@ -143,24 +168,30 @@ public record ImageChoice(
         if (repository.image() != null) {
             order.add(repository.image());
         }
-        final Path mirror = GateSupport.mirror(context, project, repository);
-        final var branch = MirrorFile.defaultBranch(context.runner(), mirror);
-        if (branch.isPresent()) {
-            final String origin = FILE + " at " + branch.get() + " of " + repository.name();
-            MirrorFile.read(context.runner(), mirror, FILE)
-                    .ifPresent(
-                            text ->
-                                    order.add(
-                                            RepositoryImageReader.read(
-                                                    text,
-                                                    origin,
-                                                    MirrorFile.snippets(
-                                                            context.runner(),
-                                                            mirror,
-                                                            branch.get()))));
+        ProjectException mirrorRefusal = null;
+        try {
+            final Path mirror = GateSupport.mirror(context, project, repository);
+            final var branch = MirrorFile.defaultBranch(context.runner(), mirror);
+            if (branch.isPresent()) {
+                final String origin = FILE + " at " + branch.get() + " of " + repository.name();
+                MirrorFile.read(context.runner(), mirror, FILE)
+                        .ifPresent(
+                                text ->
+                                        order.add(
+                                                RepositoryImageReader.read(
+                                                        text,
+                                                        origin,
+                                                        MirrorFile.snippets(
+                                                                context.runner(),
+                                                                mirror,
+                                                                branch.get()))));
+            }
+        } catch (ProjectException ex) {
+            // A fetch can repair only the mirror's file, never a local source.
+            mirrorRefusal = ex;
         }
         order.add(ImageSource.of(project));
-        return merge(order);
+        return new Preview(merge(order), mirrorRefusal);
     }
 
     /**

@@ -100,8 +100,10 @@ public final class Preparation {
             return new Result(Outcome.NO_SUCH_PROJECT, "", rebuild, CliErrors.reason(ex));
         }
         final Project project;
+        final @Nullable String snippetFrom;
         if (repositoryName == null) {
             project = declared;
+            snippetFrom = org.fuin.porelo.core.project.ImageSource.of(declared).from();
         } else {
             final var repository =
                     declared.allRepositories().stream()
@@ -126,6 +128,7 @@ public final class Preparation {
                 return new Result(Outcome.FAILED, "", rebuild, CliErrors.reason(ex));
             }
             project = choice.applyTo(declared, repository.get());
+            snippetFrom = choice.snippetFrom();
             out.println("base image " + project.baseImage() + "  (from " + choice.baseFrom() + ")");
             if (choice.snippetFrom() != null) {
                 out.println("lines      from " + choice.snippetFrom());
@@ -167,7 +170,8 @@ public final class Preparation {
                 out.println(
                         "snippet   "
                                 + project.imageSnippetLines().size()
-                                + " lines from the project");
+                                + " lines from "
+                                + (snippetFrom == null ? "the image environment" : snippetFrom));
                 layers = layers.and(project.imageSnippetLines(), java.util.List.of());
             }
 

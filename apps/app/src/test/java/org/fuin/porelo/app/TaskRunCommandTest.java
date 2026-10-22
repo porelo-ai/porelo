@@ -908,6 +908,186 @@ class TaskRunCommandTest {
         return said;
     }
 
+    /** Keeps an earlier file in the mirror while the upstream has moved on. */
+    private String changedRepositoryImage(Path dir, String before, String after)
+            throws IOException {
+        final Path upstream = Files.createDirectories(dir.resolve("upstream"));
+        git(upstream, "init", "-q");
+        Files.writeString(upstream.resolve("porelo.yml"), before);
+        git(upstream, "add", "porelo.yml");
+        git(upstream, "commit", "-q", "-m", "before");
+        final Path mirror = dir.resolve("data/porelo/mirrors/uc.git");
+        Files.createDirectories(mirror.getParent());
+        git(dir, "clone", "-q", "--bare", upstream.toString(), mirror.toString());
+        Files.writeString(upstream.resolve("porelo.yml"), after);
+        git(upstream, "commit", "-q", "-am", "after");
+        return projectFile(
+                dir,
+                MINIMAL.replace(
+                        "  security_class: \"guarded\"",
+                        "  security_class: \"guarded\"\n  upstream: \"file://%s\""
+                                .formatted(upstream)));
+    }
+
+    /** Uses real local git for image reads and the fake runtime for containers. */
+    private PoreloContext repositoryImageContext(Path dir) throws IOException {
+        final PoreloContext fake = context(dir, true);
+        final var git = new org.fuin.porelo.core.process.ProcessCommandRunner();
+        return new PoreloContext(
+                command ->
+                        command.arguments().getFirst().equals("git")
+                                ? git.run(command)
+                                : runner.run(command),
+                fake.paths(),
+                fake.exec(),
+                fake.environment());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"", "--no-gate", "--dry-run"})
+    void aRefusedLocalOverrideStopsBeforeHostSidePreparation(String option, @TempDir Path dir)
+            throws IOException {
+        // A fetch cannot repair a local file, so its refusal must precede host-side changes.
+        final PoreloContext context = context(dir, false);
+        hookBinaries(dir);
+        final Path override = dir.resolve("config/porelo/projects/uc/uc/.porelo.yml");
+        Files.createDirectories(override.getParent());
+        Files.writeString(override, "egress: {}\n");
+        final List<String> arguments =
+                new ArrayList<>(
+                        List.of(
+                                "task",
+                                "start",
+                                "--attach",
+                                "shell",
+                                "-p",
+                                projectFile(dir, MINIMAL)));
+        if (!option.isEmpty()) {
+            arguments.add(option);
+        }
+
+        final int exit = execute(context, arguments.toArray(String[]::new));
+
+        assertThat(exit).as("a refused local source stops the start: %s", err).isEqualTo(64);
+        assertThat(context.paths().hooksDirectory())
+                .as("local refusal must not install hooks")
+                .doesNotExist();
+        assertThat(runner.lines())
+                .as("local refusal must not clone or fetch a repository")
+                .noneMatch(
+                        line ->
+                                line.startsWith("git ")
+                                        && (line.contains("clone") || line.contains("fetch")));
+        assertThat(err.toString())
+                .as("a local refusal must name its own source")
+                .contains("egress")
+                .contains("(local override)")
+                .doesNotContain("mirror");
+    }
+
+    @Test
+    void aStartFetchesBeforeRefusingTheRepositorysImage(@TempDir Path dir) throws IOException {
+        // A stale refusal must not prevent the fetch that can repair it.
+        final String file = changedRepositoryImage(dir, "egress: {}\n", "limits: {}\n");
+        final int exit =
+                execute(
+                        repositoryImageContext(dir),
+                        "task",
+                        "start",
+                        "--attach",
+                        "shell",
+                        "-p",
+                        file);
+
+        assertThat(exit).as("the fetched file still names a forbidden key").isEqualTo(64);
+        assertThat(err.toString())
+                .as("the fetched file decides, not the stale mirror")
+                .contains("limits")
+                .doesNotContain("egress");
+        assertThat(runner.invocations().stream().map(command -> command.arguments()))
+                .as("a refused image must never be built")
+                .noneMatch(arguments -> arguments.contains("build"));
+    }
+
+    @Test
+    void aStartRecoversWhenTheFetchedRepositoryImageIsValid(@TempDir Path dir) throws IOException {
+        final String file =
+                changedRepositoryImage(dir, "egress: {}\n", "image:\n  snippet: RUN true\n");
+        final int exit =
+                execute(
+                        repositoryImageContext(dir),
+                        "task",
+                        "start",
+                        "--attach",
+                        "shell",
+                        "-p",
+                        file);
+
+        assertThat(exit).as("the repaired upstream permits a start: %s", err).isZero();
+        assertThat(out.toString())
+                .as("the deferred choice must be reported even after a refused preview")
+                .contains("read after the fetch")
+                .contains("image lines    from porelo.yml at refs/heads/main of uc");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"--dry-run", "--no-gate"})
+    void aStartWithoutAFetchRefusesAndNamesTheMirrorsFile(String option, @TempDir Path dir)
+            throws IOException {
+        final String file = changedRepositoryImage(dir, "egress: {}\n", "limits: {}\n");
+        final int exit =
+                execute(
+                        repositoryImageContext(dir),
+                        "task",
+                        "start",
+                        "--attach",
+                        "shell",
+                        option,
+                        "-p",
+                        file);
+
+        assertThat(exit).as("without a fetch the mirror's refusal stands").isEqualTo(64);
+        assertThat(err.toString())
+                .as("the refusal must identify how current its source is")
+                .contains("egress")
+                .contains("mirror")
+                .contains("last fetch")
+                .doesNotContain("limits");
+        assertThat(
+                        git(
+                                dir,
+                                "--git-dir",
+                                dir.resolve("data/porelo/mirrors/uc.git").toString(),
+                                "show",
+                                "HEAD:porelo.yml"))
+                .as("a preview or an ungated start must not fetch")
+                .isEqualTo("egress: {}");
+    }
+
+    @Test
+    void aStartsSnippetLineNamesTheRepositoryFile(@TempDir Path dir) throws IOException {
+        final String file =
+                changedRepositoryImage(
+                        dir,
+                        "image:\n  snippet: RUN true\n",
+                        "image:\n  snippet: RUN true\n  env: {FROM_UPSTREAM: yes}\n");
+        final int exit =
+                execute(
+                        repositoryImageContext(dir),
+                        "task",
+                        "start",
+                        "--attach",
+                        "shell",
+                        "--no-gate",
+                        "-p",
+                        file);
+
+        assertThat(exit).as("a valid repository image starts: %s", err).isZero();
+        assertThat(out.toString())
+                .as("the build must attribute its snippet to the file that supplied it: %s", err)
+                .contains("snippet   1 lines from porelo.yml at refs/heads/main of uc");
+    }
+
     /**
      * A project of the given class on a repository of this machine, whose gate holds what a removed
      * 'second' left.

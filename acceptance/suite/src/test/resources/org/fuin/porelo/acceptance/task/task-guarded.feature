@@ -29,7 +29,7 @@ Feature: A task in a guarded project, from its image to what it hands back
     Scenario: the image carries the agent's tool at the version it pins, the project's tooling, and no root
         When a task called "image" is started in "guarded" for the "stub" agent and left running
         Then its output has a line matching "agent +stub .*"
-        And its output has a line matching "snippet +2 lines from the project"
+        And its output has a line matching "snippet +2 lines from the project's image .guarded."
         When a script runs about the task:
             """
             image=$(podman container inspect --format '{{.ImageName}}' {task})

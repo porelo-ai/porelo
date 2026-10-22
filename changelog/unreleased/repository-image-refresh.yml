@@ -1,0 +1,2 @@
+title: "Task starts defer repository image refusals until after the gate fetches, and snippet output names its source"
+type: fixed

@@ -30,6 +30,9 @@ import org.jspecify.annotations.Nullable;
  */
 public final class TaskLaunch {
 
+    private static final String MIRROR_IMAGE_AGE =
+            "porelo: repository image read from the mirror as of its last fetch";
+
     /** The variable a task is told its repository's issue prefixes in, comma-separated. */
     public static final String ISSUE_PREFIXES = "PORELO_ISSUE_PREFIXES";
 
@@ -999,12 +1002,23 @@ public final class TaskLaunch {
         out.println("security class " + project.securityClass().name().toLowerCase());
         // Chosen per repository, key by key, and each key named with where it came from: the image
         // is built as root outside the task's firewall, so which file said what is not a detail.
-        final ImageChoice image;
+        final boolean gated = !request.noGate() && !request.dryRun();
+        ImageChoice image;
+        final ProjectException previewRefusal;
         final Project asDeclared = project;
         try {
-            image = ImageChoice.of(context, asDeclared, repository);
+            final ImageChoice.Preview preview =
+                    ImageChoice.preview(context, asDeclared, repository);
+            image = preview.choice();
+            previewRefusal = preview.mirrorRefusal();
         } catch (ProjectException ex) {
             err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return 64;
+        }
+        if (!gated && previewRefusal != null) {
+            err.println("porelo: " + previewRefusal.getMessage());
+            err.println(MIRROR_IMAGE_AGE);
             err.flush();
             return 64;
         }
@@ -1399,7 +1413,6 @@ public final class TaskLaunch {
                 return 69;
             }
 
-            final boolean gated = !request.noGate() && !request.dryRun();
             final TaskWorkspace workspace = workspace().openWorkspace(project, gated, out, err);
             final String earlier = workspace().refusal();
             if (earlier != null
@@ -1412,9 +1425,14 @@ public final class TaskLaunch {
                 err.flush();
                 return 65;
             }
-            // Chosen again once the gate fetched: a repository's porelo.yml is read from its
-            // mirror,
-            // and on the first start there was none to read before this.
+            if (workspace == null && previewRefusal != null) {
+                err.println("porelo: " + previewRefusal.getMessage());
+                err.println(MIRROR_IMAGE_AGE);
+                err.println("porelo: nothing was created");
+                err.flush();
+                return 64;
+            }
+            // Only the fetched file can settle a refused preview.
             if (workspace != null) {
                 final ImageChoice fetched;
                 try {
@@ -1425,7 +1443,7 @@ public final class TaskLaunch {
                     err.flush();
                     return 64;
                 }
-                if (!fetched.equals(image)) {
+                if (previewRefusal != null || !fetched.equals(image)) {
                     project = fetched.applyTo(asDeclared, repository);
                     out.println(
                             "base image     "
@@ -1444,6 +1462,7 @@ public final class TaskLaunch {
                     out.println("task image     " + project.imageName());
                     out.flush();
                 }
+                image = fetched;
             }
             // No shell offered in its place: a shell without a gate has an empty workspace and
             // fixes nothing about what stopped the gate, which is said above.
@@ -1464,7 +1483,7 @@ public final class TaskLaunch {
 
             final org.fuin.porelo.runtime.ImageLayers layers;
             try {
-                layers = layers(agents, project, out);
+                layers = layers(agents, project, image, out);
             } catch (org.fuin.porelo.agent.api.AgentException ex) {
                 err.println("porelo: " + ex.getMessage());
                 err.flush();
@@ -1915,13 +1934,16 @@ public final class TaskLaunch {
     }
 
     /**
-     * Builds the image layers for this run: the agent's, then the project's own.
+     * Builds the image layers for this run: the agent's, then the chosen image's.
      *
      * <p>The project's go last so they can rely on the agent already being installed - which is the
      * usual reason for having them at all.
      */
     private org.fuin.porelo.runtime.ImageLayers layers(
-            org.fuin.porelo.agent.api.InstalledAgents agents, Project project, PrintWriter out) {
+            org.fuin.porelo.agent.api.InstalledAgents agents,
+            Project project,
+            ImageChoice image,
+            PrintWriter out) {
 
         org.fuin.porelo.runtime.ImageLayers layers = org.fuin.porelo.runtime.ImageLayers.none();
 
@@ -1949,7 +1971,12 @@ public final class TaskLaunch {
 
         if (!project.imageSnippetLines().isEmpty()) {
             out.println(
-                    "snippet   " + project.imageSnippetLines().size() + " lines from the project");
+                    "snippet   "
+                            + project.imageSnippetLines().size()
+                            + " lines from "
+                            + (image.snippetFrom() == null
+                                    ? "the image environment"
+                                    : image.snippetFrom()));
             layers = layers.and(project.imageSnippetLines(), java.util.List.of());
         }
         return layers;
