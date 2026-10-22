@@ -1,6 +1,6 @@
 # B173 — An Agent's Sign-In Kept Without A Person
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - `vault login` in `app-vault` gains an option that reads the agent's credentials from a directory instead
 of running its sign-in, with its tests and `doc/credentials.md`; the agent API is not changed.
 
@@ -44,6 +44,10 @@ the host still holds. And `vault put` refuses every `grant/` name.
   endpoint on loopback, the renewed access token reaching a task's request.
 - Seen to fail first: the unit tests above, against today's `vault login`, which runs the agent's sign-in instead.
 
+**Settled while building:** `--credentials-from` is not refused at a terminal - a developer reproduces a CI run there
+- and is never mistaken for a sign-in: it says it kept a sign-in read from a directory and that no sign-in ran.
+
 ## To be checked
 
-- Whether `--credentials-from` should be refused at a terminal, so it is never mistaken for a sign-in (Agent Core's).
+- The acceptance scenario with the stub agent and a stand-in token endpoint on loopback, renewed by the broker; the
+  unit tests hold the command, the scenario is not yet written.

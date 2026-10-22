@@ -228,6 +228,11 @@ refused, and a token in an answer is still withheld from it.
 
 - **`vault import` is never renewed.** Renewing that copy would spend the refresh token the
   developer's own session uses. Import again when it has ended.
+- **`vault login <agent> --credentials-from <dir>` keeps a sign-in without running one**, for a test
+  against a stand-in: the agent's own extractor reads the directory, a copy made for the run, and the
+  sign-in is kept as after a real one, renewable. `--token-url` beside it renews against a stand-in,
+  only plain `http` on a literal loopback address; anything else is refused before anything is kept.
+  A real sign-in still runs the agent's own.
 - **`vault remove` forgets the refresh token with the entry.**
 
 ## More than one credential in a task

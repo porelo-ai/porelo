@@ -1,6 +1,7 @@
 package org.fuin.porelo.app;
 
 import java.io.PrintWriter;
+import java.nio.file.Path;
 import java.util.concurrent.Callable;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
@@ -36,6 +37,23 @@ public class VaultLoginCommand implements Callable<Integer>, PoreloFactory.Conte
             names = "--force",
             description = "Logs in again even though this machine already has a credential.")
     private boolean force;
+
+    @Option(
+            names = "--credentials-from",
+            paramLabel = "<dir>",
+            description =
+                    "Keeps the sign-in found in this directory, as the agent's sign-in would have"
+                            + " written it, instead of running the sign-in. For a test against a"
+                            + " stand-in.")
+    private @Nullable Path credentialsFrom;
+
+    @Option(
+            names = "--token-url",
+            paramLabel = "<url>",
+            description =
+                    "With --credentials-from: renews against this stand-in, plain http on a"
+                            + " loopback address, instead of the agent's endpoint.")
+    private @Nullable String tokenUrl;
 
     @Spec private CommandSpec spec;
 
@@ -91,6 +109,10 @@ public class VaultLoginCommand implements Callable<Integer>, PoreloFactory.Conte
 
         final PrintWriter out = spec.commandLine().getOut();
         final PrintWriter err = spec.commandLine().getErr();
+
+        if (tokenUrl != null || credentialsFrom != null) {
+            return fromDirectory(out, err);
+        }
 
         AgentLogin.Result result = login.run(context, agentName, dryRun, force, out);
         out.flush();
@@ -162,6 +184,54 @@ public class VaultLoginCommand implements Callable<Integer>, PoreloFactory.Conte
             }
             err.flush();
             return 69;
+        }
+        err.println("porelo: " + result.detail());
+        err.flush();
+        return result.outcome() == AgentLogin.Outcome.FAILED ? 70 : 69;
+    }
+
+    private int fromDirectory(final PrintWriter out, final PrintWriter err) {
+        final Path directory = credentialsFrom;
+        if (dryRun || force) {
+            err.println(
+                    "porelo: --credentials-from keeps what it reads and runs no sign-in; it takes"
+                            + " neither --dry-run nor --force");
+            err.flush();
+            return 64;
+        }
+        if (directory == null) {
+            err.println(
+                    "porelo: --token-url names a stand-in for a sign-in read from a directory;"
+                            + " give --credentials-from <dir> with it");
+            err.flush();
+            return 64;
+        }
+        final String refused = tokenUrl == null ? null : AgentLogin.standInTokenUrl(tokenUrl);
+        if (refused != null) {
+            err.println("porelo: --token-url " + refused + " - nothing was kept");
+            err.flush();
+            return 64;
+        }
+        final AgentLogin.Result result =
+                AgentLogin.fromDirectory(context, agentName, directory, tokenUrl);
+        if (result.outcome() == AgentLogin.Outcome.STORED) {
+            // Said as what it is, so it is never taken for a sign-in a person made here.
+            out.println(
+                    "Kept the sign-in read from "
+                            + directory
+                            + " as '"
+                            + result.name()
+                            + "' ("
+                            + result.type()
+                            + ", "
+                            + result.length()
+                            + " characters), "
+                            + (result.detail().isEmpty()
+                                    ? "renewable" + (tokenUrl == null ? "" : " against " + tokenUrl)
+                                    : result.detail())
+                            + ". No sign-in ran here.");
+            out.flush();
+            return 0;
         }
         err.println("porelo: " + result.detail());
         err.flush();

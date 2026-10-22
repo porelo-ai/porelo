@@ -1,0 +1,2 @@
+title: "`porelo vault login <agent> --credentials-from <dir>` keeps a sign-in read from a directory, renewable, without running one, and `--token-url` renews it against a stand-in on a loopback address"
+type: added

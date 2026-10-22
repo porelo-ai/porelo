@@ -103,6 +103,158 @@ public final class AgentLogin {
     }
 
     /**
+     * Says why a token endpoint given for a stand-in cannot be one, or {@code null} when it can.
+     *
+     * <p>Only plain {@code http} to a literal loopback address: the person's own command line may
+     * point a renewal at a stand-in on this machine, never at another host, which would then
+     * receive the refresh token.
+     *
+     * @param url The endpoint as given.
+     * @return The refusal, or {@code null}.
+     */
+    static @Nullable String standInTokenUrl(final String url) {
+        final java.net.URI uri;
+        try {
+            uri = new java.net.URI(url);
+        } catch (java.net.URISyntaxException ex) {
+            return "'" + url + "' is not a URL";
+        }
+        final String host = uri.getHost();
+        if (!"http".equals(uri.getScheme()) || host == null || uri.getUserInfo() != null) {
+            return "'" + url + "' is not a plain http URL";
+        }
+        final String literal =
+                host.startsWith("[") && host.endsWith("]")
+                        ? host.substring(1, host.length() - 1)
+                        : host;
+        // Exactly the two a renewal will go to over plain http (Grants.secure); any other loopback
+        // address passed here was then kept unrenewable while it said renewable.
+        if (!"127.0.0.1".equals(literal) && !"::1".equals(literal)) {
+            return "'"
+                    + host
+                    + "' is not 127.0.0.1 or [::1], the loopback addresses a renewal goes to";
+        }
+        return null;
+    }
+
+    /**
+     * Keeps a sign-in read from a directory as a sign-in made here is kept: renewable, its refresh
+     * token hidden as {@code grant/<key>}.
+     *
+     * <p>The directory is a copy made for the run, never the host agent's own, so renewing it
+     * rotates nothing anybody else holds; {@code vault import} is what reads the host agent's.
+     *
+     * @param vault The vault.
+     * @param way What opens it.
+     * @param key The entry.
+     * @param found What the agent's extractor read there.
+     * @param tokenUrl A stand-in's token endpoint replacing the agent's, or {@code null}.
+     * @param kept The attributes the provider sends beside the token.
+     * @param directory Where it was read, for the refusal.
+     * @return What happened.
+     */
+    static Result keepFrom(
+            final org.fuin.porelo.vault.VaultFile vault,
+            final org.fuin.porelo.vault.VaultFile.Opener way,
+            final String key,
+            final java.util.Optional<Credential> found,
+            final @Nullable String tokenUrl,
+            final java.util.Set<String> kept,
+            final Path directory) {
+        if (found.isEmpty()) {
+            return failed(
+                    Outcome.NOTHING_TO_COLLECT,
+                    "no sign-in in " + directory + " - nothing was kept");
+        }
+        if (tokenUrl != null) {
+            final String refused = standInTokenUrl(tokenUrl);
+            if (refused != null) {
+                return failed(Outcome.FAILED, "--token-url " + refused + " - nothing was kept");
+            }
+        }
+        final Credential read = found.get();
+        final Credential value;
+        if (tokenUrl == null) {
+            value = read;
+        } else {
+            final java.util.Map<String, String> attributes =
+                    new java.util.LinkedHashMap<>(read.attributes());
+            attributes.put(Credential.TOKEN_URL, tokenUrl);
+            value = new Credential(read.type(), read.secret(), attributes);
+        }
+        final boolean[] renewable = {false};
+        vault.update(
+                way,
+                entries -> {
+                    LoginCredentials.put(entries, key, value, true, kept);
+                    final org.fuin.porelo.vault.VaultEntry stored = entries.get(key);
+                    renewable[0] = stored != null && LoginCredentials.renewable(stored);
+                    return entries;
+                });
+        // Said as kept, not assumed: a sign-in without a refresh token or a client is kept as it
+        // is.
+        return new Result(
+                Outcome.STORED,
+                key,
+                value.type(),
+                value.secret().length(),
+                renewable[0]
+                        ? ""
+                        : "not renewable: it names no refresh token, client or token endpoint");
+    }
+
+    /**
+     * Reads an agent's sign-in from a directory through its own extractor and keeps it, without a
+     * sign-in and without a person.
+     *
+     * @param context The machine.
+     * @param agentName Which agent, or {@code null} for the only one installed.
+     * @param directory Where the sign-in's files are.
+     * @param tokenUrl A stand-in's token endpoint replacing the agent's, or {@code null}.
+     * @return What happened.
+     */
+    public static Result fromDirectory(
+            final PoreloContext context,
+            final @Nullable String agentName,
+            final Path directory,
+            final @Nullable String tokenUrl) {
+        try (var agents = context.agents()) {
+            final java.util.Optional<InstalledAgent> found =
+                    agentName != null
+                            ? agents.find(agentName)
+                            : agents.names().size() == 1
+                                    ? agents.find(agents.names().getFirst())
+                                    : java.util.Optional.empty();
+            if (found.isEmpty()) {
+                return failed(
+                        Outcome.NO_SUCH_AGENT,
+                        "no such agent; installed: " + String.join(", ", agents.names()));
+            }
+            final InstalledAgent agent = found.get();
+            final SelectedProvider selection =
+                    SelectedProvider.choose(context.providers(), agent.definition(), null);
+            final String key = selection == null ? agent.name() : selection.name();
+            final java.util.Optional<org.fuin.porelo.vault.VaultFile.Opener> way = context.opener();
+            if (way.isEmpty()) {
+                return failed(
+                        Outcome.VAULT_LOCKED,
+                        "the vault is locked, and nothing here can ask for a passphrase - unlock"
+                                + " it first");
+            }
+            return keepFrom(
+                    context.vault(),
+                    way.get(),
+                    key,
+                    agent.extractCredential(directory),
+                    tokenUrl,
+                    LoginCredentials.kept(selection),
+                    directory);
+        } catch (RuntimeException ex) {
+            return failed(Outcome.FAILED, String.valueOf(ex.getMessage()));
+        }
+    }
+
+    /**
      * The project a login image is built from.
      *
      * <p>Not a real project and never registered as one: it exists so the image builder has
