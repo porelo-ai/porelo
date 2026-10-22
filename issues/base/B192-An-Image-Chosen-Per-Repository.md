@@ -131,9 +131,6 @@ Read in the code on 2026-10-18.
 
 ## To be checked
 
-- A snippet runs where the image is built (`data/build/<project>_<repository>`), not in the repository, so `COPY` of a
-  repository file finds nothing there (measured by reading, in porelo-ai.github.io's draft). Whether the repository's
-  files the snippet names are handed into that context, or the page says to install them at run time instead.
 - Whether every mirror's bare `HEAD` follows the upstream's default branch, read and not measured: a mirror with an
   upstream is made by `git clone --bare` (`GitGate.initialize`), which sets `HEAD` to the upstream's default branch;
   only one without an upstream starts as `init --bare --initial-branch=main`. To be measured with an upstream whose

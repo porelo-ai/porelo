@@ -1,6 +1,6 @@
 # B239 — The Hooks Run Nft By A Fixed Path
 
-**Status:** Idea.
+**Status:** Backlog.
 
 **What must be true.** The hooks run `nsenter` and `nft` from the distribution's own directories, found by a fixed
 list and refused when anybody but root could have placed them, never through the `PATH` of whoever started podman.

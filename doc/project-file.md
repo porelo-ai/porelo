@@ -206,6 +206,9 @@ image:
 - **Only the image.** Egress, limits, the class and every other rule stay the project's: a repository that could name
   them would widen what its own tasks may do. Any other key is refused by its name, at the start, before an image is
   built. A variable Porelo sets in every task (`PATH`, `HOME`, `LANG`, `PORELO_*`) is refused too.
+- **The image sees nothing of the repository:** the snippet runs in Porelo's own build directory, so a `COPY` or `ADD`
+  of a repository file finds nothing there. What a repository ships for its tasks is installed at run time, or
+  fetched by the snippet against a hash written into it.
 - **Read from reviewed work only:** the repository's mirror at its default branch, never a branch a task pushed
   (`porelo/*`), and a `snippet_file` only as a plain file of the repository, never a link or a path that leaves it.
 - **The project file can say it as well**, under `repositories.<name>.image`, with the same keys.

@@ -44,13 +44,14 @@ from its side, as *blocked by*.
 | <a id="b190"></a>[B190](B190-A-Tasks-Branch-Named-By-The-Projects-Scheme.md) | L | `porelo` [B189](README.md#b189) | `branch.template` and `branch.pattern` or `--branch` name a task's forge branch, kept in `task.json`; the gate passes on and keeps out of its mirror by them, an existing upstream branch refused at an online start, a guarded approval onto it by default and only within the pattern. |
 | <a id="b206"></a>[B206](B206-A-Transport-Takes-Its-Secrets-On-Its-Input.md) | L | - | A transport takes the secrets Porelo kept for it on its standard input, not in its environment, so no other process of the account can read them from `/proc`; a version declared in `describe`, with the matrix transport's matching change. |
 | <a id="b207"></a>[B207](B207-An-Image-Built-Within-The-Projects-Egress.md) | L | - | An image's build reaches only the project's egress and its trusted package sources, through the firewall or a proxy, so a snippet - a project's or a repository's `porelo.yml` - cannot fetch from anywhere while the image is made. |
+| <a id="b242"></a>[B242](B242-An-Agents-Records-Read-By-A-Nested-Key.md) | - | - | An agent definition reads its session id and last message by a dotted key, and a session file by its own record, as Codex CLI writes them; the agent API only grows |
+| <a id="b239"></a>[B239](B239-The-Hooks-Run-Nft-By-A-Fixed-Path.md) | - | - | The hooks run `nsenter` and `nft` from fixed, root-owned paths, never through the caller's `PATH`, which today decides which `nft` loads a task's firewall |
 
 ## Analyzed
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | XL | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own; analyzed: filled only from reviewed work, mounted `:ro,z`, read through `maven.repo.local.tail`, Maven first | 2 |
-| <a id="b194"></a>[B194](B194-A-File-Handed-In-At-Every-Start.md) | L | - | A host file such as `.AGENTS.md` handed into an agent's task read-only at every start; a changed copy written on the host only after approval; analyzed: the hand-in at every start on `HandIns`, the way back needs the decision changed | 1 |
 | <a id="b175"></a>[B175](B175-The-Profile-That-May-Bind-The-Socket.md) | L | `porelo` [B135](README.md#b135) | On an AppArmor machine a task connects only to a socket one of Porelo's binaries bound, by a task profile that refuses any other peer, as the SELinux domain does on SELinux machines. | 0 |
 | <a id="b176"></a>[B176](B176-Comment-Threads-That-Follow-A-New-Push.md) | M | `porelo` [B166](README.md#b166) | A thread on waiting work moves to a new push's commit where its lines are unchanged, else stays and says why; each commented commit pinned under a hidden ref; `Thread` gains `from` and `stays`. | 0 |
 | <a id="b177"></a>[B177](B177-A-Cost-Ceiling-Per-Task.md) | M | `porelo` [B138](README.md#b138), [B191](README.md#b191) | A dollar ceiling per task from `limits.cost`, counted by the broker from the cost the provider reports, else at list price from the price table; a model with no price refuses the ceiling at the start or fail closed, never $0; under a subscription it caps list-price value. | - |
@@ -110,8 +111,6 @@ from its side, as *blocked by*.
 | <a id="b241"></a>[B241](B241-A-Debian-Base-Image-Builds.md) | - | - | A Debian base image builds: the default mirror is Ubuntu's alone, and a replacement leaves the security stanza as it was; today no value builds `python:3.13-slim` |
 | <a id="b244"></a>[B244](B244-The-Loop-Watch-Sees-A-Compact-Screen.md) | - | - | The acceptance kit's loop watch stops a scenario on a repeated failed tool call also for an agent that redraws a compact view, where today Codex CLI's ran to its bound |
 | <a id="b243"></a>[B243](B243-A-Kit-Project-That-Names-Its-Base-Image.md) | - | - | The acceptance kit's project step takes a base image of the scenario's own, where today an `image` mapping is a second root key |
-| <a id="b242"></a>[B242](B242-An-Agents-Records-Read-By-A-Nested-Key.md) | - | - | An agent definition reads its session id and last message by a dotted key, and a session file by its own record, as Codex CLI writes them; the agent API only grows |
-| <a id="b239"></a>[B239](B239-The-Hooks-Run-Nft-By-A-Fixed-Path.md) | - | - | The hooks run `nsenter` and `nft` from fixed, root-owned paths, never through the caller's `PATH`, which today decides which `nft` loads a task's firewall |
 | <a id="b238"></a>[B238](B238-An-Unfollow-Leaves-Nothing-Of-The-Project.md) | - | - | `project unfollow` removes the project's build lock and upstream copies, which `porelo prune` finds left over today |
 | <a id="b236"></a>[B236](B236-The-Inventory-Names-The-Projects-Transports.md) | - | - | `project inventory` names the packages of the transports a project's tasks use, as [B217](#b217) does for `agent_package`, so a host installs them; porelo-host [HO02](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho02) waits on it |
 | <a id="b237"></a>[B237](B237-A-Name-Granted-Live-Through-A-CNAME.md) | - | - | A name granted to a running task that answers through a CNAME is reached as it is when named at the start, where today its connections are dropped |
@@ -220,6 +219,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b194"></a>B194 | L | - | A host file handed into a task at every start is not built: nothing an agent needs is private, since machines, accounts and tools are named by `project.yml`, the `porelo.yml` files and the host's scripts and secrets stay in the vault; what an agent learns goes into its repository's `AGENTS.md` as a reviewed commit. |
 | <a id="b170"></a>B170 | M | - | A devcontainer file as image source is not built: it gives only `image` or `build`, with the tools behind `features` that Porelo does not fetch; superseded by [B192](#b192)'s `porelo.yml`. |
 | <a id="b18"></a>B18 | M | - | `StoreCredential` is not built: a credential is entered only in a terminal, the interface's terminal included; the expiry note went to [B178](#b178). |
 

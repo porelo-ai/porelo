@@ -1,6 +1,6 @@
 # B242 — An Agent's Records Read By A Nested Key
 
-**Status:** Idea.
+**Status:** Backlog.
 
 **What must be true.** An agent definition can say where its session id and its last message are when the agent
 writes them below the top level of a record, and that a session file's own record differs from a run's, so an agent
