@@ -188,7 +188,12 @@ public final class EgressControl {
                             ? null
                             : SelectedProvider.choose(
                                     context.providers(), selected.definition(), null);
-            return EgressReport.compose(selected, serving, declared).origins();
+            // Without what is refused, as the CLI's report: an interface told a refused host is
+            // reachable plans on a name the task's resolver answers NXDOMAIN.
+            return EgressReport.reachable(
+                    EgressReport.compose(selected, serving, declared).origins(),
+                    EgressReport.refusals(
+                            selected, project, GateSupport.repository(project, repository)));
         }
     }
 

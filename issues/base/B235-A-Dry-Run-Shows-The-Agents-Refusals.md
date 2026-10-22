@@ -1,6 +1,6 @@
 # B235 — A Dry Run Shows The Agent's Refusals
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - `TaskLaunch`'s dry run and one guard in `EgressReport`, tests in `app`; no contract.
 
 **What must be true.** `porelo task start --dry-run` names a host the task's agent refuses as refused, never as
@@ -21,8 +21,9 @@ Read in `TaskLaunch`, `EgressReport`, `AgentChoice`, `EgressControl` and `DnsPol
    (`TaskLaunch`'s dry-run branch passes `Map.of()` to `EgressReport.reportReachable`), so not even the project's own
    `egress.refused` reaches it. Read, not measured: the running start's report lists a refused host under
    "reachable" too, then again as "refused on purpose", since `reportReachable` prints every origin unfiltered.
-2. **`EgressReport.reportReachable`** skips an origin whose host is refused, or a subdomain of one, as dnsmasq's
-   longest match makes it NXDOMAIN.
+2. **`EgressReport.reportReachable`** skips an origin whose host is refused by its own name. Not one under a refused
+   name: dnsmasq takes the longest match, so a host allowed by its own, longer name under a refused one is reached,
+   and the report says so.
 3. **The dry run chooses the agent as a start does** (`AgentChoice.considerAgent` with `--agent`) and reports
    `EgressReport.refusals(agent, project, repository)`, the same call the start makes.
 4. **Red first:** `EgressReportTest.aRefusedHostIsNotAlsoListedAsReachable`, then
@@ -38,8 +39,12 @@ Read in `TaskLaunch`, `EgressReport`, `AgentChoice`, `EgressControl` and `DnsPol
 - `task start --dry-run --agent claude` on a project naming `raw.githubusercontent.com` lists it as refused by the
   agent and not as reachable. Seen to fail first on today's code.
 - A host the project both names and refuses reads refused in the dry run and in the start's own report.
+- The daemon's `Egress` answer leaves a refused host out of `hosts` too, so an interface shows what the CLI does.
+- A provider the dry run cannot use is refused in one line with 2, as the start refuses it.
 
-## To be checked
+## Checked
 
-- That opening the installed agents in a dry run starts no process and touches no runtime
-  (`TaskRunCommandTest` holds that a dry run touches nothing).
+- **Opening the installed agents in a dry run starts each agent's adapter** to read its definition, as `porelo
+  agents` does; it touches no container runtime and starts no session. Measured in
+  `TaskRunCommandTest.aDryRunIncludesTheChosenAgentsRefusalsAndItsProvidersHosts`: no runtime call, no exec, and no
+  socket left in the runtime directory after.

@@ -1044,6 +1044,54 @@ class PoreloDaemonTest {
     }
 
     @Test
+    void aHostTheProjectRefusesIsNotAnsweredAsReachable(@TempDir Path dir) throws Exception {
+
+        // An interface that shows a refused host among the reachable ones invites a build to
+        // depend on a name the task's resolver answers NXDOMAIN; the CLI's report already leaves
+        // it out.
+        record(
+                dir,
+                Files.writeString(
+                        dir.resolve("project.yml"),
+                        """
+                project:
+                  name: "uc"
+                  security_class: "guarded"
+                image:
+                  base_image: "ubuntu:24.04"
+                egress:
+                  domains: [example.com, files.example.com, example.org]
+                  refused: [example.com]
+                """));
+
+        serving(
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> answer =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Egress",
+                                        Map.of("project", PROJECT));
+                        assertThat(
+                                        ((List<?>) answer.get("hosts"))
+                                                .stream()
+                                                        .map(
+                                                                host ->
+                                                                        String.valueOf(
+                                                                                ((Map<?, ?>) host)
+                                                                                        .get(
+                                                                                                "host")))
+                                                        .toList())
+                                .as(
+                                        "the refused host is not reachable; one allowed by its own,"
+                                                + " longer name under it is, as the resolver answers it")
+                                .containsExactlyInAnyOrder("files.example.com", "example.org");
+                        assertThat(String.valueOf(answer.get("refused"))).contains("example.com");
+                    }
+                });
+    }
+
+    @Test
     void refusesASetTheMachineDoesNotHaveOverTheWire(@TempDir Path dir) throws Exception {
 
         // Written, the file would name something no task on this machine could resolve, and every

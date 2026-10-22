@@ -54,6 +54,111 @@ class TaskRunCommandTest {
 
     private Path root;
 
+    /**
+     * Serves only the definition a preview needs, without running a task or reading a credential.
+     */
+    public static final class PreviewAgent {
+
+        /**
+         * Serves a test agent's definition over the real agent protocol.
+         *
+         * @param args Definition file, serve verb and socket path.
+         * @throws IOException If the definition cannot be read.
+         */
+        public static void main(String[] args) throws IOException {
+            final var definition =
+                    org.fuin.porelo.agent.api.AgentDefinitionReader.read(
+                            new java.io.StringReader(Files.readString(Path.of(args[0]))), args[0]);
+            try (var server =
+                    new org.fuin.porelo.wire.varlink.VarlinkServer(
+                            Path.of(args[2]), org.fuin.porelo.agent.api.AgentProtocol.INTERFACE)) {
+                server.method(
+                        "Describe",
+                        (parameters, replies) ->
+                                replies.last(
+                                        java.util.Map.of(
+                                                "protocolVersion",
+                                                org.fuin.porelo.agent.api.AgentProtocol.VERSION,
+                                                "definition",
+                                                org.fuin.porelo.agent.api.AgentDefinitionJson.write(
+                                                        definition))));
+                System.out.println("ready " + args[2]);
+                System.out.flush();
+                server.run();
+            }
+        }
+    }
+
+    private void previewAgent(PoreloContext context, String name) throws IOException {
+        final Path agents = Files.createDirectories(context.paths().xdg().data().resolve("agents"));
+        final Path definition = agents.resolve(name + ".yaml");
+        Files.writeString(
+                definition,
+                """
+                name: %s
+                binary: preview
+                git_identity: { name: Preview, email: preview@example.com }
+                headless: { prompt_flag: "-p" }
+                allowed_domains: [agent.example.com]
+                refused_domains: [raw.githubusercontent.com]
+                provider:
+                  dialect: preview
+                  default: preview
+                  endpoint: url
+                  base_url_env: PREVIEW_BASE_URL
+                """
+                        .formatted(name));
+        final Path executable =
+                agents.resolve(org.fuin.porelo.agent.api.AgentDirectory.PREFIX + name);
+        Files.writeString(
+                executable,
+                "#!/bin/sh\nexec "
+                        + shellArgument(
+                                Path.of(System.getProperty("java.home"), "bin", "java").toString())
+                        + " -cp "
+                        + shellArgument(System.getProperty("java.class.path"))
+                        + " "
+                        + shellArgument(PreviewAgent.class.getName())
+                        + " "
+                        + shellArgument(definition.toString())
+                        + " \"$@\"\n");
+        Files.setPosixFilePermissions(
+                executable, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        final Path providers =
+                Files.createDirectories(context.paths().xdg().data().resolve("providers"));
+        Files.writeString(
+                providers.resolve("preview.yaml"),
+                """
+                name: preview
+                upstream: https://provider.example.com
+                dialects: { preview: "" }
+                auth_header: { _default: Authorization }
+                auth_prefix: { _default: "Bearer " }
+                """);
+    }
+
+    private static String shellArgument(String value) {
+        return "'" + value.replace("'", "'\"'\"'") + "'";
+    }
+
+    private PoreloContext previewContext(Path dir) throws IOException {
+        final PoreloContext context = context(dir, false);
+        final XdgPaths xdg = context.paths().xdg();
+        // Relative socket paths fit the Unix limit even when the checkout's path is long.
+        final XdgPaths shortSockets =
+                new XdgPaths(
+                        xdg.config(),
+                        xdg.data(),
+                        xdg.state(),
+                        Path.of("").toAbsolutePath().relativize(xdg.runtime()),
+                        xdg.home());
+        return new PoreloContext(
+                runner,
+                new PoreloPaths(shortSockets, dir.resolve("bin")),
+                context.exec(),
+                context.environment());
+    }
+
     private PoreloContext context(Path dir, boolean hooksInstalled) throws IOException {
         return context(dir, hooksInstalled, name -> null);
     }
@@ -546,6 +651,115 @@ class TaskRunCommandTest {
 
         assertThat(code).isZero();
         assertThat(out.toString()).doesNotContain("ticket=");
+    }
+
+    @Test
+    void aDryRunNamesAHostTheProjectRefusesAsRefusedAndNotAsReachable(@TempDir Path dir)
+            throws IOException {
+        // A plan that promises a refused dependency sends a build down an unusable path.
+        final int code =
+                execute(
+                        context(dir, false),
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(
+                                dir,
+                                MINIMAL
+                                        + "egress:\n  domains: [example.com]\n  refused: [example.com]\n"),
+                        "--dry-run");
+
+        assertThat(code).as("a preview needs neither hooks nor a container runtime").isZero();
+        assertThat(out.toString().lines().map(line -> line.replaceAll("\\s+", " ").strip()))
+                .as("the project's refusal wins over its grant")
+                .contains("reachable example.com refused on purpose by project")
+                .doesNotContain("reachable example.com project", "example.com project");
+        assertThat(runner.invocations()).as("a dry run must touch nothing").isEmpty();
+        assertThat(execCalls).as("a preview must not attach a session").isEmpty();
+    }
+
+    @Test
+    void aDryRunIncludesTheChosenAgentsRefusalsAndItsProvidersHosts(@TempDir Path dir)
+            throws IOException {
+        // Selecting another installed agent must not silently preview the wrong network policy.
+        final PoreloContext context = previewContext(dir);
+        previewAgent(context, "preview");
+        previewAgent(context, "other");
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(
+                                dir, MINIMAL + "egress:\n  domains: [raw.githubusercontent.com]\n"),
+                        "--agent",
+                        "preview",
+                        "--dry-run");
+
+        assertThat(code)
+                .as("the named agent can be previewed without hooks or credentials: %s", err)
+                .isZero();
+        assertThat(out.toString().lines().map(line -> line.replaceAll("\\s+", " ").strip()))
+                .as("the preview includes the selected agent, provider and overriding refusal")
+                .contains(
+                        "reachable agent.example.com agent preview",
+                        "provider.example.com provider preview",
+                        "raw.githubusercontent.com refused on purpose by agent preview")
+                .doesNotContain("raw.githubusercontent.com project");
+        assertThat(runner.invocations()).as("a dry run must touch no container runtime").isEmpty();
+        assertThat(execCalls).as("a preview must not start a session").isEmpty();
+        try (var sockets = Files.list(context.paths().xdg().runtime())) {
+            assertThat(sockets).as("the metadata adapters leave no socket behind").isEmpty();
+        }
+    }
+
+    @Test
+    void aDryRunRefusesAProviderTheAgentCannotUseAsTheStartDoes(@TempDir Path dir)
+            throws IOException {
+        // A refusal the caller can fix is one line and 2, never a defect with a stack trace.
+        final PoreloContext context = previewContext(dir);
+        previewAgent(context, "preview");
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--agent",
+                        "preview",
+                        "--provider",
+                        "nosuch",
+                        "--dry-run");
+
+        assertThat(code).as("refused, not failed: %s", err).isEqualTo(2);
+        assertThat(err.toString()).as("in one line naming the provider").contains("nosuch");
+        assertThat(err.toString()).as("not a defect").doesNotContain("Exception");
+        assertThat(runner.invocations()).as("a dry run must touch no container runtime").isEmpty();
+    }
+
+    @Test
+    void aDryRunWithSeveralAgentsAsksForAnAgentOptionWithoutPrompting(@TempDir Path dir)
+            throws IOException {
+        // A preview must not make a network-policy choice the operator never made.
+        final PoreloContext context = previewContext(dir);
+        previewAgent(context, "preview");
+        previewAgent(context, "other");
+
+        final int code = startAt(context, true, "-p", projectFile(dir, MINIMAL), "--dry-run");
+
+        assertThat(code).as("ambiguity still permits a project-only preview").isZero();
+        assertThat(out.toString().lines().filter(line -> line.contains("--agent")))
+                .as("one line explains how to include an agent: %s %s", out, err)
+                .hasSize(1);
+        assertThat(out.toString())
+                .as("no agent or provider is guessed")
+                .doesNotContain("agent.example.com", "provider.example.com");
+        assertThat(err.toString()).as("no interactive selection is offered").isEmpty();
+        assertThat(runner.invocations()).as("a dry run must touch no container runtime").isEmpty();
     }
 
     @Test

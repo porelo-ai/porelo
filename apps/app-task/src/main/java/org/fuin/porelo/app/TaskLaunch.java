@@ -1053,9 +1053,44 @@ public final class TaskLaunch {
         }
 
         if (request.dryRun()) {
-            // What the project itself opens. The agent and provider are not chosen yet, so this is
-            // a preview of the file rather than the full report a real run prints.
-            EgressReport.reportReachable(project, projectOrigins, java.util.Map.of(), out);
+            try (InstalledAgents agents = context.agents()) {
+                final AgentChoice.Choice choice =
+                        AgentChoice.considerAgent(agents, request.agentName());
+                if (choice.refusal() == AgentChoice.AgentRefusal.SEVERAL_AGENTS) {
+                    out.println(
+                            "note           name an agent with --agent to include its hosts and refusals");
+                } else if (choice.refusal() != null) {
+                    err.println("porelo: " + choice.detail());
+                    err.flush();
+                    return 2;
+                }
+                final InstalledAgent selected = choice.agent();
+                SelectedProvider serving = null;
+                if (selected != null) {
+                    // Refused as the start refuses it, in one line and 2: a provider the run
+                    // cannot use is the caller's to fix, not a defect to report.
+                    final SelectedProvider.Choice provider =
+                            SelectedProvider.consider(
+                                    context.providers(),
+                                    selected.definition(),
+                                    request.providerName());
+                    if (provider.refusal() != null) {
+                        err.println("porelo: " + provider.detail());
+                        err.flush();
+                        return 2;
+                    }
+                    serving = provider.selection();
+                }
+                EgressReport.reportReachable(
+                        project,
+                        EgressReport.compose(selected, serving, projectOrigins).origins(),
+                        EgressReport.refusals(selected, project, repository),
+                        out);
+            } catch (org.fuin.porelo.agent.api.AgentException ex) {
+                err.println("porelo: " + ex.getMessage());
+                err.flush();
+                return 2;
+            }
             if ((request.repository() == null || request.repository().isBlank())
                     && !project.repositories().isEmpty()) {
                 // Said, because otherwise a project-level plan reads as a task's. A repository adds

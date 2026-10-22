@@ -224,6 +224,31 @@ final class EgressReport {
     }
 
     /**
+     * Returns the origins a task can reach: those not refused by their own name.
+     *
+     * <p>Not those under a refused name too: the resolver takes the longest match, so a refused
+     * name loses to a host under it that is allowed by its own, longer name, and that host is
+     * reached.
+     *
+     * <p>One place, so the report, the dry run and the daemon's answer say the same.
+     *
+     * @param origins Host to who opened it.
+     * @param refused Host to who refused it.
+     * @return The origins left, in their order.
+     */
+    static java.util.Map<String, String> reachable(
+            java.util.Map<String, String> origins, java.util.Map<String, String> refused) {
+        final java.util.Map<String, String> reachable = new java.util.LinkedHashMap<>();
+        origins.forEach(
+                (host, origin) -> {
+                    if (!refused.containsKey(host)) {
+                        reachable.put(host, origin);
+                    }
+                });
+        return reachable;
+    }
+
+    /**
      * Prints every destination a task may reach, with who decided it.
      *
      * <p>One list rather than a line per source, because the question an operator has is "what can
@@ -242,6 +267,8 @@ final class EgressReport {
             java.util.Map<String, String> refused,
             PrintWriter out) {
 
+        final java.util.Map<String, String> reachable = reachable(origins, refused);
+
         if (origins.isEmpty() && refused.isEmpty()) {
             out.println("reachable      nothing - no agent, provider or project declared a host");
             out.flush();
@@ -249,13 +276,14 @@ final class EgressReport {
         }
 
         final int width =
-                java.util.stream.Stream.concat(origins.keySet().stream(), refused.keySet().stream())
+                java.util.stream.Stream.concat(
+                                reachable.keySet().stream(), refused.keySet().stream())
                         .mapToInt(String::length)
                         .max()
                         .orElse(0);
 
         String label = "reachable";
-        for (final java.util.Map.Entry<String, String> entry : origins.entrySet()) {
+        for (final java.util.Map.Entry<String, String> entry : reachable.entrySet()) {
             out.printf("%-14s %-" + width + "s  %s%n", label, entry.getKey(), entry.getValue());
             label = "";
         }
@@ -277,7 +305,7 @@ final class EgressReport {
 
         // Said once, here, where the grants are. Not refused: an agent legitimately clones
         // dependencies from a forge.
-        final String forges = forgeNote(project, origins);
+        final String forges = forgeNote(project, reachable);
         if (forges != null) {
             out.println("               " + forges);
         }

@@ -142,6 +142,31 @@ class EgressReportTest {
     }
 
     @Test
+    void aRefusedHostIsNotAlsoListedAsReachable() {
+        // A preview must not invite a build to depend on a host its resolver refuses, nor hide one
+        // it reaches: the longest match decides, so a host allowed by its own name under a refused
+        // one is reached.
+        final String report =
+                report(
+                        project(SecurityClass.GUARDED, Egress.none()),
+                        Map.of(
+                                "github.com", "project",
+                                "raw.github.com", "project",
+                                "notgithub.com", "project"),
+                        Map.of("github.com", "agent stub"));
+
+        assertThat(
+                        report.lines()
+                                .map(line -> line.replaceAll("\\s+", " ").strip())
+                                .filter(line -> line.endsWith(" project"))
+                                .map(line -> line.replaceFirst("^reachable ", ""))
+                                .toList())
+                .as("refused by its own name only; the one under it is reached")
+                .containsExactlyInAnyOrder("raw.github.com project", "notgithub.com project");
+        assertThat(report).contains("refused on purpose by agent stub");
+    }
+
+    @Test
     void saysSoWhenThereIsNothingToReach() {
 
         assertThat(report(project(SecurityClass.GUARDED, Egress.none()), Map.of(), Map.of()))

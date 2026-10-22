@@ -1,0 +1,2 @@
+title: A task's dry run includes its agent's and provider's hosts and reports refused hosts without also listing them as reachable
+type: fixed
