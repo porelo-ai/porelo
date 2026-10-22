@@ -221,6 +221,18 @@ class TokenPurchaseTest {
     }
 
     @Test
+    void anErrorFieldThatIsNoCodeIsNotRepeated() {
+        status.set(400);
+        answer.set("{\"error\":\"client_secret_value\"}");
+
+        assertThatThrownBy(() -> purchase(Clock.systemUTC()).current())
+                .isInstanceOf(TokenPurchase.Refused.class)
+                .as("a server echoing what it was sent in its error field reaches no log or task")
+                .hasMessageNotContaining("client_secret_value")
+                .hasMessageContaining("400");
+    }
+
+    @Test
     void anUnreachableAuthorizationServerIsSaidAsSuch() {
         server.stop(0);
 

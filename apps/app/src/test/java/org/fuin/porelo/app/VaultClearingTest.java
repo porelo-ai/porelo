@@ -89,6 +89,7 @@ class VaultClearingTest {
         final Map<String, VaultEntry> entries = new LinkedHashMap<>();
         entries.put("github", VaultEntry.of("not-a-real-token"));
         entries.put(VaultNames.GRANT_PREFIX + "mail", VaultEntry.of("not-a-real-refresh-token"));
+        entries.put(VaultNames.CLIENT_SECRET_PREFIX + "mail", VaultEntry.of("not-a-real-secret"));
         entries.put(
                 VaultNames.TRANSPORT_PREFIX + "room/account", VaultEntry.of("{\"ADMIN\":\"a-1\"}"));
         entries.put(VaultNames.TASK_PREFIX + "porelo-p-old/gate-token", VaultEntry.of("g-1"));
@@ -187,6 +188,9 @@ class VaultClearingTest {
         assertThat(names(listed, "keyring", "passphrase", Clearing.Status.WOULD_REMOVE)).isTrue();
         assertThat(names(listed, "credential", "github", Clearing.Status.WOULD_REMOVE)).isTrue();
         assertThat(names(listed, "grant", "mail", Clearing.Status.WOULD_REMOVE)).isTrue();
+        assertThat(names(listed, "client secret", "mail", Clearing.Status.WOULD_REMOVE))
+                .as("a sign-in's client secret is named for what it is, not as a credential")
+                .isTrue();
         assertThat(names(listed, "transport account", "room/account", Clearing.Status.WOULD_REMOVE))
                 .isTrue();
         assertThat(names(listed, "task token", "porelo-p-old", Clearing.Status.WOULD_REMOVE))

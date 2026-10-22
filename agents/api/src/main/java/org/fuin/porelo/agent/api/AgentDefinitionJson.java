@@ -65,6 +65,21 @@ public final class AgentDefinitionJson {
             putIfPresent(
                     provider, "baseUrlEnvironment", definition.provider().baseUrlEnvironment());
             provider.put("addsPath", Boolean.valueOf(definition.provider().addsPath()));
+            if (!definition.provider().dialects().isEmpty()) {
+                final Map<String, Object> dialects = new LinkedHashMap<>();
+                definition
+                        .provider()
+                        .dialects()
+                        .forEach(
+                                (name, entry) -> {
+                                    final Map<String, Object> one = new LinkedHashMap<>();
+                                    putIfPresent(
+                                            one, "baseUrlEnvironment", entry.baseUrlEnvironment());
+                                    one.put("addsPath", Boolean.valueOf(entry.addsPath()));
+                                    dialects.put(name, one);
+                                });
+                provider.put("dialects", dialects);
+            }
             out.put("provider", provider);
         }
         out.put("allowedDomains", definition.allowedDomains());
@@ -338,6 +353,19 @@ public final class AgentDefinitionJson {
         if (dialect == null) {
             return null;
         }
+        final Map<String, AgentProvider.Dialect> dialects = new LinkedHashMap<>();
+        if (source.get("dialects") instanceof Map<?, ?> declared) {
+            declared.forEach(
+                    (key, item) -> {
+                        if (item instanceof Map<?, ?> entry) {
+                            dialects.put(
+                                    String.valueOf(key),
+                                    new AgentProvider.Dialect(
+                                            text(entry.get("baseUrlEnvironment")),
+                                            Boolean.TRUE.equals(entry.get("addsPath"))));
+                        }
+                    });
+        }
         return new AgentProvider(
                 String.valueOf(dialect),
                 text(source.get("default")),
@@ -348,7 +376,8 @@ public final class AgentDefinitionJson {
                         "the agent's own description"),
                 text(source.get("socketEnvironment")),
                 text(source.get("baseUrlEnvironment")),
-                Boolean.TRUE.equals(source.get("addsPath")));
+                Boolean.TRUE.equals(source.get("addsPath")),
+                dialects);
     }
 
     @Nullable

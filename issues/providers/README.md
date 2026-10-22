@@ -20,11 +20,6 @@ providers as a class, the others one provider each.
 | <a id="p05"></a>[P05](P05-Provider-OpenAI.md) | S | - | `providers/openai.yaml` (`api.openai.com`, `openai` under `/v1`, Bearer), a ChatGPT sign-in refused before a start; file, test and doc row built; the live run on an API key green through the broker in porelo-codex [CX01](https://github.com/porelo-ai/porelo-codex/blob/main/issues/README.md#cx01). |
 | <a id="p11"></a>[P11](P11-Provider-ChatGPT-Sign-In.md) | M | - | `providers/chatgpt.yaml` (`chatgpt.com`, `openai` under `/backend-api/codex`, the sign-in as Bearer) and a provider key `credential_headers` that fills `ChatGPT-Account-Id` from the stored sign-in; the agent side is porelo-codex's; built and unit-tested, the VM next. |
 | <a id="p06"></a>[P06](P06-Provider-Google.md) | S | - | `providers/google.yaml`: its own format under `/v1beta` and `openai` under `/v1beta/openai`, `x-goog-api-key`. |
-
-## Backlog
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
 | <a id="p12"></a>[P12](P12-The-Google-Sign-In-As-A-Provider.md) | L | - | Antigravity CLI served through the person's Google sign-in, brokered on the host, beside the API key of [P06](README.md#p06); the sign-in is measured first, attended |
 
 ## Analyzed

@@ -157,8 +157,13 @@ final class CredentialWiring {
         if (selection == null) {
             return "";
         }
+        final org.fuin.porelo.agent.api.ProviderRoute route = selection.route();
         final org.fuin.porelo.agent.api.AgentProvider declared = agent.definition().provider();
-        return endpointFor(selection.route(), declared != null && declared.addsPath(), environment);
+        final boolean addsPath =
+                route.baseUrlEnvironment() != null
+                        ? route.addsPath()
+                        : declared != null && declared.addsPath();
+        return endpointFor(route, addsPath, environment);
     }
 
     /**
@@ -487,14 +492,20 @@ final class CredentialWiring {
         }
         final org.fuin.porelo.agent.api.AgentProvider provider =
                 agent == null ? null : agent.provider();
-        if (provider != null && provider.baseUrlEnvironment() != null) {
+        final String baseUrlEnvironment =
+                route.baseUrlEnvironment() != null
+                        ? route.baseUrlEnvironment()
+                        : provider == null ? null : provider.baseUrlEnvironment();
+        final boolean addsPath =
+                route.baseUrlEnvironment() != null
+                        ? route.addsPath()
+                        : provider != null && provider.addsPath();
+        if (baseUrlEnvironment != null) {
             // Both, always. The socket variable only picks the transport; without a base URL the
             // agent uses its own compiled-in endpoint and never touches the socket at all.
             environment.put(
-                    provider.baseUrlEnvironment(),
-                    provider.addsPath()
-                            ? TaskWiring.VAULT_URL
-                            : route.endpointFor(TaskWiring.VAULT_URL));
+                    baseUrlEnvironment,
+                    addsPath ? TaskWiring.VAULT_URL : route.endpointFor(TaskWiring.VAULT_URL));
         }
         return java.util.Map.copyOf(environment);
     }

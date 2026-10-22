@@ -1,6 +1,6 @@
 # P12 — The Google Sign-In As A Provider
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** L - a provider file; the agent API lets one agent speak a second dialect under its own base URL variable;
 a sign-in's renewal carries a client secret; tests at each place, a doc row and the accepted risk. The agent side is
 porelo-agy's (AG01).

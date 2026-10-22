@@ -155,6 +155,9 @@ public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.Cont
                                 removed[0] = entries.remove(name) != null;
                                 removed[0] |= entries.remove(grantName) != null;
                                 removed[0] |=
+                                        entries.remove(TaskSecrets.CLIENT_SECRET_PREFIX + name)
+                                                != null;
+                                removed[0] |=
                                         entries.remove(VaultNames.REGISTRATION_PREFIX + name)
                                                 != null;
                                 return entries;

@@ -311,4 +311,42 @@ class LoginRenewalTest {
         assertThatThrownBy(renewal::current).isInstanceOf(TokenPurchase.Ended.class);
         assertThat(bodies).as("asked again once the moment has passed").hasSize(2);
     }
+
+    @Test
+    void refreshFormCarriesClientSecretWhenTheSignInHadOneAndOmitsItWhenItHadNone(@TempDir Path dir)
+            throws Exception {
+
+        // A desktop OAuth client must send client_secret alongside client_id when renewing; a
+        // public PKCE client sends none.
+        final Map<String, String> withSecret =
+                new LinkedHashMap<>(signIn(NOW.plusSeconds(30)).attributes());
+        withSecret.put(Credential.CLIENT_SECRET, "client-secret-1");
+        final VaultFile withSecretVault =
+                vault(
+                        dir.resolve("with-secret"),
+                        new Credential("oauth", "at-1", withSecret),
+                        true);
+
+        assertThat(renewal(withSecretVault, NOW).current())
+                .as("renewed with client secret")
+                .isEqualTo("at-2");
+        assertThat(bodies)
+                .as("refresh form for a sign-in with a client secret")
+                .singleElement()
+                .asString()
+                .contains("client_secret=client-secret-1");
+
+        bodies.clear();
+        final VaultFile withoutSecretVault =
+                vault(dir.resolve("without-secret"), signIn(NOW.plusSeconds(30)), true);
+
+        assertThat(renewal(withoutSecretVault, NOW).current())
+                .as("renewed without client secret")
+                .isEqualTo("at-2");
+        assertThat(bodies)
+                .as("refresh form for a sign-in without a client secret")
+                .singleElement()
+                .asString()
+                .doesNotContain("client_secret");
+    }
 }

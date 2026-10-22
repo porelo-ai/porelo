@@ -251,6 +251,24 @@ public final class TokenPurchase implements TokenSource {
         }
     }
 
+    /**
+     * The error codes OAuth defines for a token endpoint (RFC 6749, 8628): the only ones repeated.
+     */
+    private static final java.util.Set<String> OAUTH_ERRORS =
+            java.util.Set.of(
+                    "invalid_request",
+                    "invalid_client",
+                    "invalid_grant",
+                    "unauthorized_client",
+                    "unsupported_grant_type",
+                    "invalid_scope",
+                    "access_denied",
+                    "server_error",
+                    "temporarily_unavailable",
+                    "authorization_pending",
+                    "slow_down",
+                    "expired_token");
+
     private String buy() throws Refused {
         final Map<String, String> form = new LinkedHashMap<>();
         if (refresh != null) {
@@ -316,10 +334,14 @@ public final class TokenPurchase implements TokenSource {
         }
         if (answer.statusCode() / 100 != 2) {
             // Its own error code, never its body whole: an error answer may echo what was sent.
+            // And only a code OAuth defines: the field is the server's text too, and a server that
+            // put what it was sent into it would hand a client secret to the log and the task.
             final String error =
-                    parsed instanceof Map<?, ?> document && document.get("error") != null
-                            ? String.valueOf(document.get("error"))
-                            : "no error named";
+                    parsed instanceof Map<?, ?> document
+                                    && document.get("error") instanceof String code
+                                    && OAUTH_ERRORS.contains(code)
+                            ? code
+                            : "an error code OAuth does not define";
             if (refresh != null && "invalid_grant".equals(error)) {
                 // Revoked or expired at the service: the person has to grant it again, which is not
                 // a wrong key.

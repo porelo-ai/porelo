@@ -1,5 +1,9 @@
 package org.fuin.porelo.agent.api;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -24,6 +28,8 @@ import org.jspecify.annotations.Nullable;
  * @param baseUrlEnvironment Variable naming the endpoint URL, or {@code null}.
  * @param addsPath Whether the agent adds the dialect's path to its base URL itself, so {@code
  *     baseUrlEnvironment} is given the broker's address alone.
+ * @param dialects Other wire formats the agent speaks, in preference order after {@code dialect},
+ *     each with its own base URL variable and {@code adds_path}.
  */
 public record AgentProvider(
         String dialect,
@@ -31,7 +37,28 @@ public record AgentProvider(
         ProviderRoute.Endpoint endpoint,
         @Nullable String socketEnvironment,
         @Nullable String baseUrlEnvironment,
-        boolean addsPath) {
+        boolean addsPath,
+        Map<String, Dialect> dialects) {
+
+    /**
+     * How the agent addresses one of the wire formats it speaks.
+     *
+     * @param baseUrlEnvironment Variable naming the endpoint URL, or {@code null}.
+     * @param addsPath Whether the agent adds the dialect's path to its base URL itself.
+     */
+    public record Dialect(@Nullable String baseUrlEnvironment, boolean addsPath) {
+
+        /** Compact constructor. */
+        public Dialect {
+            if (baseUrlEnvironment != null && baseUrlEnvironment.isBlank()) {
+                throw new AgentException("provider dialect base_url_env must not be blank");
+            }
+            if (addsPath && baseUrlEnvironment == null) {
+                throw new AgentException(
+                        "'provider.adds_path' needs 'provider.base_url_env' beside it");
+            }
+        }
+    }
 
     /**
      * Constructor for an agent whose base URL includes the dialect's path, as every agent did
@@ -49,7 +76,41 @@ public record AgentProvider(
             ProviderRoute.Endpoint endpoint,
             @Nullable String socketEnvironment,
             @Nullable String baseUrlEnvironment) {
-        this(dialect, defaultProvider, endpoint, socketEnvironment, baseUrlEnvironment, false);
+        this(
+                dialect,
+                defaultProvider,
+                endpoint,
+                socketEnvironment,
+                baseUrlEnvironment,
+                false,
+                Map.of());
+    }
+
+    /**
+     * Constructor for an agent speaking one dialect.
+     *
+     * @param dialect Wire format spoken.
+     * @param defaultProvider Provider used when none is named.
+     * @param endpoint Endpoint shape the agent can address.
+     * @param socketEnvironment Variable naming the socket.
+     * @param baseUrlEnvironment Variable naming the URL.
+     * @param addsPath Whether the agent adds the dialect's path to its base URL itself.
+     */
+    public AgentProvider(
+            String dialect,
+            @Nullable String defaultProvider,
+            ProviderRoute.Endpoint endpoint,
+            @Nullable String socketEnvironment,
+            @Nullable String baseUrlEnvironment,
+            boolean addsPath) {
+        this(
+                dialect,
+                defaultProvider,
+                endpoint,
+                socketEnvironment,
+                baseUrlEnvironment,
+                addsPath,
+                Map.of());
     }
 
     /**
@@ -61,6 +122,7 @@ public record AgentProvider(
      * @param socketEnvironment Variable naming the socket.
      * @param baseUrlEnvironment Variable naming the URL.
      * @param addsPath Whether the agent adds the dialect's path to its base URL itself.
+     * @param dialects Other wire formats spoken, in preference order.
      */
     public AgentProvider {
         if (dialect == null || dialect.isBlank()) {
@@ -78,6 +140,82 @@ public record AgentProvider(
             throw new AgentException(
                     "'provider.adds_path' needs 'provider.base_url_env' beside it");
         }
+        final Map<String, Dialect> ordered = new LinkedHashMap<>();
+        final Map<String, String> variables = new LinkedHashMap<>();
+        if (baseUrlEnvironment != null && !baseUrlEnvironment.isBlank()) {
+            variables.put(baseUrlEnvironment, dialect);
+        }
+        if (dialects != null) {
+            for (final Map.Entry<String, Dialect> entry : dialects.entrySet()) {
+                final String name = entry.getKey();
+                final Dialect value =
+                        Objects.requireNonNull(entry.getValue(), "provider.dialects entry");
+                if (name == null || name.isBlank()) {
+                    throw new AgentException("provider.dialects key must not be blank");
+                }
+                if (name.equals(dialect)) {
+                    throw new AgentException(
+                            "'provider.dialects' lists '"
+                                    + name
+                                    + "' again, which is already 'provider.dialect'");
+                }
+                final String variable = value.baseUrlEnvironment();
+                if (variable == null || variable.isBlank()) {
+                    throw new AgentException(
+                            "'provider.dialects." + name + "' must name 'base_url_env'");
+                }
+                final String previous = variables.put(variable, name);
+                if (previous != null) {
+                    throw new AgentException(
+                            "base_url_env '"
+                                    + variable
+                                    + "' is named for two dialects: '"
+                                    + previous
+                                    + "' and '"
+                                    + name
+                                    + "'");
+                }
+                ordered.put(name, value);
+            }
+        }
+        dialects = Collections.unmodifiableMap(ordered);
+    }
+
+    /**
+     * Chooses the first dialect this agent speaks that the provider serves: {@link #dialect()}
+     * first, then {@link #dialects()} in declaration order.
+     *
+     * @param provider The provider.
+     * @return The chosen dialect name, or {@code null} when the provider serves none of them.
+     */
+    public @Nullable String dialectFor(final ProviderDefinition provider) {
+        if (provider.serves(dialect)) {
+            return dialect;
+        }
+        for (final String candidate : dialects.keySet()) {
+            if (provider.serves(candidate)) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns the base-URL settings for one of the dialects this agent speaks.
+     *
+     * @param chosenDialect Dialect name.
+     * @return Settings for that dialect.
+     * @throws AgentException If this agent does not speak {@code chosenDialect}.
+     */
+    public Dialect settingsFor(final String chosenDialect) {
+        if (dialect.equals(chosenDialect)) {
+            return new Dialect(baseUrlEnvironment, addsPath);
+        }
+        final Dialect found = dialects.get(chosenDialect);
+        if (found == null) {
+            throw new AgentException("Agent does not speak dialect '" + chosenDialect + "'");
+        }
+        return found;
     }
 
     /**
@@ -87,6 +225,6 @@ public record AgentProvider(
      * @return {@code true} when the provider serves a dialect this agent speaks.
      */
     public boolean canDrive(ProviderDefinition provider) {
-        return provider.serves(dialect);
+        return dialectFor(provider) != null;
     }
 }

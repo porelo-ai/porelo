@@ -612,4 +612,118 @@ class AgentDefinitionReaderTest {
                 .hasMessageContaining("adds_path")
                 .hasMessageContaining("base_url_env");
     }
+
+    @Test
+    void providerDialectsRoundTripThroughJson() {
+        // An agent that speaks both an API-key dialect and a sign-in dialect declares the second
+        // under provider.dialects, each with its own base URL variable and adds_path.
+        final AgentDefinition definition =
+                read(
+                        MINIMAL
+                                + """
+                provider:
+                  default: google
+                  dialect: google-generative-ai
+                  endpoint: url
+                  base_url_env: GEMINI_API_BASE_URL
+                  adds_path: false
+                  dialects:
+                    cloud-code:
+                      base_url_env: CLOUDCODE_URL
+                      adds_path: true
+                """);
+
+        assertThat(definition.provider().dialects())
+                .as("secondary dialects are read from provider.dialects")
+                .containsExactlyEntriesOf(
+                        java.util.Map.of(
+                                "cloud-code", new AgentProvider.Dialect("CLOUDCODE_URL", true)));
+        final AgentDefinition roundTripped =
+                AgentDefinitionJson.read(AgentDefinitionJson.write(definition));
+        assertThat(roundTripped)
+                .as("the whole definition survives AgentDefinitionJson")
+                .isEqualTo(definition);
+        assertThat(roundTripped.provider().dialects())
+                .as("provider.dialects survives AgentDefinitionJson both ways")
+                .containsExactlyEntriesOf(
+                        java.util.Map.of(
+                                "cloud-code", new AgentProvider.Dialect("CLOUDCODE_URL", true)));
+    }
+
+    @Test
+    void
+            refusesTheBlocksOwnDialectListedAgainOrOneVariableNamedForTwoDialectsOrADialectListedTwice() {
+        // Listing the primary dialect again or sharing a base_url_env between two dialects leaves
+        // which setting applies ambiguous, and a duplicate YAML key silently overwrites the first.
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        MINIMAL
+                                                + """
+                provider:
+                  dialect: google-generative-ai
+                  endpoint: url
+                  base_url_env: GEMINI_API_BASE_URL
+                  dialects:
+                    google-generative-ai:
+                      base_url_env: OTHER_URL
+                """))
+                .as(
+                        "the block's own dialect listed again in provider.dialects is refused naming it")
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("google-generative-ai");
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        MINIMAL
+                                                + """
+                provider:
+                  dialect: google-generative-ai
+                  endpoint: url
+                  base_url_env: GEMINI_API_BASE_URL
+                  dialects:
+                    cloud-code:
+                      base_url_env: GEMINI_API_BASE_URL
+                """))
+                .as(
+                        "a variable named for both the block's dialect and another is refused naming it")
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("GEMINI_API_BASE_URL");
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        MINIMAL
+                                                + """
+                provider:
+                  dialect: google-generative-ai
+                  endpoint: url
+                  base_url_env: GEMINI_API_BASE_URL
+                  dialects:
+                    cloud-code:
+                      base_url_env: SHARED_BASE_URL
+                    openai:
+                      base_url_env: SHARED_BASE_URL
+                """))
+                .as("a variable named for two entries in provider.dialects is refused naming it")
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("SHARED_BASE_URL");
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        MINIMAL
+                                                + """
+                provider:
+                  dialect: google-generative-ai
+                  endpoint: url
+                  base_url_env: GEMINI_API_BASE_URL
+                  dialects:
+                    cloud-code:
+                      base_url_env: CLOUDCODE_URL
+                    cloud-code:
+                      base_url_env: OTHER_URL
+                """))
+                .as("a dialect listed twice in provider.dialects is refused naming it")
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("cloud-code");
+    }
 }

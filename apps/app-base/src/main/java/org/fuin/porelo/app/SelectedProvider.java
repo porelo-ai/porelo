@@ -152,7 +152,8 @@ public record SelectedProvider(ProviderDefinition definition, ProviderRoute rout
                     wanted,
                     "No provider '" + wanted + "' is declared. Found: " + names(declared));
         }
-        if (!agent.provider().canDrive(provider)) {
+        final String dialect = agent.provider().dialectFor(provider);
+        if (dialect == null) {
             // Named rather than attempted: the request would otherwise go out in a wire format the
             // provider does not serve and come back as a confusing model error.
             return new Choice(
@@ -169,7 +170,8 @@ public record SelectedProvider(ProviderDefinition definition, ProviderRoute rout
                             + provider.dialects().keySet());
         }
         return new Choice(
-                new SelectedProvider(provider, ProviderRoute.of(provider, agent.provider())),
+                new SelectedProvider(
+                        provider, ProviderRoute.of(provider, agent.provider(), dialect)),
                 null,
                 wanted,
                 wanted);

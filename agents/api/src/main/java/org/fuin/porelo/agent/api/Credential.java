@@ -31,6 +31,12 @@ public record Credential(String type, String secret, Map<String, String> attribu
     public static final String CLIENT_ID = "clientId";
 
     /**
+     * The attribute holding the client secret a desktop OAuth client sends alongside {@link
+     * #CLIENT_ID} when renewing; kept hidden on the host, never as a setting.
+     */
+    public static final String CLIENT_SECRET = "clientSecret";
+
+    /**
      * Constructor with all data.
      *
      * @param type Credential type.

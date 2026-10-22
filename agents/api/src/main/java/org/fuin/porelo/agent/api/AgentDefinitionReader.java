@@ -352,7 +352,13 @@ public final class AgentDefinitionReader {
             // point the agent somewhere and then omits the dialect is a mistake, and a silent one,
             // so it is named.
             for (final String key :
-                    List.of("endpoint", "socket_env", "base_url_env", "adds_path", "default")) {
+                    List.of(
+                            "endpoint",
+                            "socket_env",
+                            "base_url_env",
+                            "adds_path",
+                            "default",
+                            "dialects")) {
                 if (provider.get(key) != null) {
                     throw new AgentException(
                             origin
@@ -371,7 +377,64 @@ public final class AgentDefinitionReader {
                 ProviderRoute.Endpoint.of(optional(provider, "endpoint"), origin),
                 optional(provider, "socket_env"),
                 baseUrl,
-                addsPath(provider.get("adds_path"), baseUrl, origin));
+                addsPath(provider.get("adds_path"), baseUrl, origin),
+                dialects(provider.get("dialects"), dialect, baseUrl, origin));
+    }
+
+    private static Map<String, AgentProvider.Dialect> dialects(
+            final @Nullable Object declared,
+            final String ownDialect,
+            final @Nullable String ownBaseUrl,
+            final String origin) {
+        if (declared == null) {
+            return Map.of();
+        }
+        if (!(declared instanceof Map<?, ?> map)) {
+            throw new AgentException(origin + ": 'provider.dialects' must be a mapping");
+        }
+        final Map<String, AgentProvider.Dialect> result = new LinkedHashMap<>();
+        final Map<String, String> variables = new LinkedHashMap<>();
+        if (ownBaseUrl != null && !ownBaseUrl.isBlank()) {
+            variables.put(ownBaseUrl, ownDialect);
+        }
+        for (final Map.Entry<?, ?> entry : map.entrySet()) {
+            final String name = String.valueOf(entry.getKey());
+            if (name.isBlank()) {
+                throw new AgentException(
+                        origin + ": 'provider.dialects' key must be a non-empty string");
+            }
+            if (name.equals(ownDialect)) {
+                throw new AgentException(
+                        origin
+                                + ": 'provider.dialects' lists '"
+                                + name
+                                + "' again, which is already 'provider.dialect'");
+            }
+            if (!(entry.getValue() instanceof Map<?, ?> settings)) {
+                throw new AgentException(
+                        origin + ": 'provider.dialects." + name + "' must be a mapping");
+            }
+            final String baseUrl =
+                    required(
+                            settings, "base_url_env", origin + " (provider.dialects." + name + ")");
+            final String previous = variables.put(baseUrl, name);
+            if (previous != null) {
+                throw new AgentException(
+                        origin
+                                + ": 'base_url_env' '"
+                                + baseUrl
+                                + "' is named for two dialects ('"
+                                + previous
+                                + "' and '"
+                                + name
+                                + "')");
+            }
+            result.put(
+                    name,
+                    new AgentProvider.Dialect(
+                            baseUrl, addsPath(settings.get("adds_path"), baseUrl, origin)));
+        }
+        return java.util.Collections.unmodifiableMap(result);
     }
 
     private static boolean addsPath(

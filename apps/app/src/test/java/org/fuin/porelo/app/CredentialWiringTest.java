@@ -210,4 +210,80 @@ class CredentialWiringTest {
                 .as("and with the path for an agent that does not add it")
                 .isEqualTo(TaskWiring.VAULT_URL + "/v1beta");
     }
+
+    @Test
+    void environmentAndEndpointForTakeTheChosenDialectsVariableAndAddsPath() {
+        // An agent speaking two dialects gets the variable and adds_path of whichever dialect fits
+        // the chosen provider, never the other dialect's variable.
+        final org.fuin.porelo.agent.api.ProviderDefinition google =
+                org.fuin.porelo.agent.api.ProviderDefinitionReader.read(
+                        new java.io.StringReader(
+                                """
+                        name: google
+                        upstream: https://generativelanguage.googleapis.com
+                        dialects:
+                          google-generative-ai: "/v1beta"
+                        """),
+                        "google.yaml");
+        final org.fuin.porelo.agent.api.ProviderDefinition googleSignIn =
+                org.fuin.porelo.agent.api.ProviderDefinitionReader.read(
+                        new java.io.StringReader(
+                                """
+                        name: google-sign-in
+                        upstream: https://daily-cloudcode-pa.googleapis.com
+                        dialects:
+                          cloud-code: "/v1internal"
+                        """),
+                        "google-sign-in.yaml");
+        final org.fuin.porelo.agent.api.AgentDefinition agent =
+                org.fuin.porelo.agent.api.AgentDefinitionReader.read(
+                        new java.io.StringReader(
+                                """
+                        name: example
+                        binary: example-cli
+                        git_identity:
+                          name: Example
+                          email: noreply@example.com
+                        headless:
+                          prompt_flag: "-p"
+                        provider:
+                          default: google
+                          dialect: google-generative-ai
+                          endpoint: url
+                          base_url_env: GEMINI_API_BASE_URL
+                          adds_path: false
+                          dialects:
+                            cloud-code:
+                              base_url_env: CLOUDCODE_URL
+                              adds_path: true
+                        """),
+                        "example.yaml");
+
+        final org.fuin.porelo.agent.api.ProviderRoute signInRoute =
+                org.fuin.porelo.agent.api.ProviderRoute.of(googleSignIn, agent.provider());
+        final java.util.Map<String, String> signInEnv =
+                CredentialWiring.agentEnvironment(
+                        agent, "GOOGLE_SIGN_IN_TOKEN", "porelo_pt_test", signInRoute);
+        assertThat(signInEnv)
+                .as(
+                        "the chosen secondary dialect's variable carries the bare origin when adds_path is true")
+                .containsEntry("CLOUDCODE_URL", TaskWiring.VAULT_URL)
+                .doesNotContainKey("GEMINI_API_BASE_URL");
+        assertThat(CredentialWiring.endpointFor(signInRoute, signInRoute.addsPath(), signInEnv))
+                .as("endpointFor uses the chosen secondary dialect's adds_path")
+                .isEqualTo(TaskWiring.VAULT_URL);
+
+        final org.fuin.porelo.agent.api.ProviderRoute googleRoute =
+                org.fuin.porelo.agent.api.ProviderRoute.of(google, agent.provider());
+        final java.util.Map<String, String> googleEnv =
+                CredentialWiring.agentEnvironment(
+                        agent, "GEMINI_API_KEY", "porelo_pt_test", googleRoute);
+        assertThat(googleEnv)
+                .as("the primary dialect's variable carries the path when its adds_path is false")
+                .containsEntry("GEMINI_API_BASE_URL", TaskWiring.VAULT_URL + "/v1beta")
+                .doesNotContainKey("CLOUDCODE_URL");
+        assertThat(CredentialWiring.endpointFor(googleRoute, googleRoute.addsPath(), googleEnv))
+                .as("endpointFor uses the primary dialect's adds_path")
+                .isEqualTo(TaskWiring.VAULT_URL + "/v1beta");
+    }
 }

@@ -310,6 +310,14 @@ public final class VaultClearing {
                                 name.substring(VaultNames.GRANT_PREFIX.length()),
                                 Clearing.Status.WOULD_REMOVE,
                                 ""));
+            } else if (name.startsWith(VaultNames.CLIENT_SECRET_PREFIX)) {
+                // Named for what it is: listed as a credential it would read as one a person put.
+                held.add(
+                        new Clearing.Item(
+                                "client secret",
+                                name.substring(VaultNames.CLIENT_SECRET_PREFIX.length()),
+                                Clearing.Status.WOULD_REMOVE,
+                                ""));
             } else if (name.startsWith(VaultNames.REGISTRATION_PREFIX)) {
                 held.add(
                         new Clearing.Item(

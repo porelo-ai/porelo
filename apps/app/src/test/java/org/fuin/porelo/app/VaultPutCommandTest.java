@@ -50,6 +50,25 @@ class VaultPutCommandTest {
     }
 
     @Test
+    void aPutOverASignInTakesItsClientSecretWithIt() {
+
+        // Left behind, a replaced sign-in's client secret would outlive what it belonged to.
+        final java.util.Map<String, org.fuin.porelo.vault.VaultEntry> entries =
+                new java.util.LinkedHashMap<>();
+        entries.put("google-sign-in", org.fuin.porelo.vault.VaultEntry.of("at-1"));
+        entries.put(
+                TaskSecrets.CLIENT_SECRET_PREFIX + "google-sign-in",
+                org.fuin.porelo.vault.VaultEntry.of("client-secret-1"));
+
+        VaultPutCommand.replace(
+                entries, "google-sign-in", org.fuin.porelo.vault.VaultEntry.of("a-key"));
+
+        assertThat(entries)
+                .as("the new entry, and no client secret of the sign-in it replaced")
+                .containsOnlyKeys("google-sign-in");
+    }
+
+    @Test
     void saysSoWhenTheNameIsAnAgentsRatherThanAProviders() {
 
         // Stored under 'claude', a key is still found by a task running claude - but only as a

@@ -235,6 +235,96 @@ class SelectedProviderTest {
     }
 
     @Test
+    void googleSignInIsShippedRoutesThroughItsDialectAndPairsWithGoogle() {
+
+        // The Google sign-in reaches daily-cloudcode-pa.googleapis.com in the cloud-code dialect,
+        // while a Gemini API key reaches generativelanguage.googleapis.com under google; each
+        // refuses the other's credential kind before a start, naming the other provider.
+        final ProviderDefinition signIn = shipped().get("google-sign-in");
+        final ProviderDefinition google = shipped().get("google");
+        final AgentDefinition agent =
+                agent(
+                        """
+                provider:
+                  default: google
+                  dialect: google-generative-ai
+                  endpoint: url
+                  base_url_env: GEMINI_API_BASE_URL
+                  adds_path: false
+                  dialects:
+                    cloud-code:
+                      base_url_env: CLOUDCODE_URL
+                      adds_path: true
+                """);
+
+        assertThat(signIn).as("google-sign-in is shipped").isNotNull();
+        assertThat(signIn.upstreamHost())
+                .as("sign-in upstream host")
+                .isEqualTo("daily-cloudcode-pa.googleapis.com");
+        assertThat(signIn.authHeaderFor("oauth"))
+                .as("sign-in auth header")
+                .isEqualTo("Authorization");
+        assertThat(signIn.authPrefixFor("oauth")).as("sign-in auth prefix").isEqualTo("Bearer ");
+        assertThat(signIn.unbrokerableReason("oauth")).as("a sign-in is brokered").isNull();
+        assertThat(signIn.unbrokerableReason("api-key"))
+                .as(
+                        "an API key stored for google-sign-in is refused before the start, naming google")
+                .contains("'google'")
+                .contains("porelo vault put google");
+        assertThat(google.unbrokerableReason("oauth"))
+                .as(
+                        "a sign-in stored for google is refused before the start, naming google-sign-in")
+                .contains("'google-sign-in'")
+                .contains("porelo vault login");
+
+        final SelectedProvider toSignIn =
+                SelectedProvider.choose(shipped(), agent, "google-sign-in");
+        assertThat(toSignIn.route().baseUrlEnvironment())
+                .as("routed to google-sign-in under its cloud-code variable")
+                .isEqualTo("CLOUDCODE_URL");
+        assertThat(toSignIn.route().addsPath())
+                .as("takes the cloud-code dialect's adds_path")
+                .isTrue();
+        assertThat(toSignIn.route().endpointPath())
+                .as("cloud-code dialect has an empty path")
+                .isEmpty();
+
+        final SelectedProvider toGoogle = SelectedProvider.choose(shipped(), agent, "google");
+        assertThat(toGoogle.route().baseUrlEnvironment())
+                .as("routed to google under the block's own variable")
+                .isEqualTo("GEMINI_API_BASE_URL");
+        assertThat(toGoogle.route().addsPath()).as("takes the block's own adds_path").isFalse();
+        assertThat(toGoogle.route().endpointFor("http://127.0.0.1:9419"))
+                .as("google route appends /v1beta")
+                .isEqualTo("http://127.0.0.1:9419/v1beta");
+        assertThatThrownBy(() -> SelectedProvider.choose(shipped(), agent, "anthropic"))
+                .as("refuses as today when no dialect the agent speaks fits the provider")
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("does not serve");
+
+        final AgentDefinition orderedDialects =
+                agent(
+                        """
+                provider:
+                  default: openrouter
+                  dialect: cloud-code
+                  endpoint: url
+                  base_url_env: CLOUDCODE_URL
+                  dialects:
+                    anthropic-messages:
+                      base_url_env: ANTHROPIC_BASE_URL
+                    openai:
+                      base_url_env: OPENAI_BASE_URL
+                """);
+        assertThat(
+                        SelectedProvider.choose(shipped(), orderedDialects, "openrouter")
+                                .route()
+                                .baseUrlEnvironment())
+                .as("takes the first listed dialect in order when the block's own does not fit")
+                .isEqualTo("ANTHROPIC_BASE_URL");
+    }
+
+    @Test
     void twoAgentsReachTheSameProviderWithoutEitherDescribingIt() {
 
         // The whole point. Anthropic is declared once; an agent speaking its dialect and an agent

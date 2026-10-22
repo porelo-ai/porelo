@@ -40,6 +40,12 @@ public final class TaskSecrets {
     public static final String GRANT_PREFIX = VaultNames.GRANT_PREFIX;
 
     /**
+     * Where the client secret accompanying a renewable sign-in is kept, hidden like its refresh
+     * token so no listing or task can reach it.
+     */
+    public static final String CLIENT_SECRET_PREFIX = VaultNames.CLIENT_SECRET_PREFIX;
+
+    /**
      * Where what a transport handed back is - the account's, a project's, a task's secrets for its
      * conversation - hidden like a task's entries: no person put them there, and no task may be
      * pointed at one.
@@ -97,8 +103,8 @@ public final class TaskSecrets {
      * Whether a vault entry's name is a task's own rather than a credential.
      *
      * @param name The entry's name.
-     * @return true for {@link #PREFIX}, {@link #GRANT_PREFIX}, {@link #TRANSPORT_PREFIX} and client
-     *     registration names
+     * @return true for {@link #PREFIX}, {@link #GRANT_PREFIX}, {@link #CLIENT_SECRET_PREFIX},
+     *     {@link #TRANSPORT_PREFIX} and client registration names
      */
     public static boolean reserved(String name) {
         return VaultNames.reserved(name);

@@ -120,6 +120,26 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
     }
 
     /**
+     * Puts an entry in place of whatever had its name.
+     *
+     * <p>A put never carries a sign-in's client secret, so one left from a sign-in it replaces is
+     * that sign-in's, not this entry's, and goes with it.
+     *
+     * @param entries What the vault holds; changed in place.
+     * @param name The entry's name.
+     * @param entry The entry.
+     * @return {@code entries}.
+     */
+    static java.util.Map<String, org.fuin.porelo.vault.VaultEntry> replace(
+            final java.util.Map<String, org.fuin.porelo.vault.VaultEntry> entries,
+            final String name,
+            final org.fuin.porelo.vault.VaultEntry entry) {
+        entries.put(name, entry);
+        entries.remove(TaskSecrets.CLIENT_SECRET_PREFIX + name);
+        return entries;
+    }
+
+    /**
      * Returns the value to store for a grant: nothing typed is a public client, which has no
      * secret.
      *
@@ -558,12 +578,7 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
 
         try {
             context.vault()
-                    .update(
-                            context.requirePassphrase(),
-                            entries -> {
-                                entries.put(name, entry);
-                                return entries;
-                            });
+                    .update(context.requirePassphrase(), entries -> replace(entries, name, entry));
         } catch (VaultException ex) {
             err.println("porelo: " + ex.getMessage());
             err.flush();

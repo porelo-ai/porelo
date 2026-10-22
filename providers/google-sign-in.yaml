@@ -1,0 +1,20 @@
+# Google, through a person's sign-in. Not a documented API: the sign-in's own backend, which can change
+# without notice (doc/decisions.md). An API key is the provider 'google'.
+name: google-sign-in
+label: Google sign-in
+upstream: https://daily-cloudcode-pa.googleapis.com
+
+# Clients append '/v1internal:...' themselves, so the dialect's path here is empty.
+dialects:
+    cloud-code: ""
+
+auth_header:
+    _default: Authorization
+auth_prefix:
+    _default: "Bearer "
+
+token_env:
+    _default: GOOGLE_SIGN_IN_TOKEN
+
+unbrokerable:
+    api-key: "An API key is served by generativelanguage.googleapis.com, the provider 'google' (porelo vault put google); 'google-sign-in' takes a Google sign-in (porelo vault login)"

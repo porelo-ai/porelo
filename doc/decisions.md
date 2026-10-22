@@ -65,6 +65,7 @@ would change the answer.
 | The route is picked by the token | one broker, a route per credential; the token, not the path, decides where a key goes | [entry](#the-route-is-picked-by-the-token) |
 | Where a key goes is declared, never inferred | `auth_header` or `auth_query` per service; only a consumer whose endpoint can be configured; no TLS interception | [entry](#where-a-key-goes-is-declared-never-inferred) |
 | A subscription's own backend is served as a provider | accepted: `chatgpt` reaches an undocumented route that can change; a request carries the account beside the token, from the stored sign-in | [entry](#a-subscriptions-own-backend-is-served-as-a-provider) |
+| A Google sign-in is served from the sign-in's own backend | accepted: `google-sign-in` reaches an undocumented route, and Google's terms call third-party use of the sign-in a breach that may suspend the account; the client's secret is read from the installed CLI, never published | [entry](#a-google-sign-in-is-served-from-the-sign-ins-own-backend) |
 | A sign-in passes through plaintext on its way to the vault | accepted: the login container's layer and the host's copy may reach disk or swap, for the moment of a login; tasks stay phantom-only | [entry](#a-sign-in-passes-through-plaintext-on-its-way-to-the-vault) |
 | One credential type reaches one variable | `token_env` maps a type to one variable; changed in the reader when an agent needs two | [entry](#one-credential-type-reaches-one-variable) |
 | A bought token is per task and kept in memory | never on disk, never shared; costs one exchange per task per hour | [entry](#a-bought-token-is-per-task-and-kept-in-memory) |
@@ -411,6 +412,18 @@ sign-in; a task gets a phantom token. **What narrows it, not yet built:** the lo
 container and the copy in `$XDG_RUNTIME_DIR`, both in memory, though a `tmpfs` can still be swapped out. **What would
 change the answer:** an agent whose sign-in cannot be written to a file at all, or a machine where that moment is not
 acceptable.
+
+## A Google sign-in is served from the sign-in's own backend
+
+The provider `google-sign-in` serves a person's Google sign-in at `daily-cloudcode-pa.googleapis.com`, the backend
+Antigravity CLI's signed-in path reaches, not a documented API. It is renewed on the host with the client id and the
+client secret of Antigravity's own installed-app client, which are read from the installed CLI at sign-in and kept
+only in the vault, the secret as a hidden entry beside the refresh token. **The exposure:** the route can change
+without notice; Google's terms call third-party access with Antigravity's sign-in a breach that may suspend the
+account; and the client's secret is another vendor's credential. **Why it stays:** the sign-in is how the person's
+subscription is used, the tokens stay on the host as every other sign-in's do, and the client's secret is never
+written into a source, a setting, a log or a post. **What would change the answer:** a change of the route, a
+refusal or a suspension by Google, or a documented API for the subscription.
 
 ## One credential type reaches one variable
 

@@ -134,6 +134,8 @@ final class LoginRenewal implements org.fuin.porelo.supervisor.TokenSource {
                                                 + " renew it; sign in again with 'porelo vault login'");
                         return entries;
                     }
+                    final VaultEntry clientSecret =
+                            entries.get(TaskSecrets.CLIENT_SECRET_PREFIX + name);
                     final String[] rotated = {refresh.value()};
                     final TokenPurchase purchase =
                             new TokenPurchase(
@@ -144,7 +146,7 @@ final class LoginRenewal implements org.fuin.porelo.supervisor.TokenSource {
                                             java.util.Objects.requireNonNull(
                                                     entry.settings()
                                                             .get(LoginCredentials.CLIENT_ID)),
-                                            null,
+                                            clientSecret == null ? null : clientSecret.value(),
                                             refresh.value(),
                                             next -> rotated[0] = next),
                                     http,

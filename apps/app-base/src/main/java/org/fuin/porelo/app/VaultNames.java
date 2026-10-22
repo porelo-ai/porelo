@@ -20,6 +20,11 @@ public final class VaultNames {
     public static final String GRANT_PREFIX = "grant/";
 
     /**
+     * Where the client secret accompanying a renewable sign-in is kept, hidden beside its grant.
+     */
+    public static final String CLIENT_SECRET_PREFIX = "client-secret/";
+
+    /**
      * Where what a transport handed back is - the account's, a project's, a task's secrets for its
      * conversation.
      */
@@ -42,6 +47,7 @@ public final class VaultNames {
     public static boolean reserved(String name) {
         return name.startsWith(TASK_PREFIX)
                 || name.startsWith(GRANT_PREFIX)
+                || name.startsWith(CLIENT_SECRET_PREFIX)
                 || name.startsWith(REGISTRATION_PREFIX)
                 || name.startsWith(TRANSPORT_PREFIX);
     }

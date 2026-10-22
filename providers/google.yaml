@@ -17,7 +17,7 @@ auth_prefix:
 token_env:
     _default: GEMINI_API_KEY
 
-# A Google sign-in reaches other hosts than this API, so it is refused before a start rather than
-# failing inside the task.
+# A Google sign-in is served by the sign-in's own backend, not by this API, so it is refused before
+# a start rather than failing inside the task.
 unbrokerable:
-    oauth: "The Google sign-in is not yet a provider; generativelanguage.googleapis.com takes an API key (porelo vault put google)"
+    oauth: "A Google sign-in is served by daily-cloudcode-pa.googleapis.com, the provider 'google-sign-in' (porelo vault login), not by generativelanguage.googleapis.com, which takes an API key (porelo vault put google)"

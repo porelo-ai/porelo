@@ -31,6 +31,10 @@ import org.jspecify.annotations.Nullable;
  * @param endpoint What the agent is able to address the proxy as.
  * @param endpointPath Path appended to the endpoint the agent is given, because the dialect it
  *     speaks is served under it. Empty when the provider serves it at the root.
+ * @param authQuery Credential type to query parameter name.
+ * @param baseUrlEnvironment Variable naming the endpoint URL for the chosen dialect, or {@code
+ *     null}.
+ * @param addsPath Whether the agent adds the chosen dialect's path to its base URL itself.
  */
 public record ProviderRoute(
         String upstream,
@@ -40,7 +44,44 @@ public record ProviderRoute(
         Map<String, String> unbrokerable,
         Endpoint endpoint,
         String endpointPath,
-        Map<String, String> authQuery) {
+        Map<String, String> authQuery,
+        @Nullable String baseUrlEnvironment,
+        boolean addsPath) {
+
+    /**
+     * Constructor for a route that does not carry a dialect's base URL variable on the route
+     * itself.
+     *
+     * @param upstream Base URL.
+     * @param socketEnvironment Variable naming the socket, or {@code null}.
+     * @param authHeader Credential type to header name.
+     * @param authPrefix Credential type to prefix.
+     * @param unbrokerable Credential type to why it cannot be brokered.
+     * @param endpoint How the agent reaches the broker.
+     * @param endpointPath Path the dialect is served under.
+     * @param authQuery Credential type to query parameter name.
+     */
+    public ProviderRoute(
+            String upstream,
+            @Nullable String socketEnvironment,
+            Map<String, String> authHeader,
+            Map<String, String> authPrefix,
+            Map<String, String> unbrokerable,
+            Endpoint endpoint,
+            String endpointPath,
+            Map<String, String> authQuery) {
+        this(
+                upstream,
+                socketEnvironment,
+                authHeader,
+                authPrefix,
+                unbrokerable,
+                endpoint,
+                endpointPath,
+                authQuery,
+                null,
+                false);
+    }
 
     /**
      * Constructor for a route whose keys all travel in a header, the shape every caller built
@@ -86,6 +127,23 @@ public record ProviderRoute(
      * @throws AgentException If the provider does not serve a dialect the agent speaks.
      */
     public static ProviderRoute of(ProviderDefinition provider, AgentProvider agent) {
+        final String chosen = agent.dialectFor(provider);
+        return of(provider, agent, chosen != null ? chosen : agent.dialect());
+    }
+
+    /**
+     * Returns the route an agent takes to a provider in a chosen dialect.
+     *
+     * @param provider Who serves the models.
+     * @param agent What the agent says it can speak and address.
+     * @param dialect The dialect chosen for this provider.
+     * @return The resolved route.
+     * @throws AgentException If the provider or agent does not speak {@code dialect}.
+     */
+    public static ProviderRoute of(
+            ProviderDefinition provider, AgentProvider agent, String dialect) {
+        final String path = provider.pathFor(dialect);
+        final AgentProvider.Dialect settings = agent.settingsFor(dialect);
         return new ProviderRoute(
                 provider.upstream(),
                 agent.socketEnvironment(),
@@ -93,8 +151,10 @@ public record ProviderRoute(
                 provider.authPrefix(),
                 provider.unbrokerable(),
                 agent.endpoint(),
-                provider.pathFor(agent.dialect()),
-                provider.authQuery());
+                path,
+                provider.authQuery(),
+                settings.baseUrlEnvironment(),
+                settings.addsPath());
     }
 
     /**

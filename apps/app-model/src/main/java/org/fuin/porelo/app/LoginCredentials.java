@@ -42,6 +42,9 @@ final class LoginCredentials {
     /** The type of the hidden companion holding the refresh token. */
     static final String REFRESH = "refresh-token";
 
+    /** The type of the hidden companion holding the client secret. */
+    static final String CLIENT_SECRET = "client-secret";
+
     private LoginCredentials() {
         throw new UnsupportedOperationException("Utility class");
     }
@@ -107,14 +110,23 @@ final class LoginCredentials {
             settings.put(CLIENT_ID, client);
         }
         entries.put(key, new VaultEntry(value.secret(), value.type(), settings));
+        final String secret = value.attributes().get(Credential.CLIENT_SECRET);
         if (renewable) {
             entries.put(
                     TaskSecrets.GRANT_PREFIX + key,
                     new VaultEntry(java.util.Objects.requireNonNull(refresh), REFRESH));
+            if (secret != null && !secret.isBlank()) {
+                entries.put(
+                        TaskSecrets.CLIENT_SECRET_PREFIX + key,
+                        new VaultEntry(secret, CLIENT_SECRET));
+            } else {
+                entries.remove(TaskSecrets.CLIENT_SECRET_PREFIX + key);
+            }
         } else {
             // A sign-in with nothing to renew it replaces one that had: the old refresh token is
             // not this one's.
             entries.remove(TaskSecrets.GRANT_PREFIX + key);
+            entries.remove(TaskSecrets.CLIENT_SECRET_PREFIX + key);
         }
     }
 
