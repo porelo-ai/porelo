@@ -43,6 +43,7 @@ import org.jspecify.annotations.Nullable;
  * @param provider The model provider the task was brokered to, by the name {@code porelo providers}
  *     lists, or {@code null} when it was brokered to none. Settled once at start and asked about
  *     afterwards - "which service did this task's prompts go to" - when nothing else records it.
+ * @param model Model requested at start, or {@code null} for the agent's default.
  */
 public record TaskProfile(
         int version,
@@ -53,7 +54,34 @@ public record TaskProfile(
         String startedAt,
         @Nullable String clearance,
         @Nullable String label,
-        @Nullable String provider) {
+        @Nullable String provider,
+        @Nullable String model) {
+
+    /**
+     * Constructor for a task that requests no model.
+     *
+     * @param version Schema version.
+     * @param agent Agent running in the task, or {@code null}.
+     * @param mode How a person is meant to be involved.
+     * @param prompt What an unattended task was asked to do, or {@code null}.
+     * @param branch Ref the work goes to, or {@code null}.
+     * @param startedAt When it started, ISO-8601.
+     * @param clearance What it does with a blocked connection.
+     * @param label Its caption, or {@code null}.
+     * @param provider Its model provider, or {@code null}.
+     */
+    public TaskProfile(
+            int version,
+            @Nullable String agent,
+            TaskMode mode,
+            @Nullable String prompt,
+            @Nullable String branch,
+            String startedAt,
+            @Nullable String clearance,
+            @Nullable String label,
+            @Nullable String provider) {
+        this(version, agent, mode, prompt, branch, startedAt, clearance, label, provider, null);
+    }
 
     /**
      * Constructor for a task that names no provider.
@@ -119,7 +147,8 @@ public record TaskProfile(
                 startedAt,
                 clearance,
                 caption == null || caption.isBlank() ? null : caption.strip(),
-                provider);
+                provider,
+                model);
     }
 
     /**
@@ -134,14 +163,11 @@ public record TaskProfile(
      */
     public TaskProfile withClearance(String mode) {
         return new TaskProfile(
-                version, agent, this.mode, prompt, branch, startedAt, mode, label, provider);
+                version, agent, this.mode, prompt, branch, startedAt, mode, label, provider, model);
     }
 
-    /**
-     * Current schema version. Bumped to 3 when a label could be given, to 4 when the provider was
-     * recorded.
-     */
-    public static final int VERSION = 4;
+    /** Current schema version. */
+    public static final int VERSION = 5;
 
     /** Name of the file in a task's state directory. */
     public static final String FILE = "task.json";
@@ -163,6 +189,7 @@ public record TaskProfile(
         document.put("clearance", clearance == null ? "" : clearance);
         document.put("label", label == null ? "" : label);
         document.put("provider", provider == null ? "" : provider);
+        document.put("model", model == null ? "" : model);
         final Path file = stateDirectory.resolve(FILE);
         Files.writeString(file, Json.write(document), StandardCharsets.UTF_8);
         // A prompt is the operator's own words and may name anything they were working on; the same
@@ -203,7 +230,8 @@ public record TaskProfile(
                     text(document, "label"),
                     // A task started before the provider was recorded reads as brokered to none,
                     // which is what an interface shows for "not known" as well.
-                    text(document, "provider"));
+                    text(document, "provider"),
+                    text(document, "model"));
         } catch (IOException | RuntimeException ex) {
             // A half-written file from a start that was killed. A task nobody can describe is still
             // a task somebody may need to stop.

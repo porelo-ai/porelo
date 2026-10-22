@@ -1,6 +1,6 @@
 # B245 — An Attach Asks For The Model Of The Start
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** M - `wire`, `app-task`, `app-model` and their tests, and the task profile's version; no contract another repository reads, as far as the checkouts here show.
 
 **What must be true.** An agent started in a task by `porelo task attach`, after `task run --detach --model <name>`,

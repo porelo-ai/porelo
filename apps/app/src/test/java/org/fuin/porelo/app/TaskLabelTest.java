@@ -51,6 +51,27 @@ class TaskLabelTest {
     }
 
     @Test
+    void aRelabeledProfileKeepsTheModelItWasStartedWith(@TempDir Path dir) throws IOException {
+        // Editing a caption or clearance must not redirect the agent to its default model.
+        final PoreloContext context = context(dir);
+        final Path state = task(dir, "porelo-uc-shell-1");
+        Files.writeString(
+                state.resolve(TaskProfile.FILE),
+                "{\"version\":5,\"agent\":\"example\",\"mode\":\"agent\",\"model\":\"chosen-model\"}");
+
+        new TaskControl(context).label("porelo-uc-shell-1", "second attempt");
+        TaskProfile.readFrom(state).withClearance("deny").writeTo(state);
+
+        assertThat(
+                        (java.util.Map<?, ?>)
+                                org.fuin.porelo.wire.Json.parse(
+                                        Files.readString(state.resolve(TaskProfile.FILE))))
+                .as("profile edits preserve the model the next attach will use")
+                .extracting(document -> document.get("model"))
+                .isEqualTo("chosen-model");
+    }
+
+    @Test
     void writesACaptionIntoTheTasksOwnProfile(@TempDir Path dir) throws IOException {
 
         // In the profile beside the mode and the prompt, so it survives a resume and outlives the

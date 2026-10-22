@@ -1,0 +1,2 @@
+title: "An attach asks for the model chosen at task start, and a run refuses a different model for an existing task"
+type: fixed

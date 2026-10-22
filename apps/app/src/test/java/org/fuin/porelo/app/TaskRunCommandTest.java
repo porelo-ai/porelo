@@ -181,6 +181,41 @@ class TaskRunCommandTest {
     private static final String RUNNING_SHELL =
             "porelo-uc-shell\tUp 4 minutes\t1700000000\t0\tuc\tguarded\tuc\t\n";
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"shell", "porelo-uc-shell"})
+    void aRunCannotChangeTheModelOfAnExistingTask(String taskName, @TempDir Path dir)
+            throws IOException {
+        // A changed model must be refused before the stopped container or its helpers start.
+        final PoreloContext context = context(dir, true);
+        runner.answering("ps", RUNNING_SHELL.replace("Up 4 minutes", "Exited (0) 4 minutes ago"));
+        final Path state = context.paths().tasks().containerState("porelo-uc-shell");
+        Files.createDirectories(state);
+        Files.writeString(
+                state.resolve(org.fuin.porelo.wire.TaskProfile.FILE),
+                "{\"version\":5,\"agent\":\"example\",\"mode\":\"agent\",\"model\":\"original-model\"}");
+
+        assertThat(
+                        execute(
+                                context,
+                                "task",
+                                "start",
+                                taskName,
+                                "-p",
+                                projectFile(dir, MINIMAL),
+                                "--model",
+                                "other-model",
+                                "--detach"))
+                .as("a different model is a refused start, said: %s", err)
+                .isEqualTo(64);
+        assertThat(err.toString())
+                .as("the refusal identifies the model fixed at start")
+                .contains("original-model");
+        assertThat(runner.lines().stream().filter(line -> line.contains("podman start")))
+                .as("the task must stay stopped after a model mismatch")
+                .isEmpty();
+        assertThat(execCalls).as("a refused run cannot enter the task").isEmpty();
+    }
+
     @Test
     void aStartAtATerminalGoesIntoARunningTaskAsAttachDoes(@TempDir Path dir) throws IOException {
         // After a reboot the container is back and its agent's session is gone; whoever typed

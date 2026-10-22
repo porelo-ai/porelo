@@ -327,13 +327,8 @@ public final class TaskSession {
         }
         final String id = toContinue(container, definition).orElse(null);
         final List<String> command =
-                new ArrayList<>(
-                        new TaskGuide(context.paths(), container)
-                                .instructing(definition, definition.sandboxedCommand()));
-        if (id != null) {
-            command.add(java.util.Objects.requireNonNull(definition.resumeFlag()));
-            command.add(id);
-        }
+                new TaskGuide(context.paths(), container)
+                        .instructing(definition, attachedCommand(definition, profile.model(), id));
         out.println(
                 "session   "
                         + (id != null
@@ -345,6 +340,20 @@ public final class TaskSession {
                                         : "a fresh one - none was recorded"));
         out.flush();
         return org.fuin.porelo.runtime.ShellWords.quote(command);
+    }
+
+    /** Builds an attached agent's command, continuing the recorded session when present. */
+    static List<String> attachedCommand(
+            AgentDefinition definition, @Nullable String model, @Nullable String id) {
+        final List<String> command = new ArrayList<>(definition.attendedCommand(model));
+        if (id != null) {
+            command.add(
+                    java.util.Objects.requireNonNull(
+                            definition.resumeFlag(),
+                            "an agent continuing a session declares its resume flag"));
+            command.add(id);
+        }
+        return List.copyOf(command);
     }
 
     private Path file(String container) {

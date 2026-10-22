@@ -524,6 +524,24 @@ public final class TaskLaunch {
             err.flush();
             return new Existing(container, project.name(), 64);
         }
+        if (request.model() != null) {
+            final org.fuin.porelo.wire.TaskProfile profile =
+                    org.fuin.porelo.wire.TaskProfile.readFrom(
+                            context.paths().tasks().containerState(container));
+            if (profile != null && !request.model().equals(profile.model())) {
+                err.println(
+                        "porelo: "
+                                + container
+                                + " was started with "
+                                + (profile.model() == null
+                                        ? "the agent's default model"
+                                        : "model '" + profile.model() + "'")
+                                + "; start it again without --model, or give a new task name to use"
+                                + " another model");
+                err.flush();
+                return new Existing(container, project.name(), 64);
+            }
+        }
         // A task's repository was fixed when it was created and cannot change, so a caller that
         // names a different one believes something false about work it is about to resume - and
         // would then look for that work where it is not. Ignoring it silently is the one answer
@@ -1817,7 +1835,8 @@ public final class TaskLaunch {
                             java.time.Instant.now().toString(),
                             request.clearance(),
                             null,
-                            servingName)
+                            servingName,
+                            request.model())
                     .writeTo(context.paths().tasks().containerState(container));
         } catch (java.io.IOException ex) {
             err.println("porelo: could not record what this task is: " + ex.getMessage());

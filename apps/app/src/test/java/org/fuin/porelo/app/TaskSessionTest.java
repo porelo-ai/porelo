@@ -50,7 +50,7 @@ class TaskSessionTest {
                 "Asker",
                 "asker-cli",
                 new GitIdentity("A", "a@example.invalid"),
-                new HeadlessFlags("", null, null, null, List.of()),
+                new HeadlessFlags("", "--model", null, null, List.of()),
                 resumes,
                 resumes ? "--resume" : null,
                 Map.of(),
@@ -69,6 +69,35 @@ class TaskSessionTest {
                 null,
                 null,
                 ids);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullSource
+    @org.junit.jupiter.params.provider.ValueSource(strings = "s-1")
+    void anAgentStartedAgainOnAttachIsAskedForTheModelItsTaskWasStartedWith(String sessionId)
+            throws IOException {
+        // Losing the model can send work to a service the task was not intended to use.
+        final AgentDefinition definition = agent(true, IDS);
+        assertThat(TaskSession.attachedCommand(definition, "chosen-model", sessionId))
+                .as("an attach asks for the chosen model before its session, if any")
+                .containsExactlyElementsOf(
+                        sessionId == null
+                                ? List.of("asker-cli", "--model", "chosen-model")
+                                : List.of(
+                                        "asker-cli",
+                                        "--model",
+                                        "chosen-model",
+                                        "--resume",
+                                        sessionId));
+        final Path state = Files.createDirectories(dir.resolve("old-task"));
+        Files.writeString(
+                state.resolve(org.fuin.porelo.wire.TaskProfile.FILE),
+                "{\"version\":4,\"agent\":\"asker\",\"mode\":\"agent\"}");
+        final org.fuin.porelo.wire.TaskProfile old =
+                org.fuin.porelo.wire.TaskProfile.readFrom(state);
+        assertThat(TaskSession.attachedCommand(definition, old.model(), "s-1"))
+                .as("older tasks continue on the agent's default model")
+                .containsExactly("asker-cli", "--resume", "s-1");
     }
 
     @Test
