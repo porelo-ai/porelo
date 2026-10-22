@@ -34,6 +34,56 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class PoreloDaemonTest {
 
+    @Test
+    void unfollowRemovesTheRecordBeforeDeletingProjectData(@TempDir Path dir) throws Exception {
+        // The socket must close the same stale-reconcile race as the command line.
+        final PoreloContext context = context(dir);
+        projectFile(dir);
+        final org.fuin.porelo.app.FollowedProjects projects =
+                new org.fuin.porelo.app.FollowedProjects(context.paths().projects().followed());
+        projects.follow(PROJECT, "git@example.org:uc.git");
+        final Path clone =
+                Files.createDirectories(context.paths().projects().followedClone(PROJECT));
+        final var sawRecord = new java.util.concurrent.atomic.AtomicBoolean();
+        final var removals = new java.util.concurrent.atomic.AtomicInteger();
+        final PoreloContext observed =
+                new PoreloContext(
+                        command -> {
+                            if (command.arguments().contains("rmi")) {
+                                removals.incrementAndGet();
+                                sawRecord.set(
+                                        Files.exists(
+                                                context.paths()
+                                                        .projects()
+                                                        .followed()
+                                                        .resolve("uc.json")));
+                            }
+                            return runner.run(command);
+                        },
+                        context.paths(),
+                        arguments -> 0);
+
+        servingContext(
+                observed,
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        assertThat(
+                                        client.call(
+                                                PoreloDaemon.INTERFACE + ".Unfollow",
+                                                Map.of("name", PROJECT)))
+                                .as("the daemon completes unfollowing")
+                                .containsEntry("outcome", "DELETED");
+                    }
+                });
+
+        assertThat(removals.get()).as("project deletion was observed").isPositive();
+        assertThat(sawRecord.get())
+                .as("the daemon stops following before deleting project data")
+                .isFalse();
+        assertThat(clone).as("the daemon removes the clone after the record").doesNotExist();
+    }
+
     private final FakeCommandRunner runner = new FakeCommandRunner();
 
     /** Written into and read back out of a vault that only exists for the length of one test. */

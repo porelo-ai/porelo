@@ -56,7 +56,8 @@ public final class ProjectDeletion {
     /**
      * One thing a deletion removes.
      *
-     * @param kind MIRROR, IMAGE, BUILD, REGISTRY, UPSTREAM_RECORD or TASK.
+     * @param kind MIRROR, IMAGE, BUILD, REGISTRY, UPSTREAM_RECORD, FOLLOWED_CLONE (the clone or its
+     *     adjacent lock), or TASK.
      * @param what The thing itself, as a person would recognise it.
      */
     public record Removal(String kind, String what) {
@@ -146,18 +147,40 @@ public final class ProjectDeletion {
      * @return What happened, or would have.
      */
     public Result delete(String project, boolean dryRun, boolean force) {
+        final Prepared prepared = prepare(project, force);
+        final Result checked = prepared.result();
+        if (dryRun || checked.outcome() != Outcome.PREVIEWED) {
+            return checked;
+        }
+        final Path lock = context.paths().projects().followedCloneLock(project);
+        if (!Files.exists(context.paths().projects().followedClone(project))
+                && !Files.exists(lock)) {
+            return remove(project, prepared, force);
+        }
+        try {
+            return FileLocks.holding(
+                    lock, () -> finishRemoval(project, remove(project, prepared, force)));
+        } catch (IOException ex) {
+            return failed(checked, "could not lock the followed clone: " + ex.getMessage());
+        }
+    }
 
+    private record Prepared(Result result, List<TaskInventory.Task> tasks) {}
+
+    private Prepared prepare(String project, boolean force) {
         if (DefaultProject.is(project)) {
-            return new Result(
-                    Outcome.BUILT_IN,
-                    List.of(),
-                    List.of(),
-                    List.of(),
-                    List.of(),
-                    "'"
-                            + project
-                            + "' is always there and is never removed; take a repository out of it with"
-                            + " 'porelo project default remove <repository>'");
+            return new Prepared(
+                    new Result(
+                            Outcome.BUILT_IN,
+                            List.of(),
+                            List.of(),
+                            List.of(),
+                            List.of(),
+                            "'"
+                                    + project
+                                    + "' is always there and is never removed; take a repository out of it with"
+                                    + " 'porelo project default remove <repository>'"),
+                    List.of());
         }
 
         final ProjectInventory.Summary summary =
@@ -167,13 +190,15 @@ public final class ProjectDeletion {
                                 .findFirst()
                                 .orElse(null);
         if (summary == null) {
-            return new Result(
-                    Outcome.NO_SUCH_PROJECT,
-                    List.of(),
-                    List.of(),
-                    List.of(),
-                    List.of(),
-                    "nothing here knows a project called " + project);
+            return new Prepared(
+                    new Result(
+                            Outcome.NO_SUCH_PROJECT,
+                            List.of(),
+                            List.of(),
+                            List.of(),
+                            List.of(),
+                            "nothing here knows a project called " + project),
+                    List.of());
         }
 
         final List<TaskInventory.Task> tasks =
@@ -203,31 +228,41 @@ public final class ProjectDeletion {
         final List<Removal> removes = plan(project, summary, tasks);
 
         if (!force && !unreviewed.isEmpty()) {
-            return new Result(
-                    Outcome.HOLDS_WORK,
-                    removes,
-                    keeps,
-                    unreviewed,
-                    running,
-                    unreviewed.size()
-                            + " push(es) reached the gate and nobody reviewed them."
-                            + " Nothing else has them: review or reject them, or say force.");
+            return new Prepared(
+                    new Result(
+                            Outcome.HOLDS_WORK,
+                            removes,
+                            keeps,
+                            unreviewed,
+                            running,
+                            unreviewed.size()
+                                    + " push(es) reached the gate and nobody reviewed them."
+                                    + " Nothing else has them: review or reject them, or say force."),
+                    tasks);
         }
         if (!force && !running.isEmpty()) {
-            return new Result(
-                    Outcome.TASKS_RUNNING,
-                    removes,
-                    keeps,
-                    unreviewed,
-                    running,
-                    running.size() + " task(s) are still up. Stop them, or say force.");
+            return new Prepared(
+                    new Result(
+                            Outcome.TASKS_RUNNING,
+                            removes,
+                            keeps,
+                            unreviewed,
+                            running,
+                            running.size() + " task(s) are still up. Stop them, or say force."),
+                    tasks);
         }
-        if (dryRun) {
-            return new Result(Outcome.PREVIEWED, removes, keeps, unreviewed, running, null);
-        }
+        return new Prepared(
+                new Result(Outcome.PREVIEWED, removes, keeps, unreviewed, running, null), tasks);
+    }
 
+    private Result remove(String project, Prepared prepared, boolean force) {
+        final Result checked = prepared.result();
+        final List<Removal> removes = checked.removes();
+        final List<String> keeps = checked.keeps();
+        final List<String> unreviewed = checked.unreviewed();
+        final List<String> running = checked.running();
         try {
-            for (final TaskInventory.Task task : tasks) {
+            for (final TaskInventory.Task task : prepared.tasks()) {
                 // Through the same removal 'task remove' uses, so a deletion writes down what a
                 // task held exactly as a deliberate removal does. force carries through: a deletion
                 // the operator confirmed is not asked again per task.
@@ -321,6 +356,144 @@ public final class ProjectDeletion {
         return new Result(Outcome.DELETED, removes, keeps, unreviewed, running, null);
     }
 
+    /**
+     * Stops following before removing project data, keeping previews and refusals followed.
+     *
+     * @param project Project name.
+     * @param dryRun Whether to report rather than remove.
+     * @param force Whether running tasks and unreviewed work may be removed.
+     * @return What happened, including any cleanup needed after following stopped.
+     */
+    public Result unfollow(String project, boolean dryRun, boolean force) {
+        final Prepared prepared = prepare(project, force);
+        final Result checked = prepared.result();
+        if (dryRun
+                || (checked.outcome() != Outcome.PREVIEWED
+                        && checked.outcome() != Outcome.NO_SUCH_PROJECT)) {
+            return checked;
+        }
+        if (!Files.isDirectory(context.paths().projects().followed())) {
+            return checked.outcome() == Outcome.PREVIEWED
+                    ? remove(project, prepared, force)
+                    : checked;
+        }
+        try {
+            // Reconciliation must never see the gap before a late refusal restores the record.
+            return FileLocks.holding(
+                    context.paths().projects().followedCloneLock(project),
+                    () -> unfollowLocked(project, prepared, force));
+        } catch (IOException ex) {
+            return failed(
+                    checked,
+                    "could not lock the followed clone; no project data was removed: "
+                            + ex.getMessage());
+        }
+    }
+
+    private Result unfollowLocked(String project, Prepared prepared, boolean force) {
+        final Result checked = prepared.result();
+        final FollowedProjects projects =
+                new FollowedProjects(context.paths().projects().followed());
+        final FollowedProjects.@Nullable Followed previous;
+        try {
+            previous = projects.find(project);
+            if (previous != null) {
+                projects.unfollow(project);
+            }
+        } catch (IOException ex) {
+            return failed(
+                    checked,
+                    "could not stop following "
+                            + project
+                            + "; no project data was removed: "
+                            + ex.getMessage());
+        }
+        final Result deleted =
+                checked.outcome() == Outcome.PREVIEWED
+                        ? remove(project, prepared, force)
+                        : removeUnappliedClone(project, checked);
+        if (previous == null) {
+            return finishRemoval(project, deleted);
+        }
+        try {
+            if (deleted.outcome() == Outcome.HOLDS_WORK
+                    || deleted.outcome() == Outcome.TASKS_RUNNING) {
+                // A task can refuse at removal time after the preview allowed deletion.
+                projects.write(previous);
+                return deleted;
+            }
+            projects.unfollow(project, context.paths().projects().configurationSigners());
+        } catch (IOException ex) {
+            return stoppedWithLeftovers(
+                    project,
+                    finishRemoval(
+                            project,
+                            failedAfter(
+                                    deleted,
+                                    "could not restore the record or remove its pinned keys: "
+                                            + ex.getMessage())));
+        }
+        final Result finished = finishRemoval(project, deleted);
+        return finished.outcome() == Outcome.FAILED
+                ? stoppedWithLeftovers(project, finished)
+                : finished;
+    }
+
+    private Result removeUnappliedClone(String project, Result checked) {
+        final List<Removal> removes = new ArrayList<>(checked.removes());
+        addFollowedCloneRemovals(project, removes);
+        final Result planned =
+                new Result(
+                        checked.outcome(),
+                        removes,
+                        checked.keeps(),
+                        checked.unreviewed(),
+                        checked.running(),
+                        checked.detail());
+        try {
+            deleteTree(context.paths().projects().followedClone(project));
+            return planned;
+        } catch (IOException | RuntimeException ex) {
+            return failed(planned, "could not remove the followed clone: " + ex.getMessage());
+        }
+    }
+
+    private Result finishRemoval(String project, Result result) {
+        try {
+            return FileLocks.holdingThenRemoving(
+                    context.paths().projects().followedCloneLock(project), () -> result);
+        } catch (IOException ex) {
+            return failedAfter(result, "could not remove the clone lock: " + ex.getMessage());
+        }
+    }
+
+    private static Result failedAfter(Result result, String detail) {
+        return failed(result, result.detail() == null ? detail : result.detail() + "; " + detail);
+    }
+
+    private static Result failed(Result result, String detail) {
+        return new Result(
+                Outcome.FAILED,
+                result.removes(),
+                result.keeps(),
+                result.unreviewed(),
+                result.running(),
+                detail);
+    }
+
+    private static Result stoppedWithLeftovers(String project, Result result) {
+        return failed(
+                result,
+                "following "
+                        + project
+                        + " has stopped; "
+                        + result.detail()
+                        + ". Check and remove any remaining items by hand: "
+                        + result.removes().stream()
+                                .map(item -> item.kind() + " " + item.what())
+                                .collect(java.util.stream.Collectors.joining(", ")));
+    }
+
     private List<Removal> plan(
             String project, ProjectInventory.Summary summary, List<TaskInventory.Task> tasks) {
         final List<Removal> removes = new ArrayList<>();
@@ -351,18 +524,22 @@ public final class ProjectDeletion {
         for (final Path record : upstreamRecordsOf(project)) {
             removes.add(new Removal("UPSTREAM_RECORD", record.toString()));
         }
-        // The verified clone. Named here, and removed below, because BOTH ways of ending a project
-        // have to take it: the terminal removed it by hand afterwards and the socket did not, so a
-        // project unfollowed from an interface left its clone on the machine. The contract said the
-        // clone goes, and one of the two paths quietly did not. Found through the interface.
+        addFollowedCloneRemovals(project, removes);
+        tasks.forEach(task -> removes.add(new Removal("TASK", task.name())));
+        return removes;
+    }
+
+    private void addFollowedCloneRemovals(String project, List<Removal> removes) {
         if (Files.isDirectory(context.paths().projects().followedClone(project))) {
             removes.add(
                     new Removal(
                             "FOLLOWED_CLONE",
                             context.paths().projects().followedClone(project).toString()));
         }
-        tasks.forEach(task -> removes.add(new Removal("TASK", task.name())));
-        return removes;
+        final Path cloneLock = context.paths().projects().followedCloneLock(project);
+        if (Files.exists(cloneLock)) {
+            removes.add(new Removal("FOLLOWED_CLONE", cloneLock.toString()));
+        }
     }
 
     private List<Path> upstreamRecordsOf(String project) {

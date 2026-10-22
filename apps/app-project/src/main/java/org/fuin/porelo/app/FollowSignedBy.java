@@ -232,8 +232,7 @@ public final class FollowSignedBy {
             } catch (final Refused ex) {
                 // A first follow the named key did not sign leaves nothing behind either.
                 if (!followedBefore) {
-                    projects.unfollow(name);
-                    FollowedProjects.forget(context.paths().projects().followedClone(name));
+                    forgetFirstFollow(projects, name);
                 }
                 throw ex;
             }
@@ -250,12 +249,21 @@ public final class FollowSignedBy {
             restore(name, before);
         }
         if (!followedBefore && !applied) {
-            projects.unfollow(name);
-            FollowedProjects.forget(context.paths().projects().followedClone(name));
+            forgetFirstFollow(projects, name);
             return new Answer(result, false, pinned);
         }
         projects.write(Reconcile.after(projects.require(name), result));
         return new Answer(result, true, pinned);
+    }
+
+    private void forgetFirstFollow(FollowedProjects projects, String name) throws IOException {
+        FileLocks.holdingThenRemoving(
+                context.paths().projects().followedCloneLock(name),
+                () -> {
+                    projects.unfollow(name);
+                    FollowedProjects.forget(context.paths().projects().followedClone(name));
+                    return true;
+                });
     }
 
     /**

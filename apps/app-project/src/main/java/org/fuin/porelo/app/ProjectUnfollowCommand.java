@@ -93,10 +93,8 @@ public class ProjectUnfollowCommand
         // machine, which is not a thing an interface can do. What is at risk is the same either
         // way, so the checks are the same either way.
         //
-        // The project first, because that is the part that can refuse. Forgetting the repository
-        // and then failing to remove the project would leave a project nothing updates any more -
-        // the worst of both.
-        ProjectDeletion.Result deleted = new ProjectDeletion(context).delete(name, dryRun, force);
+        // Refusals are checked before following stops; the record goes before the clone.
+        ProjectDeletion.Result deleted = new ProjectDeletion(context).unfollow(name, dryRun, force);
         // What a refusal would tell a person to do first is offered instead, and the removal tried
         // again after it: at most once per kind of refusal, so a remedy that did not help ends in
         // that refusal rather than a loop.
@@ -125,9 +123,9 @@ public class ProjectUnfollowCommand
                     err.flush();
                     if (!result.clean()) return 70;
                 }
-                deleted = new ProjectDeletion(context).delete(name, false, force);
+                deleted = new ProjectDeletion(context).unfollow(name, false, force);
             } else {
-                deleted = new ProjectDeletion(context).delete(name, false, true);
+                deleted = new ProjectDeletion(context).unfollow(name, false, true);
             }
         }
 
@@ -223,9 +221,6 @@ public class ProjectUnfollowCommand
             out.flush();
             return 0;
         }
-        // The clone goes with the rest, through ProjectDeletion, so the terminal and the socket
-        // remove the same things. Doing it here as well was what hid that the socket did not.
-        projects.unfollow(name, context.paths().projects().configurationSigners());
         out.println("no longer following " + followed.url());
         if (project != null) {
             // Its deploy keys go from the vault; the forge still grants access by them until they

@@ -17,6 +17,69 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class ClearingTest {
 
+    @Test
+    void clearingRemovesTheRecordBeforeDeletingProjectData(@TempDir final Path dir)
+            throws IOException {
+        // Clearing must close the same stale-reconcile race as an explicit unfollow.
+        final PoreloContext context = context(dir);
+        project("uc");
+        new FollowedProjects(context.paths().projects().followed())
+                .follow("uc", "git@example.org:uc.git");
+        final Path clone = Files.createDirectories(context.paths().projects().followedClone("uc"));
+        final var removals = new java.util.concurrent.atomic.AtomicInteger();
+        final PoreloContext observed =
+                new PoreloContext(
+                        command -> {
+                            if (command.arguments().contains("rmi")) {
+                                removals.incrementAndGet();
+                                assertThat(context.paths().projects().followed().resolve("uc.json"))
+                                        .as(
+                                                "clearing stops following before project deletion starts")
+                                        .doesNotExist();
+                                assertThat(clone)
+                                        .as("clearing removes the record before the clone")
+                                        .exists();
+                            }
+                            return runner.run(command);
+                        },
+                        context.paths(),
+                        arguments -> 0);
+
+        final Clearing.Result result = new Clearing(observed).project("uc", false, false);
+
+        assertThat(result.refused()).as("clearing is allowed").isFalse();
+        assertThat(removals.get()).as("the deletion was observed").isPositive();
+        assertThat(clone).as("clearing removes the clone after the record").doesNotExist();
+    }
+
+    @Test
+    void aFailedRemovalStillReportsThatFollowingStopped(@TempDir final Path dir)
+            throws IOException {
+        // An omitted removal makes a partial clear look as though updates still run.
+        final PoreloContext base = context(dir);
+        project("uc");
+        final FollowedProjects projects = new FollowedProjects(base.paths().projects().followed());
+        final String url = "git@example.org:uc.git";
+        projects.follow("uc", url);
+        final PoreloContext observed =
+                new PoreloContext(
+                        command -> {
+                            if (command.arguments().contains("rmi")) {
+                                throw new IllegalStateException("removal failed");
+                            }
+                            return runner.run(command);
+                        },
+                        base.paths(),
+                        arguments -> 0);
+
+        final Clearing.Result result = new Clearing(observed).project("uc", false, false);
+
+        assertThat(projects.find("uc")).as("following stopped despite deletion failing").isNull();
+        assertThat(result.items())
+                .as("a partial clear reports the follow it removed")
+                .contains(new Clearing.Item("follow", url, Clearing.Status.REMOVED, ""));
+    }
+
     private final FakeCommandRunner runner = new FakeCommandRunner();
 
     private Path root;

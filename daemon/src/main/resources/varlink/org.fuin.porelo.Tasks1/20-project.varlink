@@ -467,6 +467,7 @@ type Followed (
   #
   #   APPLIED       the commit below is in force
   #   UNCHANGED     it already held that commit
+  #   NOT_FOLLOWED  it was unfollowed before reconciliation acquired its clone lock
   #   NOT_SIGNED    the fetched commit carries no signature. Usually somebody forgot to sign
   #   UNKNOWN_KEY   a GOOD signature by a key this machine was never given. Either a key that has
   #                 moved or somebody putting a project file past the machine - this is the one

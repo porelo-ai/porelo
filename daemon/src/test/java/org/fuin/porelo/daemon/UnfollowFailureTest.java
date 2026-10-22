@@ -14,10 +14,10 @@ import org.fuin.porelo.wire.Sidecar;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** Protects the follow record when the daemon cannot remove a task. */
+/** Reports that updates stopped while preserving task data after a failed purge. */
 class UnfollowFailureTest {
     @Test
-    void aSurvivingTaskKeepsTheFollowAndItsSigners(@TempDir Path dir) throws Exception {
+    void aFailedPurgeStopsFollowingAndKeepsTheSurvivingTask(@TempDir Path dir) throws Exception {
         final XdgPaths xdg =
                 XdgPaths.of(
                         name ->
@@ -51,13 +51,23 @@ class UnfollowFailureTest {
         final Map<String, Object> answer =
                 ProjectMethods.unfollow(context, Map.of("name", "uc", "force", true));
         assertThat(answer.get("outcome"))
-                .as("a surviving task refuses unfollow")
+                .as("the runtime could not finish the requested purge")
                 .isEqualTo("FAILED");
         assertThat(follows.find("uc"))
-                .as("the failed purge must keep the follow record")
-                .isNotNull();
+                .as("a failed purge stops updates before deleting project data")
+                .isNull();
         assertThat(signers)
-                .as("the failed purge keeps pinned signers")
-                .hasContent("uc signer-to-keep\n");
+                .as("the stopped follow no longer trusts its pinned signer")
+                .hasContent("");
+        assertThat(answer.get("detail"))
+                .as("the daemon names the stopped follow and the failed task removal")
+                .asString()
+                .contains("following uc has stopped", "task " + task + " was not removed");
+        assertThat(context.paths().tasks().containerState(task))
+                .as("the surviving task's state remains available")
+                .exists();
+        assertThat(dir.resolve("data/porelo/mirrors/uc.git"))
+                .as("a failed task purge keeps the mirror that can hold unreviewed work")
+                .exists();
     }
 }

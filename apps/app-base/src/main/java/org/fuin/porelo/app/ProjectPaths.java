@@ -44,6 +44,17 @@ public record ProjectPaths(PoreloPaths paths) {
     }
 
     /**
+     * Returns the lock that serializes changes to a followed project's clone.
+     *
+     * @param project The project's name.
+     * @return The lock file, which need not exist.
+     */
+    public Path followedCloneLock(String project) {
+        final Path clone = followedClone(project);
+        return clone.resolveSibling(clone.getFileName() + ".lock");
+    }
+
+    /**
      * Returns the file naming the keys whose commits this machine will apply as configuration.
      *
      * <p><strong>Pinned out of band, and never from the repository it authenticates.</strong> A

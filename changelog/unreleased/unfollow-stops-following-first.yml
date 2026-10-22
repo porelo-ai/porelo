@@ -1,0 +1,2 @@
+title: porelo project unfollow stops following before it removes the project's clone and its lock, so a fetch running at the same moment can neither recreate the clone nor hold a lock on a removed file
+type: fixed

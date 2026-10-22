@@ -125,7 +125,7 @@ public final class Clearing {
                 new FollowedProjects(context.paths().projects().followed());
         final @Nullable String url = followedUrl(followed, name);
         final ProjectDeletion.Result deleted =
-                new ProjectDeletion(context).delete(name, dryRun, force);
+                new ProjectDeletion(context).unfollow(name, dryRun, force);
         boolean refusedListing = false;
         switch (deleted.outcome()) {
             case BUILT_IN -> {
@@ -157,8 +157,10 @@ public final class Clearing {
                 refusedListing = true;
             }
             case FAILED -> {
-                // Stopped here: the project stays, so its follow, its conversation and its keys
-                // stay with it - removed around a project still there, they left it half cleared.
+                if (url != null && noLongerFollowed(followed, name)) {
+                    items.add(new Item("follow", url, Status.REMOVED, ""));
+                }
+                // Following has stopped, but a failed removal must keep the conversation and keys.
                 items.add(
                         new Item(
                                 "project",
@@ -183,17 +185,7 @@ public final class Clearing {
             if (dryRun) {
                 items.add(new Item("follow", url, Status.WOULD_REMOVE, ""));
             } else {
-                try {
-                    followed.unfollow(name, context.paths().projects().configurationSigners());
-                    items.add(new Item("follow", url, Status.REMOVED, ""));
-                } catch (final IOException ex) {
-                    items.add(
-                            new Item(
-                                    "follow",
-                                    url,
-                                    Status.NOT_REMOVED,
-                                    String.valueOf(ex.getMessage())));
-                }
+                items.add(new Item("follow", url, Status.REMOVED, ""));
             }
         }
         if (known == null) {
@@ -460,6 +452,15 @@ public final class Clearing {
                         Status.FOR_A_PERSON,
                         "where it is listed, a signed commit in the project's repository removes it"));
         return line;
+    }
+
+    private static boolean noLongerFollowed(FollowedProjects followed, String name) {
+        try {
+            return followed.find(name) == null;
+        } catch (IOException | RuntimeException ex) {
+            // A failed lookup cannot claim that the follow was removed.
+            return false;
+        }
     }
 
     private static @Nullable String followedUrl(

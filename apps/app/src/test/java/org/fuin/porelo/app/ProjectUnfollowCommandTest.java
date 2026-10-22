@@ -26,6 +26,68 @@ import picocli.CommandLine;
  */
 class ProjectUnfollowCommandTest {
 
+    @Test
+    void aFailedDeletionSaysFollowingStoppedAndNamesTheRemainingData(@TempDir final Path dir)
+            throws IOException {
+        // A partial removal must not leave the operator believing updates are still enabled.
+        final PoreloContext context = context(dir);
+        unfollowedProject("uc");
+        final FollowedProjects projects =
+                new FollowedProjects(context.paths().projects().followed());
+        projects.follow("uc", "git@example.org:uc.git");
+        final Path clone = Files.createDirectories(context.paths().projects().followedClone("uc"));
+        Files.writeString(clone.resolve("project.yml"), "project data");
+        final var permissions = Files.getPosixFilePermissions(clone);
+        final Run result;
+        try {
+            Files.setPosixFilePermissions(
+                    clone, java.nio.file.attribute.PosixFilePermissions.fromString("r-x------"));
+            result = run(context, "uc");
+        } finally {
+            Files.setPosixFilePermissions(clone, permissions);
+        }
+
+        assertThat(result.code()).as("a partial removal is a failure").isNotZero();
+        assertThat(projects.find("uc")).as("following stays stopped after deletion fails").isNull();
+        assertThat(clone).as("the clone that failed to delete remains").exists();
+        assertThat(result.err())
+                .as("the failure explains that following stopped and identifies manual cleanup")
+                .contains("has stopped", "by hand", clone.toString());
+    }
+
+    @Test
+    void unfollowRemovesTheRecordBeforeDeletingProjectData(@TempDir final Path dir)
+            throws IOException {
+        // A reconcile waiting on the clone lock must see the record gone before deletion starts.
+        final PoreloContext context = context(dir);
+        unfollowedProject("uc");
+        final FollowedProjects projects =
+                new FollowedProjects(context.paths().projects().followed());
+        projects.follow("uc", "git@example.org:uc.git");
+        final Path clone = Files.createDirectories(context.paths().projects().followedClone("uc"));
+        final var removals = new java.util.concurrent.atomic.AtomicInteger();
+        final PoreloContext observed =
+                new PoreloContext(
+                        command -> {
+                            if (command.arguments().contains("rmi")) {
+                                removals.incrementAndGet();
+                                assertThat(context.paths().projects().followed().resolve("uc.json"))
+                                        .as("following stops before project deletion starts")
+                                        .doesNotExist();
+                                assertThat(clone).as("the record goes before the clone").exists();
+                            }
+                            return runner.run(command);
+                        },
+                        context.paths(),
+                        arguments -> 0);
+
+        final Run result = run(observed, "uc");
+
+        assertThat(result.code()).as("unfollow succeeds").isZero();
+        assertThat(removals.get()).as("the deletion was observed").isPositive();
+        assertThat(clone).as("the clone is removed after the record").doesNotExist();
+    }
+
     private final FakeCommandRunner runner = new FakeCommandRunner();
 
     private Path root;

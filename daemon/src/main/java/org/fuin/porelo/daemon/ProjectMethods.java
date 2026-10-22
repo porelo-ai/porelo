@@ -803,7 +803,7 @@ final class ProjectMethods {
         // hold work nobody reviewed, and this must not be the quiet way to destroy it.
         final org.fuin.porelo.app.ProjectDeletion.Result deleted =
                 new org.fuin.porelo.app.ProjectDeletion(context)
-                        .delete(name, flag(parameters, "dryRun"), flag(parameters, "force"));
+                        .unfollow(name, flag(parameters, "dryRun"), flag(parameters, "force"));
         // 'NoSuchProject' for a name this machine does not LIST - not for one it lists
         // but does not follow. Those are projects from before following, and answering
         // the error here left an interface offering to clear one and with nothing to
@@ -827,7 +827,6 @@ final class ProjectMethods {
         if (following
                 && !refused
                 && deleted.outcome() != org.fuin.porelo.app.ProjectDeletion.Outcome.PREVIEWED) {
-            projects.unfollow(name, context.paths().projects().configurationSigners());
             // This machine's deploy keys for it go from the vault; what they were is
             // answered, so whoever registered them at the forge removes them there.
             if (known != null) {

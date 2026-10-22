@@ -1,10 +1,15 @@
 package org.fuin.porelo.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandRunner;
@@ -20,6 +25,119 @@ import org.junit.jupiter.api.io.TempDir;
  * ever having been at risk.
  */
 class ReconcileTest {
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void aRefusedFirstFollowLeavesNeitherCloneNorLock(boolean fingerprint, @TempDir Path dir)
+            throws Exception {
+        // Refusing trust must not leave a clone and lock for later operations to mistake for a
+        // follow.
+        final PoreloContext context = context(dir);
+        final Path repo = published(dir, key(dir, "operator"), "demo");
+        final String other = Files.readString(Path.of(key(dir, "other") + ".pub")).strip();
+        final String named = fingerprint ? SignedBy.fingerprintOf(other) : other;
+
+        final Throwable refusal =
+                catchThrowable(
+                        () ->
+                                new FollowSignedBy(context)
+                                        .follow("demo", repo.toString(), named, false, false));
+
+        if (fingerprint) {
+            assertThat(refusal)
+                    .as("the other fingerprint is refused")
+                    .isInstanceOf(FollowSignedBy.Refused.class);
+        } else {
+            assertThat(refusal).as("a whole key returns its refusal as an answer").isNull();
+        }
+        assertThat(new FollowedProjects(context.paths().projects().followed()).find("demo"))
+                .as("a first refusal leaves no follow record")
+                .isNull();
+        assertThat(context.paths().projects().followedClone("demo"))
+                .as("a first refusal leaves no clone")
+                .doesNotExist();
+        assertThat(context.paths().projects().followedCloneLock("demo"))
+                .as("a first refusal leaves no clone lock")
+                .doesNotExist();
+    }
+
+    @Test
+    void aReconcileAfterUnfollowCreatesNeitherCloneNorLock(@TempDir final Path dir)
+            throws IOException {
+        // A stale watcher record must not resurrect a project the operator removed.
+        final PoreloContext context = context(dir);
+        final Path repo = published(dir, null, "demo");
+        final FollowedProjects projects =
+                new FollowedProjects(context.paths().projects().followed());
+        final FollowedProjects.Followed stale = projects.follow("demo", repo.toString());
+        projects.unfollow("demo");
+
+        final Reconcile.Result result = new Reconcile(context).run(stale);
+
+        assertThat(context.paths().projects().followedClone("demo"))
+                .as("a stale reconcile does not recreate the clone")
+                .doesNotExist();
+        assertThat(context.paths().projects().followedCloneLock("demo"))
+                .as("a stale reconcile leaves no clone lock")
+                .doesNotExist();
+        assertThat(result.outcome().name())
+                .as("the result says the project is no longer followed")
+                .isEqualTo("NOT_FOLLOWED");
+    }
+
+    @Test
+    void aQueuedReconcileReadsTheFollowRecordAgainUnderTheLock(@TempDir final Path dir)
+            throws Exception {
+        // A watcher can read its record before unfollowing and acquire the clone lock afterwards.
+        final PoreloContext context = context(dir);
+        final Path repo = published(dir, null, "demo");
+        final FollowedProjects projects =
+                new FollowedProjects(context.paths().projects().followed());
+        final FollowedProjects.Followed stale = projects.follow("demo", repo.toString());
+        final Path lock = context.paths().projects().followedCloneLock("demo");
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            final var pending =
+                    FileLocks.holding(
+                            lock,
+                            () -> {
+                                final var started = new CountDownLatch(1);
+                                final var queued =
+                                        executor.submit(
+                                                () -> {
+                                                    started.countDown();
+                                                    return new Reconcile(context).run(stale);
+                                                });
+                                try {
+                                    assertThat(started.await(5, TimeUnit.SECONDS))
+                                            .as("the stale reconcile has started")
+                                            .isTrue();
+                                    assertThat(
+                                                    catchThrowable(
+                                                            () ->
+                                                                    queued.get(
+                                                                            300,
+                                                                            TimeUnit.MILLISECONDS)))
+                                            .as("reconciliation waits for the clone lock")
+                                            .isInstanceOf(TimeoutException.class);
+                                } catch (InterruptedException ex) {
+                                    Thread.currentThread().interrupt();
+                                    throw new IOException(
+                                            "interrupted while queuing reconciliation", ex);
+                                }
+                                projects.unfollow("demo");
+                                return queued;
+                            });
+
+            final Reconcile.Result result = pending.get(5, TimeUnit.SECONDS);
+            assertThat(context.paths().projects().followedClone("demo"))
+                    .as("a queued reconcile does not recreate an unfollowed clone")
+                    .doesNotExist();
+            assertThat(lock).as("a queued reconcile leaves no clone lock").doesNotExist();
+            assertThat(result.outcome().name())
+                    .as("the queued reconcile reports that following stopped")
+                    .isEqualTo("NOT_FOLLOWED");
+        }
+    }
 
     private final CommandRunner runner = new ProcessCommandRunner();
 
@@ -163,12 +281,14 @@ class ReconcileTest {
         final Path successor = key(dir, "successor");
         pin(context, "demo", old);
         final Path repo = published(dir, old, "demo");
-        final Reconcile.Result first = new Reconcile(context).run(followed(repo));
+        final Reconcile.Result first =
+                new Reconcile(context).run(following(context, followed(repo)));
         assertThat(first.outcome()).isEqualTo(Reconcile.Outcome.APPLIED);
 
         commitNaming(repo, old, "handed on", old, successor);
         final Reconcile.Result handed =
-                new Reconcile(context).run(Reconcile.after(followed(repo), first));
+                new Reconcile(context)
+                        .run(following(context, Reconcile.after(followed(repo), first)));
 
         assertThat(handed.outcome()).isEqualTo(Reconcile.Outcome.APPLIED);
         assertThat(handed.detail())
@@ -179,7 +299,8 @@ class ReconcileTest {
 
         commitNaming(repo, successor, "the old one retired", successor);
         final Reconcile.Result retired =
-                new Reconcile(context).run(Reconcile.after(followed(repo), handed));
+                new Reconcile(context)
+                        .run(following(context, Reconcile.after(followed(repo), handed)));
 
         assertThat(retired.outcome())
                 .as("signed by the successor alone")
@@ -190,7 +311,10 @@ class ReconcileTest {
                 .doesNotContain(typeAndKey(old));
 
         commit(repo, old, "demo", "signed by the key that was retired");
-        assertThat(new Reconcile(context).run(Reconcile.after(followed(repo), retired)).outcome())
+        assertThat(
+                        new Reconcile(context)
+                                .run(following(context, Reconcile.after(followed(repo), retired)))
+                                .outcome())
                 .isEqualTo(Reconcile.Outcome.UNKNOWN_KEY);
     }
 
@@ -202,11 +326,13 @@ class ReconcileTest {
         final Path stranger = key(dir, "stranger");
         pin(context, "demo", old);
         final Path repo = published(dir, old, "demo");
-        final Reconcile.Result first = new Reconcile(context).run(followed(repo));
+        final Reconcile.Result first =
+                new Reconcile(context).run(following(context, followed(repo)));
 
         commitNaming(repo, stranger, "added by itself", old, stranger);
         final Reconcile.Result result =
-                new Reconcile(context).run(Reconcile.after(followed(repo), first));
+                new Reconcile(context)
+                        .run(following(context, Reconcile.after(followed(repo), first)));
 
         assertThat(result.outcome()).isEqualTo(Reconcile.Outcome.UNKNOWN_KEY);
         assertThat(result.detail()).contains("changes project.signers");
@@ -225,18 +351,27 @@ class ReconcileTest {
         final Path successor = key(dir, "successor");
         pin(context, "demo", old);
         final Path repo = published(dir, old, "demo");
-        final Reconcile.Result first = new Reconcile(context).run(followed(repo));
+        final Reconcile.Result first =
+                new Reconcile(context).run(following(context, followed(repo)));
 
         // Both arrive in one fetch: the hand-on, then a commit only the successor signed.
         commitNaming(repo, old, "handed on", successor);
         commit(repo, successor, "demo", "signed by the successor");
         final Reconcile.Result result =
-                new Reconcile(context).run(Reconcile.after(followed(repo), first));
+                new Reconcile(context)
+                        .run(following(context, Reconcile.after(followed(repo), first)));
 
         assertThat(result.outcome()).isEqualTo(Reconcile.Outcome.APPLIED);
         assertThat(Files.readString(context.paths().projects().configurationSigners()))
                 .contains("demo " + typeAndKey(successor))
                 .doesNotContain(typeAndKey(old));
+    }
+
+    private FollowedProjects.Followed following(
+            final PoreloContext context, final FollowedProjects.Followed record)
+            throws IOException {
+        new FollowedProjects(context.paths().projects().followed()).write(record);
+        return record;
     }
 
     private FollowedProjects.Followed followed(final Path repo) {
@@ -325,8 +460,10 @@ class ReconcileTest {
         final Reconcile.Result next =
                 new Reconcile(context)
                         .run(
-                                new FollowedProjects(context.paths().projects().followed())
-                                        .require("demo"));
+                                following(
+                                        context,
+                                        new FollowedProjects(context.paths().projects().followed())
+                                                .require("demo")));
         assertThat(next.outcome()).isEqualTo(Reconcile.Outcome.APPLIED);
         assertThat(next.signer()).isEqualTo(fingerprints.get(1));
 
@@ -335,8 +472,13 @@ class ReconcileTest {
         assertThat(
                         new Reconcile(context)
                                 .run(
-                                        new FollowedProjects(context.paths().projects().followed())
-                                                .require("demo"))
+                                        following(
+                                                context,
+                                                new FollowedProjects(
+                                                                context.paths()
+                                                                        .projects()
+                                                                        .followed())
+                                                        .require("demo")))
                                 .outcome())
                 .isEqualTo(Reconcile.Outcome.UNKNOWN_KEY);
     }
@@ -465,7 +607,8 @@ class ReconcileTest {
         pin(context, "demo", key);
         final Path repo = published(dir, key, "demo");
 
-        final Reconcile.Result result = new Reconcile(context).run(followed(repo));
+        final Reconcile.Result result =
+                new Reconcile(context).run(following(context, followed(repo)));
 
         assertThat(result.outcome()).isEqualTo(Reconcile.Outcome.APPLIED);
         assertThat(result.commit()).hasSize(40);
@@ -485,7 +628,8 @@ class ReconcileTest {
         final Path key = key(dir, "operator");
         pin(context, "demo", key);
         final Path repo = published(dir, key, "demo");
-        final Reconcile.Result first = new Reconcile(context).run(followed(repo));
+        final Reconcile.Result first =
+                new Reconcile(context).run(following(context, followed(repo)));
         final FollowedProjects.Followed after = Reconcile.after(followed(repo), first);
 
         // The project's repository moves on, unsigned.
@@ -503,7 +647,7 @@ class ReconcileTest {
         git(repo, "add", "project.yml");
         git(repo, "commit", "-q", "--no-gpg-sign", "-m", "unsigned change");
 
-        final Reconcile.Result second = new Reconcile(context).run(after);
+        final Reconcile.Result second = new Reconcile(context).run(following(context, after));
 
         assertThat(second.outcome()).isEqualTo(Reconcile.Outcome.NOT_SIGNED);
         assertThat(second.commit())
@@ -526,9 +670,10 @@ class ReconcileTest {
         pin(context, "demo", key);
         final Path repo = published(dir, key, "demo");
         final Reconcile reconcile = new Reconcile(context);
-        final Reconcile.Result first = reconcile.run(followed(repo));
+        final Reconcile.Result first = reconcile.run(following(context, followed(repo)));
 
-        final Reconcile.Result second = reconcile.run(Reconcile.after(followed(repo), first));
+        final Reconcile.Result second =
+                reconcile.run(following(context, Reconcile.after(followed(repo), first)));
 
         assertThat(second.outcome()).isEqualTo(Reconcile.Outcome.UNCHANGED);
         assertThat(second.commit()).isEqualTo(first.commit());
@@ -544,8 +689,15 @@ class ReconcileTest {
         final Reconcile.Result result =
                 new Reconcile(context)
                         .run(
-                                new FollowedProjects.Followed(
-                                        "demo", dir.resolve("nowhere").toString(), "", "", "", ""));
+                                following(
+                                        context,
+                                        new FollowedProjects.Followed(
+                                                "demo",
+                                                dir.resolve("nowhere").toString(),
+                                                "",
+                                                "",
+                                                "",
+                                                "")));
 
         assertThat(result.outcome()).isEqualTo(Reconcile.Outcome.UNREACHABLE);
         assertThat(result.detail()).contains("cannot fetch");
@@ -557,7 +709,8 @@ class ReconcileTest {
         final PoreloContext context = context(dir);
         final Path repo = published(dir, key(dir, "operator"), "demo");
 
-        final Reconcile.Result result = new Reconcile(context).run(followed(repo));
+        final Reconcile.Result result =
+                new Reconcile(context).run(following(context, followed(repo)));
 
         assertThat(result.outcome()).isEqualTo(Reconcile.Outcome.NO_ANCHOR);
         assertThat(result.detail()).contains("no key is pinned");
@@ -580,7 +733,8 @@ class ReconcileTest {
         git(repo, "config", "user.signingkey", key.toString());
         git(repo, "commit", "-q", "-S", "-m", "signed nonsense");
 
-        final Reconcile.Result result = new Reconcile(context).run(followed(repo));
+        final Reconcile.Result result =
+                new Reconcile(context).run(following(context, followed(repo)));
 
         assertThat(result.outcome()).isEqualTo(Reconcile.Outcome.UNUSABLE);
         assertThat(result.detail()).contains("does not read as a project");
@@ -593,12 +747,14 @@ class ReconcileTest {
         final Path key = key(dir, "operator");
         pin(context, "demo", key);
         final Path repo = published(dir, key, "demo");
-        final Reconcile.Result first = new Reconcile(context).run(followed(repo));
+        final Reconcile.Result first =
+                new Reconcile(context).run(following(context, followed(repo)));
         // Signed by the pinned key and calling itself another project: refused, as it must be.
         commit(repo, key, "other", "a file that names another project");
 
         final Reconcile.Result second =
-                new Reconcile(context).run(Reconcile.after(followed(repo), first));
+                new Reconcile(context)
+                        .run(following(context, Reconcile.after(followed(repo), first)));
 
         assertThat(second.outcome()).isEqualTo(Reconcile.Outcome.UNUSABLE);
         assertThat(second.commit()).isEqualTo(first.commit());
@@ -626,7 +782,7 @@ class ReconcileTest {
         pin(context, "demo", key);
         final Path repo = published(dir, key, "demo");
         final Reconcile reconcile = new Reconcile(context);
-        final Reconcile.Result first = reconcile.run(followed(repo));
+        final Reconcile.Result first = reconcile.run(following(context, followed(repo)));
         assertThat(first.outcome()).isEqualTo(Reconcile.Outcome.APPLIED);
 
         // The published repository's history is replaced: a new root commit, properly signed, and
@@ -636,7 +792,8 @@ class ReconcileTest {
         commit(repo, key, "demo", "rewritten");
         git(repo, "branch", "-q", "-M", "rewritten", "main");
 
-        final Reconcile.Result second = reconcile.run(Reconcile.after(followed(repo), first));
+        final Reconcile.Result second =
+                reconcile.run(following(context, Reconcile.after(followed(repo), first)));
 
         assertThat(second.outcome()).isEqualTo(Reconcile.Outcome.REWRITTEN);
         assertThat(second.commit())
@@ -654,13 +811,13 @@ class ReconcileTest {
         pin(context, "demo", key);
         final Path repo = published(dir, key, "demo");
         final Reconcile reconcile = new Reconcile(context);
-        reconcile.run(followed(repo));
+        reconcile.run(following(context, followed(repo)));
         git(repo, "checkout", "-q", "--orphan", "rewritten");
         commit(repo, key, "demo", "rewritten");
         git(repo, "branch", "-q", "-M", "rewritten", "main");
 
         // followed(repo) carries no commit, which is what --accept-rewrite leaves behind.
-        final Reconcile.Result accepted = reconcile.run(followed(repo));
+        final Reconcile.Result accepted = reconcile.run(following(context, followed(repo)));
 
         assertThat(accepted.outcome()).as(accepted.detail()).isEqualTo(Reconcile.Outcome.APPLIED);
     }
@@ -691,7 +848,7 @@ class ReconcileTest {
         Files.createDirectories(taskState);
         Files.writeString(taskState.resolve("gate.pid"), "4242");
 
-        assertThat(new Reconcile(context).run(followed(repo)).outcome())
+        assertThat(new Reconcile(context).run(following(context, followed(repo))).outcome())
                 .isEqualTo(Reconcile.Outcome.APPLIED);
 
         assertThat(held).exists().content().isEqualTo("{\"held\":\"by a person\"}");
@@ -706,7 +863,8 @@ class ReconcileTest {
         final Path key = key(dir, "operator");
         pin(context, "demo", key);
         final Path repo = published(dir, key, "demo");
-        final Reconcile.Result first = new Reconcile(context).run(followed(repo));
+        final Reconcile.Result first =
+                new Reconcile(context).run(following(context, followed(repo)));
         final Path clone = context.paths().projects().followedClone("demo");
 
         // Somebody edits the reconciled file on the machine, and drops a file of their own beside
@@ -716,7 +874,8 @@ class ReconcileTest {
 
         commit(repo, key, "demo", "moved on");
         final Reconcile.Result second =
-                new Reconcile(context).run(Reconcile.after(followed(repo), first));
+                new Reconcile(context)
+                        .run(following(context, Reconcile.after(followed(repo), first)));
 
         assertThat(second.outcome()).isEqualTo(Reconcile.Outcome.APPLIED);
         assertThat(clone.resolve("project.yml")).content().contains("moved on");
@@ -741,8 +900,8 @@ class ReconcileTest {
         pin(one, "demo", key);
         pin(two, "demo", key);
 
-        final Reconcile.Result first = new Reconcile(one).run(followed(repo));
-        final Reconcile.Result second = new Reconcile(two).run(followed(repo));
+        final Reconcile.Result first = new Reconcile(one).run(following(one, followed(repo)));
+        final Reconcile.Result second = new Reconcile(two).run(following(two, followed(repo)));
 
         assertThat(first.outcome()).isEqualTo(Reconcile.Outcome.APPLIED);
         assertThat(second.outcome()).isEqualTo(Reconcile.Outcome.APPLIED);
@@ -773,7 +932,8 @@ class ReconcileTest {
         final Path stranger = key(dir, "stranger");
         final Path repo = published(dir, stranger, "demo");
 
-        final Reconcile.Result result = new Reconcile(context).run(followed(repo));
+        final Reconcile.Result result =
+                new Reconcile(context).run(following(context, followed(repo)));
 
         assertThat(result.outcome()).isEqualTo(Reconcile.Outcome.UNKNOWN_KEY);
         // The commit turned away, which used to be discarded - the record kept only what was in
@@ -792,7 +952,8 @@ class ReconcileTest {
         pin(context, "demo", key(dir, "operator"));
         final Path repo = published(dir, null, "demo");
 
-        final Reconcile.Result result = new Reconcile(context).run(followed(repo));
+        final Reconcile.Result result =
+                new Reconcile(context).run(following(context, followed(repo)));
 
         // Different outcome from the one above, which is the whole point: somebody forgot to sign
         // is not somebody signing with a key they should not have.
@@ -813,8 +974,15 @@ class ReconcileTest {
         final Reconcile.Result result =
                 new Reconcile(context)
                         .run(
-                                new FollowedProjects.Followed(
-                                        "demo", dir.resolve("nowhere").toString(), "", "", "", ""));
+                                following(
+                                        context,
+                                        new FollowedProjects.Followed(
+                                                "demo",
+                                                dir.resolve("nowhere").toString(),
+                                                "",
+                                                "",
+                                                "",
+                                                "")));
 
         assertThat(result.outcome()).isEqualTo(Reconcile.Outcome.UNREACHABLE);
         assertThat(result.detail()).doesNotContain("vault");
@@ -830,8 +998,18 @@ class ReconcileTest {
         final Reconcile.Result result =
                 new Reconcile(context)
                         .run(
-                                new FollowedProjects.Followed(
-                                        "demo", repo.toString(), "", "", "", "", "", "", true));
+                                following(
+                                        context,
+                                        new FollowedProjects.Followed(
+                                                "demo",
+                                                repo.toString(),
+                                                "",
+                                                "",
+                                                "",
+                                                "",
+                                                "",
+                                                "",
+                                                true)));
 
         // Somebody asked for this. The check is skipped; the reporting is not.
         assertThat(result.outcome()).isEqualTo(Reconcile.Outcome.APPLIED);
@@ -856,8 +1034,18 @@ class ReconcileTest {
         final Reconcile.Result result =
                 new Reconcile(context)
                         .run(
-                                new FollowedProjects.Followed(
-                                        "demo", repo.toString(), "", "", "", "", "", "", true));
+                                following(
+                                        context,
+                                        new FollowedProjects.Followed(
+                                                "demo",
+                                                repo.toString(),
+                                                "",
+                                                "",
+                                                "",
+                                                "",
+                                                "",
+                                                "",
+                                                true)));
 
         // Unverified means nobody checked WHO wrote it - not that anything goes. A file that is not
         // a project would fail at the first task start, which is somewhere else and later.
@@ -871,7 +1059,8 @@ class ReconcileTest {
         pin(context, "demo", key);
         final Path signed = published(dir, key, "demo");
 
-        final Reconcile.Result verified = new Reconcile(context).run(followed(signed));
+        final Reconcile.Result verified =
+                new Reconcile(context).run(following(context, followed(signed)));
         // A second repository of its own, because a project file that calls itself something other
         // than the name it is followed under is refused.
         final Path other = dir.resolve("published-two");
@@ -884,16 +1073,18 @@ class ReconcileTest {
         final Reconcile.Result without =
                 new Reconcile(context)
                         .run(
-                                new FollowedProjects.Followed(
-                                        "demo-two",
-                                        other.toString(),
-                                        "",
-                                        "",
-                                        "",
-                                        "",
-                                        "",
-                                        "",
-                                        true));
+                                following(
+                                        context,
+                                        new FollowedProjects.Followed(
+                                                "demo-two",
+                                                other.toString(),
+                                                "",
+                                                "",
+                                                "",
+                                                "",
+                                                "",
+                                                "",
+                                                true)));
 
         // One project without an anchor must not quieten another that has one: they are separate
         // records and separate answers.
@@ -929,8 +1120,18 @@ class ReconcileTest {
         final Reconcile.Result result =
                 new Reconcile(context)
                         .run(
-                                new FollowedProjects.Followed(
-                                        "demo", repo.toString(), "", "", "", "", "", "", true));
+                                following(
+                                        context,
+                                        new FollowedProjects.Followed(
+                                                "demo",
+                                                repo.toString(),
+                                                "",
+                                                "",
+                                                "",
+                                                "",
+                                                "",
+                                                "",
+                                                true)));
 
         // Following reads the project file and checks what THIS machine can answer about it - the
         // egress sets it has, the name it is followed under. It reaches no work repository: a
@@ -963,7 +1164,7 @@ class ReconcileTest {
                         "demo", repo.toString(), "", "", "", "", "", "", true);
 
         final FollowedProjects.Followed written =
-                Reconcile.after(taken, new Reconcile(context).run(taken));
+                Reconcile.after(taken, new Reconcile(context).run(following(context, taken)));
 
         assertThat(written.outcome()).isEqualTo("APPLIED");
         assertThat(written.unverified()).isTrue();
@@ -1036,31 +1237,47 @@ class ReconcileTest {
         // Nothing of this account moved while it was asked.
         assertThat(context.paths().projects().followedClone("demo")).doesNotExist();
 
-        final Reconcile.Result real = new Reconcile(context).run(followed(repo));
+        final Reconcile.Result real =
+                new Reconcile(context).run(following(context, followed(repo)));
         assertThat(would.outcome()).isEqualTo(real.outcome());
         assertThat(would.detail()).isEqualTo(real.detail());
     }
 
     @Test
     void a_repository_only_a_key_opens_says_the_key_is_missing_not_the_network(
-            @TempDir final Path dir) {
+            @TempDir final Path dir) throws IOException {
 
         // The refusal the operator was given was "unlock your vault", for a vault that held nothing
         // this path would have used - because the follow never asked the vault for anything. With
         // no key stored, an ssh URL that cannot be fetched is a missing credential, and the answer
         // names the entry and the command that fills it.
-        final PoreloContext context = context(dir);
+        final PoreloContext base = context(dir);
+        final PoreloContext context =
+                new PoreloContext(
+                        command -> {
+                            // The credential diagnosis needs a failed fetch, without contacting a
+                            // real host.
+                            if (command.arguments().contains("fetch")) {
+                                return new org.fuin.porelo.core.process.CommandResult(
+                                        command, 1, "", "repository unavailable");
+                            }
+                            return runner.run(command);
+                        },
+                        base.paths(),
+                        arguments -> 0);
 
         final Reconcile.Result result =
                 new Reconcile(context)
                         .run(
-                                new FollowedProjects.Followed(
-                                        "demo",
-                                        "git@nowhere.invalid:acme/demo.git",
-                                        "",
-                                        "",
-                                        "",
-                                        ""));
+                                following(
+                                        context,
+                                        new FollowedProjects.Followed(
+                                                "demo",
+                                                "git@nowhere.invalid:acme/demo.git",
+                                                "",
+                                                "",
+                                                "",
+                                                "")));
 
         assertThat(result.outcome()).isEqualTo(Reconcile.Outcome.NO_CREDENTIAL);
         // Named by host, so a company forge and a public one are two credentials rather than one
@@ -1071,7 +1288,7 @@ class ReconcileTest {
 
     @Test
     void a_local_repository_that_cannot_be_fetched_is_not_blamed_on_a_missing_key(
-            @TempDir final Path dir) {
+            @TempDir final Path dir) throws IOException {
 
         // The other half of the same rule. A path is not opened by an ssh key, so sending somebody
         // to store one would waste their time on a URL that is simply wrong.
@@ -1080,8 +1297,15 @@ class ReconcileTest {
         final Reconcile.Result result =
                 new Reconcile(context)
                         .run(
-                                new FollowedProjects.Followed(
-                                        "demo", dir.resolve("nowhere").toString(), "", "", "", ""));
+                                following(
+                                        context,
+                                        new FollowedProjects.Followed(
+                                                "demo",
+                                                dir.resolve("nowhere").toString(),
+                                                "",
+                                                "",
+                                                "",
+                                                "")));
 
         assertThat(result.outcome()).isEqualTo(Reconcile.Outcome.UNREACHABLE);
     }

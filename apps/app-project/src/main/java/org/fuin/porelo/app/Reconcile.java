@@ -41,6 +41,9 @@ public final class Reconcile {
          */
         UNCHANGED,
 
+        /** The project was unfollowed before this attempt acquired its clone lock. */
+        NOT_FOLLOWED,
+
         /** The fetched commit carries no signature at all. Usually somebody forgot to sign. */
         NOT_SIGNED,
 
@@ -236,13 +239,30 @@ public final class Reconcile {
      */
     public Result run(final FollowedProjects.Followed followed) {
         final Path clone = context.paths().projects().followedClone(followed.name());
+        final Path lock = context.paths().projects().followedCloneLock(followed.name());
         // One at a time per project, across the daemon's watch and a follow at the terminal:
         // unlocked, the watch checked descent against the commit it had read, and reset the clone
         // back under one a follow had applied.
         try {
-            return FileLocks.holding(
-                    clone.resolveSibling(clone.getFileName() + ".lock"),
-                    () -> run(followed, clone));
+            final Result result =
+                    FileLocks.holding(
+                            lock,
+                            () -> {
+                                final FollowedProjects.Followed current =
+                                        new FollowedProjects(context.paths().projects().followed())
+                                                .find(followed.name());
+                                return current == null
+                                        ? FileLocks.holdingThenRemoving(
+                                                lock,
+                                                () ->
+                                                        new Result(
+                                                                Outcome.NOT_FOLLOWED,
+                                                                "",
+                                                                "this account no longer follows "
+                                                                        + followed.name()))
+                                        : run(current, clone);
+                            });
+            return result;
         } catch (final java.io.IOException ex) {
             throw new java.io.UncheckedIOException(ex);
         }
