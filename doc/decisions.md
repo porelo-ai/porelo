@@ -65,6 +65,7 @@ would change the answer.
 | The route is picked by the token | one broker, a route per credential; the token, not the path, decides where a key goes | [entry](#the-route-is-picked-by-the-token) |
 | Where a key goes is declared, never inferred | `auth_header` or `auth_query` per service; only a consumer whose endpoint can be configured; no TLS interception | [entry](#where-a-key-goes-is-declared-never-inferred) |
 | A subscription's own backend is served as a provider | accepted: `chatgpt` reaches an undocumented route that can change; a request carries the account beside the token, from the stored sign-in | [entry](#a-subscriptions-own-backend-is-served-as-a-provider) |
+| A sign-in passes through plaintext on its way to the vault | accepted: the login container's layer and the host's copy may reach disk or swap, for the moment of a login; tasks stay phantom-only | [entry](#a-sign-in-passes-through-plaintext-on-its-way-to-the-vault) |
 | One credential type reaches one variable | `token_env` maps a type to one variable; changed in the reader when an agent needs two | [entry](#one-credential-type-reaches-one-variable) |
 | A bought token is per task and kept in memory | never on disk, never shared; costs one exchange per task per hour | [entry](#a-bought-token-is-per-task-and-kept-in-memory) |
 | A purchase that fails at start is a missing key | unattended and agent runs are refused before a container exists; a shell warns | [entry](#a-purchase-that-fails-at-start-is-a-missing-key) |
@@ -398,6 +399,18 @@ drops whatever the container sent under that name. **The exposure:** the route c
 whether the provider's terms allow it was not checked. **Why it stays:** the agent that reaches it is mostly used with
 that subscription, and the tokens stay on the host as every other sign-in's do. **What would change the answer:** a
 change of the route, or a refusal by the provider.
+
+## A sign-in passes through plaintext on its way to the vault
+
+A sign-in made with `vault login` is written by the agent to its own files in a throwaway login container, copied
+out into an owner-only temporary directory of the host, read there by the agent's extractor, stored in the vault
+encrypted, and the copy deleted at once. Only the vault keeps it. **The exposure:** for the moment of a login the
+plaintext lies in the container's writable layer and in the host's copy, and both may reach disk or swap. **Why it
+stays:** it is the one way every agent's login takes, it lasts only that moment, and no task ever holds the real
+sign-in; a task gets a phantom token. **What narrows it, not yet built:** the login's directory a `tmpfs` of the
+container and the copy in `$XDG_RUNTIME_DIR`, both in memory, though a `tmpfs` can still be swapped out. **What would
+change the answer:** an agent whose sign-in cannot be written to a file at all, or a machine where that moment is not
+acceptable.
 
 ## One credential type reaches one variable
 

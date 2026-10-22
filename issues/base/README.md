@@ -125,6 +125,8 @@ from its side, as *blocked by*.
 | <a id="b246"></a>[B246](B246-A-Task-Name-No-Other-Project-Shares.md) | - | - | A task's container name is one project's and one task's, where `porelo-a-b-c` today names project `a-b`'s task `c` and project `a`'s task `b-c`; proposed: `_` between them |
 | <a id="b249"></a>[B249](B249-The-Hooks-Run-Dnsmasq-And-Podman-By-A-Fixed-Path.md) | - | - | The hooks start `dnsmasq` and `podman` by a fixed root-owned path, as [B239](#b239) does `nsenter` and `nft`, where today both are found through the caller's `PATH` |
 | <a id="b250"></a>[B250](B250-No-Broker-Address-For-A-Task-Without-One.md) | - | - | An agent's setup hears the broker's address only when the task has a broker, where an agent reached by URL hears the relay's address without one and takes itself for brokered |
+| <a id="b251"></a>[B251](B251-Porelo-Inside-A-Lima-VM.md) | - | - | Porelo runs its tasks in a Lima VM on a Mac with the task firewall loaded, or says what the VM lacks, where the Mac probe saw `unshare` refused there |
+| <a id="b252"></a>[B252](B252-A-Sign-In-Collected-On-No-Disk.md) | - | - | A sign-in made in a login container reaches the vault without lying in plaintext on a disk, where today it passes through the container's layer and the host's temporary directory |
 
 ## Estimated
 

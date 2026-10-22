@@ -151,6 +151,8 @@ placeholder instead of the key.
 **`vault login`** is for a machine where the agent was never installed by hand. It runs the login
 in a throwaway container from the task image, which has none of a task's hooks and ordinary network
 access for the seconds the login takes.
+What the login writes is copied out, stored in the vault and the copy deleted at once; for that moment it lies in
+plaintext on the way, an accepted risk ([the decision](decisions.md#a-sign-in-passes-through-plaintext-on-its-way-to-the-vault)).
 
 ### A subscription granted once: GitHub Copilot
 
