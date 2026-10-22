@@ -1,0 +1,2 @@
+title: "`porelo setup` on a machine without systemctl, such as a container, says the daemon was not started and goes on, where it stopped with exit 70 before making the vault"
+type: fixed

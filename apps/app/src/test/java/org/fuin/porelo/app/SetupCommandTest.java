@@ -94,6 +94,20 @@ class SetupCommandTest {
     }
 
     @Test
+    void goesOnWithoutTheDaemonWhereThereIsNoSystemctl(@TempDir Path dir) throws IOException {
+
+        runner.missing("systemctl");
+
+        assertThat(execute(context(dir, true), "setup"))
+                .as("a machine without a user manager can still run a task from the command line")
+                .isZero();
+        assertThat(out.toString())
+                .as("the daemon is not started, and the steps after it still run")
+                .contains("daemon    not started")
+                .contains("vault ");
+    }
+
+    @Test
     void leavesTheVaultForATerminalAndSaysSoWhenThereIsNone(@TempDir Path dir) throws IOException {
 
         // Run the way a script runs it, with no terminal: the prompt would fail as "no passphrase

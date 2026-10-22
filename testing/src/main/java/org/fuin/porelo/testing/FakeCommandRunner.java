@@ -1,10 +1,13 @@
 package org.fuin.porelo.testing;
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.fuin.porelo.core.process.Command;
+import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
 
@@ -19,6 +22,8 @@ public class FakeCommandRunner implements CommandRunner {
     private final Map<String, CommandResult> answers = new LinkedHashMap<>();
 
     private final List<Command> invocations = new ArrayList<>();
+
+    private final java.util.Set<String> missing = new HashSet<>();
 
     private CommandResult fallback(Command command) {
         return new CommandResult(command, 0, "", "");
@@ -66,10 +71,30 @@ public class FakeCommandRunner implements CommandRunner {
         return this;
     }
 
+    /**
+     * Refuses to run the given program, as the real runner does on a machine that has none.
+     *
+     * @param program The program's name, the command's first word.
+     * @return This instance.
+     */
+    public FakeCommandRunner missing(String program) {
+        missing.add(program);
+        return this;
+    }
+
     @Override
     public CommandResult run(Command command) {
         invocations.add(command);
         final String line = command.describe();
+        final String program = line.split(" ", 2)[0];
+        if (missing.contains(program)) {
+            throw new CommandException(
+                    command,
+                    new IOException(
+                            "Cannot run program \""
+                                    + program
+                                    + "\": error=2, No such file or directory"));
+        }
         for (final Map.Entry<String, CommandResult> entry : answers.entrySet()) {
             if (line.contains(entry.getKey())) {
                 final CommandResult answer = entry.getValue();

@@ -126,9 +126,20 @@ public class SetupCommand implements Callable<Integer>, PoreloFactory.ContextAwa
      *
      * <p>Not a failure when it cannot: an account whose user manager is not reachable from here -
      * no lingering, no session - can still run a task from the command line, and is told what to
-     * run instead.
+     * run instead; nor on a machine with no {@code systemctl} at all, such as a container.
      */
     private void daemon(final PrintWriter out) {
+        try {
+            startDaemon(out);
+        } catch (org.fuin.porelo.core.process.CommandException ex) {
+            out.println(
+                    "daemon    not started: "
+                            + ex.getMessage()
+                            + " - a task still runs from the command line");
+        }
+    }
+
+    private void startDaemon(final PrintWriter out) {
         final org.fuin.porelo.core.process.CommandRunner runner = context.runner();
         if (runner.run(
                                 org.fuin.porelo.core.process.Command.of(
