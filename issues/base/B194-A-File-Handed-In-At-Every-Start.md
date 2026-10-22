@@ -22,7 +22,12 @@ Read on 2026-10-21 in `HandIns`, `TaskGiveCommand`, `TaskTakeBackCommand`, `Task
 2. **At every start**, after the container is up and before the agent is attached, `TaskLaunch` hands each file in
    through `HandIns` as `porelo task give` does: whole or not at all, to `/porelo/files/<name>`, root's and read-only
    to the agent, each one written down with its size and sha256. A file over `limits.hand_in` is refused by name and
-   the start says so; a missing directory hands in nothing. The start lists what it handed in.
+   the start says so; a missing directory hands in nothing. The start lists what it handed in. This cannot race the
+   agent's first read: the container's own process is `sleep infinity` (`TaskRunner`), and the agent is an exec
+   beside it that begins only after `launch` returns through `AfterStart`, so the hand-in goes right after
+   `placeAgentFiles`. A resume (`TaskResumeCommand`, which `task attach` calls for a stopped task) starts the
+   container and its helpers, never the agent, which only an attach execs; it hands the files in again, replacing
+   what the stopped container held.
 3. **The way back - an open question below.** Under (a): the agent writes its proposed copy to
    `/porelo/proposals/<name>`, a directory it may write and nothing else reads during the run. `porelo task proposals
    TASK` shows each proposal as a diff against the host's file, and `--approve NAME` writes it on the host, only then,
@@ -41,8 +46,3 @@ Read on 2026-10-21 in `HandIns`, `TaskGiveCommand`, `TaskTakeBackCommand`, `Task
   reading lets the agent change its own instructions; or (b) no way back: the agent says in its answer what it would
   change, and the person edits the file. Recommended: (a), since it is what the issue asks and the review stands
   between the task and the host.
-
-## To be checked
-
-- Whether a hand-in right after the start races the agent's first read of `/porelo/files`; if so, the files are
-  placed before the agent's process starts.

@@ -20,11 +20,17 @@ Read on 2026-10-21 in `ContainerSpec`, `TaskLaunch`, `GateSupport` and the Maven
    `porelo.yml`), with the project's egress, running the repository's dependency resolution, writing into
    `data/cache/<project>/<repository>/maven` and nothing else.
 2. **Read-only and shared in every task:** mounted at `/porelo/cache/maven` with `:ro,z`. `ContainerSpec` mounts every
-   volume with `:Z` today, a private label per container, which on an enforcing host would cut a shared directory off
-   from the other running tasks; a cache mount takes the shared `z`.
+   volume with `:Z` today, a private label per container, which on an enforcing host cuts a shared directory off from
+   the other running tasks; a cache mount takes the shared `z`. Measured on Fedora 44, SELinux enforcing, podman
+   5.8.1: two running containers both read a `:ro,z` mount as uid 1001, neither can write it, as root neither, and a
+   third container mounting the same directory with `:Z` leaves the first unable to read it (`Permission denied`).
 3. **Used without the task writing it:** Maven 3.9 reads a read-only second repository behind the local one
    (`maven.repo.local.tail`), so a task resolves from the cache and downloads what is missing into its own local
-   repository. Porelo sets it through `MAVEN_ARGS` in the task's environment.
+   repository. Porelo sets it through `MAVEN_ARGS` in the task's environment. Measured with Maven 3.9.15, which every
+   Porelo repository with a Maven wrapper pins: an offline build resolves wholly from a read-only tail and writes
+   nothing to its own repository; online, an artifact missing from the tail is downloaded into its own repository; the
+   tail's files, sizes and times are unchanged afterwards. `porelo-intellij` builds with Gradle and the interface with
+   Flutter, which the Maven cache does not reach.
 4. **When a fill runs - an open question below.**
 5. **Commands:** `porelo project cache fill <project> [-r <repository>]`, `porelo project cache status`, and the cache
    removed by `clear` and project deletion with the project.
@@ -42,9 +48,3 @@ Read on 2026-10-21 in `ContainerSpec`, `TaskLaunch`, `GateSupport` and the Maven
   here on the host side with a writable cache. (a) accept it, as [B192](README.md#b192) accepts the image build, or (b) resolve with a
   fixed Porelo-chosen goal set only (`dependency:go-offline` with plugins not executed beyond resolution).
   Recommended: (b) where Maven allows it, and (a) named as the exposure where it does not.
-
-## To be checked
-
-- That `maven.repo.local.tail` is honoured by the Maven version each Porelo repository's wrapper pins, and what a
-  repository with an older wrapper does with it.
-- That a `:ro,z` mount is readable by the task's user on Fedora with SELinux enforcing, and not writable.
