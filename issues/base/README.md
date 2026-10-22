@@ -121,6 +121,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b248"></a>[B248](B248-A-Base-URL-Without-The-Dialects-Path.md) | - | - | An agent definition says its agent adds the dialect's path itself, and gets the broker's address alone in `base_url_env`, where Antigravity CLI doubles `/v1beta` today |
 | <a id="b246"></a>[B246](B246-A-Task-Name-No-Other-Project-Shares.md) | - | - | A task's container name is one project's and one task's, where `porelo-a-b-c` today names project `a-b`'s task `c` and project `a`'s task `b-c`; proposed: `_` between them |
 
 ## Estimated
