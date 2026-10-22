@@ -378,9 +378,9 @@ public class TerminalSteps {
      *
      * @param name The project's name and directory.
      * @param securityClass Its class: {@code offline}, {@code guarded} or {@code online}.
-     * @param more YAML appended to the project file, right after its image block's {@code
-     *     base_image}: indented by two spaces it continues that block (a {@code snippet}),
-     *     unindented it starts its own ({@code egress}).
+     * @param more Additional YAML for the project file. A root-level {@code image:} supplies the
+     *     image block; otherwise, YAML follows the default {@code base_image}, so an indented
+     *     {@code snippet} continues that block and an unindented {@code egress} starts its own.
      * @throws IOException If the machine cannot be reached.
      */
     @Given("a project called {string} of class {string} whose project file also says:")
@@ -450,23 +450,25 @@ public class TerminalSteps {
                         + " "
                         // Double quotes, so the shell puts this account's home into it.
                         + (upstream == null ? "" : "\"  upstream: \\\"" + upstream + "\\\"\" ")
-                        + "'image:' '  base_image: \"ubuntu:24.04\"' > project.yml");
-        if (!more.isBlank()) {
-            world.run(
-                    "cd ~/"
-                            + name
-                            + " && printf '%s\\n' "
-                            + more.lines()
-                                    .map(Shell::quote)
-                                    .collect(java.util.stream.Collectors.joining(" "))
-                            + " >> project.yml");
-        }
+                        + projectImage(more)
+                                .lines()
+                                .map(Shell::quote)
+                                .collect(java.util.stream.Collectors.joining(" "))
+                        + " > project.yml");
         world.run("cd ~/" + name + " && git add -A && git commit -q -m initial");
         final Ssh.Output followed =
                 world.run("porelo project follow " + name + " ~/" + name + " --unverified");
         // Said here rather than at the first task start, which is minutes later and reads as a
         // broken build.
         assertThat(followed.status()).as("following %s failed:%n%s", name, followed.all()).isZero();
+    }
+
+    /** Builds the project's image block and the scenario's additional YAML. */
+    static String projectImage(String more) {
+        if (more.lines().anyMatch(line -> line.startsWith("image:"))) {
+            return more;
+        }
+        return "image:\n  base_image: \"ubuntu:24.04\"\n" + (more.isBlank() ? "" : more);
     }
 
     /** Left inside a fixture's .git, never committed: what says a directory is one a run made. */

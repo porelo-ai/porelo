@@ -44,6 +44,7 @@ from its side, as *blocked by*.
 | <a id="b238"></a>[B238](B238-An-Unfollow-Leaves-Nothing-Of-The-Project.md) | XS | - | `project unfollow` removes the project's build lock and upstream copies, which `porelo prune` finds left over today |
 | <a id="b239"></a>[B239](B239-The-Hooks-Run-Nft-By-A-Fixed-Path.md) | M | - | The hooks run `nsenter` and `nft` from fixed, root-owned paths, never through the caller's `PATH`, which today decides which `nft` loads a task's firewall |
 | <a id="b245"></a>[B245](B245-An-Attach-Asks-For-The-Model-Of-The-Start.md) | M | - | `task attach` after a detached start asks the agent for the `--model` the start named, where today it runs on its default because the task profile keeps no model |
+| <a id="b243"></a>[B243](B243-A-Kit-Project-That-Names-Its-Base-Image.md) | S | - | The acceptance kit's project step takes a base image of the scenario's own, where today an `image` mapping is a second root key |
 
 ## Backlog
 
@@ -59,7 +60,6 @@ from its side, as *blocked by*.
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes. |
 | <a id="b215"></a>[B215](B215-A-Helper-Started-With-A-UTF-8-Locale.md) | XS | - | A transport and the message filter run with `LANG=C.UTF-8` where porelod has no locale, so a non-ASCII argument or path reaches them whole |
 | <a id="b235"></a>[B235](B235-A-Dry-Run-Shows-The-Agents-Refusals.md) | S | - | `task start --dry-run` names a host the agent refuses as refused, where today it lists it as reachable and the running task refuses it |
-| <a id="b243"></a>[B243](B243-A-Kit-Project-That-Names-Its-Base-Image.md) | S | - | The acceptance kit's project step takes a base image of the scenario's own, where today an `image` mapping is a second root key |
 | <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
 | <a id="b216"></a>[B216](B216-A-Second-Setup-Says-Nothing-Changed.md) | M | - | A second `porelo-setup.sh` run changes nothing and says so, as a last line and in `--json`, so a playbook reports it truly |
 | <a id="b244"></a>[B244](B244-The-Loop-Watch-Sees-A-Compact-Screen.md) | M | - | The acceptance kit's loop watch stops a scenario on a repeated failed tool call also for an agent that redraws a compact view, where today Codex CLI's ran to its bound |

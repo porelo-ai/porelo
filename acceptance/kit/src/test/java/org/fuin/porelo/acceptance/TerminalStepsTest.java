@@ -9,6 +9,35 @@ import org.junit.jupiter.api.Test;
 class TerminalStepsTest {
 
     @Test
+    void aScenarioThatNamesAnImageOfItsOwnIsTheOnlyImageInTheProjectFile() {
+        final String more =
+                """
+                egress:
+                  mode: deny
+                image: # The scenario chooses the base.
+                  base_image: "ubuntu:24.04@sha256:%s"
+                """
+                        .formatted("a".repeat(64));
+
+        assertThat(TerminalSteps.projectImage(more))
+                .as("the scenario's image must not be refused as a duplicate image key")
+                .isEqualTo(more);
+    }
+
+    @Test
+    void aScenarioWithAnIndentedSnippetKeepsTheDefaultBaseImage() {
+        final String more =
+                """
+                  snippet: |
+                    image: this is snippet content
+                """;
+
+        assertThat(TerminalSteps.projectImage(more))
+                .as("an indented snippet must remain inside the default image block")
+                .isEqualTo("image:\n  base_image: \"ubuntu:24.04\"\n" + more);
+    }
+
+    @Test
     void refusesAProjectNameThatWouldDeleteTheHomeItLivesIn() {
         assertThatThrownBy(() -> TerminalSteps.projectName(".."))
                 .isInstanceOf(IllegalArgumentException.class);
