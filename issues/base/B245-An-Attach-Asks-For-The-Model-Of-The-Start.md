@@ -28,16 +28,14 @@ Read in `TaskRunCommand`, `TaskProfile`, `TaskSession.attachedAgent`, `TaskLaunc
    small seam taking the definition, the model and the session id; then
    `TaskLabelTest.aRelabeledProfileKeepsTheModelItWasStartedWith`.
 
+**Decided:**
+- `task run --model Y` reaching a task started with model X is refused, naming X, as a start's other values are refused on a resume.
+
 ## Acceptance
 
 - After `task run --detach --model <name>` and `task attach`, the agent's command line carries its model flag with
   that name, a continued session too. Seen to fail first on today's code.
 - A profile an older Porelo wrote attaches on the agent's default model.
-
-## Open questions
-
-- **`task run --model Y` reaching a task started with model X:** Y replaces the recorded model, or the run is
-  refused. Recommended: refused, naming X, as a start's other values are refused on a resume.
 
 ## To be checked
 

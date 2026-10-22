@@ -27,19 +27,15 @@ package names.
 3. **Red first:** `ProjectInventoryCommandTest.writesEachTransportTheProjectUsesWithItsPackage`, then
    `writesNoTransportsForAProjectWithoutMail`.
 
+**Decided:**
+- The homeserver package is left to porelo-host's play; the inventory names transports only.
+- A machine file names no transport's package; the default `porelo-message-transport-<scheme>` holds.
+
 ## Acceptance
 
 - `project inventory` on a project with a Matrix conversation lists `porelo-message-transport-matrix` under
   `porelo_transports`. Seen to fail first: the key is absent.
 - A project without `mail` lists none, and the version stays 1.
-
-## Open questions
-
-- **The homeserver package:** Porelo cannot tell when a host needs `porelo-matrix-homeserver` without reading a
-  transport's own settings, which a decision forbids. (a) left to porelo-host's play, (b) always listed beside a
-  transport that offers one, or (c) a machine-file key. Recommended: (a).
-- **Whether a machine file may name a transport's package**, as it may an agent's. Recommended: not until a second
-  package exists for one scheme.
 
 ## To be checked
 

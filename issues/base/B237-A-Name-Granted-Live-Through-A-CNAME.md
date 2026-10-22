@@ -1,6 +1,6 @@
 # B237 — A Name Granted Live Through A CNAME
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** S - `ResolvedNames` in `shield` and its caller `ShieldWatchCommand`, maybe `ClearanceHub`; no contract.
 
 **What must be true.** A name granted to a running task is reached as it is when the project names it at the start,
@@ -31,18 +31,15 @@ Read in `DnsPolicy`, `RunningEgress`, `ResolvedNames`, `ShieldWatchCommand`, `Cl
    and narrowing it later finds its addresses.
 4. **Red first:** `ResolvedNamesTest.namesTheNameAskedForWhenTheAnswerCameThroughACname`.
 
+**Decided:**
+- A live grant overrides an earlier verdict for the address only where no person gave it, a timeout or a limit; a person's deny stays.
+
 ## Acceptance
 
 - In a task on the VM, `fuinorg.jfrog.io` granted live answers 200 on the second try, with one drop at most in
   `events.jsonl`. Seen to fail first: today's 40 s timeout.
 - `--remove-domain fuinorg.jfrog.io` afterwards removes its addresses; a name without a CNAME granted live still
   works.
-
-## Open questions
-
-- **Whether a live grant overrides an earlier verdict for the same address.** Over a prompt that timed out or a
-  limit, it is safe; over a person's explicit deny, it is a choice of risk. Recommended: over a timeout or a limit
-  only.
 
 ## To be checked
 

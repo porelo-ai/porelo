@@ -1,6 +1,6 @@
 # B216 — A Second Setup Says Nothing Changed
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** M - one shell script, but a `--json` answer porelo-host's role reads, docs in `doc/running.md` and `doc/hosts.md`, and tests that stub the machine.
 
 **What must be true.** `porelo-setup.sh` run on a machine it already prepared changes nothing, and says so in a
@@ -40,18 +40,15 @@ Read in `dist/dist-setup/porelo-setup.sh` and `SetupScriptChannelTest`.
 5. **Red first:** `SetupScriptChannelTest.aShownRunOnAPreparedMachineEndsSayingNothingWouldChange`, with stand-ins for
    `id`, `loginctl`, `dpkg-query` and `apt-cache` and the script's fixed paths overridden for the test.
 
+**Decided:**
+- A second run upgrades nothing: it installs only what is missing, and says when an installed package is older than the repository offers.
+
 ## Acceptance
 
 - On a prepared machine, stubbed, the last line says nothing would change and no install is shown. Seen to fail
   first: `apt-get install` is shown today.
 - `--json` without `--list` gives one object with `changed` and `parts`; on the VM a second real run reports
   `"changed": false` and the package versions are the same before and after.
-
-## Open questions
-
-- **Whether a second run upgrades an installed package** - porelo itself too - when the repository offers a newer
-  one, and says `changed: packages`. The script says today it does not update a machine; yes means every `up` can
-  roll a host to a newer porelo. Recommended: no, install only what is missing, and say an older one is there.
 
 ## To be checked
 

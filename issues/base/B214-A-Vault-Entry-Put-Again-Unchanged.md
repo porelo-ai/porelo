@@ -1,6 +1,6 @@
 # B214 — A Vault Entry Put Again Unchanged
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** M - two modules (`vault`, `app-vault`) and a `--json` answer porelo-host's play reads, with a row in `doc/hosts.md`.
 
 **What must be true.** `porelo vault put NAME` given exactly the value the entry already holds says so and exits 0,
@@ -38,18 +38,15 @@ Read in `VaultPutCommand`, `VaultFile`, `VaultEntry`, `GrantEntry`, `VaultStatus
 5. **Red first:** `VaultFileTest.anUpdateThatChangesNothingLeavesTheFileByteForByte`, then
    `VaultPutCommandTest.aValueTheEntryAlreadyHoldsIsSaidUnchangedAndWritesNothing`.
 
+**Decided:**
+- A second `put` without `--type` after one that stored a type is a change and overwrites, as now: a put states the whole entry.
+
 ## Acceptance
 
 - The same value put twice, by standard input and by `--from-file`, answers `unchanged NAME`, exit 0, and the vault
   file's bytes are unchanged. Seen to fail first: the nonce changes them today.
 - A different value, `--type` or `--setting` answers `stored`; `--json` holds `name` and `stored` and no part of the
   value.
-
-## Open questions
-
-- **A second `put` without `--type`** after a first that stored one: today it clears the type. Counted as a change
-  and overwritten as now, or does an omitted `--type` keep the stored one? Recommended: a change, as now, since a
-  put states the whole entry.
 
 ## To be checked
 

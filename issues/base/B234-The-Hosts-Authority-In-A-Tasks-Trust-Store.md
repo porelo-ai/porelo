@@ -27,21 +27,17 @@ Read in `TrustedCertificates`, `TaskLaunch`, `VaultAuthorizeCommand`, `VaultServ
 3. **Docs:** where `ca-certificates.pem` is described, that a task trusts it too.
 4. **Red first:** `ContainerSpecTest.mountsAFileReadOnlyAndRelabelsItForThisContainerAlone`.
 
+**Decided:**
+- A task trusts a separate file kept for tasks, never the host clients' `ca-certificates.pem`, so trusting the host's forge does not make a task trust an inspecting proxy.
+- The authority is added by a step at each start, never as a layer of the image.
+- A JVM not wired to the system store is out of scope.
+
 ## Acceptance
 
 - With an authority in that file, `git ls-remote` and `curl` to a host service under it succeed in a task on
   `ubuntu:24.04` and on a Fedora base. Seen to fail first: "unable to get local issuer certificate".
 - A second task alongside still reads its copy, the operator's file keeps its label, and without the file nothing is
   mounted or run.
-
-## Open questions
-
-- **The same file holds the host's corporate authorities**, a TLS-inspecting one included: does a task trust all of
-  it, or a separate file kept for tasks? Recommended: a separate file, so trusting the host's forge does not make
-  every task trust an inspecting proxy.
-- **A step at each start, or a layer of the image** (which then depends on a host file, and a change rebuilds every
-  project). Recommended: the start.
-- **A JVM not wired to the system store** (an SDK manager's, a vendor image's): in scope? Recommended: not here.
 
 ## To be checked
 

@@ -1,6 +1,6 @@
 # B238 — An Unfollow Leaves Nothing Of The Project
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** XS - one file, `ProjectDeletion`, and its test; the kinds `BUILD` and `UPSTREAM_RECORD` exist, so no contract.
 
 **What must be true.** `porelo project unfollow` removes what Porelo kept for building and fetching the project, so

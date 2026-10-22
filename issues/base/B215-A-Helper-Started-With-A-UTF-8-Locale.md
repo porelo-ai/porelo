@@ -1,6 +1,6 @@
 # B215 — A Helper Started With A UTF-8 Locale
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** XS - one file in `app-base`, `HelperEnvironment`, and its test; a change to `app-base` is said in the channel first.
 
 **What must be true.** A transport and the message filter, which porelod starts, run with a UTF-8 locale even where
@@ -37,16 +37,13 @@ Read in `HelperEnvironment`, `Command.withChosenEnvironment`, `porelod.service` 
 3. **Red first:** `HelperEnvironmentTest.aCallerWithNoLocaleHandsAHelperCUtf8`, then
    `aLocaleTheCallerSetsPassesUnchanged`; the existing test of what passes gains `LANG`.
 
+**Decided:**
+- porelod's own locale is out of scope: only the helpers it starts get `LANG=C.UTF-8`.
+
 ## Acceptance
 
 - A helper started from an environment with no locale gets `LANG=C.UTF-8`. Seen to fail first.
 - `LC_ALL`, `LC_CTYPE` or `LANG` set passes unchanged and no `LANG` is added.
-
-## Open questions
-
-- **Whether porelod itself is out of scope.** It is a Java process in the same C locale, so its own reading of a
-  non-ASCII path stays wrong; setting a locale in `porelod.service` would override the machine's, which this issue
-  forbids. Recommended: out of scope here, an issue of its own if a path with such characters is seen.
 
 ## To be checked
 

@@ -29,22 +29,17 @@ Read in `LoopbackMapping`, `GateWiring`, `NftRuleset`, `DnsPolicy`, `TaskRunner`
 4. **Red first:** `DnsPolicyTest.answersAHostServiceWithTheHostsAddressAndAsksNoUpstream`, then
    `NftRulesetTest.opensAHostServiceOn443AndNoOtherPortOfTheHost`.
 
+**Decided:**
+- Host-local names are said in the signed `project.yml`, one key for every machine following the project.
+- Port 443 only.
+- It holds in `offline` too, as the gate does.
+- The exposure - whatever listens on the host's loopback 443 is reachable by every task that names it - is accepted and named in `doc/decisions.md`.
+
 ## Acceptance
 
 - In a task, `curl https://<declared name>/` reaches a service on the host's 443, and `getent hosts <name>` answers the
   mapped address. Seen to fail first: NXDOMAIN today.
 - Another port of the host is dropped and logged; an undeclared name still answers NXDOMAIN.
-
-## Open questions
-
-- **Where "this name is the host" is said:** in the signed `project.yml`, one key for every machine following the
-  project, or on the host's side, as a fact of one host. Recommended: `project.yml`, since the forge's name is the
-  project's.
-- **Port 443 only, or a declared port.** Recommended: 443 only.
-- **Whether it holds in `offline`**, as the gate does: it fits "nothing leaves the host" and widens what such a task
-  reaches. Recommended: yes.
-- **The exposure:** whatever listens on the host's loopback 443 is reachable by every task that names it; accepted
-  in `doc/decisions.md`? Recommended: accepted, named.
 
 ## To be checked
 

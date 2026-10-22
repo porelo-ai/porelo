@@ -98,15 +98,6 @@ from its side, as *blocked by*.
 | <a id="b179"></a>[B179](B179-A-Code-Beside-Why-A-Release-Cannot-Go.md) | M | - | A code beside `detail` when a release is answered `NOT_DELIVERABLE`, so a client can say what to do per case. | 0 |
 | <a id="b230"></a>[B230](B230-The-Package-Provides-The-Lowest-Agent-Protocol.md) | M | `porelo` [B224](README.md#b224) | The `.deb` and `.rpm` provide `porelo-agent-protocol-<LOWEST>`, held to `AgentProtocol.LOWEST` by a test, so an agent's package refuses only what `porelo` refuses. | 0 |
 | <a id="b231"></a>[B231](B231-The-Usage-Records-Kept-Off-The-Machine.md) | M | `porelo` [B148](README.md#b148) | `porelo keep <dir>` copies the usage records up to their last complete line, `keep --restore <dir>` puts them back before a task runs and never shortens one. | 0 |
-| <a id="b238"></a>[B238](B238-An-Unfollow-Leaves-Nothing-Of-The-Project.md) | XS | - | `project unfollow` removes the project's build lock and upstream copies, which `porelo prune` finds left over today | 0 |
-| <a id="b215"></a>[B215](B215-A-Helper-Started-With-A-UTF-8-Locale.md) | XS | - | A transport and the message filter run with `LANG=C.UTF-8` where porelod has no locale, so a non-ASCII argument or path reaches them whole | 1 |
-| <a id="b235"></a>[B235](B235-A-Dry-Run-Shows-The-Agents-Refusals.md) | S | - | `task start --dry-run` names a host the agent refuses as refused, where today it lists it as reachable and the running task refuses it | 2 |
-| <a id="b237"></a>[B237](B237-A-Name-Granted-Live-Through-A-CNAME.md) | S | - | A name granted to a running task that answers through a CNAME is reached as it is when named at the start, where today its connections are dropped | 1 |
-| <a id="b243"></a>[B243](B243-A-Kit-Project-That-Names-Its-Base-Image.md) | S | - | The acceptance kit's project step takes a base image of the scenario's own, where today an `image` mapping is a second root key | 0 |
-| <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed | 1 |
-| <a id="b216"></a>[B216](B216-A-Second-Setup-Says-Nothing-Changed.md) | M | - | A second `porelo-setup.sh` run changes nothing and says so, as a last line and in `--json`, so a playbook reports it truly | 1 |
-| <a id="b244"></a>[B244](B244-The-Loop-Watch-Sees-A-Compact-Screen.md) | M | - | The acceptance kit's loop watch stops a scenario on a repeated failed tool call also for an agent that redraws a compact view, where today Codex CLI's ran to its bound | 2 |
-| <a id="b210"></a>[B210](B210-Build-Plugins-Without-Their-Known-Advisories.md) | L | - | The plugins porelo-parent versions carry no dependency with a known advisory: newer releases where they exist, fixed dependencies where not; [B99](#b99)'s signing waits for the bouncycastle move. | 1 |
 
 ## Accepted
 
@@ -174,6 +165,15 @@ from its side, as *blocked by*.
 | <a id="b196"></a>[B196](B196-The-Fedora-Repository-Checked-By-Its-Key.md) | S | - | On Fedora the setup script writes the repository with `gpgcheck=0`; it is to be checked against the pinned package key, as on Debian and Ubuntu. |
 | <a id="b197"></a>[B197](B197-A-Push-To-A-Slow-Forge-Has-A-Bound.md) | M | - | A push the gate passes on to a forge that is slow or down ends within `limits.pass_on` of the project file, two minutes unless set, with a named refusal that the forge did not answer. |
 | <a id="b219"></a>[B219](B219-A-Private-Package-Repository-Through-The-Broker.md) | L | - | A task reads a company's authenticated package repository through a second, token-less broker on its own socket and relay: GET and HEAD under a declared prefix, the vault's credential added, no credential or phantom token in the task. |
+| <a id="b238"></a>[B238](B238-An-Unfollow-Leaves-Nothing-Of-The-Project.md) | XS | - | `project unfollow` removes the project's build lock and upstream copies, which `porelo prune` finds left over today |
+| <a id="b215"></a>[B215](B215-A-Helper-Started-With-A-UTF-8-Locale.md) | XS | - | A transport and the message filter run with `LANG=C.UTF-8` where porelod has no locale, so a non-ASCII argument or path reaches them whole |
+| <a id="b235"></a>[B235](B235-A-Dry-Run-Shows-The-Agents-Refusals.md) | S | - | `task start --dry-run` names a host the agent refuses as refused, where today it lists it as reachable and the running task refuses it |
+| <a id="b237"></a>[B237](B237-A-Name-Granted-Live-Through-A-CNAME.md) | S | - | A name granted to a running task that answers through a CNAME is reached as it is when named at the start, where today its connections are dropped |
+| <a id="b243"></a>[B243](B243-A-Kit-Project-That-Names-Its-Base-Image.md) | S | - | The acceptance kit's project step takes a base image of the scenario's own, where today an `image` mapping is a second root key |
+| <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
+| <a id="b216"></a>[B216](B216-A-Second-Setup-Says-Nothing-Changed.md) | M | - | A second `porelo-setup.sh` run changes nothing and says so, as a last line and in `--json`, so a playbook reports it truly |
+| <a id="b244"></a>[B244](B244-The-Loop-Watch-Sees-A-Compact-Screen.md) | M | - | The acceptance kit's loop watch stops a scenario on a repeated failed tool call also for an agent that redraws a compact view, where today Codex CLI's ran to its bound |
+| <a id="b210"></a>[B210](B210-Build-Plugins-Without-Their-Known-Advisories.md) | L | - | The plugins porelo-parent versions carry no dependency with a known advisory: newer releases where they exist, fixed dependencies where not; [B99](#b99)'s signing waits for the bouncycastle move. |
 
 ## Finished
 

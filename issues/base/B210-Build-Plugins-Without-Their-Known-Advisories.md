@@ -1,6 +1,6 @@
 # B210 — Build Plugins Without Their Known Advisories
 
-**Status:** Analyzed.
+**Status:** Estimated.
 **Size:** L - the change is in `porelo-parent`, whose snapshot reaches every Maven repository at once, each to be checked whole on it.
 
 **What must be true.** No Maven plugin that porelo-parent versions carries a dependency with a known advisory, where a
@@ -72,17 +72,14 @@ Read in `porelo-parent`'s `pom.xml` and its `test/` scripts.
 4. **Red first:** a new `test/plugin-dependencies-fixed.sh` in porelo-parent, beside `test/child-publishes.sh`,
    reading a child's effective POM for each version and override, and the site pin. It fails on today's parent.
 
+**Decided:**
+- A plugin that works only on its old library may stay behind, named as an accepted risk in `doc/decisions.md` with the advisories it keeps.
+
 ## Acceptance
 
 - The OSV reading run again on a locally installed parent shows no plugin dependency with an advisory that a
   fix three days old exists for. Seen first: the jackson 2.17.2 and bouncycastle 1.77 hits on today's parent.
 - Every Maven repository's whole check passes on the parent snapshot, and porelo's packages are still produced.
-
-## Open questions
-
-- **A plugin that works only on the old library** - cyclonedx 2.9.3 on cyclonedx-core-java 11, a major step from
-  9.0.5 - may stay behind as an accepted risk in `doc/decisions.md`, or blocks the move. Recommended: stays behind,
-  named, since no Build hands it network input.
 
 ## To be checked
 

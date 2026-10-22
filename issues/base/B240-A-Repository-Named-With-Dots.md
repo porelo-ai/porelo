@@ -28,17 +28,14 @@ Read in `Repository`, `DefaultProject`, `RepositoryAddress`, `GateSupport`, `Ima
 4. **Red first:** `RepositoriesTest.aRepositoryNamedWithDotsIsAccepted`, then
    `aRepositoryNameWithTwoDotsOrALeadingDotIsRefused`.
 
+**Decided:**
+- A name ending in a hyphen is refused from now on, since its image cannot be built anyway; the refusal names the rule.
+
 ## Acceptance
 
 - A project naming `porelo-ai.github.io` reads, and its task's image is `porelo/<project>_porelo-ai.github.io` and its
   mirror `porelo-ai.github.io.git`. Seen to fail first: the refusal today.
 - `..x`, `.x`, `x.` and `a.-b` are still refused.
-
-## Open questions
-
-- **A name ending in a hyphen** is accepted today and is not valid at the end of an image name. Refused from now
-  on, which may refuse an existing project file, or left. Recommended: refused, since such an image cannot be built
-  anyway.
 
 ## To be checked
 

@@ -33,17 +33,14 @@ Read in `Containerfile`, `Project` and `doc/project-file.md`.
    rewrite with `/bin/sh` on copies of Debian's and Ubuntu's `.sources`; then
    `rewritesTheDebianStanzaButNotTheSecurityOneForADebianMirror`.
 
+**Decided:**
+- A source without an archive path, such as an apt cache, replaces every stanza's `URIs:` as today; one with a path replaces only the stanzas of that archive.
+
 ## Acceptance
 
 - `python:3.13-slim` builds with no `package_sources`, and with `http://deb.debian.org/debian/` it builds and still
   reads `trixie-security` from Debian's security archive. Seen to fail first: both refusals measured today.
 - `ubuntu:24.04` with the default still fetches from the Azure mirror.
-
-## Open questions
-
-- **A source without an archive path**, such as an apt cache at `http://proxy:3142/`, matches no stanza under this
-  rule and would change nothing. Is the same last segment the rule, or does such a source replace every stanza as
-  today? Recommended: such a source replaces every stanza, as today.
 
 ## To be checked
 
