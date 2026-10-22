@@ -1,6 +1,6 @@
 # B247 — A Session Directory Outside The Home
 
-**Status:** Analyzed.
+**Status:** Implementing.
 **Size:** S - one check in the agent API's `SessionIds` and one path in `TaskSession`, their tests and a line of `agents/README.md`; the agent API only grows.
 
 **What must be true.** An agent definition's `session.session_id.directory` may be an absolute path in the container,

@@ -144,11 +144,12 @@ public final class TaskSession {
         if (ids.directory() == null || ids.suffix() == null) {
             return Optional.empty();
         }
-        // Both words are refused at load unless they are plain path characters, so nothing here is
-        // quoting.
+        // Validation excludes shell metacharacters while allowing the home variable to expand.
+        final String directory =
+                ids.directory().startsWith("/") ? ids.directory() : "$HOME/" + ids.directory();
         final String script =
-                "find \"$HOME/"
-                        + ids.directory()
+                "find \""
+                        + directory
                         + "\" -type f -name '*"
                         + ids.suffix()
                         + "' -exec ls -t {} + 2>/dev/null | head -n 1";

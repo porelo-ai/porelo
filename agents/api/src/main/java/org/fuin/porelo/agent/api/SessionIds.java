@@ -21,8 +21,8 @@ import org.jspecify.annotations.Nullable;
  *     output does not name it.
  * @param key The field of that record holding the id, a dotted path too, or {@code null} with an
  *     empty {@code record}.
- * @param directory Where an attached agent keeps its session files, relative to its home directory,
- *     or {@code null} when it keeps none Porelo can read.
+ * @param directory Where an attached agent keeps its session files, absolute or relative to its
+ *     home directory, or {@code null} when it keeps none Porelo can read.
  * @param suffix What a session file's name ends in; the rest of the name is the id, and the newest
  *     such file names the session. {@code null} with a {@code null} directory.
  * @param fileRecord The record a session file names its session in, when it differs from a run's;
@@ -103,14 +103,11 @@ public record SessionIds(
         }
         if (directory != null
                 && (directory.isBlank()
-                        || directory.startsWith("/")
                         || directory.contains("..")
                         || !directory.matches("[A-Za-z0-9._/-]+"))) {
-            // It reaches a command run in the container, so only what a path under the home needs.
+            // It reaches a shell command in the container, so only plain path characters are safe.
             throw new AgentException(
-                    "A session directory is a plain path under the agent's home, not '"
-                            + directory
-                            + "'");
+                    "A session directory is a plain path, not '" + directory + "'");
         }
         if (suffix != null && (suffix.isBlank() || !suffix.matches("[A-Za-z0-9._-]+"))) {
             throw new AgentException(

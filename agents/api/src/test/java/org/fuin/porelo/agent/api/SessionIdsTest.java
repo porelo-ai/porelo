@@ -1,6 +1,7 @@
 package org.fuin.porelo.agent.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.StringReader;
@@ -83,14 +84,38 @@ class SessionIdsTest {
     }
 
     @Test
-    void aDirectoryIsAPlainPathUnderTheHomeBecauseItReachesACommand() {
-        for (final String bad : new String[] {"/etc", "../x", "a b", "$(id)", "a;b", ""}) {
+    void aDirectoryIsAPlainPathBecauseItReachesACommand() {
+        for (final String bad : new String[] {"../x", "a b", "$(id)", "a;b", ""}) {
             assertThatThrownBy(() -> new SessionIds(Map.of(), null, bad, ".jsonl"))
                     .as("'%s'", bad)
                     .isInstanceOf(AgentException.class);
         }
         assertThatThrownBy(() -> new SessionIds(Map.of(), null, ".x", "*.jsonl"))
+                .as("a suffix cannot introduce a shell wildcard")
                 .isInstanceOf(AgentException.class);
+    }
+
+    @Test
+    void anAbsoluteSessionDirectoryIsAPlainPathToo() {
+        for (final String bad : new String[] {"/a/../b", "/a b"}) {
+            assertThatThrownBy(() -> new SessionIds(Map.of(), null, bad, ".jsonl"))
+                    .as("'%s' must not reach the container's shell command", bad)
+                    .isInstanceOf(AgentException.class);
+        }
+        assertThatCode(
+                        () ->
+                                read(
+                                        MINIMAL
+                                                + """
+                session:
+                  supports_resume: true
+                  resume_flag: "--resume"
+                  session_id:
+                    directory: "/var/lib/example/agent/sessions/--workspace--"
+                    suffix: ".jsonl"
+                """))
+                .as("an absolute plain path can name an attended agent's session directory")
+                .doesNotThrowAnyException();
     }
 
     @Test

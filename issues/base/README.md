@@ -38,6 +38,7 @@ from its side, as *blocked by*.
 | <a id="b242"></a>[B242](B242-An-Agents-Records-Read-By-A-Nested-Key.md) | M | - | An agent definition reads its session id and last message by a dotted key, and a session file by its own record, as Codex CLI writes them; the agent API only grows |
 | <a id="b240"></a>[B240](B240-A-Repository-Named-With-Dots.md) | S | - | A project names a repository by its real name, dots included, where today `porelo-ai.github.io` is refused |
 | <a id="b173"></a>[B173](B173-An-Agents-Sign-In-Kept-Without-A-Person.md) | S | - | `vault login <agent> --credentials-from <dir>`: an agent's sign-in read through its extractor and kept renewable without a person; `--token-url` on loopback only, for a kit's stand-in token endpoint. |
+| <a id="b247"></a>[B247](B247-A-Session-Directory-Outside-The-Home.md) | S | - | An agent definition's session directory may be an absolute path in the container, where Pi keeps its sessions out of the agent's home; a relative one stays under the home |
 
 ## Backlog
 
@@ -105,7 +106,6 @@ from its side, as *blocked by*.
 | <a id="b179"></a>[B179](B179-A-Code-Beside-Why-A-Release-Cannot-Go.md) | M | - | A code beside `detail` when a release is answered `NOT_DELIVERABLE`, so a client can say what to do per case. | 0 |
 | <a id="b230"></a>[B230](B230-The-Package-Provides-The-Lowest-Agent-Protocol.md) | M | `porelo` [B224](README.md#b224) | The `.deb` and `.rpm` provide `porelo-agent-protocol-<LOWEST>`, held to `AgentProtocol.LOWEST` by a test, so an agent's package refuses only what `porelo` refuses. | 0 |
 | <a id="b231"></a>[B231](B231-The-Usage-Records-Kept-Off-The-Machine.md) | M | `porelo` [B148](README.md#b148) | `porelo keep <dir>` copies the usage records up to their last complete line, `keep --restore <dir>` puts them back before a task runs and never shortens one. | 0 |
-| <a id="b247"></a>[B247](B247-A-Session-Directory-Outside-The-Home.md) | S | - | An agent definition's session directory may be an absolute path in the container, where Pi keeps its sessions out of the agent's home; a relative one stays under the home | 0 |
 
 ## Accepted
 

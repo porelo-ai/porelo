@@ -1,0 +1,2 @@
+title: "An agent definition's session directory may be an absolute path in the container, where an agent keeps its sessions out of its own home"
+type: added

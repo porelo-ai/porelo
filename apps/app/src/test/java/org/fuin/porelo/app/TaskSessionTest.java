@@ -114,6 +114,23 @@ class TaskSessionTest {
     }
 
     @Test
+    void anAbsoluteSessionDirectoryIsLookedInAsItIs() {
+        final SessionIds ids =
+                new SessionIds(Map.of(), null, "/var/lib/example/agent/sessions", ".session");
+        runner.answering("find", "/var/lib/example/agent/sessions/--workspace--/s-77.session\n");
+
+        assertThat(new TaskSession(context()).fromFiles(TASK, ids))
+                .as("the newest file in the absolute directory names the session to continue")
+                .contains("s-77");
+        assertThat(runner.invocations())
+                .as("the container searches the absolute directory without prepending its home")
+                .first()
+                .asString()
+                .contains("find \"/var/lib/example/agent/sessions\"")
+                .doesNotContain("$HOME/");
+    }
+
+    @Test
     void theIdIsReadFromInsideTheNewestFileWhenItsNameIsNotOne() {
         runner.answering(
                 "find", "/home/agent/.sessions/project/2026-09-29T10-00-00_s-88.session\n");
