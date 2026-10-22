@@ -106,6 +106,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b245"></a>[B245](B245-An-Attach-Asks-For-The-Model-Of-The-Start.md) | - | - | `task attach` after a detached start asks the agent for the `--model` the start named, where today it runs on its default because the task profile keeps no model |
 | <a id="b240"></a>[B240](B240-A-Repository-Named-With-Dots.md) | - | - | A project names a repository by its real name, dots included, where today `porelo-ai.github.io` is refused |
 | <a id="b241"></a>[B241](B241-A-Debian-Base-Image-Builds.md) | - | - | A Debian base image builds: the default mirror is Ubuntu's alone, and a replacement leaves the security stanza as it was; today no value builds `python:3.13-slim` |
 | <a id="b244"></a>[B244](B244-The-Loop-Watch-Sees-A-Compact-Screen.md) | - | - | The acceptance kit's loop watch stops a scenario on a repeated failed tool call also for an agent that redraws a compact view, where today Codex CLI's ran to its bound |
