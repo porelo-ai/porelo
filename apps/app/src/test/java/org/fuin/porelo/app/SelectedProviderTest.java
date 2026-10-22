@@ -183,6 +183,58 @@ class SelectedProviderTest {
     }
 
     @Test
+    void googleIsReachedWithItsApiKeyAndRefusesASignIn() {
+
+        // Its own wire format comes first so a 'native' agent gets '/v1beta'; a sign-in sent here
+        // would fail in the task.
+        final ProviderDefinition google = shipped().get("google");
+        final AgentDefinition native_ =
+                agent(
+                        """
+                provider:
+                  default: google
+                  dialect: native
+                  endpoint: url
+                """);
+        final AgentDefinition googleDialect =
+                agent(
+                        """
+                provider:
+                  default: google
+                  dialect: google-generative-ai
+                  endpoint: url
+                """);
+
+        assertThat(google).as("google is shipped").isNotNull();
+        assertThat(google.upstreamHost())
+                .as("upstream host")
+                .isEqualTo("generativelanguage.googleapis.com");
+        assertThat(google.nativeDialect())
+                .as("its own format is first so native gets it")
+                .isEqualTo("google-generative-ai");
+        assertThat(google.authHeaderFor("api-key")).as("key header").isEqualTo("x-goog-api-key");
+        assertThat(google.authPrefixFor("api-key")).as("no prefix on x-goog-api-key").isEmpty();
+        assertThat(google.tokenVariable("api-key"))
+                .as("token variable")
+                .isEqualTo("GEMINI_API_KEY");
+        assertThat(google.unbrokerableReason("api-key")).as("the key is brokered").isNull();
+        assertThat(google.unbrokerableReason("oauth"))
+                .as("a sign-in is refused before a start")
+                .contains("porelo vault put google");
+        for (final AgentDefinition agent : java.util.List.of(native_, googleDialect)) {
+            assertThat(
+                            SelectedProvider.choose(shipped(), agent, null)
+                                    .route()
+                                    .endpointFor("http://127.0.0.1:9419"))
+                    .as("dialect %s", agent.provider().dialect())
+                    .isEqualTo("http://127.0.0.1:9419/v1beta");
+        }
+        assertThat(google.dialects())
+                .as("its OpenAI-compatible path answers 404 to x-goog-api-key, so it is not served")
+                .doesNotContainKey("openai");
+    }
+
+    @Test
     void twoAgentsReachTheSameProviderWithoutEitherDescribingIt() {
 
         // The whole point. Anthropic is declared once; an agent speaking its dialect and an agent

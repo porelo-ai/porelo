@@ -1,0 +1,2 @@
+title: "Porelo ships the provider `google`: Google's API in its own format under `/v1beta`, reached with an API key in `x-goog-api-key`"
+type: added

@@ -1,0 +1,23 @@
+# Google. Reached by its own agent and by provider-agnostic agents, in its own wire format. Its keys are
+# made at https://ai.google.dev. Its OpenAI-compatible path takes the key only as 'Authorization: Bearer'
+# and answers 404 to 'x-goog-api-key', so it is not served here.
+name: google
+label: Google
+upstream: https://generativelanguage.googleapis.com
+
+# The dialect this provider *is* comes first, so an agent asking for 'native' gets it.
+dialects:
+    google-generative-ai: "/v1beta"
+
+auth_header:
+    _default: x-goog-api-key
+auth_prefix:
+    _default: ""
+
+token_env:
+    _default: GEMINI_API_KEY
+
+# A Google sign-in reaches other hosts than this API, so it is refused before a start rather than
+# failing inside the task.
+unbrokerable:
+    oauth: "The Google sign-in is not yet a provider; generativelanguage.googleapis.com takes an API key (porelo vault put google)"

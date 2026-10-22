@@ -1,6 +1,6 @@
 # P06 — Provider Google
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - a provider file with two dialects, a test reading it, a row in `doc/credentials.md`, and a live
 scenario in an agent repository; the account sign-in is measured apart and stays refused until it is.
 
@@ -55,7 +55,10 @@ The agents that can reach it are listed in
   broker's usage reading ([B148](../base/README.md#b148)). Seen to fail: the fixture's line lacks a count the
   provider sent, or the agent's answer differs from the provider's beyond the added usage chunk.
 
-## To be checked
+## Measured
 
-- Whether `x-goog-api-key` is taken on the `openai` path too, or that path needs `Authorization: Bearer` - one
-  header per credential type is all a provider file can say today (Agent Core's, measured with a key).
+- From a VM with the test key: `GET /v1beta/models` with `x-goog-api-key` answers 200; `GET /v1beta/openai/models`
+  answers 404 with `x-goog-api-key`, as with a wrong key or none, and 200 with `Authorization: Bearer`. A provider
+  file names one header per credential kind, so `google` serves its own dialect only. **Decided:** the
+  OpenAI-compatible path is left out; a second provider file, `google-openai`, with `Authorization: Bearer` and
+  `openai` under `/v1beta/openai`, follows when an agent needs it.
