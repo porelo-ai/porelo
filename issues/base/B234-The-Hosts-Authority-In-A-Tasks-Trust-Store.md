@@ -1,6 +1,6 @@
 # B234 — The Host's Authority In A Task's Trust Store
 
-**Status:** Backlog.
+**Status:** Accepted.
 **Size:** M - `runtime` (`ContainerSpec`), `app-base` (`TaskRunner`) and `core/net`, docs and an acceptance step; L if the JVM needs a design of its own.
 
 **What must be true.** A task trusts a certificate authority the host names, so it reaches a service on the host

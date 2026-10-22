@@ -1,6 +1,6 @@
 # B246 — A Task Name No Other Project Shares
 
-**Status:** Idea.
+**Status:** Accepted; after porelo-project [PJ39](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj39).
 
 **What must be true.** A task's container name belongs to one project and one task, so no task of another project
 ever has it - not while it runs, and not afterwards, when what Porelo keeps by that name is read again.

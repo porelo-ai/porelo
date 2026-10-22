@@ -2,9 +2,12 @@
 
 **Status:** Idea; blocked by [B253](README.md#b253) and porelo-buildtools' machine kinds (part 1 of porelo-project
 [PJ22](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj22), not yet filed there).
-**Size, proposed:** L - a project key, one method of the task API and its refusals, the request handed on to the
-forge, the verdict and log handed in as today's builds are; tests at each place and an acceptance scenario on the
-local forge.
+**Size, proposed:** L.
+
+**Decided:** it stays an Idea, as it is not needed for porelo-project
+[PJ39](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj39): a task's push already starts the
+whole workflow on the local forge, its acceptance legs on the VM pool included, and the task follows that build as it
+follows any.
 
 **What must be true.** A task asks for its work to be built on a declared machine kind and reads the verdict and the
 log in `/porelo/files`. A request for a kind or a command the project does not declare is refused.

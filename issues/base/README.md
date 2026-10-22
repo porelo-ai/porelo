@@ -23,10 +23,14 @@ from its side, as *blocked by*.
 | <a id="b31"></a>[B31](B31-An-Authorization-A-Person-Grants-Once.md) | S | - | A person grants GitHub once through an installed agent's app; tasks then spend it on GitHub's MCP server through the broker, one session held for an hour, never holding the token. |
 | <a id="b211"></a>[B211](B211-A-Keyring-The-Process-Cannot-Reach-Is-Unavailable.md) | S | - | `KernelKeyring.available()` probes the system call once, so a keyring a container's seccomp refuses counts as unavailable and its tests skip. |
 | <a id="b213"></a>[B213](B213-The-Setup-Script-Shipped-As-A-Package.md) | S | - | The setup script in the `porelo` package at `/usr/share/porelo/setup/`, so a host that added the repository by its pinned key gets it checked by apt; it keeps the channel it came from. |
-| <a id="b189"></a>[B189](B189-Values-Handed-To-A-Task-At-Its-Start.md) | L | - | Values a project declares in `parameters:`, handed to a start by `--set`, `--set-file` or `--set-env`, checked by `StartCheck`, kept in `parameters.json`, shown with their origin by `task status` and `Task`, set in the container and usable as `{name}` in settings.; steps 1 and 2 built |
-| <a id="b192"></a>[B192](B192-An-Image-Chosen-Per-Repository.md) | L | - | A repository's `porelo.yml` (checked in) or `.porelo.yml` (a local override) names only its image - `base_image`, a snippet, `env` - read key by key in a fixed order with `project.yml`'s `repositories.<name>.image` and the mirror's default branch; one cached image per repository, its source named at the start, the file ranked dangerous in review.; step 1 (the reader and its refusals) built |
 | <a id="b218"></a>[B218](B218-Whether-An-Agent-Is-Signed-In-As-A-Contract.md) | S | - | `porelo agents --json` names each agent with the vault entry it signs in under and whether the vault holds it, so a host stops for a sign-in only where one is missing; built and unit-tested, the VM next |
 | <a id="b232"></a>[B232](B232-The-Gate-Credential-Goes-Only-To-The-Gate.md) | XS | - | A task's git sends the gate's credential only to the gate: `http.extraHeader` scoped to the gate's URL, where today it goes to every HTTPS host, `github.com` included; built, red first with real git, the VM next |
+
+## Rework
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="b192"></a>[B192](B192-An-Image-Chosen-Per-Repository.md) | L | - | A repository's `porelo.yml` (checked in) or `.porelo.yml` (a local override) names only its image - `base_image`, a snippet, `env` - read key by key in a fixed order with `project.yml`'s `repositories.<name>.image` and the mirror's default branch; one cached image per repository, its source named at the start, the file ranked dangerous in review.; step 1 (the reader and its refusals) built |
 
 ## Implementing
 
@@ -53,10 +57,8 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b206"></a>[B206](B206-A-Transport-Takes-Its-Secrets-On-Its-Input.md) | L | - | A transport takes the secrets Porelo kept for it on its standard input, not in its environment, so no other process of the account can read them from `/proc`; a version declared in `describe`, with the matrix transport's matching change. |
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | XL | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own; analyzed: filled only from reviewed work, mounted `:ro,z`, read through `maven.repo.local.tail`, filled by `dependency:go-offline` on request and when the default branch moved, Maven first |
-| <a id="b233"></a>[B233](B233-A-Host-Service-Reached-By-Name.md) | L | - | A task reaches a service on its own host, a forge or a registry, by a declared name on 443 and nothing else there; the reach through pasta measured first |
-| <a id="b234"></a>[B234](B234-The-Hosts-Authority-In-A-Tasks-Trust-Store.md) | M | - | A task trusts a certificate authority the host names, without a project putting it into its image; where the images read added authorities measured first |
 | <a id="b207"></a>[B207](B207-An-Image-Built-Within-The-Projects-Egress.md) | L | - | An image's build reaches only the project's egress and its trusted package sources, through the firewall or a proxy, so a snippet - a project's or a repository's `porelo.yml` - cannot fetch from anywhere while the image is made. |
-| <a id="b190"></a>[B190](B190-A-Tasks-Branch-Named-By-The-Projects-Scheme.md) | L | `porelo` [B189](README.md#b189) | `branch.template` and `branch.pattern` or `--branch` name a task's forge branch, kept in `task.json`; the gate passes on and keeps out of its mirror by them, an existing upstream branch refused at an online start, a guarded approval onto it by default and only within the pattern. |
+| <a id="b190"></a>[B190](B190-A-Tasks-Branch-Named-By-The-Projects-Scheme.md) | L | - | `branch.template` and `branch.pattern` or `--branch` name a task's forge branch, kept in `task.json`; the gate passes on and keeps out of its mirror by them, an existing upstream branch refused at an online start, a guarded approval onto it by default and only within the pattern. |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes. |
 | <a id="b215"></a>[B215](B215-A-Helper-Started-With-A-UTF-8-Locale.md) | XS | - | A transport and the message filter run with `LANG=C.UTF-8` where porelod has no locale, so a non-ASCII argument or path reaches them whole |
 | <a id="b235"></a>[B235](B235-A-Dry-Run-Shows-The-Agents-Refusals.md) | S | - | `task start --dry-run` names a host the agent refuses as refused, where today it lists it as reachable and the running task refuses it |
@@ -112,6 +114,10 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b233"></a>[B233](B233-A-Host-Service-Reached-By-Name.md) | L | - | A task reaches a service on its own host, a forge or a registry, by a declared name on 443 and nothing else there; the reach through pasta measured first |
+| <a id="b234"></a>[B234](B234-The-Hosts-Authority-In-A-Tasks-Trust-Store.md) | M | - | A task trusts a certificate authority the host names, without a project putting it into its image; where the images read added authorities measured first |
+| <a id="b253"></a>[B253](B253-One-Contract-Suite-For-Every-Build-Reader.md) | M | - | The `github` and the `forgejo` build readers pass one contract suite from the build API's kit, each against its own forge; the `forgejo` reader in a repository of its own |
+| <a id="b246"></a>[B246](B246-A-Task-Name-No-Other-Project-Shares.md) | - | after porelo-project [PJ39](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj39) | A task's container name is one project's and one task's, where `porelo-a-b-c` today names project `a-b`'s task `c` and project `a`'s task `b-c`; proposed: `_` between them |
 | <a id="b203"></a>[B203](B203-Task-Names-Checked-By-What-The-Commands-Do.md) | - | - | The test that every task and talk command takes both spellings of a task runs the commands through picocli's tree instead of matching their source text. |
 | <a id="b202"></a>[B202](B202-Credential-Names-In-A-Project-File-Checked.md) | - | - | A credential's name in a project file is checked when read, since it becomes a token file's and a variable's name; what an existing file does is decided. |
 | <a id="b198"></a>[B198](B198-Settings-Inherited-Down-An-Organisations-Tree.md) | - | - | An organisation file pinned by the machine's administrator passes settings down signed teams to projects by repository address; `fixed` and `narrow-only` locks no file below can undo, every file verified through the chain of keys, `project show --resolved`; folds in porelo-project [PJ16](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj16). |
@@ -122,13 +128,11 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b246"></a>[B246](B246-A-Task-Name-No-Other-Project-Shares.md) | - | - | A task's container name is one project's and one task's, where `porelo-a-b-c` today names project `a-b`'s task `c` and project `a`'s task `b-c`; proposed: `_` between them |
+| <a id="b254"></a>[B254](B254-A-Task-Has-Its-Work-Built-On-A-Declared-Kind.md) | - | `porelo` [B253](README.md#b253) | A task asks for its work to be built on a machine kind the project declares and reads the verdict and log in `/porelo/files`; an undeclared kind or command is refused |
 | <a id="b249"></a>[B249](B249-The-Hooks-Run-Dnsmasq-And-Podman-By-A-Fixed-Path.md) | - | - | The hooks start `dnsmasq` and `podman` by a fixed root-owned path, as [B239](#b239) does `nsenter` and `nft`, where today both are found through the caller's `PATH` |
 | <a id="b250"></a>[B250](B250-No-Broker-Address-For-A-Task-Without-One.md) | - | - | An agent's setup hears the broker's address only when the task has a broker, where an agent reached by URL hears the relay's address without one and takes itself for brokered |
 | <a id="b251"></a>[B251](B251-Porelo-Inside-A-Lima-VM.md) | - | - | Porelo runs its tasks in a Lima VM on a Mac with the task firewall loaded, or says what the VM lacks, where the Mac probe saw `unshare` refused there |
 | <a id="b252"></a>[B252](B252-A-Sign-In-Collected-On-No-Disk.md) | - | - | A sign-in made in a login container reaches the vault without lying in plaintext on a disk, where today it passes through the container's layer and the host's temporary directory |
-| <a id="b253"></a>[B253](B253-One-Contract-Suite-For-Every-Build-Reader.md) | M, proposed | - | The `github` and the `forgejo` build readers pass one contract suite from the build API's kit, each against its own forge; the `forgejo` reader in a repository of its own |
-| <a id="b254"></a>[B254](B254-A-Task-Has-Its-Work-Built-On-A-Declared-Kind.md) | L, proposed | `porelo` [B253](README.md#b253) | A task asks for its work to be built on a machine kind the project declares and reads the verdict and log in `/porelo/files`; an undeclared kind or command is refused |
 
 ## Estimated
 
@@ -187,6 +191,7 @@ from its side, as *blocked by*.
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="b189"></a>B189 | Values Handed To A Task At Its Start | A task started with values its project declares - `--set`, `--set-file`, `--set-env` - each checked before anything exists and fixed for the task's life, recorded with its origin, in the container's environment and in `task status` and the daemon's `Start` |
 | <a id="b208"></a>B208 | What A Host Playbook Reads From Porelo | `porelo project inventory` writes a host's second inventory from the machine file, checked against the project's key; `vault status`, `project following --json` and `task status --json` answer a program. |
 | <a id="b209"></a>B209 | A Vault Unlocked From Standard Input | `vault unlock` and `vault init` take the passphrase as one line of standard input with `--passphrase-stdin`, refused at a terminal and beside another source. |
 | <a id="b49"></a>B49 | What The Build Trusts To Run Beside Its Secrets | Every action pinned by commit and checked by `check-actions`, Maven and GraalVM by checksum, Dependabot moving the pins, and a `Publish` that downloads no client. |

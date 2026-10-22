@@ -1,6 +1,6 @@
 # B233 — A Host Service Reached By Name
 
-**Status:** Backlog.
+**Status:** Accepted.
 **Size:** L - a design to settle first, and porelo-host's [HO08](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho08) builds on it; the build touches `core`, `shield`, `app-base`, docs and an acceptance step.
 
 **What must be true.** A task reaches a service on its own host, such as a forge or a registry, by a name the project

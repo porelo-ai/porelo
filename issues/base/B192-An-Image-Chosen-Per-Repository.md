@@ -1,6 +1,6 @@
 # B192 — An Image Chosen Per Repository
 
-**Status:** Review. Built, each test seen red first: the format, its reader and refusals (`RepositoryImageReader`,
+**Status:** Rework: a start read a refused `porelo.yml` from the mirror before fetching (the operator's hand check, 2026-10-22). Before that: Built, each test seen red first: the format, its reader and refusals (`RepositoryImageReader`,
 `ImageSource`, `SnippetFiles`); `repositories.<name>.image`; the mirror read at the reviewed default branch, never
 `porelo/*` and never a link (`MirrorFile`); the choice key by key (`ImageChoice`), applied at the start with each key's
 source printed and chosen again after the gate's fetch; one image per repository (`porelo/<project>_<repository>`);

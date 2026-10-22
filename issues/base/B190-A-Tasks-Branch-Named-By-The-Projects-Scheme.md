@@ -1,6 +1,6 @@
 # B190 — A Task's Branch Named By The Project's Scheme
 
-**Status:** Backlog; blocked by porelo [B189](README.md#b189).
+**Status:** Backlog.
 **Size:** L - a project file block, the start's check and record, a typed refusal and an optional approval branch in
 the daemon's contract, the gate's pass-on and its mirror refresh, the build watch, both approvals, and about 45 test
 assertions and eight documents that name `porelo/<task>`.

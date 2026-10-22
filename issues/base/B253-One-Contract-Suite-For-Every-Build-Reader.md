@@ -1,7 +1,7 @@
 # B253 — One Contract Suite for Every Build Reader
 
-**Status:** Idea.
-**Size, proposed:** M for porelo's half - a contract suite in the build API's kit, published with it, and the
+**Status:** Accepted.
+**Size:** M for porelo's half - a contract suite in the build API's kit, published with it, and the
 `github` reader run against it; the `forgejo` reader itself is M more, in a repository of its own.
 
 **What must be true.** The `github` and the `forgejo` readers pass the same contract suite, each against its own
