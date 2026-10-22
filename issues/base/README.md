@@ -41,6 +41,7 @@ from its side, as *blocked by*.
 | <a id="b247"></a>[B247](B247-A-Session-Directory-Outside-The-Home.md) | S | - | An agent definition's session directory may be an absolute path in the container, where Pi keeps its sessions out of the agent's home; a relative one stays under the home |
 | <a id="b241"></a>[B241](B241-A-Debian-Base-Image-Builds.md) | S | - | A Debian base image builds: the default mirror is Ubuntu's alone, and a replacement leaves the security stanza as it was; today no value builds `python:3.13-slim` |
 | <a id="b236"></a>[B236](B236-The-Inventory-Names-The-Projects-Transports.md) | M | - | `project inventory` names the packages of the transports a project's tasks use, as [B217](#b217) does for `agent_package`, so a host installs them; porelo-host [HO02](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho02) waits on it |
+| <a id="b238"></a>[B238](B238-An-Unfollow-Leaves-Nothing-Of-The-Project.md) | XS | - | `project unfollow` removes the project's build lock and upstream copies, which `porelo prune` finds left over today |
 
 ## Backlog
 
@@ -55,7 +56,6 @@ from its side, as *blocked by*.
 | <a id="b207"></a>[B207](B207-An-Image-Built-Within-The-Projects-Egress.md) | L | - | An image's build reaches only the project's egress and its trusted package sources, through the firewall or a proxy, so a snippet - a project's or a repository's `porelo.yml` - cannot fetch from anywhere while the image is made. |
 | <a id="b190"></a>[B190](B190-A-Tasks-Branch-Named-By-The-Projects-Scheme.md) | L | `porelo` [B189](README.md#b189) | `branch.template` and `branch.pattern` or `--branch` name a task's forge branch, kept in `task.json`; the gate passes on and keeps out of its mirror by them, an existing upstream branch refused at an online start, a guarded approval onto it by default and only within the pattern. |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes. |
-| <a id="b238"></a>[B238](B238-An-Unfollow-Leaves-Nothing-Of-The-Project.md) | XS | - | `project unfollow` removes the project's build lock and upstream copies, which `porelo prune` finds left over today |
 | <a id="b215"></a>[B215](B215-A-Helper-Started-With-A-UTF-8-Locale.md) | XS | - | A transport and the message filter run with `LANG=C.UTF-8` where porelod has no locale, so a non-ASCII argument or path reaches them whole |
 | <a id="b235"></a>[B235](B235-A-Dry-Run-Shows-The-Agents-Refusals.md) | S | - | `task start --dry-run` names a host the agent refuses as refused, where today it lists it as reachable and the running task refuses it |
 | <a id="b243"></a>[B243](B243-A-Kit-Project-That-Names-Its-Base-Image.md) | S | - | The acceptance kit's project step takes a base image of the scenario's own, where today an `image` mapping is a second root key |

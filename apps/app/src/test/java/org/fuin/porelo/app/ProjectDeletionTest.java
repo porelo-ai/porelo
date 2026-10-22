@@ -226,6 +226,103 @@ class ProjectDeletionTest {
     }
 
     @Test
+    void removesItsBuildLockAndItsRepositoriesUpstreamRecords(@TempDir Path dir)
+            throws IOException {
+
+        // Leftovers keep project data after unfollow; a broad prefix would delete another
+        // project's.
+        final PoreloContext context = context(dir);
+        project("uc");
+        project("uc-two");
+        runner.answering("for-each-ref", "");
+        final Path lock = Files.writeString(dir.resolve("data/porelo/build/uc.build.lock"), "");
+        final Path backend = Files.writeString(dir.resolve("data/porelo/upstream/uc.backend"), "");
+        final Path frontend =
+                Files.writeString(dir.resolve("data/porelo/upstream/uc.frontend"), "");
+        final Path otherLock =
+                Files.writeString(dir.resolve("data/porelo/build/uc-two.build.lock"), "");
+        final Path otherRecord =
+                Files.writeString(dir.resolve("data/porelo/upstream/uc-two.backend"), "");
+
+        final ProjectDeletion.Result result =
+                new ProjectDeletion(context).delete("uc", false, false);
+
+        assertThat(result.outcome())
+                .as("the project can be removed")
+                .isEqualTo(ProjectDeletion.Outcome.DELETED);
+        assertThat(lock).as("the project's unused build lock goes").doesNotExist();
+        assertThat(backend).as("the backend's upstream record goes").doesNotExist();
+        assertThat(frontend).as("the frontend's upstream record goes").doesNotExist();
+        assertThat(otherLock).as("another project's build lock stays").exists();
+        assertThat(otherRecord).as("another project's upstream record stays").exists();
+    }
+
+    @Test
+    void previewsItsBuildLockAndItsRepositoriesUpstreamRecordsWithoutRemovingThem(@TempDir Path dir)
+            throws IOException {
+
+        // A preview must describe the deletion before consent without destroying any files.
+        final PoreloContext context = context(dir);
+        project("uc");
+        runner.answering("for-each-ref", "");
+        final Path lock = Files.writeString(dir.resolve("data/porelo/build/uc.build.lock"), "");
+        final Path record = Files.writeString(dir.resolve("data/porelo/upstream/uc.backend"), "");
+        final Path otherLock =
+                Files.writeString(dir.resolve("data/porelo/build/uc-two.build.lock"), "");
+        final Path otherRecord =
+                Files.writeString(dir.resolve("data/porelo/upstream/uc-two.backend"), "");
+
+        final ProjectDeletion.Result result =
+                new ProjectDeletion(context).delete("uc", true, false);
+
+        assertThat(result.removes())
+                .as("the preview names the project's lock and repository record only")
+                .contains(
+                        new ProjectDeletion.Removal("BUILD", lock.toString()),
+                        new ProjectDeletion.Removal("UPSTREAM_RECORD", record.toString()))
+                .doesNotContain(
+                        new ProjectDeletion.Removal("BUILD", otherLock.toString()),
+                        new ProjectDeletion.Removal("UPSTREAM_RECORD", otherRecord.toString()));
+        assertThat(lock).as("preview leaves the build lock untouched").exists();
+        assertThat(record).as("preview leaves the upstream record untouched").exists();
+        assertThat(otherLock).as("another project's build lock stays").exists();
+        assertThat(otherRecord).as("another project's upstream record stays").exists();
+    }
+
+    @Test
+    void leavesHeldBuildLocksAlone(@TempDir Path dir) throws IOException {
+
+        // Removing a held lock lets a second build lock a new inode and bypass the first build.
+        final PoreloContext context = context(dir);
+        project("uc");
+        runner.answering("for-each-ref", "");
+        final Path lock = Files.writeString(dir.resolve("data/porelo/build/uc.build.lock"), "");
+        final Path repositoryLock =
+                Files.writeString(dir.resolve("data/porelo/build/uc_backend.build.lock"), "");
+
+        FileLocks.holding(
+                lock,
+                () ->
+                        FileLocks.holding(
+                                repositoryLock,
+                                () -> {
+                                    final ProjectDeletion.Result result =
+                                            new ProjectDeletion(context).delete("uc", false, false);
+
+                                    assertThat(result.outcome())
+                                            .as("held locks do not prevent removing the project")
+                                            .isEqualTo(ProjectDeletion.Outcome.DELETED);
+                                    assertThat(lock)
+                                            .as("the active project build keeps its lock inode")
+                                            .exists();
+                                    assertThat(repositoryLock)
+                                            .as("the active repository build keeps its lock inode")
+                                            .exists();
+                                    return null;
+                                }));
+    }
+
+    @Test
     void removesItsRepositoriesImagesAndNoOtherProjects(@TempDir Path dir) throws IOException {
 
         // Left behind, a repository's image outlived its project; taken by prefix alone, the

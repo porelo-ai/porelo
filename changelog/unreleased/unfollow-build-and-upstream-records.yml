@@ -1,0 +1,2 @@
+title: Unfollowing a project removes its unused build lock and its repositories' upstream records
+type: fixed

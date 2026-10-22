@@ -273,17 +273,23 @@ public final class ProjectDeletion {
             // parent and stays findable rather than being orphaned under a deleted path.
             Files.deleteIfExists(context.paths().xdg().data().resolve("mirrors").resolve(project));
             deleteTree(context.paths().tasks().buildContext(project));
+            final Path buildLock = context.paths().tasks().buildContext(project + ".build.lock");
+            if (Files.isRegularFile(buildLock) && FileLocks.free(buildLock)) {
+                Files.deleteIfExists(buildLock);
+            }
             // And its repositories' own build directories and locks, named after it.
             final Path builds = context.paths().tasks().buildContext(project).getParent();
             if (builds != null && Files.isDirectory(builds)) {
                 try (var entries = Files.list(builds)) {
                     for (final Path entry : entries.toList()) {
                         if (entry.getFileName()
-                                .toString()
-                                .startsWith(
-                                        project
-                                                + org.fuin.porelo.core.project.Project
-                                                        .IMAGE_VARIANT)) {
+                                        .toString()
+                                        .startsWith(
+                                                project
+                                                        + org.fuin.porelo.core.project.Project
+                                                                .IMAGE_VARIANT)
+                                && (!entry.getFileName().toString().endsWith(".build.lock")
+                                        || FileLocks.free(entry))) {
                             deleteTree(entry);
                         }
                     }
@@ -291,7 +297,9 @@ public final class ProjectDeletion {
             }
             deleteTree(context.paths().projects().followedClone(project));
             Files.deleteIfExists(context.paths().projects().projectRegistry().resolve(project));
-            Files.deleteIfExists(context.paths().projects().upstreamRecords().resolve(project));
+            for (final Path record : upstreamRecordsOf(project)) {
+                Files.deleteIfExists(record);
+            }
         } catch (IOException | RuntimeException ex) {
             return new Result(
                     Outcome.FAILED,
@@ -317,6 +325,10 @@ public final class ProjectDeletion {
             removes.add(
                     new Removal("BUILD", context.paths().tasks().buildContext(project).toString()));
         }
+        final Path buildLock = context.paths().tasks().buildContext(project + ".build.lock");
+        if (Files.isRegularFile(buildLock) && FileLocks.free(buildLock)) {
+            removes.add(new Removal("BUILD", buildLock.toString()));
+        }
         if (Files.isRegularFile(context.paths().projects().projectRegistry().resolve(project))) {
             removes.add(
                     new Removal(
@@ -327,15 +339,8 @@ public final class ProjectDeletion {
                                     .resolve(project)
                                     .toString()));
         }
-        if (Files.isRegularFile(context.paths().projects().upstreamRecords().resolve(project))) {
-            removes.add(
-                    new Removal(
-                            "UPSTREAM_RECORD",
-                            context.paths()
-                                    .projects()
-                                    .upstreamRecords()
-                                    .resolve(project)
-                                    .toString()));
+        for (final Path record : upstreamRecordsOf(project)) {
+            removes.add(new Removal("UPSTREAM_RECORD", record.toString()));
         }
         // The verified clone. Named here, and removed below, because BOTH ways of ending a project
         // have to take it: the terminal removed it by hand afterwards and the socket did not, so a
@@ -349,6 +354,26 @@ public final class ProjectDeletion {
         }
         tasks.forEach(task -> removes.add(new Removal("TASK", task.name())));
         return removes;
+    }
+
+    private List<Path> upstreamRecordsOf(String project) {
+        final Path upstream = context.paths().projects().upstreamRecords();
+        if (!Files.isDirectory(upstream)) {
+            return List.of();
+        }
+        try (var entries = Files.list(upstream)) {
+            return entries.filter(Files::isRegularFile)
+                    .filter(
+                            path -> {
+                                final String name = path.getFileName().toString();
+                                return name.equals(project) || name.startsWith(project + ".");
+                            })
+                    .sorted(java.util.Comparator.comparing(Path::toString))
+                    .toList();
+        } catch (IOException ex) {
+            throw new IllegalStateException(
+                    "cannot read the upstream records under " + upstream, ex);
+        }
     }
 
     private List<String> unreviewedIn(String project) {
