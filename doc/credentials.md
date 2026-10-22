@@ -108,6 +108,10 @@ Each is reached through the broker, with the credential on the host and a stand-
   refused before the start.
 - **OpenRouter's path depends on the dialect.** A base URL that misses it answers "model not found"
   rather than 404, which reads as a bad model name.
+- **Google's terms call it a breach to reach Antigravity with its own sign-in through third-party software**, and
+  say such use may suspend the account. Porelo runs Antigravity CLI unchanged and only keeps its token out of the
+  container; whether that is such use is the person's to judge before signing in. A Gemini API key is not covered
+  by that clause.
 
 ## Getting a credential in
 

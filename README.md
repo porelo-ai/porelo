@@ -75,7 +75,7 @@ Why build this rather than use it? See [why](doc/why.md)
 <tr><td><a href="https://github.com/anthropics/claude-code">Claude Code</a></td><td>:white_check_mark:</td></tr>
 <tr><td><a href="https://github.com/earendil-works/pi">Pi</a></td><td>:white_check_mark:</td></tr>
 <tr><td><a href="https://github.com/openai/codex">Codex CLI</a></td><td>:construction:</td></tr>
-<tr><td><a href="https://github.com/google-gemini/gemini-cli">Gemini CLI</a></td><td>:construction:</td></tr>
+<tr><td><a href="https://antigravity.google/cli">Antigravity CLI</a></td><td>:construction:</td></tr>
 <tr><td><a href="https://github.com/github/copilot-cli">GitHub Copilot CLI</a></td><td>:construction:</td></tr>
 <tr><td><a href="https://github.com/xai-org/grok-build">Grok Build</a></td><td>:construction:</td></tr>
 <tr><td><a href="https://github.com/sst/opencode">OpenCode</a></td><td>:construction:</td></tr>
