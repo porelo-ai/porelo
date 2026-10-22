@@ -1,6 +1,6 @@
 # B241 — A Debian Base Image Builds
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - one generated step in `Containerfile`, its test and a comment and a line of the page; every image rebuilds once.
 
 **What must be true.** A project or repository whose base image is Debian (`python:3.13-slim`, trixie) gets its image
@@ -42,7 +42,9 @@ Read in `Containerfile`, `Project` and `doc/project-file.md`.
   reads `trixie-security` from Debian's security archive. Seen to fail first: both refusals measured today.
 - `ubuntu:24.04` with the default still fetches from the Azure mirror.
 
-## To be checked
+## Measured
 
-- On the VM: `python:3.13-slim` and `ubuntu:24.04` built with both settings, trixie's stanza layout read, and the
-  Azure mirror's `noble-security`.
+- With podman on this repository's rewrite: `python:3.13-slim` (trixie) under the default keeps both of its stanzas,
+  `/debian` for `trixie trixie-updates` and `/debian-security` for `trixie-security`, and `apt-get update` succeeds;
+  with `http://deb.debian.org/debian/` only the `/debian` stanza changes and the update succeeds; `ubuntu:24.04` under
+  the default rewrites both of its stanzas to the Azure mirror and the update succeeds.

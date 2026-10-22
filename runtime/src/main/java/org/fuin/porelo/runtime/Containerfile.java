@@ -204,10 +204,34 @@ public final class Containerfile {
      */
     public static final String HAND_IN_INCOMING = HAND_IN_ROOT + "/.incoming";
 
+    private static String packageSourcePattern(List<String> sources) {
+        final List<String> archives = new ArrayList<>();
+        for (final String source : sources) {
+            final String path = source.replaceFirst("^https?://[^/]*", "").replaceFirst("/+$", "");
+            if (path.isEmpty()) {
+                return "^URIs:.*";
+            }
+            final String archive = path.substring(path.lastIndexOf('/') + 1);
+            final StringBuilder escaped = new StringBuilder();
+            for (final char character : archive.toCharArray()) {
+                if ("\\.^$|?*+()[]{}".indexOf(character) >= 0) {
+                    escaped.append('\\');
+                }
+                escaped.append(character);
+            }
+            archives.add(escaped.toString());
+        }
+        return ("^URIs:.*[[:space:]]https?://[^/[:space:]]+(/[^/[:space:]]+)*/("
+                        + String.join("|", archives)
+                        + ")/*([[:space:]].*)?$")
+                .replace("|", "\\|");
+    }
+
     private static String body(Project project, ImageLayers layers) {
 
         // One URIs line, space separated, which is what deb822 takes and what apt walks in order.
         final String sources = String.join(" ", project.effectivePackageSources());
+        final String sourcePattern = packageSourcePattern(project.effectivePackageSources());
         // Only a project that ASKED for sources is refused on a base with no apt. One that asked
         // for nothing gets the default and must still work on fedora and alpine, which is most of
         // them - refusing there would break every non-Debian base for a key nobody wrote.
@@ -228,10 +252,10 @@ public final class Containerfile {
                                 "# 'porelo task attach' runs it, and a closed window leaves the session running.",
                                 "USER root",
                                 "",
-                                "# Where apt fetches from, before anything fetches. Only the URIs line is replaced,",
-                                "# never the file rewritten: suites, components and the signing key differ between",
-                                "# Debian and Ubuntu and between releases, and a file written from guesses breaks an",
-                                "# image that worked.",
+                                "# A mirror serves only its archive: match the last path segment so Debian security",
+                                "# keeps its own URI and the Ubuntu default leaves Debian alone. A source without",
+                                "# an archive path, such as a cache, replaces every URIs line. Suites, components",
+                                "# and signing keys stay because they belong to the base image.",
                                 "#",
                                 "# Measured 2026-09-11 on a rented machine of the kind this build runs on, pulling a",
                                 "# 19 MB package index while Ubuntu's archive was disrupted:",
@@ -254,7 +278,11 @@ public final class Containerfile {
                                 "            > /etc/apt/apt.conf.d/99-porelo-timeouts; \\",
                                 "        for f in /etc/apt/sources.list.d/*.sources; do \\",
                                 "            [ -e \"$f\" ] || continue; \\",
-                                "            sed -i 's|^URIs:.*|URIs: " + sources + "|' \"$f\"; \\",
+                                "            sed -E -i 's|"
+                                        + sourcePattern
+                                        + "|URIs: "
+                                        + sources
+                                        + "|' \"$f\"; \\",
                                 "        done; \\",
                                 "    elif " + refusal + "; then \\",
                                 "        echo 'this project names image.package_sources, and "

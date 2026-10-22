@@ -95,7 +95,8 @@ image:
   # Optional. Where apt fetches from at build time. This is the default.
   # Use http: Ubuntu mirrors serve no TLS, and apt checks the signed Release file instead.
   # Name one fast mirror rather than a list - apt spreads requests over all of them, so a slow
-  # one slows every build. Only the URIs line is replaced; suites and signing keys stay.
+  # one slows every build. Only matching archive paths are replaced; suites and signing keys stay.
+  # The default changes Ubuntu only; a source without a path (a cache) replaces every URIs line.
   package_sources:
     - "http://azure.archive.ubuntu.com/ubuntu/"
 

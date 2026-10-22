@@ -10,10 +10,10 @@ FROM ubuntu:24.04
 # 'porelo task attach' runs it, and a closed window leaves the session running.
 USER root
 
-# Where apt fetches from, before anything fetches. Only the URIs line is replaced,
-# never the file rewritten: suites, components and the signing key differ between
-# Debian and Ubuntu and between releases, and a file written from guesses breaks an
-# image that worked.
+# A mirror serves only its archive: match the last path segment so Debian security
+# keeps its own URI and the Ubuntu default leaves Debian alone. A source without
+# an archive path, such as a cache, replaces every URIs line. Suites, components
+# and signing keys stay because they belong to the base image.
 #
 # Measured 2026-09-11 on a rented machine of the kind this build runs on, pulling a
 # 19 MB package index while Ubuntu's archive was disrupted:
@@ -36,7 +36,7 @@ RUN set -eux; \
             > /etc/apt/apt.conf.d/99-porelo-timeouts; \
         for f in /etc/apt/sources.list.d/*.sources; do \
             [ -e "$f" ] || continue; \
-            sed -i 's|^URIs:.*|URIs: http://azure.archive.ubuntu.com/ubuntu/|' "$f"; \
+            sed -E -i 's|^URIs:.*[[:space:]]https?://[^/[:space:]]+(/[^/[:space:]]+)*/(ubuntu)/*([[:space:]].*)?$|URIs: http://azure.archive.ubuntu.com/ubuntu/|' "$f"; \
         done; \
     elif false; then \
         echo 'this project names image.package_sources, and ubuntu:24.04 has no apt to apply them to' >&2; exit 1; \
@@ -151,5 +151,5 @@ ENV PATH=/home/agent/.local/bin:/usr/local/bin:/usr/bin:/bin
 ENV LANG=C.UTF-8
 
 LABEL org.fuin.porelo.project="uc"
-LABEL org.fuin.porelo.recipe="a4932630a33aa054"
+LABEL org.fuin.porelo.recipe="7acea84d14937bac"
 LABEL org.fuin.porelo.security-class="guarded"

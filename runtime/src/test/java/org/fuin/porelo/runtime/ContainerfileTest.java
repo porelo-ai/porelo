@@ -5,12 +5,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import org.fuin.porelo.core.project.Egress;
 import org.fuin.porelo.core.project.Limits;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.SecurityClass;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * Golden-file test for {@link Containerfile}.
@@ -48,6 +51,147 @@ class ContainerfileTest {
         assertThat(step.substring(0, step.indexOf("    fi")))
                 .as("an image with no package manager still builds")
                 .doesNotContain("exit 1");
+    }
+
+    @Test
+    void leavesADebianStanzaAloneUnderTheDefaultUbuntuMirror(@TempDir Path directory)
+            throws Exception {
+
+        // A default Ubuntu mirror must not make Debian package installation fail.
+        final Project project =
+                new Project("uc", "", SecurityClass.GUARDED, "python:3.13-slim", null);
+        final Path debian = Files.writeString(directory.resolve("debian.sources"), debianSources());
+        final Path ubuntu = Files.writeString(directory.resolve("ubuntu.sources"), ubuntuSources());
+
+        rewriteSources(project, directory);
+
+        assertThat(Files.readString(debian))
+                .as("Debian keeps its release and security archives under the Ubuntu default")
+                .isEqualTo(debianSources());
+        assertThat(Files.readString(ubuntu))
+                .as("both Ubuntu stanzas use the default mirror without changing suites or keys")
+                .isEqualTo(
+                        ubuntuSources()
+                                .replace(
+                                        "http://archive.ubuntu.com/ubuntu/",
+                                        Project.DEFAULT_PACKAGE_SOURCES.getFirst())
+                                .replace(
+                                        "http://security.ubuntu.com/ubuntu/",
+                                        Project.DEFAULT_PACKAGE_SOURCES.getFirst()));
+    }
+
+    @Test
+    void rewritesTheDebianStanzaButNotTheSecurityOneForADebianMirror(@TempDir Path directory)
+            throws Exception {
+
+        // The main archive does not serve security suites, even on the same host.
+        final Project project = projectWithSources(List.of("http://deb.debian.org/debian/"));
+        final Path debian = Files.writeString(directory.resolve("debian.sources"), debianSources());
+        final Path ubuntu = Files.writeString(directory.resolve("ubuntu.sources"), ubuntuSources());
+
+        rewriteSources(project, directory);
+
+        assertThat(Files.readString(debian))
+                .as("only the main Debian archive changes; the security stanza stays usable")
+                .isEqualTo(
+                        debianSources()
+                                .replace(
+                                        "http://deb.debian.org/debian\n",
+                                        "http://deb.debian.org/debian/\n"));
+        assertThat(Files.readString(ubuntu))
+                .as("a Debian mirror does not serve Ubuntu suites")
+                .isEqualTo(ubuntuSources());
+    }
+
+    @Test
+    void aCacheWithoutAnArchivePathReplacesEveryStanza(@TempDir Path directory) throws Exception {
+
+        // A cache can serve multiple archives and must still receive every package request.
+        final Project project = projectWithSources(List.of("http://cache.example.test:3142/"));
+        final Path debian = Files.writeString(directory.resolve("debian.sources"), debianSources());
+        final Path ubuntu = Files.writeString(directory.resolve("ubuntu.sources"), ubuntuSources());
+
+        rewriteSources(project, directory);
+
+        assertThat(Files.readString(debian))
+                .as("the cache replaces both Debian archives and preserves all other fields")
+                .isEqualTo(
+                        debianSources()
+                                .replaceAll(
+                                        "(?m)^URIs:.*", "URIs: http://cache.example.test:3142/"));
+        assertThat(Files.readString(ubuntu))
+                .as("the cache also replaces both Ubuntu archives")
+                .isEqualTo(
+                        ubuntuSources()
+                                .replaceAll(
+                                        "(?m)^URIs:.*", "URIs: http://cache.example.test:3142/"));
+    }
+
+    private static Project projectWithSources(List<String> sources) {
+        return new Project(
+                "uc",
+                "",
+                SecurityClass.GUARDED,
+                "python:3.13-slim",
+                null,
+                null,
+                Limits.defaults(),
+                Egress.none(),
+                sources);
+    }
+
+    private static void rewriteSources(Project project, Path directory) throws Exception {
+        final String rendered = Containerfile.render(project);
+        final int start = rendered.indexOf("        for f in ");
+        final String loop =
+                rendered.substring(
+                        start, rendered.indexOf("        done;", start) + "        done;".length());
+        final Path script =
+                Files.writeString(
+                        directory.resolve("rewrite.sh"),
+                        "set -eu;\n"
+                                + loop.replace("/etc/apt/sources.list.d/", "./")
+                                        .replace("\\\n", "\n"));
+        final Process process =
+                new ProcessBuilder("/bin/sh", script.toAbsolutePath().toString())
+                        .directory(directory.toFile())
+                        .redirectErrorStream(true)
+                        .start();
+        final String output =
+                new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        assertThat(process.waitFor()).as("the generated rewrite succeeds: %s", output).isZero();
+    }
+
+    private static String debianSources() {
+        return """
+                Types: deb
+                URIs: http://deb.debian.org/debian
+                Suites: trixie trixie-updates
+                Components: main
+                Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+
+                Types: deb
+                URIs: http://deb.debian.org/debian-security
+                Suites: trixie-security
+                Components: main
+                Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+                """;
+    }
+
+    private static String ubuntuSources() {
+        return """
+                Types: deb
+                URIs: http://archive.ubuntu.com/ubuntu/
+                Suites: noble noble-updates noble-backports
+                Components: main universe restricted multiverse
+                Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+                Types: deb
+                URIs: http://security.ubuntu.com/ubuntu/
+                Suites: noble-security
+                Components: main universe restricted multiverse
+                Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+                """;
     }
 
     @Test

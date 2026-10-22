@@ -313,7 +313,8 @@ public record Project(
     }
 
     /**
-     * Where apt fetches from, when a project names nothing.
+     * Where Ubuntu archives fetch from when a project names nothing; other archives keep their
+     * URIs.
      *
      * <p>One entry, not a list with a fallback. Measured on 2026-09-11 from a rented machine of the
      * kind the build actually runs on, pulling a 19 MB package index while Ubuntu's archive was
