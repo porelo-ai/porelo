@@ -54,13 +54,24 @@ final class Commands {
      * @return what it printed, both streams, and how it ended
      */
     static Result runMerged(List<String> command) {
-        return pipe(List.of(command), true);
+        return runMerged(command, LIMIT);
+    }
+
+    /**
+     * Runs one command with both output streams, ending it at its own limit.
+     *
+     * @param command the program and its arguments
+     * @param limit how long it may run
+     * @return what it printed and how it ended
+     */
+    static Result runMerged(List<String> command, Duration limit) {
+        return pipe(List.of(command), true, limit);
     }
 
     /**
      * How long one command may run: an image pull or an install that hangs is ended, so the checks
      * after it still run and report. The whole check took 109 to 133 seconds in four green builds
-     * (2026-10-17), and the job allows twenty minutes.
+     * (2026-10-17); installs that fetch apt archives have their own longer limit.
      */
     static final Duration LIMIT = Duration.ofMinutes(5);
 

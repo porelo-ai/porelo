@@ -3,7 +3,11 @@ package org.fuin.porelo.packagecheck;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.file.Path;
+import java.time.Duration;
+import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class InstallTest {
 
@@ -11,18 +15,119 @@ class InstallTest {
 
     private static final String EVERYTHING =
             """
-            PORELO-OK
-            REPORTED:porelo 0.1.0~snapshot.177
-            DESCRIBED
-            NO-PORELO-NAME
+            STEP: selecting noninteractive apt
+            STEP: configuring apt timeouts
+            STEP: apt-get update
+            STEP: installing porelo
+            STEP: installing the agent
             AGENT-OK
+            STEP: porelo --version
+            PORELO-OK
+            STEP: reporting the installed version
+            REPORTED:porelo 0.1.0~snapshot.177
+            STEP: porelo setup
             SETUP-OK
+            STEP: checking the packaged hook descriptors
             HOOKS-PACKAGED
+            STEP: porelo agents
             DISCOVERY-OK
+            STEP: porelo agents --verbose
+            DESCRIBED
+            STEP: checking the installed agent filenames
+            NO-PORELO-NAME
+            STEP: running the packaged setup script
             SETUP-SCRIPT-RUNS
             """;
 
     private final Reports out = new Reports();
+
+    @Test
+    void anInstallEndedAtItsLimitNamesTheLastStepItReached() {
+        final Install install =
+                new Install(
+                        Path.of("/d/porelo.deb"),
+                        Path.of("/r/porelo.rpm"),
+                        Path.of("/a/stub.deb"),
+                        (command, limit) ->
+                                new Commands.Result(
+                                        Commands.TIMED_OUT,
+                                        "STEP: preparing apt\nSTEP: apt-get update\nwaiting for archive\n"));
+
+        install.check("Ubuntu", Main.UBUNTU, install.ubuntu(), VERSION, out.report);
+
+        assertThat(out.text())
+                .as("a timed out install identifies the last step, even without a FAILED line")
+                .contains("FAIL  Ubuntu ended at its limit during apt-get update");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"ubuntu", "debian", "fedora", "fedora-oldest"})
+    void onlyAptInstallsGetTenMinutesToReachTheArchive(String distribution) {
+        final boolean apt = distribution.equals("ubuntu") || distribution.equals("debian");
+        final Install install =
+                new Install(
+                        Path.of("/d/porelo.deb"),
+                        Path.of("/r/porelo.rpm"),
+                        Path.of("/a/stub.deb"),
+                        (command, limit) -> {
+                            assertThat(limit)
+                                    .as("%s install passes its own limit to Commands", distribution)
+                                    .isEqualTo(apt ? Duration.ofMinutes(10) : Commands.LIMIT);
+                            return new Commands.Result(0, EVERYTHING);
+                        });
+        final String image =
+                switch (distribution) {
+                    case "ubuntu" -> Main.UBUNTU;
+                    case "debian" -> Main.DEBIAN;
+                    case "fedora" -> Main.FEDORA;
+                    default -> Main.FEDORA_OLDEST;
+                };
+        final String script =
+                switch (distribution) {
+                    case "ubuntu" -> install.ubuntu();
+                    case "debian" -> install.debian();
+                    default -> install.fedora();
+                };
+
+        install.check(distribution, image, script, VERSION, out.report);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"ubuntu", "debian"})
+    void aptScriptsAnnounceEachStepBeforeRunningIt(String distribution) {
+        final Install install =
+                new Install(
+                        Path.of("/d/porelo.deb"), Path.of("/r/porelo.rpm"), Path.of("/a/stub.deb"));
+        final String script = distribution.equals("ubuntu") ? install.ubuntu() : install.debian();
+
+        for (final String step :
+                List.of(
+                        "export DEBIAN_FRONTEND",
+                        "printf '%s",
+                        "apt-get update",
+                        "apt-get install -y -qq /deb/",
+                        "apt-get install -y -qq /agent/",
+                        "porelo --version >/dev/null",
+                        "echo \"REPORTED:",
+                        "porelo setup",
+                        "grep -qho",
+                        "porelo agents 2>",
+                        "porelo agents --verbose",
+                        "ls /usr/libexec/",
+                        "/usr/share/porelo/setup/porelo-setup.sh")) {
+            assertThat(script)
+                    .as(
+                            "%s announces the step before %s on unredirected output",
+                            distribution, step)
+                    .containsPattern(
+                            "echo \"STEP: [^\"\\n]+\"\\n" + java.util.regex.Pattern.quote(step));
+        }
+        if (distribution.equals("ubuntu")) {
+            assertThat(script)
+                    .as("Ubuntu announces the mirror change before running sed")
+                    .containsPattern("echo \"STEP: [^\"\\n]+\"\\nsed -i");
+        }
+    }
 
     @Test
     void passesAnInstallThatDidEveryStep() {
@@ -34,16 +139,26 @@ class InstallTest {
     }
 
     @Test
-    void namesTheStepThatDidNotHappenAndShowsWhatTheContainerSaid() {
+    void anAgentInstallErrorRemainsVisibleAfterTheCommonProgressLines() {
+        // With porelo unavailable, the common checks print progress without success markers.
         final String output =
-                EVERYTHING.replace("AGENT-OK\n", "Depends: porelo but it is not installable\n");
+                EVERYTHING
+                        .replace("AGENT-OK\n", "Depends: porelo but it is not installable\n")
+                        .replace("REPORTED:porelo " + VERSION, "REPORTED:")
+                        .lines()
+                        .filter(
+                                line ->
+                                        !Install.MARKERS.containsKey(line)
+                                                || line.equals("NO-PORELO-NAME"))
+                        .collect(java.util.stream.Collectors.joining("\n"));
 
         Install.verdicts("Debian", output, VERSION, out.report);
 
         assertThat(out.text())
+                .as("later progress lines must not hide the error from the failed agent install")
                 .contains("FAIL  AGENT-OK on Debian")
-                .contains("Depends: porelo but it is not installable");
-        assertThat(out.report.failures()).isEqualTo(1);
+                .contains("Depends: porelo but it is not installable")
+                .doesNotContain("STEP:");
     }
 
     @Test

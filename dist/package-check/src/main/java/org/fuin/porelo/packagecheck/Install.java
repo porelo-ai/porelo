@@ -1,10 +1,13 @@
 package org.fuin.porelo.packagecheck;
 
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.function.BiFunction;
 
 /**
  * Installs the packages in a clean container and asks the installed binary about itself.
@@ -16,8 +19,22 @@ import java.util.Map;
  * @param deb the porelo deb
  * @param rpm the porelo rpm
  * @param agentDeb the agent deb; the agent rpm is found beside it
+ * @param run the command runner, keeping both output streams
  */
-record Install(Path deb, Path rpm, Path agentDeb) {
+record Install(
+        Path deb,
+        Path rpm,
+        Path agentDeb,
+        BiFunction<List<String>, Duration, Commands.Result> run) {
+
+    Install(Path deb, Path rpm, Path agentDeb) {
+        this(deb, rpm, agentDeb, Commands::runMerged);
+    }
+
+    // apt-get update took 54/74 s locally; the runner exceeded 300 s twice on 2026-10-22.
+    private static final Duration APT_LIMIT = Duration.ofMinutes(10);
+
+    private static final String STEP = "STEP: ";
 
     /** What the container prints for each step that worked, and what that step proves. */
     static final Map<String, String> MARKERS = markers();
@@ -44,14 +61,22 @@ record Install(Path deb, Path rpm, Path agentDeb) {
 
     private static final String COMMON =
             """
+            echo "STEP: porelo --version"
             porelo --version >/dev/null 2>&1 && echo PORELO-OK
+            echo "STEP: reporting the installed version"
             echo "REPORTED:$(porelo --version 2>/dev/null)"
+            echo "STEP: porelo setup"
             porelo setup >/dev/null 2>&1 && echo SETUP-OK
+            echo "STEP: checking the packaged hook descriptors"
             grep -qho "/usr/libexec/porelo/hooks/porelo-hook-nft" \\
                 /root/.config/containers/oci/hooks.d/* 2>/dev/null && echo HOOKS-PACKAGED
+            echo "STEP: porelo agents"
             porelo agents 2>/dev/null | grep -q stub && echo DISCOVERY-OK
+            echo "STEP: porelo agents --verbose"
             porelo agents --verbose 2>/dev/null | grep -q "found by: /usr/share/porelo/agents.d/" && echo DESCRIBED
+            echo "STEP: checking the installed agent filenames"
             ls /usr/libexec/porelo/agents/porelo-agent-* >/dev/null 2>&1 || echo NO-PORELO-NAME
+            echo "STEP: running the packaged setup script"
             /usr/share/porelo/setup/porelo-setup.sh --show --user x 2>&1 \
                 | grep -q "as the installed porelo $(porelo --version 2>/dev/null | cut -d' ' -f2)" \
                 && echo SETUP-SCRIPT-RUNS
@@ -88,6 +113,7 @@ record Install(Path deb, Path rpm, Path agentDeb) {
     String ubuntu() {
         return apt(
                 """
+                echo "STEP: selecting the Ubuntu mirror"
                 sed -i 's|^URIs:.*|URIs: http://azure.archive.ubuntu.com/ubuntu/|' \\
                     /etc/apt/sources.list.d/*.sources 2>/dev/null || true
                 """);
@@ -105,14 +131,19 @@ record Install(Path deb, Path rpm, Path agentDeb) {
     private static String apt(final String sources) {
         return FAILED
                 + """
+                echo "STEP: selecting noninteractive apt"
                 export DEBIAN_FRONTEND=noninteractive
+                echo "STEP: configuring apt timeouts"
                 printf '%s\\n' 'Acquire::http::Timeout "20";' 'Acquire::Retries "2";' \\
                     > /etc/apt/apt.conf.d/99-porelo-timeouts
                 """
                 + sources
                 + """
+                echo "STEP: apt-get update"
                 apt-get update -qq --error-on=any >/tmp/step.log 2>&1 || failed "apt-get update"
+                echo "STEP: installing porelo"
                 apt-get install -y -qq /deb/porelo_*.deb >/tmp/step.log 2>&1 || failed "installing porelo"
+                echo "STEP: installing the agent"
                 apt-get install -y -qq /agent/porelo-agent-stub_*.deb >/tmp/step.log 2>&1 && echo AGENT-OK \
                     || failed "installing the agent"
                 """
@@ -127,7 +158,9 @@ record Install(Path deb, Path rpm, Path agentDeb) {
     String fedora() {
         return FAILED
                 + """
+                echo "STEP: installing porelo"
                 dnf install -y -q /rpm/porelo-0*.rpm >/tmp/step.log 2>&1 || failed "installing porelo"
+                echo "STEP: installing the agent"
                 dnf install -y -q /agent/porelo-agent-stub-*.rpm >/tmp/step.log 2>&1 && echo AGENT-OK \
                     || failed "installing the agent"
                 """
@@ -146,7 +179,7 @@ record Install(Path deb, Path rpm, Path agentDeb) {
     void check(String label, String image, String script, String version, Report report) {
         report.section("installs on " + label);
         final Commands.Result result =
-                Commands.runMerged(
+                run.apply(
                         List.of(
                                 "podman",
                                 "run",
@@ -160,7 +193,17 @@ record Install(Path deb, Path rpm, Path agentDeb) {
                                 image,
                                 "sh",
                                 "-c",
-                                script));
+                                script),
+                        image.equals(Main.UBUNTU) || image.equals(Main.DEBIAN)
+                                ? APT_LIMIT
+                                : Commands.LIMIT);
+        if (result.exit() == Commands.TIMED_OUT) {
+            final String step =
+                    lastValue(result.output(), STEP)
+                            .map(last -> " during " + last)
+                            .orElse(" before the first step");
+            report.fail(label + " ended at its limit" + step);
+        }
         verdicts(label, result.output(), version, report);
     }
 
@@ -178,7 +221,7 @@ record Install(Path deb, Path rpm, Path agentDeb) {
      * @param report where the verdicts go
      */
     static void verdicts(String label, String output, String version, Report report) {
-        final List<String> lines = output.lines().toList();
+        final List<String> lines = output.lines().filter(line -> !line.startsWith(STEP)).toList();
         // Why comes first and once: every check after a failed install fails for the same reason.
         lines.stream().filter(line -> line.startsWith(WHY)).forEach(report::info);
         for (final Map.Entry<String, String> marker : MARKERS.entrySet()) {
@@ -189,12 +232,7 @@ record Install(Path deb, Path rpm, Path agentDeb) {
                 lines.subList(Math.max(0, lines.size() - 5), lines.size()).forEach(report::info);
             }
         }
-        final String reported =
-                lines.stream()
-                        .filter(line -> line.startsWith(REPORTED))
-                        .map(line -> line.substring(REPORTED.length()))
-                        .reduce((first, second) -> second)
-                        .orElse("");
+        final String reported = lastValue(output, REPORTED).orElse("");
         if (reported.equals("porelo " + version)) {
             report.pass("the binary names the build it came from (" + version + ")");
         } else {
@@ -207,5 +245,12 @@ record Install(Path deb, Path rpm, Path agentDeb) {
             report.info(
                     "an interface cannot tell two daemons apart when every build answers the same");
         }
+    }
+
+    private static Optional<String> lastValue(String output, String prefix) {
+        return output.lines()
+                .filter(line -> line.startsWith(prefix))
+                .map(line -> line.substring(prefix.length()))
+                .reduce((first, second) -> second);
     }
 }

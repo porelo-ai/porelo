@@ -225,7 +225,8 @@ jobs:
         name: Publish
         # Pinned, not ubuntu-latest: the packages' C library floor is measured on what this builds.
         runs-on: ubuntu-24.04
-        timeout-minutes: 20
+        # Allow the apt installs ten minutes each when the distribution archives are slow.
+        timeout-minutes: 30
         needs: [build, proven, legs, native]
         # With the legs passed, or taken from a proof and the binaries built on the runner.
         if: >-
