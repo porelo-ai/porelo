@@ -120,4 +120,94 @@ class CredentialWiringTest {
         assertThat(TaskLaunch.nextStep("pi", false, openrouter, "openrouter"))
                 .isEqualTo("Store its key first with 'porelo vault put openrouter'; ");
     }
+
+    @Test
+    void anAgentThatAddsTheDialectsPathItselfGetsTheBrokersBareAddressInItsBaseUrlVariable() {
+        // An agent whose client appends '/v1beta' itself sends '/v1beta/v1beta/...' when the base
+        // URL already ends in '/v1beta'; an agent that does not needs the path on the URL.
+        final org.fuin.porelo.agent.api.ProviderDefinition google =
+                org.fuin.porelo.agent.api.ProviderDefinitionReader.read(
+                        new java.io.StringReader(
+                                """
+                        name: google
+                        upstream: https://generativelanguage.googleapis.com
+                        dialects:
+                          google-generative-ai: "/v1beta"
+                        """),
+                        "google.yaml");
+        final org.fuin.porelo.agent.api.AgentDefinition addsItself =
+                org.fuin.porelo.agent.api.AgentDefinitionReader.read(
+                        new java.io.StringReader(
+                                """
+                        name: example
+                        binary: example-cli
+                        git_identity:
+                          name: Example
+                          email: noreply@example.com
+                        headless:
+                          prompt_flag: "-p"
+                        provider:
+                          default: google
+                          dialect: google-generative-ai
+                          endpoint: url
+                          base_url_env: GOOGLE_GEMINI_BASE_URL
+                          adds_path: true
+                        """),
+                        "adds-path.yaml");
+        final org.fuin.porelo.agent.api.AgentDefinition takesPath =
+                org.fuin.porelo.agent.api.AgentDefinitionReader.read(
+                        new java.io.StringReader(
+                                """
+                        name: example
+                        binary: example-cli
+                        git_identity:
+                          name: Example
+                          email: noreply@example.com
+                        headless:
+                          prompt_flag: "-p"
+                        provider:
+                          default: google
+                          dialect: google-generative-ai
+                          endpoint: url
+                          base_url_env: GOOGLE_GEMINI_BASE_URL
+                        """),
+                        "takes-path.yaml");
+
+        assertThat(
+                        CredentialWiring.agentEnvironment(
+                                        addsItself,
+                                        "GEMINI_API_KEY",
+                                        "porelo_pt_test",
+                                        org.fuin.porelo.agent.api.ProviderRoute.of(
+                                                google, addsItself.provider()))
+                                .get("GOOGLE_GEMINI_BASE_URL"))
+                .as("adds_path: true gets the broker's bare address in base_url_env")
+                .isEqualTo(TaskWiring.VAULT_URL);
+        assertThat(
+                        CredentialWiring.agentEnvironment(
+                                        takesPath,
+                                        "GEMINI_API_KEY",
+                                        "porelo_pt_test",
+                                        org.fuin.porelo.agent.api.ProviderRoute.of(
+                                                google, takesPath.provider()))
+                                .get("GOOGLE_GEMINI_BASE_URL"))
+                .as("without adds_path, base_url_env includes the dialect's path")
+                .isEqualTo(TaskWiring.VAULT_URL + "/v1beta");
+        assertThat(
+                        CredentialWiring.endpointFor(
+                                org.fuin.porelo.agent.api.ProviderRoute.of(
+                                        google, addsItself.provider()),
+                                true,
+                                java.util.Map.of()))
+                .as("the endpoint the agent's setup is told is the same bare address")
+                .isEqualTo(TaskWiring.VAULT_URL);
+        assertThat(
+                        CredentialWiring.endpointFor(
+                                org.fuin.porelo.agent.api.ProviderRoute.of(
+                                        google, takesPath.provider()),
+                                false,
+                                java.util.Map.of()))
+                .as("and with the path for an agent that does not add it")
+                .isEqualTo(TaskWiring.VAULT_URL + "/v1beta");
+    }
 }

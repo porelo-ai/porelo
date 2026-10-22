@@ -1,6 +1,6 @@
 # B248 — A Base URL Without The Dialect's Path
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - one field of the agent API's `AgentProvider`, its reader and JSON form, one line in `CredentialWiring`, their tests and the `provider` block in `agents/README.md`; the agent API only grows.
 
 **What must be true.** An agent definition can say that the agent adds the dialect's path to its base URL itself,

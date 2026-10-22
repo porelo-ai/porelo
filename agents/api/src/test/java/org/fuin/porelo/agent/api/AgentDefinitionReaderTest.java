@@ -531,4 +531,85 @@ class AgentDefinitionReaderTest {
                 .isInstanceOf(AgentException.class)
                 .hasMessageContaining("hosts");
     }
+
+    @Test
+    void anAgentThatAddsTheDialectsPathItselfIsReadSo() {
+        // An agent whose client appends the dialect's path to its base URL would double the path if
+        // Porelo put it on the base URL too.
+        final AgentDefinition addsItself =
+                read(
+                        MINIMAL
+                                + """
+                provider:
+                  default: google
+                  dialect: google-generative-ai
+                  endpoint: url
+                  base_url_env: GOOGLE_GEMINI_BASE_URL
+                  adds_path: true
+                """);
+        final AgentDefinition takesPath =
+                read(
+                        MINIMAL
+                                + """
+                provider:
+                  default: google
+                  dialect: google-generative-ai
+                  endpoint: url
+                  base_url_env: GOOGLE_GEMINI_BASE_URL
+                """);
+
+        assertThat(addsItself.provider().addsPath())
+                .as("adds_path: true is read from the provider block")
+                .isTrue();
+        assertThat(takesPath.provider().addsPath())
+                .as("absent adds_path defaults to false")
+                .isFalse();
+        assertThat(
+                        AgentDefinitionJson.read(AgentDefinitionJson.write(addsItself))
+                                .provider()
+                                .addsPath())
+                .as("addsPath survives the wire's JSON")
+                .isTrue();
+        assertThat(
+                        AgentDefinitionJson.read(AgentDefinitionJson.write(takesPath))
+                                .provider()
+                                .addsPath())
+                .as("false addsPath survives the wire's JSON")
+                .isFalse();
+    }
+
+    @Test
+    void refusesAddsPathWhenNotABooleanOrWithoutABaseUrlVariable() {
+        // Anything other than a boolean or a declaration with no base_url_env to change would be
+        // ignored in silence and send requests to the wrong path.
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        MINIMAL
+                                                + """
+                provider:
+                  dialect: google-generative-ai
+                  endpoint: url
+                  base_url_env: GOOGLE_GEMINI_BASE_URL
+                  adds_path: "/v1beta"
+                """))
+                .as("a path string in adds_path is refused as not a boolean")
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("adds_path")
+                .hasMessageContaining("boolean");
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        MINIMAL
+                                                + """
+                provider:
+                  dialect: google-generative-ai
+                  endpoint: url
+                  adds_path: true
+                """))
+                .as("adds_path without base_url_env is refused, naming both keys")
+                .isInstanceOf(AgentException.class)
+                .hasMessageContaining("adds_path")
+                .hasMessageContaining("base_url_env");
+    }
 }

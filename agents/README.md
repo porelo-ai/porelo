@@ -127,6 +127,7 @@ provider:
     oauth: EXAMPLE_OAUTH_TOKEN
     _default: EXAMPLE_API_KEY
   base_url_env: EXAMPLE_BASE_URL
+  adds_path: false              # optional; true when the agent adds the dialect's path itself
 
 allowed_domains:              # what the shield and the resolver must permit
   - api.example.com

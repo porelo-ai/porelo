@@ -157,12 +157,27 @@ final class CredentialWiring {
         if (selection == null) {
             return "";
         }
-        final var route = selection.route();
+        final org.fuin.porelo.agent.api.AgentProvider declared = agent.definition().provider();
+        return endpointFor(selection.route(), declared != null && declared.addsPath(), environment);
+    }
+
+    /**
+     * Returns the endpoint an agent is told about: the same address its base URL variable holds.
+     *
+     * @param route The route to the provider.
+     * @param addsPath Whether the agent adds the dialect's path itself.
+     * @param environment What the container was given.
+     * @return Endpoint, or empty when nothing was brokered.
+     */
+    static String endpointFor(
+            final org.fuin.porelo.agent.api.ProviderRoute route,
+            final boolean addsPath,
+            final java.util.Map<String, String> environment) {
         if (route.endpoint() == org.fuin.porelo.agent.api.ProviderRoute.Endpoint.URL) {
             // The dialect's path belongs on the endpoint rather than in the agent: the same
             // provider serves different wire formats under different paths, and only the provider
-            // knows which.
-            return route.endpointFor(TaskWiring.VAULT_URL);
+            // knows which - unless the agent adds it itself.
+            return addsPath ? TaskWiring.VAULT_URL : route.endpointFor(TaskWiring.VAULT_URL);
         }
         final String variable = route.socketEnvironment();
         return variable == null ? "" : environment.getOrDefault(variable, "");
@@ -400,19 +415,12 @@ final class CredentialWiring {
 
         final java.util.Map<String, String> environment = new java.util.LinkedHashMap<>();
         if (own != null) {
-            environment.put(own.variable(), token);
-            if (own.route().socketEnvironment() != null) {
-                environment.put(own.route().socketEnvironment(), TaskWiring.VAULT_MOUNT);
-            }
-            final String baseUrl =
-                    agent == null || agent.definition().provider() == null
-                            ? null
-                            : agent.definition().provider().baseUrlEnvironment();
-            if (baseUrl != null) {
-                // Both, always. The socket variable only picks the transport; without a base URL
-                // the agent uses its own compiled-in endpoint and never touches the socket at all.
-                environment.put(baseUrl, own.route().endpointFor(TaskWiring.VAULT_URL));
-            }
+            environment.putAll(
+                    agentEnvironment(
+                            agent == null ? null : agent.definition(),
+                            own.variable(),
+                            token,
+                            own.route()));
             out.println("vault     " + socket + " -> " + own.route().upstream());
             out.println(
                     "token     "
@@ -456,6 +464,39 @@ final class CredentialWiring {
                 own != null ? own.route().upstreamHost() : primary.host(),
                 environment,
                 !served.isEmpty());
+    }
+
+    /**
+     * Returns the variables a task's container is given for its agent's brokered credential.
+     *
+     * @param agent The agent's definition, or {@code null}.
+     * @param variable Variable the phantom token goes in.
+     * @param token The phantom token.
+     * @param route The resolved route to the provider.
+     * @return Variables for the container.
+     */
+    static java.util.Map<String, String> agentEnvironment(
+            final org.fuin.porelo.agent.api.@Nullable AgentDefinition agent,
+            final String variable,
+            final String token,
+            final org.fuin.porelo.agent.api.ProviderRoute route) {
+        final java.util.Map<String, String> environment = new java.util.LinkedHashMap<>();
+        environment.put(variable, token);
+        if (route.socketEnvironment() != null) {
+            environment.put(route.socketEnvironment(), TaskWiring.VAULT_MOUNT);
+        }
+        final org.fuin.porelo.agent.api.AgentProvider provider =
+                agent == null ? null : agent.provider();
+        if (provider != null && provider.baseUrlEnvironment() != null) {
+            // Both, always. The socket variable only picks the transport; without a base URL the
+            // agent uses its own compiled-in endpoint and never touches the socket at all.
+            environment.put(
+                    provider.baseUrlEnvironment(),
+                    provider.addsPath()
+                            ? TaskWiring.VAULT_URL
+                            : route.endpointFor(TaskWiring.VAULT_URL));
+        }
+        return java.util.Map.copyOf(environment);
     }
 
     /**

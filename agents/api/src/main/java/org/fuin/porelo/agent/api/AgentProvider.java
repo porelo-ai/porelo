@@ -22,13 +22,35 @@ import org.jspecify.annotations.Nullable;
  * @param endpoint What the agent is able to address the proxy as.
  * @param socketEnvironment Variable naming the unix socket, or {@code null}.
  * @param baseUrlEnvironment Variable naming the endpoint URL, or {@code null}.
+ * @param addsPath Whether the agent adds the dialect's path to its base URL itself, so {@code
+ *     baseUrlEnvironment} is given the broker's address alone.
  */
 public record AgentProvider(
         String dialect,
         @Nullable String defaultProvider,
         ProviderRoute.Endpoint endpoint,
         @Nullable String socketEnvironment,
-        @Nullable String baseUrlEnvironment) {
+        @Nullable String baseUrlEnvironment,
+        boolean addsPath) {
+
+    /**
+     * Constructor for an agent whose base URL includes the dialect's path, as every agent did
+     * before {@code adds_path}.
+     *
+     * @param dialect Wire format spoken.
+     * @param defaultProvider Provider used when none is named.
+     * @param endpoint Endpoint shape the agent can address.
+     * @param socketEnvironment Variable naming the socket.
+     * @param baseUrlEnvironment Variable naming the URL.
+     */
+    public AgentProvider(
+            String dialect,
+            @Nullable String defaultProvider,
+            ProviderRoute.Endpoint endpoint,
+            @Nullable String socketEnvironment,
+            @Nullable String baseUrlEnvironment) {
+        this(dialect, defaultProvider, endpoint, socketEnvironment, baseUrlEnvironment, false);
+    }
 
     /**
      * Constructor with all data.
@@ -38,6 +60,7 @@ public record AgentProvider(
      * @param endpoint Endpoint shape the agent can address.
      * @param socketEnvironment Variable naming the socket.
      * @param baseUrlEnvironment Variable naming the URL.
+     * @param addsPath Whether the agent adds the dialect's path to its base URL itself.
      */
     public AgentProvider {
         if (dialect == null || dialect.isBlank()) {
@@ -50,6 +73,10 @@ public record AgentProvider(
             // be pointed anywhere, and would fail by talking straight to the provider.
             throw new AgentException(
                     "An agent addressing a socket must name the variable" + " carrying it");
+        }
+        if (addsPath && (baseUrlEnvironment == null || baseUrlEnvironment.isBlank())) {
+            throw new AgentException(
+                    "'provider.adds_path' needs 'provider.base_url_env' beside it");
         }
     }
 

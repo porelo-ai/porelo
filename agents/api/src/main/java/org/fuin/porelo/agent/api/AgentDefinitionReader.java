@@ -351,7 +351,8 @@ public final class AgentDefinitionReader {
             // and is not brokered at all - a real case, not a mistake. But a block that says how to
             // point the agent somewhere and then omits the dialect is a mistake, and a silent one,
             // so it is named.
-            for (final String key : List.of("endpoint", "socket_env", "base_url_env", "default")) {
+            for (final String key :
+                    List.of("endpoint", "socket_env", "base_url_env", "adds_path", "default")) {
                 if (provider.get(key) != null) {
                     throw new AgentException(
                             origin
@@ -363,12 +364,30 @@ public final class AgentDefinitionReader {
             }
             return null;
         }
+        final String baseUrl = optional(provider, "base_url_env");
         return new AgentProvider(
                 dialect,
                 optional(provider, "default"),
                 ProviderRoute.Endpoint.of(optional(provider, "endpoint"), origin),
                 optional(provider, "socket_env"),
-                optional(provider, "base_url_env"));
+                baseUrl,
+                addsPath(provider.get("adds_path"), baseUrl, origin));
+    }
+
+    private static boolean addsPath(
+            final @Nullable Object declared, final @Nullable String baseUrl, final String origin) {
+        if (declared == null) {
+            return false;
+        }
+        if (!(declared instanceof Boolean adds)) {
+            throw new AgentException(
+                    origin + ": 'provider.adds_path' is a boolean, not '" + declared + "'");
+        }
+        if (baseUrl == null || baseUrl.isBlank()) {
+            throw new AgentException(
+                    origin + ": 'provider.adds_path' needs 'provider.base_url_env' beside it");
+        }
+        return adds;
     }
 
     private static String text(@Nullable String value) {

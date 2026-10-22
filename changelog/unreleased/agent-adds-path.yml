@@ -1,0 +1,2 @@
+title: "An agent definition says with `provider.adds_path: true` that its agent adds the dialect's path itself, and is then given the broker's address alone"
+type: added

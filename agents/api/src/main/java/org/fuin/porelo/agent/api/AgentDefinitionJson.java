@@ -64,6 +64,7 @@ public final class AgentDefinitionJson {
             putIfPresent(provider, "socketEnvironment", definition.provider().socketEnvironment());
             putIfPresent(
                     provider, "baseUrlEnvironment", definition.provider().baseUrlEnvironment());
+            provider.put("addsPath", Boolean.valueOf(definition.provider().addsPath()));
             out.put("provider", provider);
         }
         out.put("allowedDomains", definition.allowedDomains());
@@ -346,7 +347,8 @@ public final class AgentDefinitionJson {
                                 : String.valueOf(source.get("endpoint")),
                         "the agent's own description"),
                 text(source.get("socketEnvironment")),
-                text(source.get("baseUrlEnvironment")));
+                text(source.get("baseUrlEnvironment")),
+                Boolean.TRUE.equals(source.get("addsPath")));
     }
 
     @Nullable
