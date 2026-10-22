@@ -1,6 +1,6 @@
 # B235 — A Dry Run Shows The Agent's Refusals
 
-**Status:** Estimated.
+**Status:** Backlog.
 **Size:** S - `TaskLaunch`'s dry run and one guard in `EgressReport`, tests in `app`; no contract.
 
 **What must be true.** `porelo task start --dry-run` names a host the task's agent refuses as refused, never as

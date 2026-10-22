@@ -1,6 +1,6 @@
 # B243 — A Kit Project That Names Its Base Image
 
-**Status:** Estimated.
+**Status:** Backlog.
 **Size:** S - the acceptance kit's one step and its test; the step text stays, so nothing an agent repository reads breaks.
 
 **What must be true.** A scenario in an agent repository can give the project it starts from a base image of its own,

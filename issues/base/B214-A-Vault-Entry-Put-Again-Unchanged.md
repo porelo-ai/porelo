@@ -1,6 +1,6 @@
 # B214 — A Vault Entry Put Again Unchanged
 
-**Status:** Estimated.
+**Status:** Backlog.
 **Size:** M - two modules (`vault`, `app-vault`) and a `--json` answer porelo-host's play reads, with a row in `doc/hosts.md`.
 
 **What must be true.** `porelo vault put NAME` given exactly the value the entry already holds says so and exits 0,

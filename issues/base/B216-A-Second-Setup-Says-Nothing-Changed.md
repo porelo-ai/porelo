@@ -1,6 +1,6 @@
 # B216 — A Second Setup Says Nothing Changed
 
-**Status:** Estimated.
+**Status:** Backlog.
 **Size:** M - one shell script, but a `--json` answer porelo-host's role reads, docs in `doc/running.md` and `doc/hosts.md`, and tests that stub the machine.
 
 **What must be true.** `porelo-setup.sh` run on a machine it already prepared changes nothing, and says so in a

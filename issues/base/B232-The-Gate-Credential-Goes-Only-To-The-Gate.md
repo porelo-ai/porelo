@@ -1,6 +1,6 @@
 # B232 — The Gate Credential Goes Only To The Gate
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** XS - one configuration key in `TaskWorkspace`, and a test with real git.
 
 **What must be true.** A task's git sends the gate's credential to the gate alone, never to another host it fetches

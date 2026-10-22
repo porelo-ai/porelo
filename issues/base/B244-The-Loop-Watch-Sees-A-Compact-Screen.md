@@ -1,6 +1,6 @@
 # B244 — The Loop Watch Sees A Compact Screen
 
-**Status:** Estimated.
+**Status:** Backlog.
 **Size:** M - one module, the acceptance kit, with a published step agent repositories use; L if the file's place comes from the agent definition instead.
 
 **What must be true.** A scenario that waits on a model stops as soon as the agent repeats a failed tool call, also
