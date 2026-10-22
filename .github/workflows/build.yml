@@ -87,7 +87,7 @@ jobs:
     # or a schedule, at most a day old. Then the legs are taken from it and said so, and nothing is rented.
     proven:
         name: Proven legs
-        runs-on: ubuntu-24.04
+        runs-on: ubuntu-26.04
         timeout-minutes: 10
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         permissions:

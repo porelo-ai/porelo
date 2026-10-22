@@ -35,12 +35,12 @@ from its side, as *blocked by*.
 | <a id="b232"></a>[B232](B232-The-Gate-Credential-Goes-Only-To-The-Gate.md) | XS | - | A task's git sends the gate's credential only to the gate: `http.extraHeader` scoped to the gate's URL, where today it goes to every HTTPS host, `github.com` included; built, red first with real git, the VM next |
 | <a id="b192"></a>[B192](B192-An-Image-Chosen-Per-Repository.md) | L | - | A repository's `porelo.yml` (checked in) or `.porelo.yml` (a local override) names only its image - `base_image`, a snippet, `env` - read key by key in a fixed order with `project.yml`'s `repositories.<name>.image` and the mirror's default branch; one cached image per repository, its source named at the start, the file ranked dangerous in review.; step 1 (the reader and its refusals) built |
 | <a id="b189"></a>[B189](B189-Values-Handed-To-A-Task-At-Its-Start.md) | L | - | Values a project declares in `parameters:`, handed to a start by `--set`, `--set-file` or `--set-env`, checked by `StartCheck`, kept in `parameters.json`, shown with their origin by `task status` and `Task`, set in the container and usable as `{name}` in settings.; steps 1 and 2 built |
+| <a id="b242"></a>[B242](B242-An-Agents-Records-Read-By-A-Nested-Key.md) | M | - | An agent definition reads its session id and last message by a dotted key, and a session file by its own record, as Codex CLI writes them; the agent API only grows |
 
 ## Backlog
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b242"></a>[B242](B242-An-Agents-Records-Read-By-A-Nested-Key.md) | - | - | An agent definition reads its session id and last message by a dotted key, and a session file by its own record, as Codex CLI writes them; the agent API only grows |
 | <a id="b239"></a>[B239](B239-The-Hooks-Run-Nft-By-A-Fixed-Path.md) | - | - | The hooks run `nsenter` and `nft` from fixed, root-owned paths, never through the caller's `PATH`, which today decides which `nft` loads a task's firewall |
 | <a id="b206"></a>[B206](B206-A-Transport-Takes-Its-Secrets-On-Its-Input.md) | L | - | A transport takes the secrets Porelo kept for it on its standard input, not in its environment, so no other process of the account can read them from `/proc`; a version declared in `describe`, with the matrix transport's matching change. |
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | XL | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own; analyzed: filled only from reviewed work, mounted `:ro,z`, read through `maven.repo.local.tail`, filled by `dependency:go-offline` on request and when the default branch moved, Maven first |

@@ -1,0 +1,2 @@
+title: "An agent definition names a field below the top level of a record by a dotted path, and a session file by its own record, so an agent like Codex CLI resumes and reports its last message"
+type: added

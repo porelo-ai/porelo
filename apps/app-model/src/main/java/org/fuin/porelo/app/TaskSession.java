@@ -169,7 +169,7 @@ public final class TaskSession {
         // From inside the file first, where the agent declares the record its id is in: a file
         // named '<timestamp>_<id>.jsonl' is not an id such an agent takes back, and no rule for
         // cutting the name needs guessing. Only when no record matches is the name the id.
-        if (!ids.record().isEmpty()) {
+        if (!ids.record().isEmpty() || !ids.fileRecord().isEmpty()) {
             final Optional<String> inside = fromInside(container, path, ids);
             if (inside.isPresent()) {
                 return inside;
@@ -197,7 +197,7 @@ public final class TaskSession {
         if (head.exitCode() != 0) {
             return Optional.empty();
         }
-        return Optional.ofNullable(ids.of(records(head.standardOutput())));
+        return Optional.ofNullable(ids.ofFile(records(head.standardOutput())));
     }
 
     /**

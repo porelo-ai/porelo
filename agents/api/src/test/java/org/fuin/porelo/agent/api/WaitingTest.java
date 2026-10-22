@@ -250,4 +250,29 @@ class WaitingTest {
                                         Map.of("type", "result", "result", 3))))
                 .isNull();
     }
+
+    @Test
+    void aLastMessageBelowTheTopLevelIsFound() {
+        // As Codex CLI ends an unattended run.
+        final Waiting.LastMessage last =
+                new Waiting.LastMessage(
+                        Map.of("type", "item.completed", "item.type", "agent_message"),
+                        "item.text");
+
+        assertThat(
+                        last.of(
+                                List.of(
+                                        Map.of(
+                                                "type",
+                                                "item.completed",
+                                                "item",
+                                                Map.of("type", "reasoning", "text", "thinking")),
+                                        Map.of(
+                                                "type",
+                                                "item.completed",
+                                                "item",
+                                                Map.of("type", "agent_message", "text", "Done.")))))
+                .as("the record is matched and its text read through the nested mapping")
+                .isEqualTo("Done.");
+    }
 }

@@ -100,6 +100,8 @@ session:
     directory: ".example/sessions"  # an attached agent: its session files, under its home ...
     suffix: ".jsonl"                # ... ending in <suffix>; in the newest, the first record above names
                                     #     the session, else its name without <suffix> does
+    file_record: { type: session_meta }  # optional; a session file's own record, when not a run's ...
+    file_key: payload.id            # ... and its field holding the id
   ready_marker: "Ready for work."   # text shown once at work, attached, having asked nothing
   ready_within_seconds: 60          # optional; the kit's default is 120
   waiting:                          # optional; what waiting for a person looks like here
@@ -111,7 +113,7 @@ session:
       - contains: "(END)"
         in_last_lines: 1
     last_message:                   # optional; where a finished unattended run's last message is
-      record: { type: result }      # the last record whose top-level fields have these values
+      record: { type: result }      # the last record whose fields have these values
       text: result                  # and the field of it holding the text
   at_rest:                          # optional; what its screen shows when it waits for its next turn
     shows: ["bypass permissions on"]               # text that must all be on the screen
@@ -189,6 +191,11 @@ session files when an attached task stops - and starting the task again passes `
 id, and says it did. An agent that declares nothing starts fresh and says so; nothing is guessed. It
 needs `supports_resume`. A session id is an identifier, not a credential, so it may be on a command
 line; it is kept with the task and forgotten when the task is removed.
+
+**A field may be named by a dotted path** - `payload.id`, `item.type` - of at most four segments of
+letters, digits and underscores, each through a mapping, for an agent that writes a value below the
+top level of a record; this holds for every record's fields, `key`, `file_key` and `text`. A name
+without a dot is a top-level field.
 
 **`waiting` is how Porelo tells a person the agent is waiting for them**, read from outside and
 never by a rule of Porelo's own. For an attached task Porelo reads the screen tmux draws every few

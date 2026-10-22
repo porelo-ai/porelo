@@ -193,13 +193,19 @@ public final class AgentDefinitionReader {
         if (!(declared instanceof Map<?, ?> ids)) {
             throw new AgentException(origin + ": 'session.session_id' is a mapping");
         }
-        only(ids, List.of("record", "key", "directory", "suffix"), origin, "session.session_id");
+        only(
+                ids,
+                List.of("record", "key", "directory", "suffix", "file_record", "file_key"),
+                origin,
+                "session.session_id");
         try {
             return new SessionIds(
                     map(ids.get("record")),
                     optional(ids, "key"),
                     optional(ids, "directory"),
-                    optional(ids, "suffix"));
+                    optional(ids, "suffix"),
+                    map(ids.get("file_record")),
+                    optional(ids, "file_key"));
         } catch (AgentException ex) {
             throw new AgentException(origin + ": " + ex.getMessage(), ex);
         }

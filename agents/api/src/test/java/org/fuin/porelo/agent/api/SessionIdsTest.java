@@ -132,4 +132,113 @@ class SessionIdsTest {
         assertThat(SessionIds.isId("0b1f-42_x.y")).isTrue();
         assertThat(SessionIds.isId("")).isFalse();
     }
+
+    @Test
+    void aSessionIdBelowTheTopLevelOfARecordIsFound() {
+        // As Codex CLI writes a session file's first line.
+        final List<Object> records =
+                List.of(
+                        Map.of(
+                                "type",
+                                "session_meta",
+                                "payload",
+                                Map.of("id", "0199a213-81c0-7800-8aa1-bbab2a035a53", "cwd", "/w")));
+
+        assertThat(
+                        new SessionIds(Map.of("type", "session_meta"), "payload.id", null, null)
+                                .of(records))
+                .as("a dotted key walks through the record's mappings")
+                .isEqualTo("0199a213-81c0-7800-8aa1-bbab2a035a53");
+    }
+
+    @Test
+    void aRecordIsMatchedOnAFieldBelowItsTopLevel() {
+        final List<Object> records =
+                List.of(
+                        Map.of("type", "event", "body", Map.of("kind", "other"), "id", "not-this"),
+                        Map.of("type", "event", "body", Map.of("kind", "start"), "id", "s-1"));
+
+        assertThat(
+                        new SessionIds(
+                                        Map.of("type", "event", "body.kind", "start"),
+                                        "id",
+                                        null,
+                                        null)
+                                .of(records))
+                .as("a dotted field name is matched where it points")
+                .isEqualTo("s-1");
+    }
+
+    @Test
+    void aPathOfMoreThanFourSegmentsOrAnEmptyOneIsRefused() {
+        for (final String bad : new String[] {"a.b.c.d.e", "a..b", ".a", "a.", "a-b.c", "a b"}) {
+            assertThatThrownBy(() -> new SessionIds(Map.of("type", "x"), bad, null, null))
+                    .as("key '%s'", bad)
+                    .isInstanceOf(AgentException.class);
+            assertThatThrownBy(() -> new SessionIds(Map.of(bad, "x"), "id", null, null))
+                    .as("field '%s'", bad)
+                    .isInstanceOf(AgentException.class);
+        }
+    }
+
+    @Test
+    void aSessionFileReadByItsOwnRecordGivesTheIdInsideAndARunKeepsItsOwn() {
+        // As Codex CLI declares it: a run names its thread, a session file its payload.
+        final AgentDefinition definition =
+                read(
+                        MINIMAL
+                                + """
+                session:
+                  supports_resume: true
+                  resume_flag: "resume"
+                  session_id:
+                    record: { type: thread.started }
+                    key: thread_id
+                    directory: ".codex/sessions"
+                    suffix: ".jsonl"
+                    file_record: { type: session_meta }
+                    file_key: payload.id
+                """);
+        final SessionIds ids = java.util.Objects.requireNonNull(definition.sessionIds());
+        final List<Object> file =
+                List.of(Map.of("type", "session_meta", "payload", Map.of("id", "f-1")));
+        final List<Object> run = List.of(Map.of("type", "thread.started", "thread_id", "t-1"));
+
+        assertThat(ids.ofFile(file))
+                .as("a session file is read by its own record")
+                .isEqualTo("f-1");
+        assertThat(ids.of(run)).as("a run is still read by the run's record").isEqualTo("t-1");
+        assertThat(ids.ofFile(run))
+                .as("a file is not read by the run's record once it has its own")
+                .isNull();
+        assertThat(AgentDefinitionJson.read(AgentDefinitionJson.write(definition)).sessionIds())
+                .as("what 'describe' and the socket carry comes back the same")
+                .isEqualTo(ids);
+    }
+
+    @Test
+    void aSessionFilesOwnRecordIsDeclaredWholeAndOnlyWithItsFiles() {
+        assertThatThrownBy(
+                        () ->
+                                new SessionIds(
+                                        Map.of(),
+                                        null,
+                                        ".x",
+                                        ".jsonl",
+                                        Map.of("type", "session_meta"),
+                                        null))
+                .as("a file record without its key")
+                .isInstanceOf(AgentException.class);
+        assertThatThrownBy(
+                        () ->
+                                new SessionIds(
+                                        Map.of("type", "system"),
+                                        "id",
+                                        null,
+                                        null,
+                                        Map.of("type", "session_meta"),
+                                        "payload.id"))
+                .as("a file record where no files are declared")
+                .isInstanceOf(AgentException.class);
+    }
 }

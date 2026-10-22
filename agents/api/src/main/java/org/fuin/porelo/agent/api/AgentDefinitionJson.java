@@ -109,6 +109,10 @@ public final class AgentDefinitionJson {
             putIfPresent(ids, "key", definition.sessionIds().key());
             putIfPresent(ids, "directory", definition.sessionIds().directory());
             putIfPresent(ids, "suffix", definition.sessionIds().suffix());
+            if (!definition.sessionIds().fileRecord().isEmpty()) {
+                ids.put("fileRecord", definition.sessionIds().fileRecord());
+                putIfPresent(ids, "fileKey", definition.sessionIds().fileKey());
+            }
             out.put("sessionIds", ids);
         }
         putIfPresent(out, "version", definition.version());
@@ -177,7 +181,9 @@ public final class AgentDefinitionJson {
                                 map(ids.get("record")),
                                 optional(ids, "key"),
                                 optional(ids, "directory"),
-                                optional(ids, "suffix"))
+                                optional(ids, "suffix"),
+                                map(ids.get("fileRecord")),
+                                optional(ids, "fileKey"))
                         : null,
                 strings(source.get("instructionArguments")),
                 source.get("atRest") instanceof Map<?, ?> rest

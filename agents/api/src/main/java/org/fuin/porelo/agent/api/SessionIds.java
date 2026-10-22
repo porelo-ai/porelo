@@ -16,19 +16,44 @@ import org.jspecify.annotations.Nullable;
  * this machine and authorizes nothing, so passing it on a command line - as {@code resume_flag}
  * needs - is allowed.
  *
- * @param record The record an unattended run names its session in: top-level fields and the values
- *     they must have, or empty when the agent's machine-readable output does not name it.
- * @param key The field of that record holding the id, or {@code null} with an empty {@code record}.
+ * @param record The record an unattended run names its session in: fields, each a dotted path of at
+ *     most four segments, and the values they must have, or empty when the agent's machine-readable
+ *     output does not name it.
+ * @param key The field of that record holding the id, a dotted path too, or {@code null} with an
+ *     empty {@code record}.
  * @param directory Where an attached agent keeps its session files, relative to its home directory,
  *     or {@code null} when it keeps none Porelo can read.
  * @param suffix What a session file's name ends in; the rest of the name is the id, and the newest
  *     such file names the session. {@code null} with a {@code null} directory.
+ * @param fileRecord The record a session file names its session in, when it differs from a run's;
+ *     empty when a file is read with {@code record} and {@code key}.
+ * @param fileKey The field of that record holding the id, or {@code null} with an empty {@code
+ *     fileRecord}.
  */
 public record SessionIds(
         Map<String, String> record,
         @Nullable String key,
         @Nullable String directory,
-        @Nullable String suffix) {
+        @Nullable String suffix,
+        Map<String, String> fileRecord,
+        @Nullable String fileKey) {
+
+    /**
+     * Constructor for an agent whose session files name their session as its runs do, as every
+     * agent did before {@code file_record}.
+     *
+     * @param record The record's fields.
+     * @param key The field holding the id.
+     * @param directory The session files' directory.
+     * @param suffix Their names' ending.
+     */
+    public SessionIds(
+            Map<String, String> record,
+            @Nullable String key,
+            @Nullable String directory,
+            @Nullable String suffix) {
+        this(record, key, directory, suffix, Map.of(), null);
+    }
 
     /**
      * Constructor with validation.
@@ -37,12 +62,35 @@ public record SessionIds(
      * @param key The field holding the id.
      * @param directory The session files' directory.
      * @param suffix Their names' ending.
+     * @param fileRecord The session file's own record's fields.
+     * @param fileKey The field of it holding the id.
      */
     public SessionIds {
         record = Map.copyOf(record);
+        fileRecord = Map.copyOf(fileRecord);
         if (record.isEmpty() != (key == null || key.isBlank())) {
             throw new AgentException(
                     "A session id in a run's records needs both the record and its key");
+        }
+        if (fileRecord.isEmpty() != (fileKey == null || fileKey.isBlank())) {
+            throw new AgentException(
+                    "A session id in a session file's own record needs both the record and its key");
+        }
+        if (!fileRecord.isEmpty() && directory == null) {
+            throw new AgentException(
+                    "A session file's own record is declared only with the files' directory");
+        }
+        for (final String field : record.keySet()) {
+            RecordPath.checked(field, "A record's field");
+        }
+        for (final String field : fileRecord.keySet()) {
+            RecordPath.checked(field, "A session file record's field");
+        }
+        if (key != null && !key.isBlank()) {
+            RecordPath.checked(key, "A session id's key");
+        }
+        if (fileKey != null && !fileKey.isBlank()) {
+            RecordPath.checked(fileKey, "A session file's id key");
         }
         if ((directory == null) != (suffix == null)) {
             throw new AgentException(
@@ -78,13 +126,29 @@ public record SessionIds(
      *     declared.
      */
     public @Nullable String of(java.util.List<?> records) {
-        if (record.isEmpty() || key == null) {
+        return of(records, record, key);
+    }
+
+    /**
+     * Picks the session id out of a session file's records: by its own record where one is
+     * declared, else as a run's.
+     *
+     * @param records The file's first records, parsed, in order.
+     * @return The id the first matching record names, or {@code null} when none does.
+     */
+    public @Nullable String ofFile(java.util.List<?> records) {
+        return fileRecord.isEmpty() ? of(records) : of(records, fileRecord, fileKey);
+    }
+
+    private static @Nullable String of(
+            java.util.List<?> records, Map<String, String> wanted, @Nullable String field) {
+        if (wanted.isEmpty() || field == null) {
             return null;
         }
         for (final Object each : records) {
             if (each instanceof Map<?, ?> fields
-                    && matches(fields)
-                    && fields.get(key) instanceof String id
+                    && RecordPath.matches(fields, wanted)
+                    && RecordPath.value(fields, field) instanceof String id
                     && isId(id)) {
                 return id;
             }
@@ -100,14 +164,5 @@ public record SessionIds(
      */
     public static boolean isId(String id) {
         return id.length() <= 200 && id.matches("[A-Za-z0-9._-]+");
-    }
-
-    private boolean matches(Map<?, ?> fields) {
-        for (final Map.Entry<String, String> wanted : record.entrySet()) {
-            if (!wanted.getValue().equals(fields.get(wanted.getKey()))) {
-                return false;
-            }
-        }
-        return true;
     }
 }

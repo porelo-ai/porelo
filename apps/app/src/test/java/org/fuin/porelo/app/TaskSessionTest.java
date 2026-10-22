@@ -129,6 +129,29 @@ class TaskSessionTest {
     }
 
     @Test
+    void aSessionFileIsReadByItsOwnRecordWhenItDiffersFromARunsOne() {
+        // As Codex CLI writes them: a run names its thread, a session file its payload.
+        final SessionIds codexLike =
+                new SessionIds(
+                        Map.of("type", "thread.started"),
+                        "thread_id",
+                        ".codex/sessions",
+                        ".jsonl",
+                        Map.of("type", "session_meta"),
+                        "payload.id");
+        runner.answering(
+                "find",
+                "/home/agent/.codex/sessions/2026/10/22/rollout-2026-10-22T05-00-00-u-1.jsonl\n");
+        runner.answering(
+                "-n 50",
+                "{\"type\":\"session_meta\",\"payload\":{\"id\":\"u-1\",\"cwd\":\"/w\"}}\n");
+
+        assertThat(new TaskSession(context()).fromFiles(TASK, codexLike))
+                .as("the id inside the file's own record, not the file's name")
+                .contains("u-1");
+    }
+
+    @Test
     void aFileWithNoMatchingRecordFallsBackToItsName() {
         runner.answering("find", "/home/agent/.sessions/project/s-77.session\n");
         runner.answering("-n 50", "not a record\n{\"kind\":\"title\"}\n");

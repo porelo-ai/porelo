@@ -136,8 +136,9 @@ public record Waiting(
      * Where the last message of a finished unattended run is: the last record whose fields equal
      * the given values, and the field of it that holds the text.
      *
-     * @param record Top-level fields and the values they must have, at least one.
-     * @param text The top-level field holding the message.
+     * @param record Fields, each a dotted path of at most four segments, and the values they must
+     *     have, at least one.
+     * @param text The field holding the message, a dotted path too.
      */
     public record LastMessage(Map<String, String> record, String text) {
 
@@ -159,6 +160,10 @@ public record Waiting(
             if (text.isBlank()) {
                 throw new AgentException("A last message names the field that holds its text");
             }
+            for (final String field : record.keySet()) {
+                RecordPath.checked(field, "A last message's field");
+            }
+            RecordPath.checked(text, "A last message's text field");
         }
 
         /**
@@ -171,21 +176,12 @@ public record Waiting(
             String last = null;
             for (final Object each : records) {
                 if (each instanceof Map<?, ?> fields
-                        && matches(fields)
-                        && fields.get(text) instanceof String said) {
+                        && RecordPath.matches(fields, record)
+                        && RecordPath.value(fields, text) instanceof String said) {
                     last = said;
                 }
             }
             return last;
-        }
-
-        private boolean matches(Map<?, ?> fields) {
-            for (final Map.Entry<String, String> wanted : record.entrySet()) {
-                if (!wanted.getValue().equals(fields.get(wanted.getKey()))) {
-                    return false;
-                }
-            }
-            return true;
         }
     }
 
