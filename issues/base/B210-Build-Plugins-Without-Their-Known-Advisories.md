@@ -1,6 +1,7 @@
 # B210 — Build Plugins Without Their Known Advisories
 
-**Status:** Idea.
+**Status:** Analyzed.
+**Size:** L - the change is in `porelo-parent`, whose snapshot reaches every Maven repository at once, each to be checked whole on it.
 
 **What must be true.** No Maven plugin that porelo-parent versions carries a dependency with a known advisory, where a
 fixed version exists that has stood the age
@@ -54,10 +55,37 @@ at the newest release three days old, read from Central on 2026-10-18:
    - `bcprov-jdk18on` and `bcpg-jdk18on` at the parent's own `bouncycastle.version`;
    - a fixed `aircompressor`, `commons-compress` and `plexus-utils`.
 
+## Plan
+
+Read in `porelo-parent`'s `pom.xml` and its `test/` scripts.
+
+1. **Pinned today, each at the version this issue names:** build-helper, exec, logchange, native, cyclonedx, jdeb,
+   both `rpm` plugins, jar, compiler, deploy, enforcer and project-info-reports. **Not pinned at all:** install,
+   clean, resources and site, which come from Maven 3.9.15's super POM, so those are new entries.
+   `cyclonedx-core-java` 11.0.1 is in the parent already, and `bouncycastle.version` is 1.85.2.
+2. **Versions:** the newer releases this issue names, plus new `pluginManagement` entries for install, clean,
+   resources and site (site pinned at 3.22.0).
+3. **A plugin's own dependencies** are set inside its `pluginManagement` entry, since `dependencyManagement` does not
+   reach a plugin's class path: cyclonedx-core-java and jackson for cyclonedx, jackson for native and logchange,
+   bouncycastle at `bouncycastle.version` for the dentrassi `rpm`, a fixed aircompressor, commons-compress and snappy
+   for jdeb, the codehaus `rpm` and jar.
+4. **Red first:** a new `test/plugin-dependencies-fixed.sh` in porelo-parent, beside `test/child-publishes.sh`,
+   reading a child's effective POM for each version and override, and the site pin. It fails on today's parent.
+
+## Acceptance
+
+- The OSV reading run again on a locally installed parent shows no plugin dependency with an advisory that a
+  fix three days old exists for. Seen first: the jackson 2.17.2 and bouncycastle 1.77 hits on today's parent.
+- Every Maven repository's whole check passes on the parent snapshot, and porelo's packages are still produced.
+
+## Open questions
+
+- **A plugin that works only on the old library** - cyclonedx 2.9.3 on cyclonedx-core-java 11, a major step from
+  9.0.5 - may stay behind as an accepted risk in `doc/decisions.md`, or blocks the move. Recommended: stays behind,
+  named, since no Build hands it network input.
+
 ## To be checked
 
-- **Whether each move clears its hits.** It is not measured. The measurement is the same reading run again on the
-  moved parent, from a local install under a prefix of its own. After that, every Maven repository's whole check and
-  both legs, since a parent snapshot reaches them all at once.
-- **Whether a plugin works with a dependency newer than the one it was built against**, above all bouncycastle under
-  the dentrassi `rpm` plugin, once signing is on.
+- Whether each move clears its hits; whether cyclonedx 2.9.3 runs on cyclonedx-core-java 11.0.1 and the dentrassi
+  `rpm` on bcpg 1.85.2; Central again for newer cyclonedx, jdeb and `rpm` releases; whether javadoc and source need
+  an override too.

@@ -1,6 +1,7 @@
 # B240 — A Repository Named With Dots
 
-**Status:** Idea.
+**Status:** Backlog.
+**Size:** S - one pattern in `core`, a parallel check in `app-model`, their tests and a line of the project file's page.
 
 **What must be true.** A project names a repository by its real name, dots included (`porelo-ai.github.io`), as a
 forge allows it, so a task's repository is the repository a person knows.
@@ -11,3 +12,34 @@ Measured on `0.5.1~snapshot.307`: `repositories: porelo-ai.github.io:` in a proj
 repository name 'porelo-ai.github.io', expected lower-case letters, digits and hyphens". The name becomes a mirror
 directory, part of an image name and part of a container's; each allows a dot, but `..` and a leading dot must stay
 refused.
+
+## Plan
+
+Read in `Repository`, `DefaultProject`, `RepositoryAddress`, `GateSupport`, `ImageChoice`, `Project`, `TaskRunner`,
+`Prune` and `ContainerName`.
+
+1. The name becomes a mirror directory, an override's directory, part of an image name (`porelo/<project>_<repository>`,
+   split at the first `_`), a build context and its lock, and a label; never part of a container's name. A dot is
+   valid in each, between two letters or digits.
+2. **`Repository.NAME_PATTERN`** takes labels joined by single dots, each dot between two letters or digits; `..`, a
+   leading or trailing dot, `.-` and `-.` stay refused. The refusal names dots; `DefaultProject` checks the same
+   way, and `RepositoryAddress.nameOf` keeps a checkout's dots.
+3. **Docs:** the name's rule under `repositories:` in `doc/project-file.md`.
+4. **Red first:** `RepositoriesTest.aRepositoryNamedWithDotsIsAccepted`, then
+   `aRepositoryNameWithTwoDotsOrALeadingDotIsRefused`.
+
+## Acceptance
+
+- A project naming `porelo-ai.github.io` reads, and its task's image is `porelo/<project>_porelo-ai.github.io` and its
+  mirror `porelo-ai.github.io.git`. Seen to fail first: the refusal today.
+- `..x`, `.x`, `x.` and `a.-b` are still refused.
+
+## Open questions
+
+- **A name ending in a hyphen** is accepted today and is not valid at the end of an image name. Refused from now
+  on, which may refuse an existing project file, or left. Recommended: refused, since such an image cannot be built
+  anyway.
+
+## To be checked
+
+- That podman builds and lists `porelo/demo_porelo-ai.github.io`, on the VM.

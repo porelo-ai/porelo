@@ -44,8 +44,12 @@ from its side, as *blocked by*.
 | <a id="b239"></a>[B239](B239-The-Hooks-Run-Nft-By-A-Fixed-Path.md) | - | - | The hooks run `nsenter` and `nft` from fixed, root-owned paths, never through the caller's `PATH`, which today decides which `nft` loads a task's firewall |
 | <a id="b206"></a>[B206](B206-A-Transport-Takes-Its-Secrets-On-Its-Input.md) | L | - | A transport takes the secrets Porelo kept for it on its standard input, not in its environment, so no other process of the account can read them from `/proc`; a version declared in `describe`, with the matrix transport's matching change. |
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | XL | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own; analyzed: filled only from reviewed work, mounted `:ro,z`, read through `maven.repo.local.tail`, filled by `dependency:go-offline` on request and when the default branch moved, Maven first |
-| <a id="b233"></a>[B233](B233-A-Host-Service-Reached-By-Name.md) | - | - | A task reaches a service on its own host, a forge or a registry, by a declared name on 443 and nothing else there; the reach through pasta measured first |
-| <a id="b234"></a>[B234](B234-The-Hosts-Authority-In-A-Tasks-Trust-Store.md) | - | - | A task trusts a certificate authority the host names, without a project putting it into its image; where the images read added authorities measured first |
+| <a id="b233"></a>[B233](B233-A-Host-Service-Reached-By-Name.md) | L | - | A task reaches a service on its own host, a forge or a registry, by a declared name on 443 and nothing else there; the reach through pasta measured first |
+| <a id="b234"></a>[B234](B234-The-Hosts-Authority-In-A-Tasks-Trust-Store.md) | M | - | A task trusts a certificate authority the host names, without a project putting it into its image; where the images read added authorities measured first |
+| <a id="b236"></a>[B236](B236-The-Inventory-Names-The-Projects-Transports.md) | M | - | `project inventory` names the packages of the transports a project's tasks use, as [B217](#b217) does for `agent_package`, so a host installs them; porelo-host [HO02](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho02) waits on it |
+| <a id="b240"></a>[B240](B240-A-Repository-Named-With-Dots.md) | S | - | A project names a repository by its real name, dots included, where today `porelo-ai.github.io` is refused |
+| <a id="b241"></a>[B241](B241-A-Debian-Base-Image-Builds.md) | S | - | A Debian base image builds: the default mirror is Ubuntu's alone, and a replacement leaves the security stanza as it was; today no value builds `python:3.13-slim` |
+| <a id="b245"></a>[B245](B245-An-Attach-Asks-For-The-Model-Of-The-Start.md) | M | - | `task attach` after a detached start asks the agent for the `--model` the start named, where today it runs on its default because the task profile keeps no model |
 | <a id="b207"></a>[B207](B207-An-Image-Built-Within-The-Projects-Egress.md) | L | - | An image's build reaches only the project's egress and its trusted package sources, through the firewall or a proxy, so a snippet - a project's or a repository's `porelo.yml` - cannot fetch from anywhere while the image is made. |
 | <a id="b190"></a>[B190](B190-A-Tasks-Branch-Named-By-The-Projects-Scheme.md) | L | `porelo` [B189](README.md#b189) | `branch.template` and `branch.pattern` or `--branch` name a task's forge branch, kept in `task.json`; the gate passes on and keeps out of its mirror by them, an existing upstream branch refused at an online start, a guarded approval onto it by default and only within the pattern. |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes. |
@@ -94,6 +98,15 @@ from its side, as *blocked by*.
 | <a id="b179"></a>[B179](B179-A-Code-Beside-Why-A-Release-Cannot-Go.md) | M | - | A code beside `detail` when a release is answered `NOT_DELIVERABLE`, so a client can say what to do per case. | 0 |
 | <a id="b230"></a>[B230](B230-The-Package-Provides-The-Lowest-Agent-Protocol.md) | M | `porelo` [B224](README.md#b224) | The `.deb` and `.rpm` provide `porelo-agent-protocol-<LOWEST>`, held to `AgentProtocol.LOWEST` by a test, so an agent's package refuses only what `porelo` refuses. | 0 |
 | <a id="b231"></a>[B231](B231-The-Usage-Records-Kept-Off-The-Machine.md) | M | `porelo` [B148](README.md#b148) | `porelo keep <dir>` copies the usage records up to their last complete line, `keep --restore <dir>` puts them back before a task runs and never shortens one. | 0 |
+| <a id="b238"></a>[B238](B238-An-Unfollow-Leaves-Nothing-Of-The-Project.md) | XS | - | `project unfollow` removes the project's build lock and upstream copies, which `porelo prune` finds left over today | 0 |
+| <a id="b215"></a>[B215](B215-A-Helper-Started-With-A-UTF-8-Locale.md) | XS | - | A transport and the message filter run with `LANG=C.UTF-8` where porelod has no locale, so a non-ASCII argument or path reaches them whole | 1 |
+| <a id="b235"></a>[B235](B235-A-Dry-Run-Shows-The-Agents-Refusals.md) | S | - | `task start --dry-run` names a host the agent refuses as refused, where today it lists it as reachable and the running task refuses it | 2 |
+| <a id="b237"></a>[B237](B237-A-Name-Granted-Live-Through-A-CNAME.md) | S | - | A name granted to a running task that answers through a CNAME is reached as it is when named at the start, where today its connections are dropped | 1 |
+| <a id="b243"></a>[B243](B243-A-Kit-Project-That-Names-Its-Base-Image.md) | S | - | The acceptance kit's project step takes a base image of the scenario's own, where today an `image` mapping is a second root key | 0 |
+| <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed | 1 |
+| <a id="b216"></a>[B216](B216-A-Second-Setup-Says-Nothing-Changed.md) | M | - | A second `porelo-setup.sh` run changes nothing and says so, as a last line and in `--json`, so a playbook reports it truly | 1 |
+| <a id="b244"></a>[B244](B244-The-Loop-Watch-Sees-A-Compact-Screen.md) | M | - | The acceptance kit's loop watch stops a scenario on a repeated failed tool call also for an agent that redraws a compact view, where today Codex CLI's ran to its bound | 2 |
+| <a id="b210"></a>[B210](B210-Build-Plugins-Without-Their-Known-Advisories.md) | L | - | The plugins porelo-parent versions carry no dependency with a known advisory: newer releases where they exist, fixed dependencies where not; [B99](#b99)'s signing waits for the bouncycastle move. | 1 |
 
 ## Accepted
 
@@ -109,19 +122,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b245"></a>[B245](B245-An-Attach-Asks-For-The-Model-Of-The-Start.md) | - | - | `task attach` after a detached start asks the agent for the `--model` the start named, where today it runs on its default because the task profile keeps no model |
-| <a id="b240"></a>[B240](B240-A-Repository-Named-With-Dots.md) | - | - | A project names a repository by its real name, dots included, where today `porelo-ai.github.io` is refused |
-| <a id="b241"></a>[B241](B241-A-Debian-Base-Image-Builds.md) | - | - | A Debian base image builds: the default mirror is Ubuntu's alone, and a replacement leaves the security stanza as it was; today no value builds `python:3.13-slim` |
-| <a id="b244"></a>[B244](B244-The-Loop-Watch-Sees-A-Compact-Screen.md) | - | - | The acceptance kit's loop watch stops a scenario on a repeated failed tool call also for an agent that redraws a compact view, where today Codex CLI's ran to its bound |
-| <a id="b243"></a>[B243](B243-A-Kit-Project-That-Names-Its-Base-Image.md) | - | - | The acceptance kit's project step takes a base image of the scenario's own, where today an `image` mapping is a second root key |
-| <a id="b238"></a>[B238](B238-An-Unfollow-Leaves-Nothing-Of-The-Project.md) | - | - | `project unfollow` removes the project's build lock and upstream copies, which `porelo prune` finds left over today |
-| <a id="b236"></a>[B236](B236-The-Inventory-Names-The-Projects-Transports.md) | - | - | `project inventory` names the packages of the transports a project's tasks use, as [B217](#b217) does for `agent_package`, so a host installs them; porelo-host [HO02](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho02) waits on it |
-| <a id="b237"></a>[B237](B237-A-Name-Granted-Live-Through-A-CNAME.md) | - | - | A name granted to a running task that answers through a CNAME is reached as it is when named at the start, where today its connections are dropped |
-| <a id="b235"></a>[B235](B235-A-Dry-Run-Shows-The-Agents-Refusals.md) | - | - | `task start --dry-run` names a host the agent refuses as refused, where today it lists it as reachable and the running task refuses it |
-| <a id="b210"></a>[B210](B210-Build-Plugins-Without-Their-Known-Advisories.md) | - | - | The plugins porelo-parent versions carry no dependency with a known advisory: newer releases where they exist, fixed dependencies where not; [B99](#b99)'s signing waits for the bouncycastle move. |
-| <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | - | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
-| <a id="b215"></a>[B215](B215-A-Helper-Started-With-A-UTF-8-Locale.md) | - | - | A transport and the message filter run with `LANG=C.UTF-8` where porelod has no locale, so a non-ASCII argument or path reaches them whole |
-| <a id="b216"></a>[B216](B216-A-Second-Setup-Says-Nothing-Changed.md) | - | - | A second `porelo-setup.sh` run changes nothing and says so, as a last line and in `--json`, so a playbook reports it truly |
+| <a id="b246"></a>[B246](B246-A-Task-Name-No-Other-Project-Shares.md) | - | - | A task's container name is one project's and one task's, where `porelo-a-b-c` today names project `a-b`'s task `c` and project `a`'s task `b-c`; proposed: `_` between them |
 
 ## Estimated
 

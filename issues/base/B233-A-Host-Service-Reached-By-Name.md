@@ -1,6 +1,7 @@
 # B233 — A Host Service Reached By Name
 
 **Status:** Backlog.
+**Size:** L - a design to settle first, and porelo-host's [HO08](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho08) builds on it; the build touches `core`, `shield`, `app-base`, docs and an acceptance step.
 
 **What must be true.** A task reaches a service on its own host, such as a forge or a registry, by a name the project
 declares, on 443, without the task reaching anything else on the host.
@@ -13,7 +14,40 @@ resolver, and the address it gets is what the host's DNS gives; Porelo has no en
 itself". The one host service a task reaches is the git gate, bound to loopback and mapped in at one address and one
 port (`LoopbackMapping`).
 
+## Plan
+
+Read in `LoopbackMapping`, `GateWiring`, `NftRuleset`, `DnsPolicy`, `TaskRunner` and `Egress`.
+
+1. **The gate's pattern:** pasta maps `169.254.1.2` to the host's loopback (`LoopbackMapping`), the gate binds
+   `127.0.0.1` there, and the firewall opens exactly that address and port (`NftRuleset.gate`) in every class. A
+   declared name resolves through the host's DNS and opens 80 and 443; nothing answers a name with the host.
+2. **A project key naming host-local names**, checked as a domain is. `DnsPolicy` answers each with the host's
+   address (`host-record=`), never asking upstream and with no `nftset=` for it; `NftRuleset` opens that address
+   on 443 only. The address is the gate's (`wiring.gateAddress()`), so slirp4netns and podman 4 fall back as the gate
+   does.
+3. **Docs:** the egress section of `doc/project-file.md`, `doc/reach.md`, and the exposure in `doc/decisions.md`.
+4. **Red first:** `DnsPolicyTest.answersAHostServiceWithTheHostsAddressAndAsksNoUpstream`, then
+   `NftRulesetTest.opensAHostServiceOn443AndNoOtherPortOfTheHost`.
+
+## Acceptance
+
+- In a task, `curl https://<declared name>/` reaches a service on the host's 443, and `getent hosts <name>` answers the
+  mapped address. Seen to fail first: NXDOMAIN today.
+- Another port of the host is dropped and logged; an undeclared name still answers NXDOMAIN.
+
+## Open questions
+
+- **Where "this name is the host" is said:** in the signed `project.yml`, one key for every machine following the
+  project, or on the host's side, as a fact of one host. Recommended: `project.yml`, since the forge's name is the
+  project's.
+- **Port 443 only, or a declared port.** Recommended: 443 only.
+- **Whether it holds in `offline`**, as the gate does: it fits "nothing leaves the host" and widens what such a task
+  reaches. Recommended: yes.
+- **The exposure:** whatever listens on the host's loopback 443 is reachable by every task that names it; accepted
+  in `doc/decisions.md`? Recommended: accepted, named.
+
 ## To be checked
 
-- First, measured: whether a rootless task reaches a service on the host's own LAN address through pasta, and on
-  which address, and whether the gate's mapping is the pattern to follow.
+- First, on the VM under pasta and on podman 4: whether a task reaches a host service at `169.254.1.2:443` bound to
+  `127.0.0.1` or to every address, whether the host's LAN address works instead, and that TLS with the declared
+  name passes unchanged; and that a root-run forge listens on loopback.
