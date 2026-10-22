@@ -32,3 +32,7 @@ Read in `SessionIds`, `AgentDefinitionReader` and `TaskSession.fromFiles`.
 - A definition with `directory: "/var/lib/pi/agent/sessions/--workspace--"` resumes an attended session from the
   newest file there. Seen to fail first: today the definition is refused.
 - A relative directory is still looked for under the home, and `..` stays refused.
+- **An older Porelo fails closed:** its `AgentDefinitionReader` refuses an absolute directory, so the whole
+  definition does not load and the agent is reported broken, not run with its sessions unfound. Measured in porelo-pi
+  on agent API 0.5.0. An agent that uses one therefore requires the first Porelo with this,
+  `0.5.1~snapshot.317`, Build 317 of `bf0a07f1`.
