@@ -71,7 +71,7 @@ final class Commands {
     /**
      * How long one command may run: an image pull or an install that hangs is ended, so the checks
      * after it still run and report. The whole check took 109 to 133 seconds in four green builds
-     * (2026-10-17); installs that fetch apt archives have their own longer limit.
+     * (2026-10-17); Ubuntu gets two three-minute install attempts and Debian gets ten minutes.
      */
     static final Duration LIMIT = Duration.ofMinutes(5);
 
@@ -130,12 +130,11 @@ final class Commands {
                     reading.join(Duration.ofSeconds(5));
                     return new Result(
                             TIMED_OUT,
-                            output.toString(StandardCharsets.UTF_8)
-                                    + "\n"
-                                    + commands.getLast()
+                            commands.getLast().getFirst()
                                     + " did not end within "
                                     + limit.toSeconds()
-                                    + " s and was ended\n");
+                                    + " s and was ended\n"
+                                    + output.toString(StandardCharsets.UTF_8));
                 }
                 if (exit == 0) {
                     exit = process.exitValue();

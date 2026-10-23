@@ -1,5 +1,7 @@
 package org.fuin.porelo.packagecheck;
 
+import java.io.UncheckedIOException;
+import java.net.URI;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Collections;
@@ -7,6 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.BiFunction;
 
 /**
@@ -31,8 +34,15 @@ record Install(
         this(deb, rpm, agentDeb, Commands::runMerged);
     }
 
-    // apt-get update took 54/74 s locally; the runner exceeded 300 s twice on 2026-10-22.
-    private static final Duration APT_LIMIT = Duration.ofMinutes(10);
+    // Bound a trickling mirror before trying the independent archive in a fresh container.
+    private static final Duration UBUNTU_LIMIT = Duration.ofMinutes(3);
+
+    // Debian has no mirror fallback, so retain its existing allowance for slow apt archives.
+    private static final Duration DEBIAN_LIMIT = Duration.ofMinutes(10);
+
+    private static final String AZURE = "http://azure.archive.ubuntu.com/ubuntu/";
+
+    private static final String ARCHIVE = "http://archive.ubuntu.com/ubuntu/";
 
     private static final String STEP = "STEP: ";
 
@@ -102,21 +112,36 @@ record Install(
     }
 
     /**
-     * The install on Ubuntu.
+     * The install on Ubuntu using the selected mirror.
      *
-     * <p>The mirror is the one Porelo writes into the images it builds: on 2026-09-11 this step
-     * took 582 of the Publish job's 610 seconds, because a plain {@code ubuntu:24.04} fetches from
-     * a disrupted {@code archive.ubuntu.com}.
-     *
+     * @param mirror the Ubuntu archive URL
      * @return the script
      */
-    String ubuntu() {
+    String ubuntu(String mirror) {
         return apt(
                 """
                 echo "STEP: selecting the Ubuntu mirror"
-                sed -i 's|^URIs:.*|URIs: http://azure.archive.ubuntu.com/ubuntu/|' \\
+                sed -i 's|^URIs:.*|URIs: %s|' \\
                     /etc/apt/sources.list.d/*.sources 2>/dev/null || true
-                """);
+                """
+                        .formatted(mirror));
+    }
+
+    /** Checks Ubuntu, retrying only a timed-out mirror in a fresh container. */
+    void checkUbuntu(String label, String version, Report report) {
+        report.section("installs on " + label);
+        Commands.Result result = runIn(Main.UBUNTU, ubuntu(AZURE), report);
+        String mirror = AZURE;
+        if (result.exit() == Commands.TIMED_OUT) {
+            report.info(
+                    atLimit(label, " on " + URI.create(AZURE).getHost(), result)
+                            + "; tried again on "
+                            + URI.create(ARCHIVE).getHost());
+            lastOutput(result.output(), report);
+            result = runIn(Main.UBUNTU, ubuntu(ARCHIVE), report);
+            mirror = ARCHIVE;
+        }
+        checked(label, " on " + URI.create(mirror).getHost(), result, version, report);
     }
 
     /**
@@ -131,6 +156,13 @@ record Install(
     private static String apt(final String sources) {
         return FAILED
                 + """
+                logged() {
+                    # Keep apt's status because POSIX pipelines answer for their last command.
+                    { "$@"; echo "$?" > /tmp/step.exit; } 2>&1 | while IFS= read -r line || [ -n "$line" ]; do
+                        printf '%s %s\\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$line"
+                    done | tee /tmp/step.log
+                    return "$(cat /tmp/step.exit)"
+                }
                 echo "STEP: selecting noninteractive apt"
                 export DEBIAN_FRONTEND=noninteractive
                 echo "STEP: configuring apt timeouts"
@@ -140,11 +172,11 @@ record Install(
                 + sources
                 + """
                 echo "STEP: apt-get update"
-                apt-get update -qq --error-on=any >/tmp/step.log 2>&1 || failed "apt-get update"
+                logged apt-get update -qq --error-on=any || failed "apt-get update"
                 echo "STEP: installing porelo"
-                apt-get install -y -qq /deb/porelo_*.deb >/tmp/step.log 2>&1 || failed "installing porelo"
+                logged apt-get install -y -qq /deb/porelo_*.deb || failed "installing porelo"
                 echo "STEP: installing the agent"
-                apt-get install -y -qq /agent/porelo-agent-stub_*.deb >/tmp/step.log 2>&1 && echo AGENT-OK \
+                logged apt-get install -y -qq /agent/porelo-agent-stub_*.deb && echo AGENT-OK \
                     || failed "installing the agent"
                 """
                 + COMMON;
@@ -178,12 +210,23 @@ record Install(
      */
     void check(String label, String image, String script, String version, Report report) {
         report.section("installs on " + label);
+        checked(label, "", runIn(image, script, report), version, report);
+    }
+
+    private Commands.Result runIn(String image, String script, Report report) {
+        final String name = "porelo-package-check-" + UUID.randomUUID();
+        final Duration limit =
+                image.equals(Main.UBUNTU)
+                        ? UBUNTU_LIMIT
+                        : image.equals(Main.DEBIAN) ? DEBIAN_LIMIT : Commands.LIMIT;
         final Commands.Result result =
                 run.apply(
                         List.of(
                                 "podman",
                                 "run",
                                 "--rm",
+                                "--name",
+                                name,
                                 "-v",
                                 deb.getParent() + ":/deb:ro,Z",
                                 "-v",
@@ -194,17 +237,48 @@ record Install(
                                 "sh",
                                 "-c",
                                 script),
-                        image.equals(Main.UBUNTU) || image.equals(Main.DEBIAN)
-                                ? APT_LIMIT
-                                : Commands.LIMIT);
+                        limit);
         if (result.exit() == Commands.TIMED_OUT) {
-            final String step =
-                    lastValue(result.output(), STEP)
-                            .map(last -> " during " + last)
-                            .orElse(" before the first step");
-            report.fail(label + " ended at its limit" + step);
+            remove(name, report);
+        }
+        return result;
+    }
+
+    private void remove(String name, Report report) {
+        // Killing the podman client does not stop its container, even with --rm.
+        try {
+            final Commands.Result cleanup =
+                    run.apply(List.of("podman", "rm", "-f", name), Duration.ofSeconds(30));
+            if (!cleanup.ok()) {
+                report.info("could not remove " + name + " (exit " + cleanup.exit() + ")");
+                lastOutput(cleanup.output(), report);
+            }
+        } catch (UncheckedIOException ex) {
+            report.info("could not remove " + name + ": " + ex.getMessage());
+        }
+    }
+
+    private static void checked(
+            String label, String mirror, Commands.Result result, String version, Report report) {
+        if (result.exit() == Commands.TIMED_OUT) {
+            report.fail(atLimit(label, mirror, result));
+            lastOutput(result.output(), report);
         }
         verdicts(label, result.output(), version, report);
+    }
+
+    private static String atLimit(String label, String mirror, Commands.Result result) {
+        return label
+                + " ended at its limit"
+                + mirror
+                + lastValue(result.output(), STEP)
+                        .map(last -> " during " + last)
+                        .orElse(" before the first step");
+    }
+
+    private static void lastOutput(String output, Report report) {
+        final List<String> lines = output.lines().filter(line -> !line.startsWith(STEP)).toList();
+        lines.subList(Math.max(0, lines.size() - 6), lines.size()).forEach(report::info);
     }
 
     /**

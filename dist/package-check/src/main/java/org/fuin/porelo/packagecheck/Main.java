@@ -192,7 +192,7 @@ public final class Main {
         VersionOrder.check(poreloVersion, inCi, Main::dpkgGreater, report);
 
         final Install install = new Install(deb, rpm, agentDeb);
-        install.check("Ubuntu 26.04", UBUNTU, install.ubuntu(), poreloVersion, report);
+        install.checkUbuntu("Ubuntu 26.04", poreloVersion, report);
         install.check("Debian 13", DEBIAN, install.debian(), poreloVersion, report);
         install.check("Fedora", FEDORA, install.fedora(), rpmVersion, report);
         install.check("Fedora 43", FEDORA_OLDEST, install.fedora(), rpmVersion, report);

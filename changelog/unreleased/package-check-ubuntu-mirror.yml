@@ -1,0 +1,2 @@
+title: Ubuntu package checks retry a timed-out Azure mirror on the Ubuntu archive with three minutes per attempt and timestamped apt diagnostics
+type: fixed
