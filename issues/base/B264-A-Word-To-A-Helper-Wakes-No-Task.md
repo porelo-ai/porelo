@@ -1,6 +1,7 @@
 # B264 — A Word To A Helper Wakes No Task
 
-**Status:** Idea.
+**Status:** Accepted; blocked by the Matrix transport's issue on the room's helper accounts. Built only if the
+helpers must stay visible; if that issue leaves no helper in view, or none needed at all, this one is closed.
 
 **What must be true.** A person's message in a project's room that names only an account that is neither a task nor
 a person, such as the room's administrator or its relay, wakes no task, and the person is told that nobody here

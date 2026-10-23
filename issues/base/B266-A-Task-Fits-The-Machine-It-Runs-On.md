@@ -1,6 +1,7 @@
 # B266 — A Task Fits The Machine It Runs On
 
-**Status:** Idea.
+**Status:** Accepted. Medium; in porelo-project [PJ68](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj68)'s
+block, built before the first host test with real builds in tasks.
 
 **What must be true.** A task container and an image build are bounded on any host, large or small, so the work
 inside never sizes itself past a limit it cannot see. On a host of 32 or more cores a build inside a task does not

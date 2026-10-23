@@ -111,6 +111,11 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b264"></a>[B264](B264-A-Word-To-A-Helper-Wakes-No-Task.md) | - | the Matrix transport's helper accounts | A person's word in the room that names only a helper account, the administrator or the relay, wakes no task, and the person is told so; one naming nobody still reaches every agent |
+| <a id="b265"></a>[B265](B265-A-Reserved-Variable-Refused-With-Its-Fix.md) | - | - | A `porelo.yml` setting `PATH`, `HOME`, `LANG` or a `PORELO_*` variable is refused with the value Porelo sets and the fix: remove the line |
+| <a id="b266"></a>[B266](B266-A-Task-Fits-The-Machine-It-Runs-On.md) | - | - | A task container and an image build are bounded on any host: a CPU limit so `nproc` inside reads it, limits for the build, a default for open files; porelo's part of porelo-project [PJ68](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj68) |
+| <a id="b267"></a>[B267](B267-A-Mirror-Without-A-Default-Branch-Is-Named.md) | - | - | A task start on a repository whose mirror names no default branch says so, rather than reading no `porelo.yml` and starting with the project's image unannounced |
+| <a id="b268"></a>[B268](B268-A-Start-Says-Each-Step-And-What-It-Waits-On.md) | - | - | A task's start reports each step in plain words, what it waits on, and on a failure the cause with the dependency's last error line; the daemon carries the steps, the interface only shows them |
 | <a id="b260"></a>[B260](B260-Only-Porelos-Own-Source-Installs-An-Agent.md) | M | - | What the setup script's `--with` installs and what `--list` and `Installable` offer comes only from Porelo's own package source, the install bound to it on apt and dnf; dnf5's catalogue finds every agent |
 | <a id="b233"></a>[B233](B233-A-Host-Service-Reached-By-Name.md) | L | - | A task reaches a service on its own host, a forge or a registry, by a declared name on 443 and nothing else there; the reach through pasta measured first |
 | <a id="b234"></a>[B234](B234-The-Hosts-Authority-In-A-Tasks-Trust-Store.md) | M | - | A task trusts a certificate authority the host names, without a project putting it into its image; where the images read added authorities measured first |
@@ -126,10 +131,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b267"></a>[B267](B267-A-Mirror-Without-A-Default-Branch-Is-Named.md) | - | - | A task start on a repository whose mirror names no default branch says so, rather than reading no `porelo.yml` and starting with the project's image unannounced |
-| <a id="b266"></a>[B266](B266-A-Task-Fits-The-Machine-It-Runs-On.md) | - | - | A task container and an image build are bounded on any host: a CPU limit so `nproc` inside reads it, limits for the build, a default for open files; porelo's part of porelo-project [PJ68](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj68) |
-| <a id="b264"></a>[B264](B264-A-Word-To-A-Helper-Wakes-No-Task.md) | - | - | A person's word in the room that names only a helper account, the administrator or the relay, wakes no task, and the person is told so; one naming nobody still reaches every agent |
-| <a id="b265"></a>[B265](B265-A-Reserved-Variable-Refused-With-Its-Fix.md) | - | - | A `porelo.yml` setting `PATH`, `HOME`, `LANG` or a `PORELO_*` variable is refused with the value Porelo sets and the fix: remove the line |
 | <a id="b263"></a>[B263](B263-A-Task-Image-Built-Past-A-Stalled-Mirror.md) | - | - | A task image's build tries a second Ubuntu mirror after a bounded first attempt, rather than one fixed Azure mirror a stalled node can hold for 600 s |
 | <a id="b262"></a>[B262](B262-A-Stops-Survivors-In-The-Form-Its-Interface-Declares.md) | - | - | The daemon's `Stop` answers `surviving` in the type its interface declares; today it sends a list where `int` is declared, and porelo-frontend reads it as 0 |
 | <a id="b254"></a>[B254](B254-A-Task-Has-Its-Work-Built-On-A-Declared-Kind.md) | - | `porelo` [B253](README.md#b253) | A task asks for its work to be built on a machine kind the project declares and reads the verdict and log in `/porelo/files`; an undeclared kind or command is refused |

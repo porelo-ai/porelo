@@ -87,6 +87,6 @@ A playbook changes only what differs, so a second `up` on a host that is up chan
 | `porelo vault status` | Exit 0 open, 3 shut, 4 no vault, 70 for a file that is not a vault. `--json` gives `{"exists", "open", "path"}`. "Open" is proved by reading the vault with what the account keeps. |
 
 **A host nobody sits at.** The second play stops when `porelo vault status` answers 3 or 4, and the vault is
-opened from outside: a person runs `ssh -t HOST porelo vault unlock`, or a program that holds the passphrase writes
-it into `ssh HOST porelo vault unlock --passphrase-stdin` (`vault init --passphrase-stdin` for a new vault), as
-[Credentials](credentials.md) says.
+opened from outside: a person runs `ssh -t HOST porelo vault unlock`, or, for automation only, a program that holds
+the passphrase writes it into `ssh HOST porelo vault unlock --passphrase-stdin` (`vault init --passphrase-stdin` for
+a new vault), as [Credentials](credentials.md) says. An interface never feeds it from a form of its own.

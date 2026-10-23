@@ -1,6 +1,7 @@
 # B267 — A Mirror Without A Default Branch Is Named
 
-**Status:** Idea.
+**Status:** Accepted. Small; built together with [B265](README.md#b265). Refusing the start is preferred, since a wrong
+image is worse than none; decided in its analysis.
 
 **What must be true.** When a repository's mirror names no default branch, a task start on it says so, naming the
 repository and how to fix it, rather than going on as if the repository had no `porelo.yml`.
