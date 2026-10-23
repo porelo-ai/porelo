@@ -132,7 +132,10 @@ takes `porelo approve TASK`; `--yes` answers for a script.
   nothing is stored for a refused ssh host, it asks for the path of a key to store, and reads the upstream again.
   With a mirror already there, it says why and starts from what the mirror holds. A credential the agent lacks is
   offered the same way: the command the refusal would name - `vault authorize`, `vault login` or `vault put`,
-  which asks a key without echo - runs on this terminal, and the start goes on once the credential is there.
+  which asks a key without echo - runs on this terminal, and the start goes on once the credential is there. A
+  start with nothing stored for its agent says that the credential is missing, and never names a stored kind that
+  is not there; a kind asked for with `--credential-type` that the agent's provider cannot use is refused before
+  the start, in words that do not say "stored".
   With several agents installed and none named, it lists them and asks which, by number; without a terminal it
   asks for `--agent` as before. Without `-r`, it lists the repositories the project works in and asks which,
   before the task is named after it. `--no-input` asks nothing and refuses as without a terminal; `--yes`
