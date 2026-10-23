@@ -163,6 +163,8 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
 - **`podman cp <task>:/workspace` works on a container that cannot start.**
 - **`podman cp container:/dir target` copies the directory into the target**, so a copy of its contents names `dir/.`.
 - **`{{.Labels}}` prints Go's `map[a:b c:d]`**: read one label with `{{index .Labels "org.fuin.porelo.project"}}`.
+- **A repository's image is `porelo/<project>_<repository>`, built in `build/<project>_<repository>`, never with
+  `--`**: a project name may hold `--`, and `Project.projectOfImage` reads the project back out of the image's name.
 - **The runtime's state is a phrase** (`Exited (143) Less than a second ago`), and `Age.compact` renders the instant.
 - **A Containerfile here-document needs podman 5**: what an agent adds to an image is one `RUN`, continued with
   backslashes, in its definition's `installAsRoot`.

@@ -1,6 +1,6 @@
 # B173 — An Agent's Sign-In Kept Without A Person
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - `vault login` in `app-vault` gains an option that reads the agent's credentials from a directory instead
 of running its sign-in, with its tests and `doc/credentials.md`; the agent API is not changed.
 

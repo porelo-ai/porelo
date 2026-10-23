@@ -26,8 +26,8 @@ yet. The command a person asks an adapter through is [B256](README.md#b256).
 Read in `builds/api`, `builds/stub`, `apps/app-task`, `wire` and `core`'s `Builds`.
 
 1. **The second version.** `org.fuin.porelo.Build1.varlink` (`builds/api/src/main/resources/org/fuin/porelo/build/api/`)
-   becomes `org.fuin.porelo.Build2.varlink`, its `method Look` becoming `method Build` with the same parameters,
-   answer and errors. `BuildProtocol`: `INTERFACE` is `org.fuin.porelo.Build2`, `VERSION` 2, `LOOK` becomes
+   becomes `org.fuin.porelo.Build2.varlink`, its `method Look` becoming `method Build` with the same answer and
+   errors, and its `logs` parameter taking `none` beside `failure` and `all`. `BuildProtocol`: `INTERFACE` is `org.fuin.porelo.Build2`, `VERSION` 2, `LOOK` becomes
    `BUILD`; the interface's number and `VERSION` move together, and its Javadoc already counts a rename as a reason
    to raise it. `BuildServer` (`:48-55`) registers `Build`; `idl()` reads the file by `INTERFACE` and follows.
 2. **The rename in Java.** `BuildReader.look` (`:40`) becomes `build`, and with it `InstalledBuildReader.look`
@@ -48,9 +48,14 @@ Read in `builds/api`, `builds/stub`, `apps/app-task`, `wire` and `core`'s `Build
    (`InterfaceDescriptionTest` holds the daemon's interface only): a package-private accessor to the server's
    `VarlinkServer.methodNames()` and a test that they are the file's methods, so a contract another repository builds
    against cannot keep a method its file renamed.
-5. **The stub** moves with steps 1 and 2 alone: it serves through `BuildMain`, so it speaks `Build2` once the API
-   does, and `task-builds.feature` reads builds through it as before.
-6. **What `porelo-build-api` must publish for `porelo-forge-contract`: nothing new.** It already opts into Central
+5. **`none` among the logs.** `Build.Logs` (`Build.java:68-101`) gains `NONE` beside `FAILURE` and `ALL`, and
+   `BuildServer.logs` (`:127-137`) takes `none` where it refuses anything else as `InvalidParameter`; an adapter asked
+   for `none` answers the verdict and the jobs and downloads no log. [B256](README.md#b256)'s `--logs=none` asks for
+   it. A project file's `builds.logs` stays `failure` or `all` (`Builds.java:50-53`): a task that follows its pushes
+   always wants a failed job's log.
+6. **The stub** moves with steps 1, 2 and 5: it serves through `BuildMain`, so it speaks `Build2` once the API
+   does, returns no log for `none`, and `task-builds.feature` reads builds through it as before.
+7. **What `porelo-build-api` must publish for `porelo-forge-contract`: nothing new.** It already opts into Central
    (`builds/api/pom.xml`, `skipPublishing` false) and the BOM manages it. A suite in another repository drives an
    adapter as Porelo does, through `InstalledBuildReader` over its socket, with an executable that starts the
    adapter's main as `InstalledBuildReaderTest.java()` (`:189-198`) does; what it compares is public - the records
@@ -60,10 +65,13 @@ Read in `builds/api`, `builds/stub`, `apps/app-task`, `wire` and `core`'s `Build
    `BuildProtocol.error`), which a suite going through the socket never calls. `FakeReader` is test code, not in
    the jar, and not needed there: it stands in for an adapter, where the suite needs a forge's recorded answers,
    which are `porelo-forge`'s.
-7. **The documentation**: `builds/api/README.md`, `doc/build-readers.md` (`:19-21`, `:28`) and `doc/decisions.md`
+8. **The documentation**: `builds/api/README.md`, `doc/build-readers.md` (`:19-21`, `:28`) and `doc/decisions.md`
    (`:21`, `:230-232`) name `Build2` and `build`; `doc/running.md` (`:289`) names the package `porelo-forge-github`
    once that package is published, not before. A changelog entry under `changelog/unreleased/`: an installed adapter
    of the first version is refused, naming it.
+9. **The release, decided:** porelo with `Build2` and the first `porelo-forge-github` go out in the same gathered
+   push, so the time in which an installed `Build1` adapter is refused lasts hours at most. porelo's packages name
+   no forge's package: no `Breaks:` and no `Conflicts:` on `porelo-build-github`.
 
 **Red first:** `InstalledBuildReaderTest.refusesAnAdapterOfTheFirstVersionByName` - an executable serving
 `org.fuin.porelo.Build1` with a `Describe` answering version 1 - expects a refusal naming `org.fuin.porelo.Build1`
@@ -76,25 +84,13 @@ and `org.fuin.porelo.Build2`; today that adapter is accepted.
 - An adapter answering `Build2.Describe` with another version is refused as today
   (`refusesAReaderThatSpeaksAnotherVersionOfTheProtocol`), and one that fails otherwise still reads as "failed to
   start".
+- Asked for `none`, the stub answers the verdict and the jobs with no log, and `BuildServer` no longer refuses
+  `none` as `InvalidParameter`; a project file's `builds.logs: none` is still refused.
 - `BuildServer`'s methods are its interface file's, held by a test seen to fail with a method registered that the
   file lacks.
 - `Build1`, `Look` and a `look` method appear in `builds/`, `apps/` and `doc/` only in the test serving the first
   version.
 - The acceptance suite's `task-builds.feature` passes on a VM with the stub on `Build2`.
-
-## Open questions
-
-- **The window between two releases.** Every adapter installed today speaks `Build1`. Between porelo's release with
-  `Build2` and the first release of `porelo-forge-github`, a machine that upgrades porelo has every task's builds
-  refused, said in the task's `buildProblem` by step 3's message. Is that window accepted, or do porelo's packages
-  declare that they break the old adapter (Debian `Breaks:`, RPM `Conflicts:` on `porelo-build-github`, in
-  `dist/dist-deb/src/deb/control/control` and `dist/dist-rpm/pom.xml`), so the package manager does not install the
-  new porelo beside it - at the price of porelo's packages naming a forge's package, which they do not today?
-- **`none` in the second version.** [B256](README.md#b256)'s `--logs=none` has no value on the wire: `Build.Logs` is
-  `FAILURE` and `ALL` (`Build.java:68-101`), and `BuildServer.logs` (`:127-137`) refuses anything else as
-  `InvalidParameter`. Added now, `Build2` carries `none` and an adapter downloads no log for it; left out,
-  [B256](README.md#b256) asks for `failure` and drops the logs, and `none` added later needs another version, since
-  an adapter of this one refuses it. Is `none` in this issue's scope?
 
 ## To be checked
 

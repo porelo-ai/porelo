@@ -10,8 +10,8 @@ project trusts. A snippet that fetches from anywhere else fails at the build, wi
 ## Why
 
 A task runs behind its project's egress, but its image is built by `podman build` with the host's network, as root in
-the build. A project's snippet, and with [B192](README.md#b192) a repository's `porelo.yml`, can therefore fetch and
-run anything while the image is made. For now that stays (decided 2026-10-18 with [B192](README.md#b192)):
+the build. A project's snippet and a repository's `porelo.yml` ([B192](README.md#b192)) can therefore fetch and
+run anything while the image is made. For now that stays:
 `porelo.yml` is read only from the reviewed default branch, the review ranks it dangerous, and `CODEOWNERS` gives it
 to the operator. This issue closes the gap itself.
 

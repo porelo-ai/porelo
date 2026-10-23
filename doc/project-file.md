@@ -206,26 +206,34 @@ image:
     JAVA_HOME: /opt/graalvm
 ```
 
-- **Only the image.** Egress, limits, the class and every other rule stay the project's: a repository that could name
-  them would widen what its own tasks may do. Any other key is refused by its name, at the start, before an image is
-  built. A variable Porelo sets in every task (`PATH`, `HOME`, `LANG`, `PORELO_*`) is refused too.
+- **Only the image.** Egress, limits, `package_sources`, the class and every other rule stay the project's: a
+  repository that could name them would widen what its own tasks may do. Any other key is refused by its name, at the
+  start, before an image is built. A variable Porelo sets in every task (`PATH`, `HOME`, `LANG`, `PORELO_*`) is refused
+  too.
 - **The image sees nothing of the repository:** the snippet runs in Porelo's own build directory, so a `COPY` or `ADD`
   of a repository file finds nothing there. What a repository ships for its tasks is installed at run time, or
   fetched by the snippet against a hash written into it.
 - **Read from reviewed work only:** the repository's mirror at its default branch, never a branch a task pushed
-  (`porelo/*`), and a `snippet_file` only as a plain file of the repository, never a link or a path that leaves it.
+  (`porelo/*`), and a `snippet_file` only as a plain file of the repository, never a link or a path that leaves it. On a
+  start that fetches, the mirror's file is read again after the gate's fetch, and a refusal from the mirror waits for
+  the fetched file to decide; a start that does not fetch (`--dry-run`, `--no-gate`) refuses on the mirror's file as of
+  its last fetch and says so.
 - **The project file can say it as well**, under `repositories.<name>.image`, with the same keys.
 - **A local override** lies in `~/.config/porelo/projects/<project>/<repository>/.porelo.yml`, in the same format,
   never checked in.
 - **What wins, key by key:** the local override, then the project file's entry for the repository, then the
-  repository's `porelo.yml`, then the project's `image`. `base_image` and the snippet are each taken whole from one of
-  them; `env` per variable, so an override that sets one variable changes only that one.
+  repository's `porelo.yml`, then the project's `image`. In the built-in project `default`, a task started from a
+  checkout reads `.porelo.yml` in that checkout, then `porelo.yml` there, then the default image; approved work lands on
+  `porelo/<task>`, never on the checked-out branch, so a task cannot change either file under the person. `base_image`
+  and the snippet are each taken whole from one of them; `env` per variable, so an override that sets one variable
+  changes only that one.
 - **The start and its dry run name each key's source** (`base image ... (from ...)`, `image lines from ...`,
-  `image env NAME from ...`). An image a repository's own sources shape is built as `porelo/<project>_<repository>`,
-  so two repositories' images never replace each other; one shaped by the project's `image` alone keeps
-  `porelo/<project>`.
-- **The review ranks a change to `porelo.yml` as dangerous:** the image it chooses is built as root, outside the task's
-  firewall.
+  `image env NAME from ...`, and `snippet ... lines from ...`). An image a repository's own sources shape is built as
+  `porelo/<project>_<repository>` in its own build directory, so two repositories' images never replace or block each
+  other; one shaped by the project's `image` alone keeps `porelo/<project>`.
+- **The review ranks a change to `porelo.yml` or `.porelo.yml` as dangerous:** `porelo.yml` chooses the image a task is
+  built from, as root and outside the task's firewall (ranked wherever it lies, though only the top-level one is read),
+  and `.porelo.yml` is a local override, never to be checked in.
 
 ## How the file reaches a machine: following
 

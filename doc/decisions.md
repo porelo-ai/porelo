@@ -22,6 +22,7 @@ would change the answer.
 | A stop of every task keeps its tokens | `task stop --all` and `panic` stop as `task stop` does; revoking is `vault lock` or `vault remove`, a step of its own | [entry](#a-stop-of-every-task-keeps-its-tokens) |
 | Nested containers never in a guarded project | `guarded` never sets them; only on a task's own kernel where the assessment says so | [entry](#nested-containers-never-in-a-guarded-project) |
 | A devcontainer file's features are not fetched | its image or Dockerfile is used, each feature named as not installed; nothing runs at build that the project file does not name | [entry](#a-devcontainer-files-features-are-not-fetched) |
+| A repository's image comes from porelo.yml, chosen key by key, and its build keeps the host's network | accepted: `image` only (`base_image`, snippet, `env`), merged key by key from override, project file, reviewed default branch and project; the build still reaches the network outside the task's firewall | [entry](#a-repositorys-image-comes-from-poreloyml-chosen-key-by-key-and-its-build-keeps-the-hosts-network) |
 | Several attempts share one credential | not split or queued; a reached limit said per attempt; five attempts by default | [entry](#several-attempts-share-one-credential) |
 | A reviewer task reviews only its own project | another project's waiting work is never read | [entry](#a-reviewer-task-reviews-only-its-own-project) |
 | A time limit does not cut off a person who is watching | a start may shorten the limit, never lengthen it; an attached person is warned and the stop waits for their detach | [entry](#a-time-limit-does-not-cut-off-a-person-who-is-watching) |
@@ -835,6 +836,24 @@ task's own kernel, nested containers are built only there.
 A feature is a script from a registry, run as root during the image build and chosen by whoever edits the repository's
 devcontainer file. Porelo takes the file's image, or builds its Dockerfile from the reviewed default branch, and names
 each feature as not installed, so nothing runs at build time that the project file does not name.
+
+## A repository's image comes from porelo.yml, chosen key by key, and its build keeps the host's network
+
+A repository declares the toolchain its tasks need in `porelo.yml` at its root, instead of a devcontainer file whose
+tools sit behind `features` Porelo does not run. The file may hold `image` only (`base_image`, `snippet` or
+`snippet_file`, and `env`), and every other key - `egress`, `limits`, `package_sources`, the security class - and any
+variable Porelo sets (`PATH`, `HOME`, `LANG`, `PORELO_*`) is refused by name, so a repository cannot widen what its own
+tasks may do. What wins is chosen key by key along a fixed order (the local `.porelo.yml`, `project.yml`'s
+`repositories.<name>.image`, `porelo.yml` on the mirror's default branch, and the project's `image`; in `default`, the
+checkout's `.porelo.yml` and `porelo.yml`, then the default image): `base_image` and the snippet are each taken whole
+from the first source that sets them, and `env` per variable, with each key's source named at the start. Every task
+image sets `LANG=C.UTF-8` so tools and the JVM read non-ASCII file names without each repository repeating it.
+**The exposure:** a repository's snippet runs as root while the image is built, outside the task's firewall, with the
+network an image build has, and is written by the repository's authors rather than only the project's signer. **Why it
+stays:** `porelo.yml` is read only from the mirror's reviewed default branch (never `porelo/*`), the start fetches
+before letting the mirror's file decide, the review ranks `porelo.yml` and `.porelo.yml` as dangerous, and each key's
+source is printed at the start. **What would change the answer:** building the image within the project's egress and
+trusted package sources.
 
 ## Several attempts share one credential
 
