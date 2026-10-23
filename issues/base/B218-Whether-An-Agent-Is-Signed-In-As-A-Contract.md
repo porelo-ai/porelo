@@ -34,8 +34,8 @@ Read on 2026-10-19 in `AgentsCommand`, `AgentLogin` and `StartCheck`:
      read with what the account keeps (`context.readableCredentials()`, as `StartCheck` reads it), so nothing asks
      for a passphrase.
    - Nothing of a value is printed.
-3. **`package` is left out.** Porelo finds an agent by its description under `agents.d`, not by its package. A play
-   gets the package from the inventory ([B217](README.md#b217)'s `agent_package`), so `found_by` is enough.
+3. **`package` is left out.** Porelo finds an agent by its description under `agents.d`, not by its package. A host's
+   play installs every agent from the setup script's catalogue ([B258](README.md#b258)), so `found_by` is enough.
 4. **`doc/hosts.md`** gains the row beside the three answers a second run reads.
 5. **Tests, each seen red first:** an open vault holding the entry, and one without it; a shut vault and none, each
    without `signed_in`; nothing secret in the output.

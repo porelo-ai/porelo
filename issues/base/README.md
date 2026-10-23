@@ -26,7 +26,7 @@ from its side, as *blocked by*.
 | <a id="b218"></a>[B218](B218-Whether-An-Agent-Is-Signed-In-As-A-Contract.md) | S | - | `porelo agents --json` names each agent with the vault entry it signs in under and whether the vault holds it, so a host stops for a sign-in only where one is missing; built and unit-tested, the VM next |
 | <a id="b173"></a>[B173](B173-An-Agents-Sign-In-Kept-Without-A-Person.md) | S | - | `vault login <agent> --credentials-from <dir>`: an agent's sign-in read through its extractor and kept renewable without a person; `--token-url` on loopback only, for a kit's stand-in token endpoint. |
 | <a id="b255"></a>[B255](B255-No-Stored-Kind-Is-Invented-For-An-Empty-Vault.md) | XS | - | A start with nothing stored for its agent says the credential is missing, where today an empty vault reads as a stored `api-key` its default provider refuses |
-| <a id="b236"></a>[B236](B236-The-Inventory-Names-The-Projects-Transports.md) | M | - | `project inventory` names the packages of the transports a project's tasks use, as [B217](#b217) does for `agent_package`, so a host installs them; porelo-host [HO02](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho02) waits on it |
+| <a id="b236"></a>[B236](B236-The-Inventory-Names-The-Projects-Transports.md) | M | - | `project inventory` names the packages of the transports a project's tasks use, so a host installs them; porelo-host [HO02](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho02) waits on it |
 | <a id="b232"></a>[B232](B232-The-Gate-Credential-Goes-Only-To-The-Gate.md) | XS | - | A task's git sends the gate's credential only to the gate: `http.extraHeader` scoped to the gate's URL, where today it goes to every HTTPS host, `github.com` included; built, red first with real git, the VM next |
 
 ## Implementing
@@ -35,7 +35,6 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
 | <a id="b212"></a>[B212](B212-Porelos-Own-Tests-In-A-Porelo-Task.md) | M | - | porelo's whole local check is green inside a Porelo task: no test needs the host's podman, `porelo`, `/run/user` or an unset `no-new-privileges`; green in a task on the VM, 2662 tests, 77 skips named |
-| <a id="b217"></a>[B217](B217-A-Machine-File-Task-Names-Its-Agent.md) | S | - | Each task in a machine file may name its agent, and `project inventory` carries it into `porelo_tasks`, so a host installs and starts each task with its own |
 | <a id="b242"></a>[B242](B242-An-Agents-Records-Read-By-A-Nested-Key.md) | M | - | An agent definition reads its session id and last message by a dotted key, and a session file by its own record, as Codex CLI writes them; the agent API only grows |
 | <a id="b240"></a>[B240](B240-A-Repository-Named-With-Dots.md) | S | - | A project names a repository by its real name, dots included, where today `porelo-ai.github.io` is refused |
 | <a id="b247"></a>[B247](B247-A-Session-Directory-Outside-The-Home.md) | S | - | An agent definition's session directory may be an absolute path in the container, where Pi keeps its sessions out of the agent's home; a relative one stays under the home |
@@ -110,6 +109,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b258"></a>[B258](B258-The-Machine-Installs-Every-Agent-And-Names-No-Task.md) | M | - | A machine file names the project and its keys, never tasks or agents; a host installs every agent from the setup script's catalogue and starts no task, and the catalogue, `--with` and `Installable` take only what Porelo's own source offers; porelo-host [HO19](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho19) waits on it |
 | <a id="b233"></a>[B233](B233-A-Host-Service-Reached-By-Name.md) | L | - | A task reaches a service on its own host, a forge or a registry, by a declared name on 443 and nothing else there; the reach through pasta measured first |
 | <a id="b234"></a>[B234](B234-The-Hosts-Authority-In-A-Tasks-Trust-Store.md) | M | - | A task trusts a certificate authority the host names, without a project putting it into its image; where the images read added authorities measured first |
 | <a id="b246"></a>[B246](B246-A-Task-Name-No-Other-Project-Shares.md) | - | after porelo-project [PJ39](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj39) | A task's container name is one project's and one task's, where `porelo-a-b-c` today names project `a-b`'s task `c` and project `a`'s task `b-c`; proposed: `_` between them |
@@ -232,6 +232,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b217"></a>B217 | S | - | A machine file's task naming its agent is not kept: the operator decided on 2026-10-23 that a host installs every agent and starts no task, so the file names neither; replaced by [B258](#b258). |
 | <a id="b194"></a>B194 | L | - | A host file handed into a task at every start is not built: nothing an agent needs is private, since machines, accounts and tools are named by `project.yml`, the `porelo.yml` files and the host's scripts and secrets stay in the vault; what an agent learns goes into its repository's `AGENTS.md` as a reviewed commit. |
 | <a id="b170"></a>B170 | M | - | A devcontainer file as image source is not built: it gives only `image` or `build`, with the tools behind `features` that Porelo does not fetch; superseded by [B192](#b192)'s `porelo.yml`. |
 | <a id="b18"></a>B18 | M | - | `StoreCredential` is not built: a credential is entered only in a terminal, the interface's terminal included; the expiry note went to [B178](#b178). |
