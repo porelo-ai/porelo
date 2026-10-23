@@ -127,6 +127,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b262"></a>[B262](B262-A-Stops-Survivors-In-The-Form-Its-Interface-Declares.md) | - | - | The daemon's `Stop` answers `surviving` in the type its interface declares; today it sends a list where `int` is declared, and porelo-frontend reads it as 0 |
 | <a id="b254"></a>[B254](B254-A-Task-Has-Its-Work-Built-On-A-Declared-Kind.md) | - | `porelo` [B253](README.md#b253) | A task asks for its work to be built on a machine kind the project declares and reads the verdict and log in `/porelo/files`; an undeclared kind or command is refused |
 | <a id="b249"></a>[B249](B249-The-Hooks-Run-Dnsmasq-And-Podman-By-A-Fixed-Path.md) | - | - | The hooks start `dnsmasq` and `podman` by a fixed root-owned path, as [B239](#b239) does `nsenter` and `nft`, where today both are found through the caller's `PATH` |
 | <a id="b250"></a>[B250](B250-No-Broker-Address-For-A-Task-Without-One.md) | - | - | An agent's setup hears the broker's address only when the task has a broker, where an agent reached by URL hears the relay's address without one and takes itself for brokered |
