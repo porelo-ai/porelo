@@ -126,6 +126,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b267"></a>[B267](B267-A-Mirror-Without-A-Default-Branch-Is-Named.md) | - | - | A task start on a repository whose mirror names no default branch says so, rather than reading no `porelo.yml` and starting with the project's image unannounced |
 | <a id="b266"></a>[B266](B266-A-Task-Fits-The-Machine-It-Runs-On.md) | - | - | A task container and an image build are bounded on any host: a CPU limit so `nproc` inside reads it, limits for the build, a default for open files; porelo's part of porelo-project [PJ68](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj68) |
 | <a id="b264"></a>[B264](B264-A-Word-To-A-Helper-Wakes-No-Task.md) | - | - | A person's word in the room that names only a helper account, the administrator or the relay, wakes no task, and the person is told so; one naming nobody still reaches every agent |
 | <a id="b265"></a>[B265](B265-A-Reserved-Variable-Refused-With-Its-Fix.md) | - | - | A `porelo.yml` setting `PATH`, `HOME`, `LANG` or a `PORELO_*` variable is refused with the value Porelo sets and the fix: remove the line |
