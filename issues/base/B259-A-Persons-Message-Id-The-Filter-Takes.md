@@ -1,6 +1,6 @@
 # B259 — A Person's Message Id The Filter Takes
 
-**Status:** Implementing. Built: the mapping and its tests, seen red. Left: the whole chain with the VM on the commit.
+**Status:** Review: published since `0.5.1~snapshot.323`; green on the VM in its acceptance suite.
 **Size:** XS - one id mapped where a person's words become a message, a test of the answer that copies it.
 **Estimate:** 90 min, like porelo-message-matrix
 [MX31](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx31) (46 min, one value mapped

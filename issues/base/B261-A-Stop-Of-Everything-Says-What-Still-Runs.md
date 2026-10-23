@@ -1,7 +1,6 @@
 # B261 — A Stop Of Everything Says What Still Runs
 
-**Status:** Implementing. Built: every stop and removal verified by the recorded container id, records kept until a
-removal is confirmed, the callers naming survivors, tests seen red. Left: the whole chain with the VM on the commit.
+**Status:** Review: published since `0.5.1~snapshot.323`; green on the VM in its acceptance suite.
 **Size:** M - grown from S: the removal that deleted its records over a running container, the shutdown's choice of
 tasks, and four callers that ignored what survived came with it.
 **Estimate:** 180 min from 90, no like issue measured.
