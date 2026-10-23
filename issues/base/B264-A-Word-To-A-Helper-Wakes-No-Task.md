@@ -1,7 +1,8 @@
 # B264 — A Word To A Helper Wakes No Task
 
-**Status:** Accepted; blocked by the Matrix transport's issue on the room's helper accounts. Built only if the
-helpers must stay visible; if that issue leaves no helper in view, or none needed at all, this one is closed.
+**Status:** Accepted; blocked by porelo-message-matrix
+[MX35](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx35). Built only if the helpers
+must stay visible; if that issue leaves no helper in view, or none needed at all, this one is closed.
 
 **What must be true.** A person's message in a project's room that names only an account that is neither a task nor
 a person, such as the room's administrator or its relay, wakes no task, and the person is told that nobody here
@@ -19,8 +20,8 @@ empty `to` is meant for every agent there. A mention of the relay never reaches 
 transport strikes its own poller from `to` before it hands the message over. So porelo cannot tell today "names only
 a helper" from "names nobody".
 
-The Matrix transport's half is filed beside this one in porelo-message-matrix. It gives the helpers names a person
-reads, and keeps them out of the mention list where Matrix allows.
+The Matrix transport's half is [MX35](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx35):
+its goal is no helper account in view, or none needed at all.
 
 ## To be decided in the analysis
 
