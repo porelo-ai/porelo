@@ -121,6 +121,7 @@ from its side, as *blocked by*.
 | <a id="b198"></a>[B198](B198-Settings-Inherited-Down-An-Organisations-Tree.md) | - | - | An organisation file pinned by the machine's administrator passes settings down signed teams to projects by repository address; `fixed` and `narrow-only` locks no file below can undo, every file verified through the chain of keys, `project show --resolved`; folds in porelo-project [PJ16](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj16). |
 | <a id="b199"></a>[B199](B199-A-Transport-Reaches-Only-What-It-Names.md) | - | - | A transport's adapter reaches only the hosts its `reaches` names, as `doc/transports.md` promises; today nothing builds a rule from them. |
 | <a id="b223"></a>[B223](B223-The-Image-Build-Reads-A-Private-Package-Repository.md) | - | `porelo` [B219](README.md#b219) | An image's `snippet` fetches from a declared private repository during the build, the credential in no layer; with [B207](README.md#b207). |
+| <a id="b256"></a>[B256](B256-A-Person-Asks-What-A-Branch-Or-A-Commit-Built.md) | - | `porelo` [B253](README.md#b253) | `porelo build status -p <project> -r <repository>` with `--branch` or `--commit` asks the forge the project's `builds:` names for the verdict, the jobs and the logs asked for, the token from the vault and shown nowhere; a project without `builds:` is refused naming why |
 
 ## Idea
 
@@ -131,7 +132,6 @@ from its side, as *blocked by*.
 | <a id="b250"></a>[B250](B250-No-Broker-Address-For-A-Task-Without-One.md) | - | - | An agent's setup hears the broker's address only when the task has a broker, where an agent reached by URL hears the relay's address without one and takes itself for brokered |
 | <a id="b251"></a>[B251](B251-Porelo-Inside-A-Lima-VM.md) | - | - | Porelo runs its tasks in a Lima VM on a Mac with the task firewall loaded, or says what the VM lacks, where the Mac probe saw `unshare` refused there |
 | <a id="b252"></a>[B252](B252-A-Sign-In-Collected-On-No-Disk.md) | - | - | A sign-in made in a login container reaches the vault without lying in plaintext on a disk, where today it passes through the container's layer and the host's temporary directory |
-| <a id="b256"></a>[B256](B256-A-Person-Asks-What-A-Branch-Or-A-Commit-Built.md) | - | `porelo` [B253](README.md#b253) | `porelo build status -p <project> -r <repository>` with `--branch` or `--commit` asks the forge the project's `builds:` names for the verdict, the jobs and the logs asked for, the token from the vault and shown nowhere; a project without `builds:` is refused naming why |
 | <a id="b257"></a>[B257](B257-A-Direct-Peer-Reached-Without-A-Conversation.md) | - | - | A project whose peer has only a direct transport address reaches it, or its start is refused naming why, where today the send runs with no account and the transport refuses it |
 
 ## Estimated

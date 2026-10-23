@@ -1,6 +1,6 @@
 # B256 — A Person Asks What a Branch or a Commit Built
 
-**Status:** Idea; blocked by [B253](README.md#b253).
+**Status:** Accepted, for sprint 3; blocked by [B253](README.md#b253).
 
 **What must be true.** A person asks any forge a project names what a branch or a commit built, with one command:
 `porelo build status --project=<project> --repository=<repository> --branch=<branch>`, or `--commit=<sha>`, with
