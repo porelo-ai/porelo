@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.io.StringReader;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Tests for {@link MachineFile}, Porelo's part of a person's machine file. */
 class MachineFileTest {
@@ -17,7 +19,7 @@ class MachineFileTest {
     }
 
     @Test
-    void readsTheProjectTheTasksAndTheKeysAndIgnoresTheRest() {
+    void readsTheProjectAndTheKeysAndIgnoresTheRest() {
 
         final MachineFile file =
                 read(
@@ -27,17 +29,12 @@ class MachineFileTest {
                             name: porelo
                             url: "git@github.com:porelo-ai/porelo-project.git"
                             signed_by: "SHA256:abc"
-                        tasks:
-                            - { name: core-1, repository: core }
                         keys:
                             - { name: github-deploy, path: keys/github-deploy }
                         """);
 
         assertThat(file.project()).as("project").isEqualTo("porelo");
         assertThat(file.signedBy()).as("key").isEqualTo("SHA256:abc");
-        assertThat(file.tasks())
-                .as("tasks")
-                .containsExactly(new MachineFile.Task("core-1", "core"));
         assertThat(file.keys())
                 .as("a key by its absolute path on the drive")
                 .containsExactly(
@@ -46,12 +43,11 @@ class MachineFileTest {
     }
 
     @Test
-    void aFileWithoutTasksOrKeysHasNone() {
+    void aFileWithoutKeysHasNone() {
 
         final MachineFile file =
                 read("project: { name: porelo, url: /srv/porelo.git, signed_by: SHA256:abc }\n");
 
-        assertThat(file.tasks()).as("tasks").isEmpty();
         assertThat(file.keys()).as("keys").isEmpty();
     }
 
@@ -60,6 +56,7 @@ class MachineFileTest {
 
         // A play must never follow what it did not check, so there is no unverified form here.
         assertThatThrownBy(() -> read("project: { name: porelo, url: /srv/porelo.git }\n"))
+                .as("invalid machine input is refused")
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("signed_by");
     }
@@ -76,6 +73,7 @@ class MachineFileTest {
                                         keys:
                                             - { name: stolen, path: ../../etc/shadow }
                                         """))
+                .as("invalid machine input is refused")
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("outside /mnt/drive");
     }
@@ -91,90 +89,23 @@ class MachineFileTest {
                                         keys:
                                             - { name: elsewhere, path: /root/.ssh/id_ed25519 }
                                         """))
+                .as("invalid machine input is refused")
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("outside /mnt/drive");
     }
 
-    @Test
-    void aTaskNamesItsAgentAndThePackageThatInstallsIt() {
-
-        final MachineFile file =
-                read(
-                        """
-                        project: { name: porelo, url: /srv/p.git, signed_by: SHA256:a }
-                        tasks:
-                            - { name: core-1, repository: core, agent: pi }
-                            - { name: core-2, repository: core, agent: claude, package: vendor-claude }
-                            - { name: core-3, repository: core }
-                        """);
-
-        assertThat(file.tasks())
-                .as("the agent each task runs, and what installs it where the file says")
-                .containsExactly(
-                        new MachineFile.Task("core-1", "core", "pi", null),
-                        new MachineFile.Task("core-2", "core", "claude", "vendor-claude"),
-                        new MachineFile.Task("core-3", "core", null, null));
-    }
-
-    @Test
-    void refusesAnAgentNamedInAnotherForm() {
-
+    @ParameterizedTest
+    @ValueSource(strings = {"tasks", "agents"})
+    void refusesInstructionsThatTheMachineDoesNotCarryOut(final String section) {
         assertThatThrownBy(
                         () ->
                                 read(
-                                        """
-                                        project: { name: porelo, url: /srv/p.git, signed_by: SHA256:a }
-                                        tasks:
-                                            - { name: core-1, repository: core, agent: "Pi --force" }
-                                        """))
+                                        "project: { name: porelo, url: /srv/p.git, signed_by: SHA256:a }\n"
+                                                + section
+                                                + ": []\n"))
+                .as("machine instructions must never silently promise tasks or agent selection")
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("core-1")
-                .hasMessageContaining("agent");
-    }
-
-    @Test
-    void refusesAPackageThatIsNoPackagesName() {
-
-        assertThatThrownBy(
-                        () ->
-                                read(
-                                        """
-                                        project: { name: porelo, url: /srv/p.git, signed_by: SHA256:a }
-                                        tasks:
-                                            - { name: core-1, repository: core, agent: pi, package: "pi; rm -rf /" }
-                                        """))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("core-1")
-                .hasMessageContaining("package");
-    }
-
-    @Test
-    void refusesAPackageWithoutTheAgentItInstalls() {
-
-        assertThatThrownBy(
-                        () ->
-                                read(
-                                        """
-                                        project: { name: porelo, url: /srv/p.git, signed_by: SHA256:a }
-                                        tasks:
-                                            - { name: core-1, repository: core, package: porelo-agent-pi }
-                                        """))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("core-1")
-                .hasMessageContaining("no 'agent' it installs");
-    }
-
-    @Test
-    void refusesTasksThatAreNotAList() {
-
-        assertThatThrownBy(
-                        () ->
-                                read(
-                                        """
-                                        project: { name: porelo, url: /srv/p.git, signed_by: SHA256:a }
-                                        tasks: core-1
-                                        """))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("'tasks' is not a list");
+                .hasMessageContaining("every agent")
+                .hasMessageContaining("porelo task start");
     }
 }

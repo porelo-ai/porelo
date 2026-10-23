@@ -12,12 +12,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.stream.Collectors;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectException;
 import org.fuin.porelo.core.project.ProjectReader;
-import org.fuin.porelo.core.project.Repository;
-import org.fuin.porelo.runtime.ContainerName;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 import picocli.CommandLine.Command;
@@ -27,7 +24,7 @@ import picocli.CommandLine.Spec;
 
 /**
  * Writes the inventory a host's second play runs with: the account, the project with its key, the
- * tasks to start and the keys to put into the vault.
+ * keys to put into the vault.
  *
  * <p>The play reads it as a contract, never text meant for a person: its names and {@code
  * porelo_inventory_version} are kept, and the version is raised on any change of a name or a
@@ -44,7 +41,7 @@ import picocli.CommandLine.Spec;
 public class ProjectInventoryCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
     /** Raised on any change of a name or a meaning the play reads. */
-    static final int VERSION = 1;
+    static final int VERSION = 2;
 
     @Option(
             names = "--machine-file",
@@ -104,57 +101,17 @@ public class ProjectInventoryCommand implements Callable<Integer>, PoreloFactory
         } catch (final ProjectException ex) {
             return refuse(err, 65, "project.yml: " + ex.getMessage());
         }
-        final Set<String> repositories =
-                project.repositories().stream().map(Repository::name).collect(Collectors.toSet());
-        final List<Object> tasks = new ArrayList<>();
-        for (final MachineFile.Task task : machine.tasks()) {
-            if (!repositories.contains(task.repository())) {
-                return refuse(
-                        err,
-                        65,
-                        "the task '"
-                                + task.name()
-                                + "' names the repository '"
-                                + task.repository()
-                                + "', which "
-                                + project.name()
-                                + "'s project file does not have: "
-                                + String.join(", ", repositories.stream().sorted().toList()));
-            }
-            final var refused = ContainerName.refusal(project.name(), task.name());
-            if (refused.isPresent()) {
-                return refuse(err, 65, refused.get());
-            }
-            final Map<String, Object> entry = new LinkedHashMap<>();
-            entry.put("name", task.name());
-            entry.put("project", project.name());
-            entry.put("repository", task.repository());
-            entry.put("container", ContainerName.of(project, task.name()));
-            if (task.agent() != null) {
-                entry.put("agent", task.agent());
-                // A default, not a rule: a vendor names its package freely, and the file says so.
-                entry.put(
-                        "agent_package",
-                        task.agentPackage() != null
-                                ? task.agentPackage()
-                                : "porelo-agent-" + task.agent());
-            }
-            tasks.add(entry);
-        }
         final List<Object> keys = new ArrayList<>();
         for (final MachineFile.Key key : machine.keys()) {
             keys.add(Map.of("name", key.name(), "path", key.path().toString()));
         }
-        out.print(inventory(machine, project, tasks, keys));
+        out.print(inventory(machine, project, keys));
         out.flush();
         return 0;
     }
 
     private static String inventory(
-            final MachineFile machine,
-            final Project project,
-            final List<Object> tasks,
-            final List<Object> keys) {
+            final MachineFile machine, final Project project, final List<Object> keys) {
         final Map<String, Object> projectVars = new LinkedHashMap<>();
         projectVars.put("name", project.name());
         projectVars.put("url", machine.url());
@@ -163,7 +120,6 @@ public class ProjectInventoryCommand implements Callable<Integer>, PoreloFactory
         host.put("ansible_connection", "local");
         host.put("porelo_account", System.getProperty("user.name"));
         host.put("porelo_project", projectVars);
-        host.put("porelo_tasks", tasks);
         host.put("porelo_transports", transports(project));
         host.put("porelo_vault_keys", keys);
         final Map<String, Object> all = new LinkedHashMap<>();

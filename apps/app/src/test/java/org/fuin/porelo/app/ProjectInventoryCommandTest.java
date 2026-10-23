@@ -16,6 +16,8 @@ import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.process.ProcessCommandRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
@@ -27,7 +29,16 @@ import picocli.CommandLine;
  */
 class ProjectInventoryCommandTest {
 
-    private final CommandRunner runner = new ProcessCommandRunner();
+    private final CommandRunner runner =
+            command ->
+                    new ProcessCommandRunner()
+                            .run(
+                                    command.withEnvironment(
+                                            Map.of(
+                                                    "GIT_CONFIG_GLOBAL",
+                                                    "/dev/null",
+                                                    "GIT_CONFIG_NOSYSTEM",
+                                                    "1")));
 
     private final StringWriter out = new StringWriter();
 
@@ -163,8 +174,6 @@ class ProjectInventoryCommandTest {
                         repo,
                         fingerprint(key),
                         """
-                        tasks:
-                            - { name: core-1, repository: core }
                         keys:
                             - { name: github-deploy, path: keys/github-deploy }
                         """);
@@ -174,6 +183,7 @@ class ProjectInventoryCommandTest {
                 .isZero();
 
         final Map<String, Object> host = host(out.toString());
+        assertThat(host).as("a host play starts no tasks").doesNotContainKey("porelo_tasks");
         assertThat(host)
                 .as("the second play's variables")
                 .containsEntry("ansible_connection", "local")
@@ -188,18 +198,6 @@ class ProjectInventoryCommandTest {
                                 "signed_by",
                                 fingerprint(key)))
                 .containsEntry(
-                        "porelo_tasks",
-                        List.of(
-                                Map.of(
-                                        "name",
-                                        "core-1",
-                                        "project",
-                                        "demo",
-                                        "repository",
-                                        "core",
-                                        "container",
-                                        "porelo-demo-core-1")))
-                .containsEntry(
                         "porelo_vault_keys",
                         List.of(
                                 Map.of(
@@ -209,62 +207,10 @@ class ProjectInventoryCommandTest {
                                         dir.resolve("drive/keys/github-deploy").toString())));
         assertThat(out.toString())
                 .as("the version the role checks")
-                .contains("porelo_inventory_version: 1");
+                .contains("porelo_inventory_version: 2");
         assertThat(context.paths().projects().configurationSigners())
                 .as("nothing was pinned or followed")
                 .doesNotExist();
-    }
-
-    @Test
-    void writesEachTasksAgentAndItsPackageAndNothingForATaskWithoutOne(@TempDir final Path dir)
-            throws IOException {
-
-        final PoreloContext context = context(dir);
-        final Path key = key(dir, "operator");
-        final Path repo = published(dir, key);
-        final Path file =
-                machineFile(
-                        dir,
-                        repo,
-                        fingerprint(key),
-                        """
-                        tasks:
-                            - { name: core-1, repository: core, agent: pi }
-                            - { name: core-2, repository: core, agent: claude, package: vendor-claude }
-                            - { name: core-3, repository: core }
-                        """);
-
-        assertThat(execute(context, "project", "inventory", "--machine-file", file.toString()))
-                .as("exit code; " + err)
-                .isZero();
-
-        assertThat(host(out.toString()).get("porelo_tasks"))
-                .as(
-                        "the agent and its package beside the container; a task without one has neither")
-                .isEqualTo(
-                        List.of(
-                                Map.of(
-                                        "name", "core-1",
-                                        "project", "demo",
-                                        "repository", "core",
-                                        "container", "porelo-demo-core-1",
-                                        "agent", "pi",
-                                        "agent_package", "porelo-agent-pi"),
-                                Map.of(
-                                        "name", "core-2",
-                                        "project", "demo",
-                                        "repository", "core",
-                                        "container", "porelo-demo-core-2",
-                                        "agent", "claude",
-                                        "agent_package", "vendor-claude"),
-                                Map.of(
-                                        "name", "core-3",
-                                        "project", "demo",
-                                        "repository", "core",
-                                        "container", "porelo-demo-core-3")));
-        assertThat(out.toString())
-                .as("an added name changes no meaning")
-                .contains("porelo_inventory_version: 1");
     }
 
     @Test
@@ -334,27 +280,26 @@ class ProjectInventoryCommandTest {
                 .as("a project without mail requires no transport packages")
                 .isEqualTo(List.of());
         assertThat(out.toString())
-                .as("an added inventory key keeps the contract version")
-                .contains("porelo_inventory_version: 1");
+                .as("the play checks the current inventory contract version")
+                .contains("porelo_inventory_version: 2");
     }
 
-    @Test
-    void refusesAnAgentInAnotherFormWithNothingWritten(@TempDir final Path dir) throws IOException {
-
+    @ParameterizedTest
+    @ValueSource(strings = {"tasks", "agents"})
+    void refusesMachineInstructionsWithoutWritingInventory(
+            final String section, @TempDir final Path dir) throws IOException {
         final Path key = key(dir, "operator");
         final Path repo = published(dir, key);
-        final Path file =
-                machineFile(
-                        dir,
-                        repo,
-                        fingerprint(key),
-                        "tasks:\n    - { name: core-1, repository: core, agent: \"../pi\" }\n");
+        final Path file = machineFile(dir, repo, fingerprint(key), section + ": []\n");
 
         assertThat(execute(context(dir), "project", "inventory", "--machine-file", file.toString()))
-                .as("exit code")
+                .as("unsupported machine instructions are a data error")
                 .isEqualTo(65);
-        assertThat(out.toString()).as("no inventory").isEmpty();
-        assertThat(err.toString()).as("the refusal").contains("core-1").contains("agent");
+        assertThat(out.toString()).as("no partial inventory reaches the play").isEmpty();
+        assertThat(err.toString())
+                .as("the person is told how tasks start")
+                .contains("every agent")
+                .contains("porelo task start");
     }
 
     @Test
@@ -386,30 +331,6 @@ class ProjectInventoryCommandTest {
                 .isEqualTo(65);
         assertThat(out.toString()).as("no inventory").isEmpty();
         assertThat(err.toString()).as("the refusal names the signer").contains("not by");
-    }
-
-    @Test
-    void refusesATaskOnARepositoryTheProjectDoesNotHave(@TempDir final Path dir)
-            throws IOException {
-
-        final PoreloContext context = context(dir);
-        final Path key = key(dir, "operator");
-        final Path repo = published(dir, key);
-        final Path file =
-                machineFile(
-                        dir,
-                        repo,
-                        fingerprint(key),
-                        "tasks:\n    - { name: site-1, repository: site }\n");
-
-        assertThat(execute(context, "project", "inventory", "--machine-file", file.toString()))
-                .as("exit code")
-                .isEqualTo(65);
-        assertThat(err.toString())
-                .as("both names")
-                .contains("'site-1'")
-                .contains("'site'")
-                .contains("core");
     }
 
     @Test

@@ -8,7 +8,7 @@ would change the answer.
 | **Tasks and containers** | | |
 | A task is the container whose id Porelo recorded | never by name or label; a container with no record is acted on by nothing | [entry](#a-task-is-the-container-whose-id-porelo-recorded) |
 | A start at a terminal goes into a running task | as `attach` does; an option of creation is refused by name; a script still gets 65 | [entry](#a-start-at-a-terminal-goes-into-a-running-task) |
-| A host playbook reads Porelo as a contract | `project inventory` with its version, `vault status` by exit code, `--json` answers; the machine file holds a host's tasks and keys | [entry](#a-host-playbook-reads-porelo-as-a-contract) |
+| A host playbook reads Porelo as a contract | `project inventory` with its version, `vault status` by exit code, `--json` answers; the machine file holds a host's keys, and the host installs every agent and starts no task | [entry](#a-host-playbook-reads-porelo-as-a-contract) |
 | Waiting for a person is never inferred from silence | working and idle are observed from output; waiting only where something declares it; no status channel out of the container | [entry](#waiting-for-a-person-is-never-inferred-from-silence) |
 | Nothing comes back by itself after a reboot | only `start` brings a task back; no surprise restarts, no vault prompt at boot | [entry](#nothing-comes-back-by-itself-after-a-reboot) |
 | Only the last session is recorded, and a failed continuation is forgotten | a failed continuation is forgotten and the next start is fresh | [entry](#only-the-last-session-is-recorded-and-a-failed-continuation-is-forgotten) |
@@ -131,11 +131,15 @@ would change the answer.
 ## A host playbook reads Porelo as a contract
 
 A playbook that puts a project on a server calls only Porelo's commands and never parses text meant for a person.
-`porelo project inventory` prints the second play's inventory with `porelo_inventory_version`, raised on any change
-of a name or a meaning; `vault status` answers by its exit code, 0 open, 3 shut, 4 none; `project following` and `task
-status` answer with `--json`. The project file in the inventory is checked against its key exactly as `follow` checks
-it, and nothing is recorded. **Which tasks run on a host and which keys go into its vault are the person's**, in their
-machine file on their drive, not in `project.yml`, which is the project's. A key leaves only by its name and its path.
+`porelo project inventory` prints the second play's inventory with `porelo_inventory_version`, raised on any change of a
+name or a meaning; `vault status` answers by its exit code, 0 open, 3 shut, 4 none; `project following` and `agents`
+answer with `--json`; `task stop --all` answers by its exit code, 0 when nothing runs any more, 70 otherwise. The
+project file in the inventory is checked against its key exactly as `follow` checks it, and nothing is recorded. **Which
+keys go into a host's vault are the person's**, in their machine file on their drive, not in `project.yml`, which is the
+project's. A key leaves only by its name and its path. **Bringing a host up and down is kept apart from starting
+tasks**, since the person decides which work runs: the machine file names no task and no agent, `up` installs every
+agent the setup script's catalogue offers and starts nothing, the person starts each task by hand, and `down` stops
+every task with `task stop --all` before `vault clear`.
 A vault on a host nobody sits at is opened from outside: a person at `ssh -t`, or a program writing the passphrase to
 `vault unlock --passphrase-stdin`. The contract is `doc/hosts.md`. **What would change it:** a second machine file of
 another shape, which would bring a version of its own.

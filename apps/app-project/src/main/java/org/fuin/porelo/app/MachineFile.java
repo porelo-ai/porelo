@@ -13,57 +13,20 @@ import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
 
 /**
- * Porelo's part of a person's machine file: the project a host brings up, the tasks to start there
- * and the keys to put into its vault.
+ * Porelo's part of a person's machine file: the project a host brings up and the keys to put into
+ * its vault.
  *
  * <p>The file is the person's, beside the provider, offer and zone a host package reads from it for
- * the first play; Porelo reads only {@code project}, {@code tasks} and {@code keys}, and ignores
- * the rest. A key is named by its path on the person's drive and never read here: what leaves this
- * class is a name and a path, never a value.
+ * the first play; Porelo reads only {@code project} and {@code keys}, and ignores the rest. A key
+ * is named by its path on the person's drive and never read here: what leaves this class is a name
+ * and a path, never a value.
  *
  * @param project The project's name.
  * @param url Its repository.
  * @param signedBy The key or fingerprint its project file must be signed with.
- * @param tasks The tasks to start, in the file's order.
  * @param keys The keys to put into the vault, each with its absolute path.
  */
-public record MachineFile(
-        String project, String url, String signedBy, List<Task> tasks, List<Key> keys) {
-
-    /** An agent's name, as {@code task start --agent} and {@code vault login} take it. */
-    private static final java.util.regex.Pattern AGENT =
-            java.util.regex.Pattern.compile("[a-z0-9][a-z0-9-]*");
-
-    /** A package's name, as both Debian and RPM allow it. */
-    private static final java.util.regex.Pattern PACKAGE =
-            java.util.regex.Pattern.compile("[a-z0-9][a-z0-9+.-]*");
-
-    /**
-     * A task to start.
-     *
-     * @param name Its name, as {@code porelo task start NAME} takes it.
-     * @param repository The project's repository it works on, as {@code -r} takes it.
-     * @param agent The agent it runs, as {@code --agent} takes it, or {@code null} for the
-     *     project's default.
-     * @param agentPackage The package that installs that agent, or {@code null} for the default
-     *     name; always {@code null} without an agent.
-     */
-    public record Task(
-            String name,
-            String repository,
-            @org.jspecify.annotations.Nullable String agent,
-            @org.jspecify.annotations.Nullable String agentPackage) {
-
-        /**
-         * A task that runs the project's default agent.
-         *
-         * @param name Its name.
-         * @param repository The project's repository it works on.
-         */
-        public Task(final String name, final String repository) {
-            this(name, repository, null, null);
-        }
-    }
+public record MachineFile(String project, String url, String signedBy, List<Key> keys) {
 
     /**
      * A key to put into the vault.
@@ -110,6 +73,13 @@ public record MachineFile(
         if (!(loaded instanceof Map<?, ?> root)) {
             throw new IllegalArgumentException(origin + " is not a mapping");
         }
+        if (root.containsKey("tasks") || root.containsKey("agents")) {
+            throw new IllegalArgumentException(
+                    origin
+                            + ": the machine installs every agent Porelo's repository offers; "
+                            + "tasks are started by the person with 'porelo task start', "
+                            + "so the machine file names neither tasks nor agents");
+        }
         if (!(root.get("project") instanceof Map<?, ?> project)) {
             throw new IllegalArgumentException(origin + " names no 'project'");
         }
@@ -117,27 +87,7 @@ public record MachineFile(
                 text(project, "name", origin + ": project"),
                 text(project, "url", origin + ": project"),
                 text(project, "signed_by", origin + ": project"),
-                tasks(root.get("tasks"), origin),
                 keys(root.get("keys"), base, origin));
-    }
-
-    private static List<Task> tasks(
-            final @org.jspecify.annotations.Nullable Object section, final String origin) {
-        final List<Task> tasks = new ArrayList<>();
-        for (final Map<?, ?> each : entries(section, "tasks", origin)) {
-            final String where = origin + ": tasks";
-            final String name = text(each, "name", where);
-            final String task = where + ": '" + name + "'";
-            final String agent = optional(each, "agent", AGENT, task);
-            final String agentPackage = optional(each, "package", PACKAGE, task);
-            // A package without the agent it installs would be installed and never started.
-            if (agentPackage != null && agent == null) {
-                throw new IllegalArgumentException(
-                        task + " names a 'package' and no 'agent' it installs");
-            }
-            tasks.add(new Task(name, text(each, "repository", where), agent, agentPackage));
-        }
-        return List.copyOf(tasks);
     }
 
     private static List<Key> keys(
@@ -180,23 +130,6 @@ public record MachineFile(
             entries.add(entry);
         }
         return entries;
-    }
-
-    private static @org.jspecify.annotations.Nullable String optional(
-            final Map<?, ?> section,
-            final String key,
-            final java.util.regex.Pattern form,
-            final String where) {
-        if (!section.containsKey(key)) {
-            return null;
-        }
-        final String said = text(section, key, where);
-        // It reaches a command line on the host, so only a name passes, never words or options.
-        if (!form.matcher(said).matches()) {
-            throw new IllegalArgumentException(
-                    where + ": '" + key + "' is no " + key + "'s name: " + said);
-        }
-        return said;
     }
 
     private static String text(final Map<?, ?> section, final String key, final String where) {
