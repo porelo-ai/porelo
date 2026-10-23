@@ -3,22 +3,22 @@
 **Status:** Analyzed.
 **Size:** M - one contract change in `builds/api` (interface file, server, client and handshake), the stub and two
 callers in `app-task` moved with it, its documentation and a changelog entry; the suite and the adapters are
-`porelo-forge`'s.
+`porelo-adapters`'s.
 
 **What must be true.** Porelo asks a forge adapter only over `org.fuin.porelo.Build2`, whose `Build` method is
 today's `Look` renamed, and refuses an adapter of `org.fuin.porelo.Build1` by name before it asks it anything; the
-`porelo-build-api` on Central is all `porelo-forge-contract` needs to run the one suite every adapter passes.
+`porelo-build-api` on Central is all `porelo-build-contract` needs to run the one suite every adapter passes.
 
 ## Why
 
 From porelo-project [PJ62](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj62): the forge
-adapters live in one repository, `porelo-forge`, beside one contract suite each passes; the `github` adapter moves
+adapters live in one repository, `porelo-adapters`, beside one contract suite each passes, the build service's; the `github` adapter moves
 there from `porelo-build-github`, and a `forgejo` adapter joins it. The contract stays Porelo's: `porelo-build-api`
 and the build interface stay here, `look` is renamed `build` under a new protocol version, and every adapter is
 released anew with it.
 
-Not here: the suite is built in `porelo-forge` as the module `porelo-forge-contract`, and the `forgejo` adapter as
-`porelo-forge-forgejo` there; their issue is filed in `porelo-forge` once that repository exists, which it does not
+Not here: the suite is built in `porelo-adapters` as the module `porelo-build-contract`, and the `forgejo` adapter as
+`porelo-adapter-forgejo` there; their issue is filed in `porelo-adapters` once that repository exists, which it does not
 yet. The command a person asks an adapter through is [B256](README.md#b256).
 
 ## Plan
@@ -55,7 +55,7 @@ Read in `builds/api`, `builds/stub`, `apps/app-task`, `wire` and `core`'s `Build
    always wants a failed job's log.
 6. **The stub** moves with steps 1, 2 and 5: it serves through `BuildMain`, so it speaks `Build2` once the API
    does, returns no log for `none`, and `task-builds.feature` reads builds through it as before.
-7. **What `porelo-build-api` must publish for `porelo-forge-contract`: nothing new.** It already opts into Central
+7. **What `porelo-build-api` must publish for `porelo-build-contract`: nothing new.** It already opts into Central
    (`builds/api/pom.xml`, `skipPublishing` false) and the BOM manages it. A suite in another repository drives an
    adapter as Porelo does, through `InstalledBuildReader` over its socket, with an executable that starts the
    adapter's main as `InstalledBuildReaderTest.java()` (`:189-198`) does; what it compares is public - the records
@@ -64,12 +64,12 @@ Read in `builds/api`, `builds/stub`, `apps/app-task`, `wire` and `core`'s `Build
    Package-private is only the wire mapping (`Build.of`, `Build.asMap`, `BuildRefused.Reason.of`,
    `BuildProtocol.error`), which a suite going through the socket never calls. `FakeReader` is test code, not in
    the jar, and not needed there: it stands in for an adapter, where the suite needs a forge's recorded answers,
-   which are `porelo-forge`'s.
+   which are `porelo-adapters`'s.
 8. **The documentation**: `builds/api/README.md`, `doc/build-readers.md` (`:19-21`, `:28`) and `doc/decisions.md`
-   (`:21`, `:230-232`) name `Build2` and `build`; `doc/running.md` (`:289`) names the package `porelo-forge-github`
+   (`:21`, `:230-232`) name `Build2` and `build`; `doc/running.md` (`:289`) names the package `porelo-adapter-github`
    once that package is published, not before. A changelog entry under `changelog/unreleased/`: an installed adapter
    of the first version is refused, naming it.
-9. **The release, decided:** porelo with `Build2` and the first `porelo-forge-github` go out in the same gathered
+9. **The release, decided:** porelo with `Build2` and the first `porelo-adapter-github` go out in the same gathered
    push, so the time in which an installed `Build1` adapter is refused lasts hours at most. porelo's packages name
    no forge's package: no `Breaks:` and no `Conflicts:` on `porelo-build-github`.
 
@@ -101,13 +101,13 @@ and `org.fuin.porelo.Build2`; today that adapter is accepted.
 - That a release of `porelo-build-api` is on Central: the pom opts in and the build workflow deploys under
   `-Pcentral-sonatype-release`, but Central was not asked, and `AGENTS.md`'s *Publishing* names four artifacts
   reaching Central without this one; whichever is wrong is corrected.
-- With `porelo-forge`'s agent, once the repository exists: that driving an adapter through `InstalledBuildReader` is
+- With `porelo-adapters`'s agent, once the repository exists: that driving an adapter through `InstalledBuildReader` is
   all the suite needs, since an in-process seam would be a public addition here; and that the `github` adapter takes
   a loopback `http://` address in `Target.api` for the recorded answers - `Target` accepts any address, a project
   file's `builds.api` only `https://` (`Builds.java:54-57`).
 - What Forgejo's API answers for a commit whose workflows have not started, and how it reports a cancelled job: if
   it cannot tell "not started" from "no workflow", `Build2`'s text for `queued` and `unknown` says what an adapter
-  answers then. The answers are recorded in `porelo-forge`.
+  answers then. The answers are recorded in `porelo-adapters`.
 - That a project file can name a forge on the host's own network: `builds.api` takes any `https://` address and the
   adapter runs on the host, never in a task; whether it trusts a certificate authority the host names, as a local
   Forgejo's may need, is not read.

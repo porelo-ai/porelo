@@ -107,7 +107,7 @@ from its side, as *blocked by*.
 | <a id="b179"></a>[B179](B179-A-Code-Beside-Why-A-Release-Cannot-Go.md) | M | - | A code beside `detail` when a release is answered `NOT_DELIVERABLE`, so a client can say what to do per case. | 0 |
 | <a id="b230"></a>[B230](B230-The-Package-Provides-The-Lowest-Agent-Protocol.md) | M | `porelo` [B224](README.md#b224) | The `.deb` and `.rpm` provide `porelo-agent-protocol-<LOWEST>`, held to `AgentProtocol.LOWEST` by a test, so an agent's package refuses only what `porelo` refuses. | 0 |
 | <a id="b231"></a>[B231](B231-The-Usage-Records-Kept-Off-The-Machine.md) | M | `porelo` [B148](README.md#b148) | `porelo keep <dir>` copies the usage records up to their last complete line, `keep --restore <dir>` puts them back before a task runs and never shortens one. | 0 |
-| <a id="b253"></a>[B253](B253-Every-Forge-Adapter-Speaks-The-Build-Contracts-Second-Version.md) | M | - | Porelo asks a forge adapter only over `org.fuin.porelo.Build2`, `Look` renamed `Build`, and refuses a `Build1` adapter by name; `none` joins the logs asked for; the stub moves with it, and `porelo-build-api` needs nothing new for `porelo-forge-contract`, the suite `porelo-forge` builds | 0 |
+| <a id="b253"></a>[B253](B253-Every-Forge-Adapter-Speaks-The-Build-Contracts-Second-Version.md) | M | - | Porelo asks a forge adapter only over `org.fuin.porelo.Build2`, `Look` renamed `Build`, and refuses a `Build1` adapter by name; `none` joins the logs asked for; the stub moves with it, and `porelo-build-api` needs nothing new for `porelo-build-contract`, the suite `porelo-adapters` builds | 0 |
 
 ## Accepted
 
