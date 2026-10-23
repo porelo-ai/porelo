@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b258"></a>[B258](B258-The-Machine-Installs-Every-Agent-And-Names-No-Task.md) | M | - | A machine file names the project and its keys, never tasks or agents; a host installs every agent from the setup script's catalogue and starts no task, and porelo-host [HO19](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho19) waits on it |
 | <a id="b31"></a>[B31](B31-An-Authorization-A-Person-Grants-Once.md) | S | - | A person grants GitHub once through an installed agent's app; tasks then spend it on GitHub's MCP server through the broker, one session held for an hour, never holding the token. |
 | <a id="b211"></a>[B211](B211-A-Keyring-The-Process-Cannot-Reach-Is-Unavailable.md) | S | - | `KernelKeyring.available()` probes the system call once, so a keyring a container's seccomp refuses counts as unavailable and its tests skip. |
 | <a id="b213"></a>[B213](B213-The-Setup-Script-Shipped-As-A-Package.md) | S | - | The setup script in the `porelo` package at `/usr/share/porelo/setup/`, so a host that added the repository by its pinned key gets it checked by apt; it keeps the channel it came from. |
@@ -33,7 +34,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b258"></a>[B258](B258-The-Machine-Installs-Every-Agent-And-Names-No-Task.md) | M | - | A machine file names the project and its keys, never tasks or agents; a host installs every agent from the setup script's catalogue and starts no task, and porelo-host [HO19](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho19) waits on it |
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
 | <a id="b212"></a>[B212](B212-Porelos-Own-Tests-In-A-Porelo-Task.md) | M | - | porelo's whole local check is green inside a Porelo task: no test needs the host's podman, `porelo`, `/run/user` or an unset `no-new-privileges`; green in a task on the VM, 2662 tests, 77 skips named |
 | <a id="b242"></a>[B242](B242-An-Agents-Records-Read-By-A-Nested-Key.md) | M | - | An agent definition reads its session id and last message by a dotted key, and a session file by its own record, as Codex CLI writes them; the agent API only grows |

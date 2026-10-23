@@ -1,7 +1,7 @@
 # B258 — The Machine Installs Every Agent And Names No Task
 
-**Status:** Implementing. Built: the machine file and the inventory, the pages, tests seen red. Left: the whole
-chain with the VM on the commit.
+**Status:** Review: published since `0.5.1~snapshot.321`; porelo-host's
+[HO19](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho19) reads inventory version 2.
 **Size:** M - the machine file and the inventory lose the tasks; `doc/hosts.md`, the decision and tests. The origin
 check it first held is [B260](README.md#b260)'s.
 
