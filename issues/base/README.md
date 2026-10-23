@@ -126,6 +126,8 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b264"></a>[B264](B264-A-Word-To-A-Helper-Wakes-No-Task.md) | - | - | A person's word in the room that names only a helper account, the administrator or the relay, wakes no task, and the person is told so; one naming nobody still reaches every agent |
+| <a id="b265"></a>[B265](B265-A-Reserved-Variable-Refused-With-Its-Fix.md) | - | - | A `porelo.yml` setting `PATH`, `HOME`, `LANG` or a `PORELO_*` variable is refused with the value Porelo sets and the fix: remove the line |
 | <a id="b263"></a>[B263](B263-A-Task-Image-Built-Past-A-Stalled-Mirror.md) | - | - | A task image's build tries a second Ubuntu mirror after a bounded first attempt, rather than one fixed Azure mirror a stalled node can hold for 600 s |
 | <a id="b262"></a>[B262](B262-A-Stops-Survivors-In-The-Form-Its-Interface-Declares.md) | - | - | The daemon's `Stop` answers `surviving` in the type its interface declares; today it sends a list where `int` is declared, and porelo-frontend reads it as 0 |
 | <a id="b254"></a>[B254](B254-A-Task-Has-Its-Work-Built-On-A-Declared-Kind.md) | - | `porelo` [B253](README.md#b253) | A task asks for its work to be built on a machine kind the project declares and reads the verdict and log in `/porelo/files`; an undeclared kind or command is refused |
