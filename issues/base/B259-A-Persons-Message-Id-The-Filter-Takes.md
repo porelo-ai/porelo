@@ -1,6 +1,6 @@
 # B259 — A Person's Message Id The Filter Takes
 
-**Status:** Backlog.
+**Status:** Implementing. Built: the mapping and its tests, seen red. Left: the whole chain with the VM on the commit.
 **Size:** XS - one id mapped where a person's words become a message, a test of the answer that copies it.
 **Estimate:** 90 min, like porelo-message-matrix
 [MX31](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx31) (46 min, one value mapped
@@ -17,8 +17,10 @@ begins with `$`, and the filter's envelope check allows only `[A-Za-z0-9._:-]` i
 its `contextId` was bounced and needed a second turn. Every agent that answers a person this way loses one. The
 transport hands the event id exactly as Matrix gives it, and keeps doing so; mapping it into the alphabet is porelo's.
 
-## To be read before building
+## Decided
 
-- Whether anything later maps the id back to the event, for a reply in a thread or a read receipt, and so needs the
-  mapping to be reversible.
-- Every other place a person's or a transport's id becomes a message id.
+- An event id of `$` and the filter's alphabet `[A-Za-z0-9._:-]` keeps its readable form, `person-` and the id without
+  its `$`, while that is at most 128 characters, the filter's default maximum. Any other id, a file name the transport
+  wrote included, becomes `person-h-` and the SHA-256 of the whole value in hex, so two different ids never meet in
+  one. An empty event id falls back to the file name.
+- Nothing maps it back: the Matrix transport answers and marks read by its own event ids and file names.

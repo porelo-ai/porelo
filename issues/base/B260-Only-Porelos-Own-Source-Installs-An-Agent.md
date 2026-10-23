@@ -1,6 +1,7 @@
 # B260 — Only Porelo's Own Source Installs An Agent
 
-**Status:** Backlog.
+**Status:** Accepted; it comes after porelo-project
+[PJ39](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj39) and its usability work.
 **Size:** M - the setup script's install and catalogue, and `InstallablePackages`, bound to Porelo's package source on
 both families, measured in Ubuntu and Fedora containers.
 **Estimate:** 180 min, no like issue measured.

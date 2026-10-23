@@ -34,6 +34,8 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b261"></a>[B261](B261-A-Stop-Of-Everything-Says-What-Still-Runs.md) | M | - | `task stop --all`, `panic` and `task stop` end 0 only when no stopped task's container still runs, and name a survivor with 70, since a host's `down` goes on to `vault clear` on 0 |
+| <a id="b259"></a>[B259](B259-A-Persons-Message-Id-The-Filter-Takes.md) | XS | - | A person's message reaches a task with an id the message filter accepts, so an answer naming it as `contextId` is not bounced |
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
 | <a id="b212"></a>[B212](B212-Porelos-Own-Tests-In-A-Porelo-Task.md) | M | - | porelo's whole local check is green inside a Porelo task: no test needs the host's podman, `porelo`, `/run/user` or an unset `no-new-privileges`; green in a task on the VM, 2662 tests, 77 skips named |
 | <a id="b242"></a>[B242](B242-An-Agents-Records-Read-By-A-Nested-Key.md) | M | - | An agent definition reads its session id and last message by a dotted key, and a session file by its own record, as Codex CLI writes them; the agent API only grows |
@@ -50,9 +52,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b261"></a>[B261](B261-A-Stop-Of-Everything-Says-What-Still-Runs.md) | S | - | `task stop --all`, `panic` and `task stop` end 0 only when no stopped task's container still runs, and name a survivor with 70, since a host's `down` goes on to `vault clear` on 0 |
-| <a id="b259"></a>[B259](B259-A-Persons-Message-Id-The-Filter-Takes.md) | XS | - | A person's message reaches a task with an id the message filter accepts, so an answer naming it as `contextId` is not bounced |
-| <a id="b260"></a>[B260](B260-Only-Porelos-Own-Source-Installs-An-Agent.md) | M | - | What the setup script's `--with` installs and what `--list` and `Installable` offer comes only from Porelo's own package source, the install bound to it on apt and dnf; dnf5's catalogue finds every agent |
 | <a id="b206"></a>[B206](B206-A-Transport-Takes-Its-Secrets-On-Its-Input.md) | L | - | A transport takes the secrets Porelo kept for it on its standard input, not in its environment, so no other process of the account can read them from `/proc`; a version declared in `describe`, with the matrix transport's matching change. |
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | XL | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own; analyzed: filled only from reviewed work, mounted `:ro,z`, read through `maven.repo.local.tail`, filled by `dependency:go-offline` on request and when the default branch moved, Maven first |
 | <a id="b207"></a>[B207](B207-An-Image-Built-Within-The-Projects-Egress.md) | L | - | An image's build reaches only the project's egress and its trusted package sources, through the firewall or a proxy, so a snippet - a project's or a repository's `porelo.yml` - cannot fetch from anywhere while the image is made. |
@@ -113,6 +112,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b260"></a>[B260](B260-Only-Porelos-Own-Source-Installs-An-Agent.md) | M | - | What the setup script's `--with` installs and what `--list` and `Installable` offer comes only from Porelo's own package source, the install bound to it on apt and dnf; dnf5's catalogue finds every agent |
 | <a id="b233"></a>[B233](B233-A-Host-Service-Reached-By-Name.md) | L | - | A task reaches a service on its own host, a forge or a registry, by a declared name on 443 and nothing else there; the reach through pasta measured first |
 | <a id="b234"></a>[B234](B234-The-Hosts-Authority-In-A-Tasks-Trust-Store.md) | M | - | A task trusts a certificate authority the host names, without a project putting it into its image; where the images read added authorities measured first |
 | <a id="b246"></a>[B246](B246-A-Task-Name-No-Other-Project-Shares.md) | - | after porelo-project [PJ39](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj39) | A task's container name is one project's and one task's, where `porelo-a-b-c` today names project `a-b`'s task `c` and project `a`'s task `b-c`; proposed: `_` between them |

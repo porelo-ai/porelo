@@ -1,8 +1,10 @@
 # B261 — A Stop Of Everything Says What Still Runs
 
-**Status:** Backlog.
-**Size:** S - the stop checks each container's state after stopping it, and names a survivor; tests.
-**Estimate:** 90 min, no like issue measured.
+**Status:** Implementing. Built: every stop and removal verified by the recorded container id, records kept until a
+removal is confirmed, the callers naming survivors, tests seen red. Left: the whole chain with the VM on the commit.
+**Size:** M - grown from S: the removal that deleted its records over a running container, the shutdown's choice of
+tasks, and four callers that ignored what survived came with it.
+**Estimate:** 180 min from 90, no like issue measured.
 
 **What must be true.** `porelo task stop --all`, `porelo panic` and `porelo task stop TASK` end 0 only when no stopped
 task's container still runs. A container that survives its stop is named on standard error, and the command ends 70,
@@ -15,7 +17,16 @@ A host's `down` runs `porelo task stop --all` and goes on to `vault clear` on 0 
 reproduced `Podman.stop` returning normally after an exit of 125. So a container whose stop failed would be reported
 as stopped while it still runs. `vault clear` refusing past a running task with a token stays the guard behind it.
 
-## To be read before building
+## Decided
 
-- `TaskControl.stop` and whatever it checks after the container's stop; only `Podman.stop` and `TaskPanic` are read.
-- Whether the daemon's `Panic` and `Stop` answer the same, since they share `TaskPanic` and `TaskControl`.
+- A container counts as stopped only when `podman container inspect` of its recorded id answers a terminal state
+  (`exited`, `stopped`, `created`), and as removed only when it answers that there is no such container. `stopping`,
+  `paused`, `restarting`, a running or unknown state and a failed inspection all count as still running.
+- `task stop --all`, `panic` and the daemon's `Panic` choose the tasks to stop from the recorded task identities, not
+  from what the runtime lists as up, so a container an earlier stop left `stopping`, or a renamed one, is stopped too.
+- A removal that is not confirmed keeps every record of the task: its state, its durable container id, its session,
+  secrets, conversation account and mailbox. They are what lets a later stop, `stop --all`, `vault clear` or removal
+  find it. It answers `removed: false`, and `clear` then leaves the account's transport state alone.
+- `task stop`, `task remove`, `clear`, `project unfollow` and an attached session's end name each survivor on standard
+  error as `porelo: still running: …` and end 70.
+- `Stop`'s `surviving: int` in the interface stays as it is, for [B262](README.md#b262).
