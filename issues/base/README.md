@@ -105,6 +105,7 @@ from its side, as *blocked by*.
 | <a id="b179"></a>[B179](B179-A-Code-Beside-Why-A-Release-Cannot-Go.md) | M | - | A code beside `detail` when a release is answered `NOT_DELIVERABLE`, so a client can say what to do per case. | 0 |
 | <a id="b230"></a>[B230](B230-The-Package-Provides-The-Lowest-Agent-Protocol.md) | M | `porelo` [B224](README.md#b224) | The `.deb` and `.rpm` provide `porelo-agent-protocol-<LOWEST>`, held to `AgentProtocol.LOWEST` by a test, so an agent's package refuses only what `porelo` refuses. | 0 |
 | <a id="b231"></a>[B231](B231-The-Usage-Records-Kept-Off-The-Machine.md) | M | `porelo` [B148](README.md#b148) | `porelo keep <dir>` copies the usage records up to their last complete line, `keep --restore <dir>` puts them back before a task runs and never shortens one. | 0 |
+| <a id="b253"></a>[B253](B253-Every-Forge-Adapter-Speaks-The-Build-Contracts-Second-Version.md) | M | - | Porelo asks a forge adapter only over `org.fuin.porelo.Build2`, `Look` renamed `Build`, and refuses a `Build1` adapter by name; the stub moves with it, and `porelo-build-api` needs nothing new for `porelo-forge-contract`, the suite `porelo-forge` builds | 2 |
 
 ## Accepted
 
@@ -112,7 +113,6 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b233"></a>[B233](B233-A-Host-Service-Reached-By-Name.md) | L | - | A task reaches a service on its own host, a forge or a registry, by a declared name on 443 and nothing else there; the reach through pasta measured first |
 | <a id="b234"></a>[B234](B234-The-Hosts-Authority-In-A-Tasks-Trust-Store.md) | M | - | A task trusts a certificate authority the host names, without a project putting it into its image; where the images read added authorities measured first |
-| <a id="b253"></a>[B253](B253-One-Contract-Suite-For-Every-Build-Reader.md) | M | - | The `github` and the `forgejo` build readers pass one contract suite from the build API's kit, each against its own forge; the `forgejo` reader in a repository of its own |
 | <a id="b246"></a>[B246](B246-A-Task-Name-No-Other-Project-Shares.md) | - | after porelo-project [PJ39](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj39) | A task's container name is one project's and one task's, where `porelo-a-b-c` today names project `a-b`'s task `c` and project `a`'s task `b-c`; proposed: `_` between them |
 | <a id="b203"></a>[B203](B203-Task-Names-Checked-By-What-The-Commands-Do.md) | - | - | The test that every task and talk command takes both spellings of a task runs the commands through picocli's tree instead of matching their source text. |
 | <a id="b202"></a>[B202](B202-Credential-Names-In-A-Project-File-Checked.md) | - | - | A credential's name in a project file is checked when read, since it becomes a token file's and a variable's name; what an existing file does is decided. |
@@ -129,6 +129,7 @@ from its side, as *blocked by*.
 | <a id="b250"></a>[B250](B250-No-Broker-Address-For-A-Task-Without-One.md) | - | - | An agent's setup hears the broker's address only when the task has a broker, where an agent reached by URL hears the relay's address without one and takes itself for brokered |
 | <a id="b251"></a>[B251](B251-Porelo-Inside-A-Lima-VM.md) | - | - | Porelo runs its tasks in a Lima VM on a Mac with the task firewall loaded, or says what the VM lacks, where the Mac probe saw `unshare` refused there |
 | <a id="b252"></a>[B252](B252-A-Sign-In-Collected-On-No-Disk.md) | - | - | A sign-in made in a login container reaches the vault without lying in plaintext on a disk, where today it passes through the container's layer and the host's temporary directory |
+| <a id="b256"></a>[B256](B256-A-Person-Asks-What-A-Branch-Or-A-Commit-Built.md) | - | `porelo` [B253](README.md#b253) | `porelo build status -p <project> -r <repository>` with `--branch` or `--commit` asks the forge the project's `builds:` names for the verdict, the jobs and the logs asked for, the token from the vault and shown nowhere; a project without `builds:` is refused naming why |
 
 ## Estimated
 
