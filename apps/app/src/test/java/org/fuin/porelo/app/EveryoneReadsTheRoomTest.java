@@ -163,7 +163,7 @@ class EveryoneReadsTheRoomTest {
         final Mailbox writer = mailbox("porelo-p-writer");
         Files.writeString(
                 writer.inbound().resolve("t1--matrix-person-a.json"),
-                "{\"messageId\":\"person-$e1\","
+                "{\"messageId\":\"person-e1\","
                         + "\"role\":\"ROLE_USER\",\"parts\":[{\"text\":\"hi\"}],\"metadata\":{\"from\":\"alice\"}}");
         Files.writeString(
                 writer.inbound()
@@ -190,7 +190,7 @@ class EveryoneReadsTheRoomTest {
                 .satisfies(
                         delivered -> {
                             assertThat(delivered.peer()).isEqualTo("alice");
-                            assertThat(delivered.id()).isEqualTo("person-$e1");
+                            assertThat(delivered.id()).isEqualTo("person-e1");
                         });
         assertThat(writer.inboxNew().resolve("t1--matrix-person-a.json")).exists();
         assertThat(refusing.invocations()).isEmpty();

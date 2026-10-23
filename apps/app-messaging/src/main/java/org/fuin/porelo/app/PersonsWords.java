@@ -107,8 +107,10 @@ record PersonsWords(
         final Map<String, Object> message = new LinkedHashMap<>();
         message.put(
                 "messageId",
-                "person-"
-                        + (said.get("eventId") instanceof String event
+                messageId(
+                        said.get("eventId") instanceof String event
+                                        && !event.isEmpty()
+                                        && !event.equals("$")
                                 ? event
                                 : file.getFileName().toString()));
         message.put("role", MessageSay.ROLE);
@@ -128,6 +130,28 @@ record PersonsWords(
 
     /** Said in a direct chat with the one task. */
     static final String VIA_DIRECT = "direct";
+
+    private static String messageId(final String event) {
+        final String bare = event.startsWith("$") ? event.substring(1) : event;
+        // The filter's default maximum ID length is 128, including the person- prefix.
+        if (event.startsWith("$")
+                && !bare.isEmpty()
+                && bare.matches("[A-Za-z0-9._:-]+")
+                && !bare.startsWith("h-")
+                && "person-".length() + bare.length() <= 128) {
+            return "person-" + bare;
+        }
+        // Unprefixed values hash too, so foo cannot alias the readable Matrix event $foo.
+        try {
+            return "person-h-"
+                    + java.util.HexFormat.of()
+                            .formatHex(
+                                    java.security.MessageDigest.getInstance("SHA-256")
+                                            .digest(event.getBytes(StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 is required for person message IDs", ex);
+        }
+    }
 
     private static PersonsWords refused(final String why) {
         return new PersonsWords(List.of(), null, null, why);
