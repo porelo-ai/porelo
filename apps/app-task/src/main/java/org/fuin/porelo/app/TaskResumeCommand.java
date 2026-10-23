@@ -307,7 +307,13 @@ public class TaskResumeCommand implements Callable<Integer>, PoreloFactory.Conte
                 "Remove " + container + " now?",
                 "the container " + container + " and everything else in it",
                 true)) {
-            new TaskControl(context).remove(container, false, true);
+            final TaskControl.Stopped removed =
+                    new TaskControl(context).remove(container, false, true);
+            if (!removed.removed()) {
+                out.println("kept      container " + container + ": " + removed.detail());
+                out.flush();
+                return false;
+            }
             out.println("removed   " + container);
         } else {
             out.println(

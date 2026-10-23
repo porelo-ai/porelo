@@ -1716,22 +1716,22 @@ public final class TaskLaunch {
                             container,
                             environmentCache,
                             project,
-                            code -> cleanUp(runner, container, code, out)));
+                            code -> cleanUp(runner, container, code, out, err)));
 
         } catch (CommandException ex) {
             err.println("porelo: " + ex.getMessage());
             err.flush();
-            return cleanUp(runner, container, 70, out);
+            return cleanUp(runner, container, 70, out, err);
         } catch (org.fuin.porelo.agent.api.AgentException ex) {
             // "Several agents are installed" is a sentence for a person. Printed as an object it
             // reached an interface as a Java class name, which says nothing about what to do.
             err.println("porelo: " + ex.getMessage());
             err.flush();
-            return cleanUp(runner, container, 69, out);
+            return cleanUp(runner, container, 69, out, err);
         } catch (Exception ex) {
             err.println("porelo: " + ex);
             err.flush();
-            return cleanUp(runner, container, 70, out);
+            return cleanUp(runner, container, 70, out, err);
         }
     }
 
@@ -2654,27 +2654,44 @@ public final class TaskLaunch {
      * @param container Container name.
      * @param code Exit code of the run.
      * @param out Where the decision is reported.
-     * @return The exit code, unchanged.
+     * @param err Where survivors are reported.
+     * @return The run's failure, or 70 if cleanup of a successful run failed.
      */
-    private int cleanUp(TaskRunner runner, String container, int code, PrintWriter out) {
+    private int cleanUp(
+            TaskRunner runner, String container, int code, PrintWriter out, PrintWriter err) {
         try {
-            return cleanUpOrFail(runner, container, code, out);
+            return cleanUpOrFail(runner, container, code, out, err);
         } catch (final RuntimeException ex) {
             // Said, never in its place: what failed while cleaning up replaced the refusal that
             // caused the clean-up, and a start refused for its agent answered over the socket that
             // its container was no task Porelo made.
-            out.println("porelo: cleaning up after it failed: " + ex.getMessage());
-            out.flush();
-            return code;
+            err.println("porelo: cleaning up after it failed: " + ex.getMessage());
+            err.flush();
+            return code == 0 ? 70 : code;
         }
     }
 
-    private int cleanUpOrFail(TaskRunner runner, String container, int code, PrintWriter out) {
+    private static boolean reportStop(TaskControl.Stopped stopped, PrintWriter err) {
+        for (final String alive : stopped.surviving()) {
+            err.println("porelo: still running: " + alive);
+        }
+        err.flush();
+        return stopped.clean();
+    }
 
-        final boolean exists = context.podman().idOf(container).isPresent();
+    private int cleanUpOrFail(
+            TaskRunner runner, String container, int code, PrintWriter out, PrintWriter err) {
+
+        final String recorded = context.recordedId(container);
+        final boolean exists =
+                recorded == null
+                        ? context.podman().idOf(container).isPresent()
+                        : context.podman().stateOf(recorded)
+                                != org.fuin.porelo.runtime.Podman.ContainerState.ABSENT;
 
         if (code != 0 && exists && !request.keep()) {
             final TaskControl.Stopped held = new TaskControl(context).stop(container);
+            if (!reportStop(held, err)) return code == 0 ? 70 : code;
             out.println("kept      " + container + " - it failed, so nothing was removed");
             if (held.work() != null) {
                 out.println("          it holds " + held.work());
@@ -2702,8 +2719,10 @@ public final class TaskLaunch {
                 // in the project's conversations, its tokens and its mailbox with it. Removed with
                 // the container alone, the account stayed at the transport, and a prune later
                 // forgot the only credential that could retire it.
-                if (exists) {
-                    new TaskControl(context).remove(container, false, true);
+                if (exists || recorded != null) {
+                    final TaskControl.Stopped removed =
+                            new TaskControl(context).remove(container, false, true);
+                    if (!reportStop(removed, err)) return code == 0 ? 70 : code;
                 } else {
                     runner.remove(container);
                 }
@@ -2711,7 +2730,8 @@ public final class TaskLaunch {
                 // Stopped rather than left up, for the reason the failed branch is: a task nobody
                 // is watching that still holds a firewall, a gate and a credential proxy is not
                 // kept, it is abandoned.
-                new TaskControl(context).stop(container);
+                final TaskControl.Stopped stopped = new TaskControl(context).stop(container);
+                if (!reportStop(stopped, err)) return code == 0 ? 70 : code;
                 out.println(
                         "kept      "
                                 + container

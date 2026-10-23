@@ -8,7 +8,6 @@ import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.fuin.porelo.core.config.XdgPaths;
-import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.wire.Sidecar;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -21,7 +20,7 @@ class PanicCommandTest {
 
     private final StringWriter err = new StringWriter();
 
-    private final FakeCommandRunner runner = new FakeCommandRunner();
+    private final StoppingCommandRunner runner = new StoppingCommandRunner();
 
     private Path root;
 
@@ -50,6 +49,7 @@ class PanicCommandTest {
     private void stateOf(String container) throws IOException {
         final Path state = root.resolve("run/porelo").resolve(container);
         Files.createDirectories(state);
+        Sidecar.recordId(state, container.endsWith("2") ? "222222222222" : "111111111111");
         new Sidecar(
                         Sidecar.VERSION,
                         "uc",
@@ -66,22 +66,16 @@ class PanicCommandTest {
 
         // Somebody reaching for this is not in a position to list what is running first.
         final PoreloContext context = context(dir);
-        runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\nporelo-uc-build-2\tUp 2 hours\n");
+        runner.answering("ps", "111111111111\trunning\n222222222222\trunning\n");
         stateOf("porelo-uc-shell-1");
         stateOf("porelo-uc-build-2");
 
         assertThat(execute(context, "panic")).isZero();
 
         assertThat(runner.lines())
-                .anyMatch(
-                        line ->
-                                line.startsWith("podman stop")
-                                        && line.endsWith("porelo-uc-shell-1"));
+                .anyMatch(line -> line.startsWith("podman stop") && line.endsWith("111111111111"));
         assertThat(runner.lines())
-                .anyMatch(
-                        line ->
-                                line.startsWith("podman stop")
-                                        && line.endsWith("porelo-uc-build-2"));
+                .anyMatch(line -> line.startsWith("podman stop") && line.endsWith("222222222222"));
         assertThat(out.toString()).contains("stopped   2 of 2 tasks");
     }
 
@@ -91,7 +85,7 @@ class PanicCommandTest {
         // The reason for reaching for this is that something is going wrong and nobody yet knows
         // what, which is exactly when destroying the evidence is worst.
         final PoreloContext context = context(dir);
-        runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
+        runner.answering("ps", "111111111111\trunning\n");
         stateOf("porelo-uc-shell-1");
 
         assertThat(execute(context, "panic")).isZero();
@@ -108,7 +102,8 @@ class PanicCommandTest {
         // It is already stopped; touching it again would only produce noise in the one report an
         // operator is reading to find out what is still up.
         final PoreloContext context = context(dir);
-        runner.answering("ps", "porelo-uc-shell-1\tExited (0) 3 minutes ago\n");
+        runner.answering("ps", "111111111111\texited\n");
+        runner.answering("{{.State.Status}} 111111111111", "exited");
         stateOf("porelo-uc-shell-1");
 
         assertThat(execute(context, "panic")).isZero();
@@ -128,7 +123,7 @@ class PanicCommandTest {
     void listsWhatItWouldStopWithoutStoppingIt(@TempDir Path dir) throws IOException {
 
         final PoreloContext context = context(dir);
-        runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
+        runner.answering("ps", "111111111111\trunning\n");
         stateOf("porelo-uc-shell-1");
 
         assertThat(execute(context, "panic", "--dry-run")).isZero();
@@ -142,7 +137,7 @@ class PanicCommandTest {
 
         // A container somebody else started is not Porelo's to stop, whatever is going wrong.
         final PoreloContext context = context(dir);
-        runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\nnot-porelo-at-all\tUp 2 hours\n");
+        runner.answering("ps", "111111111111\trunning\nffffffffffff\trunning\n");
         stateOf("porelo-uc-shell-1");
 
         assertThat(execute(context, "panic")).isZero();
@@ -158,21 +153,15 @@ class PanicCommandTest {
         // A stop of everything left no record of who stopped what, when: only each task's own logs,
         // which say nothing of the others.
         final PoreloContext context = context(dir);
-        runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\nporelo-uc-build-2\tUp 2 hours\n");
+        runner.answering("ps", "111111111111\trunning\n222222222222\trunning\n");
         stateOf("porelo-uc-shell-1");
         stateOf("porelo-uc-build-2");
 
         assertThat(execute(context, "task", "stop", "--all")).isZero();
 
         assertThat(runner.lines())
-                .anyMatch(
-                        line ->
-                                line.startsWith("podman stop")
-                                        && line.endsWith("porelo-uc-shell-1"))
-                .anyMatch(
-                        line ->
-                                line.startsWith("podman stop")
-                                        && line.endsWith("porelo-uc-build-2"));
+                .anyMatch(line -> line.startsWith("podman stop") && line.endsWith("111111111111"))
+                .anyMatch(line -> line.startsWith("podman stop") && line.endsWith("222222222222"));
         final java.util.List<String> journal = Files.readAllLines(context.paths().stopJournal());
         assertThat(journal)
                 .singleElement()

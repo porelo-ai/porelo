@@ -638,7 +638,9 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                                     out.flush();
                                                     return;
                                                 }
-                                                running.cleanUp().applyAsInt(outcome.get());
+                                                outcome.set(
+                                                        running.cleanUp()
+                                                                .applyAsInt(outcome.get()));
                                             })) {
                                 left =
                                         context.exec()
@@ -661,7 +663,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                 // for.
                                 outcome.set(0);
                             }
-                            return left;
+                            return left == 0 ? outcome.get() : left;
                         }));
     }
 

@@ -123,7 +123,15 @@ public class TaskRemoveCommand implements Callable<Integer>, PoreloFactory.Conte
                                             offer))
                             != null) {
                 switch (next) {
-                    case "stop" -> new TaskControl(context).stop(container);
+                    case "stop" -> {
+                        final TaskControl.Stopped stopped =
+                                new TaskControl(context).stop(container);
+                        for (final String alive : stopped.surviving()) {
+                            err.println("porelo: still running: " + alive);
+                        }
+                        err.flush();
+                        if (!stopped.clean()) return 70;
+                    }
                     case "start" ->
                             context.exec()
                                     .applyAsInt(
@@ -216,7 +224,11 @@ public class TaskRemoveCommand implements Callable<Integer>, PoreloFactory.Conte
             out.println("rescued   " + result.rescuedRef());
             out.println("          review it with 'porelo gate pending'");
         }
-        out.println("removed   " + container);
+        for (final String alive : result.surviving()) {
+            err.println("porelo: still running: " + alive);
+        }
+        err.flush();
+        if (result.removed()) out.println("removed   " + container);
         if (result.discarded() > 0) {
             // The other half of what a removal costs. The workspace has the gate to arrive in; what
             // the agent installed in the container has nowhere at all, and nothing else records

@@ -72,7 +72,13 @@ public class ClearCommand implements Callable<Integer>, PoreloFactory.ContextAwa
         if (listed.refused() && asking) {
             final java.util.List<String> stopped = stopFirst(refusals(listed), offer);
             for (final String task : stopped) {
-                new TaskControl(context).stop(task);
+                final TaskControl.Stopped result = new TaskControl(context).stop(task);
+                final PrintWriter err = spec.commandLine().getErr();
+                for (final String alive : result.surviving()) {
+                    err.println("porelo: still running: " + alive);
+                }
+                err.flush();
+                if (!result.clean()) return 70;
             }
             if (!stopped.isEmpty()) {
                 listed = new Clearing(context).account(listOnly, forced);

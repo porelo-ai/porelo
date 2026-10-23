@@ -176,11 +176,7 @@ public final class Clearing {
                     new Item(
                             removal.kind(),
                             removal.what(),
-                            dryRun
-                                    ? Status.WOULD_REMOVE
-                                    : deleted.outcome() == ProjectDeletion.Outcome.FAILED
-                                            ? Status.NOT_REMOVED
-                                            : Status.REMOVED,
+                            dryRun ? Status.WOULD_REMOVE : Status.REMOVED,
                             ""));
         }
         if (url != null) {
@@ -274,7 +270,16 @@ public final class Clearing {
                             stopped.removed() ? Status.REMOVED : Status.NOT_REMOVED,
                             stopped.removed() ? "" : String.valueOf(stopped.detail())));
         }
-        transports(dryRun, items);
+        if (!dryRun && items.stream().anyMatch(item -> item.status() == Status.NOT_REMOVED)) {
+            items.add(
+                    new Item(
+                            "transport",
+                            "account-wide transport cleanup",
+                            Status.NOT_REMOVED,
+                            "a project or task removal failed; kept so surviving tasks can be found and talk"));
+        } else {
+            transports(dryRun, items);
+        }
         return new Result(List.copyOf(items), List.copyOf(keys), signer, refused);
     }
 

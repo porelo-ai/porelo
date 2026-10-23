@@ -615,6 +615,72 @@ public class Podman {
                 : Optional.empty();
     }
 
+    /** What inspection confirms about a particular container identity. */
+    public enum ContainerState {
+        /** Inspection explicitly reported no such container. */
+        ABSENT,
+        /** Podman reported exited, stopped or created. */
+        TERMINAL,
+        /** It may still run: a live, transitional, unknown or unreadable state. */
+        UNCONFIRMED
+    }
+
+    /**
+     * Inspects the captured container id directly, independently of its current name.
+     *
+     * @param id The recorded container id.
+     * @return Absence or a terminal state only when positively confirmed.
+     */
+    public ContainerState stateOf(String id) {
+        final CommandResult result;
+        try {
+            result =
+                    runner.run(podman("container", "inspect", "--format", "{{.State.Status}}", id));
+        } catch (org.fuin.porelo.core.process.CommandException ex) {
+            return ContainerState.UNCONFIRMED;
+        }
+        if (!result.successful()) {
+            return result.standardError().contains("no such container")
+                    ? ContainerState.ABSENT
+                    : ContainerState.UNCONFIRMED;
+        }
+        return classifyState(result.trimmedOutput());
+    }
+
+    /** A full container identity and the state word reported by Podman. */
+    public record IdentityState(String id, ContainerState state) {}
+
+    /**
+     * Lists all identities in runtime order, failing if the inventory cannot be read.
+     *
+     * @return Full ids and states from one query.
+     */
+    public List<IdentityState> containerStates() {
+        // State is the state word; Status is a display phrase such as "Up 4 minutes".
+        return runner.runOrFail(
+                        podman("ps", "--all", "--no-trunc", "--format", "{{.ID}}\t{{.State}}"))
+                .standardOutput()
+                .lines()
+                .filter(line -> !line.isBlank())
+                .map(
+                        line -> {
+                            final String[] fields = line.split("\t", -1);
+                            if (fields.length != 2 || fields[0].isBlank()) {
+                                throw new IllegalStateException(
+                                        "invalid container identity inventory");
+                            }
+                            return new IdentityState(fields[0], classifyState(fields[1]));
+                        })
+                .toList();
+    }
+
+    private static ContainerState classifyState(String state) {
+        return switch (state) {
+            case "exited", "stopped", "created" -> ContainerState.TERMINAL;
+            default -> ContainerState.UNCONFIRMED;
+        };
+    }
+
     /**
      * Returns the host process id of a running container's init process.
      *

@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Stops every running task and every helper any of them started.
+ * Stops every task not confirmed inactive and every helper any of them started.
  *
  * <p>Split out of {@link PanicCommand} so the daemon serves the same operation rather than a second
  * one. The reason this matters more here than elsewhere: an interface that shelled out to {@code
@@ -25,7 +25,7 @@ public final class TaskPanic {
      *
      * @param name Container name.
      * @param helpers How many helper processes it had.
-     * @param surviving Helpers that refused to die, which somebody has to kill by hand.
+     * @param surviving Containers and helpers that survived their stop.
      */
     public record Stopped(String name, long helpers, List<String> surviving) {
 
@@ -46,8 +46,8 @@ public final class TaskPanic {
     /**
      * What a panic did, or would have done.
      *
-     * @param tasks Every task that was running, in the order they were stopped.
-     * @param surviving Every helper that outlived its stop, across all tasks.
+     * @param tasks Every task whose identity was not confirmed inactive, in stop order.
+     * @param surviving Every container and helper that outlived its stop, across all tasks.
      * @param previewed Whether this only listed what would happen.
      */
     public record Result(
@@ -73,7 +73,7 @@ public final class TaskPanic {
     }
 
     /**
-     * Stops every running task, or reports what that would stop.
+     * Stops every task not confirmed inactive, or reports what that would stop.
      *
      * @param preview Whether to list rather than stop.
      * @return What happened, or would have.
@@ -83,8 +83,8 @@ public final class TaskPanic {
     }
 
     /**
-     * Stops every running task, or reports what that would stop, and journals a stop - even of
-     * nothing.
+     * Stops every task not confirmed inactive, or reports what that would stop, and journals a stop
+     * - even of nothing.
      *
      * @param preview Whether to list rather than stop.
      * @param via What asked: {@code cli} or {@code daemon}.
@@ -93,14 +93,21 @@ public final class TaskPanic {
      */
     public Result panic(boolean preview, String via) {
 
-        final List<TaskInventory.Task> running =
-                new TaskInventory(context)
-                        .tasks().stream().filter(TaskInventory.Task::running).toList();
+        final List<String> running = candidates();
 
         if (preview) {
             return new Result(
                     running.stream()
-                            .map(task -> new Stopped(task.name(), task.helpers(), List.of()))
+                            .map(
+                                    task ->
+                                            new Stopped(
+                                                    task,
+                                                    TaskLifecycle.running(
+                                                                    context.paths()
+                                                                            .tasks()
+                                                                            .containerState(task))
+                                                            .size(),
+                                                    List.of()))
                             .toList(),
                     List.of(),
                     true,
@@ -111,12 +118,13 @@ public final class TaskPanic {
         final List<Stopped> stopped = new ArrayList<>();
         final List<String> surviving = new ArrayList<>();
 
-        for (final TaskInventory.Task task : running) {
+        for (final String task : running) {
             // Through the same operation 'task stop' uses, so a panic writes down what a task held
             // that never reached the gate, exactly as a deliberate stop does. A faster path that
             // skipped that would lose the one record of what was lost.
-            final TaskControl.Stopped result = control.stop(task.name());
-            stopped.add(new Stopped(task.name(), result.helpers(), result.surviving()));
+            final TaskControl.Stopped result =
+                    control.stop(task, org.fuin.porelo.runtime.Podman.ContainerState.UNCONFIRMED);
+            stopped.add(new Stopped(task, result.helpers(), result.surviving()));
             surviving.addAll(result.surviving());
         }
         return new Result(
@@ -124,6 +132,44 @@ public final class TaskPanic {
                 List.copyOf(surviving),
                 false,
                 journal(via, stopped.stream().map(Stopped::name).toList(), surviving));
+    }
+
+    List<String> candidates() {
+        // Inventory rows follow current names and display state, so they can hide a task still
+        // stopping.
+        final java.util.Set<String> names = new java.util.TreeSet<>();
+        for (final java.nio.file.Path root :
+                List.of(
+                        context.paths().xdg().runtime(),
+                        context.paths().xdg().state().resolve("tasks"))) {
+            if (java.nio.file.Files.notExists(root)) continue;
+            try (java.util.stream.Stream<java.nio.file.Path> entries =
+                    java.nio.file.Files.list(root)) {
+                entries.filter(java.nio.file.Files::isDirectory)
+                        .map(path -> path.getFileName().toString())
+                        .filter(org.fuin.porelo.runtime.ContainerName::isTask)
+                        .forEach(names::add);
+            } catch (final java.io.IOException ex) {
+                throw new java.io.UncheckedIOException("cannot list recorded tasks in " + root, ex);
+            }
+        }
+        final Map<String, String> identities = new LinkedHashMap<>();
+        for (final String name : names) {
+            final String id = context.recordedId(name);
+            if (id != null) identities.put(id, name);
+        }
+        return context.podman().containerStates().stream()
+                .filter(
+                        row ->
+                                row.state()
+                                        == org.fuin.porelo.runtime.Podman.ContainerState
+                                                .UNCONFIRMED)
+                .filter(row -> identities.containsKey(row.id()))
+                .map(
+                        row ->
+                                java.util.Objects.requireNonNull(
+                                        identities.get(row.id()), "matched recorded identity"))
+                .toList();
     }
 
     /**

@@ -10,7 +10,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import org.fuin.porelo.core.project.Project;
-import org.fuin.porelo.runtime.ContainerSummary;
 import org.fuin.porelo.vault.KernelKeyring;
 import org.fuin.porelo.vault.VaultEntry;
 import org.fuin.porelo.vault.VaultException;
@@ -208,9 +207,9 @@ public final class VaultClearing {
      */
     private boolean tasksHolding(
             final @Nullable Map<String, VaultEntry> entries, final List<Clearing.Item> items) {
-        final List<ContainerSummary> tasks;
+        final List<String> tasks;
         try {
-            tasks = context.podman().poreloTasks();
+            tasks = new TaskPanic(context).candidates();
         } catch (final RuntimeException ex) {
             items.add(
                     new Clearing.Item(
@@ -222,28 +221,23 @@ public final class VaultClearing {
             return true;
         }
         boolean holding = false;
-        for (final ContainerSummary task : tasks) {
-            if (!task.running()
-                    || entries != null
-                            && entries.keySet().stream()
-                                    .noneMatch(
-                                            name ->
-                                                    name.startsWith(
-                                                            VaultNames.TASK_PREFIX
-                                                                    + task.name()
-                                                                    + "/"))) {
+        for (final String task : tasks) {
+            if (entries != null
+                    && entries.keySet().stream()
+                            .noneMatch(
+                                    name -> name.startsWith(VaultNames.TASK_PREFIX + task + "/"))) {
                 continue;
             }
             items.add(
                     new Clearing.Item(
                             "task",
-                            task.name(),
+                            task,
                             Clearing.Status.NOT_REMOVED,
                             (entries == null
                                             ? "it runs, and whether it holds a token from the vault cannot be read"
                                             : "it runs with a token from the vault")
                                     + "; stop it with 'porelo task stop "
-                                    + task.name()
+                                    + task
                                     + "' first - --force does not clear"
                                     + " past a running task"));
             holding = true;

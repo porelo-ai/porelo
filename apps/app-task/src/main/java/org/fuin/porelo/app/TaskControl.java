@@ -10,6 +10,7 @@ import java.util.concurrent.TimeUnit;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.runtime.ContainerName;
 import org.fuin.porelo.runtime.ContainerSummary;
+import org.fuin.porelo.runtime.Podman.ContainerState;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -111,7 +112,7 @@ public final class TaskControl {
      * @param rescuedRef Ref the work was pushed to, or {@code null} when none was.
      * @param removed Whether the container was removed as well as stopped.
      * @param helpers How many helpers were running when this started.
-     * @param surviving Helpers that were still alive afterwards, as pid and command.
+     * @param surviving Containers and helpers that survived, named as container or pid and command.
      * @param state The task's state directory, or {@code null} once it was removed.
      * @param detail Why a rescue could not happen, or {@code null}. Three cases with three
      *     different fixes: a task with no gate ref, one that pushes straight to its upstream, and a
@@ -236,13 +237,16 @@ public final class TaskControl {
      * @return What happened.
      */
     public Stopped remove(String container, boolean rescue, boolean force) {
+        if (context.recognizesTasks() && context.recordedId(container) == null) {
+            return new Stopped(Outcome.NOT_A_TASK, null, null, false, 0, List.of(), null, null, 0);
+        }
         // Not when rescuing: pushing what the workspace holds needs the container up, so refusing a
         // running one here would make --rescue impossible to use.
         if (ContainerName.isTask(container) && !force && !rescue) {
+            final String recorded = context.recordedId(container);
             final boolean running =
-                    context.podman().poreloTasks().stream()
-                            .filter(task -> task.name().equals(container))
-                            .anyMatch(ContainerSummary::running);
+                    context.podman().stateOf(recorded == null ? container : recorded)
+                            == ContainerState.UNCONFIRMED;
             if (running) {
                 // What it holds is asked FIRST, and the order is the whole point. Rescuing needs
                 // the container up, so a caller told "it is running" would stop it, be told "it
@@ -283,13 +287,17 @@ public final class TaskControl {
             return new Stopped(Outcome.NOT_A_TASK, null, null, false, 0, List.of(), null, null, 0);
         }
         try {
-            return stopRecorded(container, purge, rescue, force);
+            return stopRecorded(container, purge, rescue, force, null);
         } catch (org.fuin.porelo.runtime.NotATaskException ex) {
             // Named like a task, no record of it: one never made here, or removed already. Not a
             // failure - the same answer as for a name of no task at all, and nothing done to a
             // container of that name.
             return new Stopped(Outcome.NOT_A_TASK, null, null, false, 0, List.of(), null, null, 0);
         }
+    }
+
+    Stopped stop(String container, ContainerState before) {
+        return stopRecorded(container, false, false, false, before);
     }
 
     /**
@@ -333,15 +341,29 @@ public final class TaskControl {
         }
     }
 
-    private Stopped stopRecorded(String container, boolean purge, boolean rescue, boolean force) {
+    private Stopped stopRecorded(
+            String container,
+            boolean purge,
+            boolean rescue,
+            boolean force,
+            @Nullable ContainerState before) {
 
         final Path state = context.paths().tasks().containerState(container);
+        final String recorded = context.recordedId(container);
+        if (context.recognizesTasks() && recorded == null) {
+            return new Stopped(Outcome.NOT_A_TASK, null, null, false, 0, List.of(), null, null, 0);
+        }
+        final String id = recorded == null ? container : recorded;
         final java.util.Optional<ContainerSummary> summary =
-                context.podman().poreloTasks().stream()
-                        .filter(task -> task.name().equals(container))
-                        .findFirst();
-        final boolean known = summary.isPresent() || Files.isDirectory(state);
-        final boolean running = summary.map(ContainerSummary::running).orElse(false);
+                purge
+                        ? context.podman().poreloTasks().stream()
+                                .filter(task -> task.name().equals(container))
+                                .findFirst()
+                        : java.util.Optional.empty();
+        final ContainerState initial = before == null ? context.podman().stateOf(id) : before;
+        final boolean known =
+                recorded != null || initial != ContainerState.ABSENT || Files.isDirectory(state);
+        final boolean running = initial == ContainerState.UNCONFIRMED;
 
         // After a reboot the runtime directory is gone, and the note saved from it is what knows
         // what the task held: without it every such task answered NOTHING_KNOWS, and a guard that
@@ -356,7 +378,7 @@ public final class TaskControl {
         final String work = held.phrase();
 
         // "nobody looked" rather than "held nothing": only the first is a reason to refuse.
-        if (purge && summary.isPresent() && !running && !held.readable() && !force) {
+        if (purge && initial != ContainerState.ABSENT && !running && !held.readable() && !force) {
             return new Stopped(
                     Outcome.NOTHING_KNOWS, null, null, false, 0, List.of(), state, null, 0);
         }
@@ -422,25 +444,11 @@ public final class TaskControl {
         final long discarded = purge ? context.podman().addedPaths(container) : 0;
 
         if (purge) {
-            context.podman().remove(container);
-            closeJournal(container);
-            summary.ifPresent(this::forgetOnline);
+            context.podman().remove(id);
         } else {
-            context.podman().stop(container);
-            // Written on the way down, while the answer is still knowable. Whoever removes this
-            // task later cannot ask the container itself. A census that failed leaves no note, and
-            // no older one: a note of nothing held lets the next removal go without --force, and
-            // nobody looked.
-            if (running) {
-                if (held.readable()) {
-                    UnhandedWork.note(state, held);
-                } else {
-                    forgetNote(state);
-                }
-                // Saved at once: a task stopped before a reboot must still answer what it held.
-                new TaskState(context).save(container);
-            }
+            context.podman().stop(id);
         }
+
         TaskLifecycle.stopHelpers(state);
 
         if (!known) {
@@ -460,13 +468,31 @@ public final class TaskControl {
                 Thread.currentThread().interrupt();
             }
         }
-        final List<String> surviving =
-                helpers.stream()
-                        .filter(ProcessHandle::isAlive)
-                        .map(alive -> alive.pid() + " " + alive.info().command().orElse("?"))
-                        .toList();
-
-        if (purge) {
+        final List<String> surviving = new ArrayList<>();
+        helpers.stream()
+                .filter(ProcessHandle::isAlive)
+                .map(alive -> alive.pid() + " " + alive.info().command().orElse("?"))
+                .forEach(surviving::add);
+        final ContainerState observed = context.podman().stateOf(id);
+        final boolean gone = observed == ContainerState.ABSENT;
+        if (!gone && (purge || observed != ContainerState.TERMINAL)) {
+            surviving.add(
+                    "container " + container + (purge ? " still exists" : " stop unconfirmed"));
+        }
+        if (!purge) {
+            if (!gone && observed != ContainerState.TERMINAL) {
+                forgetNote(state);
+                forgetNote(context.paths().tasks().taskRecord(container));
+            } else if (running) {
+                if (held.readable()) UnhandedWork.note(state, held);
+                else forgetNote(state);
+                new TaskState(context).save(container);
+            }
+        }
+        final boolean removed = purge && gone;
+        if (removed) {
+            closeJournal(container);
+            summary.ifPresent(this::forgetOnline);
             // Read before the records that say it go: the project a task belongs to is not in its
             // name, where both halves may hold hyphens.
             final String project = projectOf(container);
@@ -491,12 +517,12 @@ public final class TaskControl {
                 Outcome.STOPPED,
                 work,
                 rescued,
-                purge,
+                removed,
                 helpers.size(),
-                surviving,
-                purge || !Files.isDirectory(state) ? null : state,
-                null,
-                discarded);
+                List.copyOf(surviving),
+                removed || !Files.isDirectory(state) ? null : state,
+                surviving.isEmpty() ? null : "still running: " + String.join(", ", surviving),
+                removed ? discarded : 0);
     }
 
     /**

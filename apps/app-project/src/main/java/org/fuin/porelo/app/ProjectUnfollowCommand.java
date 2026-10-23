@@ -118,7 +118,12 @@ public class ProjectUnfollowCommand
                         != null) {
             if (next.equals("stop")) {
                 for (final String task : deleted.running()) {
-                    new TaskControl(context).stop(task);
+                    final TaskControl.Stopped result = new TaskControl(context).stop(task);
+                    for (final String alive : result.surviving()) {
+                        err.println("porelo: still running: " + alive);
+                    }
+                    err.flush();
+                    if (!result.clean()) return 70;
                 }
                 deleted = new ProjectDeletion(context).delete(name, false, force);
             } else {

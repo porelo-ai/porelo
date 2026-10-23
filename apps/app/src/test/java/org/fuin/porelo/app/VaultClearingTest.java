@@ -266,7 +266,9 @@ class VaultClearingTest {
         entries.put(
                 VaultNames.TASK_PREFIX + "porelo-p-shell-1/provider-token", VaultEntry.of("p-1"));
         context.vault().write(entries, PASSPHRASE);
-        runner.answering("ps", "porelo-p-shell-1\tUp 4 minutes\n");
+        org.fuin.porelo.wire.Sidecar.recordId(
+                context.paths().tasks().containerState("porelo-p-shell-1"), "111111111111");
+        runner.answering("ps", "111111111111\trunning\n");
 
         final Clearing.Result cleared = new VaultClearing(context).clear(false, true);
 
@@ -280,7 +282,9 @@ class VaultClearingTest {
     @Test
     void aRunningTaskThatHoldsNothingFromTheVaultDoesNotStopTheClear() throws IOException {
         final PoreloContext context = unlockedVault();
-        runner.answering("ps", "porelo-p-shell-2\tUp 4 minutes\n");
+        org.fuin.porelo.wire.Sidecar.recordId(
+                context.paths().tasks().containerState("porelo-p-shell-2"), "222222222222");
+        runner.answering("ps", "222222222222\trunning\n");
 
         final Clearing.Result cleared = new VaultClearing(context).clear(false, false);
 

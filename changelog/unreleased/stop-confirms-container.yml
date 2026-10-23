@@ -1,0 +1,2 @@
+title: Task stop, remove and panic report surviving containers, and failed removals keep the task's records.
+type: fixed

@@ -123,18 +123,22 @@ public class TaskStopCommand implements Callable<Integer>, PoreloFactory.Context
         out.println("stopped   " + container);
         out.println(
                 "helpers   "
-                        + (result.helpers() - result.surviving().size())
+                        + (result.helpers()
+                                - result.surviving().stream()
+                                        .filter(alive -> !alive.startsWith("container "))
+                                        .count())
                         + " of "
                         + result.helpers()
                         + " stopped");
         for (final String alive : result.surviving()) {
-            out.println("          still running: " + alive);
+            err.println("porelo: still running: " + alive);
         }
         if (result.state() != null) {
             out.println("start     porelo task start, to bring it back with the work it has");
             out.println("logs      " + result.state());
         }
         out.flush();
+        err.flush();
         return result.clean() ? 0 : 70;
     }
 }

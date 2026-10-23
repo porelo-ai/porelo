@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.fuin.porelo.core.config.XdgPaths;
-import org.fuin.porelo.testing.FakeCommandRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -19,7 +18,7 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class MailboxLifetimeTest {
 
-    private final FakeCommandRunner runner = new FakeCommandRunner();
+    private final StoppingCommandRunner runner = new StoppingCommandRunner();
 
     private PoreloContext context(final Path dir) {
         final XdgPaths xdg =

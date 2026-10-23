@@ -671,103 +671,7 @@ final class ProjectMethods {
                 });
 
         server.method(
-                "Unfollow",
-                (parameters, replies) -> {
-                    final org.fuin.porelo.app.FollowedProjects projects =
-                            new org.fuin.porelo.app.FollowedProjects(
-                                    context.paths().projects().followed());
-                    final String name = text(parameters, "name");
-                    final boolean following = projects.find(name) != null;
-                    // Read before anything goes: which of this machine's keys the forge holds for
-                    // it is answered below.
-                    org.fuin.porelo.core.project.Project known = null;
-                    try {
-                        known = org.fuin.porelo.app.GateSupport.byName(context, name);
-                    } catch (RuntimeException ex) {
-                        // A project whose file cannot be read has no keys this machine can name.
-                    }
-                    // The same refusal 'projects delete' gives, through the same code: a mirror may
-                    // hold work nobody reviewed, and this must not be the quiet way to destroy it.
-                    final org.fuin.porelo.app.ProjectDeletion.Result deleted =
-                            new org.fuin.porelo.app.ProjectDeletion(context)
-                                    .delete(
-                                            name,
-                                            flag(parameters, "dryRun"),
-                                            flag(parameters, "force"));
-                    // 'NoSuchProject' for a name this machine does not LIST - not for one it lists
-                    // but does not follow. Those are projects from before following, and answering
-                    // the error here left an interface offering to clear one and with nothing to
-                    // show for it, while force would have swept it blind. Found through the
-                    // interface; it was hit the same wall on a test machine the same hour.
-                    if (deleted.outcome() == org.fuin.porelo.app.ProjectDeletion.Outcome.BUILT_IN) {
-                        throw new VarlinkException(
-                                INTERFACE + ".Failed",
-                                Map.of("message", String.valueOf(deleted.detail())));
-                    }
-                    if (!following
-                            && deleted.outcome()
-                                    == org.fuin.porelo.app.ProjectDeletion.Outcome
-                                            .NO_SUCH_PROJECT) {
-                        throw new VarlinkException(
-                                INTERFACE + ".NoSuchProject", Map.of("project", name));
-                    }
-                    final boolean refused =
-                            deleted.outcome()
-                                            == org.fuin.porelo.app.ProjectDeletion.Outcome
-                                                    .HOLDS_WORK
-                                    || deleted.outcome()
-                                            == org.fuin.porelo.app.ProjectDeletion.Outcome
-                                                    .TASKS_RUNNING;
-                    final List<Map<String, Object>> keys = new java.util.ArrayList<>();
-                    if (following
-                            && !refused
-                            && deleted.outcome()
-                                    != org.fuin.porelo.app.ProjectDeletion.Outcome.PREVIEWED) {
-                        projects.unfollow(name, context.paths().projects().configurationSigners());
-                        // This machine's deploy keys for it go from the vault; what they were is
-                        // answered, so whoever registered them at the forge removes them there.
-                        if (known != null) {
-                            org.fuin.porelo.app.DeployKeys.forget(context, known)
-                                    .forEach(key -> keys.add(key.asMap()));
-                        }
-                    }
-                    replies.last(
-                            Map.of(
-                                    "outcome",
-                                    deleted.outcome().name(),
-                                    "keys",
-                                    keys,
-                                    "signer",
-                                    messageKey(context),
-                                    "unreviewed",
-                                    deleted.unreviewed(),
-                                    "running",
-                                    deleted.running(),
-                                    // What goes and what is deliberately left alone, filled for a
-                                    // refusal too, so the cost stands beside the reason. The call
-                                    // this replaced answered both, and a removal that cannot say
-                                    // what it takes is weaker than the one it replaced.
-                                    "removes",
-                                    deleted.removes().stream()
-                                            .map(
-                                                    removal ->
-                                                            Map.<String, Object>of(
-                                                                    "kind",
-                                                                    removal.kind(),
-                                                                    "what",
-                                                                    removal.what()))
-                                            .toList(),
-                                    "keeps",
-                                    deleted.keeps(),
-                                    // Whether this account was following it at all. A client
-                                    // drawing the confirmation says "stop following and remove" or
-                                    // just "remove" from this, rather than guessing from the
-                                    // project it asked about.
-                                    "following",
-                                    following,
-                                    "detail",
-                                    deleted.detail() == null ? "" : deleted.detail()));
-                });
+                "Unfollow", (parameters, replies) -> replies.last(unfollow(context, parameters)));
 
         // A machine's own keys, for an interface that registers them at a forge or writes them into
         // a project: only the public halves ever leave this machine (decided on 2026-09-30).
@@ -884,5 +788,90 @@ final class ProjectMethods {
             throw new VarlinkException(
                     "org.varlink.service.InvalidParameter", Map.of("parameter", "host"));
         }
+    }
+
+    /** Removes a followed project only when every task removal succeeded. */
+    static Map<String, Object> unfollow(PoreloContext context, Map<String, Object> parameters)
+            throws java.io.IOException {
+        final org.fuin.porelo.app.FollowedProjects projects =
+                new org.fuin.porelo.app.FollowedProjects(context.paths().projects().followed());
+        final String name = text(parameters, "name");
+        final boolean following = projects.find(name) != null;
+        // Read before anything goes: which of this machine's keys the forge holds for
+        // it is answered below.
+        org.fuin.porelo.core.project.Project known = null;
+        try {
+            known = org.fuin.porelo.app.GateSupport.byName(context, name);
+        } catch (RuntimeException ex) {
+            // A project whose file cannot be read has no keys this machine can name.
+        }
+        // The same refusal 'projects delete' gives, through the same code: a mirror may
+        // hold work nobody reviewed, and this must not be the quiet way to destroy it.
+        final org.fuin.porelo.app.ProjectDeletion.Result deleted =
+                new org.fuin.porelo.app.ProjectDeletion(context)
+                        .delete(name, flag(parameters, "dryRun"), flag(parameters, "force"));
+        // 'NoSuchProject' for a name this machine does not LIST - not for one it lists
+        // but does not follow. Those are projects from before following, and answering
+        // the error here left an interface offering to clear one and with nothing to
+        // show for it, while force would have swept it blind. Found through the
+        // interface; it was hit the same wall on a test machine the same hour.
+        if (deleted.outcome() == org.fuin.porelo.app.ProjectDeletion.Outcome.BUILT_IN) {
+            throw new VarlinkException(
+                    INTERFACE + ".Failed", Map.of("message", String.valueOf(deleted.detail())));
+        }
+        if (!following
+                && deleted.outcome()
+                        == org.fuin.porelo.app.ProjectDeletion.Outcome.NO_SUCH_PROJECT) {
+            throw new VarlinkException(INTERFACE + ".NoSuchProject", Map.of("project", name));
+        }
+        final boolean refused =
+                deleted.outcome() == org.fuin.porelo.app.ProjectDeletion.Outcome.HOLDS_WORK
+                        || deleted.outcome()
+                                == org.fuin.porelo.app.ProjectDeletion.Outcome.TASKS_RUNNING
+                        || deleted.outcome() == org.fuin.porelo.app.ProjectDeletion.Outcome.FAILED;
+        final List<Map<String, Object>> keys = new java.util.ArrayList<>();
+        if (following
+                && !refused
+                && deleted.outcome() != org.fuin.porelo.app.ProjectDeletion.Outcome.PREVIEWED) {
+            projects.unfollow(name, context.paths().projects().configurationSigners());
+            // This machine's deploy keys for it go from the vault; what they were is
+            // answered, so whoever registered them at the forge removes them there.
+            if (known != null) {
+                org.fuin.porelo.app.DeployKeys.forget(context, known)
+                        .forEach(key -> keys.add(key.asMap()));
+            }
+        }
+        return Map.of(
+                "outcome",
+                deleted.outcome().name(),
+                "keys",
+                keys,
+                "signer",
+                messageKey(context),
+                "unreviewed",
+                deleted.unreviewed(),
+                "running",
+                deleted.running(),
+                // What goes and what is deliberately left alone, filled for a
+                // refusal too, so the cost stands beside the reason. The call
+                // this replaced answered both, and a removal that cannot say
+                // what it takes is weaker than the one it replaced.
+                "removes",
+                deleted.removes().stream()
+                        .map(
+                                removal ->
+                                        Map.<String, Object>of(
+                                                "kind", removal.kind(), "what", removal.what()))
+                        .toList(),
+                "keeps",
+                deleted.keeps(),
+                // Whether this account was following it at all. A client
+                // drawing the confirmation says "stop following and remove" or
+                // just "remove" from this, rather than guessing from the
+                // project it asked about.
+                "following",
+                following,
+                "detail",
+                deleted.detail() == null ? "" : deleted.detail());
     }
 }

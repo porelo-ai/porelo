@@ -238,6 +238,15 @@ public final class ProjectDeletion {
                 // pushes exist. Nothing reported it, because nothing looked.
                 final TaskControl.Stopped removal =
                         new TaskControl(context).remove(task.name(), false, force);
+                if (!removal.clean()) {
+                    return new Result(
+                            Outcome.FAILED,
+                            removes,
+                            keeps,
+                            unreviewed,
+                            running,
+                            "task " + task.name() + " was not removed: " + removal.detail());
+                }
                 if (!removal.removed()) {
                     return new Result(
                             Outcome.HOLDS_WORK,

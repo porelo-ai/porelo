@@ -9,7 +9,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 import org.fuin.porelo.core.config.XdgPaths;
-import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.wire.Sidecar;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -22,7 +21,7 @@ class TaskLifecycleCommandsTest {
 
     private final StringWriter err = new StringWriter();
 
-    private final FakeCommandRunner runner = new FakeCommandRunner();
+    private final StoppingCommandRunner runner = new StoppingCommandRunner();
 
     private Path root;
 

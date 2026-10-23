@@ -529,7 +529,7 @@ method Stop(
   outcome: Outcome,
   # How many helper processes were stopped.
   helpers: int,
-  # How many helper processes are still alive afterwards. Not zero is worth showing.
+  # What is still alive afterwards: helpers and the container. Not zero is worth showing.
   surviving: int,
   # Why, in words, for an outcome that needs one. "" otherwise.
   detail: string
@@ -579,7 +579,8 @@ type PanickedTask (
   name: string,
   # How many helper processes it had.
   helpers: int,
-  # Helpers that outlived the stop and have to be killed by hand. Empty is the normal case.
+  # Helpers, and the container, that outlived the stop and have to be stopped by hand. Empty is the
+  # normal case.
   surviving: []string
 )
 
@@ -598,8 +599,8 @@ method Panic(
 ) -> (
   # Every task that was running, in the order they were stopped. Empty means nothing was running.
   tasks: []PanickedTask,
-  # Every helper that outlived its stop, across all tasks. Non-empty means somebody has processes
-  # to kill by hand, and they are named rather than counted.
+  # Every helper and container that outlived its stop, across all tasks. Non-empty means somebody has
+  # processes to stop by hand, and they are named rather than counted.
   surviving: []string,
   # Whether this only listed what would happen.
   previewed: bool,

@@ -48,7 +48,9 @@ class TaskRunCommandTest {
      * podman gives back the id of what it created, which Porelo records as what makes it its task.
      */
     private final FakeCommandRunner runner =
-            new FakeCommandRunner().answering(" create ", "0123456789abcdef");
+            new StoppingCommandRunner()
+                    .answering("{{.State.Status}}", "")
+                    .answering(" create ", "0123456789abcdef");
 
     private final List<List<String>> execCalls = new ArrayList<>();
 
@@ -1605,6 +1607,7 @@ class TaskRunCommandTest {
 
         // Nothing exists to hold, so the tidy-up runs as it always did.
         runner.failing("start", 125, "hook failed");
+        runner.failing("{{.State.Status}}", 125, "no such container 0123456789abcdef");
 
         final int code =
                 execute(
@@ -1873,6 +1876,96 @@ class TaskRunCommandTest {
                 .contains("kept")
                 .contains("never reached the gate")
                 .contains("--rescue");
+    }
+
+    @Test
+    void anAttachedEndingNamesASurvivorAndFails(@TempDir Path dir) throws IOException {
+
+        final PoreloContext prepared = context(dir, true).recognizingTasks();
+        runner.answering("{{.State.Status}}", "running");
+        runner.failing("podman stop", 125, "runtime refused");
+        runner.answering("{{.State.Pid}}", "4711\n");
+        runner.answering("container inspect", "c0ffee\n");
+        // What the container answers when asked: one changed file, two commits nobody pushed.
+        runner.answering("exec", "1 2\n");
+
+        final int exit =
+                execute(
+                        prepared,
+                        "task",
+                        "start",
+                        "--rm",
+                        "--attach",
+                        "shell",
+                        "-p",
+                        projectFile(dir, MINIMAL));
+
+        assertThat(exit).as("an attached ending fails when its container survives").isEqualTo(70);
+        assertThat(err.toString())
+                .as("the attached caller names the survivor")
+                .contains("porelo: still running: container ");
+    }
+
+    @Test
+    void anAttachedEndingWithAFailedIdentityLookupVerifiesTheRecordedId(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext prepared = context(dir, true).recognizingTasks();
+        runner.failing("{{.Id}}", 125, "inspect failed");
+        runner.answering("{{.State.Status}}", "running");
+        runner.failing("podman stop", 125, "runtime refused");
+        runner.failing("podman rm", 125, "runtime refused");
+        final int exit =
+                execute(
+                        prepared,
+                        "task",
+                        "start",
+                        "--rm",
+                        "--attach",
+                        "shell",
+                        "-p",
+                        projectFile(dir, MINIMAL));
+        assertThat(exit)
+                .as("a failed lookup cannot turn a surviving container into success")
+                .isEqualTo(70);
+        assertThat(err.toString())
+                .as("cleanup names the unconfirmed recorded identity")
+                .contains("porelo: still running: container ");
+        assertThat(runner.lines())
+                .as("cleanup verifies the identity recorded at creation")
+                .contains("podman container inspect --format {{.State.Status}} 0123456789abcdef");
+    }
+
+    @Test
+    void anAttachedEndingFailsWhenCleanupThrows(@TempDir Path dir) throws IOException {
+        final PoreloContext prepared = context(dir, true).recognizingTasks();
+        final PoreloContext session =
+                new PoreloContext(
+                                prepared.runner(),
+                                prepared.paths(),
+                                arguments -> {
+                                    runner.failing("podman ps", 125, "inventory unavailable");
+                                    return 0;
+                                },
+                                prepared.environment())
+                        .recognizingTasks();
+        runner.answering("container inspect", "0123456789abcdef");
+        final int exit =
+                execute(
+                        session,
+                        "task",
+                        "start",
+                        "--rm",
+                        "--attach",
+                        "shell",
+                        "-p",
+                        projectFile(dir, MINIMAL));
+        assertThat(exit)
+                .as("a cleanup exception replaces a successful attached status")
+                .isEqualTo(70);
+        assertThat(err.toString())
+                .as("cleanup exceptions are reported on stderr")
+                .contains("cleaning up after it failed")
+                .contains("inventory unavailable");
     }
 
     @Test

@@ -706,6 +706,7 @@ class PoreloDaemonTest {
 
         runner.answering("ps", "porelo-uc-shell-1\tUp 4 minutes\n");
         runner.answering("git status --porcelain", "0 0");
+        runner.answering("{{.State.Status}}", "exited");
 
         serving(
                 dir,
@@ -717,7 +718,43 @@ class PoreloDaemonTest {
                                         Map.of("task", "porelo-uc-shell-1"));
 
                         assertThat(reply).containsEntry("outcome", "STOPPED");
+                        assertThat(reply.get("surviving"))
+                                .as("a confirmed stop has no survivors")
+                                .isEqualTo(List.of());
                         assertThat(runner.lines()).anyMatch(line -> line.startsWith("podman stop"));
+                    }
+                });
+    }
+
+    @Test
+    void aFailedRemovalOverTheSocketKeepsTheTaskIdentity(@TempDir Path dir) throws Exception {
+        final PoreloContext context = context(dir).recognizingTasks();
+        final String task = "porelo-uc-shell-1";
+        org.fuin.porelo.wire.Sidecar.recordId(
+                context.paths().tasks().containerState(task), "a1b2c3d4e5f6");
+        new org.fuin.porelo.app.TaskState(context).save(task);
+        runner.answering("ps", task + "\tUp 4 minutes\t\t\tuc\tguarded\t\t\ta1b2c3d4e5f6\n");
+        runner.failing("podman stop", 125, "runtime refused");
+        runner.failing("podman rm", 125, "runtime refused");
+        runner.answering("{{.State.Status}}", "running");
+        servingContext(
+                context,
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> reply =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Remove",
+                                        Map.of("task", task, "force", true));
+                        assertThat(reply)
+                                .as("failed purge is exposed without changing the interface")
+                                .containsEntry("removed", false);
+                        assertThat((String) reply.get("detail"))
+                                .as("the daemon names the survivor")
+                                .contains(task);
+                        assertThat(context.recordedId(task))
+                                .as("retry can still find the container")
+                                .isEqualTo("a1b2c3d4e5f6");
                     }
                 });
     }
@@ -2397,12 +2434,18 @@ class PoreloDaemonTest {
         // The half somebody presses first, and the half that must not act. A preview that stopped
         // anything would be the worst possible surprise in the one command reached for when nobody
         // knows what is wrong.
-        runner.answering(
-                "ps",
-                "porelo-uc-shell-1\tUp 4 minutes\n"
-                        + "porelo-uc-shell-2\tExited (0) 2 minutes ago\n");
+        // Panic reads its candidates by recorded id and state word, in one listing.
+        runner.answering("ps", "111111111111\trunning\n" + "222222222222\texited\n");
 
-        serving(
+        final PoreloContext context = context(dir);
+        org.fuin.porelo.wire.Sidecar.recordId(
+                context.paths().tasks().containerState("porelo-uc-shell-1"), "111111111111");
+        org.fuin.porelo.wire.Sidecar.recordId(
+                context.paths().tasks().containerState("porelo-uc-shell-2"), "222222222222");
+        runner.answering("{{.State.Status}} 111111111111", "running");
+        runner.answering("{{.State.Status}} 222222222222", "exited");
+        servingContext(
+                context,
                 dir,
                 socket -> {
                     try (VarlinkClient client = new VarlinkClient(socket)) {
@@ -2428,10 +2471,32 @@ class PoreloDaemonTest {
 
         // It stops; it never removes. An operator who believed this cleaned up would go looking for
         // work that is still exactly where it was, which is why nothing here may run 'rm'.
-        runner.answering(
-                "ps", "porelo-uc-shell-1\tUp 4 minutes\n" + "porelo-uc-other-2\tUp 9 minutes\n");
+        runner.answering("ps", "111111111111\trunning\n" + "222222222222\trunning\n");
 
-        serving(
+        final PoreloContext base = context(dir);
+        final PoreloContext context =
+                new PoreloContext(
+                        command -> {
+                            final var result = runner.run(command);
+                            if (!command.describe().contains("{{.State.Status}}")) return result;
+                            final String id = command.arguments().getLast();
+                            final boolean stopped =
+                                    runner.lines().stream()
+                                            .anyMatch(
+                                                    line ->
+                                                            line.startsWith("podman stop ")
+                                                                    && line.endsWith(id));
+                            return new org.fuin.porelo.core.process.CommandResult(
+                                    command, 0, stopped ? "exited" : "running", "");
+                        },
+                        base.paths(),
+                        base.exec());
+        org.fuin.porelo.wire.Sidecar.recordId(
+                context.paths().tasks().containerState("porelo-uc-shell-1"), "111111111111");
+        org.fuin.porelo.wire.Sidecar.recordId(
+                context.paths().tasks().containerState("porelo-uc-other-2"), "222222222222");
+        servingContext(
+                context,
                 dir,
                 socket -> {
                     try (VarlinkClient client = new VarlinkClient(socket)) {
@@ -2439,12 +2504,22 @@ class PoreloDaemonTest {
                                 client.call(PoreloDaemon.INTERFACE + ".Panic", Map.of());
 
                         assertThat(reply).containsEntry("previewed", false);
+                        assertThat(reply.get("surviving"))
+                                .as("panic confirmed every stop")
+                                .isEqualTo(List.of());
                         @SuppressWarnings("unchecked")
                         final List<Map<String, Object>> tasks =
                                 (List<Map<String, Object>>) reply.get("tasks");
                         assertThat(tasks).hasSize(2);
+                        assertThat(tasks)
+                                .as("each stopped task has no survivors")
+                                .allSatisfy(
+                                        task ->
+                                                assertThat(task.get("surviving"))
+                                                        .isEqualTo(List.of()));
                         assertThat(tasks.stream().map(task -> task.get("name")))
-                                .containsExactly("porelo-uc-shell-1", "porelo-uc-other-2");
+                                .containsExactlyInAnyOrder(
+                                        "porelo-uc-shell-1", "porelo-uc-other-2");
                     }
                 });
 
