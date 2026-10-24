@@ -1,7 +1,6 @@
 # B268 — A Start Says Each Step And What It Waits On
 
-**Status:** Implementing. Built together with [B265](README.md#b265) and [B267](README.md#b267); its transport part is
-porelo-message-matrix's, its rendering porelo-frontend's (see *To be checked*).
+**Status:** Review, published in Build 40088562915 of 2026-10-24.
 **Size:** M - one contract change (`Tasks1` grows), a step model through `app-model`, `app-task`, `app-messaging` and
 the daemon, `doc/`, and an acceptance step.
 

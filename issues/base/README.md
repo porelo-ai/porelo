@@ -16,21 +16,21 @@ is not counted.
 **Blocked by** names the issue that has to land first. An issue in another repository that waits for a row here says so
 from its side, as *blocked by*.
 
+## Review
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="b268"></a>[B268](B268-A-Start-Says-Each-Step-And-What-It-Waits-On.md) | M | - | A task's start reports each step in plain words, what it waits on, and on a failure the cause with the dependency's last error line; the daemon carries the steps, the interface only shows them |
+| <a id="b265"></a>[B265](B265-A-Reserved-Variable-Refused-With-Its-Fix.md) | S | - | A `porelo.yml` setting `PATH`, `HOME`, `LANG` or a `PORELO_*` variable is refused with the value Porelo sets and the fix: remove the line |
+| <a id="b267"></a>[B267](B267-A-Mirror-Without-A-Default-Branch-Is-Named.md) | S | - | A task start on a repository whose mirror names no default branch is refused, naming the branch and the fix, rather than reading no `porelo.yml` and starting with the project's image unannounced; the refresh takes the upstream's `HEAD` |
+| <a id="b264"></a>[B264](B264-A-Word-To-A-Helper-Wakes-No-Task.md) | S | - | A person's word in the room that names only a helper account, the administrator or the relay, wakes no task, and the person is told so; one naming nobody still reaches every agent |
+| <a id="b273"></a>[B273](B273-A-Conversation-Says-What-It-Waits-On.md) | S | - | A project's conversation says what it waits on in `waitsOn` (`"vault"` or `""`) beside its sentence, so an interface offers the unlock without reading words |
+
 ## Rework
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b238"></a>[B238](B238-An-Unfollow-Leaves-Nothing-Of-The-Project.md) | XS | - | `project unfollow` removes the project's build lock and upstream copies, which `porelo prune` finds left over today |
-
-## Implementing
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="b273"></a>[B273](B273-A-Conversation-Says-What-It-Waits-On.md) | S | - | A project's conversation says what it waits on in `waitsOn` (`"vault"` or `""`) beside its sentence, so an interface offers the unlock without reading words |
-| <a id="b268"></a>[B268](B268-A-Start-Says-Each-Step-And-What-It-Waits-On.md) | M | - | A task's start reports each step in plain words, what it waits on, and on a failure the cause with the dependency's last error line; the daemon carries the steps, the interface only shows them |
-| <a id="b265"></a>[B265](B265-A-Reserved-Variable-Refused-With-Its-Fix.md) | S | - | A `porelo.yml` setting `PATH`, `HOME`, `LANG` or a `PORELO_*` variable is refused with the value Porelo sets and the fix: remove the line |
-| <a id="b267"></a>[B267](B267-A-Mirror-Without-A-Default-Branch-Is-Named.md) | S | - | A task start on a repository whose mirror names no default branch is refused, naming the branch and the fix, rather than reading no `porelo.yml` and starting with the project's image unannounced; the refresh takes the upstream's `HEAD` |
-| <a id="b264"></a>[B264](B264-A-Word-To-A-Helper-Wakes-No-Task.md) | S | porelo-message-matrix [MX35](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx35) | A person's word in the room that names only a helper account, the administrator or the relay, wakes no task, and the person is told so; one naming nobody still reaches every agent |
 
 ## Backlog
 
