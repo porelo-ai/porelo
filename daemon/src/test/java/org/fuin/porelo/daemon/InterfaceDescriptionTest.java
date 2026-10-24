@@ -3,6 +3,7 @@ package org.fuin.porelo.daemon;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -18,6 +19,8 @@ import org.fuin.porelo.wire.varlink.VarlinkClient;
 import org.fuin.porelo.wire.varlink.VarlinkServer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Holds the interface description against what the daemon actually answers.
@@ -142,6 +145,74 @@ class InterfaceDescriptionTest {
                                 Map.of("interface", PoreloDaemon.INTERFACE));
                 assertThat(String.valueOf(reply.get("description")))
                         .isEqualTo(PoreloDaemon.description());
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Projects", "WatchProjects"})
+    void projectConversationsCarryExactlyTheFieldsTheContractDeclares(
+            String method, @TempDir Path dir) throws Exception {
+        // A missing wire field leaves clients unable to unblock messages as the contract promises.
+        final PoreloContext context = context(dir);
+        final Path projectFile = dir.resolve("project.yml");
+        Files.writeString(
+                projectFile,
+                """
+                project:
+                  name: p
+                  security_class: guarded
+                image:
+                  base_image: "ubuntu:24.04"
+                mail:
+                  peers:
+                    reviewer: { address: "room:", trust: vouched }
+                """);
+        Files.createDirectories(context.paths().projects().projectRegistry());
+        Files.writeString(
+                context.paths().projects().projectRegistry().resolve("p"), projectFile + "\n");
+        Files.createDirectories(context.paths().vault().vaultFile().getParent());
+        Files.writeString(context.paths().vault().vaultFile(), "sealed");
+
+        try (VarlinkServer server = PoreloDaemon.serving(context, dir.resolve("porelod.sock"))) {
+            Thread.ofVirtual().start(server);
+            try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
+                final String description =
+                        (String)
+                                client.call(
+                                                "org.varlink.service.GetInterfaceDescription",
+                                                Map.of("interface", PoreloDaemon.INTERFACE))
+                                        .get("description");
+                final Matcher type =
+                        Pattern.compile("(?ms)^type ProjectMessages \\(\\n(.*?)^\\)")
+                                .matcher(description);
+                assertThat(type.find()).as("the contract declares ProjectMessages").isTrue();
+                final Set<String> declared =
+                        names(Pattern.compile("(?m)^\\s*([a-z][A-Za-z0-9]*)\\s*:"), type.group(1));
+                assertThat(declared)
+                        .as("the contract exposes both the wait and its actionable cause")
+                        .contains("waits", "waitsOn");
+
+                final Map<String, Object> reply =
+                        client.call(PoreloDaemon.INTERFACE + "." + method, Map.of());
+                final List<?> conversations =
+                        ((List<?>) reply.get("projects"))
+                                .stream()
+                                        .map(project -> ((Map<?, ?>) project).get("messages"))
+                                        .filter(java.util.Objects::nonNull)
+                                        .toList();
+
+                assertThat(conversations)
+                        .as(
+                                "the fixture supplies a conversation so the field check cannot pass vacuously")
+                        .hasSize(1)
+                        .allSatisfy(
+                                messages ->
+                                        assertThat(((Map<?, ?>) messages).keySet())
+                                                .as(
+                                                        method
+                                                                + " conversation fields versus ProjectMessages")
+                                                .isEqualTo(declared));
             }
         }
     }

@@ -35,7 +35,9 @@ type ProjectMessages (
   room: string,
   # Why nothing goes in or out of it now, for a person to act on, or "": "the vault is locked", for
   # one, where the project's and its tasks' accounts cannot be read until it is unlocked.
-  waits: string
+  waits: string,
+  # What it waits on, for an interface to act on: "vault" while the vault is locked, else "". More values may come; an unknown one is shown as 'waits' alone.
+  waitsOn: string
 )
 
 # A connection a task tried to make and was stopped for.

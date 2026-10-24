@@ -145,7 +145,9 @@ public final class Conversations {
         row.put("admitted", admitted);
         row.put("address", said.address());
         row.put("room", said.room());
-        row.put("waits", vaultWait(context));
+        final VaultWait waiting = vaultWaiting(context);
+        row.put("waits", waiting.waits());
+        row.put("waitsOn", waiting.waitsOn());
         return row;
     }
 
@@ -165,13 +167,19 @@ public final class Conversations {
      * @return {@link #VAULT_LOCKED}, or "" when the vault is open or there is none.
      */
     public static String vaultWait(PoreloContext context) {
+        return vaultWaiting(context).waits();
+    }
+
+    private record VaultWait(String waits, String waitsOn) {}
+
+    private static VaultWait vaultWaiting(PoreloContext context) {
         try {
             return java.nio.file.Files.isRegularFile(context.paths().vault().vaultFile())
                             && context.opener().isEmpty()
-                    ? VAULT_LOCKED
-                    : "";
+                    ? new VaultWait(VAULT_LOCKED, "vault")
+                    : new VaultWait("", "");
         } catch (RuntimeException ex) {
-            return "";
+            return new VaultWait("", "");
         }
     }
 }

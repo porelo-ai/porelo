@@ -1,6 +1,6 @@
 # B273 — A Conversation Says What It Waits On
 
-**Status:** Backlog, on the operator's word of 2026-10-24 for sprint 2c, as porelo-frontend
+**Status:** Implementing, for sprint 2c, as porelo-frontend
 [F158](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md#f158)'s counterpart.
 **Size:** S - one field in `Tasks1`'s `ProjectMessages`, set from the one place `waits` is set, and its test.
 
