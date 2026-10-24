@@ -52,6 +52,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="b272"></a>[B272](B272-A-Sign-In-Is-Renewed-On-The-Host-On-Request.md) | S | - | `porelo vault renew <name>` marks an agent's own sign-in due, so the next task's broker renews it on the host by the path every renewal takes; nothing but its end changes and no token is printed | 0 |
 | <a id="b175"></a>[B175](B175-The-Profile-That-May-Bind-The-Socket.md) | L | `porelo` [B135](README.md#b135) | On an AppArmor machine a task connects only to a socket one of Porelo's binaries bound, by a task profile that refuses any other peer, as the SELinux domain does on SELinux machines. | 0 |
 | <a id="b176"></a>[B176](B176-Comment-Threads-That-Follow-A-New-Push.md) | M | `porelo` [B166](README.md#b166) | A thread on waiting work moves to a new push's commit where its lines are unchanged, else stays and says why; each commented commit pinned under a hidden ref; `Thread` gains `from` and `stays`. | 0 |
 | <a id="b177"></a>[B177](B177-A-Cost-Ceiling-Per-Task.md) | M | `porelo` [B138](README.md#b138), [B191](README.md#b191) | A dollar ceiling per task from `limits.cost`, counted by the broker from the cost the provider reports, else at list price from the price table; a model with no price refuses the ceiling at the start or fail closed, never $0; under a subscription it caps list-price value. | - |
@@ -114,7 +115,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b271"></a>[B271](B271-A-Login-Is-Cancelled-From-Its-Own-Terminal.md) | - | - | `porelo vault login` can always be ended from its own terminal, whatever the agent's login screen does with Ctrl-C: the login container is stopped and removed, nothing is stored, and it ends non-zero |
-| <a id="b272"></a>[B272](B272-A-Sign-In-Is-Renewed-On-The-Host-On-Request.md) | - | - | `porelo vault renew <name>` renews an agent's own sign-in now, on the host, under the vault's lock, as a broker does, printing only its new end |
 | <a id="b263"></a>[B263](B263-A-Task-Image-Built-Past-A-Stalled-Mirror.md) | - | - | A task image's build tries a second Ubuntu mirror after a bounded first attempt, rather than one fixed Azure mirror a stalled node can hold for 600 s |
 | <a id="b262"></a>[B262](B262-A-Stops-Survivors-In-The-Form-Its-Interface-Declares.md) | - | - | The daemon's `Stop` answers `surviving` in the type its interface declares; today it sends a list where `int` is declared, and porelo-frontend reads it as 0 |
 | <a id="b254"></a>[B254](B254-A-Task-Has-Its-Work-Built-On-A-Declared-Kind.md) | - | `porelo` [B253](README.md#b253) | A task asks for its work to be built on a machine kind the project declares and reads the verdict and log in `/porelo/files`; an undeclared kind or command is refused |
