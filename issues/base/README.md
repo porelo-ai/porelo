@@ -25,18 +25,13 @@ from its side, as *blocked by*.
 | <a id="b267"></a>[B267](B267-A-Mirror-Without-A-Default-Branch-Is-Named.md) | S | - | A task start on a repository whose mirror names no default branch is refused, naming the branch and the fix, rather than reading no `porelo.yml` and starting with the project's image unannounced; the refresh takes the upstream's `HEAD` |
 | <a id="b264"></a>[B264](B264-A-Word-To-A-Helper-Wakes-No-Task.md) | S | - | A person's word in the room that names only a helper account, the administrator or the relay, wakes no task, and the person is told so; one naming nobody still reaches every agent |
 | <a id="b273"></a>[B273](B273-A-Conversation-Says-What-It-Waits-On.md) | S | - | A project's conversation says what it waits on in `waitsOn` (`"vault"` or `""`) beside its sentence, so an interface offers the unlock without reading words |
+| <a id="b269"></a>[B269](B269-Git-By-The-Persons-Key-Or-Token-With-No-Deploy-Key.md) | M | - | porelo makes and names no deploy key: git reaches a project's repositories with the person's own ssh key or token from its vault, the forge's API with the token; follow, clear, unfollow and the pages keep that split; porelo's part of porelo-project [PJ69](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj69) |
 
 ## Rework
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b238"></a>[B238](B238-An-Unfollow-Leaves-Nothing-Of-The-Project.md) | XS | - | `project unfollow` removes the project's build lock and upstream copies, which `porelo prune` finds left over today |
-
-## Implementing
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="b269"></a>[B269](B269-Git-By-The-Persons-Key-Or-Token-With-No-Deploy-Key.md) | M | - | porelo makes and names no deploy key: git reaches a project's repositories with the person's own ssh key or token from its vault, the forge's API with the token; follow, clear, unfollow and the pages keep that split; porelo's part of porelo-project [PJ69](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj69) |
 
 ## Backlog
 
