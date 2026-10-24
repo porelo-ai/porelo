@@ -2,6 +2,8 @@ package org.fuin.porelo.app;
 
 import java.io.PrintWriter;
 import java.util.concurrent.Callable;
+import org.fuin.porelo.core.project.Project;
+import org.fuin.porelo.core.project.Repository;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
@@ -70,11 +72,22 @@ public class ProjectFollowCommand implements Callable<Integer>, PoreloFactory.Co
 
     private PoreloContext context = PoreloContext.real();
 
+    /**
+     * Sets the machine this command acts on.
+     *
+     * @param context The machine.
+     */
     @Override
     public void setContext(final PoreloContext context) {
         this.context = context;
     }
 
+    /**
+     * Follows the project and reports mirrors that cannot supply their image file.
+     *
+     * @return The follow's exit code.
+     * @throws Exception If following cannot complete.
+     */
     @Override
     public Integer call() throws Exception {
         final PrintWriter out = spec.commandLine().getOut();
@@ -185,6 +198,17 @@ public class ProjectFollowCommand implements Callable<Integer>, PoreloFactory.Co
                 return 70;
             }
         }
+        final Project project = GateSupport.byName(context, name);
+        for (final Repository repository : project.allRepositories()) {
+            final MirrorFile.DefaultBranch branch =
+                    MirrorFile.defaultBranch(
+                            context.runner(), GateSupport.mirror(context, project, repository));
+            final String warning = MirrorFile.refusal(branch, repository);
+            if (warning != null) {
+                err.println("porelo: warning: " + warning);
+            }
+        }
+        err.flush();
         out.flush();
         return 0;
     }

@@ -172,8 +172,12 @@ public record ImageChoice(
         try {
             final Path mirror = GateSupport.mirror(context, project, repository);
             final var branch = MirrorFile.defaultBranch(context.runner(), mirror);
-            if (branch.isPresent()) {
-                final String origin = FILE + " at " + branch.get() + " of " + repository.name();
+            final String refusal = MirrorFile.refusal(branch, repository);
+            if (refusal != null) {
+                throw new ProjectException(refusal);
+            }
+            if (branch instanceof MirrorFile.Found found) {
+                final String origin = FILE + " at " + found.ref() + " of " + repository.name();
                 MirrorFile.read(context.runner(), mirror, FILE)
                         .ifPresent(
                                 text ->
@@ -184,7 +188,7 @@ public record ImageChoice(
                                                         MirrorFile.snippets(
                                                                 context.runner(),
                                                                 mirror,
-                                                                branch.get()))));
+                                                                found.ref()))));
             }
         } catch (ProjectException ex) {
             // A fetch can repair only the mirror's file, never a local source.

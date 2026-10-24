@@ -1,0 +1,2 @@
+title: Restoring a mirror from a bundle preserves its default branch so carried projects and restored backups can start tasks
+type: fixed

@@ -155,7 +155,7 @@ class TaskRunCommandTest {
                         Path.of("").toAbsolutePath().relativize(xdg.runtime()),
                         xdg.home());
         return new PoreloContext(
-                runner,
+                context.runner(),
                 new PoreloPaths(shortSockets, dir.resolve("bin")),
                 context.exec(),
                 context.environment());
@@ -381,8 +381,22 @@ class TaskRunCommandTest {
                             paths.hooksDirectory(), paths.binaryDirectory())
                     .install();
         }
+        final var git = new org.fuin.porelo.core.process.ProcessCommandRunner();
         return new PoreloContext(
-                runner,
+                command ->
+                        command.arguments().getFirst().equals("git")
+                                        && command.arguments().size() > 2
+                                        && command.arguments().get(1).equals("-C")
+                                        && Path.of(command.arguments().get(2))
+                                                .startsWith(paths.xdg().data().resolve("mirrors"))
+                                ? git.run(
+                                        command.withEnvironment(
+                                                java.util.Map.of(
+                                                        "GIT_CONFIG_GLOBAL",
+                                                        "/dev/null",
+                                                        "GIT_CONFIG_NOSYSTEM",
+                                                        "1")))
+                                : runner.run(command),
                 paths,
                 arguments -> {
                     execCalls.add(arguments);
@@ -1074,11 +1088,11 @@ class TaskRunCommandTest {
                                 "-c",
                                 "init.defaultBranch=main"));
         command.addAll(java.util.List.of(arguments));
-        final Process process =
-                new ProcessBuilder(command)
-                        .directory(in.toFile())
-                        .redirectErrorStream(true)
-                        .start();
+        final ProcessBuilder builder =
+                new ProcessBuilder(command).directory(in.toFile()).redirectErrorStream(true);
+        builder.environment().put("GIT_CONFIG_GLOBAL", "/dev/null");
+        builder.environment().put("GIT_CONFIG_NOSYSTEM", "1");
+        final Process process = builder.start();
         final String said = new String(process.getInputStream().readAllBytes()).strip();
         try {
             assertThat(process.waitFor()).as(said).isZero();
@@ -1111,16 +1125,7 @@ class TaskRunCommandTest {
 
     /** Uses real local git for image reads and the fake runtime for containers. */
     private PoreloContext repositoryImageContext(Path dir) throws IOException {
-        final PoreloContext fake = context(dir, true);
-        final var git = new org.fuin.porelo.core.process.ProcessCommandRunner();
-        return new PoreloContext(
-                command ->
-                        command.arguments().getFirst().equals("git")
-                                ? git.run(command)
-                                : runner.run(command),
-                fake.paths(),
-                fake.exec(),
-                fake.environment());
+        return context(dir, true);
     }
 
     @org.junit.jupiter.params.ParameterizedTest
@@ -1374,18 +1379,7 @@ class TaskRunCommandTest {
         // its own branch on, from the host. A repository on this machine: the host fills the gate
         // from it, which no container could reach.
         final Path upstream = dir.resolve("upstream.git");
-        for (final String[] command :
-                new String[][] {
-                    {"git", "init", "-q", "--bare", "--initial-branch=main", upstream.toString()}
-                }) {
-            final Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
-            final String said = new String(process.getInputStream().readAllBytes()).strip();
-            try {
-                assertThat(process.waitFor()).as(said).isZero();
-            } catch (InterruptedException ex) {
-                throw new IOException(ex);
-            }
-        }
+        git(dir, "init", "-q", "--bare", "--initial-branch=main", upstream.toString());
         final PoreloContext context = context(dir, true);
         execute(
                 context,
@@ -1428,16 +1422,17 @@ class TaskRunCommandTest {
 
         final PoreloContext context = context(dir, true);
         trustGithub(context);
-        execute(
-                context,
-                "task",
-                "start",
-                "--attach",
-                "shell",
-                "-p",
-                projectFile(
-                        dir,
-                        """
+        final int exit =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "--attach",
+                        "shell",
+                        "-p",
+                        projectFile(
+                                dir,
+                                """
                 project:
                   name: "uc"
                   security_class: "guarded"
@@ -1446,6 +1441,7 @@ class TaskRunCommandTest {
                   base_image: "ubuntu:24.04"
                 """));
 
+        assertThat(exit).as("the start said:%n%s%n%s", out, err).isZero();
         final Path state = root.resolve("run/porelo").resolve(containerName());
         assertThat(Files.readString(state.resolve("ruleset.nft")))
                 .doesNotContain("upstream_v4")

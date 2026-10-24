@@ -64,7 +64,11 @@ class GitGateTest {
                                 "GIT_COMMITTER_EMAIL",
                                 "test@example.com",
                                 "GIT_TERMINAL_PROMPT",
-                                "0"),
+                                "0",
+                                "GIT_CONFIG_GLOBAL",
+                                "/dev/null",
+                                "GIT_CONFIG_NOSYSTEM",
+                                "1"),
                         null));
     }
 
@@ -673,6 +677,52 @@ class GitGateTest {
                                         "0")));
     }
 
+    @Test
+    void refreshingTakesTheUpstreamsRepairedDefaultBranch() throws IOException {
+        // Fixing the upstream must repair a mirror that otherwise keeps choosing the wrong image.
+        final Path upstream = upstreamWithMain();
+        git(upstream, "symbolic-ref", "HEAD", "refs/heads/master");
+        final GitGate gate =
+                new GitGate(
+                        withGitConfig(Path.of("/dev/null")),
+                        mirror,
+                        GateMode.GATEKEEPING,
+                        upstream.toString());
+        gate.initialize();
+        git(upstream, "symbolic-ref", "HEAD", "refs/heads/main");
+
+        assertThat(gate.refresh()).as("fetching the repaired upstream succeeds").isEmpty();
+        assertThat(git(mirror, "symbolic-ref", "HEAD").standardOutput().strip())
+                .as("the mirror takes the upstream's repaired default branch")
+                .isEqualTo("refs/heads/main");
+    }
+
+    @Test
+    void refreshingKeepsHeadWhenTheUpstreamsDefaultWasNotFetched() throws IOException {
+        // A default moving after fetch must not make a usable mirror point to an absent branch.
+        final Path upstream = upstreamWithMain();
+        final CommandRunner isolated = withGitConfig(Path.of("/dev/null"));
+        final CommandRunner changingUpstream =
+                command -> {
+                    final CommandResult result = isolated.run(command);
+                    if (command.arguments().contains("fetch")) {
+                        git(upstream, "branch", "later", "main");
+                        git(upstream, "symbolic-ref", "HEAD", "refs/heads/later");
+                    }
+                    return result;
+                };
+        final GitGate gate =
+                new GitGate(changingUpstream, mirror, GateMode.GATEKEEPING, upstream.toString());
+        gate.initialize();
+
+        assertThat(gate.refresh())
+                .as("an absent upstream default does not fail the fetch")
+                .isEmpty();
+        assertThat(git(mirror, "symbolic-ref", "HEAD").standardOutput().strip())
+                .as("the mirror keeps its usable default when the new branch is absent")
+                .isEqualTo("refs/heads/main");
+    }
+
     private Path upstreamWithMain() throws IOException {
         final Path upstream = root.resolve("upstream.git");
         git(root, "init", "--bare", "--initial-branch=main", upstream.toString());
@@ -1026,6 +1076,65 @@ class GitGateTest {
         // The pending push has to survive: it is exactly the work an operator restoring a backup is
         // least able to reconstruct.
         assertThat(restored.pending()).containsExactly("task-1");
+    }
+
+    @Test
+    void aRestoredBundleKeepsMainAsItsDefaultBranch() throws IOException {
+        git(root, "init", "--initial-branch=main", work.toString());
+        makeCommit("porelo.yml", "image: ubuntu:24.04\n");
+        final Path bundle = root.resolve("carried.bundle");
+        git(work, "bundle", "create", bundle.toString(), "HEAD", "main");
+        final GitGate gate = new GitGate(runner, mirror, GateMode.OFFLINE, null);
+
+        gate.restore(bundle);
+
+        assertThat(
+                        git(root, "--git-dir", mirror.toString(), "symbolic-ref", "HEAD")
+                                .standardOutput()
+                                .strip())
+                .as(
+                        "a carried project or restored backup must have a default branch to start tasks")
+                .isEqualTo("refs/heads/main");
+    }
+
+    @Test
+    void aRestoredBundleUsesTheBranchAtItsHeadCommit() throws IOException {
+        git(root, "init", "--initial-branch=main", work.toString());
+        makeCommit("base.txt", "base\n");
+        git(work, "checkout", "-b", "develop");
+        makeCommit("porelo.yml", "image: ubuntu:24.04\n");
+        final Path bundle = root.resolve("carried.bundle");
+        git(work, "bundle", "create", bundle.toString(), "HEAD", "develop", "main");
+        final GitGate gate = new GitGate(runner, mirror, GateMode.OFFLINE, null);
+
+        gate.restore(bundle);
+
+        assertThat(
+                        git(root, "--git-dir", mirror.toString(), "symbolic-ref", "HEAD")
+                                .standardOutput()
+                                .strip())
+                .as(
+                        "tasks must start from the bundle's default branch and read its project configuration")
+                .isEqualTo("refs/heads/develop");
+    }
+
+    @Test
+    void aRestoredBundleWithoutHeadUsesItsOnlyBranch() throws IOException {
+        git(root, "init", "--initial-branch=main", work.toString());
+        makeCommit("porelo.yml", "image: ubuntu:24.04\n");
+        final Path bundle = root.resolve("carried.bundle");
+        git(work, "bundle", "create", bundle.toString(), "main");
+        final GitGate gate = new GitGate(runner, mirror, GateMode.OFFLINE, null);
+
+        gate.restore(bundle);
+
+        assertThat(
+                        git(root, "--git-dir", mirror.toString(), "symbolic-ref", "HEAD")
+                                .standardOutput()
+                                .strip())
+                .as(
+                        "a single-branch bundle must remain usable even when it does not advertise HEAD")
+                .isEqualTo("refs/heads/main");
     }
 
     @Test

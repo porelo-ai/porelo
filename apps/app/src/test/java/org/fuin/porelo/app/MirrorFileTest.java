@@ -65,7 +65,9 @@ class MirrorFileTest {
 
         final Path mirror = mirror(root);
 
-        assertThat(MirrorFile.defaultBranch(runner, mirror)).contains("refs/heads/trunk");
+        assertThat(MirrorFile.defaultBranch(runner, mirror))
+                .as("the reviewed default branch is reported as found")
+                .isEqualTo(new MirrorFile.Found("refs/heads/trunk"));
         assertThat(MirrorFile.read(runner, mirror, "porelo.yml"))
                 .as("reviewed work, not what a task pushed")
                 .contains("image:\n  base_image: reviewed\n");

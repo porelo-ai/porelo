@@ -1,0 +1,2 @@
+title: A task start refuses a mirror whose default branch is missing while other branches exist, names the upstream fix, and continues to allow new empty repositories
+type: fixed

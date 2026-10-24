@@ -214,6 +214,71 @@ class ImageChoiceTest {
     }
 
     @Test
+    void anEmptyRepositoryUsesTheProjectsImage(@TempDir Path dir) throws Exception {
+        // A new repository must allow work to start before its first commit exists.
+        final PoreloContext context = imageContext(dir);
+        final Project project = acme();
+        final var repository = project.repositories().getFirst();
+        final Path upstream = dir.resolve("upstream.git");
+        git(dir, "init", "-q", "--bare", "--initial-branch=main", upstream.toString());
+        final Path mirror = GateSupport.mirror(context, project, repository);
+        Files.createDirectories(mirror.getParent());
+        git(dir, "clone", "-q", "--bare", upstream.toString(), mirror.toString());
+
+        assertThat(ImageChoice.of(context, project, repository).baseImage())
+                .as("an unborn default branch has no repository image to override the project's")
+                .isEqualTo("project-base");
+        assertThat(MirrorFile.defaultBranch(context.runner(), mirror))
+                .as("an empty mirror stays distinct from a mirror that has not been made")
+                .isEqualTo(new MirrorFile.Empty("refs/heads/main"));
+        assertThat(MirrorFile.read(context.runner(), mirror, "porelo.yml"))
+                .as("an empty repository has no image file to read")
+                .isEmpty();
+    }
+
+    @Test
+    void aMissingDefaultBranchRefusesTheImageWithoutLeakingTheUpstreamCredential(@TempDir Path dir)
+            throws Exception {
+        // Falling back silently would build the task from the wrong image.
+        final PoreloContext context = imageContext(dir);
+        final Project project =
+                ProjectReader.read(
+                        new StringReader(
+                                """
+                project:
+                  name: acme
+                  security_class: guarded
+                image:
+                  base_image: project-base
+                repositories:
+                  backend:
+                    upstream: https://user:example-secret@example.com/owner/backend.git
+                """),
+                        "project.yml");
+        final var repository = project.repositories().getFirst();
+        final Path source = Files.createDirectories(dir.resolve("source"));
+        git(source, "init", "-q", "-b", "main", ".");
+        Files.writeString(source.resolve("porelo.yml"), "image:\n  base_image: repository-base\n");
+        git(source, "add", "porelo.yml");
+        git(source, "commit", "-q", "-m", "reviewed image");
+        final Path mirror = GateSupport.mirror(context, project, repository);
+        Files.createDirectories(mirror.getParent());
+        git(dir, "clone", "-q", "--bare", source.toString(), mirror.toString());
+        git(mirror, "symbolic-ref", "HEAD", "refs/heads/master");
+
+        assertThatThrownBy(() -> ImageChoice.of(context, project, repository))
+                .as(
+                        "an unreadable repository image must refuse the task and keep credentials private")
+                .isInstanceOf(org.fuin.porelo.core.project.ProjectException.class)
+                .hasMessageContaining("backend")
+                .hasMessageContaining("refs/heads/master")
+                .hasMessageContaining("its branches: main")
+                .hasMessageContaining("https://example.com/owner/backend.git")
+                .hasMessageNotContaining("user:")
+                .hasMessageNotContaining("example-secret");
+    }
+
+    @Test
     void aPreviewReturnsTheMirrorsRefusalAndKeepsTheOtherSources(@TempDir Path dir)
             throws Exception {
         // Only the mirror can be repaired by a fetch; valid local choices must survive its refusal.

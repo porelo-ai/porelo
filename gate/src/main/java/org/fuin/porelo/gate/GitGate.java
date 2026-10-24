@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.process.CommandResult;
@@ -192,11 +193,37 @@ public class GitGate {
                     "+refs/heads/*:refs/heads/*",
                     "^" + APPROVED + "*");
             dropApprovedBranches();
+            refreshHead(lease, upstreamUrl);
             return "";
         } catch (GateException ex) {
             return "the mirror could not be brought up to the upstream's branches, so this task starts from what it"
                     + " holds, which may be behind: "
                     + ex.getMessage();
+        }
+    }
+
+    private void refreshHead(GitCredentials.Lease lease, String upstream) {
+        try {
+            final String answer =
+                    gitWith(lease, "ls-remote", "--symref", "--end-of-options", upstream, "HEAD")
+                            .standardOutput();
+            for (final String line : answer.lines().toList()) {
+                if (!line.startsWith("ref: refs/heads/") || !line.endsWith("\tHEAD")) {
+                    continue;
+                }
+                final String ref =
+                        line.substring("ref: ".length(), line.length() - "\tHEAD".length());
+                if (ref.startsWith(APPROVED)
+                        || ref.substring("refs/heads/".length()).startsWith("-")) {
+                    return;
+                }
+                gitIn("check-ref-format", ref);
+                gitIn("rev-parse", "--verify", "--quiet", ref + "^{commit}");
+                gitIn("symbolic-ref", "HEAD", ref);
+                return;
+            }
+        } catch (GateException ex) {
+            // An unavailable or unusable upstream HEAD must not undo a successful fetch.
         }
     }
 
@@ -428,8 +455,49 @@ public class GitGate {
         // every pending push - which is exactly the work an operator restoring a backup is least
         // able to reconstruct. Fetching refs/*:refs/* takes all of it.
         gitIn("fetch", bundle.toString(), "refs/*:refs/*");
+        restoreHead(bundle);
         gitIn("config", "http.receivepack", "true");
         gitIn("config", "receive.denyCurrentBranch", "ignore");
+    }
+
+    /** A restored default must name a branch tasks can actually start from. */
+    private void restoreHead(Path bundle) {
+        final Map<String, String> heads = new TreeMap<>();
+        for (final String line :
+                gitIn("bundle", "list-heads", bundle.toString())
+                        .standardOutput()
+                        .lines()
+                        .toList()) {
+            final int space = line.indexOf(' ');
+            if (space > 0) {
+                heads.put(line.substring(space + 1), line.substring(0, space));
+            }
+        }
+        final String head = heads.get("HEAD");
+        final List<String> branches =
+                heads.entrySet().stream()
+                        .filter(entry -> entry.getKey().startsWith("refs/heads/"))
+                        .filter(entry -> !entry.getKey().startsWith(APPROVED))
+                        .filter(entry -> head == null || head.equals(entry.getValue()))
+                        .map(Map.Entry::getKey)
+                        .toList();
+        if (branches.isEmpty() || (head == null && branches.size() != 1)) {
+            return;
+        }
+        final String current = gitIn("symbolic-ref", "HEAD").standardOutput().strip();
+        String ref = branches.getFirst();
+        if (branches.contains(current)) {
+            ref = current;
+        } else if (branches.contains("refs/heads/main")) {
+            ref = "refs/heads/main";
+        }
+        try {
+            gitIn("check-ref-format", ref);
+            gitIn("rev-parse", "--verify", "--quiet", ref + "^{commit}");
+            gitIn("symbolic-ref", "HEAD", ref);
+        } catch (GateException ex) {
+            // An unusable default must not undo the restoration of the bundle's refs.
+        }
     }
 
     /**
