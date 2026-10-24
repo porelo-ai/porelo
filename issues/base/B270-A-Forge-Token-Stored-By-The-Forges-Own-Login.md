@@ -1,6 +1,7 @@
 # B270 — A Forge Token Stored By The Forge's Own Login
 
-**Status:** Idea.
+**Status:** Accepted. Analyzed and built after sprint 2c; porelo-frontend [F153](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md#f153) ships first with the
+pasted token, and this then opens the device-code login in the same terminals.
 
 **What must be true.** A person gets their forge token into a machine's vault, as `git.token.<host>`, by the forge's
 own login in a terminal on that machine: a device code shown there, approved in any browser. The person does not make
@@ -17,10 +18,16 @@ Read in the code: `porelo vault authorize` already runs a device-code flow, but 
 entry. Its grant is kept hidden as `grant/<name>` and spent by the broker for a task; it is never stored as
 `git.token.<host>` and never lent to the host's own git.
 
-## Open questions
+## Decided
 
-- **Whose OAuth application the login uses**: one Porelo registers at each forge, whose client id ships with Porelo,
-  or one the person or their company registers, named in the vault entry. A forge's device flow needs a registered
-  application; which one decides who can revoke it and what the consent screen says.
-- **Which rights the token asks for**: read for the project's own repository and write for its work repositories, as
-  porelo-project [PJ69](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj69) says, and whether a forge can narrow a device-flow token that far.
+- **Whose application: both.** Porelo registers an OAuth application at each forge as the default, its client id
+  shipped with Porelo. A person or company may name their own application's client id in the vault entry, which then
+  takes precedence.
+- **Which kind: an OAuth App**, not a GitHub App, with the scopes git and the forge's API need: **`repo` by default**.
+  `workflow` is asked for only when the person asks for it at the login: a token that may change a repository's
+  workflows can change what its CI runs with its secrets, and a push of approved work that touches
+  `.github/workflows/` without it is refused by the forge, which the gate then names.
+- **An accepted risk, written into `doc/decisions.md` when this is built:** the exposure is a token that reaches
+  every repository the person can, does not expire until revoked, and sits in each machine's vault. It stays because
+  it is simpler and works the same at every forge with a device flow. What would change the answer: a token leak, or
+  a company that requires repository-scoped tokens, which the person's own application then covers.

@@ -96,6 +96,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b270"></a>[B270](B270-A-Forge-Token-Stored-By-The-Forges-Own-Login.md) | - | - | A person gets their forge token into a machine's vault as `git.token.<host>` by the forge's own device-code login in a terminal there, never by pasting a token made by hand; Porelo's OAuth App by default, a person's own if named, `repo` scope |
 | <a id="b264"></a>[B264](B264-A-Word-To-A-Helper-Wakes-No-Task.md) | - | porelo-message-matrix [MX35](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx35) | A person's word in the room that names only a helper account, the administrator or the relay, wakes no task, and the person is told so; one naming nobody still reaches every agent |
 | <a id="b260"></a>[B260](B260-Only-Porelos-Own-Source-Installs-An-Agent.md) | M | - | What the setup script's `--with` installs and what `--list` and `Installable` offer comes only from Porelo's own package source, the install bound to it on apt and dnf; dnf5's catalogue finds every agent |
 | <a id="b233"></a>[B233](B233-A-Host-Service-Reached-By-Name.md) | L | - | A task reaches a service on its own host, a forge or a registry, by a declared name on 443 and nothing else there; the reach through pasta measured first |
@@ -112,7 +113,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b270"></a>[B270](B270-A-Forge-Token-Stored-By-The-Forges-Own-Login.md) | - | - | A person gets their forge token into a machine's vault as `git.token.<host>` by the forge's own device-code login in a terminal there, never by pasting a token made by hand; whose OAuth application it uses is the operator's choice |
 | <a id="b263"></a>[B263](B263-A-Task-Image-Built-Past-A-Stalled-Mirror.md) | - | - | A task image's build tries a second Ubuntu mirror after a bounded first attempt, rather than one fixed Azure mirror a stalled node can hold for 600 s |
 | <a id="b262"></a>[B262](B262-A-Stops-Survivors-In-The-Form-Its-Interface-Declares.md) | - | - | The daemon's `Stop` answers `surviving` in the type its interface declares; today it sends a list where `int` is declared, and porelo-frontend reads it as 0 |
 | <a id="b254"></a>[B254](B254-A-Task-Has-Its-Work-Built-On-A-Declared-Kind.md) | - | `porelo` [B253](README.md#b253) | A task asks for its work to be built on a machine kind the project declares and reads the verdict and log in `/porelo/files`; an undeclared kind or command is refused |
