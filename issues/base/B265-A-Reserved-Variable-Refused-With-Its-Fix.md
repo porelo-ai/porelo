@@ -1,6 +1,6 @@
 # B265 — A Reserved Variable Refused With Its Fix
 
-**Status:** Analyzed. Built together with [B268](README.md#b268) and [B267](README.md#b267).
+**Status:** Estimated. Built together with [B268](README.md#b268) and [B267](README.md#b267).
 **Size:** S - one refusal and the one place Porelo's own values are named, in `core` and `runtime`, with their tests.
 
 **What must be true.** When a repository's `porelo.yml` sets a variable Porelo sets in every task (`PATH`, `HOME`,
