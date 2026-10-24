@@ -69,6 +69,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="b269"></a>[B269](B269-The-Forge-Reached-With-The-Persons-Token-Alone.md) | M | - | porelo neither makes nor names a deploy key: a machine reaches the forge with the person's token from its vault, and follow, clear, unfollow and `doctor` say nothing of deploy keys; porelo's part of porelo-project [PJ69](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj69) | 1 |
 | <a id="b175"></a>[B175](B175-The-Profile-That-May-Bind-The-Socket.md) | L | `porelo` [B135](README.md#b135) | On an AppArmor machine a task connects only to a socket one of Porelo's binaries bound, by a task profile that refuses any other peer, as the SELinux domain does on SELinux machines. | 0 |
 | <a id="b176"></a>[B176](B176-Comment-Threads-That-Follow-A-New-Push.md) | M | `porelo` [B166](README.md#b166) | A thread on waiting work moves to a new push's commit where its lines are unchanged, else stays and says why; each commented commit pinned under a hidden ref; `Thread` gains `from` and `stays`. | 0 |
 | <a id="b177"></a>[B177](B177-A-Cost-Ceiling-Per-Task.md) | M | `porelo` [B138](README.md#b138), [B191](README.md#b191) | A dollar ceiling per task from `limits.cost`, counted by the broker from the cost the provider reports, else at list price from the price table; a model with no price refuses the ceiling at the start or fail closed, never $0; under a subscription it caps list-price value. | - |
@@ -114,7 +115,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b269"></a>[B269](B269-The-Forge-Reached-With-The-Persons-Token-Alone.md) | - | - | porelo neither makes nor names a deploy key: a machine reaches the forge with the person's token from its vault, and follow, clear, unfollow and `doctor` say nothing of deploy keys; porelo's part of porelo-project [PJ69](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj69) |
 | <a id="b264"></a>[B264](B264-A-Word-To-A-Helper-Wakes-No-Task.md) | - | porelo-message-matrix [MX35](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx35) | A person's word in the room that names only a helper account, the administrator or the relay, wakes no task, and the person is told so; one naming nobody still reaches every agent |
 | <a id="b260"></a>[B260](B260-Only-Porelos-Own-Source-Installs-An-Agent.md) | M | - | What the setup script's `--with` installs and what `--list` and `Installable` offer comes only from Porelo's own package source, the install bound to it on apt and dnf; dnf5's catalogue finds every agent |
 | <a id="b233"></a>[B233](B233-A-Host-Service-Reached-By-Name.md) | L | - | A task reaches a service on its own host, a forge or a registry, by a declared name on 443 and nothing else there; the reach through pasta measured first |
