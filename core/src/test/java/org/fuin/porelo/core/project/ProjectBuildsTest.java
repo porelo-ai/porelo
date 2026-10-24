@@ -76,6 +76,25 @@ class ProjectBuildsTest {
     }
 
     @Test
+    void refusesToFollowBuildsWithoutFailedJobLogs() {
+        // A task following its pushes needs the failed job's log to fix its work.
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        "online",
+                                        """
+                builds:
+                  forge: "github"
+                  credential: "build-token"
+                  logs: "none"
+                """))
+                .as("project build watches must retain failed job logs")
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("'builds.logs'")
+                .hasMessageContaining("'failure' or 'all'");
+    }
+
+    @Test
     void refusesAForgeThatIsNoReadersNameAnApiThatIsNotHttpsAndNoCredential() {
         assertThatThrownBy(
                         () ->

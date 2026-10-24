@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import org.fuin.porelo.wire.varlink.VarlinkException;
 import org.fuin.porelo.wire.varlink.VarlinkServer;
 import org.jspecify.annotations.Nullable;
@@ -46,12 +47,13 @@ public class BuildServer implements AutoCloseable {
                 });
 
         server.method(
-                "Look",
+                "Build",
                 (parameters, replies) -> {
                     final String commit = required(parameters, "commit");
                     final Build.Logs logs = logs(parameters);
                     replies.last(
-                            answering(() -> reader.look(target(parameters), commit, logs)).asMap());
+                            answering(() -> reader.build(target(parameters), commit, logs))
+                                    .asMap());
                 });
     }
 
@@ -62,6 +64,15 @@ public class BuildServer implements AutoCloseable {
      */
     public Path socketPath() {
         return server.socketPath();
+    }
+
+    /**
+     * Returns the registered methods for comparison with the published interface.
+     *
+     * @return Fully qualified names, including the standard service methods.
+     */
+    Set<String> methodNames() {
+        return server.methodNames();
     }
 
     /** Serves until the process is stopped. */

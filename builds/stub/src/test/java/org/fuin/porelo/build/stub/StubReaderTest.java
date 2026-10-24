@@ -32,26 +32,49 @@ class StubReaderTest {
 
         assertThat(stub.head(TARGET, "fix-login")).isEqualTo(SHA);
         assertThat(stub.head(TARGET, "other")).isEmpty();
-        assertThat(stub.look(TARGET, SHA, Build.Logs.FAILURE).verdict()).isEqualTo(Build.RUNNING);
+        assertThat(stub.build(TARGET, SHA, Build.Logs.FAILURE).verdict()).isEqualTo(Build.RUNNING);
 
         answers(
                 """
                 {"builds": {"%s": {"verdict": "failure", "jobs": [{"name": "Build / test", "result": "failure",
                  "log": "boom"}, {"name": "Build / lint", "result": "success", "log": "fine"}]}}}"""
                         .formatted(SHA));
-        final Build failed = stub.look(TARGET, SHA, Build.Logs.FAILURE);
+        final Build failed = stub.build(TARGET, SHA, Build.Logs.FAILURE);
         assertThat(failed.verdict()).as("what the test wrote since").isEqualTo(Build.FAILURE);
         assertThat(failed.jobs())
                 .extracting(Build.Job::logText)
                 .as("every job, the failed one's log only")
                 .containsExactly("boom", "");
-        assertThat(stub.look(TARGET, SHA, Build.Logs.ALL).jobs())
+        assertThat(stub.build(TARGET, SHA, Build.Logs.ALL).jobs())
                 .extracting(Build.Job::logText)
                 .as("every job's log when all are wanted")
                 .containsExactly("boom", "fine");
-        assertThat(stub.look(TARGET, "0".repeat(40), Build.Logs.FAILURE).verdict())
+        assertThat(stub.build(TARGET, "0".repeat(40), Build.Logs.FAILURE).verdict())
                 .as("a commit it holds nothing for")
                 .isEqualTo(Build.UNKNOWN);
+    }
+
+    @Test
+    void answersTheVerdictAndEveryJobWithoutLogsWhenNoneAreRequested() throws IOException {
+        // A no-log request must not deliver a failed job's log or hide its result.
+        final StubReader stub =
+                new StubReader(
+                        answers(
+                                """
+                {"builds": {"%s": {"verdict": "failure", "jobs": [
+                  {"name": "Build / test", "result": "failure", "log": "boom"},
+                  {"name": "Build / lint", "result": "success", "log": "fine"}]}}}
+                """
+                                        .formatted(SHA)));
+
+        final Build build = stub.build(TARGET, SHA, Build.Logs.NONE);
+
+        assertThat(build.verdict()).as("the verdict is still reported").isEqualTo(Build.FAILURE);
+        assertThat(build.jobs())
+                .as("every job is listed with its result and a null log")
+                .containsExactly(
+                        new Build.Job("Build / test", "failure"),
+                        new Build.Job("Build / lint", "success"));
     }
 
     @Test
@@ -79,7 +102,7 @@ class StubReaderTest {
                         answers(
                                 "{\"refuse\": {\"reason\": \"RATE_LIMITED\", \"detail\": \"slow down\", \"retryAfter\": 7}}"));
 
-        assertThatThrownBy(() -> stub.look(TARGET, SHA, Build.Logs.FAILURE))
+        assertThatThrownBy(() -> stub.build(TARGET, SHA, Build.Logs.FAILURE))
                 .isInstanceOfSatisfying(
                         BuildRefused.class,
                         refused -> {
@@ -100,7 +123,7 @@ class StubReaderTest {
         assertThatThrownBy(
                         () ->
                                 new StubReader(directory.resolve("missing.json"))
-                                        .look(TARGET, SHA, Build.Logs.FAILURE))
+                                        .build(TARGET, SHA, Build.Logs.FAILURE))
                 .isInstanceOfSatisfying(
                         BuildRefused.class,
                         refused ->

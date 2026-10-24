@@ -1,6 +1,6 @@
 # B253 — Every Forge Adapter Speaks the Build Contract's Second Version
 
-**Status:** Backlog, for sprint 3.
+**Status:** Implementing, for sprint 3.
 **Size:** M - one contract change in `builds/api` (interface file, server, client and handshake), the stub and two
 callers in `app-task` moved with it, its documentation and a changelog entry; the suite and the adapters are
 `porelo-adapters`'s.
@@ -72,9 +72,11 @@ Read in `builds/api`, `builds/stub`, `apps/app-task`, `wire` and `core`'s `Build
    once that package is published, not before. A changelog entry under `changelog/unreleased/`: an installed adapter
    of the first version is refused, naming it. `AGENTS.md` (`:25`, `:374`) names four artifacts reaching Central, but
    `porelo-build-api` 0.5.0 is there too (asked of Central): it is named among them.
-9. **The release, decided:** porelo with `Build2` and the first `porelo-adapter-github` go out in the same gathered
-   push, so the time in which an installed `Build1` adapter is refused lasts hours at most. porelo's packages name
-   no forge's package: no `Breaks:` and no `Conflicts:` on `porelo-build-github`.
+9. **The release, decided:** porelo with `Build2` goes out as soon as it is green, without waiting for
+   `porelo-adapter-github`: nobody but the project's own tests uses an adapter yet, so an installed
+   `porelo-build-github` is refused by name until porelo-build-github
+   [GH06](https://github.com/porelo-ai/porelo-build-github/blob/main/issues/README.md#gh06)'s adapter replaces it.
+   porelo's packages name no forge's package: no `Breaks:` and no `Conflicts:` on `porelo-build-github`.
 
 **Red first:** `InstalledBuildReaderTest.refusesAnAdapterOfTheFirstVersionByName` - an executable serving
 `org.fuin.porelo.Build1` with a `Describe` answering version 1 - expects a refusal naming `org.fuin.porelo.Build1`

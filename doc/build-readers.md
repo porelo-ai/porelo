@@ -17,15 +17,16 @@ public static void main(String[] arguments) {
 ```
 
 `BuildMain` answers `describe` with the forge's name and the protocol version, and `serve <socket>` with the
-varlink interface `org.fuin.porelo.Build1`. Porelo refuses a reader whose protocol version it does not know, and one
-that reads another forge than the project names, before it asks it anything.
+varlink interface `org.fuin.porelo.Build2`. Porelo refuses a reader whose protocol version it does not know, and one
+that reads another forge than the project names, before it asks it anything. If the reader does not serve this
+interface, the refusal names its executable, the build interfaces it serves and the interface Porelo requires.
 
 ## What it answers
 
 - **`forge()`**: the name a project file gives under `builds.forge`, and the name the executable is installed
   under: `/usr/libexec/porelo/builds/<forge>`, or `~/.local/share/porelo/builds/<forge>` for one account.
 - **`head(target, branch)`**: the commit a branch points at, "" when the forge has no such branch.
-- **`look(target, commit, logs)`**: what the build of one commit did, across everything the forge ran for it.
+- **`build(target, commit, logs)`**: what the build of one commit did, across everything the forge ran for it.
 
 `target` carries the repository as the project file names it (the reader takes it apart: only it knows how its
 forge spells a repository), the API's address ("" for the forge's own) and the token. **A reader keeps no secret**:
@@ -44,7 +45,9 @@ without it.
   or its state while it is not finished.
 - **Which jobs:** every job the forge reports, once the verdict is `failure` or final; none while it is queued or
   running, so a running build costs one question per round and no more.
-- **Which logs:** `logs` is `failure`, each failed job's, or `all`, every job's once the verdict is final. A log is
+- **Which logs:** `logs` is `none`, downloading no logs while still listing the jobs, `failure`, each failed job's,
+  or `all`, every job's once the verdict is final; absent, `failure`. A project file's `builds.logs` accepts only
+  `failure` or `all`, since a task following its pushes needs a failed job's log. A log is
   the job's **plain text**, its last 64 KiB: a reader whose forge sends an archive, or splits a job into files per
   step, unpacks it and joins the steps in their order, one header line each, before it takes the end. At most 50
   jobs, and 2 MiB of logs in all: past 32 logs of 64 KiB, each keeps an equal share of its end, so the answer fits

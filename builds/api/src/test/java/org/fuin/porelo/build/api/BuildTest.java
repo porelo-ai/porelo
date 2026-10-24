@@ -65,7 +65,18 @@ class BuildTest {
     }
 
     @Test
-    void readsTheLogPolicyAProjectFileNames() {
+    void acceptsARequestForNoLogs() {
+        // A verdict-only consumer must not be forced to download logs.
+        assertThat(Build.Logs.of("none").wire())
+                .as("the protocol accepts a request without logs")
+                .isEqualTo("none");
+        assertThat(Build.Logs.of("none"))
+                .as("the no-log policy has its own value")
+                .isEqualTo(Build.Logs.NONE);
+    }
+
+    @Test
+    void readsTheLogPolicyTheProtocolNames() {
         assertThat(Build.Logs.of("failure")).isEqualTo(Build.Logs.FAILURE);
         assertThat(Build.Logs.of("all").wire()).isEqualTo("all");
         assertThatThrownBy(() -> Build.Logs.of("some"))

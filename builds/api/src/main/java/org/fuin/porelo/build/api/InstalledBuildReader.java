@@ -130,12 +130,12 @@ public final class InstalledBuildReader implements AutoCloseable {
      * @throws BuildReaderException When the reader failed, or answered something that is not a
      *     build.
      */
-    public Build look(final Target target, final String commit, final Build.Logs logs) {
+    public Build build(final Target target, final String commit, final Build.Logs logs) {
         final Map<String, Object> parameters = parameters(target);
         parameters.put("commit", commit);
         parameters.put("logs", logs.wire());
         try {
-            return Build.of(call(BuildProtocol.LOOK, parameters));
+            return Build.of(call(BuildProtocol.BUILD, parameters));
         } catch (IllegalArgumentException ex) {
             throw new BuildReaderException(
                     executable + " answered something that is not a build: " + ex.getMessage(), ex);
@@ -189,10 +189,7 @@ public final class InstalledBuildReader implements AutoCloseable {
             opened = new VarlinkClient(socket);
             final VarlinkClient described = opened;
             final Map<String, Object> answer =
-                    bounded(
-                            process,
-                            () -> described.call(BuildProtocol.DESCRIBE, Map.of()),
-                            READY_SECONDS);
+                    bounded(process, () -> describe(described), READY_SECONDS);
             final int version =
                     answer.get("protocolVersion") instanceof Number number ? number.intValue() : -1;
             if (version != BuildProtocol.VERSION) {
@@ -213,12 +210,44 @@ public final class InstalledBuildReader implements AutoCloseable {
             }
             return new Running(process, opened);
         } catch (RuntimeException ex) {
-            process.destroyForcibly();
+            ended(process);
             closeQuietly(opened);
+            try {
+                Files.deleteIfExists(socket);
+            } catch (IOException cleanup) {
+                ex.addSuppressed(cleanup);
+            }
             throw ex instanceof BuildReaderException reader
                     ? reader
                     : new BuildReaderException(
                             executable + " failed to start: " + ex.getMessage(), ex);
+        }
+    }
+
+    private Map<String, Object> describe(final VarlinkClient client) {
+        try {
+            return client.call(BuildProtocol.DESCRIBE, Map.of());
+        } catch (VarlinkException ex) {
+            if (!"org.varlink.service.MethodNotFound".equals(ex.getErrorName())) {
+                throw ex;
+            }
+            final Object interfaces =
+                    client.call("org.varlink.service.GetInfo", Map.of()).get("interfaces");
+            final List<String> builds =
+                    interfaces instanceof List<?> listed
+                            ? listed.stream()
+                                    .filter(String.class::isInstance)
+                                    .map(String.class::cast)
+                                    .filter(name -> name.startsWith("org.fuin.porelo.Build"))
+                                    .toList()
+                            : List.of();
+            throw new BuildReaderException(
+                    executable
+                            + " speaks "
+                            + builds
+                            + "; this Porelo speaks "
+                            + BuildProtocol.INTERFACE
+                            + ". Install the reader's version that goes with this Porelo.");
         }
     }
 

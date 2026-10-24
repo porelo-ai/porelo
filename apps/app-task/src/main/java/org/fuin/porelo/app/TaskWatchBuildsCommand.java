@@ -137,8 +137,8 @@ public class TaskWatchBuildsCommand implements Callable<Integer>, PoreloFactory.
                         }
 
                         @Override
-                        public Build look(final String commit) {
-                            return reader.look(target(), commit, policy);
+                        public Build build(final String commit) {
+                            return reader.build(target(), commit, policy);
                         }
                     };
             new BuildWatch(

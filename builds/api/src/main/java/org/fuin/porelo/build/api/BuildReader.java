@@ -32,10 +32,10 @@ public interface BuildReader {
      *
      * @param target Where and with what.
      * @param commit The full sha.
-     * @param logs Which jobs' logs to hand over: each failed one, or every one once the verdict is
-     *     final.
+     * @param logs Which jobs' logs to download and hand over: none, each failed one, or every one
+     *     once the verdict is final; jobs are listed even when no logs are requested.
      * @return The build; {@link Build#UNKNOWN} when the forge holds none for the commit.
      * @throws BuildRefused When the forge would not answer.
      */
-    Build look(Target target, String commit, Build.Logs logs);
+    Build build(Target target, String commit, Build.Logs logs);
 }

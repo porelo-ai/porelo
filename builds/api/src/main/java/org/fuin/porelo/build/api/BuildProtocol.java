@@ -11,7 +11,7 @@ package org.fuin.porelo.build.api;
 public final class BuildProtocol {
 
     /** Varlink interface both sides implement. */
-    public static final String INTERFACE = "org.fuin.porelo.Build1";
+    public static final String INTERFACE = "org.fuin.porelo.Build2";
 
     /**
      * Version of this contract.
@@ -19,7 +19,7 @@ public final class BuildProtocol {
      * <p>Raised when a change would make an older Porelo misread a newer reader, or the reverse.
      * Adding an optional field does not qualify; renaming or removing one does.
      */
-    public static final int VERSION = 1;
+    public static final int VERSION = 2;
 
     /** Returns the forge a reader reads and the protocol version it speaks. */
     public static final String DESCRIBE = INTERFACE + ".Describe";
@@ -28,7 +28,7 @@ public final class BuildProtocol {
     public static final String HEAD = INTERFACE + ".Head";
 
     /** Returns what the build of one commit did. */
-    public static final String LOOK = INTERFACE + ".Look";
+    public static final String BUILD = INTERFACE + ".Build";
 
     private BuildProtocol() {
         throw new UnsupportedOperationException("Constants");

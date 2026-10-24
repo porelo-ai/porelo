@@ -41,7 +41,7 @@ public final class FakeReader implements BuildReader {
     }
 
     @Override
-    public Build look(final Target target, final String commit, final Build.Logs logs) {
+    public Build build(final Target target, final String commit, final Build.Logs logs) {
         refuseWrongToken(target);
         if (commit.startsWith("r")) {
             throw new BuildRefused(
@@ -57,14 +57,22 @@ public final class FakeReader implements BuildReader {
             System.arraycopy("END\n".getBytes(StandardCharsets.UTF_8), 0, log, Build.TAIL - 4, 4);
             final List<Build.Job> jobs = new ArrayList<>();
             for (int i = 1; i <= Build.MOST_JOBS; i++) {
-                jobs.add(new Build.Job("Build / shard " + i, "failure", log));
+                jobs.add(
+                        new Build.Job(
+                                "Build / shard " + i,
+                                "failure",
+                                logs == Build.Logs.NONE ? null : log));
             }
             return new Build(Build.FAILURE, jobs, "");
         }
         if (commit.startsWith("f")) {
             return new Build(
                     Build.FAILURE,
-                    List.of(new Build.Job("Build / unit tests", "failure", LOG)),
+                    List.of(
+                            new Build.Job(
+                                    "Build / unit tests",
+                                    "failure",
+                                    logs == Build.Logs.NONE ? null : LOG)),
                     "");
         }
         return logs == Build.Logs.ALL

@@ -22,7 +22,7 @@
   agents at runtime, and `AgentIsolationTest` fails the build otherwise. A difference between agents is a new field
   in the agent definition, never a branch in Porelo.
 - **An agent builds only against `porelo-agent-api` and `porelo-wire`**, with `porelo-acceptance-kit` in test scope and
-  `porelo-bom` imported - the four artifacts this repository publishes to Central.
+  `porelo-bom` imported - these and `porelo-build-api` are the five artifacts this repository publishes to Central.
 - **Every shipped agent has its own repository** (`porelo-claude-code`, `porelo-pi`, `porelo-omp`); `agents/` holds the
   contract and the **stub**, which the acceptance suite drives, so every scenario that starts a task names
   `--agent stub` and reads what it asserts about it from `porelo agents --verbose`.
@@ -371,7 +371,7 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
 
 ## Publishing
 
-- **Four artifacts reach Central: `porelo-agent-api`, `porelo-wire`, `porelo-acceptance-kit` and `porelo-bom`**; the
+- **Five artifacts reach Central: `porelo-agent-api`, `porelo-wire`, `porelo-acceptance-kit`, `porelo-bom` and `porelo-build-api`**; the
   packages and the agents' go to Artifactory, `porelo-dist-deb` and `porelo-dist-rpm`.
 - **Under `-Pcentral-sonatype-release` only `skipPublishing` counts**, default-deny in the root and off in those four.
 - **Artifactory is spoken to with curl, through `.github/scripts/artifactory.sh`**: no client is downloaded into a job

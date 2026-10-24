@@ -13,9 +13,9 @@ import org.jspecify.annotations.Nullable;
  * What the forge said about the build of one commit.
  *
  * @param verdict One of {@link #VERDICTS}.
- * @param jobs The jobs whose log is handed over, in the forge's order: each failed one, or with
- *     {@link Logs#ALL} every one once the verdict is final. Empty while the build is queued or
- *     running. At most {@link #MOST_JOBS}, their logs together at most {@link #MOST_LOG_BYTES}.
+ * @param jobs Every job in the forge's order once the verdict is failure or final. Empty while the
+ *     build is queued or running. At most {@link #MOST_JOBS}, their logs together at most {@link
+ *     #MOST_LOG_BYTES}; {@link Logs} decides which carry a log.
  * @param detail Why the verdict is {@link #UNKNOWN}, or what more the forge said; "" otherwise.
  */
 public record Build(String verdict, List<Job> jobs, String detail) {
@@ -64,8 +64,11 @@ public record Build(String verdict, List<Job> jobs, String detail) {
     /** The most jobs one build hands logs over for, so a matrix of hundreds cannot flood a task. */
     public static final int MOST_JOBS = 50;
 
-    /** Which logs a project wants handed to its tasks. */
+    /** Which logs a caller wants downloaded and handed over. */
     public enum Logs {
+
+        /** No log is downloaded; jobs are listed without logs. */
+        NONE,
 
         /** The log of each failed job. */
         FAILURE,
@@ -74,26 +77,27 @@ public record Build(String verdict, List<Job> jobs, String detail) {
         ALL;
 
         /**
-         * Returns the policy a project file names.
+         * Returns the policy the protocol names.
          *
-         * @param name "failure" or "all".
+         * @param name "none", "failure" or "all".
          * @return It.
          * @throws IllegalArgumentException For anything else.
          */
         public static Logs of(final String name) {
             return switch (name) {
+                case "none" -> NONE;
                 case "failure" -> FAILURE;
                 case "all" -> ALL;
                 default ->
                         throw new IllegalArgumentException(
-                                "'" + name + "' is not 'failure' or 'all'");
+                                "'" + name + "' is not 'none', 'failure' or 'all'");
             };
         }
 
         /**
-         * Returns its name as a project file and the protocol write it.
+         * Returns its name as the protocol writes it.
          *
-         * @return "failure" or "all".
+         * @return "none", "failure" or "all".
          */
         public String wire() {
             return name().toLowerCase(java.util.Locale.ROOT);

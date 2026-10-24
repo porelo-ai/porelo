@@ -18,7 +18,7 @@ would change the answer.
 | A task learns of handed-in files from Porelo, not from its prompt | one guide to all of Porelo in the task, and a line at the prompt when a file arrives | [entry](#a-task-learns-of-handed-in-files-from-porelo-not-from-its-prompt) |
 | Every class pushes through its gate | no key, socket or route to the upstream in any container; an online task's gate passes its own branch on at once | [entry](#every-class-pushes-through-its-gate) |
 | A build is read from the host, never by the task | an online task is handed its builds' verdicts and logs; no forge token, route or verb in it | [entry](#a-build-is-read-from-the-host-never-by-the-task) |
-| Build readers are packages behind a versioned API | `porelo-build-api` and `org.fuin.porelo.Build1`; each forge in a repository of its own; nothing in `porelo` names one | [entry](#build-readers-are-packages-behind-a-versioned-api) |
+| Build readers are packages behind a versioned API | `porelo-build-api` and `org.fuin.porelo.Build2`; each forge in a repository of its own; nothing in `porelo` names one | [entry](#build-readers-are-packages-behind-a-versioned-api) |
 | A stop of every task keeps its tokens | `task stop --all` and `panic` stop as `task stop` does; revoking is `vault lock` or `vault remove`, a step of its own | [entry](#a-stop-of-every-task-keeps-its-tokens) |
 | Nested containers never in a guarded project | `guarded` never sets them; only on a task's own kernel where the assessment says so | [entry](#nested-containers-never-in-a-guarded-project) |
 | A devcontainer file's features are not fetched | its image or Dockerfile is used, each feature named as not installed; nothing runs at build that the project file does not name | [entry](#a-devcontainer-files-features-are-not-fetched) |
@@ -236,12 +236,14 @@ with it; the helper waits a limit out and says so in the verdict rather than rea
 
 What a forge does differently in kind - GitHub sends a job's log behind a redirect to storage, another forge as an
 archive or a trace per step - is code, and that code is not Porelo's. A forge is read by a **build reader**: an
-executable built on the published `porelo-build-api`, speaking `org.fuin.porelo.Build1` over a socket with a protocol
+executable built on the published `porelo-build-api`, speaking `org.fuin.porelo.Build2` over a socket with a protocol
 version Porelo checks, installed under `/usr/libexec/porelo/builds/<forge>` and found at run time, as an agent is. Each
 lives in a repository of its own - `porelo-build-github` first - and nothing in `porelo` names a forge; the stub reader
 the tests use is the only one in this tree. The contract fixes what every reader hands over, whatever its forge:
 the verdict across a commit's runs, every job once it is final, and a job's log as plain text, its last 64 KiB, with
-at most 2 MiB of logs in all.
+at most 2 MiB of logs in all. Its `build` operation accepts `none` for logs: the verdict and jobs are returned
+without downloading logs. An incompatible installed reader is refused by name, with the build interface it
+serves and the interface Porelo requires.
 **The exposure:** a reader runs on the host with the forge token in each call; it is a package the operator installs,
 and trusted as one.
 ## Waiting for a person is never inferred from silence

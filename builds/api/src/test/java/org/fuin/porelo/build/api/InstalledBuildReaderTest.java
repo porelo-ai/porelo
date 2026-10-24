@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
 import java.util.Map;
+import org.fuin.porelo.wire.varlink.VarlinkException;
 import org.fuin.porelo.wire.varlink.VarlinkServer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -30,13 +31,13 @@ class InstalledBuildReaderTest {
             assertThat(reader.head(TARGET, "gone"))
                     .as("a branch the forge does not have")
                     .isEmpty();
-            assertThat(reader.look(TARGET, "c".repeat(40), Build.Logs.FAILURE))
+            assertThat(reader.build(TARGET, "c".repeat(40), Build.Logs.FAILURE))
                     .isEqualTo(new Build(Build.SUCCESS, ""));
-            assertThat(reader.look(TARGET, "c".repeat(40), Build.Logs.ALL).jobs())
+            assertThat(reader.build(TARGET, "c".repeat(40), Build.Logs.ALL).jobs())
                     .as("which logs are wanted crosses the socket")
                     .singleElement()
                     .satisfies(job -> assertThat(job.logText()).isEqualTo("all green\n"));
-            final Build failed = reader.look(TARGET, "f".repeat(40), Build.Logs.FAILURE);
+            final Build failed = reader.build(TARGET, "f".repeat(40), Build.Logs.FAILURE);
             assertThat(failed.verdict()).isEqualTo(Build.FAILURE);
             assertThat(failed.jobs())
                     .singleElement()
@@ -56,7 +57,7 @@ class InstalledBuildReaderTest {
         try (InstalledBuildReader reader =
                 new InstalledBuildReader(java(FakeReader.class), "fake", socket())) {
 
-            assertThatThrownBy(() -> reader.look(TARGET, "r".repeat(40), Build.Logs.FAILURE))
+            assertThatThrownBy(() -> reader.build(TARGET, "r".repeat(40), Build.Logs.FAILURE))
                     .isInstanceOfSatisfying(
                             BuildRefused.class,
                             refused -> {
@@ -83,7 +84,7 @@ class InstalledBuildReaderTest {
         // task was started again.
         try (InstalledBuildReader reader =
                 new InstalledBuildReader(java(FakeReader.class), "fake", socket())) {
-            assertThatThrownBy(() -> reader.look(TARGET, "x".repeat(40), Build.Logs.FAILURE))
+            assertThatThrownBy(() -> reader.build(TARGET, "x".repeat(40), Build.Logs.FAILURE))
                     .isInstanceOf(BuildReaderException.class);
 
             assertThat(reader.head(TARGET, "main")).isEqualTo("a".repeat(40));
@@ -97,7 +98,7 @@ class InstalledBuildReaderTest {
         // answer was refused in every round, for as long as the commit was watched.
         try (InstalledBuildReader reader =
                 new InstalledBuildReader(java(FakeReader.class), "fake", socket())) {
-            final Build build = reader.look(TARGET, "m".repeat(40), Build.Logs.ALL);
+            final Build build = reader.build(TARGET, "m".repeat(40), Build.Logs.ALL);
 
             assertThat(build.jobs())
                     .hasSize(Build.MOST_JOBS)
@@ -107,6 +108,39 @@ class InstalledBuildReaderTest {
                                             .as("each log's end, where it failed")
                                             .endsWith("END\n"));
         }
+    }
+
+    @Test
+    void refusesAnAdapterOfTheFirstVersionByName() throws IOException {
+        // An old adapter must not silently answer a renamed method or hide behind a startup
+        // failure.
+        final Path executable = java(FirstVersion.class);
+        assertThatThrownBy(
+                        () -> {
+                            try (InstalledBuildReader ignored =
+                                    new InstalledBuildReader(executable, "fake", socket())) {}
+                        })
+                .as("the first version is refused before any build is asked for")
+                .isInstanceOf(BuildReaderException.class)
+                .hasMessageContaining(executable.toString())
+                .hasMessageContaining("org.fuin.porelo.Build1")
+                .hasMessageContaining("org.fuin.porelo.Build2");
+        assertThat(socket()).as("a refused adapter leaves no socket").doesNotExist();
+        final long pid = Long.parseLong(Files.readString(directory.resolve("reader.pid")));
+        assertThat(ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false))
+                .as("a refused adapter leaves no running process")
+                .isFalse();
+    }
+
+    @Test
+    void keepsOtherDescribeErrorsAsStartupFailures() throws IOException {
+        // A broken adapter must not be misdiagnosed as an incompatible installation.
+        final Path executable = java(FailedDescribe.class);
+        assertThatThrownBy(() -> new InstalledBuildReader(executable, "fake", socket()))
+                .as("only a missing Describe triggers interface discovery")
+                .isInstanceOf(BuildReaderException.class)
+                .hasMessageContaining(executable + " failed to start:")
+                .hasMessageContaining("org.varlink.service.InvalidParameter");
     }
 
     @Test
@@ -158,6 +192,63 @@ class InstalledBuildReaderTest {
         assertThatThrownBy(() -> InstalledBuildReader.find("../fake", List.of(own)))
                 .as("a name is never a path")
                 .isInstanceOf(BuildReaderException.class);
+    }
+
+    /** An installed adapter that still serves the first version. */
+    public static final class FirstVersion {
+
+        /**
+         * Serves the old interface without accepting a build request.
+         *
+         * @param arguments {@code serve <socket>}.
+         * @throws IOException When the process id cannot be recorded.
+         */
+        public static void main(final String[] arguments) throws IOException {
+            final Path socket = Path.of(arguments[1]);
+            try (VarlinkServer server = new VarlinkServer(socket, "org.fuin.porelo.Build1")) {
+                server.method(
+                        "Describe",
+                        (parameters, replies) ->
+                                replies.last(Map.of("protocolVersion", 1, "forge", "fake")));
+                server.method(
+                        "Look",
+                        (parameters, replies) -> {
+                            throw new AssertionError(
+                                    "An incompatible adapter must not be asked for a build");
+                        });
+                Files.writeString(
+                        socket.resolveSibling("reader.pid"),
+                        Long.toString(ProcessHandle.current().pid()));
+                System.out.println("ready " + socket);
+                System.out.flush();
+                server.run();
+            }
+        }
+    }
+
+    /** An adapter whose Describe fails for a reason other than a missing method. */
+    public static final class FailedDescribe {
+
+        /**
+         * Serves a failing handshake.
+         *
+         * @param arguments {@code serve <socket>}.
+         */
+        public static void main(final String[] arguments) {
+            try (VarlinkServer server =
+                    new VarlinkServer(Path.of(arguments[1]), BuildProtocol.INTERFACE)) {
+                server.method(
+                        "Describe",
+                        (parameters, replies) -> {
+                            throw new VarlinkException(
+                                    "org.varlink.service.InvalidParameter",
+                                    Map.of("parameter", "configuration"));
+                        });
+                System.out.println("ready " + arguments[1]);
+                System.out.flush();
+                server.run();
+            }
+        }
     }
 
     /** A reader that answers Describe with a protocol version no Porelo speaks. */

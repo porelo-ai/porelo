@@ -35,7 +35,8 @@ import org.jspecify.annotations.Nullable;
  * there is the only one accepted; any other is refused as the forge would refuse it, so a test sees
  * that the token Porelo sends is the vault's. A {@code refuse} refuses every call. Its jobs are
  * listed once the verdict is failure or final, each with its log when it failed, or every one's
- * when every log is asked for and the verdict is final - as a forge's reader does.
+ * when every log is asked for and the verdict is final, or no log for {@link Build.Logs#NONE} - as
+ * a forge's reader does.
  */
 public final class StubReader implements BuildReader {
 
@@ -105,7 +106,7 @@ public final class StubReader implements BuildReader {
     }
 
     @Override
-    public Build look(final Target target, final String commit, final Build.Logs logs) {
+    public Build build(final Target target, final String commit, final Build.Logs logs) {
         final Map<?, ?> read = read(target);
         if (!(read.get("builds") instanceof Map<?, ?> builds)
                 || !(builds.get(commit) instanceof Map<?, ?> build)) {
@@ -120,7 +121,9 @@ public final class StubReader implements BuildReader {
                 if (each instanceof Map<?, ?> job) {
                     final String result = text(job.get("result"));
                     final Object log =
-                            "failure".equals(result) || logs == Build.Logs.ALL
+                            logs == Build.Logs.ALL
+                                            || (logs == Build.Logs.FAILURE
+                                                    && "failure".equals(result))
                                     ? job.get("log")
                                     : null;
                     jobs.add(

@@ -97,7 +97,7 @@ public final class BuildWatch {
          * @return The build.
          * @throws BuildRefused When the forge would not answer.
          */
-        Build look(String commit);
+        Build build(String commit);
     }
 
     /**
@@ -223,7 +223,7 @@ public final class BuildWatch {
         try {
             follow(forge.head(branch));
             for (final Map.Entry<String, Watched> each : List.copyOf(watched.entrySet())) {
-                look(each.getKey(), each.getValue());
+                build(each.getKey(), each.getValue());
             }
             troubled("");
             return POLL;
@@ -300,8 +300,8 @@ public final class BuildWatch {
         }
     }
 
-    private void look(final String commit, final Watched each) {
-        final Build build = forge.look(commit);
+    private void build(final String commit, final Watched each) {
+        final Build build = forge.build(commit);
         final Instant now = clock.instant();
         if (Build.UNKNOWN.equals(build.verdict()) && now.isBefore(each.pushed.plus(GRACE))) {
             return;

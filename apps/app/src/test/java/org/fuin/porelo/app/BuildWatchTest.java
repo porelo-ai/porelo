@@ -95,7 +95,7 @@ class BuildWatchTest {
                     }
 
                     @Override
-                    public Build look(final String commit) {
+                    public Build build(final String commit) {
                         refuse();
                         looked.add(commit);
                         return forge.getOrDefault(
