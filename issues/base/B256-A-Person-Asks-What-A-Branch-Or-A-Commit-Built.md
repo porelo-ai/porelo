@@ -1,6 +1,6 @@
 # B256 — A Person Asks What a Branch or a Commit Built
 
-**Status:** Backlog, for sprint 3; blocked by [B253](README.md#b253).
+**Status:** Implementing, for sprint 3.
 **Size:** M - a new command group in `app-task` with one class shared with the build watch, its tests, three pages,
 an acceptance feature against the stub and a changelog entry; no daemon method and no contract another repository
 reads.
@@ -52,8 +52,9 @@ contract as [B253](README.md#b253) leaves it (`Build2`, `build`, `Build.Logs.NON
    one implementation; the command only renders it, so a daemon method later renders the same record. Human: the
    commit, the verdict and detail, one line per job with its result, then each job log asked for under its job's
    name. `--json`: one object of those fields, a job's log as text (`Job.logText`). **A log is the forge's text and
-   reaches a terminal**: in the human form every control character but newline and tab is written as `\x..`, so a
-   log cannot move the cursor, set a title or hide a line; `--json` escapes them anyway.
+   reaches a terminal**: in the human form every control character but newline and tab is written as `\x..`, and
+   every format character (a bidirectional override, an invisible joiner) as `\u....`, so a log cannot move the
+   cursor, set a title, hide a line or reorder one; `--json` escapes the controls anyway.
 7. **Refusals and exit codes**, each a named value: unknown project 2 and repository not chosen 64, as `task start`;
    both or neither of `--branch`/`--commit`, a short commit 64; no `builds:` 78; locked vault or missing entry 77;
    adapter not installed, `Unreachable`, `RateLimited` (with its retry-after), `CredentialRefused`, `NoSuchRepository`
@@ -79,10 +80,3 @@ entry; a log holding `ESC[2J` prints `\x1b[2J`; the token string is in neither s
 - On the VM against the stub (`build-status.feature`, beside `task-builds.feature`, `@slow`): a failed and a passed
   build of a branch, a commit, `--logs=none`, a project without `builds:`, a missing credential entry and a refusal the
   stub is told to give, each with its exit code; the token absent from both streams.
-
-## To be checked
-
-- That `WorkOrigin.followedNaming` writes nothing, read whole, and what it answers for a checkout of the project's
-  own repository.
-- Whether the `github` adapter accepts an abbreviated commit; if it does, `--commit` may take one and say the full
-  name it was read as.

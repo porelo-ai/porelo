@@ -235,23 +235,6 @@ public class TaskWatchBuildsCommand implements Callable<Integer>, PoreloFactory.
      *     is told as it is.
      */
     private Target target() {
-        final var entries = context.readableCredentials();
-        if (entries.isEmpty()) {
-            throw new BuildWatch.NotNow(
-                    "the vault is shut, so Porelo cannot read the forge credential '"
-                            + credential
-                            + "'; it asks the forge again once the vault is unlocked");
-        }
-        final var entry = entries.get().get(credential);
-        if (entry == null) {
-            throw new BuildWatch.NotNow(
-                    "the vault holds no entry '"
-                            + credential
-                            + "', which the project names for"
-                            + " builds; store it with 'porelo vault put "
-                            + credential
-                            + "'");
-        }
-        return new Target(upstream, api, entry.value());
+        return BuildTarget.of(context, upstream, api, credential);
     }
 }

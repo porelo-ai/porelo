@@ -109,13 +109,43 @@ public final class BuildWatch {
 
         private static final long serialVersionUID = 1L;
 
+        /** Why the credential is unavailable on this machine. */
+        public enum Reason {
+            /** The vault cannot be read. */
+            VAULT_SHUT,
+            /** The readable vault does not contain the named entry. */
+            ENTRY_MISSING
+        }
+
+        private final Reason reason;
+
+        /**
+         * Returns why the credential is unavailable.
+         *
+         * @return The named reason.
+         */
+        public Reason reason() {
+            return reason;
+        }
+
+        /**
+         * Constructor with a named reason.
+         *
+         * @param reason Why the credential is unavailable.
+         * @param why What a person has to do.
+         */
+        public NotNow(final Reason reason, final String why) {
+            super(why);
+            this.reason = reason;
+        }
+
         /**
          * Constructor.
          *
          * @param why What a person has to do.
          */
         public NotNow(final String why) {
-            super(why);
+            this(Reason.VAULT_SHUT, why);
         }
     }
 

@@ -14,6 +14,15 @@ import java.nio.file.Path;
 public record TaskPaths(PoreloPaths paths) {
 
     /**
+     * Returns the parent of the private socket directories used by build queries.
+     *
+     * @return A directory under this account's runtime root.
+     */
+    public Path buildQueries() {
+        return paths.xdg().runtime().resolve("build-queries");
+    }
+
+    /**
      * Returns the directory holding the runtime state of one container.
      *
      * @param container Container name.

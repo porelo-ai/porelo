@@ -289,6 +289,24 @@ builds:
   GitHub, `sudo apt install porelo-build-github` or `sudo dnf install porelo-build-github`, which puts it at
   `/usr/libexec/porelo/builds/github`. Writing one is in [writing a build reader](build-readers.md).
 
+## Asking what a branch or a commit built
+
+Ask the same forge reader without starting a task:
+
+```bash
+porelo build status -p myproject -r backend --branch=main
+porelo build status -p myproject -r backend --commit="$(git rev-parse HEAD)" --logs=all --json
+```
+
+The project must name `builds:` and be `online`. The default log policy is `failure`; `--logs=all` asks for every
+job's log and `--logs=none` asks for none. In a checkout of a followed project, omit `-p` and `-r` to use the project
+and repository its origin matches. A query never adds a checkout to `default`. The token stays on the host, in the
+vault and the reader's socket calls; human output escapes terminal controls in the forge's text.
+
+A failed or cancelled build exits 1; a queued, running, successful or unknown build exits 0. A refused query exits
+separately and names the next action; the [command reference](commands.md#build) lists every code and the JSON
+fields.
+
 ## Values a task is started with
 
 A project can declare values a task of it is started with, under `parameters` in the

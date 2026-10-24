@@ -19,6 +19,7 @@ import picocli.CommandLine.Spec;
         description = "Runs AI agent tasks inside hardened, rootless containers.",
         subcommands = {
             TaskCommand.class,
+            BuildCommand.class,
             ShieldCommand.class,
             VaultCommand.class,
             CredentialsCommand.class,

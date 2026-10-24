@@ -5,6 +5,11 @@ executable of its own, installed on the host, which Porelo starts and asks over 
 task. What a task sees of it is in [being told what the build did](running.md#being-told-what-the-build-of-a-push-did).
 This page is for whoever writes one for a forge Porelo does not read yet.
 
+[`porelo build status`](commands.md#build) asks the same installed reader by hand, for a branch or a full commit.
+Its repository, API address and credential entry come from the project's `builds:` declaration. Each query starts
+the reader with a socket in a new owner-only directory under the account's runtime directory and removes that
+directory when it finishes, including after a refusal. The token travels only in the socket call.
+
 ## What it is built on
 
 `porelo-build-api` on Central, and `porelo-wire` beside it: nothing else of Porelo's. A reader implements one

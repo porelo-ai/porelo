@@ -7,6 +7,7 @@ file are in [the project file](project-file.md).
 | Group | What it does |
 |---|---|
 | [`task`](#task) | Runs and inspects agent tasks. |
+| [`build`](#build) | Asks a project's forge what a branch or a commit built. |
 | [`shield`](#shield) | Inspects and changes what a task may reach. |
 | [`vault`](#vault) | Manages stored credentials. |
 | [`credentials`](#credentials) | Records which credential each destination is connected to with. |
@@ -89,6 +90,39 @@ takes `porelo approve TASK`; `--yes` answers for a script.
 | a push never arrives | `porelo gate pending`: it waits for review |
 | "hooks are not registered" | `porelo setup`; starting a task does it too |
 | everything at once | `porelo panic`, which removes nothing |
+
+## build
+
+| Command | What it does |
+|---|---|
+| `porelo build status -p PROJECT [-r REPOSITORY] --branch=BRANCH` | Reads the branch's head, its build verdict, jobs and failed jobs' logs. |
+| `porelo build status -p PROJECT [-r REPOSITORY] --commit=SHA` | Reads the build of a full 40- or 64-character hexadecimal object name. |
+
+Choose exactly one of `--branch` and `--commit`. `-p`/`--project` and `-r`/`--repository` take keys from the
+project file. Without `-p`, this checkout's origin must match a followed project; the query never adds the checkout
+to `default`. Without `-r`, the matched repository is used, or the project's own when it is the only repository;
+otherwise the command names the keys to choose from.
+
+`--logs=failure` is the default; `--logs=all` reads every job's log, and `--logs=none` requests no logs.
+`--json` writes one object with `project`, `repository`, `branch` (null for a commit query), `commit`, `verdict`,
+`detail` and `jobs`; each job has `name`, `result` and `log` as text. Human output escapes every control character
+except newline and tab as `\xNN`, and every format character - a bidirectional override, an invisible joiner -
+as `\uNNNN`, both in lower-case hexadecimal, so a log cannot rewrite or reorder what the terminal shows.
+
+The project must declare `builds:` and `security_class: online`; see [the project file](project-file.md).
+The reader and its API come from that declaration and the credential comes from the vault on the host.
+At a terminal a shut vault asks for its passphrase; a script must unlock it first. The token is never printed.
+
+| Exit | Meaning |
+|---|---|
+| 0 | A `success`, `queued`, `running` or `unknown` build answer. |
+| 1 | A `failure` or `cancelled` build answer. |
+| 2 | The project is unknown or no followed project matches the checkout. |
+| 64 | Invalid options, an abbreviated commit, or a repository that needs to be chosen. |
+| 69 | The reader is not installed, the branch is absent, or the forge refuses the query; the message names the next action. |
+| 70 | The reader gave no answer or another unexpected failure occurred; the trace is in `failures.log`. |
+| 77 | The vault is shut or the credential entry is missing. |
+| 78 | The project has no `builds:` configuration, including `default`. |
 
 ## task
 
