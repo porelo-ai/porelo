@@ -541,6 +541,12 @@ is one line in `stops.log` in the state directory - when, who, from where (`cli`
 survived - written even when nothing ran; the daemon's `Panic` answers that line as `journalled`. Nothing is removed; everything can be
 started again.
 
+A stop ends 0 only when no task it stopped still has its container running: a container counts as stopped only when
+the runtime answers a stopped state for the id Porelo recorded, and anything else - stopping, paused, unknown, a failed
+question - counts as still running. `task stop`, `task stop --all`, `panic`, `task remove`, `clear` and `project
+unfollow` name each survivor on standard error as `porelo: still running: …` and end 70, and a removal that is not
+confirmed keeps every record of the task, so a later stop or removal still finds it.
+
 ## daemon
 
 `porelo daemon connect` bridges standard input and output to the daemon's socket, for use as an ssh
