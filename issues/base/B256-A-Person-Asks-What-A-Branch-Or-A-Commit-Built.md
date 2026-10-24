@@ -1,6 +1,6 @@
 # B256 — A Person Asks What a Branch or a Commit Built
 
-**Status:** Analyzed, for sprint 3; blocked by [B253](README.md#b253).
+**Status:** Backlog, for sprint 3; blocked by [B253](README.md#b253).
 **Size:** M - a new command group in `app-task` with one class shared with the build watch, its tests, three pages,
 an acceptance feature against the stub and a changelog entry; no daemon method and no contract another repository
 reads.

@@ -1,6 +1,6 @@
 # B253 — Every Forge Adapter Speaks the Build Contract's Second Version
 
-**Status:** Analyzed.
+**Status:** Backlog, for sprint 3.
 **Size:** M - one contract change in `builds/api` (interface file, server, client and handshake), the stub and two
 callers in `app-task` moved with it, its documentation and a changelog entry; the suite and the adapters are
 `porelo-adapters`'s.
