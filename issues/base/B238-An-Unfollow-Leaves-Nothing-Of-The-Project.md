@@ -1,6 +1,8 @@
 # B238 — An Unfollow Leaves Nothing Of The Project
 
-**Status:** Implementing.
+**Status:** Rework, after sprint 2c is ready for the operator's test. Its main part is published (snapshot 318).
+The rework is the follow stopped before an unfollow removes the project's clone: rebased onto main past the change
+that confirms a stop by the recorded container id, its test seen red again, then the VM chain.
 **Size:** XS - one file, `ProjectDeletion`, and its test; the kinds `BUILD` and `UPSTREAM_RECORD` exist, so no contract.
 
 **What must be true.** `porelo project unfollow` removes what Porelo kept for building and fetching the project, so
