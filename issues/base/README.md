@@ -26,19 +26,14 @@ from its side, as *blocked by*.
 | <a id="b264"></a>[B264](B264-A-Word-To-A-Helper-Wakes-No-Task.md) | S | - | A person's word in the room that names only a helper account, the administrator or the relay, wakes no task, and the person is told so; one naming nobody still reaches every agent |
 | <a id="b273"></a>[B273](B273-A-Conversation-Says-What-It-Waits-On.md) | S | - | A project's conversation says what it waits on in `waitsOn` (`"vault"` or `""`) beside its sentence, so an interface offers the unlock without reading words |
 | <a id="b269"></a>[B269](B269-Git-By-The-Persons-Key-Or-Token-With-No-Deploy-Key.md) | M | - | porelo makes and names no deploy key: git reaches a project's repositories with the person's own ssh key or token from its vault, the forge's API with the token; follow, clear, unfollow and the pages keep that split; porelo's part of porelo-project [PJ69](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj69) |
+| <a id="b253"></a>[B253](B253-Every-Forge-Adapter-Speaks-The-Build-Contracts-Second-Version.md) | M | - | Porelo asks a forge adapter only over `org.fuin.porelo.Build2`, `Look` renamed `Build`, and refuses a `Build1` adapter by name; `none` joins the logs asked for; the stub moves with it, and `porelo-build-api` needs nothing new for `porelo-build-contract`, the suite `porelo-adapters` builds |
+| <a id="b256"></a>[B256](B256-A-Person-Asks-What-A-Branch-Or-A-Commit-Built.md) | M | - | `porelo build status -p <project> -r <repository>` with `--branch` or `--commit` asks the forge the project's `builds:` names for the verdict, the jobs and the logs asked for, the token from the vault and shown nowhere; a project without `builds:` is refused naming why |
 
 ## Rework
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b238"></a>[B238](B238-An-Unfollow-Leaves-Nothing-Of-The-Project.md) | XS | - | `project unfollow` removes the project's build lock and upstream copies, which `porelo prune` finds left over today |
-
-## Implementing
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="b253"></a>[B253](B253-Every-Forge-Adapter-Speaks-The-Build-Contracts-Second-Version.md) | M | - | Porelo asks a forge adapter only over `org.fuin.porelo.Build2`, `Look` renamed `Build`, and refuses a `Build1` adapter by name; `none` joins the logs asked for; the stub moves with it, and `porelo-build-api` needs nothing new for `porelo-build-contract`, the suite `porelo-adapters` builds |
-| <a id="b256"></a>[B256](B256-A-Person-Asks-What-A-Branch-Or-A-Commit-Built.md) | M | - | `porelo build status -p <project> -r <repository>` with `--branch` or `--commit` asks the forge the project's `builds:` names for the verdict, the jobs and the logs asked for, the token from the vault and shown nowhere; a project without `builds:` is refused naming why |
 
 ## Backlog
 

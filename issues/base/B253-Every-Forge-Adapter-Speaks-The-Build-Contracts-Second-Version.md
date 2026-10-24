@@ -1,6 +1,6 @@
 # B253 — Every Forge Adapter Speaks the Build Contract's Second Version
 
-**Status:** Implementing, for sprint 3.
+**Status:** Review, published by the Build on `c49fd9a7` of 2026-10-24.
 **Size:** M - one contract change in `builds/api` (interface file, server, client and handshake), the stub and two
 callers in `app-task` moved with it, its documentation and a changelog entry; the suite and the adapters are
 `porelo-adapters`'s.

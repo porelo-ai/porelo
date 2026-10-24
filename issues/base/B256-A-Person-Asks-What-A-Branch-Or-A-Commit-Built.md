@@ -1,6 +1,6 @@
 # B256 — A Person Asks What a Branch or a Commit Built
 
-**Status:** Implementing, for sprint 3.
+**Status:** Review, published by the Build on `c49fd9a7` of 2026-10-24.
 **Size:** M - a new command group in `app-task` with one class shared with the build watch, its tests, three pages,
 an acceptance feature against the stub and a changelog entry; no daemon method and no contract another repository
 reads.
