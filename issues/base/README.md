@@ -114,6 +114,7 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b271"></a>[B271](B271-A-Login-Is-Cancelled-From-Its-Own-Terminal.md) | - | - | `porelo vault login` can always be ended from its own terminal, whatever the agent's login screen does with Ctrl-C: the login container is stopped and removed, nothing is stored, and it ends non-zero |
+| <a id="b272"></a>[B272](B272-A-Sign-In-Is-Renewed-On-The-Host-On-Request.md) | - | - | `porelo vault renew <name>` renews an agent's own sign-in now, on the host, under the vault's lock, as a broker does, printing only its new end |
 | <a id="b263"></a>[B263](B263-A-Task-Image-Built-Past-A-Stalled-Mirror.md) | - | - | A task image's build tries a second Ubuntu mirror after a bounded first attempt, rather than one fixed Azure mirror a stalled node can hold for 600 s |
 | <a id="b262"></a>[B262](B262-A-Stops-Survivors-In-The-Form-Its-Interface-Declares.md) | - | - | The daemon's `Stop` answers `surviving` in the type its interface declares; today it sends a list where `int` is declared, and porelo-frontend reads it as 0 |
 | <a id="b254"></a>[B254](B254-A-Task-Has-Its-Work-Built-On-A-Declared-Kind.md) | - | `porelo` [B253](README.md#b253) | A task asks for its work to be built on a machine kind the project declares and reads the verdict and log in `/porelo/files`; an undeclared kind or command is refused |
