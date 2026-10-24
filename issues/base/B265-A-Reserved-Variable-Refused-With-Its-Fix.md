@@ -26,9 +26,11 @@ sentence.
   - `RepositoryImageReader.PORELO_OWNS` and the copy of the list in `Parameter`'s `env` check read it, so the three
     lists become one.
 - **The refusal** in `RepositoryImageReader.env` names the value and the fix:
-  `porelo.yml at refs/heads/main of matrix: 'image.env.LANG' is set by Porelo to C.UTF-8 in every task; remove the
-  line - the task has that value without it`. A `PORELO_*` name says Porelo sets it per task, and that a value the
-  repository needs goes under another name.
+  `porelo.yml at refs/heads/main of matrix: 'image.env.LANG' is set by Porelo to C.UTF-8 in every task; the file is
+  the repository's, so whoever commits there removes the line - the task has that value without it`. A `PORELO_*` name
+  says Porelo sets it per task, and that a value the repository needs goes under another name.
+- **Every refusal of a repository's `porelo.yml` says that nothing was created**: today the refusal before the fetch
+  (`TaskLaunch`, the preview) ends 64 without that line, the one after the fetch with it. Both end the same way.
 - **Test red first:** `RepositoryImageReaderTest` asserts that the refusal of `LANG` contains `C.UTF-8` and
   `remove the line`, and that the `ENV` lines `Containerfile` writes carry the same values `TaskVariables` names.
   The second holds the one place: a value changed in `Containerfile` alone fails it.

@@ -93,5 +93,7 @@ On the Ubuntu VM (`ubuntu26.04`, 6 cores, podman 5.7.0, account `core`), with `u
 ## To be checked
 
 - That a JVM in a task with `--cpus 2` reads 2 from `availableProcessors()` (a JDK image on the VM).
+- That GraalVM's `native-image` in a task sizes its build threads from the CPU limit (the quota or
+  `OMP_NUM_THREADS`), not the host's cores; a native build in a task is the largest such build today.
 - Open files and the delegated controllers on the Fedora VM.
 - That `taskset` (util-linux) is on every machine the packages install on, or is declared as a dependency.
