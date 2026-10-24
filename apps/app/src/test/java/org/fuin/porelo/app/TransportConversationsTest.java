@@ -30,6 +30,164 @@ class TransportConversationsTest {
 
     private final FakeCommandRunner runner = new FakeCommandRunner();
 
+    @Test
+    void aWordToHelpersIsAnsweredOnceAsTheProjectWithoutWakingAnyTask() throws Exception {
+        // A helper mention must not wake tasks or use their credentials to answer for the relay.
+        answerToHelpers(0);
+    }
+
+    @Test
+    void aFailedHelperAnswerLeavesNoFilesAndWakesNoTaskAndIsNeverRetried() throws Exception {
+        // A failed answer must not wake tasks or keep files that send it again on the next pass.
+        answerToHelpers(TransportSend.TEMPORARY);
+    }
+
+    private void answerToHelpers(int exit) throws Exception {
+        final String line =
+                "This is Porelo's technical account; it passes your messages on to the tasks and does not answer itself. Mention a task to reach it.";
+        final List<Path> temporary = new java.util.ArrayList<>();
+        final List<byte[]> answers = new java.util.ArrayList<>();
+        final List<String> signatures = new java.util.ArrayList<>();
+        final List<String> shown = new java.util.ArrayList<>();
+        runner.answering(
+                "describe",
+                "{\"scheme\":\"room\",\"poll\":true,\"persons\":true,\"shown\":true,\"mention\":true,\"lifecycle\":[\"setup\",\"enroll\",\"join\"]}");
+        runner.answering(
+                "setup",
+                "{\"account\":{\"ADMIN\":\"a-1\"},\"secrets\":{\"POLLER\":\"p-1\"},\"conversation\":\"!room-p\",\"reaches\":[\"127.0.0.1\"]}");
+        runner.answering("enroll", "{\"secrets\":{\"TASK\":\"t-1\"},\"address\":\"@review\"}");
+        runner.answering("join", "{\"login\":{\"user\":\"@alice\"}}");
+        runner.failing(" send ", exit, exit == 0 ? "" : "the homeserver is busy");
+        final PoreloContext context =
+                context(
+                                command -> {
+                                    final List<String> arguments = command.arguments();
+                                    if (arguments.contains("send")) {
+                                        try {
+                                            final Path message = Path.of(arguments.get(2));
+                                            final Path signature = Path.of(arguments.get(3));
+                                            final Path shownFile =
+                                                    Path.of(
+                                                            arguments.get(
+                                                                    arguments.indexOf("--shown")
+                                                                            + 1));
+                                            temporary.addAll(
+                                                    List.of(message, signature, shownFile));
+                                            answers.add(Files.readAllBytes(message));
+                                            signatures.add(Files.readString(signature));
+                                            shown.add(Files.readString(shownFile));
+                                        } catch (IOException ex) {
+                                            throw new java.io.UncheckedIOException(ex);
+                                        }
+                                    }
+                                    return runner.run(command);
+                                })
+                        .asking(prompt -> PASSPHRASE.clone());
+        Files.createDirectories(context.vault().path().getParent());
+        context.vault().write(Map.of(), PASSPHRASE);
+        assertThat(
+                        context.openerAsking(
+                                false, new java.io.PrintWriter(java.io.Writer.nullWriter())))
+                .as("the fixture opens its own vault without a kernel keyring")
+                .isPresent();
+        final TransportLifecycle lifecycle =
+                new TransportLifecycle(context, context.paths().messaging().transportDirectory());
+        lifecycle.setup("room", "p", Map.of());
+        lifecycle.enroll("room", "p", "porelo-p-review", Map.of());
+        new TaskConversations(context).join(context, project("guarded"), "alice", false);
+        assertThat(lifecycle.people("room", "p"))
+                .as("the fixture admits the sender")
+                .containsEntry("alice", "@alice");
+        final var key = HostKey.loadOrCreate(context.paths().messaging().messageKey(), "fixture");
+        final Mailbox review = mailbox("porelo-p-review");
+        final Mailbox build = mailbox("porelo-p-build");
+        final Path inbound =
+                Files.createDirectories(
+                        context.paths().xdg().state().resolve("transport/room/inbound/p"));
+        final String name = "arrival--room-person-helper.json";
+        Files.writeString(
+                inbound.resolve(name),
+                "{\"sender\":\"@alice\",\"body\":\"Who are you?\",\"to\":[],\"helpers\":true}");
+        final List<TransportConversations.Member> members =
+                List.of(
+                        new TransportConversations.Member("porelo-p-review", review, "p", "room"),
+                        new TransportConversations.Member("porelo-p-build", build, "p", "room"));
+        final TransportConversations conversations =
+                new TransportConversations(
+                        context, context.paths().messaging().transportDirectory());
+
+        final TransportConversations.Outcome outcome = conversations.pass(members);
+        conversations.pass(members);
+
+        final List<org.fuin.porelo.core.process.Command> sends =
+                runner.invocations().stream()
+                        .filter(command -> command.arguments().contains("send"))
+                        .toList();
+        assertThat(sends).as("the relay answers exactly once and never queues a retry").hasSize(1);
+        final var sent = sends.getFirst();
+        assertThat(sent.environment())
+                .as("only the project's polling credential answers")
+                .containsEntry("POLLER", "p-1")
+                .doesNotContainKeys("ADMIN", "TASK");
+        assertThat(sent.arguments())
+                .as("the answer goes to the project's room and mentions its author")
+                .containsSubsequence("--to", "!room-p")
+                .containsSubsequence("--mention", "@alice");
+        assertThat(shown)
+                .as("the host supplies the standard line while send runs")
+                .containsExactly(line);
+        final Map<?, ?> answer =
+                (Map<?, ?>)
+                        org.fuin.porelo.wire.Json.parse(
+                                new String(answers.getFirst(), StandardCharsets.UTF_8));
+        assertThat(((Map<?, ?>) answer.get("metadata")).get("from"))
+                .as("Porelo speaks for its own technical account")
+                .isEqualTo("porelo");
+        assertThat(((Map<?, ?>) answer.get("metadata")).get("to"))
+                .as("the answer addresses the person's account")
+                .isEqualTo("@alice");
+        assertThat(
+                        TransportSend.shown(
+                                new String(answers.getFirst(), StandardCharsets.UTF_8), "porelo"))
+                .as("the signed message holds the same standard line")
+                .isEqualTo(line);
+        assertThat(
+                        org.fuin.porelo.vault.SshSignature.verify(
+                                answers.getFirst(),
+                                signatures.getFirst(),
+                                key.keyBlob(),
+                                MessageIntake.NAMESPACE))
+                .as("the normal host message key signs the exact answer bytes")
+                .isTrue();
+        assertThat(outcome.handed()).as("no task is handed the helper mention").isEmpty();
+        for (final Mailbox mailbox : List.of(review, build)) {
+            try (var files = Files.walk(mailbox.root())) {
+                assertThat(files.filter(Files::isRegularFile))
+                        .as("no task gains a message or queued answer")
+                        .isEmpty();
+            }
+        }
+        try (var files = Files.list(inbound)) {
+            assertThat(files).as("the person file and all answer files are removed").isEmpty();
+        }
+        assertThat(temporary)
+                .as("message, signature and shown line were supplied")
+                .hasSize(3)
+                .allSatisfy(
+                        file ->
+                                assertThat(file)
+                                        .as("an answer file is removed after sending")
+                                        .doesNotExist());
+        assertThat(outcome.failures())
+                .as("the hand-out says whether the person was answered")
+                .contains(
+                        exit == 0
+                                ? "answered " + name + ": it named only the room's helpers"
+                                : "could not answer "
+                                        + name
+                                        + ": the transport refused it, exit 75");
+    }
+
     private PoreloContext context() throws IOException {
         return context(runner);
     }

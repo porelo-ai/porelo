@@ -193,7 +193,19 @@ final class TransportConversations {
                 }
                 final Map<String, String> accounts = lifecycle.addresses(scheme, project);
                 final Map<String, String> people = lifecycle.people(scheme, project);
-                dropped += handOut(inbound, group, accounts, people, handed, failures);
+                dropped +=
+                        handOut(
+                                inbound,
+                                group,
+                                accounts,
+                                people,
+                                handed,
+                                failures,
+                                new HelperAnswer(
+                                        context,
+                                        adapter,
+                                        secrets,
+                                        lifecycle.conversation(scheme, project)));
                 if (described.takes(DIRECT)) {
                     for (final Member member : group) {
                         if (!WAITING.contains(key(member.scheme(), member.container()))) {
@@ -372,7 +384,19 @@ final class TransportConversations {
                 poll(adapter, described, secrets, inbound, scheme, project, WAIT_SECONDS, failures);
                 final Map<String, String> accounts = lifecycle.addresses(scheme, project);
                 final Map<String, String> people = lifecycle.people(scheme, project);
-                dropped += handOut(inbound, group, accounts, people, handed, failures);
+                dropped +=
+                        handOut(
+                                inbound,
+                                group,
+                                accounts,
+                                people,
+                                handed,
+                                failures,
+                                new HelperAnswer(
+                                        context,
+                                        adapter,
+                                        secrets,
+                                        lifecycle.conversation(scheme, project)));
             } catch (IOException ex) {
                 failures.add(String.valueOf(ex.getMessage()));
             }
@@ -461,7 +485,18 @@ final class TransportConversations {
                 "what was said to " + member.container() + " directly",
                 member.scheme(),
                 failures);
-        return handOut(into, List.of(member), accounts, people, handed, failures);
+        return handOut(
+                into,
+                List.of(member),
+                accounts,
+                people,
+                handed,
+                failures,
+                new HelperAnswer(
+                        context,
+                        adapter,
+                        lifecycle.secrets(member.scheme(), "project/" + member.project()),
+                        lifecycle.conversation(member.scheme(), member.project())));
     }
 
     /**
@@ -502,6 +537,18 @@ final class TransportConversations {
             Map<String, String> handed,
             List<String> said)
             throws IOException {
+        return handOut(inbound, members, accounts, people, handed, said, null);
+    }
+
+    private static int handOut(
+            Path inbound,
+            List<Member> members,
+            Map<String, String> accounts,
+            Map<String, String> people,
+            Map<String, String> handed,
+            List<String> said,
+            @Nullable HelperAnswer answer)
+            throws IOException {
         final String project =
                 members.isEmpty() ? "this project" : "'" + members.getFirst().project() + "'";
         int dropped = 0;
@@ -517,6 +564,29 @@ final class TransportConversations {
                 if (words.refused() != null) {
                     said.add("dropped " + name + ": " + words.refused());
                     Files.deleteIfExists(message);
+                    dropped++;
+                    continue;
+                }
+                if (words.answerTo() != null) {
+                    try {
+                        final String why =
+                                answer == null
+                                        ? "the project's transport is unavailable"
+                                        : answer.send(inbound, words.answerTo());
+                        said.add(
+                                why == null
+                                        ? "answered " + name + ": it named only the room's helpers"
+                                        : "could not answer " + name + ": " + why);
+                    } catch (final IOException ex) {
+                        said.add(
+                                "could not answer "
+                                        + name
+                                        + ": the answer could not be written or removed");
+                    } finally {
+                        Files.deleteIfExists(message);
+                        Files.deleteIfExists(signature);
+                        Files.deleteIfExists(sender);
+                    }
                     dropped++;
                     continue;
                 }

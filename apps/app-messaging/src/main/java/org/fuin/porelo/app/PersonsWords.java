@@ -26,12 +26,14 @@ import org.jspecify.annotations.Nullable;
  * @param person Who wrote it, by the plain name they joined with.
  * @param message The message, as the agents get it.
  * @param refused Why nobody gets it, or {@code null}.
+ * @param answerTo The person's account to answer for a helper mention, or {@code null}.
  */
 record PersonsWords(
         List<TransportConversations.Member> readers,
         @Nullable String person,
         byte @Nullable [] message,
-        @Nullable String refused) {
+        @Nullable String refused,
+        @Nullable String answerTo) {
 
     /**
      * Reads a person's words as a transport handed them over.
@@ -71,6 +73,9 @@ record PersonsWords(
             // its agents, and an account the transport admitted is not yet somebody the project let
             // in.
             return refused("it is from " + sender + ", who is not in the project's conversation");
+        }
+        if (Boolean.TRUE.equals(said.get("helpers"))) {
+            return new PersonsWords(List.of(), person, null, null, sender);
         }
         final List<String> to = new ArrayList<>();
         final List<TransportConversations.Member> named = new ArrayList<>();
@@ -122,6 +127,7 @@ record PersonsWords(
                 direct ? named : members,
                 person,
                 Json.write(message).getBytes(StandardCharsets.UTF_8),
+                null,
                 null);
     }
 
@@ -154,6 +160,6 @@ record PersonsWords(
     }
 
     private static PersonsWords refused(final String why) {
-        return new PersonsWords(List.of(), null, null, why);
+        return new PersonsWords(List.of(), null, null, why, null);
     }
 }

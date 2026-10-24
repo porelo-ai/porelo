@@ -16,6 +16,54 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /** Guards the filter's ID alphabet, bound and distinct person messages. */
 class PersonsWordsTest {
+    @Test
+    void aWordNamingOnlyHelpersWakesNoTask(@TempDir Path dir) throws IOException {
+        // A word to a helper must not wake every agent to answer a question meant for nobody.
+        final List<TransportConversations.Member> members = members(dir);
+        final Path file = dir.resolve("person.json");
+        Files.writeString(
+                file,
+                "{\"sender\":\"@alice\",\"body\":\"Who are you?\",\"to\":[],\"helpers\":true}");
+
+        final PersonsWords words =
+                PersonsWords.read(file, members, Map.of(), Map.of("alice", "@alice"));
+
+        assertThat(words.readers()).as("a helper mention wakes no task").isEmpty();
+        assertThat(words.message()).as("no agent message is made for a helper mention").isNull();
+        assertThat(words.answerTo())
+                .as("the answer reaches the sender's account")
+                .isEqualTo("@alice");
+    }
+
+    private static List<TransportConversations.Member> members(Path dir) {
+        return List.of(
+                new TransportConversations.Member(
+                        "porelo-p-review", new Mailbox(dir.resolve("review")), "p", "room"),
+                new TransportConversations.Member(
+                        "porelo-p-build", new Mailbox(dir.resolve("build")), "p", "room"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", ",\"helpers\":false", ",\"helpers\":\"true\""})
+    void aWordWithoutTheBooleanHelperMarkerStillReachesEveryTask(String helpers, @TempDir Path dir)
+            throws IOException {
+        // Treating an absent or nonboolean marker as helpers would lose a person's room message.
+        final List<TransportConversations.Member> members = members(dir);
+        final Path file = dir.resolve("person.json");
+        Files.writeString(
+                file, "{\"sender\":\"@alice\",\"body\":\"Hello\",\"to\":[]" + helpers + "}");
+
+        final PersonsWords words =
+                PersonsWords.read(file, members, Map.of(), Map.of("alice", "@alice"));
+
+        assertThat(words.readers())
+                .as("ordinary room words reach every task")
+                .containsExactlyElementsOf(members);
+        assertThat(words.message())
+                .as("ordinary room words still become an agent message")
+                .isNotNull();
+    }
+
     private String id(Path file, String event) throws IOException {
         Files.writeString(
                 file, Json.write(Map.of("sender", "@alice", "body", "Hello", "eventId", event)));

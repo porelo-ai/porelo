@@ -66,9 +66,9 @@ kept in the account's vault and handed back; they are never shown, logged or put
 | `clear [--project P]` | when a project is cleared from the machine, with `--project`; when the account's vault is cleared, without | the account's secrets, and the project's with `--project` | `removed` |
 | `settings` | when a project file is checked | nothing: no secrets, no network | `refused`, `warnings` |
 
-- **Every map of secrets is complete** for the verbs that use it: a project's are exactly what `poll` reads, a
-  task's are what `send`, `read` and `receipt` read, and the account's go only to `setup`, `enroll`, `retire` and
-  `join`, never to `poll` or `send`.
+- **Every map of secrets is complete** for the verbs that use it: a project's are what `poll` reads and what
+  `send` uses for Porelo's own helper answers, a task's are what its `send`, `read` and `receipt` read, and the
+  account's go only to `setup`, `enroll`, `retire` and `join`, never to `poll` or `send`.
 - **`setup` is run again and again** and keeps what exists. A server whose first account exists while Porelo holds
   no account secrets is refused (78), not guessed around.
 - **`reaches`** is every host the project's messages reach; Porelo lets the transport reach those and nothing else.
@@ -84,3 +84,18 @@ kept in the account's vault and handed back; they are never shown, logged or put
 Porelo polls each conversation once per pass with the project's secrets, hands what arrived to every task of that
 project on this machine but the one that posted it, drops what no task here is to read, runs `read` with a task's secrets once its agent has moved a
 message into `inbox/cur`, and asks `receipt` about what a task sent, by the recipient's address.
+
+With `--persons`, a person's words arrive unsigned as `<time>--<scheme>-person-<id>.json`, holding `sender`
+(the person's account), `body`, `to` (the accounts mentioned), and optionally `eventId` and `direct`. The sender
+must be somebody who joined the project's conversation. A room message with an empty `to` reaches every task.
+When the line names only the room's helper accounts, the transport instead includes `"helpers": true` and an
+empty `to`: exactly the JSON boolean `true` means no task reads it. Any other value, or no field, keeps the
+ordinary delivery behavior.
+
+Porelo answers such a line itself, once, through the transport's `send`, using the project's secrets and
+conversation. It signs a message from `porelo` to the person's account with the normal host message key and
+passes this line as `--shown`, mentioning the person with `--mention`, when the transport announces those
+options: "This is Porelo's technical account; it passes your messages on to the tasks and does not answer
+itself. Mention a task to reach it." A failed answer is reported and never queued or retried; the person file
+and the answer's files are removed either way. The transport's poll must omit its own relay's events so an
+answer never returns to the tasks.

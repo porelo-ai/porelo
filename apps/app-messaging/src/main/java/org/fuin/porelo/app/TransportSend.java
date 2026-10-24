@@ -178,20 +178,6 @@ public final class TransportSend {
             final String queued = Files.readString(destination, StandardCharsets.UTF_8).strip();
             final boolean person = queued.startsWith("@") && acting != null && acting.to() != null;
             final boolean direct = person && "direct".equals(via(message));
-            final List<String> arguments =
-                    new ArrayList<>(
-                            List.of(
-                                    adapter.toString(),
-                                    "send",
-                                    message.toString(),
-                                    signature.toString(),
-                                    "--to",
-                                    direct
-                                                    || (!person && !queued.isEmpty())
-                                                    || acting == null
-                                                    || acting.to() == null
-                                            ? queued
-                                            : acting.to()));
             // Beside the message, never inside it, and only for a transport that says it takes it:
             // an option it does not list is its 64. Written here, on the host, from the checked
             // message - never a file a task wrote.
@@ -201,8 +187,6 @@ public final class TransportSend {
                         line,
                         shown(Files.readString(message, StandardCharsets.UTF_8), task(mailbox)),
                         StandardCharsets.UTF_8);
-                arguments.add("--shown");
-                arguments.add(line.toString());
             }
             // The task it is for, mentioned by its account, so the room shows whom it is meant for:
             // never a person, who is reached in a direct chat, and nobody for the room's people.
@@ -210,11 +194,20 @@ public final class TransportSend {
                     !mentions || acting == null || direct
                             ? null
                             : person ? queued : acting.accounts().get(recipient(message));
-            if (mention != null) {
-                arguments.add("--" + MENTION);
-                arguments.add(mention);
-            }
-            Command command = Command.of(arguments);
+            Command command =
+                    command(
+                            adapter,
+                            message,
+                            signature,
+                            direct
+                                            || (!person && !queued.isEmpty())
+                                            || acting == null
+                                            || acting.to() == null
+                                    ? queued
+                                    : acting.to(),
+                            described,
+                            line,
+                            mention);
             if (acting != null) {
                 command = command.withEnvironment(acting.environment());
             }
@@ -248,18 +241,43 @@ public final class TransportSend {
     }
 
     /**
-     * Returns the line a person reads in a conversation: who wrote to whom, and the text.
+     * Builds a send with the common destination and only the optional arguments the adapter takes.
      *
-     * <p>Made on the host from the message the filter checked, mechanically and from nothing else:
-     * its text parts, its {@code metadata.to}, and the task it came from as the host knows it. No
-     * kind, no id, no word Porelo adds. A part that is not text is named by its media type, never
-     * its bytes. The transport carries it unread beside the message, which travels whole for the
-     * agents.
-     *
-     * @param message The message as JSON.
-     * @param from The sending task's name, as the host knows it.
-     * @return The line, or "" when the message cannot be read.
+     * @param adapter The transport executable.
+     * @param message The signed message file.
+     * @param signature Its detached signature.
+     * @param to The destination.
+     * @param described The transport's announced options.
+     * @param shown The host's line file, used only when announced.
+     * @param mention The account to mention, or {@code null}.
+     * @return The command, before credentials are added to its environment.
      */
+    static Command command(
+            final Path adapter,
+            final Path message,
+            final Path signature,
+            final String to,
+            final TransportDescription described,
+            final Path shown,
+            final @org.jspecify.annotations.Nullable String mention) {
+        final List<String> arguments =
+                new ArrayList<>(
+                        List.of(
+                                adapter.toString(),
+                                "send",
+                                message.toString(),
+                                signature.toString(),
+                                "--to",
+                                to));
+        if (described.takes(SHOWN)) {
+            arguments.addAll(List.of("--" + SHOWN, shown.toString()));
+        }
+        if (described.takes(MENTION) && mention != null) {
+            arguments.addAll(List.of("--" + MENTION, mention));
+        }
+        return Command.of(arguments);
+    }
+
     private static String via(final Path message) {
         try {
             if (org.fuin.porelo.wire.Json.parse(Files.readString(message, StandardCharsets.UTF_8))

@@ -1,6 +1,6 @@
 # B264 — A Word To A Helper Wakes No Task
 
-**Status:** Backlog, before [B269](README.md#b269); it ships with porelo-message-matrix [MX35](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx35), which is built and held for the gathered push. The helpers stay in view, named in words, until porelo-message-matrix's later issue makes the room
+**Status:** Implementing; it ships with porelo-message-matrix [MX35](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx35), which is built and held for the gathered push. The helpers stay in view, named in words, until porelo-message-matrix's later issue makes the room
 show none at all.
 **Size:** S - one reader and the hand-out in `app-messaging`, a host-made answer through the transport's `send`, their
 tests and two paragraphs of `doc/transports.md`; the field is the transport's.
