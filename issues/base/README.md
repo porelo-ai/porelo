@@ -44,6 +44,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b275"></a>[B275](B275-A-Forge-On-This-Machine-Answers-Over-Plain-HTTP.md) | XS | - | A project file's `builds.api` may be `http://` on this machine's loopback (`127.0.0.1`, `::1`, `localhost`), so a forge in podman is asked without a certificate; any other `http://` address stays refused |
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
 | <a id="b206"></a>[B206](B206-A-Transport-Takes-Its-Secrets-On-Its-Input.md) | L | - | A transport takes the secrets Porelo kept for it on its standard input, not in its environment, so no other process of the account can read them from `/proc`; a version declared in `describe`, with the matrix transport's matching change. |
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | XL | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own; analyzed: filled only from reviewed work, mounted `:ro,z`, read through `maven.repo.local.tail`, filled by `dependency:go-offline` on request and when the default branch moved, Maven first |
