@@ -1,6 +1,6 @@
 # B277 — A Task Says When Its Agent Last Wrote And What Waits For It
 
-**Status:** Implementing, for sprint 2d; its fields agreed with porelo-frontend.
+**Status:** Review, published by the Build on `62dfa689` of 2026-10-24.
 **Size:** S - two fields in `Tasks1`'s `Task`, set in `TaskInventory.describe`, kept out of `Watch`'s change test
 where they would change it every second, their tests and the contract's text.
 

@@ -1,6 +1,6 @@
 # B275 — A Forge On This Machine Answers Over Plain HTTP
 
-**Status:** Implementing, for sprint 3.
+**Status:** Review, published by the Build on `62dfa689` of 2026-10-24.
 **Size:** XS - one rule in `Builds`' validation, its tests, one line of `doc/project-file.md` and a changelog entry.
 
 **What must be true.** A project file's `builds.api` may be an `http://` address when its host is this machine's

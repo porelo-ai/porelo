@@ -28,20 +28,15 @@ from its side, as *blocked by*.
 | <a id="b269"></a>[B269](B269-Git-By-The-Persons-Key-Or-Token-With-No-Deploy-Key.md) | M | - | porelo makes and names no deploy key: git reaches a project's repositories with the person's own ssh key or token from its vault, the forge's API with the token; follow, clear, unfollow and the pages keep that split; porelo's part of porelo-project [PJ69](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj69) |
 | <a id="b253"></a>[B253](B253-Every-Forge-Adapter-Speaks-The-Build-Contracts-Second-Version.md) | M | - | Porelo asks a forge adapter only over `org.fuin.porelo.Build2`, `Look` renamed `Build`, and refuses a `Build1` adapter by name; `none` joins the logs asked for; the stub moves with it, and `porelo-build-api` needs nothing new for `porelo-build-contract`, the suite `porelo-adapters` builds |
 | <a id="b256"></a>[B256](B256-A-Person-Asks-What-A-Branch-Or-A-Commit-Built.md) | M | - | `porelo build status -p <project> -r <repository>` with `--branch` or `--commit` asks the forge the project's `builds:` names for the verdict, the jobs and the logs asked for, the token from the vault and shown nowhere; a project without `builds:` is refused naming why |
+| <a id="b275"></a>[B275](B275-A-Forge-On-This-Machine-Answers-Over-Plain-HTTP.md) | XS | - | A project file's `builds.api` may be `http://` on this machine's loopback (`127.0.0.1`, `::1`, `localhost`), so a forge in podman is asked without a certificate; any other `http://` address stays refused |
+| <a id="b276"></a>[B276](B276-A-Held-Conversation-Names-The-Vault-And-When-The-Project-Was-Used.md) | S | - | A conversation waiting on the vault names the vault file the daemon checked (`ProjectMessages.vault`), and every project says when it was last used here (`Project.lastUsed`), so an interface can say "the vault on this computer" and offer to stop following an unused project |
+| <a id="b277"></a>[B277](B277-A-Task-Says-When-Its-Agent-Last-Wrote-And-What-Waits-For-It.md) | S | - | A task says when its agent last wrote (`lastWrote`, not a `Watch` change by itself) and how many messages wait in its inbox (`inboxWaiting`), so an interface can tell working, quiet and an ended run with messages waiting |
 
 ## Rework
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b238"></a>[B238](B238-An-Unfollow-Leaves-Nothing-Of-The-Project.md) | XS | - | `project unfollow` removes the project's build lock and upstream copies, which `porelo prune` finds left over today |
-
-## Implementing
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="b275"></a>[B275](B275-A-Forge-On-This-Machine-Answers-Over-Plain-HTTP.md) | XS | - | A project file's `builds.api` may be `http://` on this machine's loopback (`127.0.0.1`, `::1`, `localhost`), so a forge in podman is asked without a certificate; any other `http://` address stays refused |
-| <a id="b276"></a>[B276](B276-A-Held-Conversation-Names-The-Vault-And-When-The-Project-Was-Used.md) | S | - | A conversation waiting on the vault names the vault file the daemon checked (`ProjectMessages.vault`), and every project says when it was last used here (`Project.lastUsed`), so an interface can say "the vault on this computer" and offer to stop following an unused project |
-| <a id="b277"></a>[B277](B277-A-Task-Says-When-Its-Agent-Last-Wrote-And-What-Waits-For-It.md) | S | - | A task says when its agent last wrote (`lastWrote`, not a `Watch` change by itself) and how many messages wait in its inbox (`inboxWaiting`), so an interface can tell working, quiet and an ended run with messages waiting |
 
 ## Backlog
 
