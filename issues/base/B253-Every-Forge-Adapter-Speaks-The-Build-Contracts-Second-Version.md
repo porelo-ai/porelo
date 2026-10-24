@@ -18,8 +18,10 @@ and the build interface stay here, `look` is renamed `build` under a new protoco
 released anew with it.
 
 Not here: the suite is built in `porelo-adapters` as the module `porelo-build-contract`, and the `forgejo` adapter as
-`porelo-adapter-forgejo` there; their issue is filed in `porelo-adapters` once that repository exists, which it does not
-yet. The command a person asks an adapter through is [B256](README.md#b256).
+`porelo-adapter-forgejo` there, filed as porelo-build-github
+[GH06](https://github.com/porelo-ai/porelo-build-github/blob/main/issues/README.md#gh06) and
+[GH07](https://github.com/porelo-ai/porelo-build-github/blob/main/issues/README.md#gh07), in the repository that is
+renamed `porelo-adapters`. The command a person asks an adapter through is [B256](README.md#b256).
 
 ## Plan
 
@@ -68,7 +70,8 @@ Read in `builds/api`, `builds/stub`, `apps/app-task`, `wire` and `core`'s `Build
 8. **The documentation**: `builds/api/README.md`, `doc/build-readers.md` (`:19-21`, `:28`) and `doc/decisions.md`
    (`:21`, `:230-232`) name `Build2` and `build`; `doc/running.md` (`:289`) names the package `porelo-adapter-github`
    once that package is published, not before. A changelog entry under `changelog/unreleased/`: an installed adapter
-   of the first version is refused, naming it.
+   of the first version is refused, naming it. `AGENTS.md` (`:25`, `:374`) names four artifacts reaching Central, but
+   `porelo-build-api` 0.5.0 is there too (asked of Central): it is named among them.
 9. **The release, decided:** porelo with `Build2` and the first `porelo-adapter-github` go out in the same gathered
    push, so the time in which an installed `Build1` adapter is refused lasts hours at most. porelo's packages name
    no forge's package: no `Breaks:` and no `Conflicts:` on `porelo-build-github`.
@@ -98,16 +101,6 @@ and `org.fuin.porelo.Build2`; today that adapter is accepted.
   `MethodNotFound` to `org.fuin.porelo.Build2.Describe` and lists `org.fuin.porelo.Build1` in `GetInfo`: read in
   this checkout's `VarlinkServer` only; the released adapter and the `porelo-wire` it was built on are another
   repository's.
-- That a release of `porelo-build-api` is on Central: the pom opts in and the build workflow deploys under
-  `-Pcentral-sonatype-release`, but Central was not asked, and `AGENTS.md`'s *Publishing* names four artifacts
-  reaching Central without this one; whichever is wrong is corrected.
-- With `porelo-adapters`'s agent, once the repository exists: that driving an adapter through `InstalledBuildReader` is
-  all the suite needs, since an in-process seam would be a public addition here; and that the `github` adapter takes
-  a loopback `http://` address in `Target.api` for the recorded answers - `Target` accepts any address, a project
-  file's `builds.api` only `https://` (`Builds.java:54-57`).
-- What Forgejo's API answers for a commit whose workflows have not started, and how it reports a cancelled job: if
-  it cannot tell "not started" from "no workflow", `Build2`'s text for `queued` and `unknown` says what an adapter
-  answers then. The answers are recorded in `porelo-adapters`.
 - That a project file can name a forge on the host's own network: `builds.api` takes any `https://` address and the
   adapter runs on the host, never in a task; whether it trusts a certificate authority the host names, as a local
   Forgejo's may need, is not read.
