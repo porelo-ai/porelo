@@ -1,6 +1,6 @@
 # B266 — A Task Fits The Machine It Runs On
 
-**Status:** Analyzed. In porelo-project [PJ68](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj68)'s
+**Status:** Estimated. In porelo-project [PJ68](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj68)'s
 block, built before the first host test with real builds in tasks.
 **Size:** M - the task's and the build's podman arguments (`ContainerSpec`, `Podman`), the project file's defaults,
 `doc/project-file.md` and `doc/reach.md`, an acceptance step.
