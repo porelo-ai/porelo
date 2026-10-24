@@ -1,5 +1,6 @@
 package org.fuin.porelo.app;
 
+import java.io.PrintWriter;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -35,6 +36,8 @@ final class LoginRenewal implements org.fuin.porelo.supervisor.TokenSource {
 
     private final Clock clock;
 
+    private final PrintWriter err;
+
     private @Nullable String token;
 
     private Instant good;
@@ -58,6 +61,7 @@ final class LoginRenewal implements org.fuin.porelo.supervisor.TokenSource {
      * @param opener What opens it, for writing a renewal back.
      * @param http How the service is reached.
      * @param clock The time.
+     * @param err The broker's standard error, where a completed renewal is reported.
      */
     LoginRenewal(
             final String name,
@@ -65,16 +69,24 @@ final class LoginRenewal implements org.fuin.porelo.supervisor.TokenSource {
             final VaultFile vault,
             final VaultFile.Opener opener,
             final java.net.http.HttpClient http,
-            final Clock clock) {
+            final Clock clock,
+            final PrintWriter err) {
         this.name = name;
         this.vault = vault;
         this.opener = opener;
         this.http = http;
         this.clock = clock;
+        this.err = err;
         this.token = entry.value();
         this.good = goodUntil(entry);
     }
 
+    /**
+     * Returns the current access token, renewing it on the host when it is due.
+     *
+     * @return The usable token.
+     * @throws TokenPurchase.Refused If the sign-in could not be renewed.
+     */
     @Override
     public synchronized String current() throws TokenPurchase.Refused {
         if (token != null && clock.instant().isBefore(good)) {
@@ -107,6 +119,7 @@ final class LoginRenewal implements org.fuin.porelo.supervisor.TokenSource {
     }
 
     private void renew(final TokenPurchase.Refused[] refused) {
+        final Instant[] renewedEnd = new Instant[1];
         vault.update(
                 opener,
                 entries -> {
@@ -167,17 +180,25 @@ final class LoginRenewal implements org.fuin.porelo.supervisor.TokenSource {
                         return entries;
                     }
                     final Map<String, String> settings = new LinkedHashMap<>(entry.settings());
-                    settings.put(
-                            LoginCredentials.EXPIRES_AT,
-                            purchase.goodUntil().plus(TokenPurchase.MARGIN).toString());
+                    final Instant ends = purchase.goodUntil().plus(TokenPurchase.MARGIN);
+                    settings.put(LoginCredentials.EXPIRES_AT, ends.toString());
                     entries.put(name, new VaultEntry(renewed, entry.type(), settings));
                     entries.put(
                             TaskSecrets.GRANT_PREFIX + name,
                             new VaultEntry(rotated[0], refresh.type(), refresh.settings()));
                     token = renewed;
                     good = purchase.goodUntil();
+                    renewedEnd[0] = ends;
                     return entries;
                 });
+        if (renewedEnd[0] != null) {
+            err.println(
+                    "porelo: renewed the sign-in for '"
+                            + name
+                            + "' on the host; it now ends "
+                            + renewedEnd[0]);
+            err.flush();
+        }
     }
 
     /**

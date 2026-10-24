@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.InetSocketAddress;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
@@ -19,13 +21,16 @@ import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 import org.fuin.porelo.agent.api.Credential;
+import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.supervisor.TokenPurchase;
+import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.vault.VaultEntry;
 import org.fuin.porelo.vault.VaultFile;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import picocli.CommandLine;
 
 /**
  * Tests for {@link LoginCredentials} and {@link LoginRenewal}: an agent's own sign-in kept whole,
@@ -46,6 +51,8 @@ class LoginRenewalTest {
                     "{\"access_token\":\"at-2\",\"refresh_token\":\"rt-2\",\"expires_in\":28800}");
 
     private final AtomicReference<Integer> status = new AtomicReference<>(200);
+
+    private final StringWriter err = new StringWriter();
 
     @BeforeEach
     void start() throws IOException {
@@ -106,7 +113,8 @@ class LoginRenewalTest {
                 vault,
                 VaultFile.Opener.passphrase(PASSPHRASE),
                 HttpClient.newHttpClient(),
-                Clock.fixed(at, ZoneOffset.UTC));
+                Clock.fixed(at, ZoneOffset.UTC),
+                new PrintWriter(err));
     }
 
     @Test
@@ -298,7 +306,8 @@ class LoginRenewalTest {
                         vault,
                         VaultFile.Opener.passphrase(PASSPHRASE),
                         HttpClient.newHttpClient(),
-                        clock);
+                        clock,
+                        new PrintWriter(err));
 
         assertThatThrownBy(renewal::current).isInstanceOf(TokenPurchase.Ended.class);
         assertThatThrownBy(renewal::current)
@@ -348,5 +357,138 @@ class LoginRenewalTest {
                 .singleElement()
                 .asString()
                 .doesNotContain("client_secret");
+    }
+
+    @Test
+    void aSignInMarkedDueRenewsOnItsFirstRequestOnceAndReportsItsNewEnd(@TempDir final Path dir)
+            throws Exception {
+        // A forced renewal must keep the rotated grant without exposing credentials.
+        final PoreloContext context =
+                new PoreloContext(
+                                new FakeCommandRunner(),
+                                new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin")),
+                                arguments -> 0)
+                        .asking(prompt -> PASSPHRASE.clone());
+        final Map<String, String> attributes =
+                new LinkedHashMap<>(signIn(NOW.plusSeconds(10 * 86400)).attributes());
+        attributes.put(Credential.CLIENT_SECRET, "client-secret-1");
+        final Map<String, VaultEntry> entries = new LinkedHashMap<>();
+        LoginCredentials.put(
+                entries, "anthropic", new Credential("oauth", "at-1", attributes), true);
+        final VaultFile vault = context.vault();
+        vault.write(entries, PASSPHRASE);
+        final StringWriter out = new StringWriter();
+        final StringWriter commandErr = new StringWriter();
+        final VaultRenewCommand command = new VaultRenewCommand(Clock.fixed(NOW, ZoneOffset.UTC));
+        command.setContext(context);
+        final CommandLine cli = new CommandLine(command);
+        cli.setOut(new PrintWriter(out));
+        cli.setErr(new PrintWriter(commandErr));
+        assertThat(cli.execute("anthropic")).as("the command marks the sign-in due").isZero();
+        assertThat(vault.read(PASSPHRASE).get("anthropic").settings())
+                .as("the broker starts from the marked entry")
+                .containsEntry("expires_at", NOW.toString());
+        final LoginRenewal renewal = renewal(vault, NOW);
+
+        assertThat(renewal.current().equals("at-2"))
+                .as("the first request uses the renewed token")
+                .isTrue();
+
+        assertThat(bodies.size())
+                .as("the first request makes exactly one token purchase")
+                .isEqualTo(1);
+        final Map<String, VaultEntry> kept = vault.read(PASSPHRASE);
+        assertThat(kept.get(TaskSecrets.GRANT_PREFIX + "anthropic").value().equals("rt-2"))
+                .as("the rotated refresh token is written back")
+                .isTrue();
+        assertThat(kept.get("anthropic").settings())
+                .as("the stored token has the new end")
+                .containsEntry("expires_at", NOW.plusSeconds(28800).toString());
+        assertNoSecretValues(out.toString(), commandErr.toString(), err.toString());
+        assertThat(err.toString())
+                .as("a successful renewal is reported once with its new end")
+                .isEqualTo(
+                        "porelo: renewed the sign-in for 'anthropic' on the host; it now ends 2026-10-01T20:00:00Z"
+                                + System.lineSeparator());
+        err.getBuffer().setLength(0);
+
+        assertThat(renewal.current().equals("at-2"))
+                .as("the next request reuses the good token")
+                .isTrue();
+
+        assertThat(bodies.size()).as("a good token is not bought again").isEqualTo(1);
+        assertThat(err.toString()).as("using a good token reports no renewal").isEmpty();
+        assertNoSecretValues(err.toString());
+    }
+
+    @Test
+    void aTokenAlreadyRenewedByAnotherBrokerIsUsedWithoutARequestOrRenewalLine(
+            @TempDir final Path dir) throws Exception {
+        // A second broker must not spend a rotated grant again or claim the first broker's renewal.
+        final VaultFile vault = vault(dir, signIn(NOW), true);
+        final LoginRenewal renewal = renewal(vault, NOW);
+        vault.update(
+                PASSPHRASE,
+                entries -> {
+                    final VaultEntry old = entries.get("anthropic");
+                    final Map<String, String> settings = new LinkedHashMap<>(old.settings());
+                    settings.put("expires_at", NOW.plusSeconds(28800).toString());
+                    entries.put("anthropic", new VaultEntry("at-2", old.type(), settings));
+                    entries.put(
+                            TaskSecrets.GRANT_PREFIX + "anthropic",
+                            new VaultEntry("rt-2", "refresh-token"));
+                    return entries;
+                });
+
+        assertThat(renewal.current().equals("at-2"))
+                .as("the broker adopts the token now in the vault")
+                .isTrue();
+
+        assertThat(bodies.size()).as("the stand-in receives no token request").isZero();
+        assertNoSecretValues(err.toString());
+        assertThat(err.toString())
+                .as("adopting another broker's token reports no renewal")
+                .isEmpty();
+    }
+
+    @Test
+    void aFailedRenewalPrintsNoSuccessOrSecretValue(@TempDir final Path dir) {
+        // A service's error can carry secrets, and claiming renewal would hide a broken sign-in.
+        status.set(400);
+        answer.set(
+                "{\"error\":\"invalid_grant\",\"error_description\":\"at-1 rt-1 client-secret-1\"}");
+        final VaultFile vault = vault(dir, signIn(NOW), true);
+
+        assertThatThrownBy(() -> renewal(vault, NOW).current())
+                .as("the existing refusal is preserved")
+                .isInstanceOf(TokenPurchase.Ended.class)
+                .hasMessageContaining("sign in again with 'porelo vault login'")
+                .satisfies(failure -> assertNoSecretValues(failure.getMessage()));
+
+        assertNoSecretValues(err.toString());
+        assertThat(err.toString()).as("a failed renewal reports no success").isEmpty();
+    }
+
+    @Test
+    void aRenewalsOutputNeverExposesAnyCredentialValue(@TempDir final Path dir) throws Exception {
+        // A broker's standard error is saved with the task and must never hold its credentials.
+        final Map<String, String> attributes = new LinkedHashMap<>(signIn(NOW).attributes());
+        attributes.put(Credential.CLIENT_SECRET, "client-secret-1");
+        final VaultFile vault = vault(dir, new Credential("oauth", "at-1", attributes), true);
+
+        renewal(vault, NOW).current();
+
+        assertNoSecretValues(err.toString());
+    }
+
+    private static void assertNoSecretValues(final String... streams) {
+        for (final String stream : streams) {
+            for (final String secret :
+                    new String[] {"at-1", "at-2", "rt-1", "rt-2", "client-secret-1"}) {
+                assertThat(stream.contains(secret))
+                        .as("no output exposes a sign-in secret")
+                        .isFalse();
+            }
+        }
     }
 }

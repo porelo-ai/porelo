@@ -240,6 +240,11 @@ into the vault. Each task has its own broker, so the renewal is one update under
 whichever broker comes second finds a fresh token and uses it. A renewal the agent asks for itself is
 refused, and a token in an answer is still withheld from it.
 
+To see renewal work without waiting for the token to end, run `porelo vault renew <name>` to mark
+the sign-in due, then start a new task. Its broker renews the sign-in on the first request and
+prints `porelo: renewed the sign-in for '<name>' on the host; it now ends <instant>` to its standard
+error. `porelo vault list` shows the new end. A running task keeps its token until its own end.
+
 - **`vault import` is never renewed.** Renewing that copy would spend the refresh token the
   developer's own session uses. Import again when it has ended.
 - **`vault login <agent> --credentials-from <dir>` keeps a sign-in without running one**, for a test

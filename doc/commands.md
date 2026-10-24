@@ -307,6 +307,7 @@ Credentials, and the broker that lets a task use one without holding it. See
 |---|---|
 | `porelo vault init` | Creates an empty vault; asks for its passphrase twice, or takes one line with `--passphrase-stdin`. |
 | `porelo vault login [AGENT]` | Runs the agent's own login in a throwaway container and stores the result. |
+| `porelo vault renew NAME` | Marks a sign-in due; the next task's first request renews it on the host. A running task keeps its token until it ends. |
 | `porelo vault import [AGENT]` | Copies a credential the agent already holds on this host. |
 | `porelo vault put NAME` | Stores a value from standard input under the provider's name. |
 | `porelo vault authorize NAME` | Grants an OAuth authorization once in any browser and keeps it. |

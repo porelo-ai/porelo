@@ -22,6 +22,7 @@ import picocli.CommandLine.Command;
             VaultStatusCommand.class,
             VaultPassphraseCommand.class,
             VaultLoginCommand.class,
+            VaultRenewCommand.class,
             VaultAuthorizeCommand.class,
             VaultDevicesCommand.class,
             VaultRevokeCommand.class

@@ -289,7 +289,8 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
                                                 .followRedirects(
                                                         java.net.http.HttpClient.Redirect.NEVER)
                                                 .build(),
-                                        java.time.Clock.systemUTC()));
+                                        java.time.Clock.systemUTC(),
+                                        err));
                     }
                     continue;
                 }
