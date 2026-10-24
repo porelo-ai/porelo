@@ -191,10 +191,26 @@ class InterfaceDescriptionTest {
                         names(Pattern.compile("(?m)^\\s*([a-z][A-Za-z0-9]*)\\s*:"), type.group(1));
                 assertThat(declared)
                         .as("the contract exposes both the wait and its actionable cause")
-                        .contains("waits", "waitsOn");
+                        .contains("waits", "waitsOn", "vault");
 
                 final Map<String, Object> reply =
                         client.call(PoreloDaemon.INTERFACE + "." + method, Map.of());
+                final Matcher projectType =
+                        Pattern.compile("(?ms)^type Project \\(\\n(.*?)^\\)").matcher(description);
+                assertThat(projectType.find()).as("the contract declares Project").isTrue();
+                assertThat(
+                                names(
+                                        Pattern.compile("(?m)^\\s*([a-z][A-Za-z0-9]*)\\s*:"),
+                                        projectType.group(1)))
+                        .as("a project carries recorded use for clients to interpret")
+                        .contains("lastUsed");
+                assertThat((List<?>) reply.get("projects"))
+                        .as("every project sends its recorded use even when there is none")
+                        .allSatisfy(
+                                project ->
+                                        assertThat(((Map<?, ?>) project).get("lastUsed"))
+                                                .as("no recorded task or message means no last use")
+                                                .isEqualTo(""));
                 final List<?> conversations =
                         ((List<?>) reply.get("projects"))
                                 .stream()

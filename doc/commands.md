@@ -470,6 +470,10 @@ porelo project enroll PROJECT [--remove] [--as=PRINCIPAL]
   from a file, and a fetch from an address that turns a project offline is refused.
 - **`following`** lists the follows; **`list`** (also `porelo projects`) lists the projects. `following --json`
   answers a program, as [A host a playbook brings up](hosts.md) says.
+  `list --json`, `Projects()` and `WatchProjects()` carry `lastUsed`: the latest recorded task start or
+  message event here, an ISO-8601 instant, or `""` when none is recorded. It is not a follow refresh time.
+  A project's conversation carries `messages.vault`, the path of the vault file this daemon checked when
+  `messages.waitsOn` is `"vault"`, or `""` otherwise; it identifies this account's vault on this machine.
 - **`inventory`** prints a host's second play's inventory from the person's machine file and the project file it
   names, checked against its key and recording nothing ([A host a playbook brings up](hosts.md)).
 - **`refresh`** fetches a followed project's repository now, or every one's without a name, instead of

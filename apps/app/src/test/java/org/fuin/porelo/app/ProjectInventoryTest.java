@@ -68,6 +68,119 @@ class ProjectInventoryTest {
     }
 
     @Test
+    void aProjectSaysWhenItsLastTaskStarted(@TempDir Path dir) throws IOException {
+        // False recency can make an interface offer to discard a project still in use.
+        final PoreloContext context = context(dir);
+        mirror("uc");
+        mirror("unused");
+        final String first = "2026-10-01T10:00:00Z";
+        final String second = "2026-10-02T10:00:00Z";
+        final String message = "2026-10-03T10:00:00Z";
+        recordedTask(context, "porelo-first", "uc", first);
+        recordedTask(context, "porelo-second", "uc", second);
+        recordedTask(context, "porelo-other", "other", "2026-10-04T10:00:00Z");
+
+        assertThat(lastUsed(context, "uc"))
+                .as("the later durable task start survives without a running container")
+                .isEqualTo(second);
+        final Path record =
+                new Mailbox(context.paths().messaging().mailbox("porelo-first")).record();
+        Files.createDirectories(record);
+        Files.writeString(
+                record.resolve(MessageRecord.FILE),
+                "{\"at\":\"" + message + "\",\"event\":\"delivered\"}\n");
+        final Path other =
+                new Mailbox(context.paths().messaging().mailbox("porelo-other")).record();
+        Files.createDirectories(other);
+        Files.writeString(
+                other.resolve(MessageRecord.FILE),
+                "{\"at\":\"2026-10-05T10:00:00Z\",\"event\":\"sent\"}\n");
+
+        assertThat(lastUsed(context, "uc"))
+                .as("a later message event wins, while another project's events do not")
+                .isEqualTo(message);
+        Files.writeString(
+                record.resolve(MessageRecord.FILE),
+                "not-json\n{\"at\":\"bad-time\"}\n" + "{\"at\":\"" + message + "\"}\n");
+        assertThat(lastUsed(context, "uc"))
+                .as("malformed events do not hide valid events")
+                .isEqualTo(message);
+        Files.delete(record.resolve(MessageRecord.FILE));
+        Files.createDirectory(record.resolve(MessageRecord.FILE));
+        assertThat(lastUsed(context, "uc"))
+                .as("an unreadable event file leaves the durable task start visible")
+                .isEqualTo(second);
+        Files.writeString(
+                context.paths().tasks().taskRecord("porelo-second").resolve("task.json"), "broken");
+        assertThat(lastUsed(context, "uc"))
+                .as("a broken task profile does not erase another task's start")
+                .isEqualTo(first);
+        assertThat(lastUsed(context, "unused"))
+                .as("a project with no recorded use has no invented timestamp")
+                .isEqualTo("");
+    }
+
+    @Test
+    void theJsonProjectListCarriesTheInventorysRecordedUse(@TempDir Path dir) throws IOException {
+        // A program must see the same use as the daemon before offering to unfollow a project.
+        final PoreloContext context = context(dir);
+        mirror("uc");
+        recordedTask(context, "porelo-first", "uc", "2026-10-01T10:00:00Z");
+        final var out = new java.io.StringWriter();
+        final var command = PoreloCli.commandLine(context);
+        command.setOut(new java.io.PrintWriter(out));
+        command.setErr(new java.io.PrintWriter(new java.io.StringWriter()));
+
+        assertThat(command.execute("project", "list", "--json"))
+                .as("project list supports a program's JSON request")
+                .isZero();
+        final var reply = (java.util.Map<?, ?>) org.fuin.porelo.wire.Json.parse(out.toString());
+        assertThat((java.util.List<?>) reply.get("projects"))
+                .as("the JSON list renders the inventory's recorded use")
+                .filteredOn(project -> "uc".equals(((java.util.Map<?, ?>) project).get("name")))
+                .singleElement()
+                .satisfies(
+                        project ->
+                                assertThat(((java.util.Map<?, ?>) project).get("lastUsed"))
+                                        .as("the same instant as the inventory")
+                                        .isEqualTo(lastUsed(context, "uc")));
+    }
+
+    private static Object lastUsed(PoreloContext context, String project) {
+        return projectsOf(context).stream()
+                .filter(one -> one.name().equals(project))
+                .findFirst()
+                .orElseThrow()
+                .asMap()
+                .get("lastUsed");
+    }
+
+    private static void recordedTask(
+            PoreloContext context, String container, String project, String startedAt)
+            throws IOException {
+        final Path state = context.paths().tasks().taskRecord(container);
+        Files.createDirectories(state);
+        new Sidecar(
+                        Sidecar.VERSION,
+                        project,
+                        "guarded",
+                        state.resolve("r.nft").toString(),
+                        state.resolve("dns.conf").toString(),
+                        "/usr/bin/porelo",
+                        state.toString())
+                .writeTo(state.resolve("sidecar.json"));
+        new org.fuin.porelo.wire.TaskProfile(
+                        org.fuin.porelo.wire.TaskProfile.VERSION,
+                        null,
+                        org.fuin.porelo.wire.TaskMode.SHELL,
+                        null,
+                        null,
+                        startedAt,
+                        null)
+                .writeTo(state);
+    }
+
+    @Test
     void saysAProjectWithAnImageCanStartWorkWithoutBuildingOne(@TempDir Path dir)
             throws IOException {
 

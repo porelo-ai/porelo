@@ -148,6 +148,7 @@ public final class Conversations {
         final VaultWait waiting = vaultWaiting(context);
         row.put("waits", waiting.waits());
         row.put("waitsOn", waiting.waitsOn());
+        row.put("vault", waiting.vault());
         return row;
     }
 
@@ -170,16 +171,17 @@ public final class Conversations {
         return vaultWaiting(context).waits();
     }
 
-    private record VaultWait(String waits, String waitsOn) {}
+    private record VaultWait(String waits, String waitsOn, String vault) {}
 
     private static VaultWait vaultWaiting(PoreloContext context) {
         try {
             return java.nio.file.Files.isRegularFile(context.paths().vault().vaultFile())
                             && context.opener().isEmpty()
-                    ? new VaultWait(VAULT_LOCKED, "vault")
-                    : new VaultWait("", "");
+                    ? new VaultWait(
+                            VAULT_LOCKED, "vault", context.paths().vault().vaultFile().toString())
+                    : new VaultWait("", "", "");
         } catch (RuntimeException ex) {
-            return new VaultWait("", "");
+            return new VaultWait("", "", "");
         }
     }
 }

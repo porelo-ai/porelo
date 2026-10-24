@@ -37,7 +37,10 @@ type ProjectMessages (
   # one, where the project's and its tasks' accounts cannot be read until it is unlocked.
   waits: string,
   # What it waits on, for an interface to act on: "vault" while the vault is locked, else "". More values may come; an unknown one is shown as 'waits' alone.
-  waitsOn: string
+  waitsOn: string,
+  # Path of the vault file this daemon checked while waitsOn is "vault", "" otherwise.
+  # This account's file on the daemon's machine, never a host name or a remote machine's vault.
+  vault: string
 )
 
 # A connection a task tried to make and was stopped for.

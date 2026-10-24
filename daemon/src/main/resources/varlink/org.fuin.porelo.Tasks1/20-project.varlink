@@ -35,6 +35,9 @@ type Project (
   # follow" and "is what I am showing in force". Both are rendered from the same values, so they
   # cannot drift.
   following: ?Followed,
+  # Latest recorded task start or message event of this project on this machine, ISO-8601 instant.
+  # "" when none can be read. Not a follow refresh time or a judgment that the project is unused.
+  lastUsed: string,
   # The repositories this project has, its own first.
   #
   # Never empty for a project whose file can be read: every project has its own repository. Empty

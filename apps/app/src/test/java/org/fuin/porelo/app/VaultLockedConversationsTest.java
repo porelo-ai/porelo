@@ -56,8 +56,8 @@ class VaultLockedConversationsTest {
 
     @ParameterizedTest
     @CsvSource({"true, false, vault", "true, true, ''", "false, false, ''"})
-    void aConversationNamesTheWaitAndItsRemedyFromTheSameVaultState(
-            boolean vaultExists, boolean unlocked, String waitsOn) throws IOException {
+    void aShutVaultNamesTheFileItChecked(boolean vaultExists, boolean unlocked, String waitsOn)
+            throws IOException {
         // A missing or stale remedy leaves blocked messages without an action that can help.
         final char[] passphrase = "fixture passphrase".toCharArray();
         final PoreloContext context = context().asking(prompt -> passphrase.clone());
@@ -92,6 +92,9 @@ class VaultLockedConversationsTest {
 
         assertThat(row)
                 .as("the action and the sentence must agree about what blocks messages")
+                .containsEntry(
+                        "vault",
+                        waitsOn.isEmpty() ? "" : context.paths().vault().vaultFile().toString())
                 .containsEntry("waitsOn", waitsOn)
                 .containsEntry("waits", waitsOn.isEmpty() ? "" : Conversations.VAULT_LOCKED);
     }

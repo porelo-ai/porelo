@@ -1,7 +1,9 @@
 package org.fuin.porelo.app;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -9,6 +11,9 @@ import java.util.Map;
 import java.util.stream.Stream;
 import org.fuin.porelo.gate.GateMode;
 import org.fuin.porelo.gate.GitGate;
+import org.fuin.porelo.wire.Json;
+import org.fuin.porelo.wire.Sidecar;
+import org.fuin.porelo.wire.TaskProfile;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -50,6 +55,7 @@ public final class ProjectInventory {
      * @param running How many of those are up. A project with none is not idle by mistake - a
      *     stopped task keeps its workspace and can be resumed - so both numbers are reported rather
      *     than one being inferred from the other.
+     * @param lastUsed Latest recorded task start or message event, ISO-8601, or "".
      */
     public record Summary(
             String name,
@@ -64,7 +70,8 @@ public final class ProjectInventory {
             org.fuin.porelo.gate.UpstreamDistance.Distance behind,
             List<RepositorySummary> repositories,
             FollowedProjects.@Nullable Followed following,
-            List<String> signers) {
+            List<String> signers,
+            String lastUsed) {
 
         /**
          * Constructor for a project whose image has not been looked for yet.
@@ -98,7 +105,8 @@ public final class ProjectInventory {
                     org.fuin.porelo.gate.UpstreamDistance.Distance.neverChecked(),
                     List.of(),
                     null,
-                    List.of());
+                    List.of(),
+                    "");
         }
 
         /**
@@ -139,7 +147,8 @@ public final class ProjectInventory {
                     behind,
                     List.of(),
                     null,
-                    List.of());
+                    List.of(),
+                    "");
         }
 
         /**
@@ -164,7 +173,8 @@ public final class ProjectInventory {
                             behind,
                             repositories,
                             following,
-                            signers);
+                            signers,
+                            lastUsed);
         }
 
         Summary prepared(boolean built, Readiness state) {
@@ -181,7 +191,8 @@ public final class ProjectInventory {
                     behind,
                     repositories,
                     following,
-                    signers);
+                    signers,
+                    lastUsed);
         }
 
         /**
@@ -208,7 +219,8 @@ public final class ProjectInventory {
                     behind,
                     named,
                     following,
-                    signers);
+                    signers,
+                    lastUsed);
         }
 
         /**
@@ -216,9 +228,11 @@ public final class ProjectInventory {
          *
          * @param state What this account recorded, or {@code null} when it follows nothing here.
          * @param pinned The fingerprints of the keys pinned for it.
+         * @param used Latest recorded use, or "".
          * @return A copy.
          */
-        Summary following(FollowedProjects.@Nullable Followed state, List<String> pinned) {
+        Summary following(
+                FollowedProjects.@Nullable Followed state, List<String> pinned, String used) {
             return new Summary(
                     name,
                     securityClass,
@@ -232,7 +246,8 @@ public final class ProjectInventory {
                     behind,
                     repositories,
                     state,
-                    List.copyOf(pinned));
+                    List.copyOf(pinned),
+                    used);
         }
 
         /**
@@ -264,6 +279,7 @@ public final class ProjectInventory {
         public Map<String, Object> asMap() {
             final Map<String, Object> map = new LinkedHashMap<>();
             map.put("name", name);
+            map.put("lastUsed", lastUsed);
             map.put("securityClass", securityClass == null ? "" : securityClass);
             map.put("file", file == null ? "" : file);
             map.put("mirror", mirror == null ? "" : mirror);
@@ -427,6 +443,7 @@ public final class ProjectInventory {
                 new UpstreamRecords(context.paths().projects().upstreamRecords());
         final Map<String, List<String>> signers =
                 PinnedSigners.of(context.paths().projects().configurationSigners());
+        final Map<String, Instant> used = lastUses();
         return found.values().stream()
                 .sorted(java.util.Comparator.comparing(Summary::name))
                 .map(
@@ -448,9 +465,76 @@ public final class ProjectInventory {
                                                     built))
                                     .behind(upstream.get(summary.name()))
                                     .repositories(repositoriesOf(summary, upstream))
-                                    .following(followed.get(summary.name()), pinned);
+                                    .following(
+                                            followed.get(summary.name()),
+                                            pinned,
+                                            used.containsKey(summary.name())
+                                                    ? used.get(summary.name()).toString()
+                                                    : "");
                         })
                 .toList();
+    }
+
+    /** Reads durable use without asking containers or refreshing a follow. */
+    private Map<String, Instant> lastUses() {
+        final Map<String, Instant> used = new LinkedHashMap<>();
+        final Path tasks = context.paths().tasks().taskRecord("");
+        if (!Files.isDirectory(tasks)) {
+            return used;
+        }
+        try (Stream<Path> entries = Files.list(tasks)) {
+            for (final Path state : entries.filter(Files::isDirectory).toList()) {
+                final String project;
+                try {
+                    project = Sidecar.readFrom(state.resolve("sidecar.json")).project();
+                } catch (IOException | RuntimeException ex) {
+                    // An unreadable task must not hide use recorded by the others.
+                    continue;
+                }
+                final TaskProfile profile = TaskProfile.readFrom(state);
+                if (profile != null) {
+                    recordUse(used, project, profile.startedAt());
+                }
+                final Path record =
+                        new Mailbox(
+                                        context.paths()
+                                                .messaging()
+                                                .mailbox(state.getFileName().toString()))
+                                .record()
+                                .resolve("log.jsonl");
+                try (Stream<String> lines = Files.lines(record)) {
+                    lines.forEach(line -> recordEventUse(used, project, line));
+                } catch (IOException | java.io.UncheckedIOException ex) {
+                    // A missing or unreadable mailbox does not erase the task's start.
+                    continue;
+                }
+            }
+        } catch (IOException | java.io.UncheckedIOException ex) {
+            // A listing keeps whatever use could be read before a directory disappeared.
+        }
+        return used;
+    }
+
+    private static void recordEventUse(Map<String, Instant> used, String project, String line) {
+        try {
+            if (Json.parse(line) instanceof Map<?, ?> event
+                    && event.get("at") instanceof String at) {
+                recordUse(used, project, at);
+            }
+        } catch (RuntimeException ex) {
+            // An incomplete append must not hide earlier complete events.
+        }
+    }
+
+    private static void recordUse(Map<String, Instant> used, String project, String at) {
+        try {
+            used.merge(
+                    project,
+                    Instant.parse(at),
+                    (before, after) -> before.isAfter(after) ? before : after);
+        } catch (java.time.format.DateTimeParseException ex) {
+            // Old or damaged records have no usable timestamp.
+        }
     }
 
     /**
