@@ -22,9 +22,6 @@ public final class RepositoryImageReader {
     /** The keys {@code image} may hold here. */
     static final Set<String> IMAGE_KEYS = Set.of("base_image", "snippet", "snippet_file", "env");
 
-    /** Variables Porelo sets in every task, which a repository may not replace. */
-    private static final Set<String> PORELO_OWNS = Set.of("PATH", "HOME", "LANG");
-
     private RepositoryImageReader() {
         throw new UnsupportedOperationException("Utility class");
     }
@@ -119,14 +116,22 @@ public final class RepositoryImageReader {
                 throw new ProjectException(
                         origin + ": 'image.env." + name + "' is no variable name");
             }
-            if (name.startsWith("PORELO_") || PORELO_OWNS.contains(name)) {
+            if (TaskVariables.reserved(name)) {
                 // Porelo sets these in every task; a repository replacing one would decide where
                 // the task's tools and its own token are found.
+                final String fixed = TaskVariables.value(name);
                 throw new ProjectException(
                         origin
                                 + ": 'image.env."
                                 + name
-                                + "' is set by Porelo and cannot be set here");
+                                + "' is set by Porelo"
+                                + (fixed == null
+                                        ? " for each task; remove the line, and give a value the repository needs"
+                                                + " a name of its own"
+                                        : " to "
+                                                + fixed
+                                                + " in every task; the file is the repository's, so whoever commits"
+                                                + " there must remove the line - the task has that value without it"));
             }
             if (value.chars().anyMatch(character -> character < 0x20 || character == 0x7f)) {
                 // One variable is one ENV line; a line break would write a Containerfile line of

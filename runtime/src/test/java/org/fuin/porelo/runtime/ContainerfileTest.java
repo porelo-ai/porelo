@@ -12,6 +12,7 @@ import org.fuin.porelo.core.project.Egress;
 import org.fuin.porelo.core.project.Limits;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.SecurityClass;
+import org.fuin.porelo.core.project.TaskVariables;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -31,6 +32,23 @@ class ContainerfileTest {
                         "uc", "Ultimate Container", SecurityClass.GUARDED, "ubuntu:24.04", null);
 
         assertThat(Containerfile.render(project)).isEqualTo(golden("Containerfile.uc"));
+    }
+
+    @Test
+    void theImageSetsTheFixedValuesItsRefusalPromises() {
+
+        final Project project = new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", null);
+        final List<String> environment =
+                Containerfile.render(project)
+                        .lines()
+                        .filter(line -> line.startsWith("ENV "))
+                        .toList();
+
+        for (final String name : List.of("PATH", "LANG")) {
+            assertThat(environment.stream().filter(line -> line.startsWith("ENV " + name + "=")))
+                    .as("removing %s must leave the task with the value its refusal promises", name)
+                    .containsExactly("ENV " + name + "=" + TaskVariables.value(name));
+        }
     }
 
     @Test

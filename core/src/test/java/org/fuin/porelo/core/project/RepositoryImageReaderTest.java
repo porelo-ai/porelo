@@ -89,6 +89,27 @@ class RepositoryImageReaderTest {
     }
 
     @Test
+    void aFixedVariablesRefusalExplainsWhyRemovingItChangesNothing() {
+
+        assertThatThrownBy(() -> read("image:\n  env:\n    LANG: C.UTF-8\n"))
+                .as("a person who cannot commit to the repository needs its value and the fix")
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("C.UTF-8")
+                .hasMessageContaining("remove the line");
+    }
+
+    @Test
+    void aPerTaskVariablesRefusalExplainsHowToKeepARepositoryValue() {
+
+        assertThatThrownBy(() -> read("image:\n  env:\n    PORELO_TOKEN: x\n"))
+                .as("a repository value needs its own name to avoid replacing task credentials")
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("for each task")
+                .hasMessageContaining("remove the line")
+                .hasMessageContaining("a name of its own");
+    }
+
+    @Test
     void refusesAValueThatWouldWriteAContainerfileLineOfItsOwn() {
 
         assertThatThrownBy(() -> read("image:\n  env:\n    FOO: \"a\\nRUN rm -rf /\"\n"))

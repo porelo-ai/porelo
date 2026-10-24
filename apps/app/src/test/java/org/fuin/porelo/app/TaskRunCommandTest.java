@@ -1162,6 +1162,7 @@ class TaskRunCommandTest {
                 .as("a local refusal must name its own source")
                 .contains("egress")
                 .contains("(local override)")
+                .contains("porelo: nothing was created")
                 .doesNotContain("mirror");
     }
 
@@ -1232,6 +1233,7 @@ class TaskRunCommandTest {
                 .contains("egress")
                 .contains("mirror")
                 .contains("last fetch")
+                .contains("porelo: nothing was created")
                 .doesNotContain("limits");
         assertThat(
                         git(

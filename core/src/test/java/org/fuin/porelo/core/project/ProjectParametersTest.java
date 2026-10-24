@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.StringReader;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
@@ -139,6 +140,19 @@ class ProjectParametersTest {
         assertThatThrownBy(() -> parameters.fill("{note}", values, "fix", "acme", "web"))
                 .as("a declared one with no value")
                 .hasMessageContaining("has no value");
+    }
+
+    @Test
+    void parameterVariablesCannotReplaceTaskVariablesButKeepTheirOwnNamespace() {
+
+        for (final String name : List.of("PATH", "HOME", "LANG", "PORELO_X")) {
+            assertThatThrownBy(() -> new Parameter("x", "", null, null, null, false, name))
+                    .as("%s must not replace the task's tools, home, locale, or credentials", name)
+                    .isInstanceOf(ProjectException.class);
+        }
+        assertThat(new Parameter("x", "", null, null, null, false, "PORELO_PARAM_X").env())
+                .as("the parameter namespace must remain available to project values")
+                .isEqualTo("PORELO_PARAM_X");
     }
 
     @Test

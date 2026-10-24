@@ -3,6 +3,7 @@ package org.fuin.porelo.runtime;
 import java.util.ArrayList;
 import java.util.List;
 import org.fuin.porelo.core.project.Project;
+import org.fuin.porelo.core.project.TaskVariables;
 
 /**
  * Builds the {@code Containerfile} for a project's task image.
@@ -429,7 +430,7 @@ public final class Containerfile {
         lines.add("# Agents install into ~/.local/bin, which is not on PATH for a non-login");
         lines.add("# shell - and 'podman exec' is one. Without this the agent is present and");
         lines.add("# not findable, which reads as a broken install rather than a missing PATH.");
-        lines.add("ENV PATH=/home/agent/.local/bin:/usr/local/bin:/usr/bin:/bin");
+        lines.add("ENV PATH=" + TaskVariables.fixed().get("PATH"));
         lines.add("");
         // Measured on the Ubuntu VM, 2026-09-12: without this LANG is unset and LC_CTYPE is POSIX,
         // because neither the base image nor 'podman exec' sets one. An agent's terminal interface
@@ -442,7 +443,7 @@ public final class Containerfile {
         // is not set itself, so this makes UTF-8 the default without taking away the ability to set
         // a category. LC_ALL would override anything the project or the agent chose.
         lines.add("# Without a UTF-8 locale an agent's interface arrives as underscores.");
-        lines.add("ENV LANG=C.UTF-8");
+        lines.add("ENV LANG=" + TaskVariables.fixed().get("LANG"));
 
         if (!layers.asAgent().isEmpty()) {
             lines.add("");

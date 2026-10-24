@@ -1,6 +1,6 @@
 # B265 — A Reserved Variable Refused With Its Fix
 
-**Status:** Backlog. Built together with [B268](README.md#b268) and [B267](README.md#b267).
+**Status:** Implementing. Built together with [B268](README.md#b268) and [B267](README.md#b267).
 **Size:** S - one refusal and the one place Porelo's own values are named, in `core` and `runtime`, with their tests.
 
 **What must be true.** When a repository's `porelo.yml` sets a variable Porelo sets in every task (`PATH`, `HOME`,
@@ -27,7 +27,7 @@ sentence.
     lists become one.
 - **The refusal** in `RepositoryImageReader.env` names the value and the fix:
   `porelo.yml at refs/heads/main of matrix: 'image.env.LANG' is set by Porelo to C.UTF-8 in every task; the file is
-  the repository's, so whoever commits there removes the line - the task has that value without it`. A `PORELO_*` name
+  the repository's, so whoever commits there must remove the line - the task has that value without it`. A `PORELO_*` name
   says Porelo sets it per task, and that a value the repository needs goes under another name.
 - **Every refusal of a repository's `porelo.yml` says that nothing was created**: today the refusal before the fetch
   (`TaskLaunch`, the preview) ends 64 without that line, the one after the fetch with it. Both end the same way.

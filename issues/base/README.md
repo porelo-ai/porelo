@@ -27,12 +27,12 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b268"></a>[B268](B268-A-Start-Says-Each-Step-And-What-It-Waits-On.md) | M | - | A task's start reports each step in plain words, what it waits on, and on a failure the cause with the dependency's last error line; the daemon carries the steps, the interface only shows them |
+| <a id="b265"></a>[B265](B265-A-Reserved-Variable-Refused-With-Its-Fix.md) | S | - | A `porelo.yml` setting `PATH`, `HOME`, `LANG` or a `PORELO_*` variable is refused with the value Porelo sets and the fix: remove the line |
 
 ## Backlog
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b265"></a>[B265](B265-A-Reserved-Variable-Refused-With-Its-Fix.md) | S | - | A `porelo.yml` setting `PATH`, `HOME`, `LANG` or a `PORELO_*` variable is refused with the value Porelo sets and the fix: remove the line |
 | <a id="b267"></a>[B267](B267-A-Mirror-Without-A-Default-Branch-Is-Named.md) | S | - | A task start on a repository whose mirror names no default branch is refused, naming the branch and the fix, rather than reading no `porelo.yml` and starting with the project's image unannounced; the refresh takes the upstream's `HEAD` |
 | <a id="b269"></a>[B269](B269-Git-By-The-Persons-Key-Or-Token-With-No-Deploy-Key.md) | M | - | porelo makes and names no deploy key: git reaches a project's repositories with the person's own ssh key or token from its vault, the forge's API with the token; follow, clear, unfollow and the pages keep that split; porelo's part of porelo-project [PJ69](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj69) |
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |

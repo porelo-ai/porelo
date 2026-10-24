@@ -1080,12 +1080,14 @@ public final class TaskLaunch {
             previewRefusal = preview.mirrorRefusal();
         } catch (ProjectException ex) {
             err.println("porelo: " + ex.getMessage());
+            err.println("porelo: nothing was created");
             err.flush();
             return 64;
         }
         if (!gated && previewRefusal != null) {
             err.println("porelo: " + previewRefusal.getMessage());
             err.println(MIRROR_IMAGE_AGE);
+            err.println("porelo: nothing was created");
             err.flush();
             return 64;
         }

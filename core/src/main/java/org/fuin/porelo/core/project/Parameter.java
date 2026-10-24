@@ -69,8 +69,7 @@ public record Parameter(
         }
         if (env != null
                 && (!env.matches("[A-Za-z_][A-Za-z0-9_]{0,63}")
-                        || env.startsWith("PORELO_") && !env.startsWith("PORELO_PARAM_")
-                        || List.of("PATH", "HOME", "LANG").contains(env))) {
+                        || TaskVariables.reserved(env) && !env.startsWith("PORELO_PARAM_"))) {
             // Porelo sets these in every task; a value under one of them would decide where the
             // task's tools and its own token are found.
             throw new ProjectException(
