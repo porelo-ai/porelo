@@ -1,6 +1,6 @@
 # B276 — A Held Conversation Names The Vault And When The Project Was Used
 
-**Status:** Analyzed, for sprint 2d.
+**Status:** Backlog, for sprint 2d; its fields agreed with porelo-frontend.
 **Size:** S - two fields in `Tasks1` (one in `ProjectMessages`, one in `Project`), each set at the one place its
 reply is made, their tests and the contract's text; no new method.
 

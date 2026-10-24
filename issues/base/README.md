@@ -44,6 +44,8 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b276"></a>[B276](B276-A-Held-Conversation-Names-The-Vault-And-When-The-Project-Was-Used.md) | S | - | A conversation waiting on the vault names the vault file the daemon checked (`ProjectMessages.vault`), and every project says when it was last used here (`Project.lastUsed`), so an interface can say "the vault on this computer" and offer to stop following an unused project |
+| <a id="b277"></a>[B277](B277-A-Task-Says-When-Its-Agent-Last-Wrote-And-What-Waits-For-It.md) | S | - | A task says when its agent last wrote (`lastWrote`, not a `Watch` change by itself) and how many messages wait in its inbox (`inboxWaiting`), so an interface can tell working, quiet and an ended run with messages waiting |
 | <a id="b275"></a>[B275](B275-A-Forge-On-This-Machine-Answers-Over-Plain-HTTP.md) | XS | - | A project file's `builds.api` may be `http://` on this machine's loopback (`127.0.0.1`, `::1`, `localhost`), so a forge in podman is asked without a certificate; any other `http://` address stays refused |
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
 | <a id="b206"></a>[B206](B206-A-Transport-Takes-Its-Secrets-On-Its-Input.md) | L | - | A transport takes the secrets Porelo kept for it on its standard input, not in its environment, so no other process of the account can read them from `/proc`; a version declared in `describe`, with the matrix transport's matching change. |
@@ -61,8 +63,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="b276"></a>[B276](B276-A-Held-Conversation-Names-The-Vault-And-When-The-Project-Was-Used.md) | S | - | A conversation waiting on the vault names the vault file the daemon checked (`ProjectMessages.vault`), and every project says when it was last used here (`Project.lastUsed`), so an interface can say "the vault on this computer" and offer to stop following an unused project | 0 |
-| <a id="b277"></a>[B277](B277-A-Task-Says-When-Its-Agent-Last-Wrote-And-What-Waits-For-It.md) | S | - | A task says when its agent last wrote (`lastWrote`, not a `Watch` change by itself) and how many messages wait in its inbox (`inboxWaiting`), so an interface can tell working, quiet and an ended run with messages waiting | 0 |
 | <a id="b272"></a>[B272](B272-A-Sign-In-Is-Renewed-On-The-Host-On-Request.md) | S | - | `porelo vault renew <name>` marks an agent's own sign-in due, so the next task's broker renews it on the host by the path every renewal takes; nothing but its end changes and no token is printed | 0 |
 | <a id="b175"></a>[B175](B175-The-Profile-That-May-Bind-The-Socket.md) | L | `porelo` [B135](README.md#b135) | On an AppArmor machine a task connects only to a socket one of Porelo's binaries bound, by a task profile that refuses any other peer, as the SELinux domain does on SELinux machines. | 0 |
 | <a id="b176"></a>[B176](B176-Comment-Threads-That-Follow-A-New-Push.md) | M | `porelo` [B166](README.md#b166) | A thread on waiting work moves to a new push's commit where its lines are unchanged, else stays and says why; each commented commit pinned under a hidden ref; `Thread` gains `from` and `stays`. | 0 |
