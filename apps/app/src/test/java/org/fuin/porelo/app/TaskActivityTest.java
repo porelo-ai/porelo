@@ -65,6 +65,81 @@ class TaskActivityTest {
     }
 
     @Test
+    void anEndedRunCountsTheMessagesWaitingForItsNextRun(@TempDir Path dir) throws IOException {
+        // Hiding an ended run's inbox loses the cue that a person must start it again.
+        final PoreloContext context = context(dir);
+        final String container = "porelo-uc-shell-1";
+        final Path state = task(container, "Up 4 minutes", "1788500000", "0");
+        final Instant wrote = Instant.parse("2026-10-01T10:00:00Z");
+        new TaskProfile(
+                        TaskProfile.VERSION,
+                        "example",
+                        TaskMode.UNATTENDED,
+                        "answer",
+                        null,
+                        wrote.toString(),
+                        "prompt")
+                .writeTo(state);
+        final Path log = Files.writeString(state.resolve("task.log"), "finished\n");
+        Files.setLastModifiedTime(log, FileTime.from(wrote));
+        final Mailbox mailbox = new Mailbox(context.paths().messaging().mailbox(container));
+        mailbox.create();
+        Files.writeString(mailbox.inboxNew().resolve("one.json"), "{}");
+        Files.writeString(mailbox.inboxNew().resolve("two.json"), "{}");
+        Files.writeString(mailbox.inboxNew().resolve("unfinished.tmp"), "{}");
+        Files.createDirectory(mailbox.inboxNew().resolve("directory.json"));
+        Files.writeString(mailbox.inboxCur().resolve("read.json"), "{}");
+        final AgentEnding ending =
+                new AgentEnding(
+                        runner,
+                        java.time.Clock.fixed(wrote.plusSeconds(120), java.time.ZoneOffset.UTC),
+                        (agent, lines) ->
+                                new org.fuin.porelo.agent.api.AgentEnd(true, "", "agent", null));
+        final TaskInventory inventory = new TaskInventory(context, null, ending);
+        final TaskInventory.Task ended = inventory.tasks().getFirst();
+
+        assertThat(ended.activity())
+                .as("the fixture's unattended agent has ended")
+                .isEqualTo(TaskInventory.Activity.ENDED);
+        assertThat(ended.asMap().get("inboxWaiting"))
+                .as("only new JSON messages wait for the ended agent's next run")
+                .isEqualTo(2);
+        assertThat(only(context).asMap().get("inboxWaiting"))
+                .as("a running task counts the same host-side inbox")
+                .isEqualTo(2);
+        task(container, "Exited (0) 1 minute ago", "1788500000", "1788509999");
+        final TaskInventory.Task stopped = inventory.tasks().getFirst();
+        assertThat(stopped.activity())
+                .as("the fixture's container is now stopped")
+                .isEqualTo(TaskInventory.Activity.DEAD);
+        assertThat(stopped.asMap().get("inboxWaiting"))
+                .as("stopping the container does not hide its unread messages")
+                .isEqualTo(2);
+        assertThat(stopped.asMap().get("lastWrote"))
+                .as("a stopped task keeps its last log write time")
+                .isEqualTo(wrote.toString());
+    }
+
+    @Test
+    void aTaskSaysWhenItsAgentLastWrote(@TempDir Path dir) throws IOException {
+        // A client must not guess the last output time from the container's age.
+        final PoreloContext context = context(dir);
+        final Path state = task("porelo-uc-shell-1", "Up 4 minutes", "1788500000", "0");
+        assertThat(only(context).asMap().get("lastWrote"))
+                .as("without a log there is no output time")
+                .isEqualTo("");
+        assertThat(only(context).asMap().get("inboxWaiting"))
+                .as("without a mailbox there are no waiting messages")
+                .isEqualTo(0);
+        final Instant wrote = Instant.parse("2026-10-01T10:00:00Z");
+        final Path log = Files.writeString(state.resolve("task.log"), "output\n");
+        Files.setLastModifiedTime(log, FileTime.from(wrote));
+        assertThat(only(context).asMap().get("lastWrote"))
+                .as("the file's modification time crosses the wire as an instant")
+                .isEqualTo(wrote.toString());
+    }
+
+    @Test
     void aStartInProgressIsVisibleToAnotherWindowUntilItEnds(@TempDir Path dir) throws IOException {
         // A second window must not hide a task's active start behind an empty phase.
         final PoreloContext context = context(dir);

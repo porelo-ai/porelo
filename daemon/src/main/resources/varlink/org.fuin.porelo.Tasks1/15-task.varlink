@@ -12,7 +12,8 @@ type Activity (
   WAITING,
   # Producing output.
   WORKING,
-  # Up, producing nothing, and not waiting for anybody as far as anything can tell.
+  # Up and quiet, with no recorded question for a person. This does not mean "waiting for a message";
+  # silence cannot say that. inboxWaiting counts what is waiting, for a client to interpret.
   IDLE,
   # Up, and its agent's run has ended - finished, or stopped by an error its agent read from its own
   # output. agentEnded says how. Neither working nor idle: nothing will happen any more on its own.
@@ -148,6 +149,12 @@ type Task (
   since: string,
   # What the work is doing, beside state rather than instead of it.
   activity: Activity,
+  # Last modification time of task.log, as an ISO-8601 instant; "" without a readable log.
+  # Ask Tail(last: 1) for the last line when showing it. This timestamp alone does not change Watch.
+  lastWrote: string,
+  # Number of .json files in the host-side inbox/new, 0 without a readable mailbox.
+  # Reported for running, ended and stopped tasks alike; a change does change Watch.
+  inboxWaiting: int,
   # How its agent's run ended: while activity is ENDED, and for a stopped task whose container
   # stopped with its run (activity DEAD). Absent while it runs, and for an agent that does not read
   # its own end.

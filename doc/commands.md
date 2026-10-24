@@ -270,6 +270,12 @@ container runtime's own words; `activity` says what the work is doing:
 | `dead` | the container is not up |
 | `unknown` | nothing on this side can see what it does, such as a task with a terminal attached |
 
+`lastWrote` in the JSON status and the daemon's `Task` is the modification time of `task.log`, an
+ISO-8601 instant, or `""` without a readable log. Ask `Tail(last: 1)` for its last line when showing it.
+`inboxWaiting` counts `.json` files in the host-side `inbox/new`, including for an ended or stopped task;
+it is `0` without a readable mailbox. `Watch` changes for this count and for `activity`, while a change
+of `lastWrote` alone does not resend the list. `idle` means quiet, not "waiting for a message".
+
 A quiet task is not a waiting one: waiting is never guessed from how long nothing happened. An ended
 run is said on a line of its own, `ended`: `finished at <time>`, or `with an error at <time>`, whose
 (the provider's, with its HTTP status, or the agent's) and its text. Work the agent wrote and never

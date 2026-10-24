@@ -26,6 +26,7 @@ typed into its terminal, never while it asks a person something. Only an agent t
 shows at rest and what it shows while it asks a person something is typed into: one whose screen cannot tell the two
 apart is never woken, since the line could answer a question nobody sees is open, and finds its messages when it
 looks, as its guide tells it. Unattended work that has ended has no terminal to wake; its messages wait for its next run.
+The task's `inboxWaiting` field counts those waiting messages, including while it is stopped.
 
 ## Where the conversation lives
 

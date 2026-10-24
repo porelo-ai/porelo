@@ -41,12 +41,12 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b275"></a>[B275](B275-A-Forge-On-This-Machine-Answers-Over-Plain-HTTP.md) | XS | - | A project file's `builds.api` may be `http://` on this machine's loopback (`127.0.0.1`, `::1`, `localhost`), so a forge in podman is asked without a certificate; any other `http://` address stays refused |
 | <a id="b276"></a>[B276](B276-A-Held-Conversation-Names-The-Vault-And-When-The-Project-Was-Used.md) | S | - | A conversation waiting on the vault names the vault file the daemon checked (`ProjectMessages.vault`), and every project says when it was last used here (`Project.lastUsed`), so an interface can say "the vault on this computer" and offer to stop following an unused project |
+| <a id="b277"></a>[B277](B277-A-Task-Says-When-Its-Agent-Last-Wrote-And-What-Waits-For-It.md) | S | - | A task says when its agent last wrote (`lastWrote`, not a `Watch` change by itself) and how many messages wait in its inbox (`inboxWaiting`), so an interface can tell working, quiet and an ended run with messages waiting |
 
 ## Backlog
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b277"></a>[B277](B277-A-Task-Says-When-Its-Agent-Last-Wrote-And-What-Waits-For-It.md) | S | - | A task says when its agent last wrote (`lastWrote`, not a `Watch` change by itself) and how many messages wait in its inbox (`inboxWaiting`), so an interface can tell working, quiet and an ended run with messages waiting |
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
 | <a id="b206"></a>[B206](B206-A-Transport-Takes-Its-Secrets-On-Its-Input.md) | L | - | A transport takes the secrets Porelo kept for it on its standard input, not in its environment, so no other process of the account can read them from `/proc`; a version declared in `describe`, with the matrix transport's matching change. |
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | XL | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own; analyzed: filled only from reviewed work, mounted `:ro,z`, read through `maven.repo.local.tail`, filled by `dependency:go-offline` on request and when the default branch moved, Maven first |

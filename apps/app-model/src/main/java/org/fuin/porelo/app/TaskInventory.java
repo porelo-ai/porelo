@@ -57,6 +57,9 @@ public final class TaskInventory {
      * @param phase The current start step's text, or empty when no start is active.
      * @param builds Which reader follows the builds of its pushes, and what they did, the newest
      *     push first.
+     * @param lastWrote Last modification time of the agent's log, ISO-8601, or "".
+     * @param inboxWaiting New messages waiting in the host-side inbox, including for a stopped
+     *     task.
      */
     public record Task(
             String name,
@@ -87,7 +90,9 @@ public final class TaskInventory {
             HandIns.Summary handIns,
             TaskBuilds.View builds,
             Map<String, Map<String, String>> parameters,
-            String phase) {
+            String phase,
+            String lastWrote,
+            int inboxWaiting) {
         /** Creates a task with no active start phase, as callers before step reporting do. */
         public Task(
                 String name,
@@ -147,7 +152,9 @@ public final class TaskInventory {
                     handIns,
                     builds,
                     parameters,
-                    "");
+                    "",
+                    "",
+                    0);
         }
 
         /**
@@ -632,6 +639,8 @@ public final class TaskInventory {
             map.put("branch", branch == null ? "" : branch);
             map.put("since", since);
             map.put("activity", activity.name());
+            map.put("lastWrote", lastWrote);
+            map.put("inboxWaiting", inboxWaiting);
             if (agentEnded != null) {
                 map.put("agentEnded", agentEnded.asMap());
             }
@@ -996,6 +1005,7 @@ public final class TaskInventory {
         final org.fuin.porelo.wire.TaskProfile profile =
                 org.fuin.porelo.wire.TaskProfile.readFrom(
                         restartTookIt ? context.paths().tasks().taskRecord(summary.name()) : state);
+        final java.time.Instant lastWrote = lastWrote(state);
         final String waitingFor =
                 summary.running() ? org.fuin.porelo.wire.Waiting.about(state) : null;
         // Only by the deriving listing, and of a stopped task too while its state is here: an agent
@@ -1034,7 +1044,7 @@ public final class TaskInventory {
                 summary.since(),
                 ended != null && summary.running()
                         ? Activity.ENDED
-                        : activityOf(summary, state, waitingFor),
+                        : activityOf(summary, lastWrote, waitingFor),
                 waitingFor,
                 profile == null ? null : profile.clearance(),
                 profile == null ? null : profile.label(),
@@ -1120,7 +1130,9 @@ public final class TaskInventory {
                         summary.running()),
                 parametersGiven(
                         restartTookIt ? context.paths().tasks().taskRecord(summary.name()) : state),
-                startSteps.phase(state));
+                startSteps.phase(state),
+                lastWrote == null ? "" : lastWrote.toString(),
+                inboxWaiting(summary.name()));
     }
 
     /**
@@ -1291,31 +1303,54 @@ public final class TaskInventory {
      * so it decides between working and idle and never between waiting and anything.
      *
      * @param summary What the runtime says.
-     * @param state The task's state directory.
+     * @param lastWrote Last observed log write time, or {@code null} without a readable log.
      * @param waitingFor What it is waiting to be told, or {@code null}.
      * @return What the work is doing.
      */
     private static Activity activityOf(
-            ContainerSummary summary, Path state, @Nullable String waitingFor) {
+            ContainerSummary summary,
+            java.time.@Nullable Instant lastWrote,
+            @Nullable String waitingFor) {
         if (!summary.running()) {
             return Activity.DEAD;
         }
         if (waitingFor != null) {
             return Activity.WAITING;
         }
-        final Path log = state.resolve("task.log");
-        if (!Files.isRegularFile(log)) {
-            // Nothing here can see what it is doing: an attached session writes to a terminal.
+        if (lastWrote == null) {
             return Activity.UNKNOWN;
         }
+        return lastWrote.isAfter(java.time.Instant.now().minus(QUIET))
+                ? Activity.WORKING
+                : Activity.IDLE;
+    }
+
+    /** Reads the log's write time once so its timestamp and activity agree. */
+    private static java.time.@Nullable Instant lastWrote(Path state) {
+        final Path log = state.resolve("task.log");
+        if (!Files.isRegularFile(log)) {
+            return null;
+        }
         try {
-            return Files.getLastModifiedTime(log)
-                            .toInstant()
-                            .isAfter(java.time.Instant.now().minus(QUIET))
-                    ? Activity.WORKING
-                    : Activity.IDLE;
+            return Files.getLastModifiedTime(log).toInstant();
         } catch (java.io.IOException ex) {
-            return Activity.UNKNOWN;
+            return null;
+        }
+    }
+
+    /** Counts waiting files without entering the container or creating a mailbox. */
+    private int inboxWaiting(String container) {
+        final Path inbox = new Mailbox(context.paths().messaging().mailbox(container)).inboxNew();
+        if (!Files.isDirectory(inbox)) {
+            return 0;
+        }
+        try (java.util.stream.Stream<Path> files = Files.list(inbox)) {
+            return Math.toIntExact(
+                    files.filter(Files::isRegularFile)
+                            .filter(path -> path.getFileName().toString().endsWith(".json"))
+                            .count());
+        } catch (java.io.IOException | java.io.UncheckedIOException ex) {
+            return 0;
         }
     }
 

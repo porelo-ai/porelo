@@ -379,11 +379,10 @@ public final class PoreloDaemon {
         final String state = task.state();
         final int code = state.startsWith("Exited (") ? state.indexOf(')') : -1;
         final String settled = code > 0 ? state.substring(0, code + 1) : state.split(" ")[0];
-        // Everything a client is sent, but the state's age: a list of chosen fields here left out
-        // every field added later - a handed-in file, a build's verdict - and an open Watch never
-        // sent them.
+        // State ages and log write times alone would continually redraw an open Watch.
         final java.util.Map<String, Object> sent = new java.util.LinkedHashMap<>(task.asMap());
         sent.put("state", settled);
+        sent.remove("lastWrote");
         return org.fuin.porelo.wire.Json.write(sent);
     }
 

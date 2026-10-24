@@ -234,6 +234,39 @@ class InterfaceDescriptionTest {
     }
 
     @Test
+    void taskActivityCarriesTheFieldsTheContractDeclares(@TempDir Path dir) throws Exception {
+        // Clients need both measurements to show quiet and ended runs without guessing.
+        final PoreloContext context = context(dir);
+        ((FakeCommandRunner) context.runner())
+                .answering("ps", "porelo-uc-shell-2\tUp 4 minutes\t1788500000\t0\tuc\tguarded\n");
+        final Matcher taskType =
+                Pattern.compile("(?ms)^type Task \\(\\n(.*?)^\\)")
+                        .matcher(PoreloDaemon.description());
+        assertThat(taskType.find()).as("the contract declares Task").isTrue();
+        assertThat(names(Pattern.compile("(?m)^\\s*([a-z][A-Za-z0-9]*)\\s*:"), taskType.group(1)))
+                .as("both task activity measurements are declared")
+                .contains("lastWrote", "inboxWaiting");
+        try (VarlinkServer server = PoreloDaemon.serving(context, dir.resolve("porelod.sock"))) {
+            Thread.ofVirtual().start(server);
+            try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
+                final var reply = client.call(PoreloDaemon.INTERFACE + ".List", Map.of());
+                assertThat((List<?>) reply.get("tasks"))
+                        .as("the fixture lists a task so the wire check is not vacuous")
+                        .hasSize(1)
+                        .allSatisfy(
+                                task -> {
+                                    assertThat(((Map<?, ?>) task).get("lastWrote"))
+                                            .as("no log has no write time")
+                                            .isEqualTo("");
+                                    assertThat(((Map<?, ?>) task).get("inboxWaiting"))
+                                            .as("no mailbox has no waiting messages")
+                                            .isEqualTo(0.0);
+                                });
+            }
+        }
+    }
+
+    @Test
     void namesItselfWithAVersionAndReportsTheBuildItIs(@TempDir Path dir) throws Exception {
         // Two different versions, deliberately. The digit on the interface name is the
         // compatibility promise a client picks by; the build version is what it shows a person.
