@@ -16,18 +16,6 @@ is not counted.
 **Blocked by** names the issue that has to land first. An issue in another repository that waits for a row here says so
 from its side, as *blocked by*.
 
-## Review
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="b31"></a>[B31](B31-An-Authorization-A-Person-Grants-Once.md) | S | - | A person grants GitHub once through an installed agent's app; tasks then spend it on GitHub's MCP server through the broker, one session held for an hour, never holding the token. |
-| <a id="b211"></a>[B211](B211-A-Keyring-The-Process-Cannot-Reach-Is-Unavailable.md) | S | - | `KernelKeyring.available()` probes the system call once, so a keyring a container's seccomp refuses counts as unavailable and its tests skip. |
-| <a id="b213"></a>[B213](B213-The-Setup-Script-Shipped-As-A-Package.md) | S | - | The setup script in the `porelo` package at `/usr/share/porelo/setup/`, so a host that added the repository by its pinned key gets it checked by apt; it keeps the channel it came from. |
-| <a id="b218"></a>[B218](B218-Whether-An-Agent-Is-Signed-In-As-A-Contract.md) | S | - | `porelo agents --json` names each agent with the vault entry it signs in under and whether the vault holds it, so a host stops for a sign-in only where one is missing; built and unit-tested, the VM next |
-| <a id="b173"></a>[B173](B173-An-Agents-Sign-In-Kept-Without-A-Person.md) | S | - | `vault login <agent> --credentials-from <dir>`: an agent's sign-in read through its extractor and kept renewable without a person; `--token-url` on loopback only, for a kit's stand-in token endpoint. |
-| <a id="b236"></a>[B236](B236-The-Inventory-Names-The-Projects-Transports.md) | M | - | `project inventory` names the packages of the transports a project's tasks use, so a host installs them; porelo-host [HO02](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho02) waits on it |
-| <a id="b232"></a>[B232](B232-The-Gate-Credential-Goes-Only-To-The-Gate.md) | XS | - | A task's git sends the gate's credential only to the gate: `http.extraHeader` scoped to the gate's URL, where today it goes to every HTTPS host, `github.com` included; built, red first with real git, the VM next |
-
 ## Implementing
 
 | # | Size | Blocked by | What it covers |
@@ -195,6 +183,13 @@ from its side, as *blocked by*.
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="b31"></a>B31 | An Authorization A Person Grants Once | `vault authorize` and the daemon's `Authorize` grant `oauth-device` and `oauth-code` entries on the host (registering a client from the service's metadata where offered), the broker spends the grant per task in memory or attaches a non-expiring token, `Authorizations()` streams what needs granting, `grants.log` records whom a task acted as, and `vault remove` revokes the grant and deletes the registration first; measured for an hour against GitHub's remote MCP server. |
+| <a id="b211"></a>B211 | A Keyring The Process Cannot Reach Is Unavailable | `KernelKeyring.available()` probes the kernel keyring once per process with `request_key`, so a keyring a container's seccomp profile refuses counts as unavailable, `doctor` and the vault commands name that cause, and the keyring tests skip. |
+| <a id="b213"></a>B213 | The Setup Script Shipped As A Package | The `porelo` `.deb` and `.rpm` ship `porelo-setup.sh` at `/usr/share/porelo/setup/porelo-setup.sh`, checked by apt when the repository is added by its pinned key fingerprint, and the packaged script keeps the channel the installed package came from. |
+| <a id="b218"></a>B218 | Whether An Agent Is Signed In, As A Contract | `porelo agents --json` prints the vault's state and each installed agent with the vault entry it signs in under and whether the open vault holds a usable credential for it. |
+| <a id="b173"></a>B173 | An Agent's Sign-In Kept Without A Person | `porelo vault login <agent> --credentials-from <dir>` reads a sign-in through the agent's extractor and keeps it renewable without running a login, with `--token-url` on literal loopback `http://` only for a stand-in token endpoint. |
+| <a id="b236"></a>B236 | The Inventory Names The Project's Transports | `porelo project inventory` lists the transports a project's mail conversations and peers use under `porelo_transports` with their `scheme` and `porelo-message-transport-<scheme>` package. |
+| <a id="b232"></a>B232 | The Gate Credential Goes Only To The Gate | `TaskWorkspace` scopes the gate's `Authorization` header to `http.<gate base URL>.extraHeader`, so a task's git sends the gate token only to the gate and never to another HTTPS host. |
 | <a id="b261"></a>B261 | A Stop Of Everything Says What Still Runs | `task stop`, `task stop --all` and `panic` end 0 only when no stopped task's container still runs, judged by the recorded id's state, name each survivor and end 70, and an unconfirmed removal keeps the task's records. |
 | <a id="b259"></a>B259 | A Person's Message Id The Filter Takes | A person's message reaches a task with an id in the message filter's alphabet - the event id without its `$`, or a hash of a longer or stranger one - so an answer naming it as `contextId` is accepted. |
 | <a id="b258"></a>B258 | The Machine Installs Every Agent And Names No Task | A machine file names the project and its keys only, refusing `tasks` and `agents` with 65; the inventory (version 2) names no task, and a host installs every agent from the setup script's catalogue. |

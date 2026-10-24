@@ -201,6 +201,11 @@ porelo vault authorize forge
   The client id, the endpoints and a client secret if the server issued one are written into the entry, so every
   later `authorize`, the broker and every task use them as they are, and nothing is registered again. A service
   without registration needs a `client_id` you registered there yourself.
+- **The grant is kept hidden and spent on the host.** `vault authorize` stores the refresh token as `grant/<name>`
+  with who granted it and when (`vault list` shows who and when, never the token); the broker buys each access
+  token per task in memory and writes a rotated refresh token back to the vault, or attaches an access token that
+  has no expiry and no refresh token as it is (one that expires without a refresh token is refused). Whom a task
+  acted as is recorded in `task status` and in `~/.local/state/porelo/grants.log`, which outlives the task.
 - **The registration access token is kept hidden**, as `registration/<name>` beside the entry, shown in no listing.
 - **`vault remove` deletes the registration at the service too** (RFC 7592), after revoking the grant. If the
   service cannot be told, the entry is kept; `--without-revoking` removes it anyway.

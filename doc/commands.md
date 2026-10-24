@@ -382,8 +382,9 @@ recorded as such, and the receiving peer may refuse it again.
 
 ## agents
 
-`porelo agents [--verbose] [--supply-chain] [--directory=<path>]` lists the installed agents.
-`--verbose` adds what each needs to reach; `--supply-chain` shows what its install pins.
+`porelo agents [--verbose] [--supply-chain] [--json] [--directory=<path>]` lists the installed agents.
+`--verbose` adds what each needs to reach; `--supply-chain` shows what its install pins; `--json` answers a
+program, as [A host a playbook brings up](hosts.md) says.
 
 ## project
 

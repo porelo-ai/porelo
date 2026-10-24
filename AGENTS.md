@@ -132,7 +132,9 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
   changes the downcall.
 - **Two files are shell, since they run where there is no Java yet**:
   - `selinux/install-selinux-policy.sh` loads the shipped SELinux module, run once by an administrator;
-  - `dist/dist-setup/porelo-setup.sh` prepares a machine that has nothing installed, run as root.
+  - `dist/dist-setup/porelo-setup.sh` prepares a machine that has nothing installed, run as root, and is also shipped
+    in the `porelo` package at `/usr/share/porelo/setup/porelo-setup.sh`, where it keeps the channel the installed
+    package came from.
 - **The musl toolchain the hooks link against comes from the build tools**:
   `./mvnw -q -s settings.xml -N exec:exec@machines -Dmachines.args=musl`.
 - **A new native image goes into its module's `porelo.cpu.images`**, or `porelo-cpu-check` never sees it.
@@ -205,12 +207,18 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
   the broker, which keeps the host's DNS, egress and credential.
 - **A provider is data, a YAML file under `/usr/share/porelo/providers`; an agent is code.** The dialect's path
   belongs to the endpoint, never to the agent.
-- **A passphrase is verified before it is cached**, and `vault init` asks twice.
+- **A passphrase is verified before it is cached**, and `vault init` asks twice; `KernelKeyring.available()` probes
+  the keyring once with `request_key`, not only whether `libkeyutils` loads, because podman's default seccomp allows
+  `keyctl` reads and refuses `request_key` and `add_key`.
 - **`vault lock` does not reach a running task**, whose broker holds its credential until it stops, and says so.
 - **A sign-in is stored whole** - refresh token (hidden as `grant/<name>`), its end, token endpoint, client id - or
-  it dies within hours.
+  it dies within hours; its token URL comes from the agent's extractor, never from the credentials file.
+- **Every OAuth endpoint is `https`, or plain `http` on a literal loopback address only** (`Grants.secure`), which is
+  also all a test's `vault login --credentials-from ... --token-url` may name.
 - **The broker renews a minute before the end, inside one vault update under its lock**; from a task, a
   `grant_type=refresh_token` request is refused and an answer carrying a token field is withheld.
+- **The broker streams `text/event-stream` as soon as the first bytes arrive**, without waiting to fill its 8 KB
+  inspection buffer, and passes every method and `Mcp-Session-Id` both ways so an MCP session holds.
 - **An imported sign-in is never renewed**, since renewing the copy ends the developer's own session.
 - **Without a terminal there is no passphrase prompt**: `porelo setup` leaves the vault, says so and exits 0.
 - **An agent's permission prompts are switched off by Porelo** through `AgentDefinition.sandboxedCommand()` on both
@@ -253,7 +261,9 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
 - **`tmux new-session -A -s porelo` is the session**, its scrollback pinned in `/etc/porelo/tmux.conf`; `porelo` is not
   in a task image, which carries `curl`, `ca-certificates`, `git`, `openssh-client` and `tmux`.
 - **The workspace is checked out on an unborn HEAD**, never on an empty directory, with the branch asked of the
-  mirror, and `remote.porelo.push = HEAD:$PORELO_TASK_REF` makes a bare `git push` reach the gate.
+  mirror, and `remote.porelo.push = HEAD:$PORELO_TASK_REF` makes a bare `git push` reach the gate; the gate's git
+  credential is scoped to its own URL (`http.<gate>.extraHeader`), never set on `http.extraHeader`, which git sends
+  to every HTTPS host.
 - **`ContainerName.isPorelo` and `isTask` differ**: a login container carries only a timestamp after the prefix, and
   one left over is swept by the next `vault login`.
 - **Where an agent's session id is - an event field in a headless run, session files in a driven one - is declared by

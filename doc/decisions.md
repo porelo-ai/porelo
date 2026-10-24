@@ -71,6 +71,7 @@ would change the answer.
 | One credential type reaches one variable | `token_env` maps a type to one variable; changed in the reader when an agent needs two | [entry](#one-credential-type-reaches-one-variable) |
 | A bought token is per task and kept in memory | never on disk, never shared; costs one exchange per task per hour | [entry](#a-bought-token-is-per-task-and-kept-in-memory) |
 | A purchase that fails at start is a missing key | unattended and agent runs are refused before a container exists; a shell warns | [entry](#a-purchase-that-fails-at-start-is-a-missing-key) |
+| An authorization a person grants is kept in the vault and spent by the broker | granted once on the host (`oauth-device` or `oauth-code`), registered once where offered, spent per task in memory, recorded in `grants.log`, and revoked at the service before removal | [entry](#an-authorization-a-person-grants-is-kept-in-the-vault-and-spent-by-the-broker) |
 | Porelo does not replace a stored key at its provider | no `vault rotate`; per-provider code is what the split between agents and providers avoids | [entry](#porelo-does-not-replace-a-stored-key-at-its-provider) |
 | A task's own tokens are kept in the vault | gate and phantom token under `task/<container>/`; a start after a reboot needs the vault | [entry](#a-tasks-own-tokens-are-kept-in-the-vault) |
 | Clearing the vault is `clear`, not `delete` | `vault clear` lists, then acts on `--yes`, like the other clears; `remove` is for one entry | [entry](#clearing-the-vault-is-clear-not-delete) |
@@ -132,12 +133,15 @@ would change the answer.
 
 A playbook that puts a project on a server calls only Porelo's commands and never parses text meant for a person.
 `porelo project inventory` prints the second play's inventory with `porelo_inventory_version`, raised on any change of a
-name or a meaning; `vault status` answers by its exit code, 0 open, 3 shut, 4 none; `project following` and `agents`
-answer with `--json`; `task stop --all` answers by its exit code, 0 when nothing runs any more, 70 otherwise. The
-project file in the inventory is checked against its key exactly as `follow` checks it, and nothing is recorded. **Which
-keys go into a host's vault are the person's**, in their machine file on their drive, not in `project.yml`, which is the
-project's. A key leaves only by its name and its path. **Bringing a host up and down is kept apart from starting
-tasks**, since the person decides which work runs: the machine file names no task and no agent, `up` installs every
+name or a meaning, and names the project's transport packages (`porelo_transports`, `porelo-message-transport-<scheme>`)
+while leaving any homeserver package to the play; `vault status` answers by its exit code, 0 open, 3 shut, 4 none;
+`project following` and `agents` answer with `--json`; `task stop --all` answers by its exit code, 0 when nothing runs
+any more, 70 otherwise. The project file in the inventory is checked against its key exactly as `follow` checks it, and
+nothing is recorded. **Which keys go into a host's vault are the person's**, in their machine file on their drive, not
+in `project.yml`, which is the project's. A key leaves only by its name and its path. **Bringing a host up and down is
+kept apart from starting tasks**, since the person decides which work runs: the first play takes `porelo-setup.sh` from
+the `porelo` package (`/usr/share/porelo/setup/porelo-setup.sh`, which keeps the channel the installed package came
+from) after adding the repository by its pinned key, the machine file names no task and no agent, `up` installs every
 agent the setup script's catalogue offers and starts nothing, the person starts each task by hand, and `down` stops
 every task with `task stop --all` before `vault clear`.
 A vault on a host nobody sits at is opened from outside: a person at `ssh -t`, or a program writing the passphrase to
@@ -447,6 +451,23 @@ makes per-task exchanges fail.
 
 The launch tries the purchase once before anything exists. An unattended or agent run is refused, as for a
 credential the vault does not hold; a shell task warns and starts, since a person is there to fix it.
+
+## An authorization a person grants is kept in the vault and spent by the broker
+
+A service where a task acts as a person (`oauth-device` or `oauth-code`) is authorized once on the host with
+`porelo vault authorize` or the daemon's `Authorize` stream, never inside a container. Where the entry names only
+`resource_url` and the service offers dynamic client registration, Porelo reads its metadata and registers a public
+client once under the vault's lock, keeping the endpoints in the entry and the registration token hidden as
+`registration/<name>`. The refresh token that comes back is kept hidden as `grant/<name>` with who granted it and
+when; the broker buys each access token per task in memory and writes a rotated refresh token back to the vault.
+When a service issues an access token with no expiry and no refresh token, that token is kept and attached as it is;
+one with a stated expiry and no refresh token is refused at setup, since it would end mid-task. A start without a
+grant (`AUTHORIZATION_NEEDED`) refuses an unattended or agent run and warns a shell without spending the grant, and
+the daemon raises `Authorizations()` on its own stream once per credential until a grant lands. Whom a task acted as
+is recorded with the task and in `$XDG_STATE_HOME/porelo/grants.log`, which outlives the task. `vault remove`
+revokes the grant and deletes any client registration at the service before removing the entry, and keeps the entry
+unless `--without-revoking` is given when the service cannot be told. Every OAuth endpoint must be `https`, or plain
+`http` on loopback only.
 
 ## Porelo does not replace a stored key at its provider
 

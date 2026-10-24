@@ -3,10 +3,9 @@
 What the kinds of credential have in common and where they part, set side by side — the comparison
 no single requirement can hold, the way
 [the comparison of agents and providers](https://github.com/porelo-ai/porelo-project/blob/main/doc/agents-and-providers.md) holds the one that spans
-agents and providers. The part they share - more than one credential in a task, a route each - and the key kind are
-built and described in [Credentials](../../doc/credentials.md#more-than-one-credential-in-a-task); what is
-left is owned by [B30](README.md#b30) and
-[B31](README.md#b31), one per kind.
+agents and providers. The part they share - more than one credential in a task, a route each - the key kind and the authorization kind
+([B31](README.md#b31)) are built and described in [Credentials](../../doc/credentials.md#more-than-one-credential-in-a-task); what is
+left is owned by [B30](README.md#b30).
 
 ## Why they were split
 
@@ -25,7 +24,7 @@ is to argue it in — not to widen an existing kind until it covers something it
 |---|---|---|---|---|---|
 | **Key** | the value itself | strips, attaches, forwards | a phantom token and an endpoint | nobody | built |
 | **Grant** | a client secret or a key, plus a token URL and scopes | exchanges it for a short-lived token, caches it, renews it | a phantom token and an endpoint | nobody | [B30](README.md#b30) |
-| **Authorization** | what a person's consent produced, with its refresh token | attaches it, and refreshes it the way a grant is refreshed | a phantom token and an endpoint | a person, once | [B31](README.md#b31) |
+| **Authorization** | what a person's consent produced, with its refresh token | attaches it, and refreshes it the way a grant is refreshed | a phantom token and an endpoint | a person, once | built ([B31](README.md#b31)) |
 | **Minted** | nothing | issues it | the token itself, in full | nobody | built |
 | **Signed** | a key that never leaves | performs the operation on request | a socket | nobody | built for ssh, generalized by [B30](README.md#b30) |
 | **Out of band** | — | — | — | — | refused, below |
@@ -87,9 +86,8 @@ Both are built.
 waiting on a credential kind that actually expires. It is the largest of the three and the
 one that introduces a clock the broker has to keep.
 
-**[B31](README.md#b31) last**, because it needs [B30](README.md#b30)'s refresh to be worth anything, because it is the only one that
-needs a person, and because the question it turns on — whether the broker can carry an MCP session at
-all — is unmeasured, and answering it may change the shape of the file.
+**[B31](README.md#b31) last** (built), because it needed [B30](README.md#b30)'s refresh to be worth anything, because it is the only one that
+needs a person, and because it turned on whether the broker carries an MCP session.
 
 ## Decided 2026-09-09, for all four at once
 
