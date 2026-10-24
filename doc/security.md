@@ -160,7 +160,8 @@ nothing inside can reach them. The guarantee is all three facts together:
    before anything runs.
 2. **Loaded by an OCI hook** at the `createRuntime` stage, after the runtime has created the
    namespaces and before it pivots into the container's filesystem. The hook runs
-   `nsenter --target <pid> --net nft --file -`, with the ruleset on standard input.
+   `nsenter --target <pid> --net nft --file -`, with the ruleset on standard input and both programs
+   taken from the system's root-owned directories rather than `PATH`.
 3. **Unreachable from inside.** The container runs with `--cap-drop ALL` and
    `--security-opt no-new-privileges`. Changing the rules needs `CAP_NET_ADMIN` in that namespace,
    and the agent has no capabilities at all. It can be stopped by the rules; it cannot read them

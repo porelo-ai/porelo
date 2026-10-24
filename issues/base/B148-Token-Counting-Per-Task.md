@@ -106,12 +106,16 @@ read with `org.fuin.porelo.wire.Json`.
    interrupt does not stop the task.
 9. **Docs:** `doc/reach.md` and `doc/credentials.md` say what the record holds, that it holds no prompt and no
    answer's text, which paths count, and that the broker asks for the streamed Chat Completions count.
+- **Fixtures to record:** one streamed answer of each format OpenAI ([P05](../providers/README.md#p05), Chat
+  Completions and Responses) and Google ([P06](../providers/README.md#p06), Gemini) serve, recorded from a live run
+  and replayed by `VaultProxyTest` so the fixture line holds every count the provider sent and the agent's answer
+  differs only by the added usage chunk.
 
 **Red first.** The stand-in provider of `VaultProxyTest` replays a recorded stream per format - Chat Completions
 with and without `include_usage`, Responses, Anthropic Messages, Gemini - plus one cut off mid-stream and one
 `count_tokens` call: each gives the line expected (the cut one `aborted`, `count_tokens` none), and the agent
 receives every answer byte for byte except the added usage chunk. Today no record exists. For the providers not yet
-shipped, [P05](../providers/README.md#p05) to [P08](../providers/README.md#p08) each record their stream in their live
+shipped, [P07](../providers/README.md#p07) and [P08](../providers/README.md#p08) each record their stream in their live
 scenario and add it as a fixture.
 
 ## Acceptance
@@ -129,6 +133,6 @@ scenario and add it as a fixture.
 - That the stub, the Pi family and each agent speaking Chat Completions take the extra usage chunk, measured before
   step 3 ships (Agent Core's).
 - Whether xAI, Zhipu, Copilot and Gemini's `/v1beta/openai` accept `stream_options.include_usage` and report the
-  count, measured in [P05](../providers/README.md#p05) to [P08](../providers/README.md#p08)'s live scenarios and for
+  count, measured in [P07](../providers/README.md#p07) and [P08](../providers/README.md#p08)'s live scenarios and for
   Copilot with a live request (Agent Core's).
 - How the interface shows a task's usage (Agent Frontend's).

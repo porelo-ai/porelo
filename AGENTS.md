@@ -102,7 +102,9 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
 
 ## Tests
 
-- **A test that needs podman belongs in the acceptance suite**; unit tests run without a container runtime.
+- **A test that needs podman belongs in the acceptance suite**; unit tests run without a container runtime, and inside
+  a Porelo task too (no `podman`, installed `porelo` or `/run/user`, `no-new-privileges` set, and one uid in the user
+  namespace).
 - **A scenario about a packaged file cannot pass on a CI leg**, which builds on the machine and has no package
   installed; what a package holds is checked by `dist/package-check`.
 - **A suite opens one ssh connection per run and a channel per scenario**; a connection per scenario is refused by CI.
@@ -182,6 +184,9 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
   `nftset`.
 - **SELinux runs `nft` confined, unable to read the operator's files, with the denial unaudited**, so `NftHook` feeds
   the ruleset on stdin.
+- **The hooks and shield run `nsenter` and `nft` from a fixed root-owned directory, never through `PATH`**
+  (`SystemProgram`); in rootless podman's namespace the host's root reads as the overflow uid, and a `/proc` file,
+  which reports size 0, is read through a stream, since `Files.readString` truncates it in a native image.
 - **SELinux checks `connectto` against the serving process**, so a socket a container reaches is labeled at
   `socket()` through `/proc/thread-self/attr/sockcreate` (`SocketContext.openUnixSocket()`); clearing it writes a
   NUL byte.
@@ -206,7 +211,8 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
 - **An agent that takes only a URL gets `porelo vault relay`** on `127.0.0.1` in the task's namespace, forwarding to
   the broker, which keeps the host's DNS, egress and credential.
 - **A provider is data, a YAML file under `/usr/share/porelo/providers`; an agent is code.** The dialect's path
-  belongs to the endpoint, never to the agent.
+  belongs to the endpoint, never to the agent; an agent whose client adds that path to its base URL itself declares
+  `provider.adds_path: true` and gets the broker's bare address in `base_url_env`.
 - **A passphrase is verified before it is cached**, and `vault init` asks twice; `KernelKeyring.available()` probes
   the keyring once with `request_key`, not only whether `libkeyutils` loads, because podman's default seccomp allows
   `keyctl` reads and refuses `request_key` and `add_key`.

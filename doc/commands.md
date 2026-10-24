@@ -148,7 +148,9 @@ takes `porelo approve TASK`; `--yes` answers for a script.
   there; at a terminal it asks for the passphrase.
 - A task whose agent names its sessions continues the conversation it was having, after a stop or a
   reboot alike, and the start says whether it continued or began fresh. An agent that names no
-  session, or a continuation that failed, begins fresh and says so; nothing runs twice unasked.
+  session, or a continuation that failed, begins fresh and says so; nothing runs twice unasked. The
+  `--model` a task was started with is kept for `task attach` and later starts, and starting a stopped
+  task with another `--model` is refused, naming what it was started with.
 
 **`task remove`** refuses when the task is running (`stop` it first, or `--force`), holds commits
 that never reached the gate (`--rescue` pushes them to the gate, `--force` discards them), or its
