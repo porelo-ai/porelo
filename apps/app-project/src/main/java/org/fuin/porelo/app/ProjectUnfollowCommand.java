@@ -230,7 +230,7 @@ public class ProjectUnfollowCommand
         if (project != null) {
             // Its deploy keys go from the vault; the forge still grants access by them until they
             // go there too.
-            for (final DeployKeys.Key key : DeployKeys.forget(context, project)) {
+            for (final LeftDeployKeys.Key key : LeftDeployKeys.forget(context, project)) {
                 out.println(
                         "remove at the forge: '"
                                 + key.title()

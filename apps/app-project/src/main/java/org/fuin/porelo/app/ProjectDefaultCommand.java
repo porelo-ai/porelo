@@ -114,7 +114,7 @@ public class ProjectDefaultCommand implements Callable<Integer>, PoreloFactory.C
                     err.flush();
                     return 64;
                 }
-                final java.util.List<DeployKeys.Key> forgotten = project.remove(argument);
+                final java.util.List<LeftDeployKeys.Key> forgotten = project.remove(argument);
                 if (forgotten == null) {
                     err.println(
                             "porelo: '"

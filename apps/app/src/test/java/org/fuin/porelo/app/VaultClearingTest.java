@@ -15,7 +15,6 @@ import java.util.List;
 import java.util.Map;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.core.process.Command;
-import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.vault.KernelKeyring;
 import org.fuin.porelo.vault.VaultEntry;
@@ -68,6 +67,7 @@ class VaultClearingTest {
 
     @AfterEach
     void forgetWhatTheKeyringHolds() {
+        PoreloContext.forgetAsked();
         // Every test's own description, from its own temporary vault: a passphrase left behind
         // outlives the test in the developer's account.
         if (used != null && KernelKeyring.available()) {
@@ -416,27 +416,30 @@ class VaultClearingTest {
     }
 
     @Test
-    void aProjectsDeployKeysAreNamedForAPersonToRemoveAtTheForge() throws IOException {
-        final PoreloContext context = unlockedVault();
+    void aProjectsDeployKeysAreNamedForAPersonToRemoveAtTheForge() throws Exception {
+        // Erasing the vault must still name earlier forge access for a person to revoke.
+        final PoreloContext context = context().asking(prompt -> PASSPHRASE.clone());
+        context.vault().write(Map.of(), PASSPHRASE);
+        context.openerAsking(false, new PrintWriter(new StringWriter()));
         project(
                 "web",
                 "repositories:\n  api:\n    upstream: \"git@forge.example.org:o/web.git\"\n");
-        final Project web = GateSupport.byName(context, "web");
-        final DeployKeys.Key made;
-        try {
-            made = DeployKeys.make(context, web, "api", null, false);
-        } catch (final DeployKeys.Refused ex) {
-            throw new AssertionError(ex);
-        }
+        final LeftDeployKeys.Key made =
+                LeftDeployKeysTest.earlierKey(
+                        context, "web", "api", "git@forge.example.org:o/web.git", false);
 
         final Clearing.Result cleared = new VaultClearing(context).clear(false, false);
 
         assertThat(names(cleared, "deploy key", made.fingerprint(), Clearing.Status.FOR_A_PERSON))
+                .as("the person is told which forge access remains")
                 .isTrue();
         assertThat(cleared.keys())
-                .extracting(DeployKeys.Key::fingerprint)
+                .as("the earlier key is named exactly once")
+                .extracting(LeftDeployKeys.Key::fingerprint)
                 .containsExactly(made.fingerprint());
-        assertThat(context.vault().path()).doesNotExist();
+        assertThat(context.vault().path())
+                .as("the vault and its private halves are removed")
+                .doesNotExist();
     }
 
     @Test

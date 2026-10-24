@@ -312,8 +312,8 @@ one after the change.
 lists what would go and removes nothing, and each line says `removed`, `would go`, `not removed` with
 why, or `for you`. It names what the vault holds - credentials, grants, the accounts a transport keeps,
 stopped tasks' tokens - and removes the vault file with every device's keyslot, its `.old` backup and
-its `.lock`, and the passphrase and device shares cached in the kernel keyring. Each deploy key is
-named `for you`: it goes with the vault, and only the forge removes it there.
+its `.lock`, and the passphrase and device shares cached in the kernel keyring. A deploy key made by
+an earlier version is still forgotten here and named `for you` to remove at the forge.
 
 A transport's account goes with it. First, for each project whose `mail.transports.<scheme>` names
 settings of its own - a server elsewhere - the transport's `clear --project` runs while the vault still
@@ -383,13 +383,8 @@ Which secret a destination uses, and where it lives. Nothing here prints a value
 | `porelo credentials declare MATCH --kind=KIND` | Records a destination's credential: `--vault`, `--file`, `--env` or `--agent`. |
 | `porelo credentials check URL [--no-connect]` | Says which credential a URL would use and, for git, reads the URL with it as a start does: a refused key, a missing repository or a host out of reach is named with its fix. `--no-connect` only says what would be used. |
 | `porelo credentials forget MATCH` | Forgets a record. The value is left alone. |
-| `porelo credentials deploy-key PROJECT [-r REPOSITORY] [--read-only \| --write] [--new]` | Creates a deploy key: secret half into the vault, public half printed once for the forge. |
 | `porelo credentials keys` | Lists this account's ssh keys without reading them. |
 | `porelo credentials trust-host HOST[:PORT] [--fingerprint=SHA256:...]` | Shows a host's keys and records the one you confirm. Name the port when its ssh is not on 22 - `forge.example.org:7999` - as the hint at a start does. |
-
-**Deploy keys**: read-only for the project's own repository, write for a work repository. Running it
-again prints the same key; `--new` replaces it. `project unfollow` forgets these keys and names each
-one to remove at the forge.
 
 ## talk
 
@@ -453,9 +448,9 @@ porelo project enroll PROJECT [--remove] [--as=PRINCIPAL]
   a failure.
 - **`clear`** clears the project from this machine in one step: its tasks with their workspaces and
   mailboxes, its mirrors and image, the follow, its conversation and what this machine kept for it,
-  and its deploy keys from the vault. Without `--yes` it only lists what would go. It names what only
-  your credentials can remove: each deploy key at the forge, and this machine's line in the
-  project's `machine-signers`. See [clear](#clear).
+  and any deploy keys made by an earlier version from the vault. Without `--yes` it only lists what
+  would go. Each earlier key is still forgotten here and named for you to remove at the forge,
+  alongside this machine's line in the project's `machine-signers`. See [clear](#clear).
 - **`default`** is the project every machine has and nobody follows. It is `guarded`, reaches only
   the agent's provider, refuses blocked connections and has no conversation. `task start` without
   `-p`, in a checkout no followed project names, adds that checkout's `origin` to it (a token in the
@@ -558,12 +553,14 @@ Clears this account in one step, for when you are done with a machine: every pro
 homeserver it runs, say). Without `--yes` it lists all of it and removes nothing. The vault, your keys
 and the installed packages stay: clearing is not uninstalling. `porelo vault clear` removes the vault.
 
-Each line says `removed`, `would go`, `not removed` with why, or `for you`: a deploy key to remove
-at its forge, or this machine's line to take out of a project's `machine-signers`. The
-machine holds no forge token and not your signing key, so it never tries. It refuses while work
-waits at the gate or tasks run; `--force` clears those too. Run again, it says there is nothing to
-clear. With the vault locked, the deploy keys it cannot read are said to be unreadable, never answered
-as none.
+Each line says `removed`, `would go`, `not removed` with why, or `for you`: a deploy key made by an
+earlier version to remove at its forge, or this machine's line to take out of a project's
+`machine-signers`. Each earlier key is still forgotten here and named once. Removing it at the forge
+needs the forge's administration right, which your token for git does not need; changing
+`machine-signers` needs your signed commit. Clearing attempts neither. It refuses while work waits
+at the gate or tasks run; `--force` clears those too. Run again, it says there is nothing to clear.
+With the vault locked, the earlier keys it cannot read are said to be unreadable, never answered as
+none.
 
 A deploy key made before 0.5.0, while Porelo was called Sokar, is titled `sokar <host> <project>/<repository>` at
 its forge. Porelo reads nothing of Sokar's, so it never lists such a key: it is yours to remove.

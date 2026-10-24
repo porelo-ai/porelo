@@ -689,19 +689,17 @@ type MachineKey (
   fingerprint: string
 )
 
-# Makes this machine's deploy key for a repository of a project, or answers the one it has. The secret half
-# goes into the vault and is declared for the repository's upstream; only the public half is answered.
+# Retired: always answers DeployKeyRefused. Git uses the person's own ssh key for an ssh address,
+# or their token stored as git.token.<host> for an https address.
 method DeployKey(
   project: string,
   # Default: the project's own.
   repository: ?string,
-  # Default: read-only for the project's own repository, write access for a work repository.
+  # Retained for compatibility; ignored.
   readOnly: ?bool,
-  # Make a new one although this machine has one; the old one should be removed at the forge.
+  # Retained for compatibility; ignored.
   new: ?bool,
-  # For a project this machine does not follow yet: the repository's upstream. A private repository cannot be
-  # followed before its key is registered at the forge, so the order is DeployKey with this, register the key,
-  # then Follow. Ignored for a project this machine follows.
+  # The repository's address, used to name its host when the project is unknown.
   upstream: ?string
 ) -> (key: MachineDeployKey)
 

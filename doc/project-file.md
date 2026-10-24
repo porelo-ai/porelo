@@ -361,12 +361,19 @@ In `project-signers` the name before each key is a label, not a check: any key i
 whatever name it is written under. The file therefore means *these keys may sign configuration*. Write
 the signer's email there all the same; it is what `git log --show-signature` prints.
 
-## Deploy keys
+<a id="deploy-keys"></a>
 
-**One deploy key per machine per repository.** The private half stays in the machine's vault; the
-public half is registered at the forge as `porelo <machine> <project>/<repository>`. The key for the
-project's own repository is **read-only**; only work repositories get write access. Unfollowing a
-project forgets its keys here and names each one to remove at the forge.
+## Reaching a private repository
+
+Git reaches a repository with the person's own credential, chosen by its address. An `ssh` address
+uses their ssh key from the vault: `git.ssh.<host>`, then `git.ssh`, then `ssh.default`. An `https`
+address uses their token stored as `git.token.<host>`. See [credentials](credentials.md) for declaring
+and storing credentials.
+
+The credential needs read access to the project's own repository, which the machine reads for its
+configuration, and write access to work repositories, where it pushes approved work. A token for git
+needs no forge administration right. The forge's API uses a token for its own operations, separately
+from git.
 
 ## What is not in here
 

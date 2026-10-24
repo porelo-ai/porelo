@@ -49,7 +49,7 @@ final class VaultMethods {
                                             .toList(),
                                     "keys",
                                     result.keys().stream()
-                                            .map(org.fuin.porelo.app.DeployKeys.Key::asMap)
+                                            .map(org.fuin.porelo.app.LeftDeployKeys.Key::asMap)
                                             .toList(),
                                     "refused",
                                     result.refused()));

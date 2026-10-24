@@ -1,0 +1,2 @@
+title: "Porelo makes no deploy keys: git reaches a repository with the person's own ssh key or token, and keys made earlier are still forgotten when a project is cleared"
+type: removed

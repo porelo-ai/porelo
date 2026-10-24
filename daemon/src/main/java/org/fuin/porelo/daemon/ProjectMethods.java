@@ -626,7 +626,7 @@ final class ProjectMethods {
         server.method(
                 "RemoveFromDefault",
                 (parameters, replies) -> {
-                    final List<org.fuin.porelo.app.DeployKeys.Key> forgotten =
+                    final List<org.fuin.porelo.app.LeftDeployKeys.Key> forgotten =
                             new org.fuin.porelo.app.DefaultProject(context)
                                     .remove(text(parameters, "name"));
                     replies.last(
@@ -637,7 +637,9 @@ final class ProjectMethods {
                                     forgotten == null
                                             ? List.of()
                                             : forgotten.stream()
-                                                    .map(org.fuin.porelo.app.DeployKeys.Key::asMap)
+                                                    .map(
+                                                            org.fuin.porelo.app.LeftDeployKeys.Key
+                                                                    ::asMap)
                                                     .toList()));
                 });
 
@@ -673,52 +675,18 @@ final class ProjectMethods {
         server.method(
                 "Unfollow", (parameters, replies) -> replies.last(unfollow(context, parameters)));
 
-        // A machine's own keys, for an interface that registers them at a forge or writes them into
-        // a project: only the public halves ever leave this machine (decided on 2026-09-30).
+        // Tasks1 retains retired methods so existing clients receive a named refusal.
         server.method(
                 "DeployKey",
                 (parameters, replies) -> {
-                    final String name = text(parameters, "project");
-                    final String repository = text(parameters, "repository");
-                    final String upstream = address(parameters, "upstream");
-                    final Boolean readOnly =
-                            parameters.get("readOnly") instanceof Boolean given ? given : null;
-                    org.fuin.porelo.core.project.Project project = null;
-                    try {
-                        project = org.fuin.porelo.app.GateSupport.byName(context, name);
-                    } catch (RuntimeException ex) {
-                        if (upstream.isEmpty()) {
-                            throw new VarlinkException(
-                                    INTERFACE + ".NoSuchProject", Map.of("project", name));
-                        }
-                    }
-                    try {
-                        // A project this machine does not follow yet - a private one, whose key
-                        // must be at the forge before it can be fetched at all - takes the upstream
-                        // from the caller.
-                        final org.fuin.porelo.app.DeployKeys.Key key =
-                                project == null
-                                        ? org.fuin.porelo.app.DeployKeys.make(
-                                                context,
-                                                context.opener().orElse(null),
-                                                name,
-                                                repository.isEmpty() ? name : repository,
-                                                upstream,
-                                                repository.isEmpty() || repository.equals(name),
-                                                readOnly,
-                                                flag(parameters, "new"))
-                                        : org.fuin.porelo.app.DeployKeys.make(
-                                                context,
-                                                project,
-                                                repository.isEmpty() ? null : repository,
-                                                readOnly,
-                                                flag(parameters, "new"));
-                        replies.last(Map.of("key", key.asMap()));
-                    } catch (org.fuin.porelo.app.DeployKeys.Refused ex) {
-                        throw new VarlinkException(
-                                INTERFACE + ".DeployKeyRefused",
-                                Map.of("message", String.valueOf(ex.getMessage())));
-                    }
+                    final String host = deployKeyHost(context, parameters);
+                    throw new VarlinkException(
+                            INTERFACE + ".DeployKeyRefused",
+                            Map.of(
+                                    "message",
+                                    "Porelo makes no deploy keys; git reaches the repository with your own ssh key (an ssh address) or your token stored as git.token."
+                                            + host
+                                            + " (an https address)"));
                 });
 
         server.method(
@@ -747,6 +715,32 @@ final class ProjectMethods {
                                 org.fuin.porelo.app.ProjectFileCheck.check(
                                                 context, text(parameters, "text"))
                                         .asMap()));
+    }
+
+    private static String deployKeyHost(
+            final PoreloContext context, final Map<String, Object> parameters) {
+        String upstream = text(parameters, "upstream");
+        final String name = text(parameters, "project");
+        try {
+            final org.fuin.porelo.core.project.Project project = GateSupport.byName(context, name);
+            final org.fuin.porelo.core.project.Repository repository =
+                    GateSupport.repository(project, empty(parameters, "repository"));
+            if (repository.upstream() != null) {
+                upstream = repository.upstream();
+            } else if (repository.name().equals(project.name())) {
+                final org.fuin.porelo.app.FollowedProjects.Followed followed =
+                        new org.fuin.porelo.app.FollowedProjects(
+                                        context.paths().projects().followed())
+                                .find(name);
+                if (followed != null) {
+                    upstream = followed.url();
+                }
+            }
+        } catch (RuntimeException | java.io.IOException ex) {
+            // Retirement refuses even an unknown project or an unreadable follow record.
+        }
+        final String host = org.fuin.porelo.app.GitCredentialNames.hostOf(upstream);
+        return host == null ? "<host>" : host;
     }
 
     /**
@@ -837,7 +831,7 @@ final class ProjectMethods {
             // This machine's deploy keys for it go from the vault; what they were is
             // answered, so whoever registered them at the forge removes them there.
             if (known != null) {
-                org.fuin.porelo.app.DeployKeys.forget(context, known)
+                org.fuin.porelo.app.LeftDeployKeys.forget(context, known)
                         .forEach(key -> keys.add(key.asMap()));
             }
         }

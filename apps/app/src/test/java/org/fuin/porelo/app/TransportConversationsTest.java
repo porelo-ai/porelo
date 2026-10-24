@@ -465,9 +465,9 @@ class TransportConversationsTest {
             // Two machines on one homeserver run tasks of the same name; the machine's name keeps
             // them apart.
             assertThat(runner.only(" setup ").arguments())
-                    .containsSequence("--machine", DeployKeys.hostName());
+                    .containsSequence("--machine", MachineName.hostName());
             assertThat(runner.only(" enroll ").arguments())
-                    .containsSequence("--machine", DeployKeys.hostName());
+                    .containsSequence("--machine", MachineName.hostName());
         } finally {
             keyring.forget();
         }

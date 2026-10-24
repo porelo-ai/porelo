@@ -620,7 +620,7 @@ final class TransportLifecycle {
         if (!"settings".equals(verb[0])
                 && TransportDescription.of(context.runner(), adapter).takes("machine")) {
             arguments.add("--machine");
-            arguments.add(DeployKeys.hostName());
+            arguments.add(MachineName.hostName());
         }
         final CommandResult result;
         try {

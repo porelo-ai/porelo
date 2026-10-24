@@ -386,7 +386,7 @@ with no shell, a remote person cannot store a new credential, only import one al
 Whether the rule should stay is an open design question; until it is decided, this is the rule.
 
 **An IDE's remote backend on the host is not a way to review a task's work.** It runs as the account that holds
-the unlocked vault, the daemon's socket and the deploy keys, and building or testing the work there runs the
+the unlocked vault and the daemon's socket, and building or testing the work there runs the
 agent's code with all of it. Fetch the waiting work into your own clone (`porelo gate pending` says how) and open
 it in your IDE's safe mode; run it only in a container on the machine.
 Attaching an editor to the task's container is not made to work either: it would need the editor vendor's

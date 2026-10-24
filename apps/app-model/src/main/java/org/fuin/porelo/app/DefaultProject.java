@@ -306,18 +306,18 @@ public final class DefaultProject {
      * @param name The repository.
      * @return The deploy keys forgotten, or {@code null} when it was not there.
      */
-    public @Nullable List<DeployKeys.Key> remove(final String name) {
+    public @Nullable List<LeftDeployKeys.Key> remove(final String name) {
         return locked(() -> removeHeld(name));
     }
 
-    private @Nullable List<DeployKeys.Key> removeHeld(final String name) {
+    private @Nullable List<LeftDeployKeys.Key> removeHeld(final String name) {
         final List<Entry> entries = new ArrayList<>(entries());
         if (entries.stream().noneMatch(entry -> entry.name().equals(name))) {
             return null;
         }
         // While the repository is still in the file the key is found by.
-        final List<DeployKeys.Key> forgotten =
-                DeployKeys.forget(
+        final List<LeftDeployKeys.Key> forgotten =
+                LeftDeployKeys.forget(
                         context, org.fuin.porelo.core.project.ProjectReader.read(file()), name);
         entries.removeIf(entry -> entry.name().equals(name));
         write(entries);

@@ -73,7 +73,7 @@ public final class Clearing {
      *     running task would go; {@code --force} clears it all the same.
      */
     public record Result(
-            List<Item> items, List<DeployKeys.Key> keys, String signer, boolean refused) {
+            List<Item> items, List<LeftDeployKeys.Key> keys, String signer, boolean refused) {
 
         /**
          * Returns it as plain values, for a wire.
@@ -85,7 +85,7 @@ public final class Clearing {
                     "items",
                     items.stream().map(Item::asMap).toList(),
                     "keys",
-                    keys.stream().map(DeployKeys.Key::asMap).toList(),
+                    keys.stream().map(LeftDeployKeys.Key::asMap).toList(),
                     "signer",
                     signer,
                     "refused",
@@ -200,7 +200,7 @@ public final class Clearing {
             return new Result(List.copyOf(items), List.of(), "", refusedListing);
         }
         conversations(known, dryRun, items);
-        final List<DeployKeys.Key> keys = keys(known, dryRun, items);
+        final List<LeftDeployKeys.Key> keys = keys(known, dryRun, items);
         final String signer = signer(name, items);
         return new Result(List.copyOf(items), keys, signer, refusedListing);
     }
@@ -225,7 +225,7 @@ public final class Clearing {
             }
         }
         final List<Item> items = new ArrayList<>();
-        final List<DeployKeys.Key> keys = new ArrayList<>();
+        final List<LeftDeployKeys.Key> keys = new ArrayList<>();
         String signer = "";
         boolean refused = false;
         final java.util.Set<String> names = new java.util.TreeSet<>();
@@ -404,7 +404,7 @@ public final class Clearing {
         }
     }
 
-    private List<DeployKeys.Key> keys(
+    private List<LeftDeployKeys.Key> keys(
             final Project project, final boolean dryRun, final List<Item> items) {
         if (context.vault().exists() && context.opener().isEmpty()) {
             // Said as such: a locked vault answered no keys at all, silently, and a person took
@@ -418,9 +418,11 @@ public final class Clearing {
                                     + " again"));
             return List.of();
         }
-        final List<DeployKeys.Key> keys =
-                dryRun ? DeployKeys.held(context, project) : DeployKeys.forget(context, project);
-        for (final DeployKeys.Key key : keys) {
+        final List<LeftDeployKeys.Key> keys =
+                dryRun
+                        ? LeftDeployKeys.held(context, project)
+                        : LeftDeployKeys.forget(context, project);
+        for (final LeftDeployKeys.Key key : keys) {
             items.add(
                     new Item(
                             "deploy key",
@@ -435,7 +437,7 @@ public final class Clearing {
         if (!Files.isRegularFile(context.paths().messaging().messageKey())) {
             return "";
         }
-        final String machine = "porelo@" + DeployKeys.hostName();
+        final String machine = "porelo@" + MachineName.hostName();
         final String line;
         try {
             line =

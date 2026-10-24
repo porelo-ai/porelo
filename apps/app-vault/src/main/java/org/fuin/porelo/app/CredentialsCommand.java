@@ -26,8 +26,7 @@ import picocli.CommandLine.Spec;
             CredentialsForgetCommand.class,
             CredentialsCheckCommand.class,
             CredentialsKeysCommand.class,
-            CredentialsTrustHostCommand.class,
-            CredentialsDeployKeyCommand.class
+            CredentialsTrustHostCommand.class
         },
         description = "Says what this machine connects out with, and records more.")
 public class CredentialsCommand implements Callable<Integer>, PoreloFactory.ContextAware {

@@ -103,7 +103,7 @@ public final class VaultClearing {
         }
 
         final List<Project> projects = projects();
-        final List<DeployKeys.Key> keys = new ArrayList<>();
+        final List<LeftDeployKeys.Key> keys = new ArrayList<>();
         final List<Clearing.Item> held =
                 entries == null ? List.of() : held(entries, projects, keys);
 
@@ -288,10 +288,10 @@ public final class VaultClearing {
     private List<Clearing.Item> held(
             final Map<String, VaultEntry> entries,
             final List<Project> projects,
-            final List<DeployKeys.Key> keys) {
+            final List<LeftDeployKeys.Key> keys) {
         final List<Clearing.Item> held = new ArrayList<>();
         for (final Project project : projects) {
-            keys.addAll(DeployKeys.held(context, project));
+            keys.addAll(LeftDeployKeys.held(context, project));
         }
         final Set<String> deployKeys = new TreeSet<>();
         keys.forEach(key -> deployKeys.add(key.entry()));
@@ -338,7 +338,7 @@ public final class VaultClearing {
                         held.add(
                                 new Clearing.Item(
                                         "task token", task, Clearing.Status.WOULD_REMOVE, "")));
-        for (final DeployKeys.Key key : keys) {
+        for (final LeftDeployKeys.Key key : keys) {
             held.add(
                     new Clearing.Item(
                             "deploy key",

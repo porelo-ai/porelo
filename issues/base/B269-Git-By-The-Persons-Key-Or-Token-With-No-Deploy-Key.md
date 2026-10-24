@@ -1,7 +1,6 @@
 # B269 — Git By The Person's Key Or Token, With No Deploy Key
 
-**Status:** Backlog, after [B268](README.md#b268), [B265](README.md#b265) and [B267](README.md#b267); it ships together
-with porelo-frontend [F153](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md#f153), so neither is handed over without the other.
+**Status:** Implementing; it ships together with porelo-frontend [F153](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md#f153), so neither is handed over without the other.
 **Size:** M - a contract change within `Tasks1` (a retired method), about fourteen classes in four modules, four
 pages and an acceptance feature; mostly removal.
 

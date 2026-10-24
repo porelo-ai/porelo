@@ -37,7 +37,7 @@ would change the answer.
 | The daemon restarts itself after an update; the package does not | it sees its binary replaced and asks the account's systemd; tasks keep running | [entry](#the-daemon-restarts-itself-after-an-update-the-package-does-not) |
 | Porelo offers what it would tell a person to type | one `Offer` helper: the command's own code, the precondition checked again, a destructive step defaults to no, nothing asked without a terminal | [entry](#porelo-offers-what-it-would-tell-a-person-to-type) |
 | Account-wide settings live in one file | `$XDG_CONFIG_HOME/porelo/config.yml`; missing means every default, an unknown key refused by name | [entry](#account-wide-settings-live-in-one-file) |
-| Unused access is reported, and locked only on request | a slot or deploy key unused for 45 days named by `doctor`; locking is a setting, off by default | [entry](#unused-access-is-reported-and-locked-only-on-request) |
+| Unused access is reported, and locked only on request | a device slot unused for 45 days named by `doctor`; locking is a setting, off by default | [entry](#unused-access-is-reported-and-locked-only-on-request) |
 | The event log is anchored in the user's journal and outlives a clearing | each line's hash in the user's journal, sent off the machine only by a setting; `porelo clear` keeps it | [entry](#the-event-log-is-anchored-in-the-users-journal-and-outlives-a-clearing) |
 | The daemon listens on no network port; another computer reaches it through ssh | `ssh -L` onto its socket or `ssh HOST porelo daemon connect`; a forward that breaks is repaired, not routed around | [entry](#the-daemon-listens-on-no-network-port-another-computer-reaches-it-through-ssh) |
 | An upgrade reloads a loaded SELinux module, and doctor names an older one | the rpm reloads `porelo_socket` where it is loaded; `doctor` asks the kernel what the loaded one grants | [entry](#an-upgrade-reloads-a-loaded-selinux-module-and-doctor-names-an-older-one) |
@@ -93,7 +93,7 @@ would change the answer.
 | A project's signing key is handed on through the project file | a signers change counts only signed by a key in force before it; machine keys never change configuration | [entry](#a-projects-signing-key-is-handed-on-through-the-project-file) |
 | A project may be followed without a signing key | `--unverified` is allowed per project, as a loudly reported state, not an error | [entry](#a-project-may-be-followed-without-a-signing-key) |
 | Where a followed project's file comes from | only the verified clone; nothing in force means no task, never a fallback to a local file | [entry](#where-a-followed-projects-file-comes-from) |
-| Clearing names what only a person's credentials can remove, and never attempts it | forge deploy keys and `machine-signers` lines are answered, not removed; the vault stays | [entry](#clearing-names-what-only-a-persons-credentials-can-remove-and-never-attempts-it) |
+| Clearing names what only a person's credentials can remove, and never attempts it | keys made by earlier versions and `machine-signers` lines are named, not removed at the forge; git needs no administration right; the vault stays | [entry](#clearing-names-what-only-a-persons-credentials-can-remove-and-never-attempts-it) |
 | A digest pins an image; a tag-only image in a followed project needs a person's consent once | a followed tag-only project waits for one consent, then the digest is kept and a change said at every start | [entry](#a-digest-pins-an-image-a-tag-only-image-in-a-followed-project-needs-a-persons-consent-once) |
 | What a build runs beside its secrets is fixed by its content | every action by commit with its version, Maven and GraalVM by checksum, Artifactory spoken to with curl; `check-actions` refuses a tag | [entry](#what-a-build-runs-beside-its-secrets-is-fixed-by-its-content) |
 | An offline project never connects, and its agent still reaches its provider | no upstream, followed only from a file; the agent's model calls go through the broker as in every class | [entry](#an-offline-project-never-connects-and-its-agent-still-reaches-its-provider) |
@@ -636,10 +636,11 @@ after something went wrong, when the project has moved on.
 ## Clearing names what only a person's credentials can remove, and never attempts it
 
 `porelo clear` and `porelo project clear` remove everything this machine holds for a project or the account, in one
-confirmed step, but a deploy key at a forge and this machine's line in a project's `machine-signers` are answered,
-never removed: the machine holds no forge token and not the person's signing key, and must not. The interface removes
-them with the person's sign-in and one signed commit; the command line prints them. The vault, the person's keys and
-the installed packages stay: clearing is not uninstalling.
+confirmed step. A deploy key made by an earlier version is still forgotten here and named once for a person to
+remove at the forge. Clearing removes nothing at the forge: that needs the forge's administration right, which the
+person's token for git does not need. This machine's line in a project's `machine-signers` is named too; removing it
+needs the person's signed commit. The vault, the person's keys and the installed packages stay: clearing is not
+uninstalling.
 
 ## A task holds no key and sees no address
 
@@ -920,7 +921,7 @@ name, and one page lists every key with its default.
 
 ## Unused access is reported, and locked only on request
 
-A device slot or deploy key unused for 45 days is named by `doctor`, with the remedy. Locking it is a setting, off by
+A device slot unused for 45 days is named by `doctor`, with the remedy. Locking it is a setting, off by
 default: a lock surprises whoever comes back after a long absence, while a report leaves the decision with the person.
 
 ## The event log is anchored in the user's journal and outlives a clearing

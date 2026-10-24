@@ -17,6 +17,22 @@ import picocli.CommandLine;
  */
 class CliErrorsTest {
 
+    @Test
+    void deployKeyIsAnUnknownCommand() {
+        // Making more write-capable keys leaves access the forge no longer expects.
+        final StringWriter err = new StringWriter();
+        final CommandLine command = PoreloCli.commandLine(PoreloContext.real());
+        command.setErr(new PrintWriter(err, true));
+        command.setOut(new PrintWriter(new StringWriter(), true));
+
+        assertThat(command.execute("credentials", "deploy-key"))
+                .as("an unknown command exits with picocli's usage code")
+                .isEqualTo(2);
+        assertThat(err.toString())
+                .as("deploy-key must be refused before any key can be made")
+                .contains("'porelo credentials' has no command called 'deploy-key'");
+    }
+
     private String run(String... args) {
         final StringWriter err = new StringWriter();
         final CommandLine cmd =

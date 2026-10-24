@@ -318,34 +318,27 @@ class DefaultProjectTest {
     @Test
     void aRepositoryTakenOutForgetsThisMachinesDeployKeyForItAndSaysWhichToRemoveAtTheForge()
             throws Exception {
-        org.junit.jupiter.api.Assumptions.assumeTrue(
-                org.fuin.porelo.vault.KernelKeyring.available(),
-                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
-        final PoreloContext context = context();
-        final char[] passphrase = "correct horse battery staple".toCharArray();
-        final org.fuin.porelo.vault.KernelKeyring keyring =
-                new org.fuin.porelo.vault.KernelKeyring(context.paths().vault().vaultKeyringKey());
+        // Removing a repository must not leave a key that silently restores its access.
+        final char[] passphrase = "test passphrase".toCharArray();
+        final PoreloContext context = context().asking(prompt -> passphrase.clone());
         try {
-            Files.createDirectories(context.vault().path().getParent());
             context.vault().write(java.util.Map.of(), passphrase);
-            keyring.store(passphrase);
+            context.openerAsking(false, new java.io.PrintWriter(new java.io.StringWriter()));
             final DefaultProject project = new DefaultProject(context);
             project.add("git@github.com:you/app.git", null, "");
-            final DeployKeys.Key made =
-                    DeployKeys.make(
-                            context, ProjectReader.read(project.file()), "app", null, false);
-            assertThat(made.writeAccess())
-                    .as("a work repository: approved work is pushed there")
-                    .isTrue();
+            final LeftDeployKeys.Key made =
+                    LeftDeployKeysTest.earlierKey(
+                            context, "default", "app", "git@github.com:you/app.git", false);
 
             assertThat(project.remove("app"))
-                    .singleElement()
-                    .satisfies(key -> assertThat(key.fingerprint()).isEqualTo(made.fingerprint()));
-
-            assertThat(context.vault().read(passphrase)).doesNotContainKey(made.entry());
+                    .as("the person is told which earlier key to remove at the forge")
+                    .containsExactly(made);
+            assertThat(context.vault().read(passphrase))
+                    .as("removing the repository forgets its private half")
+                    .doesNotContainKey(made.entry());
             assertThat(project.remove("app")).as("no longer there").isNull();
         } finally {
-            keyring.forget();
+            PoreloContext.forgetAsked();
         }
     }
 
