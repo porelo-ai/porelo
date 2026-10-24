@@ -1,0 +1,2 @@
+title: A project's builds.api accepts plain HTTP on this machine's loopback (127.0.0.1, ::1 or localhost) without user information, while remote forges still require HTTPS
+type: changed

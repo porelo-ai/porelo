@@ -1,5 +1,7 @@
 package org.fuin.porelo.core.project;
 
+import java.net.URI;
+
 /**
  * How an {@code online} project's tasks learn what the build of their own push did: which forge
  * runs it, and the vault entry that reads it there.
@@ -51,9 +53,28 @@ public record Builds(String forge, String credential, String api, String logs) {
             throw new ProjectException(
                     "'builds.logs' is '" + logs + "'; it is '" + FAILURE + "' or '" + ALL + "'");
         }
-        if (!api.isEmpty() && !api.startsWith("https://")) {
+        if (!api.isEmpty() && !permittedApi(api)) {
             throw new ProjectException(
-                    "'builds.api' must be an https:// address, not '" + api + "'");
+                    "'builds.api' must be an https:// address, or http:// on this machine's"
+                            + " loopback (127.0.0.1, ::1, localhost), not '"
+                            + api
+                            + "'");
         }
+    }
+
+    private static boolean permittedApi(final String api) {
+        final URI uri;
+        try {
+            uri = URI.create(api);
+        } catch (final IllegalArgumentException ex) {
+            return false;
+        }
+        // A host is required for https too: "https:forge.example" names none to trust.
+        return ("https".equals(uri.getScheme()) && uri.getHost() != null)
+                || ("http".equals(uri.getScheme())
+                        && uri.getUserInfo() == null
+                        && ("127.0.0.1".equals(uri.getHost())
+                                || "[::1]".equals(uri.getHost())
+                                || "localhost".equalsIgnoreCase(uri.getHost())));
     }
 }

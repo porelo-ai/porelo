@@ -95,12 +95,13 @@ class ProjectBuildsTest {
     }
 
     @Test
-    void refusesAForgeThatIsNoReadersNameAnApiThatIsNotHttpsAndNoCredential() {
+    void refusesAForgeThatIsNoReadersNameAnUnsafeApiAndNoCredential() {
         assertThatThrownBy(
                         () ->
                                 read(
                                         "online",
                                         "builds:\n  forge: \"../bin/sh\"\n  credential: \"x\"\n"))
+                .as("a forge name cannot escape the build reader directory")
                 .isInstanceOf(ProjectException.class)
                 .hasMessageContaining("must name a build reader");
         assertThatThrownBy(
@@ -108,11 +109,85 @@ class ProjectBuildsTest {
                                 read(
                                         "online",
                                         "builds:\n  forge: \"github\"\n  credential: \"x\"\n  api: \"http://forge.example\"\n"))
+                .as("a remote forge cannot receive its token over plain HTTP")
                 .isInstanceOf(ProjectException.class)
                 .hasMessageContaining("https://");
         assertThatThrownBy(() -> read("online", "builds:\n  forge: \"github\"\n"))
+                .as("a build watch needs a vault entry for its forge credential")
                 .isInstanceOf(ProjectException.class)
                 .hasMessageContaining("vault entry");
+    }
+
+    @Test
+    void acceptsPlainHttpOnTheLoopbackOnly() {
+        for (final String api :
+                new String[] {
+                    "http://127.0.0.1:3000/api/v1",
+                    "http://[::1]:3000/api/v1",
+                    "http://localhost:3000/api/v1",
+                    "http://LOCALHOST:3000/api/v1"
+                }) {
+            assertThat(readBuildsApi(api).builds().api())
+                    .as("a forge on this machine's loopback is accepted: %s", api)
+                    .isEqualTo(api);
+        }
+        for (final String api :
+                new String[] {
+                    "http://forge.example/api/v1",
+                    "http://localhost.example/api/v1",
+                    "http://127.0.0.1@forge.example/api/v1",
+                    "http://127.0.0.2/api/v1",
+                    "http://user@127.0.0.1/api/v1",
+                    "http://user@[::1]/api/v1",
+                    "http://user@localhost/api/v1",
+                    "http://@localhost/api/v1",
+                    "http://localhost./api/v1",
+                    "http://[0:0:0:0:0:0:0:1]/api/v1",
+                    "http:///api/v1",
+                    "ftp://localhost/api/v1"
+                }) {
+            assertThatThrownBy(() -> readBuildsApi(api))
+                    .as(
+                            "an API outside the permitted schemes and loopback forms is refused: %s",
+                            api)
+                    .isInstanceOf(ProjectException.class)
+                    .hasMessageContaining("'builds.api'")
+                    .hasMessageContaining("this machine's loopback");
+        }
+    }
+
+    @Test
+    void acceptsHttpsAndRefusesMalformedApiUris() {
+        final String https = "https://forge.example/api/v1";
+        assertThat(readBuildsApi(https).builds().api())
+                .as("a remote forge keeps HTTPS support")
+                .isEqualTo(https);
+        for (final String api :
+                new String[] {
+                    "https://forge.example/api with spaces",
+                    "http://[::1/api/v1",
+                    "http://localhost/api/%zz",
+                    "https:forge.example/api/v1",
+                    "https:///api/v1"
+                }) {
+            assertThatThrownBy(() -> readBuildsApi(api))
+                    .as("a malformed API URI is refused as a project error: %s", api)
+                    .isInstanceOf(ProjectException.class)
+                    .hasMessageContaining("'builds.api'")
+                    .hasMessageContaining("this machine's loopback");
+        }
+    }
+
+    private static Project readBuildsApi(final String api) {
+        return read(
+                "online",
+                """
+                builds:
+                  forge: "github"
+                  credential: "build-token"
+                  api: "%s"
+                """
+                        .formatted(api));
     }
 
     @Test

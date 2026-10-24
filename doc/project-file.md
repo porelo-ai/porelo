@@ -170,6 +170,7 @@ credentials:
 # Optional, and for an ONLINE project only - this example is guarded, which refuses it. The forge
 # that builds what a task pushes, and the vault entry it is read with; each build's verdict, and
 # the log of each failed job, arrive in the task's /porelo/files.
+# HTTP is allowed only on loopback (127.0.0.1, ::1 or localhost), without user information.
 # builds:
 #   forge: github
 #   credential: github-actions

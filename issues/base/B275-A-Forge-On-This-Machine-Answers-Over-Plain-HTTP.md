@@ -1,6 +1,6 @@
 # B275 — A Forge On This Machine Answers Over Plain HTTP
 
-**Status:** Backlog, for sprint 3.
+**Status:** Implementing, for sprint 3.
 **Size:** XS - one rule in `Builds`' validation, its tests, one line of `doc/project-file.md` and a changelog entry.
 
 **What must be true.** A project file's `builds.api` may be an `http://` address when its host is this machine's
@@ -16,7 +16,8 @@ not `https://` (`Builds.java:54-57`). The token then crosses only the loopback, 
 ## Plan
 
 1. `Builds`' check reads `api` as a `URI`: `https` is accepted as today; `http` only when `getHost()` is exactly
-   `127.0.0.1`, `[::1]` or `localhost` (compared case-insensitively, with no user information); anything else is
+   `127.0.0.1`, `[::1]` or `localhost` (compared case-insensitively, with no user information), and `https` only with a host, so `https:forge.example`
+   is refused as before; anything else is
    refused with "'builds.api' must be an https:// address, or http:// on this machine's loopback (127.0.0.1, ::1,
    localhost), not '<api>'".
 2. `doc/project-file.md`'s `builds:` example names the loopback exception in its comment.

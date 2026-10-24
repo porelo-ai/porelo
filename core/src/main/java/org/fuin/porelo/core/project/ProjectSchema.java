@@ -180,7 +180,9 @@ final class ProjectSchema {
                     key(
                             "builds",
                             "api",
-                            "The forge API's https:// address; unset is the forge's own public one.",
+                            "The forge API's https:// address, or http:// on this machine's loopback"
+                                    + " (127.0.0.1, ::1, localhost) without user information; unset is"
+                                    + " the forge's own public one.",
                             "string",
                             "",
                             false),
