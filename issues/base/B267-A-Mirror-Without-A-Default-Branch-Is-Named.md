@@ -1,6 +1,6 @@
 # B267 — A Mirror Without A Default Branch Is Named
 
-**Status:** Estimated. Built together with [B265](README.md#b265) and [B268](README.md#b268).
+**Status:** Backlog. Built together with [B265](README.md#b265) and [B268](README.md#b268).
 **Size:** S - `MirrorFile`, `ImageChoice` and the gate's refresh, with their tests; no contract changes.
 
 **What must be true.** When a repository's mirror names no default branch, a task start on it says so, naming the
