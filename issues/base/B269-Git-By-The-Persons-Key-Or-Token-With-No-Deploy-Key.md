@@ -1,6 +1,6 @@
 # B269 — Git By The Person's Key Or Token, With No Deploy Key
 
-**Status:** Analyzed. porelo's part of porelo-project
+**Status:** Estimated; its Backlog comes with porelo-frontend [F153](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md#f153), so both ship together. porelo's part of porelo-project
 [PJ69](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj69).
 **Size:** M - a contract change within `Tasks1` (a retired method), about fourteen classes in four modules, four
 pages and an acceptance feature; mostly removal.

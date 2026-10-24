@@ -54,7 +54,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="b269"></a>[B269](B269-Git-By-The-Persons-Key-Or-Token-With-No-Deploy-Key.md) | M | - | porelo makes and names no deploy key: git reaches a project's repositories with the person's own ssh key or token from its vault, the forge's API with the token; follow, clear, unfollow and the pages keep that split; porelo's part of porelo-project [PJ69](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj69) | 0 |
 | <a id="b175"></a>[B175](B175-The-Profile-That-May-Bind-The-Socket.md) | L | `porelo` [B135](README.md#b135) | On an AppArmor machine a task connects only to a socket one of Porelo's binaries bound, by a task profile that refuses any other peer, as the SELinux domain does on SELinux machines. | 0 |
 | <a id="b176"></a>[B176](B176-Comment-Threads-That-Follow-A-New-Push.md) | M | `porelo` [B166](README.md#b166) | A thread on waiting work moves to a new push's commit where its lines are unchanged, else stays and says why; each commented commit pinned under a hidden ref; `Thread` gains `from` and `stays`. | 0 |
 | <a id="b177"></a>[B177](B177-A-Cost-Ceiling-Per-Task.md) | M | `porelo` [B138](README.md#b138), [B191](README.md#b191) | A dollar ceiling per task from `limits.cost`, counted by the broker from the cost the provider reports, else at list price from the price table; a model with no price refuses the ceiling at the start or fail closed, never $0; under a subscription it caps list-price value. | - |
@@ -129,6 +128,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b269"></a>[B269](B269-Git-By-The-Persons-Key-Or-Token-With-No-Deploy-Key.md) | M | - | porelo makes and names no deploy key: git reaches a project's repositories with the person's own ssh key or token from its vault, the forge's API with the token; follow, clear, unfollow and the pages keep that split; porelo's part of porelo-project [PJ69](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj69) |
 | <a id="b266"></a>[B266](B266-A-Task-Fits-The-Machine-It-Runs-On.md) | M | - | A task container and an image build are bounded on any host: a default CPU limit that `nproc` inside reads (`OMP_NUM_THREADS`), the project's limits on the build; open files measured high enough; porelo's part of porelo-project [PJ68](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj68) |
 | <a id="b184"></a>[B184](B184-Only-What-Porelo-Delivered-Counts-As-A-Message.md) | M | - | A message in the inbox counts only when the account running Porelo owns it (root inside); the host reads the inbox without following links and names a planted file; the guide and the agent kit check the owner. |
 | <a id="b185"></a>[B185](B185-A-Bound-On-What-A-Task-Writes-To-This-Disk.md) | M | - | The daemon measures a task's box and writable layer and pauses it over `limits.disk` (10 GiB), `limits.mailbox` (256 MiB) or under `limits.disk_free` (2 GiB), each settable in `project.yml`, and says how to go on. |
