@@ -21,6 +21,12 @@ for whoever writes one; what a project's conversation is for the people using it
 - **`receipt <reference> --by <address>`** prints `{"state": "read" | "delivered" | "unknown", "at": ...}`, exit
   0 for all three.
 
+`describe` may give `waitsOn`: one line of at most 80 characters naming what `setup` waits on,
+for example `"the room's homeserver"`. Porelo shows it before calling the transport, falling back to
+`the <scheme> transport` when it is absent or empty. A transport's last nonempty line on standard
+error is shown as the cause when `setup` or `enroll` fails, with terminal controls removed and cut
+to 300 characters. That line must never hold a secret.
+
 `describe` may also announce options Porelo then passes, each as `true`; an option a transport does not
 announce is never passed, since an unknown one is its 64:
 

@@ -473,7 +473,8 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                         minutes,
                                         repository,
                                         credentials,
-                                        given))
+                                        given),
+                                new StartSteps(step -> StartSteps.render(out, step), err))
                         // What a refusal would name is offered at a terminal instead; a script or a
                         // pipe is refused as before.
                         .offering(offer(noInput, yes, Offer.atTerminal(), err));

@@ -24,6 +24,7 @@ import org.fuin.porelo.wire.Json;
  *     read}.
  * @param lifecycle The lifecycle verbs it offers - {@code setup}, {@code enroll}, {@code retire},
  *     {@code join} - empty for a transport that keeps no conversation of its own.
+ * @param waitsOn What its setup waits on, or empty.
  * @param takes The options it takes beyond the ones every transport does - {@code machine} for this
  *     machine's name on its lifecycle verbs. An option it does not list is never passed: an unknown
  *     one is its 64.
@@ -34,11 +35,12 @@ public record TransportDescription(
         List<String> attests,
         String confirms,
         List<String> lifecycle,
-        List<String> takes) {
+        List<String> takes,
+        String waitsOn) {
 
     /** What is assumed of a transport that cannot be asked: the least, so nothing is granted. */
     public static final TransportDescription UNKNOWN =
-            new TransportDescription("", false, List.of(), "", List.of(), List.of());
+            new TransportDescription("", false, List.of(), "", List.of(), List.of(), "");
 
     /**
      * Constructor for a transport with no lifecycle, the shape before transports kept a
@@ -49,7 +51,7 @@ public record TransportDescription(
      * @param attests What it proves about a message it hands over.
      */
     public TransportDescription(String scheme, boolean polls, List<String> attests) {
-        this(scheme, polls, attests, "", List.of(), List.of());
+        this(scheme, polls, attests, "", List.of(), List.of(), "");
     }
 
     /**
@@ -67,7 +69,7 @@ public record TransportDescription(
             List<String> attests,
             String confirms,
             List<String> lifecycle) {
-        this(scheme, polls, attests, confirms, lifecycle, List.of());
+        this(scheme, polls, attests, confirms, lifecycle, List.of(), "");
     }
 
     /**
@@ -128,7 +130,10 @@ public record TransportDescription(
                         attests,
                         said.get("confirms") instanceof String confirms ? confirms : "",
                         lifecycle,
-                        takes);
+                        takes,
+                        said.get("waitsOn") instanceof String wait
+                                ? StartStep.cleanWaitingOn(wait)
+                                : "");
             }
         } catch (final RuntimeException ex) {
             return UNKNOWN;

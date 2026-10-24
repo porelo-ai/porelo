@@ -9,6 +9,8 @@ public class CommandException extends RuntimeException {
 
     private final transient Command command;
 
+    private final String standardError;
+
     @Nullable private final transient CommandResult result;
 
     /**
@@ -21,6 +23,7 @@ public class CommandException extends RuntimeException {
         super(message(command, result));
         this.command = command;
         this.result = result;
+        this.standardError = result.standardError();
     }
 
     /**
@@ -30,6 +33,17 @@ public class CommandException extends RuntimeException {
      * @param cause Cause.
      */
     public CommandException(Command command, Throwable cause) {
+        this(command, cause, "");
+    }
+
+    /**
+     * Creates a failure retaining a diagnostic from an ended run.
+     *
+     * @param command The command.
+     * @param cause Why it ended.
+     * @param standardError What it read before ending.
+     */
+    public CommandException(Command command, Throwable cause, String standardError) {
         super(
                 "Cannot run '"
                         + command.describe()
@@ -38,6 +52,41 @@ public class CommandException extends RuntimeException {
                 cause);
         this.command = command;
         this.result = null;
+        this.standardError = standardError;
+    }
+
+    /**
+     * Returns standard error retained when a run was ended.
+     *
+     * @return The error output.
+     */
+    public String standardError() {
+        return standardError;
+    }
+
+    private CommandException(CommandException original, String standardError) {
+        super(original.getMessage(), original.getCause());
+        this.command = original.command;
+        this.standardError = standardError;
+        final CommandResult previous = original.result;
+        this.result =
+                previous == null
+                        ? null
+                        : new CommandResult(
+                                command,
+                                previous.exitCode(),
+                                previous.standardOutput(),
+                                standardError);
+    }
+
+    /**
+     * Replaces retained stderr without changing the refusal or its underlying cause.
+     *
+     * @param standardError The diagnostic safe for the caller to retain.
+     * @return The same failure with the replacement diagnostic.
+     */
+    public CommandException withStandardError(String standardError) {
+        return new CommandException(this, standardError);
     }
 
     private static String message(Command command, CommandResult result) {

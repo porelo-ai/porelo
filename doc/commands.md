@@ -152,6 +152,37 @@ takes `porelo approve TASK`; `--yes` answers for a script.
   `--model` a task was started with is kept for `task attach` and later starts, and starting a stopped
   task with another `--model` is refused, naming what it was started with.
 
+A start names each step as it takes it. The CLI adds `step`, `waiting` and `failed` lines to its
+usual output; a failure includes the dependency's last error line when available. With `more` and
+`steps: true`, the daemon streams the same steps; streamed calls without `steps` receive lines only.
+A nonstreamed final reply returns every step as `steps`.
+For a new task, `phase` appears from its container on; the conversation's wait comes before it and
+is in `Start`'s stream only.
+A waiting phase includes ` - waiting on <waitingOn>` after the step's text, and the phase clears
+when the start ends.
+Typed error replies (`EarlierWorkWaits`, `UpstreamUnreadable`) carry no `steps`.
+
+| Step | What it does |
+|---|---|
+| `SOURCE` | Reading the project and its source |
+| `CHECKS` | Checking the machine, the egress and the upstream |
+| `CREDENTIALS` | Opening the vault and the task's credentials |
+| `WORKSPACE` | Bringing the gate's mirror up to its upstream, when a gate is enabled |
+| `CONVERSATION` | Joining the project's conversation on each transport scheme |
+| `IMAGE` | Preparing and building the task's image |
+| `CONTAINER` | Creating and starting the container |
+| `HELPERS` | Starting the task's gate, credential proxy and helpers |
+| `AGENT` | Running the agent, when a prompt is given |
+
+HELPERS ends DONE even when a helper printed a warning; the warning remains in the lines.
+
+| State | What it says |
+|---|---|
+| `STARTED` | The step began; the CLI prints `step` and its text |
+| `WAITING` | An outside dependency is being called; the CLI prints `waiting` and its name |
+| `DONE` | The step completed; the CLI adds no line |
+| `FAILED` | The step failed; the CLI prints `failed`, its text and its cause |
+
 **`task remove`** refuses when the task is running (`stop` it first, or `--force`), holds commits
 that never reached the gate (`--rescue` pushes them to the gate, `--force` discards them), or its
 contents are unknown. A task never removes itself when it ends. At a terminal it offers instead: to stop a

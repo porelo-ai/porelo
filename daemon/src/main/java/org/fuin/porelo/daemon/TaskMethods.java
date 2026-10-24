@@ -660,18 +660,24 @@ final class TaskMethods {
                     // name, because running the command was the only way to start a task. Now the
                     // CLI and this call the same object, so neither can grow a behavior the other
                     // lacks - and there is because the name comes back as a value.
+                    final StartReplies progress =
+                            new StartReplies(replies, flag(parameters, "steps"));
                     final java.io.StringWriter collected = new java.io.StringWriter();
                     final PrintWriter sink =
                             replies.streaming()
                                     // Streamed as it happens: building an image takes minutes, and
                                     // an interface showing nothing for that long is
                                     // indistinguishable from one that hung.
-                                    ? new PrintWriter(new StreamingWriter(replies), true)
+                                    ? new PrintWriter(progress.stream(), true)
                                     : new PrintWriter(collected, true);
 
                     final java.util.concurrent.atomic.AtomicReference<String> started =
                             new java.util.concurrent.atomic.AtomicReference<>("");
-                    final TaskLaunch launch = new TaskLaunch(context, request(parameters, context));
+                    final TaskLaunch launch =
+                            new TaskLaunch(
+                                    context,
+                                    request(parameters, context),
+                                    new org.fuin.porelo.app.StartSteps(progress, sink));
                     // A task that already exists is brought back, not created again - the same call
                     // the CLI makes first, so a stopped task answers the same over the socket as at
                     // a terminal.
@@ -764,6 +770,7 @@ final class TaskMethods {
                     if (action != null) {
                         reply.put("action", action);
                     }
+                    progress.finish(reply);
                     replies.last(reply);
                 });
     }

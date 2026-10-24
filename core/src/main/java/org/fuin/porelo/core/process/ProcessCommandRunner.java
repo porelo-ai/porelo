@@ -64,7 +64,8 @@ public class ProcessCommandRunner implements CommandRunner {
                     finish(process, outThread, errThread);
                     throw new CommandException(
                             command,
-                            new IOException("Timed out after " + timeout.toSeconds() + " s"));
+                            new IOException("Timed out after " + timeout.toSeconds() + " s"),
+                            err.text());
                 }
                 finish(process, outThread, errThread);
                 return new CommandResult(command, process.exitValue(), out.text(), err.text());

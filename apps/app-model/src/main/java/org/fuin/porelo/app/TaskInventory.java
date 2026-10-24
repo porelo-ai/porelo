@@ -54,6 +54,7 @@ public final class TaskInventory {
      *     never observed.
      * @param credentials What it was given beyond its agent's own credential: entry to destination.
      * @param grants For each credential a person granted: {@code grantedBy} and {@code grantedAt}.
+     * @param phase The current start step's text, or empty when no start is active.
      * @param builds Which reader follows the builds of its pushes, and what they did, the newest
      *     push first.
      */
@@ -85,7 +86,69 @@ public final class TaskInventory {
             AgentEnding.@Nullable Ended agentEnded,
             HandIns.Summary handIns,
             TaskBuilds.View builds,
-            Map<String, Map<String, String>> parameters) {
+            Map<String, Map<String, String>> parameters,
+            String phase) {
+        /** Creates a task with no active start phase, as callers before step reporting do. */
+        public Task(
+                String name,
+                @Nullable String project,
+                @Nullable String securityClass,
+                String state,
+                boolean running,
+                long helpers,
+                @Nullable String agent,
+                @Nullable String mode,
+                @Nullable String prompt,
+                @Nullable String branch,
+                String since,
+                Activity activity,
+                @Nullable String waitingFor,
+                @Nullable String clearance,
+                @Nullable String label,
+                int waiting,
+                String startAction,
+                String startDetail,
+                @Nullable String repository,
+                @Nullable String commit,
+                AgentWaiting.Derived derived,
+                Map<String, String> credentials,
+                Map<String, Map<String, String>> grants,
+                @Nullable String provider,
+                AgentEnding.@Nullable Ended agentEnded,
+                HandIns.Summary handIns,
+                TaskBuilds.View builds,
+                Map<String, Map<String, String>> parameters) {
+            this(
+                    name,
+                    project,
+                    securityClass,
+                    state,
+                    running,
+                    helpers,
+                    agent,
+                    mode,
+                    prompt,
+                    branch,
+                    since,
+                    activity,
+                    waitingFor,
+                    clearance,
+                    label,
+                    waiting,
+                    startAction,
+                    startDetail,
+                    repository,
+                    commit,
+                    derived,
+                    credentials,
+                    grants,
+                    provider,
+                    agentEnded,
+                    handIns,
+                    builds,
+                    parameters,
+                    "");
+        }
 
         /**
          * Constructor for a task started with no values, as every task was before a project could
@@ -648,9 +711,7 @@ public final class TaskInventory {
             // Why a named reader does not follow them; "" while it does.
             map.put("buildProblem", builds.problem());
 
-            // Nothing records a phase yet. "" is the honest answer for a task that is in none, and
-            // it is what every task answers until a detached Start has something to report.
-            map.put("phase", "");
+            map.put("phase", phase);
             return map;
         }
     }
@@ -715,6 +776,9 @@ public final class TaskInventory {
                     + " session kept, and its next start continues it";
 
     private final PoreloContext context;
+
+    private final StartStepFile startSteps =
+            new StartStepFile(new java.io.PrintWriter(System.err, true));
 
     private final @Nullable AgentWaiting agentWaiting;
 
@@ -1055,9 +1119,8 @@ public final class TaskInventory {
                                 : sidecar == null ? null : sidecar.securityClass(),
                         summary.running()),
                 parametersGiven(
-                        restartTookIt
-                                ? context.paths().tasks().taskRecord(summary.name())
-                                : state));
+                        restartTookIt ? context.paths().tasks().taskRecord(summary.name()) : state),
+                startSteps.phase(state));
     }
 
     /**

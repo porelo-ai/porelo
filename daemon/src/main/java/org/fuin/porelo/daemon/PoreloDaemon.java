@@ -787,18 +787,19 @@ public final class PoreloDaemon {
             while ((end = line.indexOf("\n")) >= 0) {
                 final String complete = line.substring(0, end);
                 line.delete(0, end + 1);
-                if (gone) {
-                    continue;
-                }
-                try {
-                    replies.more(Map.of("line", complete));
-                } catch (java.io.IOException ex) {
-                    // The client left mid-build. Measured: throwing here aborted the launch and no
-                    // container was ever created - a task canceled because whoever asked for it
-                    // closed a window. The start is not this connection's to cancel, so this stops
-                    // reporting and lets it finish; 'List' shows it afterwards.
-                    gone = true;
-                }
+                send(Map.of("line", complete));
+            }
+        }
+
+        void send(Map<String, Object> parameters) {
+            if (gone) {
+                return;
+            }
+            try {
+                replies.more(parameters);
+            } catch (java.io.IOException ex) {
+                // A disconnected client must not cancel the task it asked to start.
+                gone = true;
             }
         }
 

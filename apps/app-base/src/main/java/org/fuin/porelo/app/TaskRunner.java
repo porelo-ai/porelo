@@ -26,6 +26,40 @@ import org.jspecify.annotations.Nullable;
  */
 public class TaskRunner {
 
+    /** Reports build and container transitions without depending on the model area. */
+    public interface StartProgress {
+        /** Reports that the image build is about to be taken. */
+        void imageStarted();
+
+        /** Reports a successful image build. */
+        void imageDone();
+
+        /** Reports that creation and startup of the container are about to begin. */
+        void containerStarted();
+
+        /** Reports a successfully started container. */
+        void containerDone();
+    }
+
+    private static final StartProgress NO_PROGRESS =
+            new StartProgress() {
+                /** {@inheritDoc} */
+                @Override
+                public void imageStarted() {}
+
+                /** {@inheritDoc} */
+                @Override
+                public void imageDone() {}
+
+                /** {@inheritDoc} */
+                @Override
+                public void containerStarted() {}
+
+                /** {@inheritDoc} */
+                @Override
+                public void containerDone() {}
+            };
+
     /**
      * The file in a task's state holding the bytes one handed-in file may have, fixed when the task
      * starts.
@@ -233,6 +267,47 @@ public class TaskRunner {
             PrintWriter out)
             throws IOException {
 
+        start(
+                project,
+                repository,
+                commit,
+                container,
+                layers,
+                environment,
+                allowedDomains,
+                wiring,
+                out,
+                NO_PROGRESS);
+    }
+
+    /**
+     * Starts a task while reporting build and container progress.
+     *
+     * @param project The project.
+     * @param repository Its repository.
+     * @param commit Verified commit.
+     * @param container Container name.
+     * @param layers Image layers.
+     * @param environment Container variables.
+     * @param allowedDomains Resolver names.
+     * @param wiring Host endpoints.
+     * @param out Existing output.
+     * @param progress Build and container transitions.
+     * @throws IOException If state cannot be written.
+     */
+    public void start(
+            Project project,
+            org.fuin.porelo.core.project.Repository repository,
+            String commit,
+            String container,
+            org.fuin.porelo.runtime.ImageLayers layers,
+            java.util.Map<String, String> environment,
+            java.util.List<String> allowedDomains,
+            TaskWiring wiring,
+            PrintWriter out,
+            StartProgress progress)
+            throws IOException {
+
         final Path state = paths.tasks().containerState(container);
         Files.createDirectories(state);
 
@@ -273,6 +348,7 @@ public class TaskRunner {
         // Containerfile over the other and tagged one image with either's.
         final Path context = paths.tasks().buildContext(project.imageKey());
         final String image;
+        progress.imageStarted();
         try {
             image =
                     FileLocks.holding(
@@ -282,6 +358,8 @@ public class TaskRunner {
             throw new java.io.UncheckedIOException(ex);
         }
         out.println("image     " + image);
+        progress.imageDone();
+        progress.containerStarted();
 
         final ContainerSpec specification =
                 new ContainerSpec(container, image)
@@ -360,6 +438,7 @@ public class TaskRunner {
         out.println("started   yes");
         giveAccountTmux(container, out);
         startScreenWriter(container);
+        progress.containerDone();
     }
 
     /**

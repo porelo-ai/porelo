@@ -1,6 +1,6 @@
 # B268 — A Start Says Each Step And What It Waits On
 
-**Status:** Backlog. Built together with [B265](README.md#b265) and [B267](README.md#b267); its transport part is
+**Status:** Implementing. Built together with [B265](README.md#b265) and [B267](README.md#b267); its transport part is
 porelo-message-matrix's, its rendering porelo-frontend's (see *To be checked*).
 **Size:** M - one contract change (`Tasks1` grows), a step model through `app-model`, `app-task`, `app-messaging` and
 the daemon, `doc/`, and an acceptance step.
@@ -49,18 +49,22 @@ Read in today's code:
          cause: string      # FAILED only: the dependency's last error line, "" when it gave none
        )
 
-   `Start`'s reply gains `step: ?StartStep` on a streamed reply and `steps: ?[]StartStep` on the final one when not
-   streamed. The lines stay as they are, so a client that knows no steps loses nothing.
+   `Start` gains `steps: ?bool`: with it and `more`, each step is its own reply carrying `step` and no `line`. Without
+   it the stream is lines only, as before, since `Tasks1` promises `line` on every continuing reply. The final reply
+   carries `steps: ?[]StartStep` when not streamed. A client that knows no steps loses nothing.
 2. **`StartSteps`** in `app-model`: the one place the steps and their words are defined. `TaskLaunch` takes it beside
    `out` and `err` and reports each step as it begins, waits and ends. The CLI renders a step as one line; the daemon
    sends it as `step`. The interface writes no text of its own for a step.
-3. **`phase` comes from the step**: each step is written to the task's state directory as it changes, and
-   `TaskInventory` reads it, so `List` and `Watch` show "Waiting on the room's homeserver" while it waits, for a
-   `now` start and a second window alike.
+3. **`phase` comes from the step**: each step is written to the task's state directory as it changes, with the
+   launcher's process, and `TaskInventory` reads it while that process lives: `<text> - waiting on <waitingOn>` for a
+   wait. A new task is listed only once its container exists, so the conversation's wait, which comes before, reaches
+   a client through `Start`'s stream alone. The file is best effort: a failure to write it never changes a start.
 4. **What a dependency waits on is the dependency's to say**: `describe` gains an optional `waitsOn` (for Matrix, "the
    room's homeserver"); Porelo shows "the matrix transport" when it gives none. `doc/transports.md` describes it.
-5. **The cause is the dependency's last error line**: `TransportLifecycle.run` keeps the last non-empty line of the
-   transport's standard error, at most 300 characters with control characters removed, as the step's `cause`.
+5. **The cause is the dependency's last error line**: `TransportLifecycle.run` keeps the last line of the
+   transport's standard error that is not empty once cleaned - control, format and default-ignorable characters and
+   ANSI sequences removed - at most 300 characters, as the step's `cause`, after replacing every secret it gave the
+   transport with `[withheld]`. The transport itself prints no secret there; this is the second wall.
    `ProcessCommandRunner`'s timeout keeps what it read, so a run ended by the bound has a last line too. The image
    build's step takes podman's last error line the same way.
 6. **`doc/`**: `doc/commands.md` lists the steps and their states under `task`; `doc/transports.md` the `waitsOn` field and that a

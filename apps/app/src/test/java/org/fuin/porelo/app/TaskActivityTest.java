@@ -65,6 +65,47 @@ class TaskActivityTest {
     }
 
     @Test
+    void aStartInProgressIsVisibleToAnotherWindowUntilItEnds(@TempDir Path dir) throws IOException {
+        // A second window must not hide a task's active start behind an empty phase.
+        final PoreloContext context = context(dir);
+        final Path state = task("porelo-uc-shell-1", "Up 4 minutes", "1788500000", "0");
+        final Path phase = state.resolve("start-step.json");
+        final String text = "Preparing the image";
+        Files.writeString(
+                phase,
+                org.fuin.porelo.wire.Json.write(
+                        java.util.Map.of(
+                                "step",
+                                "IMAGE",
+                                "state",
+                                "STARTED",
+                                "text",
+                                text,
+                                "waitingOn",
+                                "",
+                                "cause",
+                                "",
+                                "pid",
+                                ProcessHandle.current().pid(),
+                                "startedAt",
+                                ProcessHandle.current()
+                                        .info()
+                                        .startInstant()
+                                        .orElseThrow()
+                                        .toString())));
+        assertThat(only(context).asMap())
+                .as("a listed task must show the start step another window is waiting on")
+                .containsEntry("phase", text);
+        Files.delete(phase);
+        assertThat(only(context).asMap())
+                .as("a finished start must not leave a stale phase")
+                .containsEntry("phase", "");
+        assertThat(TaskInventory.isLog("start-step.json"))
+                .as("progress metadata must not become a task log")
+                .isFalse();
+    }
+
+    @Test
     void saysWhichAgentAndModeAndBranchItRunsWith(@TempDir Path dir) throws IOException {
 
         // None of this can be recovered from a running container: two tasks in the same project

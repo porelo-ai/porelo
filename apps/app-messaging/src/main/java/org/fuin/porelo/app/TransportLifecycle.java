@@ -40,9 +40,16 @@ final class TransportLifecycle {
 
         private final int code;
 
+        private final String cause;
+
         Refused(String message, int code) {
+            this(message, code, StartStep.cleanCause(message));
+        }
+
+        Refused(String message, int code, String cause) {
             super(message);
             this.code = code;
+            this.cause = cause;
         }
 
         /**
@@ -52,6 +59,10 @@ final class TransportLifecycle {
          */
         int code() {
             return code;
+        }
+
+        String cause() {
+            return cause;
         }
     }
 
@@ -611,13 +622,18 @@ final class TransportLifecycle {
             arguments.add("--machine");
             arguments.add(DeployKeys.hostName());
         }
-        final CommandResult result =
-                context.runner()
-                        .run(
-                                HelperEnvironment.chosen(
-                                        Command.of(arguments)
-                                                .withInput(Json.write(settings))
-                                                .withEnvironment(secrets)));
+        final CommandResult result;
+        try {
+            result =
+                    context.runner()
+                            .run(
+                                    HelperEnvironment.chosen(
+                                            Command.of(arguments)
+                                                    .withInput(Json.write(settings))
+                                                    .withEnvironment(secrets)));
+        } catch (org.fuin.porelo.core.process.CommandException ex) {
+            throw ex.withStandardError(redact(ex.standardError(), secrets));
+        }
         if (!result.successful()) {
             final String said = result.standardError().strip();
             throw new Refused(
@@ -629,7 +645,8 @@ final class TransportLifecycle {
                             + result.exitCode()
                             + ")"
                             + (said.isEmpty() ? "" : ": " + said),
-                    result.exitCode());
+                    result.exitCode(),
+                    StartStep.cleanCause(redact(result.standardError(), secrets)));
         }
         try {
             if (Json.parse(result.standardOutput()) instanceof Map<?, ?> said) {
@@ -647,6 +664,18 @@ final class TransportLifecycle {
                         + " with something that is not a"
                         + " JSON object",
                 76);
+    }
+
+    private static String redact(String stderr, Map<String, String> secrets) {
+        String safe = stderr;
+        for (final String secret :
+                secrets.values().stream()
+                        .filter(value -> value.length() >= 8)
+                        .sorted(java.util.Comparator.comparingInt(String::length).reversed())
+                        .toList()) {
+            safe = safe.replace(secret, "[withheld]");
+        }
+        return safe;
     }
 
     private void keep(String scheme, String scope, Map<?, ?> secrets) throws Refused {

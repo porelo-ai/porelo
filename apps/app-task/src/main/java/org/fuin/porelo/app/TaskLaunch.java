@@ -384,6 +384,8 @@ public final class TaskLaunch {
 
     private final PoreloContext context;
 
+    private final StartSteps steps;
+
     /** What to start. Replaced once, when a container name given as the task is taken apart. */
     private Request request;
 
@@ -394,8 +396,20 @@ public final class TaskLaunch {
      * @param request What to start.
      */
     public TaskLaunch(PoreloContext context, Request request) {
+        this(context, request, new StartSteps(step -> {}));
+    }
+
+    /**
+     * Creates a launch with progress.
+     *
+     * @param context The machine.
+     * @param request What to start.
+     * @param steps Where progress goes.
+     */
+    public TaskLaunch(PoreloContext context, Request request, StartSteps steps) {
         this.context = context;
         this.request = request;
+        this.steps = steps;
     }
 
     /**
@@ -584,7 +598,11 @@ public final class TaskLaunch {
         // left it outside - its messages were queued to a transport that had no account for it.
         // Enrolling keeps what exists, so it is harmless each time; what it cannot do is said, and
         // the task comes back all the same, its workspace being in it.
-        final String outside = new TaskConversations(context).enroll(project, container);
+        final Path state = context.paths().tasks().containerState(container);
+        if (java.nio.file.Files.isDirectory(state)) {
+            steps.recordIn(state);
+        }
+        final String outside = new TaskConversations(context).enroll(project, container, steps);
         if (outside != null) {
             err.println("porelo: " + outside);
             err.println(
@@ -604,19 +622,33 @@ public final class TaskLaunch {
         }
         // Its workspace, its branch and its uncommitted changes are all in that container. What has
         // to be started again is everything that lives on the host, which is what resume does.
-        final TaskControl.Resumed resumed = new TaskControl(context).resume(container);
-        return new Existing(
-                container,
-                project.name(),
-                TaskResumeCommand.render(resumed, container, out, err, null),
-                switch (resumed.outcome()) {
-                    case NEEDS_VAULT -> "NEEDS_VAULT";
-                    // Neither can come back; the contract has one word for a task that cannot.
-                    case PREDATES_RESTART, TOKENS_NOT_KEPT -> "PREDATES_RESTART";
-                    case ALREADY_RUNNING -> "RUNNING";
-                    case RESUMED, NO_HELPERS_RECORDED, HELPERS_INCOMPLETE -> "RESUME";
-                    default -> null;
-                });
+        steps.started(StartStep.Step.HELPERS);
+        try {
+            final TaskControl.Resumed resumed = new TaskControl(context).resume(container);
+            final int code =
+                    TaskResumeCommand.render(resumed, container, out, reporting(err), null);
+            steps.finish(code);
+            return new Existing(
+                    container,
+                    project.name(),
+                    code,
+                    switch (resumed.outcome()) {
+                        case NEEDS_VAULT -> "NEEDS_VAULT";
+                        case PREDATES_RESTART, TOKENS_NOT_KEPT -> "PREDATES_RESTART";
+                        case ALREADY_RUNNING -> "RUNNING";
+                        case RESUMED, NO_HELPERS_RECORDED, HELPERS_INCOMPLETE -> "RESUME";
+                        default -> null;
+                    });
+        } catch (CommandException ex) {
+            steps.dependencyFailed(ex.standardError());
+            throw ex;
+        } catch (RuntimeException ex) {
+            steps.refusal(java.util.Objects.requireNonNullElse(ex.getMessage(), ""));
+            steps.finish(70);
+            throw ex;
+        } finally {
+            steps.clear();
+        }
     }
 
     static @Nullable String ofAnotherProject(
@@ -900,8 +932,42 @@ public final class TaskLaunch {
         return upstreamFinding(project);
     }
 
+    /**
+     * Starts a task and reports every entered stage to its listener.
+     *
+     * @param out Existing progress output.
+     * @param err Refusals.
+     * @param after The action once running.
+     * @return The launch's exit code.
+     */
     public int launch(PrintWriter out, PrintWriter err, AfterStart after) {
+        steps.started(StartStep.Step.SOURCE);
+        final PrintWriter reported = reporting(err);
+        try {
+            final int code = launchSteps(out, reported, after);
+            steps.finish(code);
+            return code;
+        } catch (RuntimeException ex) {
+            steps.refusal(String.valueOf(ex.getMessage()));
+            steps.finish(70);
+            throw ex;
+        } finally {
+            steps.clear();
+        }
+    }
 
+    private PrintWriter reporting(PrintWriter err) {
+        return new PrintWriter(err, true) {
+            /** {@inheritDoc} */
+            @Override
+            public void println(String line) {
+                steps.refusal(line);
+                super.println(line);
+            }
+        };
+    }
+
+    private int launchSteps(PrintWriter out, PrintWriter err, AfterStart after) {
         Project project;
         java.nio.file.Path projectFile = request.projectFile();
         try {
@@ -993,6 +1059,7 @@ public final class TaskLaunch {
             return 64;
         }
 
+        steps.started(StartStep.Step.CHECKS);
         out.println("task           " + request.task());
         out.println("project        " + project.name());
         out.println(
@@ -1253,6 +1320,7 @@ public final class TaskLaunch {
             // A shut vault is opened here, at a terminal, as 'porelo vault unlock' would: the
             // broker spends its tokens for the task's life. Only where this start reads it; without
             // a terminal the refusals below stay as they were.
+            steps.started(StartStep.Step.CREDENTIALS);
             context.openIfShut(
                     !declaredOrAdded.isEmpty() || wiring().unavailableFor(select(agents)) != null,
                     true,
@@ -1409,6 +1477,9 @@ public final class TaskLaunch {
                 return 69;
             }
 
+            if (gated) {
+                steps.started(StartStep.Step.WORKSPACE);
+            }
             final TaskWorkspace workspace = workspace().openWorkspace(project, gated, out, err);
             final String earlier = workspace().refusal();
             if (earlier != null
@@ -1507,7 +1578,8 @@ public final class TaskLaunch {
             // refusal: a task whose messages reach nobody is refused here, as a credential nobody
             // can reach is - and enrolled earlier, a start refused afterwards for something else
             // left its account at the transport with nothing to retire it.
-            final String unreachable = new TaskConversations(context).enroll(project, container);
+            final String unreachable =
+                    new TaskConversations(context).enroll(project, container, steps);
             if (unreachable != null) {
                 err.println("porelo: " + unreachable);
                 err.println("porelo: nothing was created");
@@ -1520,6 +1592,8 @@ public final class TaskLaunch {
             // pid there, and it has to be listening before the container exists.
             final java.nio.file.Path state = context.paths().tasks().containerState(container);
             java.nio.file.Files.createDirectories(state);
+            steps.recordIn(state);
+            steps.started(StartStep.Step.IMAGE);
 
             // The mailbox, which is not in the state directory and does not go with it: a
             // conversation survives stop, start and a machine restart, and only 'remove' ends it.
@@ -1652,8 +1726,10 @@ public final class TaskLaunch {
                     environmentCache,
                     domains,
                     wiring,
-                    out);
+                    out,
+                    steps);
 
+            steps.started(StartStep.Step.HELPERS);
             if (needsRelay && plumbing != null) {
                 wiring().startRelay(runner, container, plumbing.socket(), out, err);
             }
@@ -1708,6 +1784,7 @@ public final class TaskLaunch {
             // or simply say so - is the caller's, and it happens inside this scope on purpose: the
             // installed agents are a resource this owns, and the paths that follow a start use
             // them.
+            steps.done(StartStep.Step.HELPERS);
             return after.started(
                     new Running(
                             runner,
@@ -1719,6 +1796,7 @@ public final class TaskLaunch {
                             code -> cleanUp(runner, container, code, out, err)));
 
         } catch (CommandException ex) {
+            steps.dependencyFailed(ex.standardError());
             err.println("porelo: " + ex.getMessage());
             err.flush();
             return cleanUp(runner, container, 70, out, err);
@@ -1758,7 +1836,32 @@ public final class TaskLaunch {
             java.util.Map<String, String> environment,
             PrintWriter out,
             PrintWriter err) {
+        if (request.prompt() == null) {
+            return runAgentSteps(runner, selected, container, environment, out, err);
+        }
+        steps.started(StartStep.Step.AGENT);
+        try {
+            steps.recordIn(context.paths().tasks().containerState(container));
+            final int code =
+                    runAgentSteps(runner, selected, container, environment, out, reporting(err));
+            steps.finish(code);
+            return code;
+        } catch (RuntimeException ex) {
+            steps.refusal(String.valueOf(ex.getMessage()));
+            steps.finish(70);
+            throw ex;
+        } finally {
+            steps.clear();
+        }
+    }
 
+    private int runAgentSteps(
+            TaskRunner runner,
+            @Nullable InstalledAgent selected,
+            String container,
+            java.util.Map<String, String> environment,
+            PrintWriter out,
+            PrintWriter err) {
         if (selected == null) {
             err.println("porelo: a prompt needs an agent, and none is installed");
             err.flush();

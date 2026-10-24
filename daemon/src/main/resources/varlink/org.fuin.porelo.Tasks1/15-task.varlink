@@ -390,13 +390,28 @@ method Watch() -> (tasks: []Task, unrecognized: []string)
 
 # ---------------------------------------------------------------------------- running tasks
 
+# One step of a start, as the start takes it. The interface shows text, waitingOn and cause, and writes none of its own.
+type StartStep (
+  # Stable name: SOURCE, CHECKS, CREDENTIALS, WORKSPACE, CONVERSATION, IMAGE, CONTAINER, HELPERS or AGENT.
+  # A later release may add one; show an unknown one by its text.
+  step: string,
+  # STARTED, WAITING, DONE or FAILED. An unknown one is shown by its text.
+  state: string,
+  # One English sentence, such as "Joining the project's conversation on matrix".
+  text: string,
+  # What it waits on, such as "the room's homeserver"; "" when it waits on nothing outside Porelo.
+  waitingOn: string,
+  # FAILED only: the dependency's last error line, at most 300 characters; "" otherwise.
+  cause: string
+)
+
 # Starts a task: creates one that is not there, or brings back one that is stopped.
 #
 # One verb, because the caller cannot know which case they are in - and pressing is not how
 # somebody should find out. That is what startAction on the listing is for. A task that is already
 # running is refused rather than started twice.
 #
-# With "more" it streams the build as it happens, one reply per line, and an interface should show
+# With "more" it streams lines as they happen; steps: true adds step-only replies. An interface should show
 # them: building an image takes minutes, and showing nothing for that long is indistinguishable
 # from having hung. With "now" it returns as soon as the task exists and the build goes on without
 # it; the task is in List and Watch immediately with its phase set, and Tail reads the output.
@@ -479,10 +494,16 @@ method Start(
   maxTurns: ?int,
   # How long the agent may run, in minutes. Default: 30. On expiry the run is killed and whatever
   # it produced is kept - the exit code is 124 and the log holds what it managed to say.
-  minutes: ?int
+  minutes: ?int,
+  # Streams each step as its own reply, carrying step and no line. Default false: the stream is lines only, as before.
+  steps: ?bool
 ) -> (
-  # One line of output. Set on every reply while continues is true, and only then.
+  # One line of output. Set on every continuing reply unless steps: true was requested.
   line: ?string,
+  # One step, on a streamed reply only with steps: true. A reply carries line or step, never both.
+  step: ?StartStep,
+  # Every step, on the final reply when not streamed. Absent when streamed.
+  steps: ?[]StartStep,
   # Container name of the started task. Set on the final reply, and only then.
   container: ?string,
   # What the launch returned. 0 is success. Set on the final reply.

@@ -24,12 +24,15 @@ final class TaskConversations {
 
     private final TransportLifecycle lifecycle;
 
+    private final PoreloContext context;
+
     /**
      * Constructor.
      *
      * @param context Where the vault, the state and the adapters are.
      */
     TaskConversations(PoreloContext context) {
+        this.context = context;
         this.lifecycle =
                 new TransportLifecycle(context, context.paths().messaging().transportDirectory());
     }
@@ -42,14 +45,30 @@ final class TaskConversations {
      * @return Why it cannot be, in a person's words, or {@code null} when it is in every one.
      */
     @Nullable String enroll(Project project, String container) {
+        return enroll(project, container, new StartSteps(step -> {}));
+    }
+
+    @Nullable String enroll(Project project, String container, StartSteps steps) {
         for (final String scheme : project.mail().conversations()) {
             final Map<String, Object> settings = settings(project, scheme);
+            steps.conversation(scheme);
+            final java.nio.file.Path adapter =
+                    context.paths().messaging().transportDirectory().find(scheme);
+            final String waitsOn =
+                    adapter == null
+                            ? ""
+                            : TransportDescription.of(context.runner(), adapter).waitsOn();
+            steps.waiting(
+                    StartStep.Step.CONVERSATION,
+                    waitsOn.isEmpty() ? "the " + scheme + " transport" : waitsOn);
             try {
                 final boolean offline = project.securityClass() == SecurityClass.OFFLINE;
                 final TransportLifecycle.Conversation conversation =
                         lifecycle.setup(scheme, project.name(), settings, offline);
                 if (!conversation.admitted()) {
-                    return notAdmitted(scheme, conversation);
+                    final String refusal = notAdmitted(scheme, conversation);
+                    steps.failed(StartStep.Step.CONVERSATION, refusal);
+                    return refusal;
                 }
                 if (project.securityClass() == SecurityClass.OFFLINE) {
                     final List<String> away =
@@ -57,15 +76,23 @@ final class TaskConversations {
                                     .filter(host -> !loopback(host))
                                     .toList();
                     if (!away.isEmpty()) {
-                        return "an offline project's messages never leave this machine, and its "
-                                + scheme
-                                + " conversation reaches "
-                                + String.join(", ", away)
-                                + "; give it a conversation on this machine's loopback";
+                        final String refusal =
+                                "an offline project's messages never leave this machine, and its "
+                                        + scheme
+                                        + " conversation reaches "
+                                        + String.join(", ", away)
+                                        + "; give it a conversation on this machine's loopback";
+                        steps.failed(StartStep.Step.CONVERSATION, refusal);
+                        return refusal;
                     }
                 }
                 lifecycle.enroll(scheme, project.name(), container, settings, offline);
+                steps.done(StartStep.Step.CONVERSATION);
+            } catch (org.fuin.porelo.core.process.CommandException ex) {
+                steps.failed(StartStep.Step.CONVERSATION, ex.standardError());
+                throw ex;
             } catch (TransportLifecycle.Refused ex) {
+                steps.failed(StartStep.Step.CONVERSATION, ex.cause());
                 return "the task cannot take part in the project's "
                         + scheme
                         + " conversation: "
