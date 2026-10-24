@@ -50,7 +50,7 @@ On the Ubuntu VM (`ubuntu26.04`, 6 cores, podman 5.7.0, account `core`), with `u
 
 ## Plan
 
-1. **A task gets a CPU limit by default.** `Limits.DEFAULT_CPUS` joins the memory and pids defaults, so `--cpus` is
+1. **A task gets a CPU limit of 4 by default.** `Limits.DEFAULT_CPUS` (`"4"`) joins the memory and pids defaults, so `--cpus` is
    always written. `limits.cpus: none` still takes it off, and a project's value replaces it.
 2. **The limit is made visible**: `ContainerSpec` sets `OMP_NUM_THREADS` to the CPU limit rounded down, at least 1, in
    every task. `nproc` and what sizes itself by it read the limit; a JVM reads the CPU quota itself (to be checked).
@@ -60,7 +60,8 @@ On the Ubuntu VM (`ubuntu26.04`, 6 cores, podman 5.7.0, account `core`), with `u
    builds take a lock and run one at a time, so no two of them share pinned cores. `RUN make -j$(nproc)` reads the
    limit.
 4. **Open files stay podman's**, as measured. A Fedora reading under *To be checked* may change that.
-5. **`doc/project-file.md`** names the default under `limits`; **`doc/reach.md`** gains the row that a task's CPU is
+5. **`doc/project-file.md`** names the default under `limits`; **`doc/decisions.md`** gains the accepted risk above,
+   with its index row; **`doc/reach.md`** gains the row that a task's CPU is
    bounded and what inside it can still read the host's core count (`getconf`). `ReachDocumentTest` holds the number.
 6. **Tests, red first:**
    - `ContainerSpecTest`: the default limits write `--cpus` and `OMP_NUM_THREADS`; `cpus: none` writes neither;
@@ -76,16 +77,18 @@ On the Ubuntu VM (`ubuntu26.04`, 6 cores, podman 5.7.0, account `core`), with `u
 - An image build runs under the project's memory and CPU limits, and its `nproc` reads the limit.
 - A project with `limits.cpus: none` has no CPU limit, as today.
 
-## Open questions
+## Decided
 
-- **The default CPU limit for a task.** Proposed: 4. That is enough for an agent and a build. Six tasks on a 32-core
-  host share it fairly, and with the 8 GB and 2048 processes already fixed, a pool sized from 4 cores stays inside
-  them. The alternative is half the host's cores, at least 2: it grows with the host, so on a large one the pids and
-  memory defaults can be outgrown again.
-- **`getconf _NPROCESSORS_ONLN` and `sysconf` still read the host's cores.** Only `nproc` and the JVM follow the limit,
-  so a tool asking those two sizes itself past the limit and is slowed by the quota, never stopped. Accept that, or pin
-  each task to its own cores with `taskset` on every `start` and `exec`? Pinning shares cores badly between tasks and
-  is a change on many call sites.
+- **The default CPU limit is 4 per task**, fixed rather than a share of the host: with the fixed 8 GB and 2048
+  processes, a pool sized from 4 cores stays inside them on any host. `limits.cpus` in the project replaces it, and
+  `none` removes it.
+- **`getconf` and `sysconf` reading the host's cores is an accepted risk**: no task is pinned with `taskset` on every
+  `start` and `exec`. It goes into `doc/decisions.md` in the commit that builds this, since `doc/` says what is true
+  now. The entry reads: *the exposure*, a tool that sizes itself by those two runs more threads than the limit and is
+  throttled by the quota, never stopped, and its pids and memory are still bounded; *why it stays*, pinning shares
+  cores badly between tasks, since each would be bound to named cores, and every `exec` would need it; *what would
+  change the answer*, a host that delegates the `cpuset` controller to the account, or a pids or memory limit that
+  such a tool reaches before the quota slows it.
 
 ## To be checked
 
