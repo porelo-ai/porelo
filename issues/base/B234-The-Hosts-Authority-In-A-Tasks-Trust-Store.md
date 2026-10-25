@@ -1,7 +1,8 @@
 # B234 — The Host's Authority In A Task's Trust Store
 
-**Status:** Accepted.
-**Size:** M - `runtime` (`ContainerSpec`), `app-base` (`TaskRunner`) and `core/net`, docs and an acceptance step; L if the JVM needs a design of its own.
+**Status:** Implementing.
+**Size:** M - `runtime` (`ContainerSpec`), `app-base` (`TaskRunner`, `TaskCertificates`, `PoreloPaths`),
+`app-model` (`TaskState`), `app-task` (`TaskControl`, `TaskLaunch`), docs and an acceptance scenario.
 
 **What must be true.** A task trusts a certificate authority the host names, so it reaches a service on the host
 served under that authority's certificate without a project putting the certificate into its image.
@@ -15,32 +16,56 @@ trust store, and the image's snippet is per project, not per host.
 
 ## Plan
 
-Read in `TrustedCertificates`, `TaskLaunch`, `VaultAuthorizeCommand`, `VaultServeCommand`, `VaultProxy`,
-`ContainerSpec`, `Podman` and `Containerfile`.
-
-1. `~/.config/porelo/ca-certificates.pem` is read by the host's clients only. `ContainerSpec.volume` always mounts
-   `:Z`, a private label, so the operator's own file mounted directly would be relabeled for one container.
-2. **At a start, when the file is there:** it is checked as `TrustedCertificates.context` checks it, copied into the
-   task's state directory and mounted read-only at a fixed path under the hand-in root (a read-only `:ro,Z`
-   variant of `ContainerSpec.volume`); after the start one root step adds it to the image's store
-   (`update-ca-certificates` or `update-ca-trust`), and `NODE_EXTRA_CA_CERTS` names it for Node.
-3. **Docs:** where `ca-certificates.pem` is described, that a task trusts it too.
-4. **Red first:** `ContainerSpecTest.mountsAFileReadOnlyAndRelabelsItForThisContainerAlone`.
+1. `PoreloPaths` names `~/.config/porelo/task-ca-certificates.pem` beside the host clients' `ca-certificates.pem`.
+   The task file holds only the host's own public authority certificates, in PEM, owned by the account, mode 0600.
+   Host-client trust never enters a task; the two files may hold different authorities.
+2. Before a new container is created, `TaskCertificates.prepare` refuses nonregular files, links, another owner,
+   any group/other permission (`mode & 077`), malformed or empty X.509 PEM, and content other than certificates.
+   Parsing uses `TrustedCertificates.context`; refusals name the configured file and the fix, including `chmod 600`
+   for permissions. Missing files alone mean no extra trust; a stale copy from a failed earlier start is removed
+   so it cannot enter the new task's saved state. The checked bytes are copied into the task's private
+   runtime state as `task-ca-certificates.pem`; `ContainerSpec.volumeReadOnly` mounts this separate inode at
+   `/porelo/host-ca.pem` with `:ro,Z`. The account's source keeps its label. The copy is mode 0644 inside private
+   host state so the container's subordinate agent uid can read it. `NODE_EXTRA_CA_CERTS` names that mount, with
+   its name and value passed through the same container specification.
+3. After start, before any agent runs, `TaskCertificates.install` issues one `podman exec --user root` step against
+   the recorded container id. If `update-ca-certificates` exists, it copies the mount to
+   `/usr/local/share/ca-certificates/porelo-host.crt` and runs that command (Debian, Ubuntu, Alpine); otherwise, if
+   `update-ca-trust` exists, it uses `/etc/pki/ca-trust/source/anchors/porelo-host.pem` and that command
+   (Fedora/RHEL). No update command, or a failed update, refuses the start with one sentence and stops the
+   container. This follows AGENTS.md's general **Fail closed and loud** rule; silently keeping only Node trust
+   would claim incomplete system trust. Without the task file there is no mount, variable, or update step.
+4. `TaskState` saves the snapshot and restores it readable by the agent after a reboot. `TaskControl` reapplies
+   it after both resume paths. A task keeps the authority and environment it was created with; adding, replacing
+   or removing that trust requires a new task, as container mounts and environment are fixed at creation.
+5. `doc/credentials.md` describes both files and the stores; `doc/reach.md` records the added authority the task
+   holds. The changelog entry is `added`.
 
 **Decided:**
 - A task trusts a separate file kept for tasks, never the host clients' `ca-certificates.pem`, so trusting the host's forge does not make a task trust an inspecting proxy.
 - The authority is added by a step at each start, never as a layer of the image.
 - A JVM not wired to the system store is out of scope.
+- Measured on the VM under `--cap-drop ALL` as the container's root: `update-ca-certificates` succeeds on
+  `ubuntu:24.04`, `debian:trixie` and `alpine:3.22`, and `update-ca-trust` succeeds on `fedora:44`. Curl refuses the
+  authority with exit 60 before the update and returns HTTP 200 afterwards. These measurements need no repeat.
 
 ## Acceptance
 
-- With an authority in that file, `git ls-remote` and `curl` to a host service under it succeed in a task on
-  `ubuntu:24.04` and on a Fedora base. Seen to fail first: "unable to get local issuer certificate".
-- A second task alongside still reads its copy, the operator's file keeps its label, and without the file nothing is
-  mounted or run.
+- Red-first unit guards: `ContainerSpecTest.mountsAFileReadOnlyAndRelabelsItForThisContainerAlone`; a recording-runner
+  start with the task file checks the independent copy, read-only private mount, Node environment and ordered root
+  update against the recorded id. Malformed and group/other-accessible files refuse before create/start. A host
+  clients' file alone supplies none of the task wiring. Missing or failing image tooling stops the container.
+- Reboot restoration and a helper-free resume each have a unit guard first seen failing. The no-file guard is
+  also proved by deliberately reading the host clients' file instead.
+- The written acceptance scenario uses `--agent stub` with `ubuntu:24.04`. The suite starts its own loopback TLS
+  service inside the task, using a fixture leaf signed by the host-side fixture authority. Curl uses no `--cacert`:
+  exit 60 without the task file, HTTP 200 with it. This needs no host-services support or conditional skip; it
+  carries the suite's usual `@slow` task tag.
+- Two tasks need independent inodes/private labels, and the account's original file keeps its label.
 
 ## To be checked
 
-- First, on the VM: where Ubuntu 24.04, Debian trixie, Fedora and Alpine read added authorities, whether the
-  update commands run as the container's root under `--cap-drop ALL`, and whether git, curl, Node and the JVM's
-  default trust see the result.
+- Run the written acceptance scenario on a VM; no VM run is part of this implementation handover.
+- On a VM, check two concurrent tasks and the original file's SELinux label, plus git and Node against a TLS
+  service signed by the authority. Curl's system-store behavior above is already measured; JVM behavior stays out
+  of scope.

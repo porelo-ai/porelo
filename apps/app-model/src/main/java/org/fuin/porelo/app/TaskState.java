@@ -45,6 +45,7 @@ public final class TaskState {
                     UnhandedWork.FILE,
                     "dns.conf",
                     TaskRunner.HAND_IN_LIMIT_FILE,
+                    TaskCertificates.FILE,
                     "dnsmasq.servers",
                     "ruleset.nft",
                     "sidecar.json",
@@ -139,7 +140,10 @@ public final class TaskState {
             if (Files.isRegularFile(from)) {
                 final Path to = runtime.resolve(name);
                 Files.copy(from, to, StandardCopyOption.REPLACE_EXISTING);
-                Files.setPosixFilePermissions(to, PosixFilePermissions.fromString("rw-------"));
+                Files.setPosixFilePermissions(
+                        to,
+                        PosixFilePermissions.fromString(
+                                TaskCertificates.FILE.equals(name) ? "rw-r--r--" : "rw-------"));
             }
         }
         return runtime;

@@ -9,6 +9,18 @@ import org.junit.jupiter.api.Test;
 /** Tests for {@link ContainerSpec}, covering the flags that are not negotiable. */
 class ContainerSpecTest {
 
+    @Test
+    void mountsAFileReadOnlyAndRelabelsItForThisContainerAlone() {
+        final var file = java.nio.file.Path.of("/state/task/authority.pem");
+        final var specification =
+                new ContainerSpec("box", "ubuntu:24.04")
+                        .volumeReadOnly(file, "/porelo/host-ca.pem");
+
+        assertThat(specification.toArguments())
+                .as("a task must neither change its authority nor take another task's label")
+                .containsSequence("--volume", file + ":/porelo/host-ca.pem:ro,Z");
+    }
+
     private List<String> arguments() {
         return new ContainerSpec("box", "ubuntu:24.04").command("sleep", "infinity").toArguments();
     }

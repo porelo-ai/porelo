@@ -814,6 +814,7 @@ public final class TaskControl {
 
         if (recorded.helpers().isEmpty()) {
             context.podman().start(container);
+            context.tasks().trustCertificates(container);
             return new Resumed(Outcome.NO_HELPERS_RECORDED, 0, 0, null, logs, List.of(), restored);
         }
 
@@ -829,6 +830,7 @@ public final class TaskControl {
         awaitHelpers(recorded, state);
 
         context.podman().start(container);
+        context.tasks().trustCertificates(container);
         context.tasks().startScreenWriter(container);
 
         final long pid = context.podman().pidOf(container).orElse(0L);

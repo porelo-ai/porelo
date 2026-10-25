@@ -365,8 +365,35 @@ signed. Put that authority's certificate, in PEM, in
 ~/.config/porelo/ca-certificates.pem
 ```
 
-and Porelo trusts it beside the built-in ones; several certificates may follow one another in the file. Tasks
-started afterwards use it. A file that holds no certificate is an error that names it, never ignored.
+and Porelo's clients on the host trust it beside the built-in ones; several certificates may follow one another in
+the file. This includes a task's broker on the host. Porelo never copies this file into a task. A file that holds
+no certificate is an error that names it, never ignored.
+
+To let a task trust the host's own authority, put only that authority's public certificates, in PEM, in a separate
+file owned by your account:
+
+```
+~/.config/porelo/task-ca-certificates.pem
+```
+
+Set its permissions with `chmod 600 ~/.config/porelo/task-ca-certificates.pem`.
+
+Several X.509 certificates may follow one another; private keys and other content are refused. A malformed file,
+a nonregular file, a file owned by another account, or any group or other permission refuses the start and names
+the file and the fix. With no file, Porelo adds no mount, trust-store step, or Node variable.
+
+A new task receives its own copy in its state directory, mounted read-only at `/porelo/host-ca.pem` with a private
+SELinux label. Your original file keeps its label. Before the agent starts, one root step adds the authority to
+the system store: `/usr/local/share/ca-certificates/porelo-host.crt` with `update-ca-certificates` on Debian,
+Ubuntu and Alpine, or `/etc/pki/ca-trust/source/anchors/porelo-host.pem` with `update-ca-trust` on Fedora and RHEL.
+Porelo chooses by which update command exists. If neither exists, or the update fails, the start refuses and the
+container is stopped; use an image with working CA update tooling. `NODE_EXTRA_CA_CERTS` names the mounted PEM
+file for Node. A JVM that does not use the system store needs its own configuration.
+
+The copy survives a reboot and is applied again when the task resumes. Create a new task to pick up a changed
+authority or to add or remove this trust. TLS trust does not allow a network destination: the task's egress rules
+still decide what it can reach. Keep inspecting-proxy authorities in the host clients' file alone; putting one
+in the task file would let that proxy's certificates be trusted inside the task too.
 
 ## Working from another machine
 

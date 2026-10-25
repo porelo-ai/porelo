@@ -70,6 +70,8 @@ public class TaskRunner {
 
     private final PoreloPaths paths;
 
+    private final CommandRunner commands;
+
     /**
      * Constructor.
      *
@@ -94,6 +96,7 @@ public class TaskRunner {
         this.podman =
                 new Podman(runner, "podman", paths.egress().networkConfiguration(), environment);
         this.paths = paths;
+        this.commands = runner;
     }
 
     /**
@@ -310,6 +313,7 @@ public class TaskRunner {
 
         final Path state = paths.tasks().containerState(container);
         Files.createDirectories(state);
+        final Path authority = TaskCertificates.prepare(paths, state);
 
         final List<String> hostServices = project.egressFor(repository).hostServices();
         if (!hostServices.isEmpty()) {
@@ -418,6 +422,11 @@ public class TaskRunner {
                                 ? ""
                                 : " (from repository " + repository.name() + ")"));
         environment.forEach(specification::environment);
+        if (authority != null) {
+            specification
+                    .volumeReadOnly(authority, TaskCertificates.MOUNT)
+                    .environment("NODE_EXTRA_CA_CERTS", TaskCertificates.MOUNT);
+        }
         if (wiring.vaultSocket() != null) {
             // The credential proxy. Mounted rather than reached over the network on purpose: it
             // needs no firewall rule, and the provider's own host is withheld from the ruleset so
@@ -447,10 +456,26 @@ public class TaskRunner {
 
         // If the nft hook fails, this is where it stops: the container never reaches running.
         podman.start(container);
+        if (authority != null) {
+            trustCertificates(container);
+        }
         out.println("started   yes");
         giveAccountTmux(container, out);
         startScreenWriter(container);
         progress.containerDone();
+    }
+
+    /**
+     * Reapplies the task's saved authority after a start, also when resuming after a reboot.
+     *
+     * @param container The task.
+     */
+    public void trustCertificates(String container) {
+        TaskCertificates.install(
+                commands,
+                podman.recognizing(name -> Sidecar.recordedId(paths.tasks().containerState(name))),
+                paths,
+                container);
     }
 
     /**

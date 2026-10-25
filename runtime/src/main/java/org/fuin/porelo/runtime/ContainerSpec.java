@@ -34,7 +34,9 @@ public class ContainerSpec {
 
     private final Map<String, String> labels = new LinkedHashMap<>();
 
-    private final Map<Path, String> volumes = new LinkedHashMap<>();
+    private final Map<Path, Volume> volumes = new LinkedHashMap<>();
+
+    private record Volume(String mountPoint, boolean readOnly) {}
 
     private final List<String> resolvers = new ArrayList<>();
 
@@ -109,7 +111,19 @@ public class ContainerSpec {
      * @return This instance.
      */
     public ContainerSpec volume(Path host, String mountPoint) {
-        volumes.put(host, mountPoint);
+        volumes.put(host, new Volume(mountPoint, false));
+        return this;
+    }
+
+    /**
+     * Mounts a file read-only with a private container label.
+     *
+     * @param host File on the host.
+     * @param mountPoint Path inside the container.
+     * @return This instance.
+     */
+    public ContainerSpec volumeReadOnly(Path host, String mountPoint) {
+        volumes.put(host, new Volume(mountPoint, true));
         return this;
     }
 
@@ -282,11 +296,15 @@ public class ContainerSpec {
                 });
 
         volumes.forEach(
-                (host, mountPoint) -> {
+                (host, volume) -> {
                     arguments.add("--volume");
                     // 'Z' relabels for SELinux. Without it the mount is unreadable on an enforcing
                     // host, which is the platform the hooks were verified on.
-                    arguments.add(host + ":" + mountPoint + ":Z");
+                    arguments.add(
+                            host
+                                    + ":"
+                                    + volume.mountPoint()
+                                    + (volume.readOnly() ? ":ro,Z" : ":Z"));
                 });
 
         arguments.add(image);

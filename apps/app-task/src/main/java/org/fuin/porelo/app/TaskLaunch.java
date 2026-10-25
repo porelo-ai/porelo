@@ -1797,6 +1797,10 @@ public final class TaskLaunch {
                             project,
                             code -> cleanUp(runner, container, code, out, err)));
 
+        } catch (TaskCertificates.Refused ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return cleanUp(runner, container, 70, out, err);
         } catch (CommandException ex) {
             steps.dependencyFailed(ex.standardError());
             err.println("porelo: " + ex.getMessage());

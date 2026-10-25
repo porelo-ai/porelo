@@ -227,6 +227,24 @@ public record PoreloPaths(
     }
 
     /**
+     * Returns the additional authorities trusted by Porelo's host clients only.
+     *
+     * @return The PEM file, which need not exist.
+     */
+    public Path caCertificates() {
+        return org.fuin.porelo.core.net.TrustedCertificates.file(xdg);
+    }
+
+    /**
+     * Returns the host's own authority explicitly trusted by new tasks.
+     *
+     * @return The owner-only PEM file, separate from {@link #caCertificates()}.
+     */
+    public Path taskCaCertificates() {
+        return xdg.config().resolve(TaskCertificates.FILE);
+    }
+
+    /**
      * Returns the record of every stop of all tasks at once: one line each, with when, who, from
      * where, what stopped and what survived.
      *

@@ -47,6 +47,7 @@ See [the firewall](security.md) and [DNS](security.md) for how this is enforced.
 | A request for a token of its own | A `refresh_token` or `client_credentials` grant is refused, in the query and in the whole body decoded - gzip, deflate or zstd - and a body coded otherwise, coded twice, beyond the limit or not decoding is refused rather than forwarded unread | control |
 | A key for the upstream | Never in the container, nor a socket that answers with it, in any class: the host lends it to the gate | control |
 | The workspace's `.git/hooks` and `.git/config` | Stay inside the container, where no host-side `git` runs them | control |
+| Additional TLS trust | Only the host authority explicitly placed in the account's owner-only `task-ca-certificates.pem` is copied into a task, read-only; the host clients' `ca-certificates.pem` stays on the host. The system store and Node gain that trust; egress rules still bound the destinations | control |
 
 ## Spend: what a task can use up
 

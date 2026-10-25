@@ -1,0 +1,2 @@
+title: Tasks can trust the host's own certificate authority through a separate owner-only task-ca-certificates.pem file, copied read-only into each task and added to its system and Node trust stores
+type: added
