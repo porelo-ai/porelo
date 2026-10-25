@@ -1,6 +1,6 @@
 # B280 — A Test Leaves No Key In The Kernel Keyring
 
-**Status:** Analyzed.
+**Status:** Implementing. Accepted and put in the backlog by the operator.
 **Size:** S - a JUnit extension in the test code of `apps/app` and `vault`, the tests it finds leaking, and one validated prefix override in `VaultPaths`.
 
 **What must be true.** A run of porelo's tests leaves the account's kernel keyring as it found it, so repeated builds

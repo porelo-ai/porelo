@@ -26,6 +26,9 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b278"></a>[B278](B278-A-Person-Removed-From-A-Projects-Conversation.md) | M | - | `porelo talk members` lists who has an account in a project's conversation and `porelo talk remove` takes one out - locked and out of the room by the transport's new `part` verb, then off the list; the daemon's `RemoveMessageMember` beside `MessageMembers` |
+| <a id="b279"></a>[B279](B279-A-Windows-Log-Line-Ends-As-A-Line.md) | XS | - | `porelo build status` drops a carriage return right before a newline, so a Windows job log reads as lines; a lone CR stays escaped as `\x0d`, and `--json` keeps the log as given |
+| <a id="b280"></a>[B280](B280-A-Test-Leaves-No-Key-In-The-Kernel-Keyring.md) | S | - | A JVM-specific key prefix isolates the shared leak guard from concurrent builds and real vault unlocks; 31 leaking initialization and build-query cases have cleanup |
 | <a id="b266"></a>[B266](B266-A-Task-Fits-The-Machine-It-Runs-On.md) | M | - | A task container and an image build are bounded on any host: a default CPU limit that `nproc` inside reads (`OMP_NUM_THREADS`), the project's limits on the build; open files measured high enough; porelo's part of porelo-project [PJ68](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj68) |
 | <a id="b233"></a>[B233](B233-A-Host-Service-Reached-By-Name.md) | M | - | `egress.host_services` maps declared names to the gate address and opens TCP 443 on it in every class, offline included |
 | <a id="b234"></a>[B234](B234-The-Hosts-Authority-In-A-Tasks-Trust-Store.md) | M | - | A separate owner-only task authority is copied read-only into each task and applied to the system and Node trust stores |
@@ -50,9 +53,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="b280"></a>[B280](B280-A-Test-Leaves-No-Key-In-The-Kernel-Keyring.md) | S | - | A JVM-specific key prefix isolates the shared leak guard from concurrent builds and real vault unlocks; 31 leaking initialization and build-query cases have cleanup | 0 |
-| <a id="b279"></a>[B279](B279-A-Windows-Log-Line-Ends-As-A-Line.md) | XS | - | `porelo build status` drops a carriage return right before a newline, so a Windows job log reads as lines; a lone CR stays escaped as `\x0d`, and `--json` keeps the log as given | 0 |
-| <a id="b278"></a>[B278](B278-A-Person-Removed-From-A-Projects-Conversation.md) | M | - | `porelo talk members` lists who has an account in a project's conversation and `porelo talk remove` takes one out - deactivated and out of the room by the transport's new `part` verb, then off the list; the daemon's `RemoveMessageMember` beside `MessageMembers` | 0 |
 | <a id="b272"></a>[B272](B272-A-Sign-In-Is-Renewed-On-The-Host-On-Request.md) | S | - | `porelo vault renew <name>` marks an agent's own sign-in due, so the next task's broker renews it on the host by the path every renewal takes; nothing but its end changes and no token is printed | 0 |
 | <a id="b175"></a>[B175](B175-The-Profile-That-May-Bind-The-Socket.md) | L | `porelo` [B135](README.md#b135) | On an AppArmor machine a task connects only to a socket one of Porelo's binaries bound, by a task profile that refuses any other peer, as the SELinux domain does on SELinux machines. | 0 |
 | <a id="b176"></a>[B176](B176-Comment-Threads-That-Follow-A-New-Push.md) | M | `porelo` [B166](README.md#b166) | A thread on waiting work moves to a new push's commit where its lines are unchanged, else stays and says why; each commented commit pinned under a hidden ref; `Thread` gains `from` and `stays`. | 0 |

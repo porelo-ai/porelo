@@ -1,6 +1,6 @@
 # B279 — A Windows Log's Line Ends As A Line
 
-**Status:** Analyzed.
+**Status:** Implementing.
 **Size:** XS - one condition in `BuildStatus.terminalText`, its test and a sentence in `doc/commands.md`.
 
 **What must be true.** `porelo build status` shows a job log written with Windows line ends (CRLF) as plain lines,

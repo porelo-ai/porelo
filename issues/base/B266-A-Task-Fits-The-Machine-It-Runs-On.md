@@ -99,10 +99,14 @@ On the Ubuntu VM (`ubuntu26.04`, 6 cores, podman 5.7.0, account `core`), with `u
   change the answer*, a host that delegates the `cpuset` controller to the account, or a pids or memory limit that
   such a tool reaches before the quota slows it.
 
+**Measured on the Ubuntu VM:** a JVM in a task with `--cpus 2` reads 2 (`java -XshowSettings:system`: *Effective CPU
+Count: 2*, quota 200000 of 100000), and 6 without a limit; `--env-merge OMP_NUM_THREADS=${OMP_NUM_THREADS:-2}`
+gives 2 in `ubuntu:24.04` and keeps an image's own 7.
+
 ## To be checked
 
-- That a JVM in a task with `--cpus 2` reads 2 from `availableProcessors()` (a JDK image on the VM).
 - That GraalVM's `native-image` in a task sizes its build threads from the CPU limit (the quota or
   `OMP_NUM_THREADS`), not the host's cores; a native build in a task is the largest such build today.
 - Open files and the delegated controllers on the Fedora VM.
-- That `taskset` (util-linux) is on every machine the packages install on, or is declared as a dependency.
+- That `taskset` (util-linux) is on every machine the packages install on, or is declared as a dependency: on
+  Ubuntu 26.04 it is `/usr/bin/taskset` of `util-linux`, priority `required`; Fedora is not read yet.
