@@ -214,21 +214,116 @@ final class TaskConversations {
                 said.get("login") instanceof Map<?, ?> login && login.get("user") != null
                         ? String.valueOf(login.get("user"))
                         : person;
-        final Map<String, String> members =
-                new java.util.LinkedHashMap<>(members(context, project));
-        members.put(person, user);
         try {
-            final java.nio.file.Path file = membersFile(context, project, scheme);
-            java.nio.file.Files.createDirectories(file.getParent());
-            java.nio.file.Files.writeString(
-                    file,
-                    org.fuin.porelo.wire.Json.write(members),
-                    java.nio.charset.StandardCharsets.UTF_8);
+            member(context, project, scheme, person, user);
         } catch (java.io.IOException ex) {
             // The account exists and the person has their login; only the list of who joined misses
             // them.
         }
         return said;
+    }
+
+    /**
+     * Removes a listed person only after the transport succeeds.
+     *
+     * @param context Where the state is.
+     * @param project The project.
+     * @param person Whom to remove.
+     * @return What the transport removed or kept.
+     * @throws Conversations.Refused If the person is absent or removal could not be completed.
+     */
+    Conversations.Removal part(PoreloContext context, Project project, String person)
+            throws Conversations.Refused {
+        if (!members(context, project).containsKey(person)) {
+            throw new Conversations.Refused(
+                    "'"
+                            + person
+                            + "' has not joined "
+                            + project.name()
+                            + "; 'porelo talk members "
+                            + project.name()
+                            + "' lists who has",
+                    0,
+                    null,
+                    person);
+        }
+        final String scheme = scheme(project);
+        final Map<?, ?> said;
+        try {
+            said =
+                    lifecycle.part(
+                            scheme,
+                            project.name(),
+                            person,
+                            settings(project, scheme),
+                            project.securityClass() == SecurityClass.OFFLINE);
+        } catch (TransportLifecycle.Refused ex) {
+            throw new Conversations.Refused(String.valueOf(ex.getMessage()), ex.code(), null);
+        }
+        final Conversations.Removal removed;
+        if (said.get("removed") instanceof String user) {
+            removed = new Conversations.Removal(user, false, "");
+        } else if (said.get("kept") instanceof String user
+                && said.get("why") instanceof String why) {
+            removed = new Conversations.Removal(user, true, why);
+        } else if (said.isEmpty()) {
+            removed = new Conversations.Removal("", false, "");
+        } else {
+            throw new Conversations.Refused(
+                    "the " + scheme + " transport answered part with no removal outcome", 76, null);
+        }
+        try {
+            member(context, project, scheme, person, null);
+        } catch (java.io.IOException ex) {
+            throw new Conversations.Refused(
+                    "the members of "
+                            + project.name()
+                            + " could not be recorded: "
+                            + ex.getMessage(),
+                    0,
+                    null);
+        }
+        return removed;
+    }
+
+    private void member(
+            PoreloContext context,
+            Project project,
+            String scheme,
+            String person,
+            @Nullable String user)
+            throws java.io.IOException {
+        final java.nio.file.Path file = membersFile(context, project, scheme);
+        FileLocks.holding(
+                file.resolveSibling("." + file.getFileName() + ".lock"),
+                () -> {
+                    // Join and part share the lock so neither can restore a member from an old
+                    // list.
+                    final Map<String, String> members =
+                            new java.util.LinkedHashMap<>(members(context, project));
+                    if (user == null) {
+                        members.remove(person);
+                    } else {
+                        members.put(person, user);
+                    }
+                    final java.nio.file.Path staged =
+                            java.nio.file.Files.createTempFile(
+                                    file.getParent(), "." + file.getFileName(), ".tmp");
+                    try {
+                        java.nio.file.Files.writeString(
+                                staged,
+                                org.fuin.porelo.wire.Json.write(members),
+                                java.nio.charset.StandardCharsets.UTF_8);
+                        java.nio.file.Files.move(
+                                staged,
+                                file,
+                                java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                                java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    } finally {
+                        java.nio.file.Files.deleteIfExists(staged);
+                    }
+                    return Boolean.TRUE;
+                });
     }
 
     /**

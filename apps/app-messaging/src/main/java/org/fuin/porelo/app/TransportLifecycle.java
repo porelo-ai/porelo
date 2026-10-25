@@ -16,15 +16,15 @@ import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Runs a transport's lifecycle - {@code setup}, {@code enroll}, {@code retire}, {@code join} - for
- * a transport that keeps a conversation of its own, and keeps what it hands back.
+ * Runs a transport's lifecycle - including {@code setup}, {@code enroll}, {@code retire}, {@code
+ * join} and {@code part} - for a transport that keeps a conversation of its own, and keeps what it
+ * hands back.
  *
  * <p><strong>Porelo knows no transport here.</strong> What a room is, how an account is made, which
- * homeserver runs where: all the transport's, behind these four verbs (decided on 2026-09-30).
- * Porelo hands each verb the project's settings for it as JSON on stdin, exactly as {@code
- * mail.transports.<scheme>} says them, and the secrets it kept as environment variables; it keeps
- * the {@code secrets} and {@code account} a verb prints in the account's vault, opaque, and hands
- * them back as they were printed.
+ * homeserver runs where: all the transport's, behind its lifecycle verbs. Porelo hands each verb
+ * the project's settings for it as JSON on stdin, exactly as {@code mail.transports.<scheme>} says
+ * them, and the secrets it kept as environment variables; it keeps the {@code secrets} and {@code
+ * account} a verb prints in the account's vault, opaque, and hands them back as they were printed.
  *
  * <p><strong>Three scopes, three entries, none ever in a task:</strong> the account's ({@code
  * transport/<scheme>/account}, only for the lifecycle verbs), a project's ({@code
@@ -475,6 +475,42 @@ final class TransportLifecycle {
     }
 
     /**
+     * Removes a person from a conversation, with the same secrets and settings as join.
+     *
+     * @param scheme The transport.
+     * @param project The project.
+     * @param person Whom to remove.
+     * @param settings What the project says to this transport.
+     * @param loopbackOnly Whether the project is offline.
+     * @return What the transport removed or kept, or an empty object when nothing remained.
+     * @throws Refused If part is not offered or the transport refused.
+     */
+    Map<?, ?> part(
+            String scheme,
+            String project,
+            String person,
+            Map<String, Object> settings,
+            boolean loopbackOnly)
+            throws Refused {
+        final Path adapter = transports.find(scheme);
+        if (adapter == null || !TransportDescription.of(context.runner(), adapter).offers("part")) {
+            throw new Refused("the " + scheme + " transport does not offer part", 0);
+        }
+        final Map<String, String> given = new LinkedHashMap<>(secrets(scheme, "account"));
+        given.putAll(secrets(scheme, "project/" + project));
+        return run(
+                scheme,
+                settings,
+                given,
+                loopbackOnly,
+                "part",
+                "--project",
+                project,
+                "--person",
+                person);
+    }
+
+    /**
      * Returns what {@code setup} said last of a project's conversation.
      *
      * @param scheme The transport.
@@ -618,6 +654,7 @@ final class TransportLifecycle {
         // account over. The transport keeps the name it first used, so a machine renamed later
         // keeps its accounts.
         if (!"settings".equals(verb[0])
+                && !"part".equals(verb[0])
                 && TransportDescription.of(context.runner(), adapter).takes("machine")) {
             arguments.add("--machine");
             arguments.add(MachineName.hostName());

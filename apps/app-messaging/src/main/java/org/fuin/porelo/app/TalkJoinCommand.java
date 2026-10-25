@@ -46,13 +46,7 @@ public class TalkJoinCommand implements Callable<Integer>, PoreloFactory.Context
         final PrintWriter out = spec.commandLine().getOut();
         final PrintWriter err = spec.commandLine().getErr();
         final Project project = GateSupport.byName(context, projectName);
-        if (project.mail().conversations().isEmpty()) {
-            err.println(
-                    "porelo: '"
-                            + projectName
-                            + "' has no conversation: no peer is reached through a transport's"
-                            + " '<scheme>:' address");
-            err.flush();
+        if (noConversation(project, err)) {
             return 64;
         }
         final Map<?, ?> said;
@@ -70,5 +64,17 @@ public class TalkJoinCommand implements Callable<Integer>, PoreloFactory.Context
                         : "joined    " + person);
         out.flush();
         return 0;
+    }
+
+    static boolean noConversation(Project project, PrintWriter err) {
+        if (!project.mail().conversations().isEmpty()) {
+            return false;
+        }
+        err.println(
+                "porelo: '"
+                        + project.name()
+                        + "' has no conversation: no peer is reached through a transport's '<scheme>:' address");
+        err.flush();
+        return true;
     }
 }

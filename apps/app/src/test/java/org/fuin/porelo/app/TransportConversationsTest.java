@@ -31,6 +31,300 @@ class TransportConversationsTest {
     private final FakeCommandRunner runner = new FakeCommandRunner();
 
     @Test
+    void aRemovedPersonIsPartedByTheTransportAndNoLongerListed() throws Exception {
+        // Revocation must reach the transport with its credentials before local access is removed.
+        final PoreloContext context = removalContext("guarded", true);
+        runner.answering(" part ", "{\"removed\":\"@alice\"}");
+        final Path previous =
+                Files.createLink(dir.resolve("previous-members.json"), memberFile(context));
+        final byte[] before = Files.readAllBytes(previous);
+
+        final TalkReply reply = talk(context, "remove", "p", "alice");
+
+        assertThat(reply.code()).as("the removal succeeds").isZero();
+        assertThat(reply.out())
+                .as("the removed account is identified")
+                .isEqualTo("removed   alice (@alice)\n");
+        final var part = runner.only(" part ");
+        assertThat(part.arguments().subList(1, part.arguments().size()))
+                .as(
+                        "part receives only the project and person, even when the transport takes machine")
+                .containsExactly("part", "--project", "p", "--person", "alice");
+        assertThat(part.environment())
+                .as("the account and project credentials reach part")
+                .containsEntry("ADMIN", "a-1")
+                .containsEntry("POLLER", "p-1");
+        assertThat(org.fuin.porelo.wire.Json.parse(part.input()))
+                .as("the project's settings reach stdin")
+                .isEqualTo(Map.of("server", "https://example.org"));
+        assertThat(part.describe())
+                .as("credentials never become arguments")
+                .doesNotContain("a-1", "p-1");
+        assertThat(Files.readAllBytes(previous))
+                .as("publishing a new list replaces the file rather than modifying its old inode")
+                .isEqualTo(before);
+        assertThat(Conversations.members(context, project("guarded")))
+                .as("only the removed person disappears")
+                .containsExactlyEntriesOf(Map.of("bob", "@bob"));
+        assertThat(talk(context, "members", "p").out())
+                .as("the command reads the changed membership")
+                .contains("PERSON", "ACCOUNT", "bob", "@bob")
+                .doesNotContain("alice");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {75, 77, 78})
+    void aRefusedPartLeavesThePersonListedAndExitsAsJoinDoes(int code) throws Exception {
+        // A failed remote revocation must never be reported or recorded as a successful one.
+        final PoreloContext context = removalContext("guarded", true);
+        runner.failing(" part ", code, "membership cannot be changed");
+        runner.failing(" join ", code, "membership cannot be changed");
+        final byte[] before = Files.readAllBytes(memberFile(context));
+
+        final TalkReply reply = talk(context, "remove", "p", "alice");
+        final TalkReply joined = talk(context, "join", "p", "alice", "--reset");
+
+        assertThat(reply.code())
+                .as("part uses join's transport refusal mapping")
+                .isEqualTo(69)
+                .isEqualTo(joined.code());
+        assertThat(reply.err())
+                .as("the transport's refusal reaches the person")
+                .contains("membership cannot be changed", "exit " + code);
+        assertThat(Files.readAllBytes(memberFile(context)))
+                .as("a refused part leaves the list byte for byte unchanged")
+                .isEqualTo(before);
+        assertThat(Conversations.members(context, project("guarded")))
+                .as("the refused person stays listed")
+                .containsEntry("alice", "@alice");
+    }
+
+    @Test
+    void aTransportWithoutPartIsNeverAskedToRemoveAPerson() throws Exception {
+        // An unsupported lifecycle verb must not cause a destructive fallback.
+        final PoreloContext context = removalContext("guarded", false);
+        final int before = runner.invocations().size();
+
+        final TalkReply reply = talk(context, "remove", "p", "alice");
+
+        assertThat(reply.code()).as("unsupported removal is unavailable").isEqualTo(69);
+        assertThat(reply.err())
+                .as("the refusal identifies the transport and missing verb")
+                .contains("room", "part");
+        assertThat(runner.invocations().subList(before, runner.invocations().size()))
+                .as("only describe may run to discover support")
+                .allSatisfy(
+                        command ->
+                                assertThat(command.arguments())
+                                        .as("no lifecycle runs")
+                                        .contains("describe"));
+        assertThat(Conversations.members(context, project("guarded")))
+                .as("unsupported removal preserves membership")
+                .containsEntry("alice", "@alice");
+    }
+
+    @Test
+    void aPersonNotListedIsRefusedWithoutRunningTheTransport() throws Exception {
+        // A mistyped name must not revoke an account or contact the transport.
+        final PoreloContext context = removalContext("guarded", true);
+        final int before = runner.invocations().size();
+
+        final TalkReply reply = talk(context, "remove", "p", "nobody");
+
+        assertThat(reply.code()).as("an unknown member is a usage refusal").isEqualTo(64);
+        assertThat(reply.err())
+                .as("the refusal points to the available member list")
+                .isEqualTo(
+                        "porelo: 'nobody' has not joined p; 'porelo talk members p' lists who has\n");
+        assertThat(runner.invocations())
+                .as("no transport command runs for an unknown person")
+                .hasSize(before);
+    }
+
+    @Test
+    void aKeptAccountIsExplainedAndThePersonIsNoLongerListed() throws Exception {
+        // Keeping an account on the server must still revoke this project's membership.
+        final PoreloContext context = removalContext("guarded", true);
+        runner.answering(" part ", "{\"kept\":\"@alice\",\"why\":\"belongs to another room\"}");
+
+        final TalkReply reply = talk(context, "remove", "p", "alice");
+
+        assertThat(reply.code()).as("kept is a successful part").isZero();
+        assertThat(reply.out())
+                .as("the account's continued existence is explained")
+                .isEqualTo(
+                        "removed   alice from p; their account @alice stays: belongs to another room\n");
+        assertThat(Conversations.members(context, project("guarded")))
+                .as("keeping the account does not keep the member")
+                .doesNotContainKey("alice");
+    }
+
+    @Test
+    void anAccountAlreadyGoneStillRemovesThePersonFromTheList() throws Exception {
+        // Retry after remote removal must finish local revocation rather than leave stale access.
+        final PoreloContext context = removalContext("guarded", true);
+        runner.answering(" part ", "{}");
+
+        final TalkReply reply = talk(context, "remove", "p", "alice");
+
+        assertThat(reply.code()).as("an empty answer completes removal").isZero();
+        assertThat(reply.out())
+                .as("nothing left is distinct from a newly removed account")
+                .isEqualTo("removed   alice (nothing was left in the room)\n");
+        assertThat(Conversations.members(context, project("guarded")))
+                .as("an empty answer also revokes membership")
+                .doesNotContainKey("alice");
+    }
+
+    @Test
+    void anOfflinePartIsRestrictedToLoopbackAndNeverToldTheMachine() throws Exception {
+        // An offline revocation must not reach another host or pass an unsupported machine option.
+        final PoreloContext context = removalContext("offline", true);
+        runner.answering(" part ", "{}");
+
+        assertThat(talk(context, "remove", "p", "alice").code())
+                .as("offline removal succeeds")
+                .isZero();
+        assertThat(runner.only(" part ").arguments())
+                .as("offline part is loopback only and never gets machine")
+                .containsSubsequence("part", "--project", "p", "--person", "alice")
+                .contains("--loopback-only")
+                .doesNotContain("--machine");
+    }
+
+    @Test
+    void membersAndRemovalRefuseAProjectWithoutAConversationAsJoinDoes() throws Exception {
+        // A project with no conversation must not be mistaken for an empty room or acted on.
+        final PoreloContext context = removalContext("guarded", true);
+        final Path file = dir.resolve("project.yml");
+        Files.writeString(
+                file,
+                "project:\n  name: p\n  security_class: guarded\nimage:\n  base_image: ubuntu:24.04\n");
+        final TalkReply joined = talk(context, "join", "p", "alice");
+        for (final String[] arguments :
+                List.of(new String[] {"members", "p"}, new String[] {"remove", "p", "alice"})) {
+            final TalkReply reply = talk(context, arguments);
+            assertThat(reply.code()).as("no conversation is a usage refusal").isEqualTo(64);
+            assertThat(reply.err())
+                    .as("the same project state has join's explanation")
+                    .isEqualTo(joined.err());
+        }
+    }
+
+    @Test
+    void anEmptyConversationListsNobodyWithoutCallingTheTransport() throws Exception {
+        // A local listing must not need network access or confuse no members with a failure.
+        final PoreloContext context = removalContext("guarded", true);
+        Files.writeString(memberFile(context), "{}");
+        final int before = runner.invocations().size();
+
+        final TalkReply reply = talk(context, "members", "p");
+
+        assertThat(reply.code()).as("empty membership is successful").isZero();
+        assertThat(reply.out())
+                .as("an empty conversation is identified")
+                .isEqualTo("nobody has joined p\n");
+        assertThat(runner.invocations()).as("listing never runs the transport").hasSize(before);
+    }
+
+    @Test
+    void aRemovedPersonsIncomingWordsAreNotDeliveredToATask() throws Exception {
+        // Revoking membership must also revoke delivery of unsigned person messages.
+        final PoreloContext context = removalContext("guarded", true);
+        runner.answering(" part ", "{}");
+        final Mailbox review = mailbox("porelo-p-review");
+        final var group =
+                List.of(new TransportConversations.Member("porelo-p-review", review, "p", "room"));
+        final Path inbound =
+                Files.createDirectories(
+                        context.paths().xdg().state().resolve("transport/room/inbound/p"));
+        Files.writeString(
+                inbound.resolve("before--room-person-one.json"),
+                "{\"sender\":\"@alice\",\"body\":\"before\",\"to\":[]}");
+        final var conversations =
+                new TransportConversations(
+                        context, context.paths().messaging().transportDirectory());
+        assertThat(conversations.pass(group).handed())
+                .as("the joined person reaches the task before removal")
+                .isNotEmpty();
+        final List<Path> delivered;
+        try (var files = Files.walk(review.root())) {
+            delivered = files.filter(Files::isRegularFile).toList();
+        }
+        assertThat(talk(context, "remove", "p", "alice").code())
+                .as("the person is removed")
+                .isZero();
+        Files.writeString(
+                inbound.resolve("after--room-person-two.json"),
+                "{\"sender\":\"@alice\",\"body\":\"after\",\"to\":[]}");
+
+        final var outcome = conversations.pass(group);
+
+        assertThat(outcome.handed()).as("a removed sender reaches no task").isEmpty();
+        assertThat(outcome.failures())
+                .as("the membership check explains the dropped line")
+                .anySatisfy(
+                        said ->
+                                assertThat(said)
+                                        .as("the sender is no longer admitted")
+                                        .contains("@alice", "not in the project's conversation"));
+        try (var files = Files.walk(review.root())) {
+            assertThat(files.filter(Files::isRegularFile).toList())
+                    .as("no file from the removed person reaches the mailbox")
+                    .containsExactlyInAnyOrderElementsOf(delivered);
+        }
+    }
+
+    private PoreloContext removalContext(String securityClass, boolean offersPart)
+            throws Exception {
+        runner.answering(
+                "describe",
+                "{\"scheme\":\"room\",\"poll\":true,\"persons\":true,\"takes\":[\"machine\"],\"lifecycle\":[\"setup\",\"join\""
+                        + (offersPart ? ",\"part\"" : "")
+                        + "]}");
+        runner.answering(
+                " setup ",
+                "{\"account\":{\"ADMIN\":\"a-1\"},\"secrets\":{\"POLLER\":\"p-1\"},\"conversation\":\"!room-p\",\"reaches\":[\"127.0.0.1\"]}");
+        runner.answering(" join ", "{\"login\":{\"user\":\"@alice\"}}");
+        final PoreloContext context = context().asking(prompt -> PASSPHRASE.clone());
+        Files.createDirectories(context.vault().path().getParent());
+        context.vault().write(Map.of(), PASSPHRASE);
+        assertThat(
+                        context.openerAsking(
+                                false, new java.io.PrintWriter(java.io.Writer.nullWriter())))
+                .as("the fixture opens its vault without a kernel keyring")
+                .isPresent();
+        final String yaml =
+                "project:\n  name: p\n  security_class: "
+                        + securityClass
+                        + "\nimage:\n  base_image: ubuntu:24.04\nmail:\n  transports:\n    room:\n      server: https://example.org\n";
+        final Path file = dir.resolve("project.yml");
+        Files.writeString(file, yaml);
+        new ProjectRegistry(context.paths().projects().projectRegistry()).remember("p", file);
+        new TaskConversations(context).join(context, project(securityClass), "alice", false);
+        final Map<String, String> members =
+                new LinkedHashMap<>(Conversations.members(context, project(securityClass)));
+        members.put("bob", "@bob");
+        Files.writeString(memberFile(context), org.fuin.porelo.wire.Json.write(members));
+        return context;
+    }
+
+    private Path memberFile(PoreloContext context) {
+        return context.paths().xdg().state().resolve("transport/room/members/p.json");
+    }
+
+    private record TalkReply(int code, String out, String err) {}
+
+    private TalkReply talk(PoreloContext context, String... arguments) {
+        final var out = new java.io.StringWriter();
+        final var err = new java.io.StringWriter();
+        final var cli = new picocli.CommandLine(new TalkCommand(), new PoreloFactory(context));
+        cli.setOut(new java.io.PrintWriter(out));
+        cli.setErr(new java.io.PrintWriter(err));
+        return new TalkReply(cli.execute(arguments), out.toString(), err.toString());
+    }
+
+    @Test
     void aWordToHelpersIsAnsweredOnceAsTheProjectWithoutWakingAnyTask() throws Exception {
         // A helper mention must not wake tasks or use their credentials to answer for the relay.
         answerToHelpers(0);

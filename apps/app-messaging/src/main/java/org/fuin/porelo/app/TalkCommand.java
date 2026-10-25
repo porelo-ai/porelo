@@ -25,6 +25,8 @@ import picocli.CommandLine.Command;
             TalkSayCommand.class,
             TalkTellCommand.class,
             TalkKeyCommand.class,
-            TalkJoinCommand.class
+            TalkJoinCommand.class,
+            TalkMembersCommand.class,
+            TalkRemoveCommand.class
         })
 public class TalkCommand {}

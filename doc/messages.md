@@ -51,8 +51,10 @@ mail:
 - **The room is the boundary.** Every task of the project and every person in it reads everything said there.
   Two tasks that must not read each other's messages belong in two projects.
 - **A person joins** with `porelo talk join PROJECT PERSON`, which makes them an account, invites it into the
-  room and prints the login once, for any Matrix client. Their messages reach tasks only once their key is
-  listed as a peer.
+  room and prints the login once for their client. `porelo talk members PROJECT` lists who joined and their
+  accounts. `porelo talk remove PROJECT PERSON` removes them through the transport and, only after it
+  succeeds, from the members list; it says why if their account stays. Their room messages no longer reach
+  tasks, and tasks can no longer address them by their joined name.
 - **Being in the room is not enough to be delivered.** A message reaches a task only if it is signed by a key
   listed for a peer of that project and names one of that project's tasks; anything else is held and you are
   told.

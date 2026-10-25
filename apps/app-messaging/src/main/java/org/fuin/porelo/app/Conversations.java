@@ -8,11 +8,11 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * What an interface may ask about a project's conversation - its room on a transport that keeps one
- * - and the one thing it may do there: let a person in.
+ * - and how it lets a person in or removes them.
  */
 public final class Conversations {
 
-    /** Why a person could not be let in. */
+    /** Why membership could not be changed. */
     public static final class Refused extends Exception {
 
         private static final long serialVersionUID = 1L;
@@ -21,10 +21,17 @@ public final class Conversations {
 
         private final @Nullable String exists;
 
+        private final @Nullable String missing;
+
         Refused(String message, int code, @Nullable String exists) {
+            this(message, code, exists, null);
+        }
+
+        Refused(String message, int code, @Nullable String exists, @Nullable String missing) {
             super(message);
             this.code = code;
             this.exists = exists;
+            this.missing = missing;
         }
 
         /**
@@ -44,7 +51,25 @@ public final class Conversations {
         public @Nullable String exists() {
             return exists;
         }
+
+        /**
+         * Returns the person who has not joined, when that is why.
+         *
+         * @return The person, or {@code null} for another refusal.
+         */
+        public @Nullable String missing() {
+            return missing;
+        }
     }
+
+    /**
+     * A successful removal from a project's conversation.
+     *
+     * @param user The removed or retained account, or empty when nothing was left.
+     * @param kept Whether the transport kept the account.
+     * @param why Why the account stays, or empty.
+     */
+    public record Removal(String user, boolean kept, String why) {}
 
     private Conversations() {}
 
@@ -74,6 +99,20 @@ public final class Conversations {
         } catch (TransportLifecycle.Refused ex) {
             throw new Refused(String.valueOf(ex.getMessage()), ex.code(), null);
         }
+    }
+
+    /**
+     * Removes a listed person after the transport has successfully parted them.
+     *
+     * @param context Where the vault and state are.
+     * @param project The project.
+     * @param person Whom to remove.
+     * @return The transport's removal outcome.
+     * @throws Refused If the person is not listed, part is unavailable, or removal fails.
+     */
+    public static Removal remove(PoreloContext context, Project project, String person)
+            throws Refused {
+        return new TaskConversations(context).part(context, project, person);
     }
 
     /**

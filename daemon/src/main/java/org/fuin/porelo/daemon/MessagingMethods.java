@@ -330,6 +330,10 @@ final class MessagingMethods {
                 });
 
         server.method(
+                "RemoveMessageMember",
+                (parameters, replies) -> replies.last(removeMessageMember(context, parameters)));
+
+        server.method(
                 "MessageMembers",
                 (parameters, replies) -> {
                     final org.fuin.porelo.core.project.Project project =
@@ -379,5 +383,27 @@ final class MessagingMethods {
                                     "held",
                                     change.peer().held()));
                 });
+    }
+
+    /** Returns the removal outcome or the same transport refusal as joining. */
+    static Map<String, Object> removeMessageMember(
+            PoreloContext context, Map<String, Object> parameters) {
+        final org.fuin.porelo.core.project.Project project =
+                conversational(context, text(parameters, "project"));
+        final org.fuin.porelo.app.Conversations.Removal removed;
+        try {
+            removed =
+                    org.fuin.porelo.app.Conversations.remove(
+                            context, project, text(parameters, "person"));
+        } catch (org.fuin.porelo.app.Conversations.Refused ex) {
+            if (ex.missing() != null) {
+                throw new VarlinkException(
+                        INTERFACE + ".NoSuchMember", Map.of("person", ex.missing()));
+            }
+            throw new VarlinkException(
+                    INTERFACE + ".ConversationRefused",
+                    Map.of("message", String.valueOf(ex.getMessage()), "code", ex.code()));
+        }
+        return Map.of("user", removed.user(), "kept", removed.kept(), "why", removed.why());
     }
 }

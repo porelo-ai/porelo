@@ -73,6 +73,19 @@ class InterfaceDescriptionTest {
     private static final Set<String> BUILT_IN = Set.of("string", "int", "float", "bool", "object");
 
     @Test
+    void memberRemovalDeclaresItsInputsOutcomesAndMissingMemberError() {
+        // Clients need every outcome and a named missing-member refusal to implement revocation.
+        final String description = PoreloDaemon.description();
+        assertThat(description)
+                .as("removal declares the complete wire signature")
+                .contains(
+                        "method RemoveMessageMember(project: string, person: string) -> (user: string, kept: bool, why: string)");
+        assertThat(description)
+                .as("missing membership has its own declared error")
+                .contains("error NoSuchMember(person: string)");
+    }
+
+    @Test
     void namesNoTypeItDoesNotDeclare() throws IOException {
 
         // A description is only worth anything if somebody can write a client from it alone, and a

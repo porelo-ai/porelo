@@ -444,6 +444,8 @@ A task's mailbox. Each command names the task by its container name.
 | `porelo talk verify TASK` | Names the first entry of the message record that does not check out. |
 | `porelo talk key [--as=PRINCIPAL] [--publish]` | Prints this machine's signing key as an `allowed_signers` line. |
 | `porelo talk join PROJECT PERSON [--reset]` | Makes a person an account in the project's conversation and shows the login once. `--reset` sets a new password. |
+| `porelo talk members PROJECT` | Lists each person who joined the conversation and their account, or says nobody has joined. |
+| `porelo talk remove PROJECT PERSON` | Removes a person through the transport, then drops them from the members list. Says why if their account stays; a failed removal leaves them listed. |
 
 A message is never edited. Read it before you release it. A message released despite the filter is
 recorded as such, and the receiving peer may refuse it again.

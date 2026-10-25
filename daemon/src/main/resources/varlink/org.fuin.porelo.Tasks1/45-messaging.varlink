@@ -263,8 +263,14 @@ method JoinMessages(
 # Who has joined a project's conversation, by the name join was given.
 method MessageMembers(project: string) -> (members: []MessageMember)
 
+# Removes a joined person; user is empty when nothing remained, why explains a kept account.
+method RemoveMessageMember(project: string, person: string) -> (user: string, kept: bool, why: string)
+
 # The person has joined already; reset gives them a new password.
 error MemberExists(person: string, user: string)
+
+# The person has not joined the project's conversation.
+error NoSuchMember(person: string)
 
 # The transport refused; message is its own words, code its exit code (75 temporary, 77 refused, 78
 # configuration missing).
