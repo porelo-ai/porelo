@@ -1,6 +1,6 @@
 # B286 — The Host's Git Trusts The Account's Authorities
 
-**Status:** Implementing; built, the whole reactor and the documents green on the host.
+**Status:** Review.
 **Size:** S - one place in `app-model` that every host-side git environment comes from, a bundle file of Porelo's own,
 and its tests; no contract another repository reads.
 
