@@ -112,6 +112,8 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b282"></a>[B282](B282-A-Failed-Continuation-Is-Forgotten.md) | - | - | A continuation that fails without naming a session forgets the recorded one, so the next start is fresh and says so |
+| <a id="b283"></a>[B283](B283-A-Retargeted-Symbolic-Link-Ranked-Dangerous.md) | - | - | A change that only retargets an existing symbolic link is ranked dangerous in the review, as a new link is |
 | <a id="b281"></a>[B281](B281-Acceptance-Legs-In-Less-Wall-Time.md) | - | - | The acceptance legs take ~5–6 min less wall time with the same scenarios and guards: split `task-guarded.feature`'s ~3 min single-thread tail across accounts, pass `-Dsurefire.skip=true` in `Leg.java`'s two suite passes (~1:45 min), and parallelize or batch `TerminalSteps.java`'s `@AfterAll` project and container removal (~2 min) |
 | <a id="b271"></a>[B271](B271-A-Login-Is-Cancelled-From-Its-Own-Terminal.md) | - | - | `porelo vault login` can always be ended from its own terminal, whatever the agent's login screen does with Ctrl-C: the login container is stopped and removed, nothing is stored, and it ends non-zero |
 | <a id="b263"></a>[B263](B263-A-Task-Image-Built-Past-A-Stalled-Mirror.md) | - | - | A task image's build tries a second Ubuntu mirror after a bounded first attempt, rather than one fixed Azure mirror a stalled node can hold for 600 s |
