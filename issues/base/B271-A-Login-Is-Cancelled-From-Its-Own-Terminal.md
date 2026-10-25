@@ -1,6 +1,6 @@
 # B271 — A Login Is Cancelled From Its Own Terminal
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** A person who started `porelo vault login <agent>` can always end it from that terminal, whatever
 the agent's login screen does with the keys: the login container is stopped and removed, nothing is stored, and the

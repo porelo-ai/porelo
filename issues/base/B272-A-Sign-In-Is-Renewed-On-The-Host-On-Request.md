@@ -1,6 +1,6 @@
 # B272 — A Sign-In Is Renewed On The Host On Request
 
-**Status:** Analyzed.
+**Status:** Backlog.
 **Size:** S - one vault command in `app-vault` that changes one setting under the vault's lock, its tests and two
 document rows; no contract, no change to the broker.
 

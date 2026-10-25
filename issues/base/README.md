@@ -20,9 +20,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b278"></a>[B278](B278-A-Person-Removed-From-A-Projects-Conversation.md) | M | - | `porelo talk members` lists who has an account in a project's conversation and `porelo talk remove` takes one out - locked and out of the room by the transport's new `part` verb, then off the list; the daemon's `RemoveMessageMember` beside `MessageMembers` |
-| <a id="b279"></a>[B279](B279-A-Windows-Log-Line-Ends-As-A-Line.md) | XS | - | `porelo build status` drops a carriage return right before a newline, so a Windows job log reads as lines; a lone CR stays escaped as `\x0d`, and `--json` keeps the log as given |
-| <a id="b280"></a>[B280](B280-A-Test-Leaves-No-Key-In-The-Kernel-Keyring.md) | S | - | A JVM-specific key prefix isolates the shared leak guard from concurrent builds and real vault unlocks; 31 leaking initialization and build-query cases have cleanup |
 | <a id="b266"></a>[B266](B266-A-Task-Fits-The-Machine-It-Runs-On.md) | M | - | A task container and an image build are bounded on any host: a default CPU limit that `nproc` inside reads (`OMP_NUM_THREADS`), the project's limits on the build; open files measured high enough; porelo's part of porelo-project [PJ68](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj68) |
 | <a id="b233"></a>[B233](B233-A-Host-Service-Reached-By-Name.md) | M | - | `egress.host_services` maps declared names to the gate address and opens TCP 443 on it in every class, offline included |
 | <a id="b234"></a>[B234](B234-The-Hosts-Authority-In-A-Tasks-Trust-Store.md) | M | - | A separate owner-only task authority is copied read-only into each task and applied to the system and Node trust stores |
@@ -37,6 +34,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b272"></a>[B272](B272-A-Sign-In-Is-Renewed-On-The-Host-On-Request.md) | S | - | `porelo vault renew <name>` marks an agent's own sign-in due, so the next task's broker renews it on the host by the path every renewal takes; nothing but its end changes and no token is printed |
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
 | <a id="b206"></a>[B206](B206-A-Transport-Takes-Its-Secrets-On-Its-Input.md) | L | - | A transport takes the secrets Porelo kept for it on its standard input, not in its environment, so no other process of the account can read them from `/proc`; a version declared in `describe`, with the matrix transport's matching change. |
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | XL | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own; analyzed: filled only from reviewed work, mounted `:ro,z`, read through `maven.repo.local.tail`, filled by `dependency:go-offline` on request and when the default branch moved, Maven first |
@@ -53,7 +51,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="b272"></a>[B272](B272-A-Sign-In-Is-Renewed-On-The-Host-On-Request.md) | S | - | `porelo vault renew <name>` marks an agent's own sign-in due, so the next task's broker renews it on the host by the path every renewal takes; nothing but its end changes and no token is printed | 0 |
 | <a id="b175"></a>[B175](B175-The-Profile-That-May-Bind-The-Socket.md) | L | `porelo` [B135](README.md#b135) | On an AppArmor machine a task connects only to a socket one of Porelo's binaries bound, by a task profile that refuses any other peer, as the SELinux domain does on SELinux machines. | 0 |
 | <a id="b176"></a>[B176](B176-Comment-Threads-That-Follow-A-New-Push.md) | M | `porelo` [B166](README.md#b166) | A thread on waiting work moves to a new push's commit where its lines are unchanged, else stays and says why; each commented commit pinned under a hidden ref; `Thread` gains `from` and `stays`. | 0 |
 | <a id="b177"></a>[B177](B177-A-Cost-Ceiling-Per-Task.md) | M | `porelo` [B138](README.md#b138), [B191](README.md#b191) | A dollar ceiling per task from `limits.cost`, counted by the broker from the cost the provider reports, else at list price from the price table; a model with no price refuses the ceiling at the start or fail closed, never $0; under a subscription it caps list-price value. | - |
@@ -98,6 +95,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b271"></a>[B271](B271-A-Login-Is-Cancelled-From-Its-Own-Terminal.md) | - | - | `porelo vault login` can always be ended from its own terminal, whatever the agent's login screen does with Ctrl-C: the login container is stopped and removed, nothing is stored, and it ends non-zero |
 | <a id="b274"></a>[B274](B274-A-Room-Line-Wakes-Only-The-Tasks-It-Mentions.md) | S | - | A person's room line wakes only the tasks it mentions, and every task on `@room`; an unaddressed line is delivered but wakes none, read at the next wake; a reply to a task's message stays a mention |
 | <a id="b270"></a>[B270](B270-A-Forge-Token-Stored-By-The-Forges-Own-Login.md) | - | - | A person gets their forge token into a machine's vault as `git.token.<host>` by the forge's own device-code login in a terminal there, never by pasting a token made by hand; Porelo's OAuth App by default, a person's own if named, `repo` scope |
 | <a id="b260"></a>[B260](B260-Only-Porelos-Own-Source-Installs-An-Agent.md) | M | - | What the setup script's `--with` installs and what `--list` and `Installable` offer comes only from Porelo's own package source, the install bound to it on apt and dnf; dnf5's catalogue finds every agent |
@@ -116,7 +114,6 @@ from its side, as *blocked by*.
 | <a id="b282"></a>[B282](B282-A-Failed-Continuation-Is-Forgotten.md) | - | - | A continuation that fails without naming a session forgets the recorded one, so the next start is fresh and says so |
 | <a id="b283"></a>[B283](B283-A-Retargeted-Symbolic-Link-Ranked-Dangerous.md) | - | - | A change that only retargets an existing symbolic link is ranked dangerous in the review, as a new link is |
 | <a id="b281"></a>[B281](B281-Acceptance-Legs-In-Less-Wall-Time.md) | - | - | The acceptance legs take ~5–6 min less wall time with the same scenarios and guards: split `task-guarded.feature`'s ~3 min single-thread tail across accounts, pass `-Dsurefire.skip=true` in `Leg.java`'s two suite passes (~1:45 min), and parallelize or batch `TerminalSteps.java`'s `@AfterAll` project and container removal (~2 min) |
-| <a id="b271"></a>[B271](B271-A-Login-Is-Cancelled-From-Its-Own-Terminal.md) | - | - | `porelo vault login` can always be ended from its own terminal, whatever the agent's login screen does with Ctrl-C: the login container is stopped and removed, nothing is stored, and it ends non-zero |
 | <a id="b263"></a>[B263](B263-A-Task-Image-Built-Past-A-Stalled-Mirror.md) | - | - | A task image's build tries a second Ubuntu mirror after a bounded first attempt, rather than one fixed Azure mirror a stalled node can hold for 600 s |
 | <a id="b262"></a>[B262](B262-A-Stops-Survivors-In-The-Form-Its-Interface-Declares.md) | - | - | The daemon's `Stop` answers `surviving` in the type its interface declares; today it sends a list where `int` is declared, and porelo-frontend reads it as 0 |
 | <a id="b254"></a>[B254](B254-A-Task-Has-Its-Work-Built-On-A-Declared-Kind.md) | - | `porelo` [B253](README.md#b253) | A task asks for its work to be built on a machine kind the project declares and reads the verdict and log in `/porelo/files`; an undeclared kind or command is refused |
@@ -183,6 +180,9 @@ from its side, as *blocked by*.
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="b278"></a>B278 | A Person Removed From A Project's Conversation | `porelo talk members` lists who joined a project's conversation and `porelo talk remove` takes one out through the transport's `part` verb, then off the members list, so their room lines no longer reach tasks; the daemon answers `RemoveMessageMember`. |
+| <a id="b279"></a>B279 | A Windows Log's Line Ends As A Line | `porelo build status` drops a carriage return right before a newline, so a Windows job log reads as lines, while a lone CR stays escaped and `--json` keeps the log as given. |
+| <a id="b280"></a>B280 | A Test Leaves No Key In The Kernel Keyring | The tests cache vault passphrases under a per-JVM `porelo-test-<pid>` prefix and a leak guard forgets and names any key a test leaves, so repeated builds never fill the account's key quota. |
 | <a id="b253"></a>B253 | Every Forge Adapter Speaks the Build Contract's Second Version | Porelo asks a forge adapter over `org.fuin.porelo.Build2`, whose `Build` method replaces `Look` and accepts `logs: none` beside `failure` and `all`, and refuses a `Build1` adapter by name before asking it anything. |
 | <a id="b256"></a>B256 | A Person Asks What a Branch or a Commit Built | `porelo build status` (`-p`, `-r`, `--branch` or `--commit`, `--logs=none|failure|all`, `--json`) asks the project's forge reader for the verdict, the jobs and their logs with the vault's token kept on the host and terminal controls escaped, refusing a project without `builds:`. |
 | <a id="b264"></a>B264 | A Word To A Helper Wakes No Task | A room message marked `"helpers": true` by the transport - naming only the room's administrator or relay - reaches no task and wakes none, and Porelo answers the person once in the room through the transport's `send`. |

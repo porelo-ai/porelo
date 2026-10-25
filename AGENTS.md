@@ -110,6 +110,8 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
 - **A suite opens one ssh connection per run and a channel per scenario**; a connection per scenario is refused by CI.
 - **JUnit is one set**: `org.junit:junit-bom` is imported before the fuin BOM, at the version Cucumber is built
   against.
+- **A test that caches a vault passphrase forgets it in `finally`**: the tests' keys carry a per-JVM `porelo-test-<pid>`
+  prefix, `KeyringLeakGuard` forgets and names any one a test leaves, and a full keyring stops every container.
 - **`doc/reach.md` is held by `ReachDocumentTest`**, which reads its numbers off the code and refuses a row that does
   not say control or accident-catcher; a change that widens what a task can reach, hold, spend or produce changes
   that page in the same commit.
