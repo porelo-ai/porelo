@@ -31,6 +31,12 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b238"></a>[B238](B238-An-Unfollow-Leaves-Nothing-Of-The-Project.md) | XS | - | `project unfollow` removes the project's build lock and upstream copies, which `porelo prune` finds left over today |
 
+## Implementing
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="b285"></a>[B285](B285-A-Snapshot-Deployed-To-The-Local-Forge.md) | S | - | porelo-parent's profile `forge-release` deploys an opted-in module's snapshot unsigned to the local forge's registry at `MAVEN_SNAPSHOTS_URL`; the Publish step takes its profile from `PORELO_DEPLOY_PROFILE`, so GitHub publishes to Sonatype as before |
+
 ## Backlog
 
 | # | Size | Blocked by | What it covers |
