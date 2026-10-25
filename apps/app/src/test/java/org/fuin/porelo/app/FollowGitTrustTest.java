@@ -108,7 +108,7 @@ class FollowGitTrustTest {
                 final GitAnswer answer = git(dir, url, credential.environment());
                 assertThat(answer.error())
                         .as("git must get past TLS to the forge's HTTP answer")
-                        .doesNotContain("SSL certificate")
+                        .doesNotContain("SSL certificate", "certificate verification failed")
                         .containsIgnoringCase("not found");
                 assertThat(answer.exit()).as("the fixture has no repository").isNotZero();
             }
@@ -302,7 +302,7 @@ class FollowGitTrustTest {
                 assertThat(answer.error())
                         // OpenSSL builds of git say "problem", GnuTLS builds "verification failed".
                         .as("the refusal must be TLS, before any HTTP answer")
-                        .contains("SSL certificate")
+                        .containsAnyOf("SSL certificate", "certificate verification failed")
                         .doesNotContainIgnoringCase("not found");
             }
         } finally {
