@@ -12,9 +12,9 @@ would change the answer.
 | A host playbook reads Porelo as a contract | `project inventory` with its version, `vault status` by exit code, `--json` answers; the machine file holds a host's keys, and the host installs every agent and starts no task | [entry](#a-host-playbook-reads-porelo-as-a-contract) |
 | Waiting for a person is never inferred from silence | working and idle are observed from output; waiting only where something declares it; no status channel out of the container | [entry](#waiting-for-a-person-is-never-inferred-from-silence) |
 | Nothing comes back by itself after a reboot | only `start` brings a task back; no surprise restarts, no vault prompt at boot | [entry](#nothing-comes-back-by-itself-after-a-reboot) |
-| Only the last session is recorded, and a failed continuation is forgotten | a failed continuation is forgotten and the next start is fresh | [entry](#only-the-last-session-is-recorded-and-a-failed-continuation-is-forgotten) |
+| Only the last session is recorded, and a failed continuation is forgotten | a failed continuation is forgotten and the next start is fresh (not yet built) | [entry](#only-the-last-session-is-recorded-and-a-failed-continuation-is-forgotten) |
 | A session id is an identifier, not a credential | it may go on a command line; it authorizes nothing | [entry](#a-session-id-is-an-identifier-not-a-credential) |
-| An image's readiness is judged against the project file alone | `READY` ignores which agent the image was built for; a task with another agent rebuilds only those layers | [entry](#an-images-readiness-is-judged-against-the-project-file-alone) |
+| An image's readiness is judged against the project file alone | computed from the project file's image fields and Porelo's base recipe, without an agent's layers; a task with another agent rebuilds only those layers | [entry](#an-images-readiness-is-judged-against-the-project-file-alone) |
 | A file handed to a task goes to /porelo/files, and only in | a root-owned directory of its own in every task; a base image with `/porelo` is refused; nothing comes out | [entry](#a-file-handed-to-a-task-goes-to-porelofiles-and-only-in) |
 | A task learns of handed-in files from Porelo, not from its prompt | one guide to all of Porelo in the task, and a line at the prompt when a file arrives | [entry](#a-task-learns-of-handed-in-files-from-porelo-not-from-its-prompt) |
 | Every class pushes through its gate | no key, socket or route to the upstream in any container; an online task's gate passes its own branch on at once | [entry](#every-class-pushes-through-its-gate) |
@@ -26,7 +26,7 @@ would change the answer.
 | A repository's image comes from porelo.yml, chosen key by key, and its build keeps the host's network | accepted: `image` only (`base_image`, snippet, `env`), merged key by key from override, project file, reviewed default branch and project; the build still reaches the network outside the task's firewall | [entry](#a-repositorys-image-comes-from-poreloyml-chosen-key-by-key-and-its-build-keeps-the-hosts-network) |
 | Several attempts share one credential | not split or queued; a reached limit said per attempt; five attempts by default | [entry](#several-attempts-share-one-credential) |
 | A reviewer task reviews only its own project | another project's waiting work is never read | [entry](#a-reviewer-task-reviews-only-its-own-project) |
-| A time limit does not cut off a person who is watching | a start may shorten the limit, never lengthen it; an attached person is warned and the stop waits for their detach | [entry](#a-time-limit-does-not-cut-off-a-person-who-is-watching) |
+| A time limit does not cut off a person who is watching | a start may shorten the limit, never lengthen it; an attached person is warned and the stop waits for their detach (not yet built) | [entry](#a-time-limit-does-not-cut-off-a-person-who-is-watching) |
 | What carries an agent's words is kept for a period | `task.log` and a session's recording cut after 30 days, even while the task lives; a setting | [entry](#what-carries-an-agents-words-is-kept-for-a-period) |
 | A kernel of its own for a task is measured before it is decided | adopted only on measured answers: it works, the ruleset still fails closed, its cost | [entry](#a-kernel-of-its-own-for-a-task-is-measured-before-it-is-decided) |
 | A view of a task is guarded by Porelo's token, not by VNC's password | switched on per project, only through Porelo's relay, a strong one-time token before a byte reaches VNC | [entry](#a-view-of-a-task-is-guarded-by-porelos-token-not-by-vncs-password) |
@@ -51,13 +51,13 @@ would change the answer.
 | The provider channel is documented, not bounded and not alerted on | an open path by construction; stated, recorded, no alert | [entry](#the-provider-channel-is-documented-not-bounded-and-not-alerted-on) |
 | What is dangerous by kind is a fixed list that ships with Porelo | never in the repository it judges, never per project | [entry](#what-is-dangerous-by-kind-is-a-fixed-list-that-ships-with-porelo) |
 | The instruction is shown, never compared | the review shows what was asked and matches no file against it | [entry](#the-instruction-is-shown-never-compared) |
-| An MCP server reaches a task only over HTTP, through the gateway on the host | no stdio server on the host; one in the container is named as not covered; only new or changed tools held | [entry](#an-mcp-server-reaches-a-task-only-over-http-through-the-gateway-on-the-host) |
+| An MCP server reaches a task only over HTTP, through the gateway on the host | no stdio server on the host; one in the container is named as not covered; only new or changed tools held (not yet built) | [entry](#an-mcp-server-reaches-a-task-only-over-http-through-the-gateway-on-the-host) |
 | An alert either only tells or stops the task; it never freezes it | per project: tell a person, the default, or also stop the task and revoke its tokens | [entry](#an-alert-either-only-tells-or-stops-the-task-it-never-freezes-it) |
 | A false secret finding is acknowledged on the host, never in the repository | an owner-only list beside the project, each entry lapsing when its text changes; the tree is scanned, not its history | [entry](#a-false-secret-finding-is-acknowledged-on-the-host-never-in-the-repository) |
 | A new dependency with a finding waits for a person | the approve asks for each, bound to the reviewed commit, and without a terminal is refused; Maven Central and npm first | [entry](#a-new-dependency-with-a-finding-waits-for-a-person) |
-| An approve lands as a merge carrying provenance; a fast-forward is a project's choice | models, agent and provider from the broker, never the agent; a fast-forward gives up the provenance | [entry](#an-approve-lands-as-a-merge-carrying-provenance-a-fast-forward-is-a-projects-choice) |
+| An approve lands as a merge carrying provenance; a fast-forward is a project's choice | models, agent and provider from the broker, never the agent; a fast-forward gives up the provenance (not yet built) | [entry](#an-approve-lands-as-a-merge-carrying-provenance-a-fast-forward-is-a-projects-choice) |
 | The owner approves alone unless a project asks for a second person | four eyes is a project setting; the approve then needs another signer's signature | [entry](#the-owner-approves-alone-unless-a-project-asks-for-a-second-person) |
-| Work is reviewed on the machine, never on an upstream branch | approved work goes back to the checkout the task started from; Porelo gets no write access to an upstream for review | [entry](#work-is-reviewed-on-the-machine-never-on-an-upstream-branch) |
+| Work is reviewed on the machine, never on an upstream branch | waiting work is read on the machine (`gate review`, `gate checkout`), never pushed to an upstream review branch; `porelo approve` brings a checkout's task back to its checkout | [entry](#work-is-reviewed-on-the-machine-never-on-an-upstream-branch) |
 | No editor is attached to a task's container | no editor vendor's hosts declared, no editor server copied in; `gate checkout` is the way to look at the work | [entry](#no-editor-is-attached-to-a-tasks-container) |
 | The pre-push guard catches an accident, not the owner of the machine | four ways round it and a spoofable author are accepted; `--no-verify` is the named way past | [entry](#the-pre-push-guard-catches-an-accident-not-the-owner-of-the-machine) |
 | A clearance question waits 60 seconds, and an expired one can still be answered | the silence refuses and is recorded; `Decide` answers it later; `shield watch --timeout` waits longer | [entry](#a-clearance-question-waits-60-seconds-and-an-expired-one-can-still-be-answered) |
@@ -82,13 +82,13 @@ would change the answer.
 | The passphrase cache does not outlive a login, and a foreign keyring reads as empty | one mechanism, the kernel keyring; another user namespace would read it as empty | [entry](#the-passphrase-cache-does-not-outlive-a-login-and-a-foreign-keyring-reads-as-empty) |
 | Secrets in the daemon's memory stay strings | accepted: whoever reads that memory reads the vault file and the keyring too | [entry](#secrets-in-the-daemons-memory-stay-strings) |
 | Doctor reports the daemon's hardening, not its own | read from the owner of the running daemon's `/proc/<pid>/environ` | [entry](#doctor-reports-the-daemons-hardening-not-its-own) |
-| A task's spending is capped in tokens, and in money where a price is known | tokens for every provider, the streamed count asked for; money from the reported cost, else the dated list price; no price refuses the money ceiling, never $0; under a subscription it caps list-price value | [entry](#a-tasks-spending-is-capped-in-tokens-and-in-money-where-a-price-is-known) |
-| A credential is entered only in a terminal | no method of the daemon's contract takes a secret; a forced-command account is not served | [entry](#a-credential-is-entered-only-in-a-terminal) |
-| A credential with no expiry is stored and named | accepted, never refused; the store says so and the list marks it | [entry](#a-credential-with-no-expiry-is-stored-and-named) |
-| A storage class Porelo cannot prove is shown as user-scoped | stronger only by a slot the node enrolled or evidence it checks; a client's claim is recorded and shown as user-scoped | [entry](#a-storage-class-porelo-cannot-prove-is-shown-as-user-scoped) |
+| A task's spending is capped in tokens, and in money where a price is known | tokens for every provider, the streamed count asked for; money from the reported cost, else the dated list price; no price refuses the money ceiling, never $0; under a subscription it caps list-price value (not yet built) | [entry](#a-tasks-spending-is-capped-in-tokens-and-in-money-where-a-price-is-known) |
+| A credential is entered only in a terminal | no daemon method takes a provider credential or passphrase; only a device's keyslot share crosses the socket | [entry](#a-credential-is-entered-only-in-a-terminal) |
+| A credential with no expiry is stored and named | accepted, never refused; the store says so and the list marks it (not yet built) | [entry](#a-credential-with-no-expiry-is-stored-and-named) |
+| A storage class Porelo cannot prove is shown as user-scoped | stronger only by a slot the node enrolled or evidence it checks; a client's claim is recorded and shown as user-scoped (not yet built) | [entry](#a-storage-class-porelo-cannot-prove-is-shown-as-user-scoped) |
 | **Projects and following** | | |
 | A project file describes constraints, not instructions | no prompt or standing instruction belongs in `project.yml` | [entry](#a-project-file-describes-constraints-not-instructions) |
-| A project exists by being followed | Porelo never writes a project file; follow is the only way in and does the whole check | [entry](#a-project-exists-by-being-followed) |
+| A project exists by being followed | every project beside `default` is followed from a repository or bundle; `CheckProjectFile` checks a draft without registering it | [entry](#a-project-exists-by-being-followed) |
 | A project is named, never pointed at | every command and call takes a project name; no path form exists | [entry](#a-project-is-named-never-pointed-at) |
 | Configuration coming in is checked by its signature, as work going out is checked by a person | only commits signed by a key pinned out of band apply; git verifies; a rewrite waits for a person | [entry](#configuration-coming-in-is-checked-by-its-signature-as-work-going-out-is-checked-by-a-person) |
 | A signing key is never read from the repository it verifies | the anchor comes from the person; a fingerprint only selects a key the person named | [entry](#a-signing-key-is-never-read-from-the-repository-it-verifies) |
@@ -96,34 +96,34 @@ would change the answer.
 | A project may be followed without a signing key | `--unverified` is allowed per project, as a loudly reported state, not an error | [entry](#a-project-may-be-followed-without-a-signing-key) |
 | Where a followed project's file comes from | only the verified clone; nothing in force means no task, never a fallback to a local file | [entry](#where-a-followed-projects-file-comes-from) |
 | Clearing names what only a person's credentials can remove, and never attempts it | keys made by earlier versions and `machine-signers` lines are named, not removed at the forge; git needs no administration right; the vault stays | [entry](#clearing-names-what-only-a-persons-credentials-can-remove-and-never-attempts-it) |
-| A digest pins an image; a tag-only image in a followed project needs a person's consent once | a followed tag-only project waits for one consent, then the digest is kept and a change said at every start | [entry](#a-digest-pins-an-image-a-tag-only-image-in-a-followed-project-needs-a-persons-consent-once) |
+| A digest pins an image; a tag-only image in a followed project needs a person's consent once | a followed tag-only project waits for one consent, then the digest is kept and a change said at every start (not yet built) | [entry](#a-digest-pins-an-image-a-tag-only-image-in-a-followed-project-needs-a-persons-consent-once) |
 | What a build runs beside its secrets is fixed by its content | every action by commit with its version, Maven and GraalVM by checksum, Artifactory spoken to with curl; `check-actions` refuses a tag | [entry](#what-a-build-runs-beside-its-secrets-is-fixed-by-its-content) |
 | An offline project never connects, and its agent still reaches its provider | no upstream, followed only from a file; the agent's model calls go through the broker as in every class | [entry](#an-offline-project-never-connects-and-its-agent-still-reaches-its-provider) |
 | **Messages** | | |
 | A task holds no key and sees no address | one mailbox in the container; a host-side signing key, distinct from the login key | [entry](#a-task-holds-no-key-and-sees-no-address) |
 | No model decides what a message may contain | rules accept or refuse, a person holds; a classifier may only ever hold | [entry](#no-model-decides-what-a-message-may-contain) |
 | A project's message rules are set once, in its project file | by class (project, room, others), defaults allow, allow, deny; the host keeps only holding a peer | [entry](#a-projects-message-rules-are-set-once-in-its-project-file) |
-| A person's words in the room reach every agent, unfiltered | everything said reaches every task; only the agents' outgoing messages are filtered; an answer goes where it was asked | [entry](#a-persons-words-in-the-room-reach-every-agent-unfiltered) |
+| A person's words in the room reach every agent, unfiltered | what a joined person writes in the room reaches every task of the project, and in a direct chat that one task, without the content filter; an answer goes where it was asked | [entry](#a-persons-words-in-the-room-reach-every-agent-unfiltered) |
 | The mailbox guide is the same for every task of one Porelo version | built from enforced constants only; whom a task reaches is in `agent-card.json` | [entry](#the-mailbox-guide-is-the-same-for-every-task-of-one-porelo-version) |
 | Each host keeps its own record; a shared ordered record is given up | hash-chained per host; no shared ordered record across machines | [entry](#each-host-keeps-its-own-record-a-shared-ordered-record-is-given-up) |
 | Refused originals live as long as the task | owner-only, no timer; the exposure is accepted while tasks are short-lived | [entry](#refused-originals-live-as-long-as-the-task) |
 | A project's conversation is one room, and the room is the boundary | tasks that must not read each other belong in two projects | [entry](#a-projects-conversation-is-one-room-and-the-room-is-the-boundary) |
-| Membership is not authorization; the host acts and the signature decides | the host acts for every task; delivery needs a key of that project's peer and a task of that project | [entry](#membership-is-not-authorization-the-host-acts-and-the-signature-decides) |
+| Membership is not authorization; the host acts and the signature decides | the host acts for every task; peer delivery needs a key of that project's peer, while a joined person's account delivers as `ROLE_USER` | [entry](#membership-is-not-authorization-the-host-acts-and-the-signature-decides) |
 | One account per task, deactivated with it | made at start, deactivated at removal; the signature, not the account, carries authorship | [entry](#one-account-per-task-deactivated-with-it) |
 | Porelo knows transports; the transport knows Matrix | a generic lifecycle; no Matrix code or settings parsing in `porelo` | [entry](#porelo-knows-transports-the-transport-knows-matrix) |
 | The homeserver is one endpoint Porelo names, and offline means loopback | the declared URL or the account's own; offline reaches loopback only | [entry](#the-homeserver-is-one-endpoint-porelo-names-and-offline-means-loopback) |
-| A person joins by an account made for them | the login is printed once, no registration stays open, delivered only once their key is listed | [entry](#a-person-joins-by-an-account-made-for-them) |
+| A person joins by an account made for them | the login is printed once, no registration stays open, and the recorded account's words reach the project's tasks as `ROLE_USER` | [entry](#a-person-joins-by-an-account-made-for-them) |
 | A machine on a shared server is admitted by a person | Porelo admits nobody; a machine not yet let in starts no task | [entry](#a-machine-on-a-shared-server-is-admitted-by-a-person) |
 | Only a transport a peer names is polled | a transport no peer names is never polled; a failure is said once | [entry](#only-a-transport-a-peer-names-is-polled) |
 | **The build and packages** | | |
 | Porelo is split into modules by area, not into repositories | `app-<area>` modules with enforced dependencies; one build, one package, one contract on the wire | [entry](#porelo-is-split-into-modules-by-area-not-into-repositories) |
 | The build tooling lives in its own repository; the acceptance kit stays | `porelo-buildtools` from Central at `porelo.buildtools.version`; the kit changes with the product | [entry](#the-build-tooling-lives-in-its-own-repository-the-acceptance-kit-stays) |
 | Which machine types a leg rents | snapshots at the smallest disk; `cpx42` first for speed, three fallbacks; nothing enforces it | [entry](#which-machine-types-a-leg-rents) |
-| A developer's build labels itself | `chcon` after each build where SELinux is on; no build path in the shipped policy | [entry](#a-developers-build-labels-itself) |
+| A developer's build labels itself | `chcon` after each build where SELinux is on; no build path in the shipped policy (not yet built) | [entry](#a-developers-build-labels-itself) |
 | A release waits for the misuse suite, and a found hole is never skipped | every misuse scenario ran and passed; a red one holds the release and is never tagged or filtered out | [entry](#a-release-waits-for-the-misuse-suite-and-a-found-hole-is-never-skipped) |
 | Every Porelo repository gets the changelog check from its parent | bound once in `porelo-parent`; a repository not built with Maven runs it as a workflow step | [entry](#every-porelo-repository-gets-the-changelog-check-from-its-parent) |
 | A leg runs only the unit tests that need its machine | unit tests on the build host, except those only the target can run, which fail it when skipped | [entry](#a-leg-runs-only-the-unit-tests-that-need-its-machine) |
-| One key signs everything a machine installs from Porelo | packages, setup script and repository metadata with one key held by the owner; the publishing repositories switch on together | [entry](#one-key-signs-everything-a-machine-installs-from-porelo) |
+| One key signs everything a machine installs from Porelo | packages, setup script and repository metadata with one key held by the owner; the publishing repositories switch on together (not yet built) | [entry](#one-key-signs-everything-a-machine-installs-from-porelo) |
 | A new name starts afresh | nothing of the name before is read, kept or migrated; a machine is set up afresh; a released changelog entry keeps the name it was released under | [entry](#a-new-name-starts-afresh) |
 | An agent is found by its description, and by Porelo's file name beside it | `agents.d/<name>.yaml` names any executable; `porelo-agent-*` is still read, so released agent packages keep working | [entry](#an-agent-is-found-by-its-description-and-by-porelos-file-name-beside-it) |
 | A bound in the acceptance kit is about four times what was measured | the ready bound and an unattended run's N at most 120 s; a bound above the cap fails by name | [entry](#a-bound-in-the-acceptance-kit-is-about-four-times-what-was-measured) |
@@ -199,15 +199,16 @@ The record says what Porelo did: a file copied in with `podman cp` is not in it.
 
 ## A task learns of handed-in files from Porelo, not from its prompt
 
-Left to the person's prompt, an agent pushed and never looked at its red build unless somebody remembered to say so
-(2026-10-07). Agent definitions have since come to declare both ways a running agent is told
-something - `instructions`, the file it takes into its standing instructions, and `at_rest`, the screen at which a
-line may be typed - and the mailbox used them first. Files and builds now use the same two:
+Left to the person's prompt, an agent pushes and never looks at its red build unless somebody remembers to say so.
+Agent definitions declare both ways a running agent is told something - `instructions`, the file it takes into its
+standing instructions, and `at_rest`, the screen at which a line may be typed - and files, builds and the mailbox use
+the same two:
 
 - **One guide to all of Porelo in the task**, `/run/porelo/guide/README.md`: `/porelo/files` and what arrives there,
   the builds of a push among it, and the mailbox's text where the task has one - one file, since a definition has
-  one `{file}`. The same for every task of one Porelo version, as the mailbox's guide is, so a provider's cache of
-  the prompt holds. It is mounted from a directory of its own made with the task: a task made before has no such
+  one `{file}`. Its shared beginning is the same for every task of one Porelo version, as the mailbox's guide is,
+  with any values the task was started with (`parameters:`) appended after it, so a provider's prefix cache of the
+  shared guide holds. It is mounted from a directory of its own made with the task: a task made before has no such
   mount, and keeps its mailbox's guide.
 - **A line at the prompt** when a file arrives, a verdict among them, and the agent rests there: Porelo's own,
   naming the files, typed under the same lock, the same quiet and the same `waiting` rule as a message's, and tried
@@ -254,8 +255,8 @@ executable built on the published `porelo-build-api`, speaking `org.fuin.porelo.
 version Porelo checks, installed under `/usr/libexec/porelo/builds/<forge>` and found at run time, as an agent is. Each
 lives in a repository of its own - `porelo-build-github` first - and nothing in `porelo` names a forge; the stub reader
 the tests use is the only one in this tree. The contract fixes what every reader hands over, whatever its forge:
-the verdict across a commit's runs, every job once it is final, and a job's log as plain text, its last 64 KiB, with
-at most 2 MiB of logs in all. Its `build` operation accepts `none` for logs: the verdict and jobs are returned
+the verdict across a commit's runs, at most 50 jobs once it is final, and a job's log as plain text, its last 64 KiB,
+with at most 2 MiB of logs in all. Its `build` operation accepts `none` for logs: the verdict and jobs are returned
 without downloading logs. An incompatible installed reader is refused by name, with the build interface it
 serves and the interface Porelo requires.
 **The exposure:** a reader runs on the host with the forge token in each call; it is a package the operator installs,
@@ -284,7 +285,8 @@ prompted for the vault at boot with nobody there to answer.
 A task records only the session its next start continues. A run asked to continue a session that failed and named no
 session of its own has the recorded one forgotten, so the next start is fresh and says so; nothing runs twice without
 being asked. `remove`, including `remove --rescue`, forgets it: the transcript was inside a container that no longer
-exists.
+exists. **Not yet built:** a failed continuation that emits no session id does not yet forget the recorded session; only
+task removal does.
 
 ## A session id is an identifier, not a credential
 
@@ -295,12 +297,12 @@ recorded here so the rule keeping secrets off the command line is not re-argued 
 ## An image's readiness is judged against the project file alone
 
 Whether a project's task image is ready (`ABSENT`, `READY`, `STALE` or `UNKNOWN`) is computed from a digest of the
-project file's image-relevant fields, carried as a label on the image. **The exposure:** the image also contains the
-agent's layers, so an image is really per project and agent, and `READY` overstates slightly when the next task
-names a different agent than the image was built for. **Why it stays:** that task rebuilds the agent's layers
-itself, which is correct and fast, so nothing runs with the wrong tooling. **What would change the answer:** an
-interface needing to say "ready, built for claude", which would add the agent to the image's labels and to the
-comparison.
+project file's image-relevant fields and Porelo's base `Containerfile` recipe (`ImageLayers.none()`), without any
+agent's layers, carried as a label on the image. **The exposure:** the image also contains the agent's layers, so an
+image is really per project and agent, and `READY` overstates slightly when the next task names a different agent
+than the image was built for. **Why it stays:** that task rebuilds the agent's layers itself, which is correct and
+fast, so nothing runs with the wrong tooling. **What would change the answer:** an interface needing to say "ready,
+built for claude", which would add the agent to the image's labels and to the comparison.
 
 ## A weaker machine is reported, not refused
 
@@ -382,7 +384,7 @@ bound what a request says rather than whom it goes to.
 The review's list of files dangerous by kind - CI definitions, build scripts, dependency manifests and lockfiles,
 what runs on checkout, a file made executable, a symbolic link - is Porelo's and fixed. A list inside the repository
 could be edited by the very change it is meant to catch; a list per project outside it is one more file nobody
-maintains.
+maintains. **Not yet built:** changing the target of an existing symbolic link is not yet ranked as dangerous.
 
 ## The instruction is shown, never compared
 
@@ -519,9 +521,11 @@ start after a reboot needs the vault unlocked even for a task with no credential
 
 ## Clearing the vault is `clear`, not `delete`
 
-The vault is removed by `porelo vault clear`, in the same shape as `porelo clear` and `porelo project clear`: it lists
-what would go and acts only on `--yes`. `remove` stays the verb for one entry (`vault remove NAME`). A fourth verb
-for the same act would be one more to learn for nothing it says differently.
+The vault is removed by `porelo vault clear`, in the same shape as `porelo clear` and `porelo project clear`. Without
+`--yes`, all three list what would go and remove nothing; at a terminal `porelo clear` offers to stop running tasks and
+then to clear what it listed, while `vault clear` and `project clear` ask to be run again with `--yes`. `remove` stays
+the verb for one entry (`vault remove NAME`). A fourth verb for the same act would be one more to learn for nothing it
+says differently.
 
 ## A vault `PORELO_VAULT` names clears only itself
 
@@ -590,16 +594,18 @@ on and are not Porelo's business.
 
 ## A project exists by being followed
 
-The only way a project comes to be on a machine is that the machine follows its repository; Porelo writes no
-`project.yml` and offers no call, command or wizard that creates one. A project is created by a commit, in an editor,
-and a second way to have one is a way to have a project the machine never verified. There is no separate
-check-before-writing call either: the machine checks what it is handed when it is handed it, at `follow` (and
-`follow --dry-run`, which records nothing) and at every reconciliation, and a check beforehand would be a second
-place the same question could be answered differently. That check is the whole check: the name's shape, the security
-class, a base image named at all, an `online` project without an upstream, and an egress set this machine does not
-have, all refused at follow rather than at the first task start, which is minutes later and reads as a broken build.
-The cost is a real first step for somebody trying Porelo (write a file, commit it, follow it), answered by `follow`
-working against a local repository with no forge, and by the built-in project `default`.
+Every project on a machine beside the built-in `default` project comes to be by
+`porelo project follow <name> <url|file>`, run by a person or through `Follow` on the daemon's socket (`ProjectSource`
+also resolves a path recorded in `ProjectRegistry` when a task ran there without a follow). For a followed project,
+Porelo writes no `project.yml`: a project is created by a commit, in an editor, and verified at `follow` (and
+`follow --dry-run`, which records nothing) and at every reconciliation. That check covers the name's shape, the security
+class, a base image named at all, an `online` project without an upstream, and an egress set this machine does not have,
+all refused at follow rather than at the first task start. On the daemon's socket, `CheckProjectFile` (with
+`ProjectFileSchema`) checks a draft `project.yml` before it is committed - separating what Porelo refuses anywhere, what
+this machine's `follow` would refuse, and warnings - and registers nothing. The first step for somebody trying Porelo is
+answered by `follow` working against a local repository or bundle with no forge, and by the built-in project `default`,
+which exists on every machine without being followed, with fixed `guarded` settings, and holds repositories added from a
+local checkout or by URL (`porelo project default`, `AddToDefault`).
 
 ## A project is named, never pointed at
 
@@ -747,10 +753,14 @@ message each other; there is no built-in transport.
 ## Membership is not authorization; the host acts and the signature decides
 
 No task touches the homeserver: its account's token stays in the host's vault and only the host-side transport posts
-and polls for it. The host joins a task's account to its own project's room and no other. What arrives is delivered
-only if it is signed by a key listed for a peer of that project and names one of that project's tasks in
-`metadata.to`; anything else, including a message crossing from another project's room on the same server, is held
-and the operator told. Matrix peers are `external`, so inbound content goes through the filter.
+and polls for it, and nothing in the room triggers a host action (starting or stopping a task, changing configuration,
+or approving work happen only at the host's command line or Varlink socket). The host joins a task's account to its own
+project's room and no other. For messages between tasks and peers, what a task receives is decided by the SSH signature
+on the message against the keys `project.yml` lists for its peers (`allowed_signers` and `machine-signers`), never by
+room membership, and anything else is held and the operator told; Matrix peers are `external`, so their inbound content
+goes through the filter. What a person writes from an account made for them by `porelo talk join` carries no SSH
+signature and is delivered to the project's tasks as `ROLE_USER` because that account is recorded as a joined person on
+the host.
 
 ## One account per task, deactivated with it
 
@@ -777,9 +787,12 @@ contacts anything else, and checks `reaches` again before a task exists.
 
 ## A person joins by an account made for them
 
-`porelo talk join` has the provisioning account make an account on the project's homeserver, invite it into the room
-and print the login once; the person uses any Matrix client. No registration stays open. Their messages are
-delivered only once their key is listed as a peer, as for anyone.
+`porelo talk join <project> <person>` (`JoinMessages`) has the provisioning account make a transport account for that
+person, let it into the project's room and direct chats, record the account on the host, and return the login once
+without storing the password; the person uses any Matrix client, and no registration stays open. What that account
+writes in the room or a direct chat is delivered to the project's tasks as `ROLE_USER` without an SSH signature or
+content filtering, while host actions (starting, stopping, configuring, or approving) remain at the host's command line
+and Varlink socket.
 
 ## A machine on a shared server is admitted by a person
 
@@ -858,24 +871,30 @@ report.
 
 ## A credential is entered only in a terminal
 
-No method of the daemon's contract takes a secret: a credential reaches the vault by `vault put`, `vault login` or an
-import, typed or pasted into a terminal at the node - over ssh, or in the terminal an interface opens there - and read
-without echo. A contract that never carries a value is a property anyone can check by reading the interface
-description; a method that carried one would make it a property every later log line, error and streamed reply has to
-keep. A forced-command ssh account cannot open such a terminal and is not served: on such a machine an administrator
-stores the credential through another account.
+No method of the daemon's contract takes a provider credential or the vault passphrase: a credential reaches the vault
+by `vault put`, `vault login` or an import on the node - typed or pasted into a terminal at the node without echo, or
+piped on standard input (`vault put`, `vault unlock --passphrase-stdin`). Only a device's 32-byte keyslot share
+(`EnrollDevice`, `UnlockWithShare`) crosses the Varlink socket, because that share is generated and kept by the
+client's keystore to wrap the master key and is never a credential a task or a provider sees. A contract that never
+carries a credential is a property anyone can check by reading the interface description; a method that carried one
+would make it a property every later log line, error and streamed reply has to keep. A forced-command ssh account
+cannot open such a terminal and is not served: on such a machine an administrator stores the credential through another
+account.
 
 ## A credential with no expiry is stored and named
 
 A credential that carries no end is accepted, never refused: some providers issue nothing else. The store says it has
 no expiry and the list of credentials marks it, because a long-lived key is the one secret whose leak does not decay,
-and the person who could replace it with a shorter-lived one should see that every time they look.
+and the person who could replace it with a shorter-lived one should see that every time they look. **Not yet built:**
+storing and listing a credential do not yet say or mark that it has no expiry.
 
 ## A developer's build labels itself
 
 On an SELinux machine only binaries labelled `porelo_exec_t` may bind Porelo's sockets. A binary from a build tree is
 labelled by the build itself, with `chcon`, after each build, where SELinux is enabled and the policy loaded. A file
-context for a build path would name in the shipped policy a path only one person has.
+context for a build path would name in the shipped policy a path only one person has. **Not yet built:** the SELinux
+policy still allows `unconfined_t` to bind Porelo's sockets without a `porelo_exec_t` type, and the build does not yet
+run `chcon`.
 
 ## An MCP server reaches a task only over HTTP, through the gateway on the host
 
@@ -887,6 +906,9 @@ context for a build path would name in the shipped policy a path only one person
 3. When a server's tool list changes, only the new or changed tools are held until a person accepts them; the unchanged
    ones stay usable. Holding the whole server would stop a task over a change it may never use and teach people to
    accept without reading.
+
+**Not yet built:** the broker forwards MCP HTTP traffic without yet inspecting or journaling tool lists and calls or
+holding new or changed tools for approval.
 
 ## Nested containers never in a guarded project
 
@@ -936,7 +958,8 @@ work would carry code across the line Porelo keeps between projects everywhere e
 The merge the host makes at an approve records the models, agent and provider that made the work, read from the
 broker, never from the agent, with the reviewed commit untouched as its second parent. A branch protected for linear
 history refuses a merge, so a project may choose a fast-forward; it then gives up the provenance in its history, and
-the documentation says so.
+the documentation says so. **Not yet built:** `gate approve` pushes the reviewed commit directly by default (or makes a
+signed merge with `--signed`) without recording broker provenance or offering a project fast-forward setting.
 
 ## The owner approves alone unless a project asks for a second person
 
@@ -948,7 +971,8 @@ person working alone is not slowed down.
 
 An unattended run ends at its project's limit; a start may shorten that limit, never lengthen it. A person attached to
 the task holds the stop back: at the limit they are warned, and the run is stopped once they detach. A person at the
-session is the oversight the limit stands in for.
+session is the oversight the limit stands in for. **Not yet built:** `project.yml` has no time limit yet, and an
+unattended run kills the agent process when `--minutes` expires without checking whether a person is attached.
 
 ## Account-wide settings live in one file
 
@@ -983,7 +1007,8 @@ is data carrying the date its prices were taken: a price changes without a relea
 rather than hiding. A model with no price refuses the money ceiling - at the start where that is known, else fail
 closed at the first answer it cannot price - and is never counted as $0. Under a subscription the ceiling caps the
 list-price value of what was used, not the money paid; there it bounds a looping agent, not a bill. Both ceilings
-hold in the task's broker, which the agent cannot bypass.
+hold in the task's broker, which the agent cannot bypass. **Not yet built:** the broker does not yet count tokens,
+inject `include_usage`, or enforce token or money ceilings.
 
 ## An alert either only tells or stops the task; it never freezes it
 
@@ -1041,7 +1066,8 @@ may make reachable.
 What protected an unlock is shown as worth more only when Porelo can prove it, by a slot the node enrolled itself or by
 evidence such as a TPM2 attestation the node checks. A claim a client merely sends is recorded, but the command line
 and the interface show it exactly like a user-scoped slot: a label that reads stronger than it is does more harm than
-an honest weaker one.
+an honest weaker one. **Not yet built:** `EnrollDevice` and `vault devices` still record and display the storage class
+a client claims without proof instead of showing unproven claims as user-scoped.
 
 ## What a build runs beside its secrets is fixed by its content
 
@@ -1051,23 +1077,26 @@ commit without its version and an image without its digest. Maven comes through 
 `distributionSha256Sum`, GraalVM through `pinned-jdk`'s SHA-256, and the signing key is imported by a step of our own.
 Artifactory is spoken to with `curl` over its REST interface (`.github/scripts/artifactory.sh`), so no client is
 downloaded into the job that holds its token; each upload carries its checksums, which Artifactory checks. Dependabot
-moves the pins weekly in one grouped pull request, merged by a person. Every job runs on `ubuntu-24.04`; the image
-behind that name still changes weekly, and is out of scope. **What would change it:** a step that needs a tool with no
-checksum to pin it by, which is then built from source or dropped, not trusted by its name.
+moves the pins weekly in one grouped pull request, merged by a person. The jobs run on `ubuntu-24.04` (and `proven` on
+`ubuntu-26.04`); the image behind each runner name still changes weekly, and is out of scope. **What would change it:**
+a step that needs a tool with no checksum to pin it by, which is then built from source or dropped, not trusted by its
+name.
 
 ## A digest pins an image; a tag-only image in a followed project needs a person's consent once
 
 A digest names exactly one image, so a signed project file that carries one pins its content; podman's signature
 policy is an option a project may add. A followed project that names its image by tag only does not start until a
 person allows it once; after that the digest is kept and a change of it is said at every start, so a moved tag never
-changes what runs silently.
+changes what runs silently. **Not yet built:** a followed project with a tag-only `base_image` still builds and starts
+without asking for one-time consent or recording the resolved digest.
 
 ## One key signs everything a machine installs from Porelo
 
 Packages, the setup script and the Debian repository's metadata are signed with one key, so a machine trusts one
 fingerprint. Its private half is held by the project's owner only and reaches CI only as a repository secret. The
 repositories that publish to the same package repositories switch signing on with the same release, because a setup
-that checks signatures refuses every repository that does not sign yet.
+that checks signatures refuses every repository that does not sign yet. **Not yet built:** RPM package signing is
+still skipped (`gpgcheck=0` on Fedora) and `porelo-setup.sh` is published unsigned.
 
 ## A view of a task is guarded by Porelo's token, not by VNC's password
 
@@ -1103,10 +1132,11 @@ reach, which would bring a relay without a terminal of its own to the operator a
 
 ## Work is reviewed on the machine, never on an upstream branch
 
-Approved work goes back to the checkout the task was started from (`porelo approve`), and waiting work is read with
-`gate review` and `gate checkout` on the machine. Porelo gets no write access to an upstream for a review branch, and no
-project setting opts into one: a branch there would carry unreviewed work past the gate, which is what the gate is
-for.
+Waiting work is read with `gate review` and `gate checkout` on the machine; for a task started from a local checkout,
+approved work goes back to that checkout as `porelo/<task>` (`porelo approve`), while `porelo gate approve` pushes
+approved work of a remote repository to its upstream branch. Porelo gets no write access to an upstream for a review
+branch, and no project setting opts into one: a branch there would carry unreviewed work past the gate, which is what
+the gate is for.
 
 ## No editor is attached to a task's container
 
@@ -1140,9 +1170,11 @@ plainly. **What would change the answer:** a model reached on the machine itself
 ## An agent is found by its description, and by Porelo's file name beside it
 
 A vendor's package registers an agent with one file, `agents.d/<name>.yaml`, naming the absolute path of its
-executable, so the package, the program and its place keep the vendor's own names. An executable named
-`porelo-agent-*` in Porelo's agent directories is still found beside the descriptions, so the agent packages released
-before keep working; the account's own wins by name over the system's in both forms.
+executable, so the package, the program and its place keep the vendor's own names. Executables named `porelo-agent-*`
+in Porelo's agent directories are scanned first (the account's `~/.local/share/porelo/agents` winning by file name over
+`/usr/libexec/porelo/agents`), followed by `agents.d/*.yaml` descriptions (the account's
+`~/.local/share/porelo/agents.d` winning by file name over `/usr/share/porelo/agents.d`), and the first executable that
+reports a given agent name wins.
 
 ## A bound in the acceptance kit is about four times what was measured
 
