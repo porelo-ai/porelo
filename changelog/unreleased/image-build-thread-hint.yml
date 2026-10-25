@@ -1,0 +1,2 @@
+title: Image builds pass the CPU thread hint to RUN steps on every host.
+type: fixed

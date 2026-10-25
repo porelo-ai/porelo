@@ -166,7 +166,10 @@ should go in too, which has no terminal to go into.
 A task gets a CPU quota of 4 by default, alongside 8 GB of memory and 2048 processes. The project's `limits.cpus`
 replaces it, and `none` removes it. A fixed CPU count keeps worker pools sized for the fixed memory and process
 bounds on any host. `OMP_NUM_THREADS` makes the limit, rounded down to at least one, visible to `nproc`,
-unless the image or project supplies its own value. **The exposure:** `getconf` and `sysconf` still read the host's
+unless the image or project supplies its own value. Image builds pass the same hint as an `OMP_NUM_THREADS` build
+argument to their `RUN` steps, after the packages layer, covering the snippet and agent layers without persisting it
+in the image's environment. CPU affinity on the build process does not reliably reach its `RUN` containers.
+**The exposure:** `getconf` and `sysconf` still read the host's
 cores. A tool sizing itself by those two runs more threads than the limit and is throttled by the quota, never
 stopped by it; its pids and memory are still bounded. **Why it stays:** no task is pinned with `taskset` on every
 `start` and `exec`. Each would be bound to named cores, sharing them badly between tasks, and every `exec` would need

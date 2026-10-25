@@ -204,8 +204,10 @@ removes the CPU quota and the default thread hint. With a CPU limit, `OMP_NUM_TH
 down, at least 1, so `nproc` and tools using it size their workers accordingly. A nonempty value set in the image or
 an explicit project value wins. `getconf` and `sysconf` still read the host's cores; the CPU quota throttles the work.
 
-Image builds use the project's memory limit and CPU quota, with CPU affinity rounded up to at most the host's cores
-so `RUN nproc` sees the bound. `limits.cpus: none` leaves the build without these resource flags or affinity;
+Image builds use the project's memory limit and CPU quota, and pass `OMP_NUM_THREADS` to their `RUN` steps as a
+build argument, rounded down to at least 1, so `RUN nproc` sees the bound. The argument is declared after the packages
+layer and before the snippet and agent layers; it does not become an image environment variable.
+`limits.cpus: none` leaves the build without these resource flags or the build argument;
 `limits.memory: none` removes the memory flag. Open-file limits stay the container runtime's.
 
 ## Services on this host

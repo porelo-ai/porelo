@@ -474,7 +474,6 @@ public class Podman {
                                 "--file",
                                 containerfile.toString()));
         final String cpuLimit = project.limits().cpus();
-        final List<String> prefix = new ArrayList<>();
         if (cpuLimit != null) {
             final java.math.BigDecimal cpus = new java.math.BigDecimal(cpuLimit);
             if (project.limits().memory() != null) {
@@ -490,14 +489,11 @@ public class Podman {
                             cpus.multiply(java.math.BigDecimal.valueOf(period))
                                     .setScale(0, java.math.RoundingMode.DOWN)
                                     .toPlainString()));
-            final int cores =
-                    cpus.setScale(0, java.math.RoundingMode.CEILING)
-                            .max(java.math.BigDecimal.ONE)
-                            .min(
-                                    java.math.BigDecimal.valueOf(
-                                            Runtime.getRuntime().availableProcessors()))
-                            .intValueExact();
-            prefix.addAll(List.of("taskset", "-c", "0-" + (cores - 1)));
+            arguments.addAll(
+                    List.of(
+                            "--build-arg",
+                            "OMP_NUM_THREADS="
+                                    + org.fuin.porelo.core.project.Limits.threadHint(cpuLimit)));
         }
         if (rebuild == Rebuild.EVERYTHING) {
             arguments.add("--no-cache");
@@ -508,8 +504,7 @@ public class Podman {
             arguments.add(Containerfile.LAYER_EPOCH + "=" + java.time.Instant.now().toEpochMilli());
         }
         arguments.add(contextDirectory.toString());
-        prefix.addAll(arguments(arguments));
-        return List.copyOf(prefix);
+        return arguments(arguments);
     }
 
     /**

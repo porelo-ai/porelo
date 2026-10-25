@@ -416,6 +416,8 @@ public final class Containerfile {
         // It is declared even when no agent contributes anything, so the seam is in the image
         // rather than appearing only when something happens to sit below it.
         lines.add("");
+        // Keep the packages cached when the CPU limit changes; ARG reaches RUN, not Config.Env.
+        lines.add("ARG OMP_NUM_THREADS");
         lines.add("ARG " + LAYER_EPOCH + "=0");
 
         if (!layers.asRoot().isEmpty()) {

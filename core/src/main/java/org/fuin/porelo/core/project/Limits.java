@@ -47,6 +47,19 @@ public record Limits(@Nullable String memory, @Nullable String cpus, int pids, l
     }
 
     /**
+     * Returns the thread hint for a CPU limit, shared by tasks and image builds.
+     *
+     * @param cpus The CPU limit.
+     * @return The limit rounded down, at least one, for {@code OMP_NUM_THREADS}.
+     */
+    public static String threadHint(String cpus) {
+        return new java.math.BigDecimal(cpus)
+                .setScale(0, java.math.RoundingMode.DOWN)
+                .max(java.math.BigDecimal.ONE)
+                .toPlainString();
+    }
+
+    /**
      * Constructor.
      *
      * @param memory Memory limit, or {@code null}.

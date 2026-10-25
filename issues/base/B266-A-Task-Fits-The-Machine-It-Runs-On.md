@@ -59,12 +59,17 @@ On the Ubuntu VM (`ubuntu26.04`, 6 cores, podman 5.7.0, account `core`), with `u
    `nproc` and what sizes itself by it read the limit; a JVM reads the CPU quota itself (to be checked).
    An image or a project that sets `OMP_NUM_THREADS` keeps its value.
 3. **The image build is bounded by the project's limits**: `Podman.buildArguments` writes `--memory` and
-   `--cpu-period`/`--cpu-quota` from them. The build runs under `taskset` with as many cores as the limit, since
-   builds of one image take a lock; builds of different images may share pinned cores.
-   The wrapper is part of the full command returned by `buildArguments`, for the terminal and runner alike.
-   Its core count is the CPU limit rounded up, capped at the host's `Runtime.availableProcessors()`,
-   and the quota comes from the same parsed CPU value. With `cpus: none`, neither the wrapper nor these build limits
-   are written. `RUN make -j$(nproc)` reads the limit.
+   `--cpu-period`/`--cpu-quota` from them, and passes `--build-arg OMP_NUM_THREADS=N`. `Limits.threadHint`
+   shares the rounding with `ContainerSpec`: the CPU limit rounded down, at least 1. The generated Containerfile
+   declares `ARG OMP_NUM_THREADS` after the packages layer and before `PORELO_LAYER_EPOCH`, so the snippet and
+   agent layers see it without invalidating packages or changing the agent rebuild boundary. With `cpus: none`,
+   neither the argument nor these build limits are written. `RUN make -j$(nproc)` reads the limit.
+   **Measured on Fedora 44 (podman 5.8.1, crun 1.27):** `taskset -c 0` with `--cpu-quota 100000` still let
+   `RUN nproc` in `ubuntu:24.04` read both host cores; the CI Fedora leg read 8. An `ARG OMP_NUM_THREADS` before
+   `RUN nproc`, built with `--build-arg OMP_NUM_THREADS=1`, read 1, and the variable was absent from the image's
+   `Config.Env`. Affinity reaches the build's RUN containers on Ubuntu 26.04 (podman 5.7), but not on that Fedora.
+   **Empty-value check:** GNU coreutils 9.7 `nproc` reads 16 with the variable unset or empty and 1 with it set to 1;
+   the ARG can be declared without a CPU limit too.
 4. **Open files stay podman's**, as measured. A Fedora reading under *To be checked* may change that.
 5. **`doc/project-file.md`** names the default under `limits`; **`doc/decisions.md`** gains the accepted risk above,
    with its index row; **`doc/reach.md`** gains the row that a task's CPU is
@@ -74,7 +79,10 @@ On the Ubuntu VM (`ubuntu26.04`, 6 cores, podman 5.7.0, account `core`), with `u
      `ProjectKeysTest` checks that the schema offers the same default;
    - `ContainerSpecTest`: the default limits write `--cpus` and `OMP_NUM_THREADS`; `cpus: none` writes neither;
      fractional limits round the hint down to at least one, and explicit image/project settings win;
-   - `PodmanTest`: the build's arguments carry `--memory` and the CPU quota of the project's limits, under `taskset`;
+   - `PodmanTest`: the build's arguments carry `--memory`, the CPU quota and `--build-arg OMP_NUM_THREADS=N`,
+     without `taskset`; `cpus: none` writes neither the argument nor resource flags;
+   - `ContainerfileTest`: the hint's ARG follows packages and precedes the snippet and agent layers, keeping
+     `PORELO_LAYER_EPOCH` at the agent rebuild boundary;
    - an acceptance step: a task with `limits.cpus: 1` reads `nproc` 1, and its image's `RUN nproc` 1.
 7. A changelog line under *Changed*: every task now has a CPU limit of 4 by default.
 
@@ -108,5 +116,3 @@ gives 2 in `ubuntu:24.04` and keeps an image's own 7.
 - That GraalVM's `native-image` in a task sizes its build threads from the CPU limit (the quota or
   `OMP_NUM_THREADS`), not the host's cores; a native build in a task is the largest such build today.
 - Open files and the delegated controllers on the Fedora VM.
-- That `taskset` (util-linux) is on every machine the packages install on, or is declared as a dependency: on
-  Ubuntu 26.04 it is `/usr/bin/taskset` of `util-linux`, priority `required`; Fedora is not read yet.

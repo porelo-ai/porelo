@@ -137,6 +137,7 @@ RUN if [ -e /porelo ]; then \
     && mkdir -p /porelo/files /porelo/.incoming \
     && chmod 0755 /porelo /porelo/files && chmod 0700 /porelo/.incoming
 
+ARG OMP_NUM_THREADS
 ARG PORELO_LAYER_EPOCH=0
 
 USER agent
@@ -151,5 +152,5 @@ ENV PATH=/home/agent/.local/bin:/usr/local/bin:/usr/bin:/bin
 ENV LANG=C.UTF-8
 
 LABEL org.fuin.porelo.project="uc"
-LABEL org.fuin.porelo.recipe="7acea84d14937bac"
+LABEL org.fuin.porelo.recipe="06c8a81f76e5b121"
 LABEL org.fuin.porelo.security-class="guarded"

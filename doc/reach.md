@@ -57,7 +57,7 @@ account's own limit at the provider, which Porelo does not set.
 
 | | Bound | What it is |
 |---|---|---|
-| A task's CPU | **4 CPUs** by default, replaced by `limits.cpus` or removed by `none`; the quota throttles CPU time. `OMP_NUM_THREADS` hints the limit to `nproc`, rounded down to at least one unless the image or project sets it; `getconf` and `sysconf` still read the host's cores | control |
+| A task's CPU | **4 CPUs** by default, replaced by `limits.cpus` or removed by `none`; the quota throttles CPU time. `OMP_NUM_THREADS` hints the limit to `nproc`, rounded down to at least one unless the image or project sets it. Image builds pass the same hint as a build argument to their `RUN` steps; `getconf` and `sysconf` still read the host's cores | control |
 | Its gate on the host | Four requests at once, `503` beyond; a push spooled to disk, never held; the gate and its `git` in a scope of 1 GiB memory, 256 tasks and half the default CPU weight | control |
 
 ## Produce: what a task can leave behind

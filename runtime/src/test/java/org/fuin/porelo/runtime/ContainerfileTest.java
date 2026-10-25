@@ -25,6 +25,32 @@ import org.junit.jupiter.api.io.TempDir;
 class ContainerfileTest {
 
     @Test
+    void buildThreadHintReachesSnippetsAndAgentLayersWithoutRebuildingPackages() {
+        final Project project =
+                new Project("uc", "", SecurityClass.GUARDED, "ubuntu:24.04", "RUN nproc");
+        final ImageLayers layers =
+                new ImageLayers(List.of("RUN echo root-tooling"), List.of("RUN echo user-tooling"))
+                        .and(project.imageSnippetLines(), List.of());
+
+        final String rendered = Containerfile.render(project, layers);
+
+        assertThat(rendered.lines().toList())
+                .as("RUN worker pools need the hint after packages, before every contributed layer")
+                .containsSubsequence(
+                        "RUN set -eux; \\",
+                        "ARG OMP_NUM_THREADS",
+                        "ARG PORELO_LAYER_EPOCH=0",
+                        "RUN echo root-tooling",
+                        "RUN nproc",
+                        "USER agent",
+                        "RUN echo user-tooling");
+        assertThat(rendered.indexOf("ARG OMP_NUM_THREADS"))
+                .as("changing the hint must keep all package installation cached")
+                .isGreaterThan(rendered.indexOf("dnf install -y python3"));
+        assertThat(rendered).doesNotContain("ENV OMP_NUM_THREADS");
+    }
+
+    @Test
     void rendersTheExpectedFile() throws IOException {
 
         final Project project =
