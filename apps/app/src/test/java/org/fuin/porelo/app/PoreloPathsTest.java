@@ -8,8 +8,12 @@ import java.nio.file.Path;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.Isolated;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Tests for {@link PoreloPaths}. */
+@Isolated("The keyring prefix is shared by every vault in this JVM")
 class PoreloPathsTest {
 
     @Test
@@ -89,8 +93,90 @@ class PoreloPathsTest {
         final XdgPaths xdg = XdgPaths.of(name -> null, dir);
         final PoreloPaths one = new PoreloPaths(xdg, dir.resolve("bin"));
 
-        assertThat(one.vault().vaultKeyringKey()).startsWith("porelo:vault:");
-        assertThat(one.vault().vaultKeyringKey()).isEqualTo(one.vault().vaultKeyringKey());
+        assertThat(one.vault().vaultKeyringKey())
+                .as("the process's configured prefix isolates its cached passphrases")
+                .startsWith(System.getProperty("porelo.keyring.prefix", "porelo") + ":vault:");
+        assertThat(one.vault().vaultKeyringKey())
+                .as("the same vault has a stable cache key")
+                .isEqualTo(one.vault().vaultKeyringKey());
+    }
+
+    @Test
+    void anUnsetKeyringPrefixKeepsTheAccountsExistingCacheNames(@TempDir Path dir) {
+        final String before = System.clearProperty("porelo.keyring.prefix");
+        try {
+            final VaultPaths vault =
+                    new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin")).vault();
+            assertThat(vault.vaultKeyringKey())
+                    .as("the product's default cache name stays compatible")
+                    .startsWith("porelo:vault:");
+            assertThat(vault.vaultShareKeyringKey())
+                    .as("shares use the same default prefix")
+                    .isEqualTo(vault.vaultKeyringKey() + ":share");
+        } finally {
+            restoreKeyringPrefix(before);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "a",
+                "porelo-test-another-jvm",
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            })
+    void aConfiguredPrefixKeepsBothVaultSecretsApartFromOtherProcesses(
+            String prefix, @TempDir Path dir) {
+        final String before = System.setProperty("porelo.keyring.prefix", prefix);
+        try {
+            final VaultPaths vault =
+                    new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin")).vault();
+            assertThat(vault.vaultKeyringKey())
+                    .as("only the configured process prefix owns this cache")
+                    .startsWith(prefix + ":vault:");
+            assertThat(vault.vaultShareKeyringKey())
+                    .as("the device share is isolated with its vault")
+                    .isEqualTo(vault.vaultKeyringKey() + ":share");
+        } finally {
+            restoreKeyringPrefix(before);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "",
+                "Porelo",
+                "with space",
+                "porelo:vault",
+                "porelo\n",
+                "../other",
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            })
+    void anInvalidKeyringPrefixFallsBackToTheAccountsDefault(String prefix, @TempDir Path dir) {
+        final String before = System.clearProperty("porelo.keyring.prefix");
+        try {
+            final VaultPaths vault =
+                    new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin")).vault();
+            final String defaultName = vault.vaultKeyringKey();
+            System.setProperty("porelo.keyring.prefix", prefix);
+            assertThat(vault.vaultKeyringKey())
+                    .as("arbitrary property input never becomes a key description")
+                    .isEqualTo(defaultName);
+            assertThat(vault.vaultShareKeyringKey())
+                    .as("invalid input cannot change the share's prefix either")
+                    .isEqualTo(defaultName + ":share");
+        } finally {
+            restoreKeyringPrefix(before);
+        }
+    }
+
+    private static void restoreKeyringPrefix(String before) {
+        if (before == null) {
+            System.clearProperty("porelo.keyring.prefix");
+        } else {
+            System.setProperty("porelo.keyring.prefix", before);
+        }
     }
 
     @Test

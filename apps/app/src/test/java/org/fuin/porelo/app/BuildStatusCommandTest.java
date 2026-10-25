@@ -15,6 +15,7 @@ import org.fuin.porelo.build.api.BuildRefused;
 import org.fuin.porelo.build.api.Target;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.testing.FakeCommandRunner;
+import org.fuin.porelo.vault.KernelKeyring;
 import org.fuin.porelo.vault.VaultEntry;
 import org.fuin.porelo.wire.Json;
 import org.junit.jupiter.api.AfterEach;
@@ -96,36 +97,42 @@ class BuildStatusCommandTest {
     }
 
     private int execute(String... args) {
-        final CommandLine cli = PoreloCli.commandLine(context);
-        final CommandLine build = cli.getSubcommands().get("build");
-        if (build != null && !installed) {
-            final BuildStatusCommand command =
-                    new BuildStatusCommand(
-                            (machine, forge, socket) -> {
-                                starts++;
-                                adapterSocket = socket;
-                                try {
-                                    assertThat(Files.getPosixFilePermissions(socket.getParent()))
-                                            .as("the token socket is in a private directory")
-                                            .isEqualTo(
-                                                    java.nio.file.attribute.PosixFilePermissions
-                                                            .fromString("rwx------"));
-                                    Files.writeString(socket, "fake socket");
-                                } catch (java.io.IOException ex) {
-                                    throw new java.io.UncheckedIOException(ex);
-                                }
-                                if (failStarting) {
-                                    throw new BuildReaderException("cannot start");
-                                }
-                                return reader;
-                            });
-            command.setContext(context);
-            build.getCommandSpec().removeSubcommand("status");
-            build.addSubcommand("status", command);
+        try {
+            final CommandLine cli = PoreloCli.commandLine(context);
+            final CommandLine build = cli.getSubcommands().get("build");
+            if (build != null && !installed) {
+                final BuildStatusCommand command =
+                        new BuildStatusCommand(
+                                (machine, forge, socket) -> {
+                                    starts++;
+                                    adapterSocket = socket;
+                                    try {
+                                        assertThat(
+                                                        Files.getPosixFilePermissions(
+                                                                socket.getParent()))
+                                                .as("the token socket is in a private directory")
+                                                .isEqualTo(
+                                                        java.nio.file.attribute.PosixFilePermissions
+                                                                .fromString("rwx------"));
+                                        Files.writeString(socket, "fake socket");
+                                    } catch (java.io.IOException ex) {
+                                        throw new java.io.UncheckedIOException(ex);
+                                    }
+                                    if (failStarting) {
+                                        throw new BuildReaderException("cannot start");
+                                    }
+                                    return reader;
+                                });
+                command.setContext(context);
+                build.getCommandSpec().removeSubcommand("status");
+                build.addSubcommand("status", command);
+            }
+            cli.setOut(new PrintWriter(out));
+            cli.setErr(new PrintWriter(err));
+            return cli.execute(args);
+        } finally {
+            new KernelKeyring(context.paths().vault().vaultKeyringKey()).forget();
         }
-        cli.setOut(new PrintWriter(out));
-        cli.setErr(new PrintWriter(err));
-        return cli.execute(args);
     }
 
     @Test

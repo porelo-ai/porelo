@@ -7,6 +7,7 @@ import java.io.StringWriter;
 import java.nio.file.Path;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.core.process.ProcessCommandRunner;
+import org.fuin.porelo.vault.KernelKeyring;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
@@ -57,29 +58,47 @@ class VaultInitCommandTest {
         final PoreloContext context = context(dir);
         final StringWriter out = new StringWriter();
 
-        final int code =
-                run(context, out, new StringWriter(), "--passphrase-command", "printf hunter2");
+        try {
+            final int code =
+                    run(context, out, new StringWriter(), "--passphrase-command", "printf hunter2");
 
-        assertThat(code).isZero();
-        assertThat(context.vault().exists()).isTrue();
-        assertThat(context.vault().read("hunter2".toCharArray())).isEmpty();
-        assertThat(out.toString()).contains("created").contains("holds nothing yet");
+            assertThat(code).as("the vault was initialized").isZero();
+            assertThat(context.vault().exists()).as("initialization made the vault file").isTrue();
+            assertThat(context.vault().read("hunter2".toCharArray()))
+                    .as("the new vault opens with the supplied passphrase and holds no credentials")
+                    .isEmpty();
+            assertThat(out.toString())
+                    .as("initialization reports the vault it created")
+                    .contains("created")
+                    .contains("holds nothing yet");
+        } finally {
+            new KernelKeyring(context.paths().vault().vaultKeyringKey()).forget();
+        }
     }
 
     @Test
     void the_new_vault_has_the_passphrase_as_its_only_way_in(@TempDir final Path dir) {
         final PoreloContext context = context(dir);
 
-        run(
-                context,
-                new StringWriter(),
-                new StringWriter(),
-                "--passphrase-command",
-                "printf hunter2");
+        try {
+            run(
+                    context,
+                    new StringWriter(),
+                    new StringWriter(),
+                    "--passphrase-command",
+                    "printf hunter2");
 
-        assertThat(context.vault().slots())
-                .singleElement()
-                .satisfies(slot -> assertThat(slot.recovery()).isTrue());
+            assertThat(context.vault().slots())
+                    .as("a new vault has only its passphrase slot")
+                    .singleElement()
+                    .satisfies(
+                            slot ->
+                                    assertThat(slot.recovery())
+                                            .as("the passphrase can recover the vault")
+                                            .isTrue());
+        } finally {
+            new KernelKeyring(context.paths().vault().vaultKeyringKey()).forget();
+        }
     }
 
     /**
@@ -89,27 +108,33 @@ class VaultInitCommandTest {
     @Test
     void never_replaces_a_vault_that_is_already_there(@TempDir final Path dir) {
         final PoreloContext context = context(dir);
-        run(
-                context,
-                new StringWriter(),
-                new StringWriter(),
-                "--passphrase-command",
-                "printf hunter2");
-        final StringWriter err = new StringWriter();
+        try {
+            run(
+                    context,
+                    new StringWriter(),
+                    new StringWriter(),
+                    "--passphrase-command",
+                    "printf hunter2");
+            final StringWriter err = new StringWriter();
 
-        final int code =
-                run(
-                        context,
-                        new StringWriter(),
-                        err,
-                        "--passphrase-command",
-                        "printf somethingelse");
+            final int code =
+                    run(
+                            context,
+                            new StringWriter(),
+                            err,
+                            "--passphrase-command",
+                            "printf somethingelse");
 
-        assertThat(code).isEqualTo(70);
-        assertThat(err.toString()).contains("already a vault");
-        assertThat(context.vault().read("hunter2".toCharArray()))
-                .as("the first one is untouched")
-                .isEmpty();
+            assertThat(code).as("a second initialization is refused").isEqualTo(70);
+            assertThat(err.toString())
+                    .as("the refusal names the existing vault")
+                    .contains("already a vault");
+            assertThat(context.vault().read("hunter2".toCharArray()))
+                    .as("the first one is untouched")
+                    .isEmpty();
+        } finally {
+            new KernelKeyring(context.paths().vault().vaultKeyringKey()).forget();
+        }
     }
 
     @Test

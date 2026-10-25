@@ -42,11 +42,16 @@ public record VaultPaths(PoreloPaths paths) {
      * replaced the cached passphrase of another, which is how an acceptance run could log the
      * operator out of their own.
      *
+     * <p>{@code porelo.keyring.prefix} keeps test caches apart from real cached passphrases.
+     *
      * @return Keyring description.
      */
     public String vaultKeyringKey() {
         final Path file = vaultFile();
-        return "porelo:vault:" + Integer.toHexString(file.toAbsolutePath().toString().hashCode());
+        final String prefix = System.getProperty("porelo.keyring.prefix", "porelo");
+        return (prefix.matches("[a-z0-9-]{1,64}") ? prefix : "porelo")
+                + ":vault:"
+                + Integer.toHexString(file.toAbsolutePath().toString().hashCode());
     }
 
     /**

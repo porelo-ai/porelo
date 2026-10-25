@@ -12,6 +12,7 @@ import java.util.Map;
 import org.fuin.porelo.build.api.Target;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.testing.FakeCommandRunner;
+import org.fuin.porelo.vault.KernelKeyring;
 import org.fuin.porelo.vault.VaultEntry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -83,21 +84,27 @@ class BuildTargetTest {
     void theWatchAndTheQueryReadExactlyTheNamedCredentialForEachQuestion() throws Throwable {
         // Sharing target construction must not change the repository, API or credential a watch
         // uses.
-        context.openIfShut(true, true, new PrintWriter(new StringWriter()));
-        final Target watched = watchTarget();
-        assertThat(watched)
-                .as("watch and query ask the same target")
-                .isEqualTo(BuildTarget.of(context, UPSTREAM, API, "selected"));
-        assertThat(watched.upstream()).as("the upstream is preserved").isEqualTo(UPSTREAM);
-        assertThat(watched.api()).as("the configured API is preserved").isEqualTo(API);
-        assertThat(watched.token().equals(token)).as("only the named credential was read").isTrue();
-        context.vault()
-                .write(
-                        Map.of("selected", VaultEntry.of("replacement-entry")),
-                        "test passphrase".toCharArray());
-        assertThat(watchTarget().token().equals("replacement-entry"))
-                .as("a later question reads the replacement")
-                .isTrue();
+        try {
+            context.openIfShut(true, true, new PrintWriter(new StringWriter()));
+            final Target watched = watchTarget();
+            assertThat(watched)
+                    .as("watch and query ask the same target")
+                    .isEqualTo(BuildTarget.of(context, UPSTREAM, API, "selected"));
+            assertThat(watched.upstream()).as("the upstream is preserved").isEqualTo(UPSTREAM);
+            assertThat(watched.api()).as("the configured API is preserved").isEqualTo(API);
+            assertThat(watched.token().equals(token))
+                    .as("only the named credential was read")
+                    .isTrue();
+            context.vault()
+                    .write(
+                            Map.of("selected", VaultEntry.of("replacement-entry")),
+                            "test passphrase".toCharArray());
+            assertThat(watchTarget().token().equals("replacement-entry"))
+                    .as("a later question reads the replacement")
+                    .isTrue();
+        } finally {
+            new KernelKeyring(context.paths().vault().vaultKeyringKey()).forget();
+        }
     }
 
     @Test
@@ -113,14 +120,18 @@ class BuildTargetTest {
     @Test
     void aMissingEntryKeepsTheWatchWaitingForTheNamedEntry() {
         // A watch must not fall back to another credential when its configured entry disappears.
-        context.openIfShut(true, true, new PrintWriter(new StringWriter()));
-        context.vault()
-                .write(
-                        Map.of("other", VaultEntry.of("wrong-entry")),
-                        "test passphrase".toCharArray());
-        assertThatThrownBy(this::watchTarget)
-                .as("the watch names the entry to store")
-                .isInstanceOf(BuildWatch.NotNow.class)
-                .hasMessageContaining("porelo vault put selected");
+        try {
+            context.openIfShut(true, true, new PrintWriter(new StringWriter()));
+            context.vault()
+                    .write(
+                            Map.of("other", VaultEntry.of("wrong-entry")),
+                            "test passphrase".toCharArray());
+            assertThatThrownBy(this::watchTarget)
+                    .as("the watch names the entry to store")
+                    .isInstanceOf(BuildWatch.NotNow.class)
+                    .hasMessageContaining("porelo vault put selected");
+        } finally {
+            new KernelKeyring(context.paths().vault().vaultKeyringKey()).forget();
+        }
     }
 }
