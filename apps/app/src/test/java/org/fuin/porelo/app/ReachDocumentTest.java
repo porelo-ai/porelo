@@ -55,6 +55,13 @@ class ReachDocumentTest {
     }
 
     @Test
+    void statesThePortAHostServiceIsOpenedOn() throws IOException {
+        assertThat(page())
+                .as("the declared host-service port must agree with the firewall")
+                .contains("loopback on TCP " + NftRuleset.HOST_SERVICE_PORT + " only");
+    }
+
+    @Test
     void namesEveryCredentialHeaderThatIsDropped() throws IOException {
         final String page = page();
         for (final String header : VaultProxy.CREDENTIAL_HEADERS) {

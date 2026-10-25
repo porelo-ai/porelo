@@ -23,6 +23,7 @@ The numbers here are checked against the code by a test.
 | An empty `egress` section | Deny, never a default that widens with a release | control |
 | A reach for something undeclared | Blocked, and raises a clearance prompt: the closest thing on the machine to a hijack alarm | control |
 | The git gate | One address and one port on this machine, never "the machine" | control |
+| A declared `egress.host_services` name | Reaches the host's loopback on TCP 443 only, beside the gate's port, including offline; the gate's fallback address is used outside pasta | control |
 | Another task | No path: separate containers, no shared workspace. Messages between tasks go through the filter and the peer table, both on the host | control |
 | The host's files | Nothing outside what Porelo itself mounts or writes | control |
 

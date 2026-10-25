@@ -532,7 +532,10 @@ public record Project(
                             + "' is offline, so it can declare no"
                             + " credentials. Remove the 'credentials' section or raise the security class.");
         }
-        if (securityClass == SecurityClass.OFFLINE && !egress.isEmpty()) {
+        if (securityClass == SecurityClass.OFFLINE
+                && (!egress.sets().isEmpty()
+                        || !egress.domains().isEmpty()
+                        || !egress.refused().isEmpty())) {
             // Said rather than ignored. An offline project whose declaration were quietly dropped
             // would look configured and behave as though it were not, which is the failure this
             // whole area exists to avoid.
@@ -540,7 +543,8 @@ public record Project(
                     "Project '"
                             + name
                             + "' is offline, so it can declare no"
-                            + " egress. Remove the 'egress' section or raise the security class.");
+                            + " egress beyond this host. Remove 'egress.sets', 'egress.domains' and"
+                            + " 'egress.refused' or raise the security class; 'egress.host_services' is allowed.");
         }
         if (securityClass == SecurityClass.OFFLINE && upstream != null && !upstream.isBlank()) {
             // The host cloned the mirror from it on the first start, so offline meant "offline
@@ -716,7 +720,8 @@ public record Project(
         return new Egress(
                 merged(egress.sets(), repository.egress().sets()),
                 merged(egress.domains(), repository.egress().domains()),
-                merged(egress.refused(), repository.egress().refused()));
+                merged(egress.refused(), repository.egress().refused()),
+                merged(egress.hostServices(), repository.egress().hostServices()));
     }
 
     private static java.util.List<String> merged(

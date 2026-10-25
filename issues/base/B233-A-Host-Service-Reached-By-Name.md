@@ -1,10 +1,10 @@
 # B233 — A Host Service Reached By Name
 
-**Status:** Accepted.
-**Size:** L - a design to settle first, and porelo-host's [HO08](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho08) builds on it; the build touches `core`, `shield`, `app-base`, docs and an acceptance step.
+**Status:** Implementing.
+**Size:** M - the design is settled; `core`, `shield` and `app-base` carry it, with docs and an acceptance scenario; porelo-host's [HO08](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho08) builds on it.
 
 **What must be true.** A task reaches a service on its own host, such as a forge or a registry, by a name the project
-declares, on 443, without the task reaching anything else on the host.
+declares, on TCP 443, without opening another host port beyond the gate.
 
 ## Why
 
@@ -16,18 +16,29 @@ port (`LoopbackMapping`).
 
 ## Plan
 
-Read in `LoopbackMapping`, `GateWiring`, `NftRuleset`, `DnsPolicy`, `TaskRunner` and `Egress`.
-
 1. **The gate's pattern:** pasta maps `169.254.1.2` to the host's loopback (`LoopbackMapping`), the gate binds
    `127.0.0.1` there, and the firewall opens exactly that address and port (`NftRuleset.gate`) in every class. A
-   declared name resolves through the host's DNS and opens 80 and 443; nothing answers a name with the host.
-2. **A project key naming host-local names**, checked as a domain is. `DnsPolicy` answers each with the host's
-   address (`host-record=`), never asking upstream and with no `nftset=` for it; `NftRuleset` opens that address
-   on 443 only. The address is the gate's (`wiring.gateAddress()`), so slirp4netns and podman 4 fall back as the gate
-   does.
-3. **Docs:** the egress section of `doc/project-file.md`, `doc/reach.md`, and the exposure in `doc/decisions.md`.
-4. **Red first:** `DnsPolicyTest.answersAHostServiceWithTheHostsAddressAndAsksNoUpstream`, then
-   `NftRulesetTest.opensAHostServiceOn443AndNoOtherPortOfTheHost`.
+   measured listener bound to exactly `127.0.0.1` is reached at `169.254.1.2` under pasta; a listener bound only
+   to the LAN address is refused. Podman 4 was not measured. `GateWiring.gateAddress` probes the address, and
+   `gateBind` falls back to binding every interface outside the working pasta mapping.
+2. **`egress.host_services` is a list of names.** `Egress` validates them with the domain grammar;
+   `ProjectReader` reads them and `ProjectSchema` declares them. `Project.egressFor` adds a repository's entries
+   to the project's. A name in both `egress.domains` and `egress.host_services`, including across those blocks,
+   is refused when read, naming the name and both keys. Offline permits host services but keeps its existing
+   refusals of external egress. `EgressEdit` continues editing only sets and domains, preserving this key as text.
+3. **`TaskRunner` carries the effective host services to both policies.** `DnsPolicy.hostService` answers each
+   with `wiring.gateAddress()` through `host-record=`, never upstream and never through `nftset=`; a refused name
+   stays refused. `NftRuleset.hostService` opens that address on TCP 443 beside the gate's rule, in every class.
+   No host-service declaration adds no record or rule. The probed fallback address is used as the gate uses it;
+   no separate address is guessed. `LoopbackMapping`, `GateWiring` and `TaskLaunch` need no new mapping or flag.
+4. **Docs:** the egress section of `doc/project-file.md`, the control in `doc/reach.md`, the accepted exposure
+   and its index row in `doc/decisions.md`, and an added changelog entry.
+5. **Red first:** `DnsPolicyTest.answersAHostServiceWithTheHostsAddressAndAsksNoUpstream` and
+   `NftRulesetTest.opensAHostServiceOn443AndNoOtherPortOfTheHost`; reader refusals, offline and repository merging;
+   policy-file wiring and absence of undeclared grants. Exercise new methods with a deliberate defect that still compiles.
+6. **Acceptance:** a written `@host-services` scenario uses the stub, skips through the kit's environment-variable
+   prerequisite unless a root-run loopback TLS listener on 443 and its public test CA are prepared, and checks
+   local DNS, HTTPS, another port's logged drop and an undeclared name. It is not run without that VM fixture.
 
 **Decided:**
 - Host-local names are said in the signed `project.yml`, one key for every machine following the project.
@@ -40,9 +51,3 @@ Read in `LoopbackMapping`, `GateWiring`, `NftRuleset`, `DnsPolicy`, `TaskRunner`
 - In a task, `curl https://<declared name>/` reaches a service on the host's 443, and `getent hosts <name>` answers the
   mapped address. Seen to fail first: NXDOMAIN today.
 - Another port of the host is dropped and logged; an undeclared name still answers NXDOMAIN.
-
-## To be checked
-
-- First, on the VM under pasta and on podman 4: whether a task reaches a host service at `169.254.1.2:443` bound to
-  `127.0.0.1` or to every address, whether the host's LAN address works instead, and that TLS with the declared
-  name passes unchanged; and that a root-run forge listens on loopback.

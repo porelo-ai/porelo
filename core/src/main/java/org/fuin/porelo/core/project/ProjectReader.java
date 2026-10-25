@@ -151,28 +151,33 @@ public final class ProjectReader {
         final Map<?, ?> image = section(root, "image", origin);
         signers(project, origin);
 
-        return new Project(
-                required(project, "name", origin, "project"),
-                text(project.get("description")),
-                SecurityClass.parse(required(project, "security_class", origin, "project")),
-                image(required(image, "base_image", origin, "image")),
-                snippet(image, origin),
-                text(project.get("upstream")).isEmpty()
-                        ? null
-                        : address(text(project.get("upstream"))),
-                limits(root, origin),
-                egress(root, origin),
-                packageSources(image, origin),
-                mail(root, origin),
-                repositories(root, origin),
-                credentials(root, origin),
-                builds(
-                        root,
-                        origin,
-                        SecurityClass.parse(
-                                required(project, "security_class", origin, "project"))),
-                null,
-                parameters(root, origin));
+        final Project definition =
+                new Project(
+                        required(project, "name", origin, "project"),
+                        text(project.get("description")),
+                        SecurityClass.parse(required(project, "security_class", origin, "project")),
+                        image(required(image, "base_image", origin, "image")),
+                        snippet(image, origin),
+                        text(project.get("upstream")).isEmpty()
+                                ? null
+                                : address(text(project.get("upstream"))),
+                        limits(root, origin),
+                        egress(root, origin),
+                        packageSources(image, origin),
+                        mail(root, origin),
+                        repositories(root, origin),
+                        credentials(root, origin),
+                        builds(
+                                root,
+                                origin,
+                                SecurityClass.parse(
+                                        required(project, "security_class", origin, "project"))),
+                        null,
+                        parameters(root, origin));
+        for (final Repository repository : definition.repositories()) {
+            definition.egressFor(repository);
+        }
+        return definition;
     }
 
     /**
@@ -675,7 +680,8 @@ public final class ProjectReader {
         return new Egress(
                 strings(egress.get("sets"), path + "egress.sets", origin),
                 strings(egress.get("domains"), path + "egress.domains", origin),
-                strings(egress.get("refused"), path + "egress.refused", origin));
+                strings(egress.get("refused"), path + "egress.refused", origin),
+                strings(egress.get("host_services"), path + "egress.host_services", origin));
     }
 
     /**

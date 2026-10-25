@@ -30,8 +30,8 @@ project:
   description: "The thing that talks to the payment provider"
 
   # Required: offline, guarded or online. See security.md.
-  #   offline  no network at all, not even for the host; egress and upstream are refused,
-  #            and the project is followed only from a file.
+  #   offline  no network beyond this host; external egress and upstream are refused,
+  #            host_services is allowed, and the project is followed only from a file.
   #   guarded  reaches what egress names, pushes to a gate, holds no upstream credential.
   #   online   pushes to a gate that passes its own branch on at once; needs 'upstream'.
   security_class: "guarded"
@@ -69,7 +69,7 @@ repositories:
     # less, move the set out of the project's block into the repositories that need it.
     egress:
       sets: [nodejs]
-      domains: ["registry.internal.example"]
+      domains: ["packages.internal.example"]
 
     # Optional. REPLACES the project's limits key by key. A key not written here keeps the
     # project's value, not the default. 'none' opts out of a limit.
@@ -108,6 +108,10 @@ egress:
 
   # Any other host by name. Ports 80 and 443 only.
   domains: ["nexus.corp.example"]
+
+  # Services on this host, on TCP 443 only, in every class including offline.
+  # These names resolve locally to the gate's host address, never through upstream DNS.
+  host_services: ["forge.internal.example", "registry.internal.example"]
 
   # Only what a task reaches WHILE IT RUNS needs a set or a domain. The image is built on the host,
   # outside the task's firewall, so packages a 'snippet' installs need none; the gate fetches and
@@ -203,6 +207,23 @@ an explicit project value wins. `getconf` and `sysconf` still read the host's co
 Image builds use the project's memory limit and CPU quota, with CPU affinity rounded up to at most the host's cores
 so `RUN nproc` sees the bound. `limits.cpus: none` leaves the build without these resource flags or affinity;
 `limits.memory: none` removes the memory flag. Open-file limits stay the container runtime's.
+
+## Services on this host
+
+`egress.host_services` names services on the task's own host, such as its forge and registry. Each name uses the
+same lower-case host-name syntax as `egress.domains`; a name in both keys is refused when the file is read,
+including when one key belongs to the project and the other to a repository. A repository's host services add to
+the project's, as its domains do. `egress.refused` still wins for a service's name or a parent of it.
+
+The task's resolver answers each declared name with the gate's address: `169.254.1.2` under pasta, or the address
+Porelo probes for the gate otherwise. It never asks upstream DNS for that name and never adds the address to the
+ordinary egress allow set. The firewall opens that address on **TCP 443 only**, beside the gate's own port, in
+every security class **including offline**. No host-service declaration opens no additional host port.
+
+Under pasta this reaches the host's loopback. A fallback network must expose the service at the gate's fallback
+address; a listener bound only to loopback may be unreachable there. TLS still uses the declared name; trust in
+its certificate must already be present in the task. Whatever listens on the host's loopback 443 is reachable
+by every task of a project that declares a host service: see [the accepted exposure](decisions.md#declaring-a-host-service-opens-the-hosts-loopback-443).
 
 ## A repository's own image
 

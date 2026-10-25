@@ -32,6 +32,9 @@ public class NftRuleset {
     /** Log prefix on every dropped packet, used to recognize Porelo's own events. */
     public static final String DROP_PREFIX = "porelo-drop";
 
+    /** The only port a declared host service opens, also stated in {@code doc/reach.md}. */
+    public static final int HOST_SERVICE_PORT = 443;
+
     private final SecurityClass securityClass;
 
     private final Set<String> allowedV4 = new LinkedHashSet<>();
@@ -41,6 +44,8 @@ public class NftRuleset {
     private final Set<String> resolvers = new LinkedHashSet<>();
 
     private final Set<String> gateEndpoints = new LinkedHashSet<>();
+
+    private final Set<String> hostServices = new LinkedHashSet<>();
 
     private final Set<String> localV4 = new LinkedHashSet<>();
 
@@ -137,6 +142,17 @@ public class NftRuleset {
     }
 
     /**
+     * Opens TCP 443 on the host for a declared service, in every security class.
+     *
+     * @param address The address the task reaches the gate at.
+     * @return This instance.
+     */
+    public NftRuleset hostService(String address) {
+        hostServices.add(address);
+        return this;
+    }
+
+    /**
      * Renders the ruleset.
      *
      * @return File content, ending in a line separator.
@@ -200,6 +216,11 @@ public class NftRuleset {
             for (final String endpoint : gateEndpoints) {
                 lines.add("        ip daddr " + endpoint + " accept");
             }
+        }
+
+        for (final String address : hostServices) {
+            lines.add(
+                    "        ip daddr " + address + " tcp dport " + HOST_SERVICE_PORT + " accept");
         }
 
         if (securityClass != SecurityClass.OFFLINE) {

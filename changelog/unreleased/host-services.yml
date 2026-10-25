@@ -1,0 +1,2 @@
+title: Projects can declare egress.host_services to reach services on this host by name on TCP 443 in every security class, including offline.
+type: added

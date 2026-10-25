@@ -58,13 +58,15 @@ public class DnsPolicy {
 
     private final Set<String> upstreamResolvers = new LinkedHashSet<>();
 
+    private final java.util.Map<String, String> hostServices = new java.util.LinkedHashMap<>();
+
     /** Domains whose answers are added to the firewall set, see {@link #autoAllow(String)}. */
     private final Set<String> autoAllowed = new java.util.LinkedHashSet<>();
 
     /**
      * Constructor.
      *
-     * @param securityClass Decides whether anything resolves at all.
+     * @param securityClass Decides whether queries may be forwarded upstream.
      */
     public DnsPolicy(SecurityClass securityClass) {
         this.securityClass = securityClass;
@@ -78,6 +80,18 @@ public class DnsPolicy {
      */
     public DnsPolicy allow(String domain) {
         allowedDomains.add(domain);
+        return this;
+    }
+
+    /**
+     * Answers a declared host service locally, including in offline tasks.
+     *
+     * @param name The service's declared name.
+     * @param address The address the task reaches the gate at.
+     * @return This instance.
+     */
+    public DnsPolicy hostService(String name, String address) {
+        hostServices.put(name, address);
         return this;
     }
 
@@ -196,7 +210,7 @@ public class DnsPolicy {
         lines.add("");
 
         if (securityClass == SecurityClass.OFFLINE || upstreamResolvers.isEmpty()) {
-            lines.add("# Nothing resolves. An offline project has no name to look up.");
+            lines.add("# No upstream queries: only declared host services can resolve locally.");
             lines.add("address=/#/");
         } else {
             lines.add("# Everything is NXDOMAIN unless a rule below overrides it.");
@@ -237,6 +251,9 @@ public class DnsPolicy {
                     lines.add("# name and blocked by address, which reached the operator as a");
                     lines.add("# clearance prompt for a bare IPv6 address they could not place.");
                     for (final String domain : autoAllowed) {
+                        if (hostServices.containsKey(domain)) {
+                            continue;
+                        }
                         lines.add(
                                 "nftset=/"
                                         + domain
@@ -245,6 +262,15 @@ public class DnsPolicy {
                 }
             }
         }
+
+        hostServices.forEach(
+                (name, address) -> {
+                    if (refusedDomains.stream()
+                            .noneMatch(
+                                    domain -> name.equals(domain) || name.endsWith("." + domain))) {
+                        lines.add("host-record=" + name + "," + address);
+                    }
+                });
 
         return String.join("\n", lines) + "\n";
     }
@@ -265,10 +291,13 @@ public class DnsPolicy {
         lines.add("# Re-read when dnsmasq is signaled with SIGHUP, so a running task can be");
         lines.add("# widened without its resolver being restarted.");
         if (securityClass == SecurityClass.OFFLINE || upstreamResolvers.isEmpty()) {
-            lines.add("# An offline task resolves nothing at all.");
+            lines.add("# No queries are forwarded upstream.");
             return String.join("\n", lines) + "\n";
         }
         for (final String domain : allowedDomains) {
+            if (hostServices.containsKey(domain)) {
+                continue;
+            }
             for (final String resolver : upstreamResolvers) {
                 lines.add("server=/" + domain + "/" + resolver);
             }

@@ -311,19 +311,31 @@ public class TaskRunner {
         final Path state = paths.tasks().containerState(container);
         Files.createDirectories(state);
 
+        final List<String> hostServices = project.egressFor(repository).hostServices();
+        if (!hostServices.isEmpty()) {
+            java.util.Objects.requireNonNull(
+                    wiring.gateAddress(), "declared host services require the gate's address");
+        }
+
         // No class opens a port to the upstream: an online task's remote is its gate, like a
         // guarded one's, and only the host reaches the upstream.
         final Path ruleset = state.resolve("ruleset.nft");
         Files.writeString(
                 ruleset,
-                rulesetFor(project, hostResolvers(), wiring.gateAddress(), wiring.gatePort()),
+                rulesetFor(
+                        project,
+                        hostResolvers(),
+                        wiring.gateAddress(),
+                        wiring.gatePort(),
+                        hostServices),
                 StandardCharsets.UTF_8);
         out.println("policy    " + ruleset);
 
         // Written before the container is created, like the ruleset: the supervisor hook reads it
         // while the container is coming up.
         final Path dnsConfig = state.resolve("dns.conf");
-        final org.fuin.porelo.shield.DnsPolicy dns = dnsPolicyFor(project, allowedDomains);
+        final org.fuin.porelo.shield.DnsPolicy dns =
+                dnsPolicyFor(project, allowedDomains, hostServices, wiring.gateAddress());
         dns.writeTo(dnsConfig);
         out.println(
                 "resolver  "
@@ -534,7 +546,10 @@ public class TaskRunner {
     }
 
     private org.fuin.porelo.shield.DnsPolicy dnsPolicyFor(
-            Project project, java.util.List<String> allowedDomains) {
+            Project project,
+            java.util.List<String> allowedDomains,
+            List<String> hostServices,
+            @Nullable String gateAddress) {
         final org.fuin.porelo.shield.DnsPolicy policy =
                 new org.fuin.porelo.shield.DnsPolicy(project.securityClass());
         // Refused first in the reading, though the order does not decide it: dnsmasq takes the
@@ -548,6 +563,12 @@ public class TaskRunner {
         // The upstream resolvers the host itself uses. Anything the policy does not allow is
         // NXDOMAIN before it ever reaches them.
         hostResolvers().forEach(policy::upstream);
+        for (final String name : hostServices) {
+            policy.hostService(
+                    name,
+                    java.util.Objects.requireNonNull(
+                            gateAddress, "declared host services require the gate's address"));
+        }
         return policy;
     }
 
@@ -579,12 +600,16 @@ public class TaskRunner {
             Project project,
             java.util.List<String> upstreamResolvers,
             @Nullable String gateAddress,
-            int gatePort) {
+            int gatePort,
+            List<String> hostServices) {
         final NftRuleset ruleset = new NftRuleset(project.securityClass());
         if (gateAddress != null) {
             // Before the security-class check on purpose: the gate is on this machine, and an
             // offline project still has to be able to commit.
             ruleset.gate(gateAddress, gatePort);
+            if (!hostServices.isEmpty()) {
+                ruleset.hostService(gateAddress);
+            }
         }
         if (project.securityClass() != SecurityClass.OFFLINE) {
             ruleset.localV4("127.0.0.0/8");

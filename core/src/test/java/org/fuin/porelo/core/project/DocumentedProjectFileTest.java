@@ -52,6 +52,9 @@ class DocumentedProjectFileTest {
         assertThat(project.effectivePackageSources()).allMatch(s -> s.startsWith("http://"));
         assertThat(project.egress().sets()).isNotEmpty();
         assertThat(project.egress().domains()).isNotEmpty();
+        assertThat(project.egress().hostServices())
+                .as("the documented services on this host")
+                .containsExactly("forge.internal.example", "registry.internal.example");
         assertThat(project.limits().memory()).isEqualTo("8g");
         assertThat(project.limits().pids()).isEqualTo(2048);
         assertThat(project.repositoryNames()).containsExactly("myproject", "backend", "frontend");

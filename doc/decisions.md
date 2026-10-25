@@ -33,6 +33,7 @@ would change the answer.
 | A run left to itself comes back from a restart stopped | its session kept and shown as interrupted; only a task somebody drove comes back with `--restarted` | [entry](#a-run-left-to-itself-comes-back-from-a-restart-stopped) |
 | A task's terminal is tmux, and a person's own settings come after Porelo's | `~/.config/porelo/tmux.conf` read after Porelo's; `history-limit` and `default-terminal` set again after it | [entry](#a-tasks-terminal-is-tmux-and-a-persons-own-settings-come-after-porelos) |
 | **The machine and the daemon** | | |
+| Declaring a host service opens the host's loopback 443 | accepted: every task of a project naming a host service reaches whatever listens there; one port, by signed declaration, including offline | [entry](#declaring-a-host-service-opens-the-hosts-loopback-443) |
 | A weaker machine is reported, not refused | `DEGRADED` exits zero and starts tasks; only `MISSING` fails | [entry](#a-weaker-machine-is-reported-not-refused) |
 | Doctor diagnoses and never repairs | each check names the next action; nothing runs a fix as root | [entry](#doctor-diagnoses-and-never-repairs) |
 | The daemon restarts itself after an update; the package does not | it sees its binary replaced and asks the account's systemd; tasks keep running | [entry](#the-daemon-restarts-itself-after-an-update-the-package-does-not) |
@@ -326,6 +327,24 @@ account's own systemd for `daemon-reload` and `restart --no-block` of the unit i
 group. Running tasks are not touched. A binary removed with nothing in its place is an uninstall, which nothing
 restarts into, and a daemon started by hand is not restarted but says once that it was replaced; `porelo doctor`
 names a daemon running another version than the command.
+
+## Declaring a host service opens the host's loopback 443
+
+**Accepted exposure:** whatever listens on the host's loopback TCP 443 is reachable by every task of a project
+that names a service in `egress.host_services`, including an offline task. DNS answers each declared name with the
+gate's address, and the firewall opens that address and port beside the gate. The firewall sees an address and a
+port, not which service a TLS request names: a task that can reach one can ask for another on that listener.
+Under pasta the address maps to loopback; otherwise it is the gate's probed fallback address and the service must
+listen there too. No declaration adds no host-service rule; other ports keep their existing drops and logging.
+
+**Why it stays:** the host's forge and registry are the reason the key exists. One port, opened by a declaration
+in the signed project file, is a bounded grant a project can review. The names are answered locally, never
+forwarded upstream or added to the ordinary egress allow set, which would also open port 80. TLS passes through
+unchanged, with its declared name and the task's existing certificate trust.
+
+**What would change the answer:** a second service on loopback 443 that should not be reachable by those tasks,
+or SNI routing that could tell services apart and enforce a grant for each. Either calls for reviewing the
+shared-port exposure rather than assuming a DNS name isolates a service.
 
 ## Port 53 to the upstream is the resolver's alone
 

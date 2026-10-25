@@ -43,7 +43,7 @@ final class ProjectSchema {
         SECTIONS.put(
                 "project", Set.of("name", "description", "security_class", "upstream", "signers"));
         SECTIONS.put("image", Set.of("base_image", "snippet", "snippet_file", "package_sources"));
-        SECTIONS.put("egress", Set.of("sets", "domains", "refused"));
+        SECTIONS.put("egress", Set.of("sets", "domains", "refused", "host_services"));
         SECTIONS.put("limits", Set.of("memory", "pids", "cpus", "hand_in"));
         SECTIONS.put("mail", Set.of("peers", "transports", "outgoing_filter", Mail.RULES));
         SECTIONS.put("mail.rules", Set.of("project", "room", "others"));
@@ -222,7 +222,7 @@ final class ProjectSchema {
                     new ProjectKey(
                             "project",
                             "security_class",
-                            "How far the agent is trusted: offline reaches nothing,"
+                            "How far the agent is trusted: offline reaches only declared host services,"
                                     + " guarded pushes to Porelo's gate and holds no credential for the upstream, online pushes to"
                                     + " the upstream itself.",
                             "string",
@@ -276,6 +276,13 @@ final class ProjectSchema {
                             "egress",
                             "domains",
                             "Any other name a task may reach, on ports 80 and 443.",
+                            "list",
+                            "[]",
+                            false),
+                    key(
+                            "egress",
+                            "host_services",
+                            "Names of services on this host, on TCP 443, including offline.",
                             "list",
                             "[]",
                             false),
@@ -425,7 +432,7 @@ final class ProjectSchema {
                             "repositories.<repository>",
                             "egress",
                             "What a task on this repository may reach in addition to the"
-                                    + " project's: sets, domains, refused.",
+                                    + " project's: sets, domains, refused, host_services.",
                             "map",
                             "",
                             false),

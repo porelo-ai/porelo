@@ -12,6 +12,59 @@ class DnsPolicyTest {
     private static final String SERVERS = "/run/user/1000/porelo/box/" + DnsPolicy.SERVERS_FILE;
 
     @Test
+    void answersAHostServiceWithTheHostsAddressAndAsksNoUpstream() {
+        for (final SecurityClass securityClass : SecurityClass.values()) {
+            for (final String address : java.util.List.of("169.254.1.2", "192.0.2.5")) {
+                final DnsPolicy policy =
+                        new DnsPolicy(securityClass)
+                                .upstream("8.8.8.8")
+                                .autoAllow("forge.example")
+                                .hostService("forge.example", address)
+                                .hostService("registry.example", address);
+                assertThat(policy.render(SERVERS).lines().filter(line -> !line.startsWith("#")))
+                        .as("local answers in %s at the gate address %s", securityClass, address)
+                        .contains(
+                                "host-record=forge.example," + address,
+                                "host-record=registry.example," + address)
+                        .noneMatch(
+                                line ->
+                                        line.startsWith("nftset=/forge.example/")
+                                                || line.startsWith("nftset=/registry.example/"));
+                assertThat(policy.renderServers())
+                        .as("host services must never be forwarded upstream")
+                        .doesNotContain("forge.example", "registry.example");
+            }
+        }
+    }
+
+    @Test
+    void aProjectWithoutHostServicesGetsNoHostRecords() {
+        assertThat(
+                        new DnsPolicy(SecurityClass.GUARDED)
+                                .upstream("8.8.8.8")
+                                .autoAllow("forge.example")
+                                .render(SERVERS))
+                .as("an ordinary domain does not map to the host")
+                .doesNotContain("host-record=");
+    }
+
+    @Test
+    void refusesAHostServiceByNameOrByItsParentInEveryClass() {
+        for (final SecurityClass securityClass : SecurityClass.values()) {
+            for (final String refusal : java.util.List.of("forge.corp.example", "corp.example")) {
+                final String rendered =
+                        new DnsPolicy(securityClass)
+                                .hostService("forge.corp.example", "169.254.1.2")
+                                .refuse(refusal)
+                                .render(SERVERS);
+                assertThat(rendered)
+                        .as("a refusal of %s holds in %s", refusal, securityClass)
+                        .doesNotContain("host-record=forge.corp.example,");
+            }
+        }
+    }
+
+    @Test
     void answersNothingByDefault() {
 
         // Same shape as the packet filter: deny by default, widen deliberately.

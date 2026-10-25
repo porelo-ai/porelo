@@ -23,6 +23,50 @@ import org.junit.jupiter.api.Test;
 class NftRulesetTest {
 
     @Test
+    void opensAHostServiceOn443AndNoOtherPortOfTheHost() {
+        for (final SecurityClass securityClass : SecurityClass.values()) {
+            for (final String address : java.util.List.of("169.254.1.2", "192.0.2.5")) {
+                final String rendered =
+                        new NftRuleset(securityClass)
+                                .gate(address, 9418)
+                                .hostService(address)
+                                .render();
+                assertThat(
+                                rendered.lines()
+                                        .map(String::strip)
+                                        .filter(
+                                                line ->
+                                                        line.contains(address)
+                                                                && line.endsWith(" accept")))
+                        .as("only the gate and TCP 443 accept the host in %s", securityClass)
+                        .containsExactly(
+                                "ip daddr " + address + " tcp dport 9418 accept",
+                                "ip daddr " + address + " tcp dport 443 accept");
+                assertThat(rendered)
+                        .as("all other traffic still reaches the logged default drop")
+                        .contains("policy drop;", "log prefix \"porelo-drop \" group 1")
+                        .doesNotContain("elements = { " + address + " }");
+            }
+        }
+    }
+
+    @Test
+    void aProjectWithoutHostServicesGetsOnlyTheGateRule() {
+        assertThat(
+                        new NftRuleset(SecurityClass.GUARDED)
+                                .gate("169.254.1.2", 9418)
+                                .render()
+                                .lines()
+                                .map(String::strip)
+                                .filter(
+                                        line ->
+                                                line.contains("169.254.1.2")
+                                                        && line.endsWith(" accept")))
+                .as("a gate alone grants no host service")
+                .containsExactly("ip daddr 169.254.1.2 tcp dport 9418 accept");
+    }
+
+    @Test
     void rendersTheGuardedRuleset() throws IOException {
 
         final String rendered =

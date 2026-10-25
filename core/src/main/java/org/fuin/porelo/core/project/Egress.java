@@ -21,8 +21,10 @@ import java.util.List;
  * @param sets Names of curated sets the project opts into, in the order written.
  * @param domains Hosts named directly, for the private mirror no shipped set can cover.
  * @param refused Hosts that must not resolve in a task, whatever else allows them.
+ * @param hostServices Names answered with this host's gate address, reachable on TCP 443.
  */
-public record Egress(List<String> sets, List<String> domains, List<String> refused) {
+public record Egress(
+        List<String> sets, List<String> domains, List<String> refused, List<String> hostServices) {
 
     /**
      * A name that can be written into a resolver configuration without escaping it.
@@ -59,11 +61,13 @@ public record Egress(List<String> sets, List<String> domains, List<String> refus
      * @param sets Curated set names.
      * @param domains Host names.
      * @param refused Host names that must not resolve.
+     * @param hostServices Names of services on this host.
      */
     public Egress {
         sets = List.copyOf(sets);
         domains = List.copyOf(domains);
         refused = List.copyOf(refused);
+        hostServices = List.copyOf(hostServices);
         for (final String set : sets) {
             if (!SET.matcher(set).matches()) {
                 throw new ProjectException(
@@ -73,7 +77,7 @@ public record Egress(List<String> sets, List<String> domains, List<String> refus
             }
         }
         for (final String domain : domains) {
-            if (domain.length() > 253 || !DOMAIN.matcher(domain).matches()) {
+            if (!isDomain(domain)) {
                 throw new ProjectException(
                         "Invalid egress domain '"
                                 + domain
@@ -82,13 +86,39 @@ public record Egress(List<String> sets, List<String> domains, List<String> refus
         }
         // The same grammar, for the same reason: a refusal becomes an 'address=' line.
         for (final String domain : refused) {
-            if (domain.length() > 253 || !DOMAIN.matcher(domain).matches()) {
+            if (!isDomain(domain)) {
                 throw new ProjectException(
                         "Invalid refused domain '"
                                 + domain
                                 + "', expected a host name such as telemetry.example");
             }
         }
+        for (final String name : hostServices) {
+            if (!isDomain(name)) {
+                throw new ProjectException(
+                        "Invalid egress.host_services name '"
+                                + name
+                                + "', expected a host name such as nexus.corp.example");
+            }
+            if (domains.contains(name)) {
+                throw new ProjectException(
+                        "Name '"
+                                + name
+                                + "' appears in both egress.domains and egress.host_services;"
+                                + " declare it in only one key");
+            }
+        }
+    }
+
+    /**
+     * Constructor for a declaration with no host services.
+     *
+     * @param sets Curated set names.
+     * @param domains Host names.
+     * @param refused Host names that must not resolve.
+     */
+    public Egress(List<String> sets, List<String> domains, List<String> refused) {
+        this(sets, domains, refused, List.of());
     }
 
     /**
@@ -113,9 +143,9 @@ public record Egress(List<String> sets, List<String> domains, List<String> refus
     /**
      * Tells whether the project declared anything at all.
      *
-     * @return {@code true} when no set, domain or refusal was named.
+     * @return {@code true} when no set, domain, refusal or host service was named.
      */
     public boolean isEmpty() {
-        return sets.isEmpty() && domains.isEmpty() && refused.isEmpty();
+        return sets.isEmpty() && domains.isEmpty() && refused.isEmpty() && hostServices.isEmpty();
     }
 }
