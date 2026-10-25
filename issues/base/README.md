@@ -112,6 +112,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b284"></a>[B284](B284-A-Test-Install-On-An-Rpm-Host.md) | - | - | The legs module's `deploy` installs on a Fedora machine, `--account` included, rather than unpacking only the `.deb` with `dpkg-deb`, which Fedora lacks |
 | <a id="b282"></a>[B282](B282-A-Failed-Continuation-Is-Forgotten.md) | - | - | A continuation that fails without naming a session forgets the recorded one, so the next start is fresh and says so |
 | <a id="b283"></a>[B283](B283-A-Retargeted-Symbolic-Link-Ranked-Dangerous.md) | - | - | A change that only retargets an existing symbolic link is ranked dangerous in the review, as a new link is |
 | <a id="b281"></a>[B281](B281-Acceptance-Legs-In-Less-Wall-Time.md) | - | - | The acceptance legs take ~5–6 min less wall time with the same scenarios and guards: split `task-guarded.feature`'s ~3 min single-thread tail across accounts, pass `-Dsurefire.skip=true` in `Leg.java`'s two suite passes (~1:45 min), and parallelize or batch `TerminalSteps.java`'s `@AfterAll` project and container removal (~2 min) |
