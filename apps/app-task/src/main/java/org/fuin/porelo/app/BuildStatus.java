@@ -386,6 +386,10 @@ public record BuildStatus(
         final StringBuilder safe = new StringBuilder();
         for (int i = 0; i < text.length(); i++) {
             final char ch = text.charAt(i);
+            if (ch == '\r' && i + 1 < text.length() && text.charAt(i + 1) == '\n') {
+                // Windows line ends need no cursor movement before their newline.
+                continue;
+            }
             if (Character.isISOControl(ch) && ch != '\n' && ch != '\t') {
                 safe.append("\\x")
                         .append(Character.forDigit(ch >> 4, 16))

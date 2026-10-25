@@ -108,6 +108,7 @@ otherwise the command names the keys to choose from.
 `detail` and `jobs`; each job has `name`, `result` and `log` as text. Human output escapes every control character
 except newline and tab as `\xNN`, and every format character - a bidirectional override, an invisible joiner -
 as `\uNNNN`, both in lower-case hexadecimal, so a log cannot rewrite or reorder what the terminal shows.
+A carriage return right before a newline is read as the line end.
 
 The project must declare `builds:` and `security_class: online`; see [the project file](project-file.md).
 The reader and its API come from that declaration and the credential comes from the vault on the host.

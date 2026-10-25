@@ -245,6 +245,54 @@ class BuildStatusCommandTest {
     }
 
     @Test
+    void aWindowsLineEndIsShownAsALineEnd() {
+        // Windows lines must stay readable without allowing a lone CR to rewrite terminal output.
+        reader.answer =
+                new Build(
+                        Build.FAILURE,
+                        List.of(
+                                new Build.Job(
+                                        "unit",
+                                        "failure",
+                                        "one\r\ntwo\r\n".getBytes(StandardCharsets.UTF_8))),
+                        "");
+        assertThat(execute("build", "status", "-p", "acme", "--branch=main"))
+                .as("a failed answer")
+                .isEqualTo(1);
+        assertThat(out.toString())
+                .as("Windows line ends are shown as plain lines")
+                .contains("one\ntwo\n")
+                .doesNotContain("\\x0d", "\r");
+
+        out.getBuffer().setLength(0);
+        assertThat(execute("build", "status", "-p", "acme", "--branch=main", "--json"))
+                .as("a failed JSON answer")
+                .isEqualTo(1);
+        assertThat(out.toString())
+                .as("JSON preserves the forge's carriage returns as escapes")
+                .contains("\"log\":\"one\\r\\ntwo\\r\\n\"")
+                .doesNotContain("\r");
+
+        reader.answer =
+                new Build(
+                        Build.FAILURE,
+                        List.of(
+                                new Build.Job(
+                                        "unit",
+                                        "failure",
+                                        "one\rtwo\r".getBytes(StandardCharsets.UTF_8))),
+                        "");
+        out.getBuffer().setLength(0);
+        assertThat(execute("build", "status", "-p", "acme", "--branch=main"))
+                .as("a failed answer with lone carriage returns")
+                .isEqualTo(1);
+        assertThat(out.toString())
+                .as("carriage returns before text or at the end cannot move the cursor")
+                .contains("one\\x0dtwo\\x0d")
+                .doesNotContain("\r");
+    }
+
+    @Test
     void aReaderFailureCannotPrintOrRecordTheToken() throws Exception {
         // Adapter exception text and its causes may echo the credential into failures.log.
         reader.problem =

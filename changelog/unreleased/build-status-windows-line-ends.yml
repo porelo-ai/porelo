@@ -1,0 +1,2 @@
+title: Show Windows line ends as plain lines in build status logs while keeping lone carriage returns escaped.
+type: fixed
