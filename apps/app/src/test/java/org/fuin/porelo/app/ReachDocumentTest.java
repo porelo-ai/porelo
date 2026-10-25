@@ -28,6 +28,17 @@ class ReachDocumentTest {
     }
 
     @Test
+    void statesTheDefaultCpuBoundAndWhatStillReadsTheHost() throws IOException {
+        assertThat(page())
+                .as("an operator must see both the enforced quota and the core-count exposure")
+                .contains(
+                        "**"
+                                + org.fuin.porelo.core.project.Limits.DEFAULT_CPUS
+                                + " CPUs** by default")
+                .contains("`getconf` and `sysconf` still read the host's cores");
+    }
+
+    @Test
     void statesHowMuchOneRequestToTheProviderCanCarry() throws IOException {
         assertThat(page()).contains("up to **" + VaultProxy.BODY_LIMIT / (1024 * 1024) + " MB**");
     }

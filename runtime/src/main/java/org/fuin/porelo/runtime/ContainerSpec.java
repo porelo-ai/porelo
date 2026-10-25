@@ -43,7 +43,8 @@ public class ContainerSpec {
     @org.jspecify.annotations.Nullable
     private String memory = org.fuin.porelo.core.project.Limits.DEFAULT_MEMORY;
 
-    @org.jspecify.annotations.Nullable private String cpus;
+    @org.jspecify.annotations.Nullable
+    private String cpus = org.fuin.porelo.core.project.Limits.DEFAULT_CPUS;
 
     private int pids = org.fuin.porelo.core.project.Limits.DEFAULT_PIDS;
 
@@ -230,6 +231,16 @@ public class ContainerSpec {
         if (cpus != null) {
             arguments.add("--cpus");
             arguments.add(cpus);
+            if (!environment.containsKey("OMP_NUM_THREADS")) {
+                final String threads =
+                        new java.math.BigDecimal(cpus)
+                                .setScale(0, java.math.RoundingMode.DOWN)
+                                .max(java.math.BigDecimal.ONE)
+                                .toPlainString();
+                // Merge against the image's environment; --env would overwrite its own setting.
+                arguments.add("--env-merge");
+                arguments.add("OMP_NUM_THREADS=${OMP_NUM_THREADS:-" + threads + "}");
+            }
         }
         arguments.add("--pids-limit");
         arguments.add(String.valueOf(pids));

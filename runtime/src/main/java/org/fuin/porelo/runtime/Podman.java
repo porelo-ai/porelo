@@ -473,6 +473,32 @@ public class Podman {
                                 project.imageName(),
                                 "--file",
                                 containerfile.toString()));
+        final String cpuLimit = project.limits().cpus();
+        final List<String> prefix = new ArrayList<>();
+        if (cpuLimit != null) {
+            final java.math.BigDecimal cpus = new java.math.BigDecimal(cpuLimit);
+            if (project.limits().memory() != null) {
+                arguments.add("--memory");
+                arguments.add(project.limits().memory());
+            }
+            final int period = 100000;
+            arguments.addAll(
+                    List.of(
+                            "--cpu-period",
+                            String.valueOf(period),
+                            "--cpu-quota",
+                            cpus.multiply(java.math.BigDecimal.valueOf(period))
+                                    .setScale(0, java.math.RoundingMode.DOWN)
+                                    .toPlainString()));
+            final int cores =
+                    cpus.setScale(0, java.math.RoundingMode.CEILING)
+                            .max(java.math.BigDecimal.ONE)
+                            .min(
+                                    java.math.BigDecimal.valueOf(
+                                            Runtime.getRuntime().availableProcessors()))
+                            .intValueExact();
+            prefix.addAll(List.of("taskset", "-c", "0-" + (cores - 1)));
+        }
         if (rebuild == Rebuild.EVERYTHING) {
             arguments.add("--no-cache");
         } else if (rebuild == Rebuild.AGENT) {
@@ -482,7 +508,8 @@ public class Podman {
             arguments.add(Containerfile.LAYER_EPOCH + "=" + java.time.Instant.now().toEpochMilli());
         }
         arguments.add(contextDirectory.toString());
-        return arguments(arguments);
+        prefix.addAll(arguments(arguments));
+        return List.copyOf(prefix);
     }
 
     /**

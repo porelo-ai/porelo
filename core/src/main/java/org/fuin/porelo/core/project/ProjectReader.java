@@ -789,7 +789,7 @@ public final class ProjectReader {
                     memory.isEmpty()
                             ? Limits.DEFAULT_MEMORY
                             : "none".equals(memory) ? null : memory,
-                    cpus.isEmpty() || "none".equals(cpus) ? null : cpus,
+                    cpus.isEmpty() ? Limits.DEFAULT_CPUS : "none".equals(cpus) ? null : cpus,
                     pids == null ? Limits.DEFAULT_PIDS : Integer.parseInt(String.valueOf(pids)),
                     handIn);
         } catch (NumberFormatException ex) {

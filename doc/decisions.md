@@ -6,6 +6,7 @@ would change the answer.
 | Subject | What holds | Link |
 |---|---|---|
 | **Tasks and containers** | | |
+| A task has a CPU quota and may still read the host's cores | accepted: `getconf` and `sysconf` see the host; the quota throttles, and pids and memory remain bounded | [entry](#a-task-has-a-cpu-quota-and-may-still-read-the-hosts-cores) |
 | A task is the container whose id Porelo recorded | never by name or label; a container with no record is acted on by nothing | [entry](#a-task-is-the-container-whose-id-porelo-recorded) |
 | A start at a terminal goes into a running task | as `attach` does; an option of creation is refused by name; a script still gets 65 | [entry](#a-start-at-a-terminal-goes-into-a-running-task) |
 | A host playbook reads Porelo as a contract | `project inventory` with its version, `vault status` by exit code, `--json` answers; the machine file holds a host's keys, and the host installs every agent and starts no task | [entry](#a-host-playbook-reads-porelo-as-a-contract) |
@@ -158,6 +159,18 @@ with 64, naming each, since it would be dropped without a word. Without a termin
 answers "is already running" and 65 as before, so a script never ends in a session; a playbook takes that as "already
 so". `attach` stays the verb that never creates anything. **What would change it:** a start over the daemon that
 should go in too, which has no terminal to go into.
+
+## A task has a CPU quota and may still read the host's cores
+
+A task gets a CPU quota of 4 by default, alongside 8 GB of memory and 2048 processes. The project's `limits.cpus`
+replaces it, and `none` removes it. A fixed CPU count keeps worker pools sized for the fixed memory and process
+bounds on any host. `OMP_NUM_THREADS` makes the limit, rounded down to at least one, visible to `nproc`,
+unless the image or project supplies its own value. **The exposure:** `getconf` and `sysconf` still read the host's
+cores. A tool sizing itself by those two runs more threads than the limit and is throttled by the quota, never
+stopped by it; its pids and memory are still bounded. **Why it stays:** no task is pinned with `taskset` on every
+`start` and `exec`. Each would be bound to named cores, sharing them badly between tasks, and every `exec` would need
+the same pinning. **What would change the answer:** a host that delegates the `cpuset` controller to the account, or
+a pids or memory limit that such a tool reaches before the quota slows it.
 
 ## A task is the container whose id Porelo recorded
 

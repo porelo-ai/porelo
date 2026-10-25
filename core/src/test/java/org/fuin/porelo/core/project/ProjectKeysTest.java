@@ -56,6 +56,9 @@ class ProjectKeysTest {
                                         + " \"guarded\"\nimage:\n  base_image: \"ubuntu:24.04\"\n"),
                         "project.yml");
 
+        assertThat(key("limits", "cpus").defaultValue())
+                .as("an editor must offer the same CPU default the task actually gets")
+                .isEqualTo(read.limits().cpus());
         assertThat(key("limits", "memory").defaultValue()).isEqualTo(Limits.defaults().memory());
         assertThat(key("limits", "pids").defaultValue())
                 .isEqualTo(String.valueOf(Limits.defaults().pids()));

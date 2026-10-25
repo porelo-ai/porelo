@@ -303,9 +303,9 @@ final class ProjectSchema {
                     key(
                             "limits",
                             "cpus",
-                            "The most CPUs a task may use, as podman takes it; unset is no limit.",
+                            "The most CPUs a task may use, as podman takes it; \"none\" opts out.",
                             "string",
-                            "",
+                            Limits.DEFAULT_CPUS,
                             false),
                     key(
                             "limits",

@@ -14,6 +14,72 @@ class ContainerSpecTest {
     }
 
     @Test
+    void boundsCpuAndWorkerPoolsByDefault() {
+        final ContainerSpec specification = new ContainerSpec("box", "ubuntu:24.04");
+        assertThat(specification.toArguments())
+                .as("a large host must not grow a task's worker pools past its memory and pids")
+                .containsSequence("--cpus", "4")
+                .containsSequence("--env-merge", "OMP_NUM_THREADS=${OMP_NUM_THREADS:-4}");
+    }
+
+    @Test
+    void leavesCpuAndWorkerPoolsAloneWhenTheProjectOptsOut() {
+        final ContainerSpec specification =
+                new ContainerSpec("box", "ubuntu:24.04")
+                        .limits(
+                                new Limits.Declared(null, "none", null, null)
+                                        .over(Limits.defaults()));
+        assertThat(specification.toArguments())
+                .as("opting out must remove both the quota and the worker hint")
+                .doesNotContain("--cpus", "--env-merge", "OMP_NUM_THREADS");
+        assertThat(specification.environment())
+                .as("no hidden worker hint")
+                .doesNotContainKey("OMP_NUM_THREADS");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"2.5, 2", "0.5, 1"})
+    void roundsWorkerPoolsDownButAlwaysLeavesOneThread(String cpus, String threads) {
+        final ContainerSpec specification =
+                new ContainerSpec("box", "ubuntu:24.04")
+                        .limits(new Limits("8g", cpus, 2048, Limits.DEFAULT_HAND_IN));
+        assertThat(specification.toArguments())
+                .as("fractional quotas must not round worker pools up or leave zero workers")
+                .containsSequence("--cpus", cpus)
+                .containsSequence(
+                        "--env-merge", "OMP_NUM_THREADS=${OMP_NUM_THREADS:-" + threads + "}");
+    }
+
+    @Test
+    void keepsTheImagesThreadSettingAsTheDefault() {
+        assertThat(arguments())
+                .as("Podman must keep the image's nonempty setting instead of overwriting it")
+                .containsSequence("--env-merge", "OMP_NUM_THREADS=${OMP_NUM_THREADS:-4}")
+                .doesNotContain("OMP_NUM_THREADS=4", "OMP_NUM_THREADS");
+    }
+
+    @Test
+    void keepsTheProjectsThreadSettingRegardlessOfSetterOrder() {
+        for (boolean environmentFirst : List.of(true, false)) {
+            final ContainerSpec specification = new ContainerSpec("box", "ubuntu:24.04");
+            if (environmentFirst) {
+                specification.environment("OMP_NUM_THREADS", "7");
+            }
+            specification.limits(new Limits("8g", "2.5", 2048, Limits.DEFAULT_HAND_IN));
+            if (!environmentFirst) {
+                specification.environment("OMP_NUM_THREADS", "7");
+            }
+            assertThat(specification.toArguments())
+                    .as("the project's explicit hint wins")
+                    .containsSequence("--env", "OMP_NUM_THREADS")
+                    .doesNotContain("--env-merge");
+            assertThat(specification.environment())
+                    .as("names and values come from the same spec")
+                    .containsEntry("OMP_NUM_THREADS", "7");
+        }
+    }
+
+    @Test
     void alwaysDropsPrivileges() {
         assertThat(arguments())
                 .containsSequence("--security-opt", "no-new-privileges")

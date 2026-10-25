@@ -162,6 +162,79 @@ class PodmanTest {
     }
 
     @Test
+    void boundsImageBuildsByDefault(@TempDir Path context) {
+        podman.buildImage(PROJECT, context);
+        assertThat(runner.only("build").arguments())
+                .as("image builds must not exhaust a small host or size pools from a large one")
+                .startsWith(
+                        "taskset",
+                        "-c",
+                        "0-" + (Math.min(4, Runtime.getRuntime().availableProcessors()) - 1),
+                        "podman",
+                        "build")
+                .containsSequence("--memory", "8g")
+                .containsSequence("--cpu-period", "100000", "--cpu-quota", "400000");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+        "2.5, 250000, 3",
+        "0.5, 50000, 1",
+        "999999, 99999900000, 999999"
+    })
+    void usesTheProjectsQuotaAndRoundsAffinityUpToTheHostsCores(
+            String cpus, String quota, int cores, @TempDir Path context) {
+        final Project project =
+                new Project(
+                        "bounded",
+                        "Bounded",
+                        SecurityClass.GUARDED,
+                        "ubuntu:24.04",
+                        null,
+                        null,
+                        new org.fuin.porelo.core.project.Limits(
+                                "2g",
+                                cpus,
+                                512,
+                                org.fuin.porelo.core.project.Limits.DEFAULT_HAND_IN));
+        assertThat(
+                        podman.buildArguments(
+                                project, context, ImageLayers.none(), Podman.Rebuild.CACHED))
+                .as("the quota and affinity must come from the same CPU limit")
+                .startsWith(
+                        "taskset",
+                        "-c",
+                        "0-" + (Math.min(cores, Runtime.getRuntime().availableProcessors()) - 1),
+                        "podman",
+                        "build")
+                .containsSequence("--memory", "2g")
+                .containsSequence("--cpu-period", "100000", "--cpu-quota", quota);
+    }
+
+    @Test
+    void leavesBuildsUnwrappedWhenTheProjectOptsOutOfCpuLimits(@TempDir Path context) {
+        final Project project =
+                new Project(
+                        "unbounded",
+                        "Unbounded",
+                        SecurityClass.GUARDED,
+                        "ubuntu:24.04",
+                        null,
+                        null,
+                        new org.fuin.porelo.core.project.Limits(
+                                "2g",
+                                null,
+                                512,
+                                org.fuin.porelo.core.project.Limits.DEFAULT_HAND_IN));
+        assertThat(
+                        podman.buildArguments(
+                                project, context, ImageLayers.none(), Podman.Rebuild.CACHED))
+                .as("a CPU opt-out removes the build wrapper and build resource flags")
+                .startsWith("podman", "build")
+                .doesNotContain("taskset", "--cpu-period", "--cpu-quota", "--memory");
+    }
+
+    @Test
     void writesTheContainerfileBeforeBuilding(@TempDir Path context) throws Exception {
 
         podman.buildImage(PROJECT, context);

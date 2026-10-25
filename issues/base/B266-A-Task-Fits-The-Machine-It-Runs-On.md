@@ -1,7 +1,6 @@
 # B266 — A Task Fits The Machine It Runs On
 
-**Status:** Estimated. In porelo-project [PJ68](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj68)'s
-block, built before the first host test with real builds in tasks.
+**Status:** Implementing.
 **Size:** M - the task's and the build's podman arguments (`ContainerSpec`, `Podman`), the project file's defaults,
 `doc/project-file.md` and `doc/reach.md`, an acceptance step.
 
@@ -51,23 +50,33 @@ On the Ubuntu VM (`ubuntu26.04`, 6 cores, podman 5.7.0, account `core`), with `u
 ## Plan
 
 1. **A task gets a CPU limit of 4 by default.** `Limits.DEFAULT_CPUS` (`"4"`) joins the memory and pids defaults, so `--cpus` is
-   always written. `limits.cpus: none` still takes it off, and a project's value replaces it.
+   always written. `ProjectReader` also uses it when a limits block names only another key, and `ProjectSchema`
+   advertises the same default to editors.
+   `limits.cpus: none` still takes it off, and a project's value replaces it.
 2. **The limit is made visible**: `ContainerSpec` sets `OMP_NUM_THREADS` to the CPU limit rounded down, at least 1, in
-   every task. `nproc` and what sizes itself by it read the limit; a JVM reads the CPU quota itself (to be checked).
+   every task with a CPU limit. The plain variable uses `--env-merge OMP_NUM_THREADS=${OMP_NUM_THREADS:-N}`
+   so a nonempty image value survives; an explicit project value uses the existing environment map and wins.
+   `nproc` and what sizes itself by it read the limit; a JVM reads the CPU quota itself (to be checked).
    An image or a project that sets `OMP_NUM_THREADS` keeps its value.
 3. **The image build is bounded by the project's limits**: `Podman.buildArguments` writes `--memory` and
    `--cpu-period`/`--cpu-quota` from them. The build runs under `taskset` with as many cores as the limit, since
-   builds take a lock and run one at a time, so no two of them share pinned cores. `RUN make -j$(nproc)` reads the
-   limit.
+   builds of one image take a lock; builds of different images may share pinned cores.
+   The wrapper is part of the full command returned by `buildArguments`, for the terminal and runner alike.
+   Its core count is the CPU limit rounded up, capped at the host's `Runtime.availableProcessors()`,
+   and the quota comes from the same parsed CPU value. With `cpus: none`, neither the wrapper nor these build limits
+   are written. `RUN make -j$(nproc)` reads the limit.
 4. **Open files stay podman's**, as measured. A Fedora reading under *To be checked* may change that.
 5. **`doc/project-file.md`** names the default under `limits`; **`doc/decisions.md`** gains the accepted risk above,
    with its index row; **`doc/reach.md`** gains the row that a task's CPU is
    bounded and what inside it can still read the host's core count (`getconf`). `ReachDocumentTest` holds the number.
 6. **Tests, red first:**
+   - `LimitsTest` and `ProjectReaderTest`: default CPU limits survive an absent or partial limits block;
+     `ProjectKeysTest` checks that the schema offers the same default;
    - `ContainerSpecTest`: the default limits write `--cpus` and `OMP_NUM_THREADS`; `cpus: none` writes neither;
+     fractional limits round the hint down to at least one, and explicit image/project settings win;
    - `PodmanTest`: the build's arguments carry `--memory` and the CPU quota of the project's limits, under `taskset`;
    - an acceptance step: a task with `limits.cpus: 1` reads `nproc` 1, and its image's `RUN nproc` 1.
-7. A changelog line under *Changed*: every task now has a CPU limit.
+7. A changelog line under *Changed*: every task now has a CPU limit of 4 by default.
 
 - **Build estimate=180**, like porelo [B258](README.md#b258) (M), with fewer documents and one acceptance step.
 

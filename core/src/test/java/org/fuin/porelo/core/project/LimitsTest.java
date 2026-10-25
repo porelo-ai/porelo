@@ -18,11 +18,10 @@ class LimitsTest {
     }
 
     @Test
-    void leavesCpuAloneByDefault() {
-
-        // Starving a task of CPU only makes it slow, and a wrong cap here is a support question
-        // rather than a protection.
-        assertThat(Limits.defaults().cpus()).isNull();
+    void capsCpuByDefault() {
+        assertThat(Limits.defaults().cpus())
+                .as("default worker pools fit fixed memory and pids")
+                .isEqualTo("4");
     }
 
     @Test

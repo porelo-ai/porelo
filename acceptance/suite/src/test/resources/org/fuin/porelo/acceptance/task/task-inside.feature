@@ -70,3 +70,23 @@ Feature: Being inside a task, the way a person is
         And I run "exit"
         Then the terminal shows "never reached the gate"
         And a script runs "porelo task remove porelo-accept-shell --force"
+
+    Scenario: a task and its image build size their workers from the CPU limit
+        Given a project called "cpu-bound" of class "offline" whose project file also says:
+            """
+            image:
+              base_image: "ubuntu:24.04"
+              snippet: |
+                RUN nproc > /build-nproc
+            limits:
+              cpus: 1
+            """
+        And a terminal on the machine
+        When I run "porelo task start shell --project cpu-bound --repository cpu-bound --agent stub --attach shell"
+        And I wait for the shell inside the container
+        And I run "printf 'task nproc %s\n' \"$(nproc)\"; printf 'build nproc %s\n' \"$(cat /build-nproc)\""
+        Then the terminal shows "task nproc 1"
+        And the terminal shows "build nproc 1"
+        When I run "exit"
+        Then the terminal shows "ready$"
+        And a script runs "porelo task remove porelo-cpu-bound-shell --force"

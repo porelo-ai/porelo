@@ -18,6 +18,9 @@ public record Limits(@Nullable String memory, @Nullable String cpus, int pids, l
     /** Memory a task gets unless the project says otherwise. */
     public static final String DEFAULT_MEMORY = "8g";
 
+    /** CPUs a task gets unless the project says otherwise. */
+    public static final String DEFAULT_CPUS = "4";
+
     /** Processes a task gets unless the project says otherwise, matching podman's own default. */
     public static final int DEFAULT_PIDS = 2048;
 
@@ -40,7 +43,7 @@ public record Limits(@Nullable String memory, @Nullable String cpus, int pids, l
      * @return Defaults.
      */
     public static Limits defaults() {
-        return new Limits(DEFAULT_MEMORY, null, DEFAULT_PIDS, DEFAULT_HAND_IN);
+        return new Limits(DEFAULT_MEMORY, DEFAULT_CPUS, DEFAULT_PIDS, DEFAULT_HAND_IN);
     }
 
     /**

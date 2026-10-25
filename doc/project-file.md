@@ -125,7 +125,7 @@ egress:
 limits:
   memory: "8g"     # "none" opts out
   pids: 2048       # process count; stops a fork bomb
-  cpus: "2.0"      # unset means no CPU limit
+  cpus: "4"        # "none" opts out
   hand_in: "64m"   # the largest file 'porelo task give' may hand to a running task
 
 # Optional. Whom the project's tasks may write to. Tasks of one project reach each other by task
@@ -192,6 +192,17 @@ parameters:
     required: false
     env: "TASK_TICKET"                           # default PORELO_PARAM_TICKET; none keeps it out
 ```
+
+## Limits
+
+A task gets 8 GB of memory, 2048 processes and 4 CPUs unless its project replaces them. `limits.cpus: none`
+removes the CPU quota and the default thread hint. With a CPU limit, `OMP_NUM_THREADS` defaults to that limit rounded
+down, at least 1, so `nproc` and tools using it size their workers accordingly. A nonempty value set in the image or
+an explicit project value wins. `getconf` and `sysconf` still read the host's cores; the CPU quota throttles the work.
+
+Image builds use the project's memory limit and CPU quota, with CPU affinity rounded up to at most the host's cores
+so `RUN nproc` sees the bound. `limits.cpus: none` leaves the build without these resource flags or affinity;
+`limits.memory: none` removes the memory flag. Open-file limits stay the container runtime's.
 
 ## A repository's own image
 

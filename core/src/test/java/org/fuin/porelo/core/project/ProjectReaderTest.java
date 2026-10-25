@@ -244,6 +244,14 @@ class ProjectReaderTest {
     }
 
     @Test
+    void keepsTheDefaultCpuLimitWhenOnlyOtherLimitsAreDeclared() {
+        final Project project = read(MINIMAL + "\nlimits:\n  memory: 2g\n");
+        assertThat(project.limits().cpus())
+                .as("declaring memory alone must not remove the CPU bound")
+                .isEqualTo("4");
+    }
+
+    @Test
     void fallsBackToTheDefaultLimits() {
 
         // The case that matters: a project file written before limits existed must still be
