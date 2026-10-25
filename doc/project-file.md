@@ -209,8 +209,9 @@ image:
 
 - **Only the image.** Egress, limits, `package_sources`, the class and every other rule stay the project's: a
   repository that could name them would widen what its own tasks may do. Any other key is refused by its name, at the
-  start, before an image is built. A variable Porelo sets in every task (`PATH`, `HOME`, `LANG`, `PORELO_*`) is refused
-  too.
+  start, before an image is built. A variable Porelo sets in every task (`PATH`
+  `/home/agent/.local/bin:/usr/local/bin:/usr/bin:/bin`, `HOME` `/home/agent`, `LANG` `C.UTF-8`, or any `PORELO_*` set
+  per task) is refused too, naming the value and that the line must be removed.
 - **The image sees nothing of the repository:** the snippet runs in Porelo's own build directory, so a `COPY` or `ADD`
   of a repository file finds nothing there. What a repository ships for its tasks is installed at run time, or
   fetched by the snippet against a hash written into it.
@@ -218,7 +219,10 @@ image:
   (`porelo/*`), and a `snippet_file` only as a plain file of the repository, never a link or a path that leaves it. On a
   start that fetches, the mirror's file is read again after the gate's fetch, and a refusal from the mirror waits for
   the fetched file to decide; a start that does not fetch (`--dry-run`, `--no-gate`) refuses on the mirror's file as of
-  its last fetch and says so.
+  its last fetch and says so. When the mirror's `HEAD` names a default branch that does not exist, `task start` refuses
+  after the fetch, naming the branch, the mirror's branches and the fix, rather than starting with the project's image;
+  `project follow` warns with the same words and still follows. Each gate refresh updates the mirror's `HEAD` from the
+  upstream's symbolic `HEAD` once the mirror holds that branch.
 - **The project file can say it as well**, under `repositories.<name>.image`, with the same keys.
 - **A local override** lies in `~/.config/porelo/projects/<project>/<repository>/.porelo.yml`, in the same format,
   never checked in.

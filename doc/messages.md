@@ -22,7 +22,9 @@ What a person writes in the conversation is taken only from somebody who joined 
 project here, a task's own message never back to it; a direct chat reaches only the one task. A person is a peer by
 the name they joined with, watched as the room is (`mail.rules.room`). An agent resting at its prompt is woken when
 a message names it, is said to it directly, or is a person's word to the room that names nobody: one fixed line is
-typed into its terminal, never while it asks a person something. Only an agent that declares both what its screen
+typed into its terminal, never while it asks a person something. A room message that names only a helper account -
+the room's administrator or its relay - reaches no task and wakes none; the relay answers the person once in the room
+instead. Only an agent that declares both what its screen
 shows at rest and what it shows while it asks a person something is typed into: one whose screen cannot tell the two
 apart is never woken, since the line could answer a question nobody sees is open, and finds its messages when it
 looks, as its guide tells it. Unattended work that has ended has no terminal to wake; its messages wait for its next run.

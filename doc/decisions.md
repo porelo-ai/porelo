@@ -638,7 +638,8 @@ after something went wrong, when the project has moved on.
 ## Clearing names what only a person's credentials can remove, and never attempts it
 
 `porelo clear` and `porelo project clear` remove everything this machine holds for a project or the account, in one
-confirmed step. A deploy key made by an earlier version is still forgotten here and named once for a person to
+confirmed step. Porelo makes no deploy keys (`DeployKey` in `Tasks1` is retired and answers `DeployKeyRefused`); a
+deploy key made by an earlier version is still forgotten here and named once for a person to
 remove at the forge. Clearing removes nothing at the forge: that needs the forge's administration right, which the
 person's token for git does not need. This machine's line in a project's `machine-signers` is named too; removing it
 needs the person's signed commit. The vault, the person's keys and the installed packages stay: clearing is not
@@ -672,7 +673,9 @@ are refused and say where a mode is set. Kinds of message in the rules and a bra
 ## A person's words in the room reach every agent, unfiltered
 
 Communication with a project's agents is through messaging. Everything said in the project's conversation reaches
-every task of the project on the machine; `metadata.to` says whom a message is meant for, not who reads it. A
+every task of the project on the machine; `metadata.to` says whom a message is meant for, not who reads it. A room
+message that names only a helper account - the room's administrator or its relay, marked `"helpers": true` by the
+transport - reaches no task and wakes none; the relay answers the person once in the room instead. A
 person's messages are not filtered - only what the agents send is - because the filter guards what leaves a task, and
 a person writing to their own agents is not that. They are taken only from somebody who joined the project's
 conversation, arrive as a `ROLE_USER` message from that person, and are counted and recorded like any arrival. A
@@ -879,9 +882,10 @@ image sets `LANG=C.UTF-8` so tools and the JVM read non-ASCII file names without
 **The exposure:** a repository's snippet runs as root while the image is built, outside the task's firewall, with the
 network an image build has, and is written by the repository's authors rather than only the project's signer. **Why it
 stays:** `porelo.yml` is read only from the mirror's reviewed default branch (never `porelo/*`), the start fetches
-before letting the mirror's file decide, the review ranks `porelo.yml` and `.porelo.yml` as dangerous, and each key's
-source is printed at the start. **What would change the answer:** building the image within the project's egress and
-trusted package sources.
+before letting the mirror's file decide and refuses when the mirror names no existing default branch (while each gate
+refresh updates the mirror's `HEAD` from the upstream's), the review ranks `porelo.yml` and `.porelo.yml` as dangerous,
+and each key's source is printed at the start. **What would change the answer:** building the image within the
+project's egress and trusted package sources.
 
 ## Several attempts share one credential
 
