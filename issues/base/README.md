@@ -111,6 +111,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b287"></a>[B287](B287-Build-Readers-Offered-Where-Agents-Are.md) | - | - | `porelo-setup.sh --list` and the daemon's `Installable` offer build readers, read from a virtual `porelo-build-reader` the reader packages provide, as kind `build-reader` |
 | <a id="b284"></a>[B284](B284-A-Test-Install-On-An-Rpm-Host.md) | - | - | The legs module's `deploy` installs on a Fedora machine, `--account` included, rather than unpacking only the `.deb` with `dpkg-deb`, which Fedora lacks |
 | <a id="b282"></a>[B282](B282-A-Failed-Continuation-Is-Forgotten.md) | - | - | A continuation that fails without naming a session forgets the recorded one, so the next start is fresh and says so |
 | <a id="b283"></a>[B283](B283-A-Retargeted-Symbolic-Link-Ranked-Dangerous.md) | - | - | A change that only retargets an existing symbolic link is ranked dangerous in the review, as a new link is |
