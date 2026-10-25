@@ -1,6 +1,7 @@
 # B100 — A Task Can Be Looked At
 
-**Status:** Estimated.
+**Status:** Idea. The operator's decision: not planned now; the person looks at a task's work through the IntelliJ
+plugin (`porelo-intellij`).
 **Size:** XL - an image layer, a published port Porelo has never made, a credential, [B95](README.md#b95)'s container and the
 interface; splits in three below.
 

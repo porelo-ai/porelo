@@ -1,6 +1,8 @@
 # B95 — A Container To Try Waiting Work In
 
-**Status:** Estimated.
+**Status:** Idea. The operator's decision: the agent builds and tests its work in its own task, and the forge's
+build checks it apart from the agent; the person's review at the gate is a review of the code. Running the same
+build once more in a container of its own is not planned.
 **Size:** XL - a command, a streaming Varlink method, a third kind of container and an IDE; splits in two below.
 
 **What must be true.** A reviewer can run a build or tests against waiting work, and later attach an

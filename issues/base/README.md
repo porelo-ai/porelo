@@ -112,6 +112,8 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b95"></a>[B95](B95-A-Container-To-Try-Waiting-Work-In.md) | - | - | `gate try` and a streaming `Try` in a container without gate or vault; the IDE split into an issue of its own. |
+| <a id="b100"></a>[B100](B100-A-Task-Can-Be-Looked-At.md) | - | - | A VNC view relayed by the daemon from a socket in the task, switched on per project, a strong token before anything reaches the VNC server; splits into task view, image tools and review view. |
 | <a id="b287"></a>[B287](B287-Build-Readers-Offered-Where-Agents-Are.md) | - | - | `porelo-setup.sh --list` and the daemon's `Installable` offer build readers, read from a virtual `porelo-build-reader` the reader packages provide, as kind `build-reader` |
 | <a id="b284"></a>[B284](B284-A-Test-Install-On-An-Rpm-Host.md) | - | - | The legs module's `deploy` installs on a Fedora machine, `--account` included, rather than unpacking only the `.deb` with `dpkg-deb`, which Fedora lacks |
 | <a id="b282"></a>[B282](B282-A-Failed-Continuation-Is-Forgotten.md) | - | - | A continuation that fails without naming a session forgets the recorded one, so the next start is fresh and says so |
@@ -132,7 +134,6 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b184"></a>[B184](B184-Only-What-Porelo-Delivered-Counts-As-A-Message.md) | M | - | A message in the inbox counts only when the account running Porelo owns it (root inside); the host reads the inbox without following links and names a planted file; the guide and the agent kit check the owner. |
 | <a id="b185"></a>[B185](B185-A-Bound-On-What-A-Task-Writes-To-This-Disk.md) | M | - | The daemon measures a task's box and writable layer and pauses it over `limits.disk` (10 GiB), `limits.mailbox` (256 MiB) or under `limits.disk_free` (2 GiB), each settable in `project.yml`, and says how to go on. |
-| <a id="b95"></a>[B95](B95-A-Container-To-Try-Waiting-Work-In.md) | XL | - | `gate try` and a streaming `Try` in a container without gate or vault; the IDE split into an issue of its own. |
 | <a id="b123"></a>[B123](B123-Message-Transports-Behind-A-Published-API.md) | XL | - | `porelo-transport-api` and its contract `Transport1`; splits into the library, the stub, the host client, the Matrix move and the end of the command-line contract. |
 | <a id="b15"></a>[B15](B15-Handing-Artifacts-Between-Tasks.md) | XL | - | Artifacts over the message transport; splits into the design redone, a gate blob threshold, transport verbs, a drop directory, delivery by hand-in, withdrawal. |
 | <a id="b166"></a>[B166](B166-Line-Comments-Sent-Back-To-The-Agent.md) | L | - | Comments as the sixth kind `comment` of the narrowed schema; `Comment`, `Comments`, `ResolveThread` in the gate's contract; a store, delivery at reject, replies. |
@@ -148,7 +149,6 @@ from its side, as *blocked by*.
 | <a id="b136"></a>[B136](B136-An-Approve-Bound-To-What-Was-Reviewed.md) | M | - | `gate review` names the full commit; a plain `gate approve` asks (default no) or refuses with exit 70; the daemon refuses an empty commit; enrolment alike. |
 | <a id="b98"></a>[B98](B98-The-Image-A-Signature-Names.md) | M | - | A warning on a tag-only `base_image`, a followed tag-only project refused until allowed once, the base digest as an image label, a changed digest noted at start, an optional per-project signature policy, the default project pinned. |
 | <a id="b99"></a>[B99](B99-Packages-Signed-And-Checked.md) | L | - | RPMs and the setup script signed in CI with the Debian repository's key, one shared `check-signed` in the release tools, a version pointer, `gpgcheck=1` everywhere from the next joint release. |
-| <a id="b100"></a>[B100](B100-A-Task-Can-Be-Looked-At.md) | XL | - | A VNC view relayed by the daemon from a socket in the task, switched on per project, a strong token before anything reaches the VNC server; splits into task view, image tools and review view. |
 | <a id="b117"></a>[B117](B117-What-Clearing-Leaves-For-A-Person.md) | M | - | The machine records the deploy keys it hands out, so `clear` names them after an unfollow; unreviewed gate refs and unpushed task work are listed before removal. |
 | <a id="b51"></a>[B51](B51-The-Tests-That-Run-Nowhere.md) | M | - | The SELinux tests on the Fedora rented machine, skips that can never apply say where they run, and a report across legs. |
 | <a id="b55"></a>[B55](B55-The-Changelog-Entry-A-Change-Has-To-Bring.md) | L | - | A check that a change brings a changelog entry, proposed to logchange first, else a plugin of our own, bound in `porelo-parent` for every Maven repository and a step of its own in `porelo-frontend`, keeping the old script's three rules. |
