@@ -1,6 +1,6 @@
 # B285 — A Snapshot Deployed To The Local Forge
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - in `porelo-parent` only: one profile, one server in `settings.xml`, the Publish step and one test script;
 the names it reads are already fixed in porelo-project [PJ60](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj60).
 
