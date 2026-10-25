@@ -58,6 +58,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="b279"></a>[B279](B279-A-Windows-Log-Line-Ends-As-A-Line.md) | XS | - | `porelo build status` drops a carriage return right before a newline, so a Windows job log reads as lines; a lone CR stays escaped as `\x0d`, and `--json` keeps the log as given | 0 |
 | <a id="b278"></a>[B278](B278-A-Person-Removed-From-A-Projects-Conversation.md) | M | - | `porelo talk members` lists who has an account in a project's conversation and `porelo talk remove` takes one out - deactivated and out of the room by the transport's new `part` verb, then off the list; the daemon's `RemoveMessageMember` beside `MessageMembers` | 0 |
 | <a id="b272"></a>[B272](B272-A-Sign-In-Is-Renewed-On-The-Host-On-Request.md) | S | - | `porelo vault renew <name>` marks an agent's own sign-in due, so the next task's broker renews it on the host by the path every renewal takes; nothing but its end changes and no token is printed | 0 |
 | <a id="b175"></a>[B175](B175-The-Profile-That-May-Bind-The-Socket.md) | L | `porelo` [B135](README.md#b135) | On an AppArmor machine a task connects only to a socket one of Porelo's binaries bound, by a task profile that refuses any other peer, as the SELinux domain does on SELinux machines. | 0 |
