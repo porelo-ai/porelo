@@ -23,6 +23,15 @@ public record XdgPaths(Path config, Path data, Path state, Path runtime, Path ho
     private static final String APPLICATION = "porelo";
 
     /**
+     * Returns the combined system and account certificate bundle for host git.
+     *
+     * @return The generated PEM file, which need not exist.
+     */
+    public Path gitCaCertificates() {
+        return state.resolve("git-ca-certificates.pem");
+    }
+
+    /**
      * Resolves the paths from the current environment.
      *
      * @return Paths for this user.

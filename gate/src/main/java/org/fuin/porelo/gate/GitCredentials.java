@@ -2,6 +2,8 @@ package org.fuin.porelo.gate;
 
 import java.util.List;
 import java.util.Map;
+import org.fuin.porelo.core.config.XdgPaths;
+import org.fuin.porelo.core.net.GitCertificates;
 
 /**
  * What a git command needs to reach a remote, asked for by URL.
@@ -19,7 +21,36 @@ import java.util.Map;
 public interface GitCredentials {
 
     /** Nothing is lent. What a caller with no vault passes, and what tests use. */
-    GitCredentials NONE = url -> Lease.EMPTY;
+    GitCredentials NONE =
+            url -> withoutCredentials(new GitCertificates(XdgPaths.current())).forUrl(url);
+
+    /**
+     * Applies the account's destination trust while lending no credential.
+     *
+     * @param certificates The account's trust policy.
+     * @return Credential-free leases with the destination's trust.
+     */
+    static GitCredentials withoutCredentials(final GitCertificates certificates) {
+        return url -> {
+            final Map<String, String> environment = certificates.environment(url);
+            return new Lease() {
+                @Override
+                public Map<String, String> environment() {
+                    return environment;
+                }
+
+                @Override
+                public List<String> arguments() {
+                    return List.of();
+                }
+
+                @Override
+                public void close() {
+                    // No credential needs to be returned.
+                }
+            };
+        };
+    }
 
     /**
      * Lends what this URL needs, for as long as the lease is open.

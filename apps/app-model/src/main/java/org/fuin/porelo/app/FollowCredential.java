@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import org.fuin.porelo.core.credential.Credential;
 import org.fuin.porelo.core.credential.CredentialRegistry;
+import org.fuin.porelo.core.net.GitCertificates;
 import org.fuin.porelo.vault.SshAgentServer;
 import org.fuin.porelo.vault.VaultException;
 import org.jspecify.annotations.Nullable;
@@ -84,16 +85,13 @@ public final class FollowCredential implements AutoCloseable {
     }
 
     /**
-     * Gives a destination its policy and lends nothing.
+     * Lends nothing and records whether the vault is shut.
      *
-     * @param context The machine.
-     * @param url The destination.
      * @param vaultShut Whether the vault exists and is shut.
      * @return The lease.
      */
-    private static FollowCredential nothingLent(
-            final PoreloContext context, final String url, final boolean vaultShut) {
-        return new FollowCredential(policyFor(context, url), null, null, vaultShut, false);
+    private static FollowCredential nothingLent(final boolean vaultShut) {
+        return new FollowCredential(Map.of(), null, null, vaultShut, false);
     }
 
     /**
@@ -176,7 +174,24 @@ public final class FollowCredential implements AutoCloseable {
             final String label,
             final String purpose,
             final @Nullable Credential offered) {
+        final Map<String, String> policy = policyFor(context, url);
+        final FollowCredential credential = credentialFor(context, url, label, purpose, offered);
+        final Map<String, String> environment = new java.util.LinkedHashMap<>(policy);
+        environment.putAll(credential.environment);
+        return new FollowCredential(
+                Map.copyOf(environment),
+                credential.agent,
+                credential.socket,
+                credential.vaultShut,
+                credential.lending);
+    }
 
+    private static FollowCredential credentialFor(
+            final PoreloContext context,
+            final String url,
+            final String label,
+            final String purpose,
+            final @Nullable Credential offered) {
         if (offered != null) {
             return lend(context, offered, label);
         }
@@ -197,7 +212,7 @@ public final class FollowCredential implements AutoCloseable {
         // this command; the daemon has none and waits as before.
         context.openIfShut(true, false, STDERR);
         if (context.vault().exists() && context.opener().isEmpty()) {
-            return nothingLent(context, url, true);
+            return nothingLent(true);
         }
         final Map<String, org.fuin.porelo.vault.VaultEntry> held =
                 context.readableCredentials().orElseGet(Map::of);
@@ -217,7 +232,7 @@ public final class FollowCredential implements AutoCloseable {
                         label);
             }
         }
-        return nothingLent(context, url, false);
+        return nothingLent(false);
     }
 
     /**
@@ -359,7 +374,7 @@ public final class FollowCredential implements AutoCloseable {
     /**
      * Returns what to add to git's environment.
      *
-     * @return The variables, empty when there is no key to lend.
+     * @return The destination's policy and any lent credential's variables.
      */
     Map<String, String> environment() {
         final Map<String, String> copy = new java.util.LinkedHashMap<>(environment);
@@ -375,10 +390,8 @@ public final class FollowCredential implements AutoCloseable {
      * @return The variables.
      */
     Map<String, String> environmentFor(final PoreloContext context, final String url) {
-        final Map<String, String> copy =
-                new java.util.LinkedHashMap<>(FollowCredential.policyFor(context, url));
-        copy.putAll(environment());
-        return Map.copyOf(copy);
+        // Every lease comes from open(), which already put this destination's policy in.
+        return environment();
     }
 
     /**
@@ -462,12 +475,12 @@ public final class FollowCredential implements AutoCloseable {
      *
      * @param context The machine.
      * @param url Where git is about to connect.
-     * @return The variables, empty when the URL needs no ssh.
+     * @return The destination's SSH or TLS policy.
      */
     static Map<String, String> policyFor(final PoreloContext context, final String url) {
         return GitCredentialNames.kindOf(url) == GitCredentialNames.Kind.KEY
                 ? Map.of("GIT_SSH_COMMAND", sshCommand(context, null))
-                : Map.of();
+                : new GitCertificates(context.paths().xdg()).environment(url);
     }
 
     /**

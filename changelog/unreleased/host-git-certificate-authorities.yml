@@ -1,0 +1,2 @@
+title: Host git commands trust the account's certificate authorities alongside the system roots for HTTPS upstreams
+type: fixed

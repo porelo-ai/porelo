@@ -11,6 +11,7 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Collection;
+import java.util.List;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
@@ -80,16 +81,7 @@ public final class TrustedCertificates {
             if (!Files.isRegularFile(file)) {
                 return SSLContext.getDefault();
             }
-            final Collection<? extends Certificate> added;
-            try (InputStream in = Files.newInputStream(file)) {
-                added = CertificateFactory.getInstance("X.509").generateCertificates(in);
-            }
-            if (added.isEmpty()) {
-                throw new IllegalStateException(
-                        file
-                                + " holds no certificate; put the authority's PEM certificate"
-                                + " there, or remove the file");
-            }
+            final List<Certificate> added = read(file);
             final KeyStore store = KeyStore.getInstance(KeyStore.getDefaultType());
             store.load(null, null);
             int n = 0;
@@ -105,6 +97,29 @@ public final class TrustedCertificates {
             final SSLContext context = SSLContext.getInstance("TLS");
             context.init(null, factory.getTrustManagers(), null);
             return context;
+        } catch (IOException | GeneralSecurityException ex) {
+            throw new IllegalStateException(
+                    "cannot read the certificates in " + file + ": " + ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * Reads certificates, refusing an empty or malformed authority file.
+     *
+     * @param file The certificate file.
+     * @return The certificates.
+     */
+    public static List<Certificate> read(final Path file) {
+        try (InputStream in = Files.newInputStream(file)) {
+            final Collection<? extends Certificate> certificates =
+                    CertificateFactory.getInstance("X.509").generateCertificates(in);
+            if (certificates.isEmpty()) {
+                throw new IllegalStateException(
+                        file
+                                + " holds no certificate; put the authority's PEM certificate"
+                                + " there, or remove the file");
+            }
+            return List.copyOf(certificates);
         } catch (IOException | GeneralSecurityException ex) {
             throw new IllegalStateException(
                     "cannot read the certificates in " + file + ": " + ex.getMessage(), ex);

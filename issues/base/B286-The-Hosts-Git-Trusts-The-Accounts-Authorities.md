@@ -1,6 +1,6 @@
 # B286 — The Host's Git Trusts The Account's Authorities
 
-**Status:** Implementing.
+**Status:** Implementing; built, the whole reactor and the documents green on the host.
 **Size:** S - one place in `app-model` that every host-side git environment comes from, a bundle file of Porelo's own,
 and its tests; no contract another repository reads.
 
@@ -31,4 +31,4 @@ authority is reached, and GitHub still is.
 - The red-first test fails on today's code and passes after; with no account file the same git is still refused.
 - The bundle holds every certificate of the system bundle and of the account's file, counted from the files.
 - A lent token, a lent key and nothing lent each carry the variable for an https URL; an ssh URL carries none.
-- On the VM, a project following an https upstream signed by a test authority fetches and the gate pushes to it.
+- The acceptance suite on the VM stays green with the change; reaching the real forge is porelo-host's sprint 5 run.

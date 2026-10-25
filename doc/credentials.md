@@ -362,7 +362,7 @@ porelo credentials check git@github.com:acme/x.git    # what would be used, and 
 ## An authority of your own
 
 Porelo checks every TLS connection it makes against the certificate authorities it was built with: to a model
-provider, to a service a credential buys its token from, to a forge. An organisation that inspects TLS on its way out
+provider, to a service a credential buys its token from, to a forge. An organization that inspects TLS on its way out
 signs with an authority of its own, and a provider on your own machine may carry a certificate no public authority
 signed. Put that authority's certificate, in PEM, in
 
@@ -373,6 +373,13 @@ signed. Put that authority's certificate, in PEM, in
 and Porelo's clients on the host trust it beside the built-in ones; several certificates may follow one another in
 the file. This includes a task's broker on the host. Porelo never copies this file into a task. A file that holds
 no certificate is an error that names it, never ignored.
+
+The host's git commands trust this file too, including following a project and the gate's push of approved work.
+For an HTTPS destination, Porelo combines the system's roots with these certificates in an owner-only bundle under
+its state directory and gives git the bundle through `GIT_SSL_CAINFO`, whether or not a credential is lent.
+The system bundle is `/etc/ssl/certs/ca-certificates.crt` on Debian and Ubuntu, or
+`/etc/pki/tls/certs/ca-bundle.crt` on Fedora. If the account's file exists but neither system bundle is available,
+the command refuses and names the paths it checked. Without the account's file, git keeps its existing trust.
 
 To let a task trust the host's own authority, put only that authority's public certificates, in PEM, in a separate
 file owned by your account:
