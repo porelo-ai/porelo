@@ -58,6 +58,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="b280"></a>[B280](B280-A-Test-Leaves-No-Key-In-The-Kernel-Keyring.md) | S | - | A run of porelo's tests leaves no `porelo:vault:` key in the account's kernel keyring: a JUnit extension invalidates and fails on a key a test left, and the leaking tests forget theirs | 0 |
 | <a id="b279"></a>[B279](B279-A-Windows-Log-Line-Ends-As-A-Line.md) | XS | - | `porelo build status` drops a carriage return right before a newline, so a Windows job log reads as lines; a lone CR stays escaped as `\x0d`, and `--json` keeps the log as given | 0 |
 | <a id="b278"></a>[B278](B278-A-Person-Removed-From-A-Projects-Conversation.md) | M | - | `porelo talk members` lists who has an account in a project's conversation and `porelo talk remove` takes one out - deactivated and out of the room by the transport's new `part` verb, then off the list; the daemon's `RemoveMessageMember` beside `MessageMembers` | 0 |
 | <a id="b272"></a>[B272](B272-A-Sign-In-Is-Renewed-On-The-Host-On-Request.md) | S | - | `porelo vault renew <name>` marks an agent's own sign-in due, so the next task's broker renews it on the host by the path every renewal takes; nothing but its end changes and no token is printed | 0 |
