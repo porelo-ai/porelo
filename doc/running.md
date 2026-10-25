@@ -78,7 +78,8 @@ It registers podman's hooks, starts the daemon and creates the vault (see
 ## The daemon
 
 `porelod` serves what the CLI does over an owner-only unix socket, so an interface on this machine, or on
-another one through ssh, can use it. **Nothing in the CLI needs it running.**
+another one through ssh, can use it. **Nothing in the CLI needs it running**, except `porelo daemon connect`, which
+only forwards to it.
 
 ```
 porelod --help        # says what it is
