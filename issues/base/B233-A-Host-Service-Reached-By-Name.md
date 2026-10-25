@@ -1,6 +1,6 @@
 # B233 — A Host Service Reached By Name
 
-**Status:** Implementing.
+**Status:** Review: published since `0.5.1~snapshot.329`; green on the VM in its acceptance suite, but for its two host-service scenarios, which need a listener on port 443 that only root can open.
 **Size:** M - the design is settled; `core`, `shield` and `app-base` carry it, with docs and an acceptance scenario; porelo-host's [HO08](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho08) builds on it.
 
 **What must be true.** A task reaches a service on its own host, such as a forge or a registry, by a name the project

@@ -16,13 +16,7 @@ is not counted.
 **Blocked by** names the issue that has to land first. An issue in another repository that waits for a row here says so
 from its side, as *blocked by*.
 
-## Rework
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="b238"></a>[B238](B238-An-Unfollow-Leaves-Nothing-Of-The-Project.md) | XS | - | `project unfollow` removes the project's build lock and upstream copies, which `porelo prune` finds left over today |
-
-## Implementing
+## Review
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
@@ -32,6 +26,12 @@ from its side, as *blocked by*.
 | <a id="b266"></a>[B266](B266-A-Task-Fits-The-Machine-It-Runs-On.md) | M | - | A task container and an image build are bounded on any host: a default CPU limit that `nproc` inside reads (`OMP_NUM_THREADS`), the project's limits on the build; open files measured high enough; porelo's part of porelo-project [PJ68](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj68) |
 | <a id="b233"></a>[B233](B233-A-Host-Service-Reached-By-Name.md) | M | - | `egress.host_services` maps declared names to the gate address and opens TCP 443 on it in every class, offline included |
 | <a id="b234"></a>[B234](B234-The-Hosts-Authority-In-A-Tasks-Trust-Store.md) | M | - | A separate owner-only task authority is copied read-only into each task and applied to the system and Node trust stores |
+
+## Rework
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="b238"></a>[B238](B238-An-Unfollow-Leaves-Nothing-Of-The-Project.md) | XS | - | `project unfollow` removes the project's build lock and upstream copies, which `porelo prune` finds left over today |
 
 ## Backlog
 

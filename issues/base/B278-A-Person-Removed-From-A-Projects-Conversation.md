@@ -1,6 +1,6 @@
 # B278 — A Person Removed From A Project's Conversation
 
-**Status:** Implementing.
+**Status:** Review: published since `0.5.1~snapshot.329`; green on the VM in its acceptance suite.
 **Size:** M - a new lifecycle verb in the transport contract, two `talk`
 commands, a daemon method and error, their tests and the contract's and the commands' pages.
 

@@ -1,6 +1,6 @@
 # B234 — The Host's Authority In A Task's Trust Store
 
-**Status:** Implementing.
+**Status:** Review: published since `0.5.1~snapshot.329`; green on the VM in its acceptance suite.
 **Size:** M - `runtime` (`ContainerSpec`), `app-base` (`TaskRunner`, `TaskCertificates`, `PoreloPaths`),
 `app-model` (`TaskState`), `app-task` (`TaskControl`, `TaskLaunch`), docs and an acceptance scenario.
 

@@ -1,6 +1,6 @@
 # B266 — A Task Fits The Machine It Runs On
 
-**Status:** Implementing.
+**Status:** Review: published since `0.5.1~snapshot.329`; green in the Build's Ubuntu and Fedora legs and on both VMs.
 **Size:** M - the task's and the build's podman arguments (`ContainerSpec`, `Podman`), the project file's defaults,
 `doc/project-file.md` and `doc/reach.md`, an acceptance step.
 
