@@ -14,10 +14,10 @@ instead of the person removing it by hand.
 
 ## The shape proposed
 
-A forge event is only the trigger: the forge's own webhook, routed by porelo-host [HO28](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho28) to the daemon of the
-account the task belongs to, tells Porelo that a task's pull request was merged. **Porelo decides** (the operator's decision): it reads the merge on the forge
-itself and starts the removal only if its own rules hold. The forge decides nothing; a report too many changes nothing,
-since Porelo checks it against what it reads.
+Porelo reads it itself: the daemon asks the forge about its own tasks, as it follows their builds today, so it
+works with any forge it reaches, on this machine or not, and needs no way back to it (the operator's decision).
+It sees that a person merged the task's pull request. **Porelo decides** and acts only if its own rules hold. A report from the forge, where the forge can reach
+Porelo (porelo-host [HO28](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho28)), only makes it quicker and changes nothing of this.
 
 ## Why
 

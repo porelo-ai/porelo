@@ -20,10 +20,10 @@ them). Starting the task that merges the central changes only waits on the refus
 
 ## The shape proposed
 
-A forge event is only the trigger: the forge's own webhook, routed by porelo-host [HO28](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho28) to the daemon of the
-account the task belongs to, tells Porelo that the gathered push of a repository was refused (the push reports it itself, as it runs on the host). **Porelo decides** (the operator's decision): it reads the refusal and the forge's `central/main`
-itself and starts the merge task only if its own rules hold. The forge decides nothing; a report too many changes nothing,
-since Porelo checks it against what it reads.
+Porelo reads it itself: the daemon asks the forge about its own tasks, as it follows their builds today, so it
+works with any forge it reaches, on this machine or not, and needs no way back to it (the operator's decision).
+It sees the gathered push refused, since the push runs on its host, and reads the forge's `central/main`. **Porelo decides** and acts only if its own rules hold. A report from the forge, where the forge can reach
+Porelo (porelo-host [HO28](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho28)), only makes it quicker and changes nothing of this.
 
 ## To be checked
 

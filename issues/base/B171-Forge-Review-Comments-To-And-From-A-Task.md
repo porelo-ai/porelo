@@ -22,7 +22,8 @@ same checks.
 - **In (way C):** the adapter fetches comments and delivers them into the task's inbox as [B166](README.md#b166)'s messages, as build
   results are delivered today, after the sluice as an inbound filter. **Only accounts on the project's list** - the
   maintainers, named in the project file - are delivered; comments of other accounts are held and shown to the person,
-  who may release single ones. The agent is woken by their arrival as for any message, as in
+  who may release single ones. Porelo fetches them by asking the forge, as it follows the task's builds; the agent is woken by
+  their arrival as for any message, as in
   [B166](README.md#b166)'s way A, without the person starting it again (the operator's decision).
 - **Out (way B on the forge):** a reply passes the sluice, the anchor check, the size limit and the rate limits - at
   most 10 comments a task an hour and 60 a project an hour - and is **released
