@@ -73,3 +73,5 @@ additions. `InboundCheck` filters external peer messages; forge input needs its 
   porelo-adapters [GH02](https://github.com/porelo-ai/porelo-adapters/blob/main/issues/README.md#gh02).
 - Measure watch, queue and mapping recovery across daemon restarts, task removal and PR head movement; settle burst
   and state-mutation budgets before enabling writes.
+- Keep forge HTTP calls in `porelo-forge-clients` rather than in `porelo-adapters`, and align the contract review
+  cases and the Forgejo review adapter in `porelo-adapters` with that boundary.

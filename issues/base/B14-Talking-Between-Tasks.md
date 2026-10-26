@@ -89,3 +89,6 @@ The split, each an issue of its own when it is started:
 
 - **Whether a confirmed key is the account's or the project's** The account's `allowed_signers` is
   per machine and survives the project; a key in the project repository is signed and travels to every machine.
+- **Where the latency of a direct message from a person to a task goes** Read the transport's and the daemon's
+  journal lines for one direct person-to-task delivery to see where the three-second delay is spent and whether a
+  small change removes it.

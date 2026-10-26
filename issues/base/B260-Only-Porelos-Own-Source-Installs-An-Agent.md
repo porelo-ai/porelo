@@ -44,3 +44,8 @@ and 44, and it reads versions and summaries wrong.
 Red first against the reviewers' cases: a foreign source with the same version earlier; a foreign source with a
 higher version or priority; a pinned or phased version header; several base URLs, a metalink and a mirrorlist; a
 look-alike address on both families; dnf5's output without newlines.
+
+## To be checked
+
+- Verify the chosen `apt` and `dnf` source-binding mechanism in `ubuntu:26.04` and `fedora:44` containers against
+  every bypass found in the earlier candidate-parsing attempt.

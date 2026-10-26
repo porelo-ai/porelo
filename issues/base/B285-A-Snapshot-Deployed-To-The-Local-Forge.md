@@ -33,3 +33,8 @@ the parent inherits that profile, so its own deploy step needs nothing but the s
 - The parent itself deployed under `forge-release` to a `file://` registry: one pom, no signature.
 - The GitHub Build after the push publishes the snapshot to Sonatype as before, with
   `vars.PORELO_DEPLOY_PROFILE=central-sonatype-release`.
+
+## To be checked
+
+- Deploy `porelo-parent`'s snapshot to the rented forge's Maven registry under `forge-release` once the forge is
+  up, and verify that downstream builds resolve it from `porelo-forge`.

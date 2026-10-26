@@ -57,3 +57,5 @@ Steps, after [MX12](https://github.com/porelo-ai/porelo-message-matrix/blob/main
 - What `setup` answers to key the account entry by - its homeserver, as the transport spells it, is the leaning
   (Agent Core's, with porelo-message-matrix's agent).
 - Whether the kit can lease two machines into one scenario, or the two-machine walk stays by hand (Agent Core's).
+- Confirm that `TransportLifecycle` keeps a task's password from `enroll`'s `secrets` in
+  `transport/<scheme>/task/<task>` and hands it back to `retire` on a central homeserver.

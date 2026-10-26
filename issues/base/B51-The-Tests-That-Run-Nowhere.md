@@ -93,3 +93,5 @@ Steps, in order:
 
 - **Where the report across legs lives** (Agent Core's): in this repository's workflow, or as a command of
   `porelo-release` that the agent repositories could run too.
+- **Whether the snapshot workflow (`machines.yml`) has completed a real dispatched run** The Fedora leg runs the
+  SELinux-dependent unit tests in the checkout pre-compiled by the snapshot workflow.

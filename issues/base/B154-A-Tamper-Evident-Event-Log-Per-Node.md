@@ -73,3 +73,6 @@ Steps:
   (Agent Core's).
 - How the copy is sent off the machine - syslog over TLS, or an https endpoint - and whether a send that failed is
   retried from the log's position (Agent Core's).
+- Weigh an S3 Object Lock bucket written with a key that cannot delete, as in porelo-project
+  [PJ45](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj45), beside syslog over TLS and
+  an HTTPS endpoint for the copy sent off the machine.
