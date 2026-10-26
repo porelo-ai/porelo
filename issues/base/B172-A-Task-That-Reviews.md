@@ -1,63 +1,63 @@
-# B172 — A Task That Reviews
+# [B172](README.md#b172) — A Task That Reviews
 
-**Status:** Estimated; blocked by porelo [B166](README.md#b166).
-**Size:** M - a role in the task's record, the gate's per-task server read-only for it, [B166](README.md#b166)'s origin, a start option,
-docs and an acceptance step; no contract beyond [B166](README.md#b166)'s.
+**Status:** Analyzed.
+**Blocked by:** [B166](README.md#b166), [B291](README.md#b291), [B292](README.md#b292), [B293](README.md#b293), porelo-message-sluice [SL24](https://github.com/porelo-ai/porelo-message-sluice/blob/main/issues/README.md#sl24).
+**Blocks:** [B288](README.md#b288), porelo-project [PJ67](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj67).
+**Size:** M - one task role across profile, launch, git server and message handling, using the shared review contract, plus daemon fields and acceptance.
 
-**What must be true.** A task can start in the role reviewer (way D). It receives what it reviews through its
-repository, read-only, and writes comments - into the local review and, optionally, on a forge's pull request through
-[B171](README.md#b171). It has no approve, no reject and no push on what it reviews.
-
-## Why
-
-An agent that reviews another's work, or a person's, is useful before a person looks; the two stay apart only if the
-reviewer can write nothing but comments. [B166](README.md#b166)'s model gives it a place to write them, and the gate already holds what
-it reviews.
-
-## The shape
-
-- `porelo task start --role reviewer` with what to review: waiting work, a branch, or a pull request's head.
-- A reviewer reviews only other tasks of its own project: never its own work, never another project's.
-- The gate puts those commits into the task's mirror, read-only. The task's pushes are refused.
-- Its comments appear in the review beside the person's, marked with their origin (task and role), through [B166](README.md#b166)'s
-  checks; on a forge, through [B171](README.md#b171)'s release.
-- Gate operations - approve, reject, push - are refused to a reviewer task, by role, on the host.
-- A reviewer task ends by itself once its comments are delivered; nobody has to accept or remove it (the
-  operator's decision).
+**What must be true.** A reviewer task receives another task's work read-only and submits only SARIF comments and
+findings. It cannot push, approve, reject, suppress or resolve findings, and its check is the same reviewer role used
+for check rounds, never a person's approval.
 
 ## Plan
 
-A task reaches the gate only through its own git server (`gate/.../GitHttpServer.java`), which serves `upload-pack`
-with every other task's incoming ref hidden (`hidingOthers`) and takes a push to the task's own ref only. Approve and
-reject are the person's, through the CLI and the daemon, which a task has no way to call. So the role changes what
-that server shows and takes, and what origin the host gives its comments.
+`TaskProfile` version 5 records mode, agent, provider and model but no role or reviewed target. `GateWiring` gives a
+per-task `GitHttpServer` its one writable ref; `hidingOthers` hides other incoming refs. `MailboxGuide` has no review
+submission format. No task can call the owner's daemon approval methods merely by having a role.
 
-1. **Red first:** a test in `gate` that a server made for a reviewer answers a `receive-pack` with a refusal in git's
-   own protocol, and shows the reviewed ref in its advertisement.
-2. **The role in the task's record:** `wire/.../TaskProfile.java` gains `role` (`developer` by default, `reviewer`),
-   with a version bump as for the provider; `porelo task status` and `task list` show it.
-3. **The start:** `--role reviewer --review <pending name>` (or `--review-branch <branch>`) in the start options,
-   checked by `StartCheck`: the pending push must exist in the same project and be another task's; one of another
-   project is refused as not found, naming no other project. The pull request's head is [B171](README.md#b171)'s step
-   and comes with it.
-4. **The gate:** `GateWiring` makes the task's server with the reviewed ref unhidden and `receive-pack` refused
-   whatever the ref; the task's clone checks out the reviewed commit. The workspace setup gives no push URL.
-5. **The comments:** [B166](README.md#b166)'s dispatch of `to: review` sets the origin from the record (`agent`, the task, `reviewer`)
-   and accepts a thread on the reviewed push only; the guide (`MailboxGuide`) tells a reviewer it can write comments
-   and nothing else.
-6. **Docs:** `doc/commands.md` says the role and what it cannot do.
-7. **Acceptance:** a scenario in `acceptance/suite/.../gate/gate-review.feature`: a stub developer task pushes, a
-   stub reviewer task fetches the work, its comment shows in `gate comments` as the reviewer's, and its push is
-   refused.
+1. Red first: a `GitGateTest` server fixture for a reviewer advertises its authorized reviewed ref but refuses every
+   `receive-pack` request, both service discovery and RPC, including the reviewer's own ref.
+2. Add `developer`/`reviewer` role and exact reviewed project, repository, head/base and task identity to the next
+   `TaskProfile` version; preserve older profiles as developers. Add role/target to task status/list and the task
+   contract in `15-task.varlink`, with `InterfaceDescriptionTest` checking the contract.
+3. `TaskRunCommand`, `StartCheck`, `TaskLaunch` and `WorkspaceSetup` accept `--role reviewer --review <name>` or a
+   pinned review branch. Refuse own work or another project's target before starting, without disclosing that
+   project's data. A PR target is resolved through [B171](README.md#b171)'s authenticated mapping when available.
+   The clone checks out the exact target; it receives no push URL. Do not execute the reviewed repository's code.
+4. `GateWiring` configures upload-only access to the pinned target and keeps all other private refs hidden. Enforce
+   the role on the host and every message mutation endpoint; an agent's own read-only mode is supplementary. Apply
+   [B293](README.md#b293)'s input restrictions to the reviewer, whose producer remains A. Provider access is brokered
+   for reading/reviewing and is not permission to run untrusted builds or pass credentials into them.
+5. Through [B166](README.md#b166) and
+   porelo-message-sluice [SL24](https://github.com/porelo-ai/porelo-message-sluice/blob/main/issues/README.md#sl24), accept `to: review` data
+   only for this target. The host stamps producer, role, round and exact revision; findings use explicit rule/level,
+   comments `review/none`. Refuse native IDs, origin claims, resolution, suppression, baseline and verdict authority.
+   A suggestions wait for human release and stay within the profile's one-replacement rule.
+6. `MailboxGuide` describes SARIF review submission as untrusted data, separate from instructions. For repeated
+   checks, only the daemon compares compatible complete runs and computes baselines; missing results never clear a
+   finding. An empty or partial check cannot satisfy approval, including the two people required for E0/C3.
+7. End the reviewer after its output has been durably accepted, without a separate accept/remove step or another
+   reviewer start. Keep its review evidence after cleanup. Update `doc/commands.md` and `doc/messages.md`. The check
+   task in porelo-project [PJ67](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj67) uses this same role.
 
 ## Acceptance
 
-- Seen to fail first, then green: a reviewer task reads the waiting work, its comment shows in the review as the
-  reviewer's, and its push and an approve in its name are refused.
-- A reviewer started on another project's waiting work is refused before it starts.
-- `doc/commands.md` says the role.
+- In `gate-review.feature`, a stub developer pushes, a stub reviewer reads the pinned commit and submits a finding
+  carrying host-stamped A/reviewer origin. Every push, other-task thread mutation and attempted resolution is refused.
+- Seen red first: a reviewer can see another hidden ref, submit forged clean state or apply an unreleased fix. A
+  partial or empty run leaves gate holds intact. E0/C3 checks do not count as human approvals.
+- Cross-project/self-review starts fail before launch. The reviewer ends after durable delivery, preserving findings
+  and without an echo loop or a second reviewer. Status and daemon show the same role and target.
 
 ## To be checked
 
-- What "an approve in its name" in the acceptance means when no task can call approve: a test that the task's
-  channels carry none, or nothing to test (Agent Core's).
+- Determine how a pinned ref remains readable through reject/rework and reviewer cleanup; align pins and retention
+  with [B166](README.md#b166) and [B176](README.md#b176).
+- Verify that every task-accessible Git and message endpoint enforces the role. Test the absence of approval
+  authority through these channels; do not invent a task-callable approve method for a test.
+- A reviewer delivers its review the way every task does, by writing into its outbox and renaming the file there,
+  which needs a shell; no agent's built-in tools rename. Its read-only mode is therefore "no edit tools" and not a
+  guarantee: the guarantees are the host's (no push URL, upload-only gate access, `to: review` accepted only for the
+  pinned target). Since a shell can run the reviewed code, check that a reviewer of E0 or C3 work runs as
+  [B95](README.md#b95)'s container does for that level - no secrets and egress only to its provider - and say so in
+  `doc/reach.md`.

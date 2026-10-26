@@ -1,12 +1,25 @@
-# B283 — A Retargeted Symbolic Link Ranked Dangerous
+# [B283](README.md#b283) — A Retargeted Symbolic Link Ranked Dangerous
 
-**Status:** Idea, filed on the operator's word.
+**Status:** Idea.
 
-**What must be true.** A change that points an existing symbolic link somewhere else is ranked dangerous in the review,
-as a new symbolic link is, and is never filed as generated or reformatting.
+**What must be true.** Creating, retargeting, replacing or removing a symbolic link is always ranked dangerous,
+never generated or reformatting. The same mode evidence feeds C3 classification, with no link traversal or actionable
+suggestion targeting a link.
 
-## Why
+## Proposed
 
-`ReviewRanking.danger` ranks a symbolic link dangerous only when it is new (mode `120000` now, another mode before). A
-commit that changes only an existing link's target keeps mode `120000` on both sides and is ranked ordinary or
-reformatting, though a link's target decides what a later reader or build follows.
+- Blocked by: none.
+- Blocks: [B293](README.md#b293).
+- `ReviewRanking.danger` recognizes only a new mode `120000` whose old mode differs. Treat a changed entry with
+  `120000` on either side as dangerous before path, generated or whitespace classification. `GitGate.rankedReview`
+  already supplies both modes from NUL-delimited raw changes and treats renames as removal/addition.
+- Cover new and retargeted links, link-to-file and file-to-link changes, removal and rename, including targets that
+  look like generated or whitespace-only text. Read the target blob only as data; never follow it.
+- [B293](README.md#b293) consumes this evidence for C3 and emits the daemon-owned SARIF mode diagnostic. Its two-person
+  approval and isolated execution requirements are enforced by [B145](README.md#b145) and [B95](README.md#b95).
+  The profile forbids traversal and link-targeted fixes; a diagnostic does not authorize reading the target.
+
+## To be checked
+
+- Reproduce the misranking with `ReviewRankingTest` and a real two-commit `GitGateTest` fixture; verify both modes
+  reach the predicate for deletion, type change and rename. Keep the full policy/projection work in its own issue.

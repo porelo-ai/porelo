@@ -1,31 +1,40 @@
-# B289 — A Task Removed When Its Pull Request Is Merged
+# [B289](README.md#b289) — A Task Removed When Its Pull Request Is Merged
 
 **Status:** Idea.
 
-**What must be true.** A project can say that a task ends by itself once the person has merged its pull request on the
-forge: the host sees the merge, as it reads the task's builds, and removes the task as `porelo task remove` would,
-instead of the person removing it by hand.
+**What must be true.** An enabled project ends and removes a task after an authorized person merges its exact
+reviewed PR head, only when no unmerged work or pending review operation can be lost. The daemon verifies the merge
+from authenticated forge state and explains every hold or removal.
 
-- Only a merge of the task's own branch by a person counts; a closed pull request, a red build or a new push does not.
-- What the task holds that is not merged (commits after the merged one, files in its workspace) stops the removal, and
-  the person is told why.
-- The person sees that the task was removed and by what (the project's setting).
-- Off unless the project's file says so.
+## Proposed
 
-## The shape proposed
+- Blocked by: [B171](README.md#b171), [B176](README.md#b176), [B293](README.md#b293).
+- Blocks: none.
+- Off unless the project enables it. The daemon fetches state through the host adapter; events only wake it.
+  Require a merged PR for the task's mapped repository/branch, an authenticated authorized human merger and the
+  exact reviewed source head. Compare the merged source head, not the resulting merge/squash commit ID; preserve
+  evidence when the forge cannot prove it. Comments, SARIF verdicts and unverified event bodies never prove a merge.
+- Use [B293](README.md#b293)'s per-item source evidence and approval requirements. An agent account opening the host's
+  Forgejo PR does not become the person who accepts it. A closed PR, failed build, new push or unknown merger cannot
+  trigger removal.
+- Check current container work and stopped-task notes through `TaskControl` and `UnhandedWork`, including changes
+  after the merged head. `TaskControl.remove` refuses a running task by default, so automatic completion needs an
+  explicit stop followed by recheck and safe removal, never a force that discards work. Missing/unreadable evidence
+  holds the operation and says why.
+- Check [B166](README.md#b166)/[B171](README.md#b171)'s store and outbox before destructive cleanup. Unreleased or unsent
+  outbound items hold removal. Archive the SARIF journal and retain every pin needed by active or archived evidence;
+  unpin only when the retention owner has released its last reference, not merely because a task disappeared.
+- Show the project setting and authenticated merge evidence that caused removal. Recover safely after restarts and
+  use recorded container IDs, so a task reusing the name cannot inherit the removal.
 
-Porelo reads it itself: the daemon asks the forge about its own tasks, as it follows their builds today, so it
-works with any forge it reaches, on this machine or not, and needs no way back to it (the operator's decision).
-It sees that a person merged the task's pull request. **Porelo decides** and acts only if its own rules hold. A report from the forge, where the forge can reach
-Porelo (porelo-host [HO28](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho28)), only makes it quicker and changes nothing of this.
+## Open questions
 
-## Why
-
-The person's merge is the acceptance of a task's work; removing the task afterwards is a second step that only follows
-it. The agent cannot know the work was accepted, so the host, which sees the merge, ends it. With
-[B288](README.md#b288) starting the reviewer and the comments waking the agent ([B171](README.md#b171)), the person
-then only reads and merges.
+- Which human source levels may authorize automatic cleanup: I1 only, or E1 under an explicit project rule?
+- Does a task reserved for further work on the same branch need a per-task opt-out?
 
 ## To be checked
 
-- Whether a task kept for further work on the same branch needs a way to say so.
+- Verify merge/squash/rebase head evidence and merger identity in GitHub and Forgejo adapters. Neither `Build2` nor
+  `BuildWatch` currently reports PR merge state; [B171](README.md#b171)'s adapter contract must carry that evidence.
+- Exercise stop/recheck/remove races with new local commits, dirty files, missing stopped notes, pending replies
+  and a moved task identity. Do not attribute work-retention checks to the running-task diff issue.

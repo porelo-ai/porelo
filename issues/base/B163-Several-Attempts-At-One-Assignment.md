@@ -1,78 +1,55 @@
-# B163 — Several Attempts At One Assignment
+# [B163](README.md#b163) — Several Attempts At One Assignment
 
-**Status:** Estimated.
-**Size:** L - the start, the gate's review and approve, the daemon's contract and docs; a group to design first.
+**Status:** Analyzed.
+**Blocked by:** [B136](README.md#b136), [B141](README.md#b141), [B145](README.md#b145), [B166](README.md#b166), [B176](README.md#b176), [B293](README.md#b293).
+**Size:** L - grouped task launch, gate comparison/approval, task and daemon contracts, rate-limit reporting and review-store cleanup.
 
-**What must be true.** `porelo task start --attempts N -P "…"` starts N tasks on the same assignment, from the same commit,
-each in its own container; the gate shows their results side by side, one is approved and the others are discarded.
-
-## Why
-
-An agent given the same assignment twice comes back with different work, and the better of several is often worth more
-than one carefully watched run. Porelo already has what that needs - cheap tasks kept apart, and a review before
-anything reaches the upstream; what is missing is the shared start and the comparison. Comparable tools offer it only
-as a hosted service, not on the person's own machine.
-
-## The shape
-
-- The N tasks share a name with a number each (`<name>-1` … `<name>-N`) and a group the gate knows them by.
-- `porelo gate review <group>` shows, per attempt: the diff's size, the files touched, whether its build passed where the
-  project names one, and the agent's own summary; `gate diff` between two attempts.
-- Approving one discards the others' waiting pushes and offers to remove their tasks (as `Offer` asks), default no.
-- At most 5 attempts per start by default, a machine's setting that may raise or lower it; more is refused before any
-  task starts, naming the limit and where it is set.
-- The attempts may share one credential and so its rate limit; Porelo does not split or queue them. A limit reached
-  is said per attempt - in its row of `gate review <group>` and in `task status` - naming the credential, so a
-  stalled attempt is not read as a weaker one.
-- The interface's view is `porelo-frontend`'s part.
+**What must be true.** `porelo task start --attempts N -P "..."` starts independent tasks on one assignment from the
+same commit. The gate compares their diff size, risk, build evidence and SARIF findings; approving one applies all
+its controls and discards the other waiting attempts safely.
 
 ## Plan
 
-Read in today's code:
+`TaskRunCommand` uses `TaskLaunch` and `WorkspaceSetup` to clone from the mirror; separate starts can see different
+heads. `GitGate.Waiting` and incoming refs identify individual waiting pushes. There is no group start,
+`GroupReview`, `ReviewGroup` or `gate diff`. `TaskBuilds` supplies build records; agent-ending/waiting information
+supplies a last message. `Offer` supports optional removal after a decision.
 
-- `porelo task start` is `TaskRunCommand` over `TaskLaunch` (`apps/app-task/...`); the workspace is a clone the
-  container makes from Porelo's mirror at its head (`WorkspaceSetup`), so two starts a minute apart may start from
-  different commits.
-- The gate knows waiting work per task name (`GitGate.Waiting(commit, subject)`, refs under `refs/porelo/incoming/`);
-  `gate review`, `gate pending`, `gate approve`, `gate reject` act on one name. There is no `gate diff` command.
-- What an attempt needs for its row exists: the builds of a push (`task status`, the build records), the agent's last
-  words (`AgentEnding`, `AgentWaiting.lastMessage`), and `Offer` for the question after an approve.
-
-Steps:
-
-1. Red first, in `apps/app` with the stub agent: `task start --attempts 3 -P "..."` is an unknown option; afterwards
-   three tasks `<name>-1` to `<name>-3` exist, each workspace at the same commit, and each `task.json` names the
-   group.
-2. `TaskRunCommand`: `--attempts N` resolves the mirror's head once and hands the commit to each `TaskLaunch`;
-   `WorkspaceSetup` takes a commit to check out instead of the head. Names come from `<name>-<i>`, refused as one
-   when any is taken. The group is the base name, written in each task's record and said by the daemon's `List`.
-   `N` above the machine's limit (5 unless the machine sets another) is refused before any task starts, naming the
-   limit and where it is set.
-3. A reached rate limit is read as `waiting` is: the agent definition gains an optional `rate_limited` rule (a screen
-   text for an attached agent, a record for an unattended run, `agents/README.md` and the stub), and the task's
-   status names it with the credential the task runs on. An agent without the rule cannot say it, and its row says
-   the limit is not known rather than none.
-4. `GateReviewCommand` with a group: one row per attempt - lines added and removed, files touched, the newest build
-   verdict where the project names builds, the agent's last message, and a rate limit the attempt reached, with its
-   credential - from a `GroupReview` in `app-gate` that the daemon uses too. `gate diff A B` (new `GateDiffCommand`)
-   shows the diff between two attempts' waiting commits.
-5. `GateApproveCommand` on an attempt: after the approve, rejects the other attempts' waiting work as `gate reject`
-   does, and offers through `Offer` to remove their tasks, default no.
-6. Daemon: `group` on a task in `15-task.varlink`, `ReviewGroup(group)` in `35-gate.varlink`;
-   `InterfaceDescriptionTest`. The interface's view is `porelo-frontend`'s.
-7. `doc/commands.md`: `--attempts` and its limit, `gate review <group>`, `gate diff`, and that the attempts share
-   the credential's rate limit.
+1. Red first: in `apps/app`, start three stub tasks and inspect their actual workspace commits and records: all must
+   match one captured source commit and group ID. Name collision or a count above the configured limit starts none.
+2. Add `--attempts N` in `TaskRunCommand`; capture the mirror head once and pass it through `TaskLaunch` and
+   `WorkspaceSetup`. Reserve `<name>-1` through `<name>-N` as a group, record each identity, and report partial launch
+   failures without losing already created tasks. Default maximum is 5; a machine setting can raise or lower it.
+3. Add group information to the task record and `15-task.varlink`. Implement `GroupReview` in `app-gate` and
+   `ReviewGroup` in `35-gate.varlink` for CLI and daemon alike: per attempt, pinned commit, lines added/removed, files,
+   [B293](README.md#b293)'s risk, build verdict, last agent message and SARIF counts by level with completeness.
+   Missing, failed or partial checks are explicit and cannot compare as zero findings or a clean attempt.
+4. Add `gate diff A B` over the two captured waiting commits. A changed incoming ref invalidates the comparison used
+   for approval. Apply [B136](README.md#b136)'s commit binding, [B141](README.md#b141)'s dependency confirmations and
+   [B145](README.md#b145)'s required independent approvals to the selected attempt, never to the group generically.
+5. After successful approval, reject only the other attempts' captured waiting work; refuse cleanup when one moved.
+   Coordinate [B166](README.md#b166)/[B176](README.md#b176)'s SARIF store, outbox and pins: archive needed evidence,
+   preserve unreleased/unsent items and objects still referenced, and do not erase a newer attempt's data. Offer task
+   removal through `Offer`, default no; ordinary held-work checks still apply.
+6. Attempts may share a credential and rate limit. Add an optional agent-definition rule for rate-limit recognition
+   (attached-screen or unattended-event form), documented in `agents/README.md` and exercised by the stub. Show it
+   per attempt with the credential name in task status and group review; unsupported detection says unknown. No
+   agent-specific branch is introduced outside the agent contract.
+7. `InterfaceDescriptionTest` holds additive group and review fields. Update `doc/commands.md` for the count limit,
+   grouping, comparison, shared rate limits and approval cleanup. The interface consumes these host answers.
 
 ## Acceptance
 
-- Seen to fail first, then green: `--attempts 3` starts three tasks on one commit; the gate lists them as one group;
-  approving one leaves nothing of the others waiting.
-- `--attempts 6` is refused before any task starts, naming the limit of 5 and where it is set.
-- An attempt whose agent reached its credential's rate limit says so in its own row, naming the credential; the other
-  attempts' rows do not.
-- `doc/commands.md` says it.
+- Seen red first: three tasks start at different commits, a sixth exceeds the default limit after creating tasks, or
+  a moved losing attempt is silently discarded. Prevent each and verify actual refs/workspaces after the action.
+- A selected attempt cannot reuse another's dependency exception or approval signatures. Partial/unknown review
+  evidence stays visible; counts do not establish approval authority or become a model-computed risk score.
+- Approving one clears only the captured losing pushes; declined removal keeps tasks. Archived review references
+  remain readable and a pending reply cannot disappear through group cleanup.
+- A reached credential rate limit appears only for the attempt that observed it; unsupported detection is unknown.
 
 ## To be checked
 
-- Where the machine's limit on attempts is set: a file of its own under `~/.config/porelo/` or a field of one that is
-  there by then.
+- Choose the machine setting's location and group-name reservation/rollback mechanism; measure parallel launch and
+  comparison bounds without weakening the one-source-commit invariant.
+- Verify archive and outbox ownership across group cleanup, rejected refs and subsequent reuse of task names.

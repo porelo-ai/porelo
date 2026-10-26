@@ -1,80 +1,75 @@
-# B171 — Forge Review Comments To And From A Task
+# [B171](README.md#b171) — Forge Review Comments To And From A Task
 
-**Status:** Estimated; blocked by porelo [B166](README.md#b166). Blocks the forge readers' `Review1` (`porelo-build-github` [GH02](https://github.com/porelo-ai/porelo-build-github/blob/main/issues/README.md#gh02)).
-**Size:** L - crosses repositories: a new reader contract (`Review1`) every forge reader implements, the project
-file, a release flow in the CLI, the daemon, the interface and the IDE plugin, a second token, docs and acceptance.
+**Status:** Analyzed.
+**Blocked by:** [B166](README.md#b166), [B291](README.md#b291), [B292](README.md#b292), [B293](README.md#b293), porelo-message-sluice [SL24](https://github.com/porelo-ai/porelo-message-sluice/blob/main/issues/README.md#sl24).
+**Blocks:** [B288](README.md#b288), [B289](README.md#b289), porelo-adapters [GH02](https://github.com/porelo-ai/porelo-adapters/blob/main/issues/README.md#gh02).
+**Size:** L - a review adapter contract, host synchronization and durable release flow across repositories, with project, daemon and message changes.
 
-**What must be true.** Review comments on a forge's pull request reach the task that made it (way C), and the agent's
-replies reach the pull request (way B on the forge), through the forge adapter on the host. The task never reaches the
-forge itself. In, only the accounts the project lists are delivered; out, the person releases each comment unless the
-project switched that off.
-
-## Why
-
-Reviews of an agent's work often happen where the pull request is, on a forge. Today those comments reach the agent only
-if a person copies them over, and its answers go back the same way. [B166](README.md#b166)'s model carries them as messages, through the
-same checks.
-
-## The shape
-
-- **The forge adapter:** the build readers become forge readers, with an interface `Review1` beside `Build1`. They fetch
-  a pull request's review comments, threads and suggestions, and write comments and replies.
-- **In (way C):** the adapter fetches comments and delivers them into the task's inbox as [B166](README.md#b166)'s messages, as build
-  results are delivered today, after the sluice as an inbound filter. **Only accounts on the project's list** - the
-  maintainers, named in the project file - are delivered; comments of other accounts are held and shown to the person,
-  who may release single ones. Porelo fetches them by asking the forge, as it follows the task's builds; the agent is woken by
-  their arrival as for any message, as in
-  [B166](README.md#b166)'s way A, without the person starting it again (the operator's decision).
-- **Out (way B on the forge):** a reply passes the sluice, the anchor check, the size limit and the rate limits - at
-  most 10 comments a task an hour and 60 a project an hour - and is **released
-  by the person by default**, as `talk release` releases a message, in the CLI, the interface and the IDE plugin. A
-  project may switch the release off explicitly (for a private repository, say); then a comment goes out after the
-  sluice. Every one is journaled.
-- **The token:** writing uses a token of its own from the vault, with write access to pull requests only, separate from
-  the read token for builds. The task never holds either.
+**What must be true.** Pull request comments, findings, suggestions, threads and observed verdicts reach the owning
+task as SARIF, and its released replies reach the same pull request through a host adapter. Each item's authenticated
+source governs delivery and release; the task holds no forge credential.
 
 ## Plan
 
-Built on what the builds already do: `apps/app-task/.../BuildWatch.java` follows an `online` task's pushes on the
-host and hands verdicts into the task; the reader is a separate executable answering `org.fuin.porelo.Build1`
-(`builds/api`, `BuildReader`, `BuildMain`), and the token is handed per call from the vault.
+`builds/api` serves `Build2` through `BuildReader`, `BuildMain` and `BuildServer`. `BuildWatch` is a task helper for
+online pushes, not a daemon PR watcher. `Builds` has `forge`, `credential`, `api`, `logs`; `ProjectReader` refuses
+builds outside online projects. `ReviewReader`, `Review1`, `ReviewWatch`, reviewer lists and release settings are
+additions. `InboundCheck` filters external peer messages; forge input needs its own authenticated inbound route.
 
-1. **The contract:** `builds/api/.../ReviewReader.java` and `org.fuin.porelo.Review1.varlink` beside `Build1`:
-   `pullRequest(target, branch)` (the open pull request whose head is the branch, or none), `comments(target, number,
-   since)` ([B166](README.md#b166)'s model, each with the forge account as its origin) and `write(target, number, comment)` with the
-   write token in `target`. `BuildMain` serves `Review1` when the reader implements it, and `describe` names it.
-   `builds/stub/StubReader` implements it from files, for the acceptance suite.
-2. **Red first:** a test in `apps/app` against the stub reader: a listed account's comment is delivered, an unlisted
-   one's is held.
-3. **Matching a pull request to its task:** the branch the task's work went to - its own branch for an `online` task,
-   the branch `gate approve` named otherwise - recorded by the gate with the task and the commit when it passes work
-   on (`GitGate.passOn`, `approve`). The watch asks `pullRequest` for that branch.
-4. **The project file:** `builds.reviewers` (forge accounts delivered), `builds.release_out` (default `true`) and
-   `builds.write_credential` (a vault entry of its own) in `core/.../project/Builds.java` and `ProjectSchema`.
-5. **In:** a `ReviewWatch` beside `BuildWatch`, asking every `POLL` while the pull request is open; a comment passes
-   the sluice as an inbound filter (`InboundCheck`), then is delivered as a `comment` message or held by account in
-   the mailbox's held list, which `talk held` and `talk release` already show and release one by one.
-6. **Out:** a reply with `to: review` on a task whose work has a pull request goes into a release queue after the
-   sluice and [B166](README.md#b166)'s anchor check; `talk release` sends exactly one, through `write`; with `release_out: false` it
-   goes at once. At most 10 comments a task an hour and 60 a project an hour, counted over the last hour when a
-   comment would go out, released or not; one beyond either is held with the limit it reached and goes once the
-   hour allows it, never dropped.
-7. **The daemon:** `MessagingMethods` lists and releases outgoing and held comments, in the shapes [B166](README.md#b166) gives
-   `Comment` and `Thread`, so the interface ([F107](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md#f107)) and the IDE plugin ([IJ04](https://github.com/porelo-ai/porelo-intellij/blob/main/issues/README.md#ij04)) show the same.
-8. **The journal:** each delivered, held, released and written comment, with the account or the task and who
-   released it, in [B166](README.md#b166)'s comment journal, and in [B154](README.md#b154)'s log once that is built.
-9. **Docs:** `doc/project-file.md` (the list, the switch, the write token), `doc/build-readers.md` (`Review1`).
+1. Add `ReviewReader` and `org.fuin.porelo.Review1.varlink` beside `Build2` in `builds/api`; dispatch through
+   `BuildMain`/`BuildServer` only when implemented, with capabilities in `Describe`. Extend `builds/stub/StubReader`.
+   Read PR state and paged SARIF logs; write explicit create, reply, edit, delete, resolve, unresolve and verdict
+   operations, each with exact target, native IDs, commit and released content. A SARIF snapshot is never a command.
+2. Red first: stub-adapter tests in `apps/app` show an E0 comment held, E1/I1 delivered as untrusted data, an A reply
+   awaiting release, and a copied native marker unable to confer ownership. Incomplete pagination stays partial.
+3. Add durable task-to-PR mapping by configured forge instance, stable repository ID, branch and exact pushed commit.
+   Record successful `GitGate.passOn` and approval destinations. Add a daemon-managed `ReviewWatch` so stopped tasks
+   and gate-approved work can still receive reviews. Reuse build-reader invocation and per-call vault lending;
+   do not assume the online helper already covers that lifecycle.
+4. Extend project models, `ProjectReader` and `ProjectSchema` with review configuration separate from the online-only
+   build restriction, including a separate vault write credential with only the required review-write scope. Keep
+   read and write tokens on the host and lend them per call. Use [B293](README.md#b293)'s stable-account source policy. E0 input waits for individual release;
+   E1/I1/A prose is delivered at once, all untrusted. E0 fixes are non-applicable; E1/A fixes require release. An I1
+   forge resolution clears its exact mapped finding at the gate; other resolvers are shown without clearing it.
+   Unknown resolver identity cannot clear anything, and a verdict never authorizes gate approval.
+5. Every review crosses [B291](README.md#b291)/[B292](README.md#b292) and
+   porelo-message-sluice [SL24](https://github.com/porelo-ai/porelo-message-sluice/blob/main/issues/README.md#sl24). The adapter performs all
+   native conversion and supplies independently authenticated origin evidence for the daemon to classify. Support
+   line, file and general comments; stamp conversion identity and native mappings on the host. Keep bodies out of
+   prompts, snippets and artifact contents out of projections, and raw payloads out of failures and logs.
+6. A durable outbox binds release to instance, repository, PR, operation, parent/native IDs, commit, final native body
+   digest, releasing principal and expiry. Editing content or changing destination invalidates release. Default to
+   release by a person; only I1 replies may bypass it under explicit project policy permitted by machine policy.
+   A task-origin A reply always waits. Queue caps: 1,000 per task and 5,000 per project; overflow is explicit.
+7. Enforce 10 published comments per task and 60 per project per rolling hour across processes, retries and batches.
+   Hold excess until the budget permits, never drop it. Honor backoff and reconcile ambiguous writes using durable
+   mappings and authenticated bot ownership before retrying. Neither a hidden marker nor a sender GUID proves it.
+   Escape notification syntax in prose, check final serialized bodies for secrets and destination visibility, and
+   hold unsupported or lossy native actions before release. Never insert zero-width characters into suggestions.
+8. GitHub and Forgejo are the release's adapters. Native clients use `java.net.http.HttpClient`, Jackson and records.
+   Declare per-operation capabilities; test GitHub thread-resolution conversion and Forgejo anchor/range limitations
+   against the deployed APIs, without inventing locations or silently changing a released operation. On the host's
+   Forgejo the agent's PR uses its own account and the approving person uses their own.
+9. `MessagingMethods` and `45-messaging.varlink` expose held/released operations through the host queue, with bounded
+   SARIF evidence. Reuse `talk held`/`talk release` where their authorization fits; add review-specific handling.
+   Journal delivery, hold, release, write and resolver effects in the review store. Update `doc/project-file.md`,
+   `doc/build-readers.md` and `doc/messages.md`; exercise CLI and daemon against the stub and adapter contract fixtures.
 
 ## Acceptance
 
-- Seen to fail first, then green, against a stand-in forge reader: a listed account's comment arrives in the task; an
-  unlisted one's is held and shown, and arrives once released; the agent's reply waits for release and goes out once
-  released; with the release switched off it goes out after the sluice; the journal names each.
-- An eleventh comment of one task within an hour, and a sixty-first of one project, is held with the limit it reached,
-  and goes out once the hour allows it.
-- `doc/project-file.md` says the account list, the switch and the limits; `doc/build-readers.md` says `Review1`.
+- Seen red first: E0 reaches the task without release; a changed body reuses release; an A reply bypasses it; a copied
+  marker edits someone else's comment; an ambiguous retry duplicates a post. Each must be prevented.
+- E1/I1 input is delivered untrusted; I1 resolution clears only its mapped finding while E0/E1/A resolution only shows
+  the remote state. A forge approval, empty result page or deleted comment never approves waiting code.
+- Eleventh/sixty-first comments wait and later publish once; full queues and partial fetches are visible. A release
+  authorizes one operation with the exact final body. Tokens and generated source context never enter the task or PR.
+- GitHub and Forgejo conversion tests show supported round trips and explicit holds/loss notices for unsupported
+  actions. Stopping a developer task does not silently stop its open PR's review synchronization.
 
 ## To be checked
 
-- Whether a review's top-level body, anchored to no line, is delivered as a comment of its own, which [B166](README.md#b166)'s model
-  has no anchor for (Agent Core's, with [GH02](https://github.com/porelo-ai/porelo-build-github/blob/main/issues/README.md#gh02)'s agent).
+- Verify authenticated resolver, merge-head and membership evidence per adapter, plus minimum token scopes and
+  redirect behavior. Adapters' implementation remains outside this repository, including
+  porelo-adapters [GH02](https://github.com/porelo-ai/porelo-adapters/blob/main/issues/README.md#gh02).
+- Measure watch, queue and mapping recovery across daemon restarts, task removal and PR head movement; settle burst
+  and state-mutation budgets before enabling writes.

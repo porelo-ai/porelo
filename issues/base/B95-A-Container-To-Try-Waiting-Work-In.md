@@ -1,101 +1,52 @@
-# B95 — A Container To Try Waiting Work In
+# [B95](README.md#b95) — A Container To Try Waiting Work In
 
-**Status:** Idea. The operator's decision: the agent builds and tests its work in its own task, and the forge's
-build checks it apart from the agent; the person's review at the gate is a review of the code. Running the same
-build once more in a container of its own is not planned.
-**Size:** XL - a command, a streaming Varlink method, a third kind of container and an IDE; splits in two below.
+**Status:** Idea.
 
-**What must be true.** A reviewer can run a build or tests against waiting work, and later attach an
-IDE to it, in a fresh container with the project's egress and no way back - never on the host and
-never in the agent's own container - and see the result beside the review.
+**What must be true.** A reviewer or the host can build, test or scan waiting work in a fresh throw-away container,
+with source/risk restrictions and no way back to the gate. Output, exit and normalized SARIF evidence remain beside
+the exact reviewed commit; E0/E1 work is only read and commented until this execution path exists.
 
-## Why
+## Proposed
 
-Reviewing work often means running it: its build, its tests. Run on the reviewer's computer, or on the machine as
-the account that holds the vault and the daemon, that executes the agent's unreviewed code with rights the box
-exists to keep from it. Run in the agent's own container, it runs in an environment the reviewed work could have
-prepared - a cached plugin, a wrapper, `PATH`.
+- Blocked by: [B136](README.md#b136), [B292](README.md#b292), [B293](README.md#b293).
+- Blocks: interface porelo-frontend [F74](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md#f74).
+- Add `TryRun` in `apps/app-gate` and `GateTryCommand`: `porelo gate try <task> -- <argv...>`, with project/repository
+  selection and exact captured commit. Refuse moved work as `MovedSinceReview`. `35-gate.varlink` gains streaming
+  `Try` with the same target/commit/argv, output chunks and final exit; refuse calls without streaming as
+  `StreamRequired`. Command output is not executed or parsed as authorization.
+- Export the pinned commit with `git archive` directly into a workspace inside the new container. Never materialize
+  a checkout on the host or expose the mirror's `.git`, hooks, writable refs or the developer container's caches.
+  Use a trusted pinned project image, not an image built from the unreviewed change on the host. Repository-local
+  archive attributes and unusual paths cannot make exported content silently differ from the reviewed tree.
+- Derive a container specification from the relevant `TaskRunner` setup in `apps/app-base` and `ContainerSpec` in
+  `runtime`, without a normal task's gate token/address, vault/provider socket, mailbox, guide, host mounts or daemon
+  access. Give it a distinct Porelo kind recognized by cleanup but absent from task listings. Always remove it in
+  final cleanup and preserve command output and status; no result is copied back into the mirror.
+- Intersect [B293](README.md#b293)'s source and risk rules: E0 or C3 has no secrets, tokens or network egress; E1 has
+  no secrets/tokens and only allowed project egress; A gains no secrets/tokens. I1 follows project rules within risk
+  and machine policy, with no credentials by default. Strong no-egress rules must also omit gate and host-service
+  exceptions: `NftRuleset` permits them even in ordinary offline tasks. A project setting cannot undo the bound.
+- Use project limits, with a review-specific ceiling if approved. Add a repository `try` argv list in the project
+  model, `ProjectReader` and `ProjectSchema`; a scalar shell command is refused. A person's command override cannot
+  widen network or secret rights. No command is taken from SARIF invocations.
+- Retain command, commit, exit and output with the review, exposing bounded `TryResult` metadata and a separate
+  output stream. Scanner files go only through [B292](README.md#b292)'s isolated import worker and verified root
+  mapping; normalized findings are pinned to this commit. A failed, oversized or timed-out import is partial/failed,
+  never clean. A successful process exit alone is not a verdict on the work.
+- An IDE follow-up uses a backend installed in the trusted image and reached inside the container; no backend or
+  reviewed build runs on the host. Coordinate remote access with [B100](README.md#b100). Update command, project-file,
+  gate and reach documentation with the implemented execution limits.
 
-The interface's half is porelo-frontend's: "Run its tests" and "Open in an IDE" beside *Approve*.
+## Open questions
 
-## The shape
-
-1. **`porelo gate try <task> -- <command>`** runs a command against the waiting work in a fresh container from the
-   project's image, with the waiting ref as its workspace, the project's egress and limits, and no way back to the
-   gate.
-2. **Its output and exit are kept and shown beside the review**, in the terminal and over the daemon.
-3. **The container is removed when the command ends**, and nothing it wrote reaches the mirror.
-4. **Later, the same container for an IDE to attach to**: the IDE's backend inside it (installed through the
-   project's image, not downloaded at run time), reached through podman, never on the host.
-
-### Not offered
-
-**An IDE's remote backend on the host.** It runs as the account that holds the vault, the daemon's socket and the
-deploy keys; building there runs the agent's code with all of it.
-
-## Plan
-
-Read in the code on 2026-10-11. A task's container is made in one place, `TaskRunner.start`
-(`apps/app-base/.../TaskRunner.java`): the ruleset and resolver written to the task's state directory, the
-sidecar the hooks read, the image built under the project's build lock, and a `ContainerSpec`
-(`runtime/.../ContainerSpec.java`) with the project's limits, the vault socket, the mailbox and the guide. The
-gate's calls (`35-gate.varlink`, `GitGate` in `gate/`) name pending work by project, repository and ref, and
-`Approve` pins the commit the person read (`commit`).
-
-**Split in two**, each L or smaller:
-
-1. **This issue: `gate try`** (L), in the terminal and over the daemon.
-2. **A new issue: the IDE in a try container** (L), after this one and beside [B100](README.md#b100), which decides how a person's
-   computer reaches something inside a container through ssh. Its backend comes through the project's image;
-   this issue only keeps the container's shape fit for it.
-
-Steps for `gate try`:
-
-1. **`TryRun`** in `apps/app-gate`: the pending ref's commit, taken as `Approve` takes it (refused as
-   `MovedSinceReview` when it moved), exported from the mirror with `git archive` into a directory of the
-   account's own under the project's state - never a checkout the mirror shares.
-2. **A container like a task's, without a way back**: `TaskRunner`'s ruleset and resolver with no gate address
-   (the online and guarded classes put the gate in the ruleset; here nothing does), no vault socket, no mailbox,
-   no guide, the project's image and `limitsFor(repository)`. Labelled as Porelo's with a kind of its own, so
-   `porelo task list` never shows it as a task and `poreloContainers()` still finds it to clean up. Removed when the
-   command ends, `--rm` and a `finally`.
-3. **`porelo gate try <task> [--repository] -- <command>`** (`GateTryCommand`), its output streamed, its exit the
-   command's.
-4. **`method Try(project, upstream?, repository?, name, commit?, command: []string)`** in `35-gate.varlink`:
-   streaming, a reply per chunk of output (`lines`, as `Tail` sends them) and a last one with `exit`. Refused as
-   `MovedSinceReview` as `Approve` is, and `StreamRequired` without `more`. The interface's "Run its tests" calls it.
-5. **The command a project names**: `repositories.<name>.try` in `project.yml`, a list of arguments run without a
-   shell, e.g. `try: ["./mvnw", "-B", "verify"]`; `gate try <task>` with no command after `--` runs it, and the
-   interface offers it, a person's own override aside. `ProjectFile`'s reader and `doc/project-file.md` take the
-   key; a string instead of a list is refused by name.
-6. **The result kept with the review**: the last run's command, exit, commit and when, beside the pending ref's
-   record, and `Review` answers it (`tried: ?TryResult`).
-
-Red first: a unit test of the container's specification that finds the gate's address in its ruleset, or a
-vault socket among its volumes. Then the acceptance scenario in `gate-review.feature`: a command that pushes
-to the gate, one that reaches a host outside the egress, the container listed after the end, the mirror's refs
-compared before and after.
-
-## Acceptance
-
-- `porelo gate try <task> -- <command>` runs the command in a fresh container from the project's image, with the
-  waiting ref as its workspace and the project's egress and limits.
-- The container cannot push back to the gate.
-- Its output and exit are shown beside the review, in the terminal and over the daemon.
-- The container is gone when the command ends, and the mirror is unchanged.
-- An IDE's backend is reached only inside such a container, through podman; nothing of it runs on the host.
-- **Seen to fail:** a test whose command pushes to the gate goes red when the push arrives; one whose command
-  reaches a host outside the project's egress goes red when it succeeds; one that lists containers after the
-  command ends goes red when it is still there; one that compares the mirror before and after goes red when it
-  changed; one that reads the review goes red when the output and exit are missing.
+- Should try runs use the task's resource ceiling or a separate review ceiling, and with which defaults?
+- Must approval record the exact try run it followed in addition to its commit?
 
 ## To be checked
 
-1. **Its limits**: the task's, or a review's own - a build or an IDE backend wants more memory than many tasks
-   (the operator's).
-2. **Whether an approval records which run it followed**, beyond the review showing the last one (the operator's).
-3. **Whether `gate try` takes the agent's provider credentials** - a test suite that calls a model needs them, and
-   the plan above gives none (the operator's).
-
-**Guideline points, 2026-10-09:** a review of security guidelines counts this as its item F7,
-answering the source document's "same SAST/DAST gates for AI code" (§3), Checkmarx, LinkedIn 11.
+- Verify a specification fixture contains no host services, gate, credential sockets or forbidden mounts for E0/C3;
+  prove failure to reach each in acceptance. Exercise E1 allowed egress without secrets and refuse policy widening.
+- Verify archive materialization, hooks and cleanup using actual container/mirror observations, including
+  interruption and an unstartable container. The mirror must be unchanged and the try container absent afterward.
+- Determine retained-output and scanner-file transfer bounds and the I1-only secret mechanism, if a project permits
+  it, without granting the reviewed run the vault or provider socket. Other sources cannot receive credentials.

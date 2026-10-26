@@ -1,86 +1,49 @@
-# B136 — An Approve Bound To What Was Reviewed
+# [B136](README.md#b136) — An Approve Bound To What Was Reviewed
 
-**Status:** Estimated.
-**Size:** M - the gate's two commands, the daemon's `Approve` with a contract note, enrolment, docs, a scenario.
+**Status:** Analyzed.
+**Blocks:** [B141](README.md#b141), [B145](README.md#b145), [B95](README.md#b95), [B293](README.md#b293), [B163](README.md#b163), [B166](README.md#b166).
+**Size:** M - gate commands, daemon commit binding, enrollment hints and acceptance, providing the commit key for later review controls.
 
-**What must be true.** What `porelo gate approve` forwards is the commit the person read, on the command line as in
-the interface and the plugin. A push the agent makes between `porelo gate review` and `porelo gate approve` is never
-forwarded unseen.
-
-## Why
-
-A task keeps running while its work is read. The incoming ref holds the agent's latest push, so a second push after
-the review replaces what was read. Three ways to approve already bind to the reviewed commit and refuse a moved one as
-`MovedSinceReview`: `porelo gate approve --commit <full id>`, `porelo approve` in a checkout (it lands the commit it
-showed), and the daemon's `Approve` with `commit`, which the interface and the plugin always send. A plain
-`porelo gate approve -p <project> <task>`, the form the documentation shows first, takes whatever the ref holds at that
-moment. `--signed` binds only when the key is enrolled. `reach.md` calls approval a control; on this path it holds only
-for the commit nobody read.
-
-## The shape
-
-- `porelo gate review` ends with the commit it showed in full and the approve line that names it:
-  `porelo gate approve -p <project> <task> --commit <full id>`.
-- `porelo gate approve` without `--commit`, where a person can be asked, shows the commit that waits now and asks
-  before forwarding it; where nobody can be asked, it is refused with the commit that waits, so a script names it.
-- The daemon's `Approve` refuses an empty `commit`, with the commit that waits, instead of taking what the ref holds.
-- Enrolment's approve is bound alike: `porelo project enroll` names the enrolment's commit in the line it prints.
-- `doc/commands.md`, `doc/how-it-works.md` and `doc/reach.md` show the bound form first.
+**What must be true.** Gate approval forwards exactly the commit the person reviewed in the CLI, interface or IDE
+plugin. A concurrent push cannot forward unseen work or reuse confirmations made for another commit.
 
 ## Plan
 
-Analysed on 2026-10-11 in today's code. `GitGate.approve(name, branch, reviewed)` and `approveSigned(..., reviewed)`
-in `gate/src/main/java/org/fuin/porelo/gate/GitGate.java` already bind through `reviewedCommit`: a full id that is
-not what `refs/porelo/incoming/<name>` holds is `MovedSinceReview`; `null` or blank takes whatever the ref holds now.
-That `null` comes from three places: `GateApproveCommand` without `--commit` (`apps/app-gate`), the daemon's
-`Approve` without `commit` (`daemon/.../GateMethods.java`, documented in `35-gate.varlink` as "Empty: whatever it
-holds now"), and the line `ProjectEnrollCommand` prints (`apps/app-project`), which has no `--commit`.
-`CheckoutApproval` (`porelo approve`) passes the commit it showed and stays as it is.
+`GitGate.reviewedCommit` checks a full 40- or 64-digit lowercase object ID when supplied, but null/blank selects the
+current incoming ref. `GateApproveCommand` and daemon `Approve` permit that omission; `GateReviewCommand` reads the
+ref independently for its patch and log. `CheckoutApproval` supplies a reviewed commit. `ProjectEnrollCommand` prints
+an approval command without one. Commit-specific SARIF and co-signatures are consumers of this foundation.
 
-1. **The commit is read once.** `GitGate.waiting(name)` (public, beside `waitingWork`, for every mode) answers the
-   full commit and subject the incoming ref holds. `reviewedCommit` keeps its checks.
-2. **`gate review` ends with it.** `GateReviewCommand` reads the commit first, renders the review and the log
-   against that commit rather than the ref (`rankedReview` and `log` take it), and ends with
-   `commit    <full id>` and `approve   porelo gate approve -p <project> <task> --commit <full id>`, so a push during
-   the review is not what the lines name.
-3. **`gate approve` without `--commit`.** At a terminal and without `--no-input`: it shows
-   `waits     <full id>  <subject>` and asks through `Offer.confirm` whether to forward exactly that, no by default;
-   a yes approves with that commit as `reviewed`, so a push between the question and the answer is
-   `MovedSinceReview`; a no ends with exit 70 and the bound line. Without a terminal, or with `--no-input`: refused,
-   exit 70, `porelo: name the commit you reviewed: --commit <full id> waits now`. The same for `--signed`, and the
-   same for a stopped task: it can be started again before the answer, so its ref is no more settled than a
-   running one's.
-4. **The daemon's `Approve` refuses an empty `commit`.** A new error in `35-gate.varlink`,
-   `CommitNotNamed(name: string, waiting: string)`, raised in `GateMethods` before the gate is touched; the comment
-   on `commit` says it is required in effect. The interface and the plugin send it already (`porelo-frontend`
-   `gate.dart`, `porelo-intellij` `Gate`), so the change is announced on the channel and breaks no client that sends
-   the commit it showed.
-5. **Enrolment.** `ProjectEnrollCommand` knows the commit it pushed to `enroll-<machine>` and prints
-   `merge     porelo gate approve <ref> -p <project> --signed --commit <full id>`; `doc/commands.md` (line on
-   `enroll-<machine>`) and `doc/project-file.md` follow.
-6. **Every other line that names `gate approve`** names `--commit`: `GateCheckoutCommand`, `GateCheckCommand`,
-   `WorkspaceSetup` (an earlier task's work waiting), and the docs: `doc/commands.md`, `doc/how-it-works.md`,
-   `doc/reach.md`, `doc/security.md`, `doc/getting-started.md`.
-7. **Acceptance:** in `acceptance/suite/.../gate/gate-review.feature`, a task pushes, `gate review` is read, the task
-   pushes again; a script's plain `gate approve` is refused, exit 70, naming the second commit, and nothing is
-   forwarded; at a terminal the second commit is shown and a no forwards nothing.
-
-Red first: a test beside `ApproveOfferTest` in `apps/app` - a pending push moved after the review, a plain
-`gate approve` with `Offer.Asker.NOBODY` - forwards today and must be refused with exit 70; then `PoreloDaemonTest`'s
-`Approve` without `commit`, which forwards today and must answer `CommitNotNamed`.
+1. Red first: in `apps/app`, a moved pending ref followed by plain noninteractive `gate approve` currently forwards;
+   require refusal with exit 70. In `PoreloDaemonTest`, omitted/blank `commit` must answer `CommitNotNamed`.
+2. Add `GitGate.waiting(name)` for all gate modes, returning full commit and subject. Keep `waitingWork`'s existing
+   start-check behavior. Make `rankedReview` and `log` accept the captured commit so one review cannot mix two pushes.
+3. `GateReviewCommand` reads once, prints patch/log for that commit and ends with the full ID and a usable approve
+   command containing `--commit`, project, repository and any selected destination options.
+4. Without `--commit`, `GateApproveCommand` at a terminal shows what waits and asks through `Offer`, default no. A
+   yes calls either signed or ordinary approval with that exact commit. No terminal or `--no-input` refuses with
+   exit 70 and the bound command; stopped tasks receive the same treatment. A push during the question is
+   `MovedSinceReview`, never a fresh implicit selection.
+5. Keep `Approve.commit` optional on the wire for compatibility but reject absence with
+   `CommitNotNamed(name, waiting)` in `GateMethods` and `35-gate.varlink`. Preserve `MovedSinceReview` and full-ID
+   validation. Add a captured commit to the `Review` reply so clients bind their displayed evidence directly.
+6. `ProjectEnrollCommand` prints the exact enrollment commit with `--signed --commit`. Correct approval hints in
+   `GateCheckoutCommand`, `GateCheckCommand`, `WorkspaceSetup`, and the command, project-file, gate, security and
+   getting-started documentation to name the bound form.
+7. The commit is the key for [B141](README.md#b141)'s dependency confirmations, [B145](README.md#b145)'s independent
+   signatures and [B166](README.md#b166)/[B172](README.md#b172)'s review-run revisions. A different commit invalidates
+   those acts. Approval stays a distinct authenticated operation: SARIF verdicts, suppressions, baselines and empty
+   findings grant no authority. Consumer checks are built in their own issues.
 
 ## Acceptance
 
-- Seen to fail first: a push after `gate review` and before a plain `gate approve` is forwarded today; afterwards it
-  is shown and asked about, or refused without a terminal.
-- `gate review`'s last lines name the full commit and the bound approve line.
-- `--commit` with the commit that waits forwards it, as now; with another, `MovedSinceReview` as now.
-- A plain `gate approve` of a stopped task's work asks, or is refused without a terminal, as for a running one.
+- Seen red first: a push between review and approval, including during a terminal prompt, forwards no unseen commit.
+  A script without `--commit` is refused; a terminal no is refused; the matching full ID forwards and a moved ID fails.
+- Patch, log, returned commit and printed approval command all name the captured revision, even during a push.
+- Signed approval and enrollment follow the same binding. No SARIF input can supply approval authorization.
+- The acceptance scenario in `gate-review.feature` covers a running and stopped task and confirms upstream refs.
 
 ## To be checked
 
-- How the interface answers `CommitNotNamed` where it sends no commit to a Porelo it thinks too old to take one
-  (Agent Frontend's).
-
-**Guideline points, 2026-10-09:** a review of security guidelines counts this as its item `F20`,
-answering AISVS 9.2.8, OWASP AI Agent Cheat Sheet §1/§4.
+- Verify interface/IDE handling of `CommitNotNamed` and the additive `Review.commit` field against their clients;
+  local client assumptions are not evidence that every installed client sends a commit.

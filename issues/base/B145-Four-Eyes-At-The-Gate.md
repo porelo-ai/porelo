@@ -1,58 +1,58 @@
-# B145 — Four Eyes At The Gate
+# [B145](README.md#b145) — Four Eyes At The Gate
 
-**Status:** Estimated.
-**Size:** L - a node has one operator today, so a second person's approval needs a design first: a signature from
-another person, made elsewhere and checked at the gate; touches task record, project file, gate, daemon contract.
+**Status:** Analyzed.
+**Blocked by:** [B136](README.md#b136), [B293](README.md#b293).
+**Blocks:** [B163](README.md#b163).
+**Size:** L - independent signing principals, task provenance, project rules, gate verification and an additive daemon contract.
 
-**What must be true.** A project may require that the person who started a task does not approve its work alone: a second person approves.
-
-## Why
-
-Approval is one person today, who may be the one who asked the agent for the work.
-
-**Guideline points it answers:** AISVS AC.4.1, AC.8.4; Swisscom 4.1 (roles). From a review of security guidelines, 2026-10-09.
-
-## The shape
-
-A project setting, off by default: without it the owner approves alone, as today. In a project that sets it, who
-started a task is recorded, and an approve by that principal alone is refused, naming who else may approve.
+**What must be true.** Two independent people approve the exact waiting commit whenever the project requires four
+eyes or the work is E0 or C3. The person who started or authored the work cannot authorize it alone, and an agent's
+check or forge verdict cannot count as a person's approval.
 
 ## Plan
 
-**Today.** A node is one OS user (`doc/running.md`, "A Porelo node is an OS user"), and the glossary in
-`doc/how-it-works.md` says the operator is the only one who can approve at its gate. So on one node the person who
-started a task and the one who approves are always the same. `TaskProfile` (`wire/.../TaskProfile.java`) records the
-agent, mode, provider and start time, not who started it. A signed approve (`GitGate.approveSigned`) already signs
-with the person's own key through their git; a project's configuration commits are checked against its allowed
-signers (`ProjectPaths.configurationSigners`).
+`GitGate.approveSigned` signs a merge through the person's Git configuration; it does not verify a second person's
+approval. `TaskProfile` is version 5 and records no `startedBy`. `ProjectPaths.configurationSigners` supplies the
+configuration signer file, but `ProjectSchema` has no approval settings. Reuse signing machinery while making the
+review-approval principals and trust scope explicit.
 
-**Design.** A person is the principal of their signing key in the project's allowed signers - the same on
-one machine and across machines.
-
-1. `approval: {four_eyes: true}` in `project.yml`, default `false`: `Project`, `ProjectReader`, `ProjectSchema`,
-   `doc/project-file.md`, `DocumentedProjectFileTest`.
-2. The task records who started it: `TaskProfile` version 5 with `startedBy`, the principal of the starting
-   account's signing key.
-3. A second approval is a signature over the reviewed commit by another principal of the project's signers
-   (`ssh-keygen -Y sign`, a namespace of Porelo's own), made on that person's machine with a new
-   `porelo gate co-sign`, and handed to the node; `Approve` (`35-gate.varlink`) and `gate approve` take it.
-4. `GitGate` checks it with `ssh-keygen -Y verify` before anything is pushed; without one from a principal other
-   than `startedBy`, the approve is refused and names the other signers.
-5. `doc/how-it-works.md` (the gate, and the glossary's "the only one who can approve", which then holds only for a
-   project without the setting) and `doc/corporate-security.md` say it.
-
-Red first: a `GateApproveCommand` test in a four-eyes project - the starter's approve alone is refused naming the
-other signers; with a second principal's signature over the reviewed commit, it forwards. In a project without the
-setting, the owner's approve alone forwards as today.
+1. Red first: in `apps/app`, a fixture with two allowed signing principals and E0/C3 work refuses the first person's
+   approval alone, even without `four_eyes`. A valid second signature permits only its bound commit.
+2. Add `approval: {four_eyes: true}` through `Project`, `ProjectReader`, `ProjectSchema` and the documented project
+   fixture, default false for work that does not otherwise require two people. Apply [B293](README.md#b293)'s required
+   approval count; project or machine policy may tighten it but cannot remove E0/C3 requirements.
+3. Record `startedBy` and authenticated input provenance in the next `TaskProfile` schema, not a reused version 5.
+   External work without a local starter still requires two independently authenticated human principals. Never
+   infer a human from a task role, a forge bot label or text in a report.
+4. Add `porelo gate co-sign`: on the second person's machine, sign the exact reviewed commit in a dedicated signing
+   namespace. Carry the commit, project/repository and policy context in the signed payload. `gate approve` and
+   `Approve` in `35-gate.varlink` take the signature as an additive parameter.
+5. `GitGate` verifies the second signature with `ssh-keygen -Y verify` against the configured allowed principals,
+   alongside the authenticated approving person's principal. Require two distinct people; a second key belonging to
+   the same person is insufficient. Check before either signed or ordinary forwarding. A new push invalidates both
+   commit-bound approvals under [B136](README.md#b136); no prior commit's signature can be reused.
+6. Keep authenticated approval evidence in the journal, separate from SARIF presentation. Observed forge approvals,
+   suppressions, resolutions and an agent's clean check are never a co-signature. Explain required and missing
+   approvals in CLI and daemon refusals. Update `doc/project-file.md`, `doc/how-it-works.md`, `doc/corporate-security.md`
+   and their relevant fixtures.
 
 ## Acceptance
 
-- Seen to fail first, then green: the behaviour above, in a test of the module that carries it.
-- A project without `approval: {four_eyes: true}` approves as today: the owner alone, no second signature asked for.
-- The documentation page that describes the area says it.
+- Seen red first: missing, duplicate-person, wrong-commit, wrong-repository, untrusted-key and wrong-namespace
+  signatures forward nothing. A valid independent signature for the exact commit permits approval.
+- E0/C3 always needs two people, including a project with the flag absent or false; E1/I1 lower-risk work remains a
+  one-person approval unless policy tightens it. Policy cannot weaken the mandatory cases.
+- The starter or author alone cannot pass the control. A copied SARIF verdict or forge approval never satisfies it.
+  CLI and daemon enforce the same rule and journal the same principals.
+
+## Open questions
+
+- Are the project's configuration signers also the authorized code approvers, or should approval use a separate
+  signer list and human-principal mapping?
+- Which transport brings an independently made co-signature to the node: a file supplied to approve, an interface
+  upload, or a signed message? The signature's verification and commit binding hold for each.
 
 ## To be checked
 
-- How a person is identified on one machine and across machines; the proposal is the signing key's principal in the
-  project's allowed signers (Agent Core's).
-- How the second signature reaches the node: a file, a message between nodes, or the interface (Agent Core's).
+- Verify the signed-payload encoding, key/principal mapping and replay scope against the existing enrollment and
+  allowed-signers handling. Measure refusal paths for missing local identity and unavailable verification tools.

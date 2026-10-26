@@ -1,33 +1,36 @@
-# B288 — A Reviewer Started When The Build Is Green
+# [B288](README.md#b288) — A Reviewer Started When The Build Is Green
 
 **Status:** Idea.
 
-**What must be true.** A project can say that a task's pushed work is reviewed by an agent as soon as the forge's build
-of it is green: Porelo then starts a reviewer task ([B172](README.md#b172)) on that pull request by itself, with the
-agent and the provider the project names, instead of the person starting it.
+**What must be true.** An enabled project starts one reviewer on the exact pushed commit whose build is green,
+subject to the source policy and a bounded project budget. E0 input never triggers a reviewer automatically, and an
+agent's check never approves or merges the work.
 
-- The reviewer is started once per green build of a new commit, never for a red one, and never for a commit that already
-  has a review running or done.
-- The person sees that it was started and by what (the project's setting), and can stop it like any task.
-- A reviewer task ends when its comments are delivered; it starts no second reviewer and pushes nothing.
-- Off unless the project's file says so.
+## Proposed
 
-## Why
+- Blocked by: [B171](README.md#b171), [B172](README.md#b172), [B293](README.md#b293).
+- Build observation from [B253](README.md#b253) is present as `BuildWatch` and `TaskBuilds`.
+- Blocks: none.
+- Off unless `project.yml` enables it and names reviewer agent/provider settings. The daemon polls authenticated
+  forge state and decides itself; an event is only a wake-up hint. `BuildWatch` follows online tasks as a helper;
+  daemon scheduling and durable recovery are additions, not behavior already supplied by that class.
+- Only a final successful build for the pinned commit can trigger the review. Recheck PR head, every relevant
+  commit's source and [B293](README.md#b293)'s restrictions before starting. E1/I1 may trigger under policy; an internal
+  PR containing an E0 commit cannot. Keep A separate from a numeric source ordering and preserve restrictions of
+  consumed input. A clean check on E0/C3 cannot replace a person.
+- Record the project, repository, task/PR, head, policy and review identity durably. Running/done work is not started
+  again after repeated polls or daemon restart. Start [B172](README.md#b172)'s reviewer, pin its SARIF run to that
+  commit and stop it after durable delivery; reviewer output and bot echoes cannot trigger another review.
+- Cap automatic starts per project per rolling hour; exhausted budget holds the start with a visible reason.
+  The person can stop the reviewer like any task and sees the project setting that started it.
 
-Today the person starts the reviewer by hand after watching the build. The review is wanted after every green build, so
-starting it is a step that only waits on the build's verdict, which the host already reads
-([B253](README.md#b253)). The developer agent is woken by the comments by itself
-([B171](README.md#b171)), so with this the loop from push to reviewed work needs the person only for the merge.
+## Open questions
 
-## The shape proposed
-
-Porelo reads it itself: the daemon asks the forge about its own tasks, as it follows their builds today, so it
-works with any forge it reaches, on this machine or not, and needs no way back to it (the operator's decision).
-It sees the build of a commit finish green with its build reader ([B253](README.md#b253)). **Porelo decides** and acts only if its own rules hold. A report from the forge, where the forge can reach
-Porelo (porelo-host [HO28](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho28)), only makes it quicker and changes nothing of this.
+- Should the project name one reviewer or a bounded list, and what is the default maximum starts per hour?
+- May task-origin A work with authenticated E1/I1 inputs trigger a reviewer automatically, and under which explicit
+  policy? A remains an agent producer; it must not be relabeled I1 to enable the original task-to-review loop.
 
 ## To be checked
 
-- Whether the project file's setting names one reviewer agent or a list to choose from. The setting is Porelo's, in
-  the project file, as every other choice of agent and model is (the operator's decision).
-- What bounds the reviews a project can start in an hour, so a pushing agent cannot start reviewers without end.
+- Measure restart-safe reservations, burst behavior and races between green builds and head movement. Exercise the
+  stub adapter with duplicate success, failed/unknown builds, mixed provenance and a changed head before launch.

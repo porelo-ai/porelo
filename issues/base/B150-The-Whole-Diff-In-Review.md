@@ -1,45 +1,46 @@
-# B150 — The Whole Diff In Review
+# [B150](README.md#b150) — The Whole Diff In Review
 
 **Status:** Analyzed.
-**Size:** M - one contract change on the daemon's `Review` and its server side; the CLI already prints the whole diff.
+**Blocks:** [B166](README.md#b166).
+**Size:** M - bounded daemon review replies and a growing varlink contract, with full-diff classification and explicit completeness.
 
-**What must be true.** A review shows the whole diff, or says plainly that and where it was cut.
-
-## Why
-
-A person approves what they saw; a cut diff that does not say so lets unseen changes pass.
-
-**Guideline points it answers:** AISVS 9.2.2. From a review of security guidelines, 2026-10-09.
-
-## The shape
-
-Checked 2026-10-09: `porelo gate review` and the daemon's review print the whole diff; nothing cuts it. What is open is the wire: whether a diff larger than a message may be is cut, refused or sent whole, and that an interface says it when it shows less.
+**What must be true.** A review shows the whole diff or says where it was cut, and every changed file remains
+available. Presentation limits never hide risk or make incomplete review evidence look complete.
 
 ## Plan
 
-**Today (read 2026-10-11).** `GitGate.rankedReview` returns the whole patch; `porelo gate review` prints it whole; the
-daemon's `Review` (`GateMethods`) puts it whole into `diff`. A varlink message may be at most 4 MiB
-(`VarlinkConnection.MAX_MESSAGE`); a larger reply fails at the receiving side as "A varlink message exceeded ..."
-bytes - the interface gets an error, not a cut diff, and nothing says why. `PendingBundle` already refuses above its
-limit, by name (`BundleTooLarge`).
+`GitGate.rankedReview` returns a full ranked patch and file list; `GateReviewCommand` prints the whole patch.
+`GateMethods.Review` puts the patch, log, files and instruction into one reply. `VarlinkConnection.MAX_MESSAGE` is
+4 MiB and rejects larger received messages. There is no `Review.cut`; `PendingBundle` separately refuses oversized
+bundles by name.
 
-**Steps:**
-
-1. `GateMethods` measures the reply. Above a bound under the message limit, with room for `log` and `files`, the diff
-   is cut at a file boundary and the reply says so: `cut: ?ReviewCut` - the files shown, of how many, and the command
-   that shows them all (`porelo gate review <name>`). `files` is never cut, so every file is listed.
-2. `35-gate.varlink`: `Review` gains `cut`, and its comment says an interface that shows less than `diff` says so.
-3. `doc/how-it-works.md` (the gate) and `doc/commands.md` say it.
-
-Red first: a `GateMethods` test with a push larger than the bound - the reply fits the message limit, `cut` names the
-files left out, and every file is in `files`.
+1. Red first: a daemon test creates a large multi-file push and asserts that its serialized reply fits the message
+   bound, explicitly identifies omitted patch files and still exposes every changed file.
+2. Measure UTF-8 JSON size including escaping, log, instruction, files and framing. Cut the ranked patch only at file
+   boundaries within the reply budget. Add optional `Review.cut` to `35-gate.varlink`, with counts, omitted paths and
+   a usable CLI command for the complete patch. Do not partially print a file without saying so.
+3. Risk and dependency extraction operate on complete pinned head/base objects before projection, as required by
+   [B293](README.md#b293), [B283](README.md#b283) and [B141](README.md#b141). Preserve dangerous-first display ordering,
+   but do not equate `ReviewRanking.Rank` with C0-C3: build and security files share `DANGEROUS` while having different
+   risk classes. A cut cannot reduce class or approval requirements.
+4. Keep `Review.files` complete for replies that fit. When metadata alone exceeds the limit, return a named size
+   refusal or an explicit paged inventory path; never claim that an omitted inventory is complete. A single-file
+   patch above the budget has an explicit cut with zero displayed patch files and the complete-view command.
+5. SARIF consumers added by [B166](README.md#b166) and later checks use their own bounded result pages, distinct from
+   patch completeness. If a displayed projection is partial it says so; a complete page is not evidence that a check
+   or review is complete. Never embed unbounded reports beside `diff` to evade either limit.
+6. `doc/how-it-works.md` and `doc/commands.md` describe the cut and full-view path. Share the boundary helper where
+   useful without changing the running-task diff issue's scope.
 
 ## Acceptance
 
-- Seen to fail first, then green: the behaviour above, in a test of the module that carries it.
-- The documentation page that describes the area says it.
+- Seen red first: escaping-heavy, one-large-file and many-file patches overflow a varlink reply or silently lose
+  content. Afterwards each fits with an explicit cut or gives a named refusal, never a false complete response.
+- Every changed file is listed or reached through an explicit inventory page path; classifications use the full
+  change. Dependency, link and security findings beyond the displayed patch still hold the same controls.
+- Truncated SARIF pages show completeness independently of patch cuts, and omitted results never clear findings.
 
 ## To be checked
 
-- Whether a review above the limit is cut at a file boundary with a pointer to the command, or read in parts by a
-  method of its own (Agent Core's; how it is shown is Agent Frontend's).
+- Measure the safe serialization budget and metadata-only worst case; choose named refusal versus pagination for
+  oversized metadata while retaining the additive contract and a complete inventory path.

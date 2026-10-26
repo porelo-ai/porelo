@@ -1,127 +1,71 @@
-# B166 — Line Comments Sent Back To The Agent
+# [B166](README.md#b166) — Line Comments Sent Back To The Agent
 
-**Status:** Estimated. The first of the code-comment area; the forge ([B171](README.md#b171)) and the reviewer role ([B172](README.md#b172)) build on it.
-**Size:** L - a contract three other repositories read (`Tasks1`, the message schema), a store on the host, the CLI,
-the message path, docs and an acceptance step.
+**Status:** Analyzed.
+**Blocked by:** [B136](README.md#b136), [B150](README.md#b150), [B291](README.md#b291), [B292](README.md#b292), [B293](README.md#b293).
+**Blocks:** [B171](README.md#b171), [B172](README.md#b172), [B176](README.md#b176), [B163](README.md#b163), porelo-message-sluice [SL24](https://github.com/porelo-ai/porelo-message-sluice/blob/main/issues/README.md#sl24).
+**Size:** L - a shared review contract, host store, CLI, message path and acceptance across the filter, interface and IDE plugin.
 
-**What must be true.** A comment on code is a message: one model, checked on the host and never in the container,
-passing the controls messages already pass - the sluice, a person's release where one is asked, the journal. A person
-reviewing waiting work comments on lines of its diff, in `porelo gate review`, the interface and the IDE plugin, and a
-reject carries those comments into the task (way A). The agent answers in the same threads (way B, locally). Code and
-commits still travel only through the gate.
-
-## Why
-
-`gate reject` gives one reason today, and a person who wants three things changed writes them out of context. Comments
-on lines close the loop from review to rework without going around the gate. Comparable tools do it. One model for every
-way a comment travels - local, to and from a forge, from an agent reviewing - keeps one set of checks for all of them.
-
-## The model
-
-| Field | Content |
-|---|---|
-| Anchor | repository, commit, file, line or lines, side (old or new) |
-| Text | plain text, checked by the sluice |
-| Suggestion (optional) | replacement lines for exactly the anchor, as a forge's "suggested change" |
-| Thread | thread id, reply-to, state (open or resolved) |
-| Origin | a person (local), an agent (which task, which role), a forge account (which one) |
-
-- **The anchor is checked on the host:** the named lines exist in the named commit. A comment on a line that is not
-  there is refused, with what is there.
-- **A suggestion** is allowed both ways, as its own field. It may hold only lines for exactly its anchor, within a
-  size limit, and the host checks it as a small diff against the anchor's lines. It is never applied automatically:
-  in a task the agent applies it, and the result goes through the gate again.
-- **Every comment is journaled:** who commented what, where, and who released it ([B154](README.md#b154)).
-
-## The ways built here
-
-- **A, a local review to the task:** comments kept with the waiting push on the host. A reject delivers them to the task
-  as one message, each with its anchor, its lines and the lines around them, and any suggestion; the agent is woken as
-  for any message, once its screen has rested on two looks.
-- **B, the agent's replies, locally:** the agent replies in a thread ("done in commit …") through its message path;
-  the sluice checks the reply as egress (text only, no encoded data, no links), the anchor is checked, and the reply
-  shows in the review beside the person's comment, marked with its origin. Nothing leaves the machine.
-
-## The shape
-
-- The comment is the sixth kind, `comment`, of [B108](README.md#b108)'s narrowed schema, with a fixed data part of its own; its rules
-  are the sluice's (`porelo-message-sluice` [SL24](https://github.com/porelo-ai/porelo-message-sluice/blob/main/issues/README.md#sl24)): the anchor checked by its shape, the suggestion only by the
-  detectors for encoded data, and no origin stated by the sender - the host adds it after the filter.
-- The daemon serves comments, threads and replies through one set of methods for the CLI, the interface
-  (`porelo-frontend`) and the IDE plugin (`porelo-intellij`), which show each comment with its origin.
+**What must be true.** A person can comment on lines, a file or the whole review of waiting work, and a reject
+carries those comments into the task as untrusted review data. Comments, findings, suggestions and replies use the
+shared SARIF profile; code and commits travel only through the gate.
 
 ## Plan
 
-Answers for the other repositories, read in today's code:
+`GateReviewCommand` prints `GitGate.rankedReview`; `35-gate.varlink` serves `Review`, `Approve` and `Reject`, without
+comment methods or types. `PersonNote.rejectedWork` delivers one reason. `MailboxGuide` and `MessageDispatch` handle
+messages; `ReviewComments` is a new class. The narrowed message schema ([B108](README.md#b108)) comes later and is
+not needed.
 
-- **A sixth kind, not a part of its own.** [B108](README.md#b108)'s schema already gives each kind a fixed data part beside one text
-  part; `comment` fits that exactly: `metadata` holds `kind: comment`, `to`, `from`, `thread`; the text part is the
-  comment's text; the data part holds `anchor`, an optional `suggestion` and an optional `replyTo`. A part of its own
-  would need a second envelope rule set in the filter for the same thing. [B108](README.md#b108)'s schema document
-  (`apps/app-messaging/src/main/resources/org/fuin/porelo/app/message.schema.json`) gains the kind and these limits.
-- **The anchor's fields:** `repository` (a name from `Project.repositories`), `commit` (40 or 64 lower-case hex),
-  `path` (relative, no `..`, at most 1024 bytes), `side` (`old` or `new`), `first` and `last` (line numbers from 1,
-  `last` at least `first`, at most 100 lines apart). One line is `first == last`.
-- **A suggestion's size limit:** a list of lines, at most the anchor's line count plus 10, each line at most 400
-  characters, the whole at most 8 KiB. The same constants are in the schema document [SL24](https://github.com/porelo-ai/porelo-message-sluice/blob/main/issues/README.md#sl24) reads; [SL24](https://github.com/porelo-ai/porelo-message-sluice/blob/main/issues/README.md#sl24) may lower
-  them once it has measured real suggestions, never raise them alone.
-- **The host checks that the anchor exists, the filter checks its shape.** As [B108](README.md#b108) settles it, the envelope is the
-  filter's and the host checks only what the host alone can judge: whether the commit, the file and the lines are
-  there, which needs the repository. So an agent's reply passes the filter first and the host checks its anchor
-  after; a person's comment never passes the filter (it is a `PersonNote`, from this machine), so for it the host
-  checks the shape too, with the same constants, before it checks the lines.
-- **The daemon's methods,** in `daemon/src/main/resources/varlink/org.fuin.porelo.Tasks1/35-gate.varlink`, each
-  taking `project`, `upstream`, `repository` and the push's `name` as the gate methods do:
-  - `Comment(..., anchor: Anchor, text: string, suggestion: ?[]string, replyTo: ?string) -> (comment: Comment)` -
-    a person's comment or reply;
-  - `Comments(..., name) -> (threads: []Thread)` - every thread on the push, oldest first;
-  - `ResolveThread(..., thread: string, resolved: bool) -> (thread: Thread)`;
-  - `Reject` gains nothing: it delivers the open threads with the reason, and its `told` says so.
-  - Types `Anchor(repository, commit, path, side, first, last)`, `CommentOrigin(kind: person|agent|forge,
-    task: ?string, role: ?string, forge: ?string, account: ?string)`, `Comment(id, thread, replyTo: ?string, anchor,
-    text, suggestion: ?[]string, origin, at)`, `Thread(id, anchor, state: open|resolved, comments: []Comment)`.
-  - Errors `AnchorNotInCommit(anchor: Anchor, lines: int)` (the file's line count on that side, or -1 when the
-    file is not there), `SuggestionOutsideAnchor(lines: int, limit: int)`, `CommentTooLarge(bytes: int, limit: int)`.
-
-Steps:
-
-1. **Red first:** a test in `gate` that a comment on line 12 of a file the pushed commit holds with 10 lines is
-   refused with the line count, and one on line 3 is kept.
-2. **`gate/.../ReviewComments.java`:** the store, one JSON file per thread under the mirror's
-   `porelo/comments/<push name>/`, written through a temporary file and a rename. The anchor check reads the file with
-   `git cat-file` at the commit (`new`) or at the review's base (`old`, the same base `rankedReview` diffs against),
-   and the lines around it for delivery. Threads stay bound to the commit they name; a new push of the same task shows
-   them as on an earlier commit and does not move them. Moving a thread with a new push to the lines it was on is out
-   of scope here and will be an issue of its own.
-3. **The CLI:** `porelo gate comment <name> --path P --line 12[-14] [--side old] [--suggestion-file F] [--reply-to T]
-   <text>` and `porelo gate comments <name>` in `apps/app-gate`; `GateReviewCommand` prints each thread under its
-   line; `GateRejectCommand` and the daemon's `Reject` hand the open threads to `PersonNote.rejectedWork`, which writes
-   one note with a data part listing them, each with its anchor, its lines and three lines around them.
-4. **The daemon:** `GateMethods` registers the three methods; the varlink file says them; `PoreloDaemonTest` holds the
-   file and the methods together.
-5. **Way B:** the mailbox guide (`MailboxGuide`) tells the agent to reply with `kind: comment`, `to: review` and the
-   thread's id. After the filter, `MessageDispatch` routes `to: review` to `ReviewComments` instead of a transport;
-   the host checks the anchor, adds the origin (`agent`, the task, its role from the task's record, `developer` until
-   [B172](README.md#b172)) and appends to the thread. A reply refused there is bounced as any refused message is (`HostBounce`).
-6. **The journal:** each comment, reply and resolve as one line in the gate's `porelo/comments/journal.log` with who,
-   where and when; it moves into [B154](README.md#b154)'s log once that is built.
-7. **Docs:** `doc/commands.md` (`gate comment`, `gate comments`, what a reject carries), `doc/messages.md` (the
-   `comment` kind and `to: review`).
-8. **Acceptance:** a scenario in `acceptance/suite/.../gate/gate-review.feature` with the stub: two comments and a
-   reject arrive as one message naming both anchors; a comment beyond the file's end and a suggestion longer than its
-   bound are refused; the stub's reply shows in `gate comments` marked as the task's. The reply's step needs [SL24](https://github.com/porelo-ai/porelo-message-sluice/blob/main/issues/README.md#sl24)'s
-   filter to let the `comment` data part through, so [SL24](https://github.com/porelo-ai/porelo-message-sluice/blob/main/issues/README.md#sl24) is built from this issue's schema before that step runs.
+1. Red first: a real-repository test in `gate` submits a SARIF line anchor beyond the pinned blob's end and sees it
+   refused; a valid anchor is stored. Add forged-origin, cross-file replacement and conflicting-coordinate cases.
+2. Add `gate/.../ReviewComments.java`: owner-only SARIF storage under `porelo/comments/<push name>/`, serialized
+   writes under a lock and a journal of comments, replies, releases and resolution. Bind project, repository, exact
+   head/base commits and recorded task ID. Pin referenced commits under hidden `refs/porelo/reviewed/` refs and hide
+   them in `GitHttpServer`; reject and subsequent pushes must not make old anchors unreadable.
+3. Use [B291](README.md#b291)'s run/result model through [B292](README.md#b292). Stamp UUIDs, thread membership,
+   producer, role, source level and completeness from authenticated host context. Comments use `review/none` and
+   findings `fail` with explicit rule and level. `porelo/threadId`, `porelo/replyTo` and `porelo/threadState` carry
+   conversation state. Neither suppressions nor a shared `correlationGuid` represents a thread.
+4. Validate canonical artifact URIs against pinned Git objects, never host paths or fetched URLs. Check old-side
+   anchors at the pinned review base and new-side anchors at its head. Check inclusive line spans and resolved
+   Unicode columns. A suggestion is one exact replacement of its new-side regular-blob anchor, within the shared
+   limits, never automatically applied. Source/release restrictions are [B293](README.md#b293)'s; outdated or
+   old-side suggestions have no apply action.
+5. In `apps/app-gate`, add `gate comment` and `gate comments`. Support line/range, file and general comments, optional
+   suggestion file and reply target. Add `Comment`, paged `Comments` and explicit `ResolveThread` methods in
+   `GateMethods` and `35-gate.varlink`, carrying bounded SARIF documents rather than parallel Anchor/Comment/Thread
+   records. Refusals name invalid anchor, suggestion or size; mutations are authenticated and journaled.
+6. Carry one SARIF data part on today's envelope, only on a message whose kind is `comment`. The filter checks envelope,
+   allowed fields and content; the host checks Git objects and authenticated authority. Integrate with
+   porelo-message-sluice [SL24](https://github.com/porelo-ai/porelo-message-sluice/blob/main/issues/README.md#sl24) before acceptance of
+   agent replies. `MessageDispatch` routes authorized `to: review` submissions locally; it cannot make
+   `app-messaging` depend on `app-gate`. Register the handler from the assembly boundary or use a lower-level
+   callback. Refuse another task's thread and bounce safely through `HostBounce`.
+7. `GateRejectCommand`, daemon `Reject` and `PersonNote.rejectedWork` deliver the open threads in structured data,
+   never prompt instructions. Local person input bypasses the message filter but passes the same profile,
+   structural and Git checks. Generate at most three context lines on each side from authorized blobs for local/task
+   delivery only, bounded to 8 KiB; never export that context or retain sender snippets.
+8. Update `MailboxGuide`, `doc/commands.md` and `doc/messages.md`. A reviewer sees the same store through the daemon,
+   interface and IDE plugin. Preserve a comment's original revision; [B176](README.md#b176) adds relocation. The
+   journal integrates with [B154](README.md#b154) when available without blocking the comment flow.
 
 ## Acceptance
 
-- Seen to fail first, then green: two comments on a waiting push and a reject arrive in the task as one message naming
-  both anchors; a comment on a line the commit does not have is refused; a suggestion that touches a line outside its
-  anchor is refused; the agent's reply appears in the thread, marked as the agent's.
-- After a second push of the same task, a thread on the first push's commit still names that commit and its lines,
-  and is shown as on an earlier commit.
-- `doc/commands.md` and `doc/messages.md` say it.
+- In `gate-review.feature`, two comments and a reject reach the stub as one structured review message; its reply
+  appears in the same thread with host-stamped task origin. Delivery wakes a resting agent through the message path.
+- Out-of-blob anchors, cross-file or oversized fixes and task-supplied authority are refused. A local person's input
+  receives structural validation too. Review prose cannot become a prompt instruction or command.
+- A new push preserves the old comment and commit; no task can advertise the hidden review refs. File and general
+  comments work without invented line anchors, and pages never imply that omitted results are absent.
+- Seen red first: unauthorized thread access, an actionable old-side fix, hidden-ref disclosure and loss of an old
+  anchor after reject. The daemon contract and CLI use the same host implementation.
 
 ## To be checked
 
-- Whether [B108](README.md#b108) is built first, or this issue writes [B108](README.md#b108)'s schema document with the sixth kind in it (Agent
-  Core's).
+- Choose SARIF persistence granularity and cursor format within the profile's bounds; measure concurrent CLI/daemon
+  writers and recovery after interrupted publication.
+- Confirm the publication order with
+  porelo-message-sluice [SL24](https://github.com/porelo-ai/porelo-message-sluice/blob/main/issues/README.md#sl24). Profile/schema work may
+  land first; the message acceptance path waits for the matching filter.
+- Specify retention of the store and hidden pins at approve, removal and name reuse, including archived review data
+  needed by [B176](README.md#b176) and [B289](README.md#b289).
