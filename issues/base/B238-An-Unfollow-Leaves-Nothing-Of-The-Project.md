@@ -1,8 +1,6 @@
 # B238 — An Unfollow Leaves Nothing Of The Project
 
-**Status:** Rework. Its main part is published (snapshot 318). The rework stops the follow before an unfollow
-removes the project's clone, rebased onto main past the change that confirms a stop by the recorded container id, and
-fixes the faults a reading of it found.
+**Status:** Review; published in snapshot 333.
 **Size:** M - project deletion, reconciliation, the clone's lock and their command and daemon callers, with refusal,
 ordering and concurrency tests; the contract documents the added reconciliation outcome.
 
