@@ -112,6 +112,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b288"></a>[B288](B288-A-Reviewer-Started-When-The-Build-Is-Green.md) | - | - | A reviewer task started by Porelo itself when the forge's build of a pushed commit is green, once per commit, off unless the project says so. |
 | <a id="b95"></a>[B95](B95-A-Container-To-Try-Waiting-Work-In.md) | - | - | `gate try` and a streaming `Try` in a container without gate or vault; the IDE split into an issue of its own. |
 | <a id="b100"></a>[B100](B100-A-Task-Can-Be-Looked-At.md) | - | - | A VNC view relayed by the daemon from a socket in the task, switched on per project, a strong token before anything reaches the VNC server; splits into task view, image tools and review view. |
 | <a id="b287"></a>[B287](B287-Build-Readers-Offered-Where-Agents-Are.md) | - | - | `porelo-setup.sh --list` and the daemon's `Installable` offer build readers, read from a virtual `porelo-build-reader` the reader packages provide, as kind `build-reader` |
