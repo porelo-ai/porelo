@@ -34,7 +34,13 @@ the parent inherits that profile, so its own deploy step needs nothing but the s
 - The GitHub Build after the push publishes the snapshot to Sonatype as before, with
   `vars.PORELO_DEPLOY_PROFILE=central-sonatype-release`.
 
+## Measured on a rented forge
+
+- The forge's Build and Publish on `7c51105`, both triggered by `push`, are green. The registry holds
+  `porelo-parent` `0.2.1-SNAPSHOT` as one pom and its `maven-metadata.xml`, with no signature. An anonymous reader
+  is refused (`401`), and an organization member's token reads it (`200`).
+- porelo-buildtools' Build on the same forge downloads porelo-parent's `maven-metadata.xml` from `porelo-forge`.
+
 ## To be checked
 
-- Deploy `porelo-parent`'s snapshot to the rented forge's Maven registry under `forge-release` once the forge is
-  up, and verify that downstream builds resolve it from `porelo-forge`.
+- Where a downstream build takes porelo-parent's pom from: the log of that Build names no download of the pom.
