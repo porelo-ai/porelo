@@ -111,6 +111,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b295"></a>[B295](B295-A-Task-Without-A-Gate-Knows-Its-Host.md) | - | - | A task without a gate refuses declared host services in one sentence, not a `NullPointerException`, and its watcher still knows the host's address it never asks about |
 | <a id="b294"></a>[B294](B294-A-Tasks-Trust-And-Limits-Measured-Where-Not-Yet-Seen.md) | - | - | The task authority checked with git, Node and two concurrent tasks on an SELinux host, and a task's limits with `native-image` and on Fedora, where the rented-host test did not reach |
 | <a id="b291"></a>[B291](B291-One-SARIF-Profile-For-Every-Review.md) | - | - | One closed SARIF 2.1.0 profile for every review producer and consumer, with field ownership, Git-tree anchors, safe rendering and shared fixtures. |
 | <a id="b292"></a>[B292](B292-Hardened-SARIF-Reading-On-java-sarif.md) | - | [B291](README.md#b291) | Strict java-sarif/Jackson reader and fresh-object writer, plus isolated scanner normalization with byte, CPU and memory bounds and explicit completeness. |
