@@ -45,6 +45,8 @@ public final class World implements AutoCloseable {
 
     private @Nullable String toolFailure;
 
+    private @Nullable ToolRecords toolRecords;
+
     private boolean daemonWasRunning;
 
     private @Nullable String daemonUnit;
@@ -217,6 +219,21 @@ public final class World implements AutoCloseable {
      */
     public @Nullable String toolFailure() {
         return toolFailure;
+    }
+
+    /**
+     * Declares the agent's tool-call records in its home in the container.
+     *
+     * @param directory The directory relative to the agent's home.
+     * @param suffix The file name ending.
+     */
+    public void toolRecords(String directory, String suffix) {
+        toolRecords = new ToolRecords(directory, suffix);
+    }
+
+    /** Returns the declared tool-call records, or {@code null} when none were declared. */
+    @Nullable ToolRecords toolRecords() {
+        return toolRecords;
     }
 
     /**

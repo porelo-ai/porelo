@@ -1,0 +1,2 @@
+title: Acceptance waits also detect repeated tool failures in an agent's declared tool-call record when its compact screen adds no history
+type: added

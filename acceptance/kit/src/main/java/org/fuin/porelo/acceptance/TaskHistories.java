@@ -35,11 +35,13 @@ final class TaskHistories implements Terminal.Loops {
 
     @Override
     public Optional<String> check() throws IOException {
-        final Ssh.Output printed = world.run(LoopWatch.COMMAND);
+        final Ssh.Output printed =
+                world.run(LoopWatch.command(world.toolRecords(), world.toolFailure()));
         if (printed.status() != 0) {
-            // No podman, or no task yet: nothing that could loop.
+            // The runtime could not list the account's tasks.
             return Optional.empty();
         }
-        return watch.check(LoopWatch.histories(printed.out()));
+        final LoopWatch.Sources sources = LoopWatch.sources(printed.out());
+        return watch.check(sources.histories(), sources.sessions());
     }
 }

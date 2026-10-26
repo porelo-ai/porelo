@@ -162,6 +162,17 @@ public class TerminalSteps {
     }
 
     /**
+     * Declares the agent's tool-call records for waits on a compact screen.
+     *
+     * @param directory The directory relative to the agent's home in the container.
+     * @param suffix The record files' name ending.
+     */
+    @Given("the agent records tool calls under {string} in files ending in {string}")
+    public void theAgentRecordsToolCalls(String directory, String suffix) {
+        world.toolRecords(directory, suffix);
+    }
+
+    /**
      * Opens a terminal with a known prompt.
      *
      * @throws IOException If it cannot be opened.

@@ -88,13 +88,31 @@ two of them; nothing was wrong with the machine or the product.
 ## A wait stops when an agent loops
 
 A wait on the terminal ("the terminal shows", "within N seconds the terminal shows") looks every two
-seconds at what has scrolled into the history of every task the account runs. It stops at once, naming
-what repeated and where, rather than waiting out its time:
+seconds at what has scrolled into the history of every task the account runs and at the marker count
+in its declared tool-call record. Script waits run by `Repeated` use the same check between tries.
+The wait stops at once, naming what repeated and where, rather than waiting out its time:
 
 - **when the tool failure the scenario declared has scrolled by three times since the step began.** An
   agent repository declares its agent's wording once, in a feature's `Background`:
 
       Given a tool failure on the screen looks like "✘ Write"
+
+- **when the declared marker occurs three times in additions to the agent's own tool-call record.**
+  For an agent whose compact view redraws in place, declare its record directory and file suffix
+  beside the marker:
+
+      Given a tool failure on the screen looks like "option requires an argument"
+      And the agent records tool calls under ".sessions" in files ending in ".jsonl"
+
+  The directory is relative to the agent's home in the task container. It accepts only letters,
+  digits, dots, underscores, slashes and dashes, with no `..` or leading slash; the suffix accepts
+  the same characters except slashes. Every look reads the newest matching file, including in
+  subdirectories. Only its path and marker count leave the container. Each task's record counts
+  from that file's first sight in the wait, including a file first seen after the wait began;
+  history still counts from the wait's first look, or from nothing for a task that appears later.
+  History and file counts are not added together. The marker matches literal file text, so a
+  JSON record needs a marker that survives its escaping. An empty call counts when its record
+  carries the marker too; an unmarked call cannot be classified without the record format.
 
 - **when one line has scrolled by more often than `porelo.acceptance.repeats` allows** (25 if unset),
   declared or not. Lines without a letter or a digit, such as the bottom edge of a box, do not count.
@@ -108,8 +126,9 @@ or `within 240 seconds this script exits zero:` with the script as a doc string.
 seconds.
 
 What scrolled into the history, not what is drawn: a spinner, a timer and tmux's status bar redraw in
-place and never get there, while every try of a failing tool call adds a block. A task whose agent
-keeps no history shows nothing to count, and its waits run their full time as before.
+place and never get there. A compact view may also redraw failed tool calls in place, which is why
+the optional record source exists. Without growing history or a declared record containing the
+marker, there is nothing to count and waits run their full time.
 
 ## Adding steps of your own
 

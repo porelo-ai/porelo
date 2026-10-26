@@ -27,6 +27,12 @@ from its side, as *blocked by*.
 | <a id="b286"></a>[B286](B286-The-Hosts-Git-Trusts-The-Accounts-Authorities.md) | S | - | Every host-side git command against a remote - following, mirror distance, the gate's push - trusts the account's `ca-certificates.pem` beside the system's roots, through a combined bundle Porelo writes for `GIT_SSL_CAINFO` |
 | <a id="b272"></a>[B272](B272-A-Sign-In-Is-Renewed-On-The-Host-On-Request.md) | S | - | `porelo vault renew <name>` marks an agent's own sign-in due, so the next task's broker renews it on the host by the path every renewal takes; nothing but its end changes and no token is printed |
 
+## Implementing
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="b244"></a>[B244](B244-The-Loop-Watch-Sees-A-Compact-Screen.md) | M | - | The acceptance kit reads a declared tool-call record beside tmux history to stop repeated failures on compact screens; implementing, live record format still to verify |
+
 ## Backlog
 
 | # | Size | Blocked by | What it covers |
@@ -39,7 +45,6 @@ from its side, as *blocked by*.
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes. |
 | <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
 | <a id="b216"></a>[B216](B216-A-Second-Setup-Says-Nothing-Changed.md) | M | - | A second `porelo-setup.sh` run changes nothing and says so, as a last line and in `--json`, so a playbook reports it truly |
-| <a id="b244"></a>[B244](B244-The-Loop-Watch-Sees-A-Compact-Screen.md) | M | - | The acceptance kit's loop watch stops a scenario on a repeated failed tool call also for an agent that redraws a compact view, where today Codex CLI's ran to its bound |
 
 ## Analyzed
 

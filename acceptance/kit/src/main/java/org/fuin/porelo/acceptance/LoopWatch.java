@@ -8,22 +8,22 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Tells an agent that repeats a failure from one that is still working, from what has scrolled into
- * its tasks' histories.
+ * its tasks' histories and the agent's own tool-call records.
  *
  * <p><strong>What scrolled by, not what is on the screen.</strong> A spinner, a timer and tmux's
  * status bar redraw in place, so the same line is drawn again many times a minute by an agent that
- * works; they never scroll into the history. A tool call that fails and is tried again adds a new
- * block each time, which does. Measured on a run whose agent wrote one file thousands of times,
- * each try refused the same way, while the step waited out its four minutes.
+ * works; they never scroll into the history. A compact view may redraw failed tool calls too, so a
+ * scenario may also declare where the agent records them.
  *
  * <p><strong>Two rules.</strong> The marker a scenario declares for a failed tool call, seen
- * {@value #MARKER_REPEATS} times since the step began, is a loop: three tries of one failing call
- * is no longer working on it. Without a marker, or for a loop the marker does not catch, one line
- * seen more often than {@link #REPEATS} allows is one. Lines without a letter or a digit do not
- * count: the bottom edge of every box an agent draws is the same line.
+ * {@value #MARKER_REPEATS} times in either source since the step began, is a loop: three tries of
+ * one failing call is no longer working on it. Without a marker, or for a loop the marker does not
+ * catch, one line seen more often than {@link #REPEATS} allows is one. Lines without a letter or a
+ * digit do not count: the bottom edge of every box an agent draws is the same line.
  *
- * <p>Counted from the step's own beginning: what scrolled by before it, in an earlier step, is the
- * agent's past.
+ * <p>History counts from the step's first look; each record counts from its first sight in the
+ * step. The container counts literal markers without assuming a record format and sends only the
+ * count, which is kept separate from history.
  */
 final class LoopWatch {
 
@@ -39,19 +39,27 @@ final class LoopWatch {
     /** What separates one container's history from the next in what {@link #COMMAND} prints. */
     static final char SEPARATOR = '\u001e';
 
-    /**
-     * Prints the history of every task's session of the account, each after a line naming its
-     * container.
-     */
-    static final String COMMAND =
-            "for c in $(podman ps --format '{{.Names}}' --filter name=^porelo-); do"
-                    + " printf '\\036%s\\n' \"$c\"; podman exec \"$c\" tmux capture-pane -p -J -S - -E -1 2>/dev/null; done";
+    /** Separates a tool-call record from its container's history. */
+    static final char SESSION_SEPARATOR = '\u001f';
+
+    private static final String LIST =
+            "containers=$(podman ps --format '{{.Names}}' --filter name=^porelo-) || exit $?;"
+                    + " for c in $containers; do";
+
+    private static final String HISTORY =
+            " printf '\\036%s\\n' \"$c\";"
+                    + " podman exec \"$c\" tmux capture-pane -p -J -S - -E -1 2>/dev/null || :;";
+
+    /** Prints each task's history, tolerating a task that stopped after the listing. */
+    static final String COMMAND = LIST + HISTORY + " done; exit 0";
 
     private final @Nullable String marker;
 
     private final int repeats;
 
     private @Nullable Map<String, Map<String, Integer>> baseline;
+
+    private final Map<SessionKey, Long> sessionBaseline = new HashMap<>();
 
     /**
      * Creates one for a step.
@@ -62,6 +70,61 @@ final class LoopWatch {
     LoopWatch(@Nullable String marker, int repeats) {
         this.marker = marker;
         this.repeats = repeats;
+    }
+
+    /** One task's newest tool-call record and the marker count read inside the container. */
+    record Session(String path, long count) {
+
+        Session {
+            if (count < 0) {
+                throw new IllegalArgumentException(
+                        "a tool record's marker count cannot be negative");
+            }
+        }
+    }
+
+    private record SessionKey(String container, String path) {}
+
+    /** The two sources collected in one look at the account's tasks. */
+    record Sources(Map<String, String> histories, Map<String, Session> sessions) {}
+
+    /** Collects histories and the declared marker's count in each newest record. */
+    static String command(@Nullable ToolRecords records, @Nullable String marker) {
+        if (records == null || marker == null) {
+            return COMMAND;
+        }
+        return LIST
+                + HISTORY
+                + " podman exec \"$c\" sh -c "
+                + Shell.quote(records.command(marker))
+                + " || :; done; exit 0";
+    }
+
+    /** Looks at both the histories and the agents' tool-call records. */
+    Optional<String> check(Map<String, String> histories, Map<String, Session> sessions) {
+        final Optional<String> history = historyLoop(histories);
+        if (history.isPresent() || marker == null) {
+            return history;
+        }
+        for (final Map.Entry<String, Session> task : sessions.entrySet()) {
+            final Session session = task.getValue();
+            final SessionKey key = new SessionKey(task.getKey(), session.path());
+            final long before = sessionBaseline.computeIfAbsent(key, ignored -> session.count());
+            final long added = session.count() - before;
+            if (added >= MARKER_REPEATS) {
+                return Optional.of(
+                        "In "
+                                + task.getKey()
+                                + " the tool failure \""
+                                + marker
+                                + "\" was recorded "
+                                + added
+                                + " times since this step first saw "
+                                + session.path()
+                                + ": the agent repeats a failing call.");
+            }
+        }
+        return Optional.empty();
     }
 
     /**
@@ -85,6 +148,7 @@ final class LoopWatch {
     /** Forgets what was seen, so the next look is the beginning of a step. */
     void reset() {
         baseline = null;
+        sessionBaseline.clear();
     }
 
     /**
@@ -96,6 +160,10 @@ final class LoopWatch {
      * @return What repeated, where and how often, or empty while nothing does.
      */
     Optional<String> check(Map<String, String> histories) {
+        return check(histories, Map.of());
+    }
+
+    private Optional<String> historyLoop(Map<String, String> histories) {
         final Map<String, Map<String, Integer>> now = new LinkedHashMap<>();
         histories.forEach((container, history) -> now.put(container, counts(history)));
         final Map<String, Map<String, Integer>> before = baseline;
@@ -152,8 +220,15 @@ final class LoopWatch {
      * @return Each history, by its container.
      */
     static Map<String, String> histories(String printed) {
+        return sources(printed).histories();
+    }
+
+    /** Splits the command's output into histories and tool-call records by container. */
+    static Sources sources(String printed) {
         final Map<String, String> histories = new LinkedHashMap<>();
+        final Map<String, Session> sessions = new LinkedHashMap<>();
         String container = null;
+        boolean recordSeen = false;
         StringBuilder history = new StringBuilder();
         for (final String line : printed.split("\n")) {
             if (!line.isEmpty() && line.charAt(0) == SEPARATOR) {
@@ -161,15 +236,41 @@ final class LoopWatch {
                     histories.put(container, history.toString());
                 }
                 container = line.substring(1).strip();
+                recordSeen = false;
                 history = new StringBuilder();
-            } else if (container != null) {
+            } else if (container != null && !recordSeen && summary(line) != null) {
+                // The record's summary comes last, after the history: what follows it is not
+                // history.
+                recordSeen = true;
+                sessions.put(container, summary(line));
+            } else if (container != null && !recordSeen) {
                 history.append(line).append('\n');
             }
         }
         if (container != null) {
             histories.put(container, history.toString());
         }
-        return histories;
+        return new Sources(histories, sessions);
+    }
+
+    /**
+     * Reads a record's summary, the separator, a path, a tab and a count, or {@code null} for any
+     * other line: an agent can draw a line that starts like one, and it stays history.
+     */
+    private static @Nullable Session summary(String line) {
+        if (line.isEmpty() || line.charAt(0) != SESSION_SEPARATOR) {
+            return null;
+        }
+        final int tab = line.lastIndexOf('\t');
+        if (tab <= 1) {
+            return null;
+        }
+        try {
+            final long count = Long.parseLong(line.substring(tab + 1).strip());
+            return count < 0 ? null : new Session(line.substring(1, tab), count);
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     private static Map<String, Integer> counts(String history) {

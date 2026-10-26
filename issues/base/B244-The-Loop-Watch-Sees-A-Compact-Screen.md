@@ -1,6 +1,6 @@
 # B244 — The Loop Watch Sees A Compact Screen
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** M - one module, the acceptance kit, with a published step agent repositories use; L if the file's place comes from the agent definition instead.
 
 **What must be true.** A scenario that waits on a model stops as soon as the agent repeats a failed tool call, also
@@ -39,4 +39,11 @@ Read in `LoopWatch`, `TaskHistories`, `SessionIds`, `TaskSession.fromFiles` and 
 
 ## To be checked
 
-- Where Codex CLI keeps its attended session files, and whether the marker survives their JSON escaping.
+- Confirmed in the adapter definition and its conversation-record documentation: attended session files
+  live under `.codex/sessions` in the agent's home, in dated subdirectories, with suffix `.jsonl`.
+  The definition also selects `session_meta/payload.id` for the session id.
+- Still to measure in a live attended record: whether the refused-call marker survives JSON escaping,
+  and how an empty call immediately after a refused one is represented. The empty-call-after-refusal
+  rule is not built yet because the record's format is unmeasured. The measured case of two refusals
+  followed by a bare call is therefore not yet caught; the kit counts literal markers and does not
+  infer a refusal from an unmarked empty call.
