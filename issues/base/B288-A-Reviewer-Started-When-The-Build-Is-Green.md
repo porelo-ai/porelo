@@ -21,13 +21,13 @@ starting it is a step that only waits on the build's verdict, which the host alr
 
 ## The shape proposed
 
-A step of the forge's own workflow is only the trigger: it tells Porelo, through a narrow endpoint of the
-broker whose token can do nothing else, that the build of a commit has finished. **Porelo decides** (the operator's decision): it reads the verdict with its build reader ([B253](README.md#b253))
-itself and starts the reviewer only if its own rules hold. The forge decides nothing, since a workflow is code in the
-repository the agents push and a task could change it; a changed workflow can at most send one report too many,
-which Porelo checks against what it reads.
+A forge event is only the trigger: the forge's own webhook, routed by porelo-host [HO28](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho28) to the daemon of the
+account the task belongs to, tells Porelo that the build of a commit has finished. **Porelo decides** (the operator's decision): it reads the verdict with its build reader ([B253](README.md#b253))
+itself and starts the reviewer only if its own rules hold. The forge decides nothing; a report too many changes nothing,
+since Porelo checks it against what it reads.
 
 ## To be checked
 
-- Where the setting lives in the project file, and whether it names one reviewer agent or a list to choose from.
+- Whether the project file's setting names one reviewer agent or a list to choose from. The setting is Porelo's, in
+  the project file, as every other choice of agent and model is (the operator's decision).
 - What bounds the reviews a project can start in an hour, so a pushing agent cannot start reviewers without end.

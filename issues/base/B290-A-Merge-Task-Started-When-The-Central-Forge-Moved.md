@@ -20,12 +20,10 @@ them). Starting the task that merges the central changes only waits on the refus
 
 ## The shape proposed
 
-A step of the forge's own workflow is only the trigger: it tells Porelo, through a narrow endpoint of the
-broker whose token can do nothing else, that the gathered push of a repository was refused. **Porelo decides** (the operator's decision): it reads the refusal and the forge's `central/main`
-itself and starts the merge task only if its own rules hold. The forge decides nothing, since a workflow is code in the
-repository the agents push and a task could change it; a changed workflow can at most send one report too many,
-which Porelo checks against what it reads.
-It is the same endpoint as [B288](README.md#b288)'s.
+A forge event is only the trigger: the forge's own webhook, routed by porelo-host [HO28](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho28) to the daemon of the
+account the task belongs to, tells Porelo that the gathered push of a repository was refused (the push reports it itself, as it runs on the host). **Porelo decides** (the operator's decision): it reads the refusal and the forge's `central/main`
+itself and starts the merge task only if its own rules hold. The forge decides nothing; a report too many changes nothing,
+since Porelo checks it against what it reads.
 
 ## To be checked
 

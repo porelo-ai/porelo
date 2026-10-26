@@ -14,12 +14,10 @@ instead of the person removing it by hand.
 
 ## The shape proposed
 
-A step of the forge's own workflow is only the trigger: it tells Porelo, through a narrow endpoint of the
-broker whose token can do nothing else, that a task's pull request was merged. **Porelo decides** (the operator's decision): it reads the merge on the forge
-itself and starts the removal only if its own rules hold. The forge decides nothing, since a workflow is code in the
-repository the agents push and a task could change it; a changed workflow can at most send one report too many,
-which Porelo checks against what it reads.
-It is the same endpoint as [B288](README.md#b288)'s.
+A forge event is only the trigger: the forge's own webhook, routed by porelo-host [HO28](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho28) to the daemon of the
+account the task belongs to, tells Porelo that a task's pull request was merged. **Porelo decides** (the operator's decision): it reads the merge on the forge
+itself and starts the removal only if its own rules hold. The forge decides nothing; a report too many changes nothing,
+since Porelo checks it against what it reads.
 
 ## Why
 
