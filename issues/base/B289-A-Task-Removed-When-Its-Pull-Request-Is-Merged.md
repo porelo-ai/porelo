@@ -12,6 +12,15 @@ instead of the person removing it by hand.
 - The person sees that the task was removed and by what (the project's setting).
 - Off unless the project's file says so.
 
+## The shape proposed
+
+A step of the forge's own workflow is only the trigger: it tells Porelo, through a narrow endpoint of the
+broker whose token can do nothing else, that a task's pull request was merged. **Porelo decides** (the operator's decision): it reads the merge on the forge
+itself and starts the removal only if its own rules hold. The forge decides nothing, since a workflow is code in the
+repository the agents push and a task could change it; a changed workflow can at most send one report too many,
+which Porelo checks against what it reads.
+It is the same endpoint as [B288](README.md#b288)'s.
+
 ## Why
 
 The person's merge is the acceptance of a task's work; removing the task afterwards is a second step that only follows
@@ -21,6 +30,4 @@ then only reads and merges.
 
 ## To be checked
 
-- How the host learns of the merge: from the forge reader that already reads the task's builds, or from the forge's
-  own event.
 - Whether a task kept for further work on the same branch needs a way to say so.

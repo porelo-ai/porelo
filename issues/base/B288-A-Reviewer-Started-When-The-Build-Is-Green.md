@@ -21,9 +21,11 @@ starting it is a step that only waits on the build's verdict, which the host alr
 
 ## The shape proposed
 
-The host starts the reviewer when its build reader ([B253](README.md#b253)) reads the green verdict, not a workflow on
-the forge. A workflow is code in the repository the agents push, so a task could change when reviewers start, or what
-starts; the host acts only on what it reads itself.
+A step of the forge's own workflow is only the trigger: it tells Porelo, through a narrow endpoint of the
+broker whose token can do nothing else, that the build of a commit has finished. **Porelo decides** (the operator's decision): it reads the verdict with its build reader ([B253](README.md#b253))
+itself and starts the reviewer only if its own rules hold. The forge decides nothing, since a workflow is code in the
+repository the agents push and a task could change it; a changed workflow can at most send one report too many,
+which Porelo checks against what it reads.
 
 ## To be checked
 

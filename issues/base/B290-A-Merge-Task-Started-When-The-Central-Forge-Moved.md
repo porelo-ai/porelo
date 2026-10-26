@@ -20,9 +20,12 @@ them). Starting the task that merges the central changes only waits on the refus
 
 ## The shape proposed
 
-The host starts it, as [B288](README.md#b288) starts a reviewer, and not a workflow on the forge: a workflow is code
-in the repository the agents push, so a task could change what it starts. The host acts only on what it reads itself:
-the push's refusal and the forge's state.
+A step of the forge's own workflow is only the trigger: it tells Porelo, through a narrow endpoint of the
+broker whose token can do nothing else, that the gathered push of a repository was refused. **Porelo decides** (the operator's decision): it reads the refusal and the forge's `central/main`
+itself and starts the merge task only if its own rules hold. The forge decides nothing, since a workflow is code in the
+repository the agents push and a task could change it; a changed workflow can at most send one report too many,
+which Porelo checks against what it reads.
+It is the same endpoint as [B288](README.md#b288)'s.
 
 ## To be checked
 
