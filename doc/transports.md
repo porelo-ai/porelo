@@ -7,6 +7,11 @@ for whoever writes one; what a project's conversation is for the people using it
 
 ## What every transport answers
 
+**Every verb starts from a chosen environment**, as the message filter does: the search path, the account, its home,
+shell and temporary directory, its locale, time zone, XDG directories and user bus, and nothing else of the caller's.
+Where the account sets none of `LANG`, `LC_ALL` and `LC_CTYPE`, it gets `LANG=C.UTF-8`, so an argument or a path
+holding non-ASCII characters reaches it whole; a locale the account sets, even `C`, passes unchanged.
+
 - **`describe`** reads nothing and prints one JSON object: `scheme`; `poll`; `confirms` (`handover`, `receipt`
   or `read`); `max_bytes`; `credentials` (for example `[{"name":"PORELO_MATRIX_ACCESS_TOKEN","as":"env"}]`);
   `hosts`; `attests`; and, if it keeps a conversation, `lifecycle` (the verbs below it offers) and `takes`

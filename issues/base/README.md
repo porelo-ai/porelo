@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b215"></a>[B215](B215-A-Helper-Started-With-A-UTF-8-Locale.md) | XS | - | A transport and the message filter run with `LANG=C.UTF-8` where porelod has no locale, so a non-ASCII argument or path reaches them whole; a locale the machine sets passes unchanged |
 | <a id="b235"></a>[B235](B235-A-Dry-Run-Shows-The-Agents-Refusals.md) | S | - | `task start --dry-run` chooses the agent as a start does and names a host it or the project refuses as refused, never as reachable |
 | <a id="b233"></a>[B233](B233-A-Host-Service-Reached-By-Name.md) | M | - | `egress.host_services` maps declared names to the gate address and opens TCP 443 on it in every class, offline included; a drop to another port of the host is recorded and never asked about, and the start report names each host service |
 | <a id="b238"></a>[B238](B238-An-Unfollow-Leaves-Nothing-Of-The-Project.md) | M | - | `project unfollow` removes the project's build lock and upstream copies, so `porelo prune` finds nothing of it; following stops first, under the clone's lock, which a removal never leaves to two holders |
@@ -36,7 +37,6 @@ from its side, as *blocked by*.
 | <a id="b207"></a>[B207](B207-An-Image-Built-Within-The-Projects-Egress.md) | L | - | An image's build reaches only the project's egress and its trusted package sources, through the firewall or a proxy, so a snippet - a project's or a repository's `porelo.yml` - cannot fetch from anywhere while the image is made. |
 | <a id="b190"></a>[B190](B190-A-Tasks-Branch-Named-By-The-Projects-Scheme.md) | L | - | `branch.template` and `branch.pattern` or `--branch` name a task's forge branch, kept in `task.json`; the gate passes on and keeps out of its mirror by them, an existing upstream branch refused at an online start, a guarded approval onto it by default and only within the pattern. |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes. |
-| <a id="b215"></a>[B215](B215-A-Helper-Started-With-A-UTF-8-Locale.md) | XS | - | A transport and the message filter run with `LANG=C.UTF-8` where porelod has no locale, so a non-ASCII argument or path reaches them whole |
 | <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
 | <a id="b216"></a>[B216](B216-A-Second-Setup-Says-Nothing-Changed.md) | M | - | A second `porelo-setup.sh` run changes nothing and says so, as a last line and in `--json`, so a playbook reports it truly |
 | <a id="b244"></a>[B244](B244-The-Loop-Watch-Sees-A-Compact-Screen.md) | M | - | The acceptance kit's loop watch stops a scenario on a repeated failed tool call also for an agent that redraws a compact view, where today Codex CLI's ran to its bound |

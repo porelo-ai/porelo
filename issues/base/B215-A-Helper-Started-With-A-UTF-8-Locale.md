@@ -1,6 +1,6 @@
 # B215 — A Helper Started With A UTF-8 Locale
 
-**Status:** Backlog.
+**Status:** Review: a helper started from an environment with no `LANG`, `LC_ALL` or `LC_CTYPE` gets `LANG=C.UTF-8`, seen failing first in `HelperEnvironmentTest`.
 **Size:** XS - one file in `app-base`, `HelperEnvironment`, and its test; a change to `app-base` is said in the channel first.
 
 **What must be true.** A transport and the message filter, which porelod starts, run with a UTF-8 locale even where
@@ -47,5 +47,5 @@ Read in `HelperEnvironment`, `Command.withChosenEnvironment`, `porelod.service` 
 
 ## To be checked
 
-- That `C.UTF-8` is in `locale -a` on Ubuntu 26.04, Debian 13 and Fedora, and that a native transport decodes a
-  non-ASCII argument started so.
+- That `C.UTF-8` is in `locale -a` on Debian 13 and Fedora, and that a native transport decodes a non-ASCII
+  argument started so. Ubuntu 26.04 lists it as `C.utf8` (the host, 2026-10-26).

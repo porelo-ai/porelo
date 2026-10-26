@@ -358,6 +358,49 @@ class DoctorCommandTest {
     }
 
     @Test
+    void asksATransportWithTheEnvironmentEveryHelperGets(@TempDir Path dir) throws Exception {
+
+        // The same chosen environment the message area starts it with: nothing of the caller's that
+        // steers a helper, and a UTF-8 locale where the caller had none.
+        final java.nio.file.Path transports = dir.resolve("data/porelo/transports");
+        java.nio.file.Files.createDirectories(transports);
+        final java.nio.file.Path adapter = transports.resolve(TransportDirectory.PREFIX + "local");
+        java.nio.file.Files.writeString(adapter, "#!/bin/sh\nexit 0\n");
+        java.nio.file.Files.setPosixFilePermissions(
+                adapter, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    default -> null;
+                                },
+                        dir);
+        final FakeCommandRunner runner = new FakeCommandRunner();
+        final DoctorCommand doctor = new DoctorCommand();
+        doctor.setContext(
+                new PoreloContext(
+                        runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0));
+
+        doctor.probes();
+
+        assertThat(runner.invocations())
+                .filteredOn(command -> command.arguments().contains("describe"))
+                .as("the transport is asked once, from the chosen environment")
+                .singleElement()
+                .satisfies(
+                        command -> {
+                            assertThat(command.inheritsEnvironment())
+                                    .as("nothing of the caller's is inherited")
+                                    .isFalse();
+                            assertThat(command.environment())
+                                    .as("only what passes, with a locale")
+                                    .containsKey("LANG")
+                                    .doesNotContainKey("CLAUDECODE");
+                        });
+    }
+
+    @Test
     void saysWhenABackendCannotMapTheHostsLoopback(@TempDir Path dir) {
 
         // It works, and the git gate ends up on the operator's network with only its per-task token

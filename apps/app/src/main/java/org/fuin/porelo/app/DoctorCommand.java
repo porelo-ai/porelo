@@ -162,8 +162,12 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
                         final CommandResult result =
                                 context.runner()
                                         .run(
-                                                org.fuin.porelo.core.process.Command.of(
-                                                        executable.toString(), "describe"));
+                                                // As the message area asks it: nothing of the
+                                                // caller's that steers a helper.
+                                                HelperEnvironment.chosen(
+                                                        org.fuin.porelo.core.process.Command.of(
+                                                                executable.toString(),
+                                                                "describe")));
                         if (result.successful()) {
                             answers.add(transport);
                         } else {

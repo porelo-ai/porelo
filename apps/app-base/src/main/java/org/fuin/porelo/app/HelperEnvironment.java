@@ -3,6 +3,7 @@ package org.fuin.porelo.app;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 import org.fuin.porelo.core.process.Command;
 
 /**
@@ -54,11 +55,20 @@ public final class HelperEnvironment {
         return command.withChosenEnvironment(base(System.getenv()));
     }
 
+    /** What a helper gets as its locale when the caller has none. */
+    static final String LOCALE = "C.UTF-8";
+
     /**
      * Returns what passes from an environment.
      *
+     * <p><strong>A UTF-8 locale where the caller has none.</strong> Java reads a program's
+     * arguments and file names by the locale, and in the C locale that is ASCII: a transport
+     * enrolled with a name holding an umlaut read it back with a question mark. porelod gets its
+     * locale from the user manager, which may have none. A locale the caller sets, even {@code C},
+     * passes unchanged.
+     *
      * @param caller The caller's environment.
-     * @return Only the variables that pass.
+     * @return Only the variables that pass, and {@code LANG} where no locale did.
      */
     static Map<String, String> base(Map<String, String> caller) {
         final Map<String, String> base = new LinkedHashMap<>();
@@ -67,6 +77,11 @@ public final class HelperEnvironment {
             if (value != null) {
                 base.put(name, value);
             }
+        }
+        if (Stream.of("LANG", "LC_ALL", "LC_CTYPE")
+                .map(base::get)
+                .allMatch(value -> value == null || value.isEmpty())) {
+            base.put("LANG", LOCALE);
         }
         return base;
     }

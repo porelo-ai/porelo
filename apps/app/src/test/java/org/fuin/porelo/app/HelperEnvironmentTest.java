@@ -33,7 +33,30 @@ class HelperEnvironmentTest {
                         "s-1");
 
         assertThat(HelperEnvironment.base(caller))
-                .containsOnlyKeys("PATH", "HOME", "XDG_RUNTIME_DIR");
+                .as("what a process needs, and a UTF-8 locale where the caller had none")
+                .containsOnlyKeys("PATH", "HOME", "XDG_RUNTIME_DIR", "LANG");
+    }
+
+    @Test
+    void aCallerWithNoLocaleHandsAHelperCUtf8() {
+        // In the C locale Java reads a program's arguments and file names as ASCII: a transport
+        // enrolled with a name holding an umlaut came back with a question mark.
+        assertThat(HelperEnvironment.base(Map.of("PATH", "/usr/bin", "LANG", "")))
+                .as("an empty LANG is no locale")
+                .containsEntry("LANG", "C.UTF-8");
+    }
+
+    @Test
+    void aLocaleTheCallerSetsPassesUnchanged() {
+        assertThat(HelperEnvironment.base(Map.of("LANG", "C")))
+                .as("a LANG the machine set, even C, is the machine's choice")
+                .containsExactlyEntriesOf(Map.of("LANG", "C"));
+        assertThat(HelperEnvironment.base(Map.of("LC_ALL", "de_DE.UTF-8")))
+                .as("LC_ALL decides, so no LANG is added beside it")
+                .containsExactlyEntriesOf(Map.of("LC_ALL", "de_DE.UTF-8"));
+        assertThat(HelperEnvironment.base(Map.of("LC_CTYPE", "en_US.UTF-8")))
+                .as("LC_CTYPE decides how bytes are read, so no LANG is added beside it")
+                .containsExactlyEntriesOf(Map.of("LC_CTYPE", "en_US.UTF-8"));
     }
 
     @Test
