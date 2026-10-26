@@ -26,8 +26,8 @@ git config --system http.version HTTP/1.1
 
 The default base image for a task is `ubuntu:24.04`, which is noble, and nothing in this project
 sets `http.version`. Porelo's own gate is not affected — an agent pushes to it over plain HTTP on a
-link-local address — but **anything the work itself fetches is**: a dependency from a forge, a
-`pip install` from a git URL, an online-class project cloning its real upstream.
+link-local address — but **anything the work itself fetches is**: a dependency from a forge or a
+`pip install` from a git URL.
 
 **The symptom is the dangerous part.** It arrives as `401`, which reads as a credential problem. In
 a product whose whole subject is credentials that deliberately never enter the container, an

@@ -143,7 +143,8 @@ The pages of this repository's chapter on [the site](https://porelo-ai.github.io
   an agent is kept in its place
 - [For whoever decides whether an agent may run in an organisation](doc/corporate-security.md)
 - [Running it](doc/running.md) — preparing a machine, the daemon, your own tooling in a task
-- [FAQ](doc/faq.md), [three ways of working](doc/way-of-working.md)
+- [FAQ](doc/faq.md), [ways of working](doc/way-of-working.md), and
+  [the host's own forge](https://github.com/porelo-ai/porelo-host/blob/main/doc/local-forge.md)
 - [Adding an agent](agents/README.md#onboarding-a-new-agent), [requirements](issues/README.md),
   [building from source](doc/build.md)
 - [Contributing](CONTRIBUTING.md), and [reporting a vulnerability](SECURITY.md)

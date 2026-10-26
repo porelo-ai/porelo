@@ -23,8 +23,9 @@ and approve. Installed with apt or dnf, one native program, for any agent - Clau
 
 You keep the agent you like and stop watching it. It runs in a container with its own copy of the
 repository, so it can try anything there without touching your working tree, your `~/.ssh` or your
-other projects. When it is done, its work waits as a branch: `porelo gate checkout` opens it, and
-`porelo gate approve` sends it on as `porelo/<task>`. See [Getting started](getting-started.md).
+other projects. When it is done, its work waits as a branch: `porelo gate checkout` opens it to read,
+`porelo approve` brings a checkout's task back as `porelo/<task>`, and `porelo gate approve` forwards a
+followed repository's work to its `upstream`. See [Getting started](getting-started.md).
 
 ## For a security officer
 

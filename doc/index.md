@@ -1,16 +1,17 @@
 # Porelo
 
 Porelo runs an AI coding agent in a hardened container on your own machine: it reaches only what it was
-allowed to, never holds your credentials, and hands its work back through a gate you review before
-anything reaches your repository.
+allowed to, never holds your credentials, and hands its work back through a gate — in the default
+`guarded` class, nothing reaches your repository until you review and approve it.
 
 ## Where to start
 
 1. **[Getting started](getting-started.md)** - install it on Debian, Ubuntu or Fedora, sign an agent in,
    start a first task and approve its work.
 2. **[How it works](how-it-works.md)** - tasks, projects, the gate, the vault and egress, in plain
-   language, with a glossary at the end. New to coding agents altogether?
-   [Three ways of working](way-of-working.md) first.
+   language, with a glossary at the end. See [Ways of working](way-of-working.md) for the workflows
+   across classes and forges, and porelo-host's
+   [local forge](https://github.com/porelo-ai/porelo-host/blob/main/doc/local-forge.md) for the forge on the host.
 3. **[Commands](commands.md)** - every command, and what to type for a given job. With
    [the project file](project-file.md) and the [FAQ](faq.md) beside it.
 

@@ -92,9 +92,9 @@ server the project names. [How far a task can get](reach.md) lists every bound a
 ### Tool poisoning and MCP rug pulls
 
 **Porelo limits the damage but does not detect the attack.** A poisoned tool cannot take a credential,
-reach an undeclared host or slip a change past review. But Porelo does not read MCP tool definitions,
-so a misleading description, or a server that changes its tools later, goes unnoticed. See the
-[FAQ](faq.md#how-is-porelo-protected-against-tool-poisoning-an-mcp-servers-rug-pull).
+reach an undeclared host or, in a `guarded` project, slip a change past gate review. But Porelo does
+not read MCP tool definitions, so a misleading description, or a server that changes its tools later,
+goes unnoticed. See the [FAQ](faq.md#how-is-porelo-protected-against-tool-poisoning-an-mcp-servers-rug-pull).
 
 ## What Porelo does not do
 

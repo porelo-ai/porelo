@@ -36,9 +36,10 @@ project:
   #   online   pushes to a gate that passes its own branch on at once; needs 'upstream'.
   security_class: "guarded"
 
-  # Where approved work for the project's OWN repository goes. Required for online,
-  # refused for offline. In guarded the agent never sees it: the gate forwards what a
-  # person approved.
+  # The immediate Git destination for the project's OWN repository: the host's forge or a
+  # central or company forge. Required for online, refused for offline, and never seen by
+  # the agent: in guarded the gate forwards what a person approved, and in online it
+  # forwards the task's own branch at once.
   upstream: "git@github.com:you/myproject.git"
 
   # Optional. The public keys of the people whose signed commits change this file. A commit

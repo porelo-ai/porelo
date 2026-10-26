@@ -17,8 +17,8 @@ into your host checkout. Porelo keeps its limits on the host, blocks undeclared 
 ([egress](how-it-works.md#egress-nothing-is-reachable-unless-named)), and keeps real credentials outside the container
 ([vault and broker](how-it-works.md#the-vault-and-the-broker-the-container-never-holds-the-credential)). The agent works
 on a copy cloned from the gate, and its changes leave only through [the
-gate](how-it-works.md#the-gate-work-leaves-only-after-review) after you review and approve them. Keep the devcontainer
-file as the recipe for the task's image, where Porelo skips its features
+gate](how-it-works.md#the-gate-work-leaves-only-after-review) — in a `guarded` project, only after you review and
+approve them. Keep the devcontainer file as the recipe for the task's image, where Porelo skips its features
 ([decisions](decisions.md#a-devcontainer-files-features-are-not-fetched)), and let Porelo run the container.
 
 ## How is Porelo protected against tool poisoning (an MCP server's rug pull)?
@@ -46,15 +46,16 @@ egress:
 
 Run `porelo shield sets` to list the available sets, and use `domains` for any host no set covers. Without `egress`, a
 task can only reach the hosts for its agent and its provider. Allowed hosts are reachable on ports 80 and 443 only. An
-`offline` project cannot declare `egress`, so pre-fetch dependencies during the image build instead, which runs outside
-the firewall.
+`offline` project cannot declare external `egress` (`sets` or `domains`), only `egress.host_services` on TCP 443 on this
+host, so pre-fetch external dependencies during the image build instead, which runs outside the firewall.
 
 ## Can a task use a proxy or a mirror instead of the public registries?
 
 Yes, if the mirror is on the network. Add its host name to `egress.domains` and point your build configuration
 (`settings.xml`, `.npmrc`) at it. Leave out sets like `maven` if all traffic must go through the mirror. A mirror on
-`localhost` cannot be reached while a task runs, because a task can only reach the gate on your machine. At image build
-time, any mirror works because the build is not behind the firewall.
+this machine can instead have a name declared under `egress.host_services`, which resolves to the host's gate address
+and opens TCP 443 on the host. Use that name in the build configuration; container `localhost` is the container itself.
+At image build time, any mirror works because the build is not behind the firewall.
 
 ## Why does an undeclared host fail silently instead of prompting me?
 

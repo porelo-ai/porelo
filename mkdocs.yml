@@ -26,6 +26,6 @@ nav:
     - Decisions: decisions.md
     - For security officers: corporate-security.md
     - Background:
-          - Three ways of working: way-of-working.md
+          - Ways of working: way-of-working.md
           - Why: why.md
     - Building from source: build.md

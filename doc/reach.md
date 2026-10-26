@@ -65,7 +65,7 @@ account's own limit at the provider, which Porelo does not set.
 | | Bound | What it is |
 |---|---|---|
 | Work, in `guarded` | Leaves only when a person approves it at the gate; nothing the agent can reach calls approve | control |
-| Work, in `offline` | Does not leave at all | control |
+| Work, in `offline` | No Git forwarding: stays in the host's Git mirror until a person exports a bundle or fetches it; model calls still reach the model provider through the broker, and declared `egress.host_services` reach the host on TCP 443 | control |
 | What the agent installed | Counted with `podman diff` before removal, and dies with the container | control |
 | What it reached for | Journaled per task, and kept after the task | control |
 | `gate protect`'s hook | Fires on a first, an ordinary and a force push. Four things go round it: `--no-verify`, a `core.hooksPath` pointing elsewhere, a fresh clone, and a client built on a git library | **accident-catcher** |

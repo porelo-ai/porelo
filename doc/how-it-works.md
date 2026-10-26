@@ -24,7 +24,7 @@ it cannot get out of.
 
 **In one sentence:** each agent works in a sealed container; it can use the tools and the copy of
 your project inside it, it reaches the internet only where you said so, it never holds your real
-credentials, and nothing it produces leaves until somebody has read it.
+credentials, and in the default `guarded` class nothing it produces leaves until somebody has read it.
 
 > **Linux only, podman 5 or newer.** The sealing is done by features of the Linux kernel, which
 > macOS and Windows do not have. Podman is the program that builds the containers; older versions
@@ -111,9 +111,10 @@ repository and follow it.
 ## The gate: work leaves only after review
 
 The agent does not push its work to GitHub. It pushes to the **gate**: a copy of your repository on
-your own machine, the **mirror**. Pushes land in a holding area, not on any branch, so nothing you
-are looking at changes under your feet. The gate listens on your machine's loopback only; nothing
-else on your network can reach it, and only the task's own container is connected to it.
+your own machine, the **Git mirror**. In a `guarded` project, pushes land in a holding area, not on
+any branch, so nothing you are looking at changes under your feet; an `online` project's gate passes
+the task's own branch on to its `upstream` at once. The gate listens on your machine's loopback
+only; nothing else on your network can reach it, and only the task's own container is connected to it.
 
 Then, on your side:
 
@@ -124,15 +125,17 @@ porelo gate reject -p myproject backend   # discard it, and tell the task
 porelo gate approve -p myproject backend  # forward it upstream
 ```
 
-`approve` is the only command that sends work anywhere. The **upstream** it goes to is the real
-remote, named in the project file.
+In `guarded`, `approve` is the only command that sends work anywhere: `porelo approve` brings a
+checkout's task into that checkout as `porelo/<task>`, and `porelo gate approve` forwards a followed
+repository's work to its `upstream` - the immediate Git destination: the host's forge or a central or
+company forge, named in the project file.
 
 Each project has a **security class**, and the class decides, never a flag on a task. `offline`:
-nothing resolves and nothing leaves; the mirror is the end of the line, and `approve` refuses.
-`guarded`: only what the project declares resolves, and work leaves only through the gate.
-`online`: the gate passes the task's own branch on to the upstream at once, and nothing is reviewed. A class is a promise
-about what cannot happen, so it is never widened: adding a destination to an `offline` project does
-not open it. See [security](security.md).
+no external host resolves and no Git work leaves on its own; the Git mirror is the end of the line,
+and `approve` refuses. `guarded`: only what the project declares resolves, and work leaves only after
+gate approval. `online`: the gate passes the task's own branch on to the `upstream` at once, for
+review on the forge. A class is a promise about what cannot happen, so it is never widened: adding a
+destination to an `offline` project does not open it. See [security](security.md).
 
 ## The vault and the broker: the container never holds the credential
 

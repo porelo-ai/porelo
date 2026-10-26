@@ -240,20 +240,24 @@ The push lands under `refs/porelo/incoming/`, never on a branch. Nothing has lef
 
 ## 7. Review and approve
 
-Back on your machine, from any directory:
+Back in your checkout:
 
 ```
 porelo gate pending                           # what waits, in every project
 porelo gate review  -p default myproject      # the full diff
 porelo gate reject  -p default myproject      # discard it
-porelo gate approve -p default myproject      # push it to the upstream
+porelo approve                                # bring it into this checkout as porelo/myproject
 ```
 
-**`approve` is the only command that sends anything anywhere.** It pushes to the repository's
-upstream - in `default`, the checkout's `origin`; in your own project, `upstream:` in
-`project.yml` - or to `--upstream <url>`. With none it refuses: "No upstream is configured for
-this project". `--branch` picks the branch; the default is `main`. In an
-`offline` project it always refuses.
+For a task started from this checkout in `default`, `porelo approve` (or `porelo approve myproject`)
+shows the commits and up to the first 120 diff lines, asks, and brings the work into that checkout
+as branch `porelo/myproject`, never touching your checked-out branch or any remote. `--yes` skips
+the question. Merge or cherry-pick `porelo/myproject` when you are ready.
+
+For a followed `guarded` project whose repository names a remote `upstream:` in `project.yml`, use
+`porelo gate approve -p <project> [-r <repo>] <task>`: it pushes the approved work to that `upstream`
+(or `--upstream <url>`), onto `--branch` (`main` by default). With no `upstream` it refuses: "No
+upstream is configured for this project". Both approve commands refuse in an `offline` project.
 
 The next task starting from that repository is brought up to the upstream first, so approved
 work is its base. What waits for review is never touched.
@@ -333,18 +337,23 @@ egress:
 git init ~/payments-project && cd ~/payments-project     # project.yml in it
 git add project.yml && git commit -S -m "The payments project"
 porelo project follow payments ~/payments-project --signed-by "ssh-ed25519 AAAA..."
-porelo task start --project payments --repository backend
+porelo task start --project payments --repository backend     # names the task after the repository: backend
+porelo gate review  -p payments -r backend backend
+porelo gate approve -p payments -r backend backend
 ```
 
 - **A commit is followed, never the working tree.** An edit to `project.yml` is read once it is committed; until then
   the machine keeps the last commit it applied.
-- The task works on `backend`, fetched from its `upstream` on the host; approved work goes back there as
-  `porelo/<task>`. The project's own repository holds only the file, and no task is started in it.
+- The task works on `backend`, fetched from its `upstream` on the host; `porelo gate approve` forwards approved work
+  back there (onto `main` by default, or `--branch <branch>`). The project's own repository holds only the file, and no
+  task is started in it.
 
 ### Working alone, with no forge
 
-Your code's own repository on this machine can be the whole setup. Commit `project.yml`
-into it, follow the path, and approve onto a branch of its own:
+In `default`, `porelo task start` and `porelo approve` in a local checkout need no forge or project
+file at all. When you want a followed `project.yml` of your own with no forge, your code's repository
+on this machine can be the whole setup. Commit `project.yml` into it, follow the path, and approve
+onto a branch of its own:
 
 ```
 porelo project follow myproject ~/myproject --signed-by "ssh-ed25519 AAAA..."   # or --unverified

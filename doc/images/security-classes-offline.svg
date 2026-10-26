@@ -23,8 +23,8 @@
     <text x="484" y="54" font-size="11" fill="#a8480f" font-family="'IBM Plex Mono',monospace">CONTAINER</text>
     <rect x="492" y="66" width="166" height="42" rx="6" fill="none" stroke="#a8480f"/>
     <text x="575" y="92" font-size="13" text-anchor="middle" fill="#a8480f">Agent</text>
-    <text x="575" y="132" font-size="11" text-anchor="middle" fill="#57606a">resolver: everything NXDOMAIN</text>
-    <text x="575" y="150" font-size="11" text-anchor="middle" fill="#57606a">firewall: the gate and nothing else</text>
+    <text x="575" y="132" font-size="11" text-anchor="middle" fill="#57606a">resolver: NXDOMAIN (but host_services)</text>
+    <text x="575" y="150" font-size="11" text-anchor="middle" fill="#57606a">firewall: gate (+ host_services:443)</text>
     <path d="M 404 74 L 486 74" stroke="#a8480f" stroke-width="1.6" fill="none" marker-end="url(#agent)"/>
     <text x="445" y="66" font-size="11" text-anchor="middle" fill="#a8480f">clones</text>
     <path d="M 486 96 L 404 96" stroke="#a8480f" stroke-width="1.6" fill="none" marker-end="url(#agent)"/>

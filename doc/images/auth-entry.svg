@@ -41,6 +41,6 @@
     <path d="M 544 231 L 694 231" stroke="#57606a" stroke-width="1.6" fill="none" marker-end="url(#e-ink)"/>
     <text x="619" y="223" font-size="10.5" text-anchor="middle" fill="#57606a" font-family="'IBM Plex Mono',monospace">key seed</text>
 
-    <text x="440" y="284" font-size="11.5" text-anchor="middle" fill="#57606a">Nothing leaves the vault as a value. What a task gets is a phantom token or a signing socket.</text>
+    <text x="440" y="284" font-size="11.5" text-anchor="middle" fill="#57606a">Nothing leaves the vault as a value. What a task gets is a phantom token; keys stay on the host.</text>
   </g>
 </svg>

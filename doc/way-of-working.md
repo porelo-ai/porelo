@@ -1,350 +1,135 @@
-# Three Ways of Working with AI Coding Helpers
+# Ways of working
+
+A way of working is a [security class](security.md), a model provider and a Git destination chosen together. The class
+decides what leaves a task's container; the model provider still receives the prompts whatever the class. In
+`project.yml`, `upstream` names the immediate Git destination: the host's forge or a central or company forge.
+
+| Way | Class | Model provider | Git destination | For | Advice |
+|---|---|---|---|---|---|
+| Highest security | `offline` | a model on this machine (an organisation's network keeps prompts in the organisation, not on the machine) | none: history in and work out as a bundle carried by hand | confidential code, regulated settings | only tight with a model on this machine; a cloud provider still sees the prompts |
+| Straight to the central forge | `guarded` | cloud or local | GitHub or a company forge | one person, a few agents, no porelo-host | the gate's approval is a code review; the first independent build runs on the forge after it |
+| With the host's own forge | `online` | cloud or local | the host's Forgejo (porelo-host) | many agents, builds before any approval | Porelo's own way; see porelo-host's [`doc/local-forge.md`](https://github.com/porelo-ai/porelo-host/blob/main/doc/local-forge.md) |
+| Against a private company forge | `online` | cloud or local | a private company forge with its own review rules | teams with a forge of their own | the company's merge rules are the approval |
+| Not to use | `online` | - | a public repository | - | unreviewed work becomes public at once |
+| Not useful | `guarded` | - | the host's forge | - | a third approval with no protection gained |
+
+The interface and the IntelliJ plugin are clients of [the daemon](running.md#the-daemon), which serves what waits at a
+gate, its review, its approval and its rejection; every step below is a CLI command.
+
+## Highest security
+
+`offline` gives the code no route: no external host resolves, and no Git work leaves on its own. The agent's model
+calls still go through the host's broker to its model provider, so the class is only tight with a model on this
+machine; a cloud provider still sees the prompts. A model in the organization's network keeps them in the
+organization, not on the machine.
+
+1. Follow the project from a file: `porelo project follow <project> <file>`, a bundle of its repository or a directory
+   on this machine. A mirror is seeded from a carried bundle with `porelo gate restore <file> --project <project>`.
+2. Start a task: `porelo task start --project <project> --repository <repository>`. The agent clones from the gate's
+   Git mirror, builds and tests in its container, and pushes back to the mirror.
+3. Read the work: `porelo gate review -p <project> -r <repository> <task>`, or open it as a copy with
+   `porelo gate checkout <task> -p <project> -r <repository>`.
+4. Carry it out: `porelo gate backup <file> --project <project>` writes the whole mirror, pending pushes included, as
+   one bundle. Gate approval refuses in `offline`.
+
+- **The person decides** what history comes in and what work is carried out.
+- **The first independent build** is the person's: in a copy opened with `gate checkout`, or wherever the bundle is
+  carried.
+- **It needs** a project file with no `upstream` and no external egress, an agent, and a model provider. Porelo ships
+  provider files for cloud providers only; a model on this machine or in the organization's network needs
+  [a provider file of your own](credentials.md#model-providers).
+
+## Straight to the central forge
+
+A `guarded` project's gate holds every push of the agent until a person approves it, and the approval forwards it to
+the repository's `upstream` on GitHub or a company forge.
+
+1. Follow the project: `porelo project follow <project> <url-or-path> --signed-by "ssh-ed25519 AAAA..."`, its file
+   saying `security_class: "guarded"` and the repository's `upstream`.
+2. Start a task: `porelo task start --project <project> --repository <repository>`. The agent builds and tests in its
+   container and pushes to the gate.
+3. Read the work: `porelo gate review -p <project> -r <repository> <task>`.
+4. Forward it, or drop it: `porelo gate approve -p <project> -r <repository> <task>` pushes it onto `main`, or the
+   branch `--branch` names; `porelo gate reject` drops it and tells the task.
+
+- **The person decides** whether the code goes to the forge. The gate's approval is a review of the code.
+- **The first independent build** runs on the forge after the approval, if the repository's workflow builds that push.
+- **It needs** the followed project, an agent, a model provider credential, and the host's credential for the forge
+  ([what this machine connects out with](credentials.md#what-this-machine-connects-out-with)).
+
+## With the host's own forge
+
+Porelo's own way: an `online` project whose repositories name the host's Forgejo as `upstream`. The forge itself - its
+setup, registry, runner, credentials and what is lost with the host - is described in porelo-host's
+[local forge](https://github.com/porelo-ai/porelo-host/blob/main/doc/local-forge.md).
+
+1. Follow an `online` project whose repositories name the host's forge as `upstream`, with `builds:` naming the
+   `forgejo` build reader and its credential in the vault.
+2. Start a task: `porelo task start --project <project> --repository <repository>`. The gate passes each push on to
+   `porelo/<task>` on the forge at once.
+3. Review the task's branch and its build in a pull request in Forgejo, and merge it into the forge's `main`.
+4. Send the merged work to the central forge, the gathered push; its tool is not built yet.
+
+- **The person decides** twice: the merge on the host's forge, and the gathered push to the central forge.
+- **The first independent build** runs on the host's forge runner, before any approval, if the repository's workflow
+  builds task-branch pushes or pull requests.
+- **It needs** porelo-host's forge and runner, an agent, a model provider credential, and the `forgejo` build reader.
+  A model provider in the cloud still sees the prompts; a Git destination on this host does not change that.
+- **Not built yet:** main's protection set by the forge role (set it in Forgejo yourself), the reviewer start, comments
+  reaching the task and waking it, the task's end after the merge, the gathered-push tool, and the automatic merge
+  task.
+
+## Against a private company forge
+
+An `online` project passes the task's branch on at once, so the company forge's merge rules are the approval. The
+repository must be private, and the forge must enforce the team's review.
+
+1. Follow an `online` project whose repository's `upstream` names the company forge, with `builds:` naming a build
+   reader for it if Porelo is to read its builds.
+2. Start a task: `porelo task start --project <project> --repository <repository>`. Each push reaches `porelo/<task>`
+   on that forge at once.
+3. Review the task's branch and its build on the forge, and merge it by the company's rules.
+
+- **The person decides** the merge, under the company's rules.
+- **The first independent build** runs on the company forge, if its workflow builds the task's push or pull request.
+- **It needs** the followed project, an agent, a model provider credential, the host's credential for the forge, and
+  for build reading a reader and its API credential.
+- **Not built yet:** comments reaching the task and waking it.
+
+## Without any forge
+
+In a local checkout that no followed project names, `porelo task start` uses the built-in `guarded` project `default`,
+and no project file or forge is involved. In the same checkout, `porelo approve` shows the waiting work, asks, and
+brings it in as the branch `porelo/<task>`; merging that branch is the person's. See
+[getting started](getting-started.md#7-review-and-approve).
 
----
+## Not to use, and not useful
 
-## First, what are we talking about?
+- **Not to use:** `online` against a public repository makes unreviewed work public at once.
+- **Not useful:** `guarded` against the host's forge holds the branch before the forge can build it, and adds a third
+  approval before the merge and the gathered push, with no protection gained.
 
-Software is written as long lists of precise instructions for a computer.
-Today, people who write software increasingly get help from **AI coding
-agents**. An agent is a program you can talk to in normal language ("please
-add a search box to the shop page") that then writes the instructions itself,
-tries them out, and shows you the result.
+## How gate review and forge builds fit together
 
-Think of an agent as a **very fast, tireless apprentice**. It can do a lot of
-work by itself, but it sometimes misunderstands, and someone still has to
-check what it did.
+The agent builds and tests in its own task; the forge's build checks the work apart from the agent. A review at the
+gate is a review of the code: `porelo gate review` names dangerous files - a CI definition, a build script, a
+dependency manifest - first, and `porelo gate checkout` opens the work as a copy to read. Porelo runs no build of its
+own on waiting work.
 
-People usually compare these tools by **how much the apprentice does on its
-own**, from "suggests the next word" up to "does the whole job while you
-sleep". Several people have drawn this as a ladder
-(see [Background](#background-the-ladders-of-how-much-the-ai-does-alone)).
+Porelo asks the forge through a [build reader](build-readers.md) on the host, so the forge may be on this machine or
+another. What a task sees of it is in
+[being told what the build did](running.md#being-told-what-the-build-of-a-push-did).
 
-A different question tells you more:
+## Three kinds of AI coding tool
 
-> **What is the tool built around? What does it put at the center?**
+Tools for working with AI coding agents center on one of three things:
 
-There are three possible centers: the **project**, the **agent**, and the
-**person**. Those are the three "centric" ways of working.
+| Center | Metaphor | What it optimizes for | Where it falls short |
+|---|---|---|---|
+| **The project** | The factory | Autonomous cloud runs from an issue to a pull request | Review bottleneck; no view across several repositories on your own machine |
+| **The agent** | The cockpit | Watching and steering several agents live in a terminal or editor | The person's attention is the bottleneck; agents run with the developer's own credentials and network |
+| **The person** | The control tower | Letting agents work unattended inside hard boundaries per project, with explicit decisions at the gate or on the forge | Requires container isolation and declared project rules |
 
----
-
-## The running example
-
-To keep things concrete, we follow one person through all three ways of
-working.
-
-**Sam is a freelance software developer.** Sam looks after:
-
-- the online shop of a **bakery**,
-- the booking app of a **hair salon**,
-- a small internal tool for a **sports club**.
-
-Sam works on a laptop at home, a desktop in a shared office, and sometimes
-checks in from a phone. Sam uses several AI helpers at once.
-
----
-
-## 1. Project-centric: "the factory"
-
-### The idea
-
-The tool is built around **one job in one project**. You write a work order,
-hand it over, and get back a finished piece of work to inspect. You are not
-involved while the work happens.
-
-In software terms: the project's code lives in a shared storage place (a
-*repository*). You write a short task description (an *issue*). The AI agent
-takes it, works on it by itself somewhere in the cloud, and returns a proposed
-change (a *pull request*) that you review and accept or reject.
-
-### Everyday comparison
-
-**Ordering from a professional workshop.** You fill in a form: "Replace the
-dripping tap in the upstairs bathroom." A technician comes, does the job, and
-you only look at the result and sign it off. You never stand next to them
-while they work.
-
-### Sam's example
-
-A security problem is found in a widely used building block that all three of
-Sam's projects use. Each project needs the same small, well-understood update.
-
-Sam writes three short work orders ("update the building block to the fixed
-version"). Three AI agents each take one, do the work, and hand back three
-finished changes. Sam checks each one and approves it. Sam spent minutes, not
-hours.
-
-### Good at
-
-- Clearly described, repetitive, bounded work: updates, small fixes, routine
-  maintenance.
-- Doing a lot of it in parallel. Dozens or hundreds of jobs can run at the
-  same time.
-
-### Weak at
-
-- Anything that needs judgment, back-and-forth, or understanding across
-  several projects. Each work order sees only its own project.
-- **Checking becomes the new bottleneck.** The factory can produce far more
-  finished work than a person can carefully inspect.
-
-### Example tools
-
-Devin, Google's Jules, OpenAI's Codex cloud agent, GitHub's Copilot coding
-agent, Factory's Droids, OpenHands.
-
----
-
-## 2. Agent-centric: "the cockpit"
-
-### The idea
-
-The tool is built around **one working session with an AI helper**. You sit
-in one well-designed workspace and work closely with the agent: you explain,
-it does something, you look, you correct, it continues. You are present the
-whole time.
-
-### Everyday comparison
-
-**Working side by side with a skilled craftsperson in their workshop.** You
-are restoring an old piece of furniture together. You point: "a bit more off
-here, careful with that corner." They do it right away, you look together,
-and decide the next step. Everything you need is within reach in that one
-room.
-
-### Sam's example
-
-The bakery wants to change how customers pay: they should be able to order
-cakes in advance, pay a deposit, and pick a pickup time. This is tricky. It
-touches many parts of the shop and there are many small decisions ("what if
-the customer cancels?").
-
-Sam opens a session with an AI agent and works through it together with the
-agent for an afternoon: discussing, trying, correcting, until it is right.
-
-### Good at
-
-- Deep, focused work on one hard change. A single, well-designed workspace
-  is the best environment there is for focused work.
-
-### Weak at
-
-- **Lock-in.** The better the workshop, the more its owner wants you to use
-  only their tools, their accounts and their AI. Vendors restrict access so
-  that you stay inside their own world.
-- It only sees the one session you are in. It does not know what else is
-  going on in Sam's day.
-
-### Example tools
-
-Claude Code, Cursor, Sourcegraph's Amp. Tools like Conductor, Claude Squad
-and Vibe Kanban let you run several such cockpits side by side on your own
-computer.
-
----
-
-## 3. Person-centric: "the control tower"
-
-### The idea
-
-The tool is built around **you, the human**. It is not tied to one project,
-one tool, one company or one computer. It gives you a single place that sees
-all your AI helpers, wherever they are working, and tells you where you are
-needed. You stay in charge; the tool routes work, questions and approvals to
-you.
-
-### Everyday comparison
-
-**An air traffic control tower.** The tower does not fly the planes, and the
-planes belong to different airlines. But the tower sees all of them at once,
-knows which one needs attention right now, and gives the go-ahead at the
-right moment.
-
-Or, closer to home: **a personal assistant who keeps your whole calendar**,
-across work, family and clubs, instead of each organization keeping its own
-separate calendar that you have to check one by one.
-
-### Sam's example
-
-It is Tuesday afternoon. Sam has eight AI helpers running:
-
-- three factory jobs (the security updates from example 1),
-- the bakery payment session on the laptop at home,
-- two sessions for the hair salon app on the office desktop,
-- two for the sports club.
-
-Without a control tower, Sam has to remember what runs where, and walk
-between screens and machines to check. Meanwhile one helper has been sitting
-for an hour waiting for a simple "yes, go ahead", and one factory job has
-finished and waits for review.
-
-With a person-centric tool, Sam sees one overview, on any device, even the
-phone: "Hair salon session on the office desktop is waiting for your
-approval. Security update for the sports club is ready for review." Sam
-answers from wherever they are.
-
-### Good at
-
-- Fixing the fragmentation of a real working day: many projects, many tools,
-  many machines, sometimes many clients.
-- Letting one person keep an overview without becoming the bottleneck.
-
-### Weak at
-
-- It lacks the safety nets that the big platforms have built in, such as
-  automatic checks and review steps.
-- It depends on the very companies whose borders it crosses. Like a travel
-  agent booking across airlines, it only works as long as each airline lets
-  it in.
-
-### Example tools
-
-Very few exist. One is the experimental
-[ai-beacon](https://github.com/manusa/ai-beacon), a web dashboard that shows
-every coding agent on every machine and notifies you when one needs you.
-GitHub's Agent HQ ("mission control" for agents from several AI companies)
-goes partly in this direction, but it is still centered on GitHub.
-
-### Why are there so few?
-
-Not because nobody has thought of it, but because of business interests.
-Every vendor's center of gravity is **their project platform or their
-product**, because that is where they earn money. No big company has a reason
-to build a tool whose center is *you* and that works equally well with its
-competitors. So people who need it tend to build it themselves.
-
----
-
-## Not rivals, but layers
-
-The key point: you do not pick one of the three. They fit together, like
-**a control tower over a factory floor**:
-
-- The **factory** (project-centric) does the routine work at scale.
-- The **cockpit** (agent-centric) is where you go for deep, careful work on
-  one hard problem.
-- The **control tower** (person-centric) sits above both and keeps you, the
-  human, in charge of the whole picture.
-
-### Which one when? A simple rule
-
-| If the work is...                                           | Use...            | Everyday picture              |
-|-------------------------------------------------------------|-------------------|-------------------------------|
-| one hard change that needs your close attention             | **the cockpit**   | working side by side          |
-| clearly described and can be handed off                     | **the factory**   | sending out a work order      |
-| spread over several projects, tools or machines             | **the control tower** | the air traffic controller |
-
-### Inner loop and outer loop
-
-OpenHands describes a related split
-([source](https://openhands.dev/blog/20251202-agents-in-the-outer-loop)).
-The **inner loop** is a developer's own hands-on work at their desk:
-changing, trying, adjusting. The **outer loop** is everything after the work
-leaves the desk: automatic checks, reviews by colleagues, release. In cooking
-terms, the inner loop is preparing the food in your kitchen; the outer loop
-is serving it and getting feedback from the guests.
-
-This lines up with the three ways of working. Cockpit tools help in the
-**inner loop** (ad hoc work that needs judgment). Factory tools shine in the
-**outer loop** (repeatable chores that can run by the hundreds). The control
-tower is what lets one person keep track of both.
-
----
-
-## Where Porelo fits
-
-**Porelo is the safe building that the cockpit and the factory work in, with
-the control tower on top, and all of it stands on your own machines.**
-
-Porelo is not an AI helper itself. It takes the helpers you already use, such
-as Claude Code or Pi, and runs every job in a sealed room: no
-internet except what the project allows, no real passwords inside, and
-nothing leaves until you have approved it.
-
-- **Cockpit:** work side by side with whichever helper you like, inside that
-  sealed room. Helpers are interchangeable add-ons, so no single vendor locks
-  you in.
-- **Factory:** hand off a job and walk away. Because the room is sealed,
-  working unattended is safe, and every result waits in an in-tray (the
-  *gate*) for your review, on your machine instead of in a vendor's cloud.
-- **Control tower:** one app shows every job on every machine, tells you which
-  one is waiting for you, and lets you answer without going to find it. It also
-  brings the safety nets a control tower usually lacks: nothing goes out without
-  review, and everything blocked is recorded. Today that app is a desktop one
-  and the machines it reaches are reached over ssh; answering from a phone is
-  where this is going, not where it is.
-
-What Porelo cannot change: each AI company still decides how its helper may
-sign in. If a vendor closes that door, Porelo feels it too.
-
----
-
-## Background: the "ladders" of how much the AI does alone
-
-There are a number of popular ways of ranking AI coding
-tools by **autonomy**, meaning how much the AI does by itself. They help to
-understand the three ways of working above.
-
-- **Dan Shapiro's five levels** compare it to cars
-  ([source](https://www.danshapiro.com/blog/2026/01/the-five-levels-from-spicy-autocomplete-to-the-software-factory/)):
-  from driving a manual car yourself, via cruise control and highway
-  autopilot, to a robotaxi, and finally a "dark factory", a fully automated
-  factory where no human is needed and the lights can stay off. At the higher
-  levels, the human stops writing and becomes a reviewer, and then someone
-  who only describes what they want.
-- **Steve Yegge's eight levels**
-  ([source](https://newsletter.pragmaticengineer.com/p/steve-yegge-on-ai-agents-and-the))
-  go from no AI at all, through one helper you watch closely, to running ten
-  or more helpers at once by hand (which gets chaotic), and finally building
-  your own system to coordinate them.
-- **Swarmia's five levels**
-  ([source](https://www.swarmia.com/blog/five-levels-ai-agent-autonomy/))
-  add a useful warning: **higher is not always better**. Giving an expert
-  intern-level tasks wastes them; putting a beginner in charge of everything
-  is a disaster. Pick the level that fits how clear and well-bounded the task
-  is.
-- **Addy Osmani** splits the ladder into **two separate questions**
-  ([source](https://addyo.substack.com/p/agentic-autonomy-levels)): how
-  independently *one* helper works, and how well *many* helpers are
-  coordinated. In a restaurant kitchen: how much can one cook decide on their
-  own, and how well does the head chef run the whole team? A good kitchen
-  needs both.
-- **Marc Nuri's missing levels**
-  ([source](https://blog.marcnuri.com/missing-levels-ai-assisted-development))
-  fill the big jump from "juggling many helpers by hand" to "building your
-  own coordination system" with smaller steps: **see** all helpers in one
-  place, reach them **from any device**, **hand off** work, and decide in
-  advance **which changes need your approval**. Much like a manager whose
-  team keeps growing. His conclusion: **the hard part is no longer producing
-  the work, it is checking it.**
-
----
-
-## Small glossary
-
-| Word               | Plain meaning                                                                 |
-|--------------------|-------------------------------------------------------------------------------|
-| **AI agent**       | An AI program that doesn't just answer, but also does the work itself.       |
-| **Harness**        | The program around the AI model that lets it act: it gives the model tools, keeps track of the conversation and asks you before risky steps. Model + harness = agent (like engine + car = something you can drive). |
-| **Repository**     | The shared storage place holding all the code of one project.                |
-| **Issue**          | A written task or problem report: a work order.                              |
-| **Pull request**   | A proposed change handed in for someone to review before it is accepted.     |
-| **Session**        | One continuous conversation and piece of work with an AI agent.              |
-| **Orchestration**  | Coordinating many helpers so that they work together without chaos.         |
-| **Lock-in**        | Being tied to one company's tools because leaving would be hard or costly.   |
-| **Verification**   | Checking that the work is correct before trusting it.                        |
-
----
-
-## Sources
-
-- Marc Nuri: [Project, Agent, Person: The Missing Axis of AI Coding Tools](https://blog.marcnuri.com/project-agent-person-centric-ai-coding-tools)
-- Marc Nuri: [The Missing Levels of AI-Assisted Development](https://blog.marcnuri.com/missing-levels-ai-assisted-development)
-- Marc Nuri: [AI Coding Agent Dashboard](https://blog.marcnuri.com/ai-coding-agent-dashboard)
-- Steve Yegge via The Pragmatic Engineer: [Steve Yegge on AI agents](https://newsletter.pragmaticengineer.com/p/steve-yegge-on-ai-agents-and-the)
-- Dan Shapiro: [The five levels: from spicy autocomplete to the software factory](https://www.danshapiro.com/blog/2026/01/the-five-levels-from-spicy-autocomplete-to-the-software-factory/)
-- Swarmia: [Five levels of AI agent autonomy](https://www.swarmia.com/blog/five-levels-ai-agent-autonomy/)
-- Addy Osmani: [Agentic autonomy levels](https://addyo.substack.com/p/agentic-autonomy-levels)
-- OpenHands: [Agents in the outer loop](https://openhands.dev/blog/20251202-agents-in-the-outer-loop)
-- GitHub: [Welcome home, agents (Agent HQ)](https://github.blog/news-insights/company-news/welcome-home-agents/)
-- [ai-beacon](https://github.com/manusa/ai-beacon) on GitHub
+Porelo is built around the third: each task runs in its own container with a phantom token for its model provider,
+reaches only the hosts the project declared, and pushes its commits to the gate. The project's security class decides
+whether the gate holds the work for approval or passes the task's branch on at once.

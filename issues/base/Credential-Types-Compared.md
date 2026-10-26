@@ -26,12 +26,12 @@ is to argue it in — not to widen an existing kind until it covers something it
 | **Grant** | a client secret or a key, plus a token URL and scopes | exchanges it for a short-lived token, caches it, renews it | a phantom token and an endpoint | nobody | [B30](README.md#b30) |
 | **Authorization** | what a person's consent produced, with its refresh token | attaches it, and refreshes it the way a grant is refreshed | a phantom token and an endpoint | a person, once | built ([B31](README.md#b31)) |
 | **Minted** | nothing | issues it | the token itself, in full | nobody | built |
-| **Signed** | a key that never leaves | performs the operation on request | a socket | nobody | built for ssh, generalized by [B30](README.md#b30) |
+| **Signed** | a key that never leaves | performs the operation on the host | nothing | nobody | built for ssh, generalized by [B30](README.md#b30) |
 | **Out of band** | — | — | — | — | refused, below |
 
 The last column of the container's side is the point: **four of the five supported kinds put the same
 thing in the box** — a task-scoped token that is worthless the moment the task ends — and the fifth
-puts a socket there. That is what makes them one subsystem despite being three builds.
+puts nothing there at all. That is what makes them one subsystem despite being three builds.
 
 ## The two kinds that are already built, and are the precedent
 
@@ -40,13 +40,14 @@ container's environment in full because there is nothing to protect: it is worth
 the gate on this machine. It is the case where the answer to "how do we keep this out of the box" is
 "we do not have to".
 
-**Signed** is commit signing. The vault holds an ssh key and the container gets an agent socket, so a
-task signs without ever holding what signs. It is the case where the credential cannot be handed over
-even in principle, and it is the shape `private_key_jwt` and mTLS client authentication reuse.
+**Signed** is ssh authentication and signing on the host. The vault holds an ssh key, and `porelo vault
+agent` and the gate perform the operation on the host; no task gets a key or a signing socket. It is the
+case where the credential cannot be handed over even in principle, and it is the shape `private_key_jwt`
+and mTLS client authentication reuse.
 
 Neither is a requirement. Both are here because a new kind should be checked against them first — if
-a proposed mechanism is neither "task-scoped and worthless outside" nor "a socket to something that
-holds it", it is not a variant of anything Porelo does.
+a proposed mechanism is neither "task-scoped and worthless outside" nor "performed on the host by
+something that holds it", it is not a variant of anything Porelo does.
 
 ## Shared, and individual
 

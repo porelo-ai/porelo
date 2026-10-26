@@ -23,8 +23,11 @@ work takes.
 
 *No route for the code: in and out as a file, carried by hand. The agent's model calls still reach its provider through the host.*
 
-Nothing resolves and nothing leaves. The agent works against a mirror on this machine. There is no
-route to the upstream, not for the agent and not for a person inside the container either.
+No external host resolves and no Git work leaves on its own; model calls reach the model provider
+through the broker, declared `egress.host_services` reach the host on TCP 443, and work leaves only
+when a person exports a bundle or fetches from the Git mirror. The agent works against the Git
+mirror on this machine. There is no route to an external `upstream`, not for the agent and not for a
+person inside the container either.
 
 ![offline: the agent clones from the local mirror and pushes back to it; the repository comes in as one file a person carries to the machine and the work leaves the same way; only the agent's model calls reach its AI provider, through the host](images/security-classes-offline.svg)
 
@@ -40,7 +43,7 @@ Any further repository of the project has its own beside it, at
 from it and pushes back into it, so both questions, how history gets in and how work gets out, are
 answered on the host, by a person.
 
-**Getting a history in.** Nothing here connects out, not even the host: an offline project names no
+**Getting a history in.** Nothing of Git connects out here, not even on the host: an offline project names no
 `upstream`, a start of its task takes no `--upstream`, and the project itself is followed only from a file,
 `porelo project follow NAME FILE`, a bundle of its repository or a directory on this machine, which is never
 fetched again. The mirror is seeded from one of these:
@@ -229,7 +232,7 @@ container's `resolv.conf` points at it.
 
 **The default answer is NXDOMAIN, for every name.** A name resolves only if the project declares it:
 deny by default, widen deliberately, the same shape as the packet filter. For an `offline` project
-nothing resolves at all.
+no external name resolves; only names declared under `egress.host_services` resolve locally to the gate's host address.
 
 Blocking at the name rather than at the wire matters. A resolver that answered everything would
 confirm to the agent that a host exists, and turn every stray lookup into a question for the

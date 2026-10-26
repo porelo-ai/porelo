@@ -19,7 +19,7 @@ would change the answer.
 | A task learns of handed-in files from Porelo, not from its prompt | one guide to all of Porelo in the task, and a line at the prompt when a file arrives | [entry](#a-task-learns-of-handed-in-files-from-porelo-not-from-its-prompt) |
 | Every class pushes through its gate | no key, socket or route to the upstream in any container; an online task's gate passes its own branch on at once | [entry](#every-class-pushes-through-its-gate) |
 | A build is read from the host, never by the task | an online task is handed its builds' verdicts and logs; no forge token, route or verb in it | [entry](#a-build-is-read-from-the-host-never-by-the-task) |
-| Build readers are packages behind a versioned API | `porelo-build-api` and `org.fuin.porelo.Build2`; each forge in a repository of its own; nothing in `porelo` names one | [entry](#build-readers-are-packages-behind-a-versioned-api) |
+| Build readers are packages behind a versioned API | `porelo-build-api` and `org.fuin.porelo.Build2`; shipped as packages from `porelo-adapters`; nothing in `porelo` names a forge | [entry](#build-readers-are-packages-behind-a-versioned-api) |
 | A stop of every task keeps its tokens | `task stop --all` and `panic` stop as `task stop` does; revoking is `vault lock` or `vault remove`, a step of its own | [entry](#a-stop-of-every-task-keeps-its-tokens) |
 | Nested containers never in a guarded project | `guarded` never sets them; only on a task's own kernel where the assessment says so | [entry](#nested-containers-never-in-a-guarded-project) |
 | A devcontainer file's features are not fetched | its image or Dockerfile is used, each feature named as not installed; nothing runs at build that the project file does not name | [entry](#a-devcontainer-files-features-are-not-fetched) |
@@ -57,7 +57,7 @@ would change the answer.
 | A new dependency with a finding waits for a person | the approve asks for each, bound to the reviewed commit, and without a terminal is refused; Maven Central and npm first | [entry](#a-new-dependency-with-a-finding-waits-for-a-person) |
 | An approve lands as a merge carrying provenance; a fast-forward is a project's choice | models, agent and provider from the broker, never the agent; a fast-forward gives up the provenance (not yet built) | [entry](#an-approve-lands-as-a-merge-carrying-provenance-a-fast-forward-is-a-projects-choice) |
 | The owner approves alone unless a project asks for a second person | four eyes is a project setting; the approve then needs another signer's signature | [entry](#the-owner-approves-alone-unless-a-project-asks-for-a-second-person) |
-| Work is reviewed on the machine, never on an upstream branch | waiting work is read on the machine (`gate review`, `gate checkout`), never pushed to an upstream review branch; `porelo approve` brings a checkout's task back to its checkout | [entry](#work-is-reviewed-on-the-machine-never-on-an-upstream-branch) |
+| Work is reviewed on the machine, never on an upstream branch | in `guarded`, waiting work is read on the machine (`gate review`, `gate checkout`); `porelo approve` brings a checkout's task back to its checkout, `porelo gate approve` forwards a followed repository's work to its `upstream`; review on a forge's pull request is `online`'s | [entry](#work-is-reviewed-on-the-machine-never-on-an-upstream-branch) |
 | No editor is attached to a task's container | no editor vendor's hosts declared, no editor server copied in; `gate checkout` is the way to look at the work | [entry](#no-editor-is-attached-to-a-tasks-container) |
 | The pre-push guard catches an accident, not the owner of the machine | four ways round it and a spoofable author are accepted; `--no-verify` is the named way past | [entry](#the-pre-push-guard-catches-an-accident-not-the-owner-of-the-machine) |
 | A clearance question waits 60 seconds, and an expired one can still be answered | the silence refuses and is recorded; `Decide` answers it later; `shield watch --timeout` waits longer | [entry](#a-clearance-question-waits-60-seconds-and-an-expired-one-can-still-be-answered) |
@@ -98,7 +98,7 @@ would change the answer.
 | Clearing names what only a person's credentials can remove, and never attempts it | keys made by earlier versions and `machine-signers` lines are named, not removed at the forge; git needs no administration right; the vault stays | [entry](#clearing-names-what-only-a-persons-credentials-can-remove-and-never-attempts-it) |
 | A digest pins an image; a tag-only image in a followed project needs a person's consent once | a followed tag-only project waits for one consent, then the digest is kept and a change said at every start (not yet built) | [entry](#a-digest-pins-an-image-a-tag-only-image-in-a-followed-project-needs-a-persons-consent-once) |
 | What a build runs beside its secrets is fixed by its content | every action by commit with its version, Maven and GraalVM by checksum, Artifactory spoken to with curl; `check-actions` refuses a tag | [entry](#what-a-build-runs-beside-its-secrets-is-fixed-by-its-content) |
-| An offline project never connects, and its agent still reaches its provider | no upstream, followed only from a file; the agent's model calls go through the broker as in every class | [entry](#an-offline-project-never-connects-and-its-agent-still-reaches-its-provider) |
+| An offline project never connects, and its agent still reaches its provider | no upstream or external egress, followed only from a file; declared `host_services` reach the host on TCP 443, and the agent's model calls go through the broker as in every class | [entry](#an-offline-project-never-connects-and-its-agent-still-reaches-its-provider) |
 | **Messages** | | |
 | A task holds no key and sees no address | one mailbox in the container; a host-side signing key, distinct from the login key | [entry](#a-task-holds-no-key-and-sees-no-address) |
 | No model decides what a message may contain | rules accept or refuse, a person holds; a classifier may only ever hold | [entry](#no-model-decides-what-a-message-may-contain) |
@@ -255,9 +255,10 @@ with it; the helper waits a limit out and says so in the verdict rather than rea
 What a forge does differently in kind - GitHub sends a job's log behind a redirect to storage, another forge as an
 archive or a trace per step - is code, and that code is not Porelo's. A forge is read by a **build reader**: an
 executable built on the published `porelo-build-api`, speaking `org.fuin.porelo.Build2` over a socket with a protocol
-version Porelo checks, installed under `/usr/libexec/porelo/builds/<forge>` and found at run time, as an agent is. Each
-lives in a repository of its own - `porelo-build-github` first - and nothing in `porelo` names a forge; the stub reader
-the tests use is the only one in this tree. The contract fixes what every reader hands over, whatever its forge:
+version Porelo checks, installed under `/usr/libexec/porelo/builds/<forge>` and found at run time, as an agent is. They
+live in `porelo-adapters`, each shipped as a package of its own - `porelo-adapter-github` and `porelo-adapter-forgejo` -
+and nothing in `porelo` names a forge; the stub reader the tests use is the only one in this tree. The contract fixes
+what every reader hands over, whatever its forge:
 the verdict across a commit's runs, at most 50 jobs once it is final, and a job's log as plain text, its last 64 KiB,
 with at most 2 MiB of logs in all. Its `build` operation accepts `none` for logs: the verdict and jobs are returned
 without downloading logs. An incompatible installed reader is refused by name, with the build interface it
@@ -1135,11 +1136,13 @@ reach, which would bring a relay without a terminal of its own to the operator a
 
 ## Work is reviewed on the machine, never on an upstream branch
 
-Waiting work is read with `gate review` and `gate checkout` on the machine; for a task started from a local checkout,
-approved work goes back to that checkout as `porelo/<task>` (`porelo approve`), while `porelo gate approve` pushes
-approved work of a remote repository to its upstream branch. Porelo gets no write access to an upstream for a review
-branch, and no project setting opts into one: a branch there would carry unreviewed work past the gate, which is what
-the gate is for.
+In a `guarded` project, waiting work is read with `gate review` and `gate checkout` on the machine. For a task started
+from a local checkout in `default`, approved work goes back to that checkout as `porelo/<task>` (`porelo approve`),
+while `porelo gate approve` pushes approved work of a followed repository to its `upstream` branch. Porelo gets no
+write access to an `upstream` for a review branch, and no `guarded` setting opts into one: a branch there would carry
+unreviewed work past the gate. A team that wants review on a forge's pull request uses [`online`](security.md#online),
+against a private company forge or
+[the host's own forge](https://github.com/porelo-ai/porelo-host/blob/main/doc/local-forge.md).
 
 ## No editor is attached to a task's container
 
@@ -1162,9 +1165,10 @@ answer:** a way to see every push to the upstream, which would be the forge's, n
 
 ## An offline project never connects, and its agent still reaches its provider
 
-An `offline` project makes no connection out, neither from the task nor from the host on its behalf: it names no
-`upstream`, a start takes no `--upstream`, it is followed only from a bundle or a directory and never fetched, and its
-code comes in by `gate restore` and leaves by `gate backup`. Offline only after the first start, as it once was, is not
+An `offline` project makes no external Git or egress connection out, neither from the task nor from the host on its
+behalf: it names no `upstream` or external `egress`, a start takes no `--upstream`, and it is followed only from a
+bundle or a directory and never fetched. Its code comes in by `gate restore` and leaves by `gate backup`. Declared
+`egress.host_services` still reach this host on TCP 443. Offline only after the first start, as it once was, is not
 what a person choosing it for a machine without a route expects. **The exposure:** the agent's model calls still reach
 its AI provider through the host's broker, as in every class, so the prompts and what the agent reads leave the machine
 to the provider. **Why it stays:** without its model the agent does nothing; the class picture and `security.md` say so
