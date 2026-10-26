@@ -22,9 +22,6 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b238"></a>[B238](B238-An-Unfollow-Leaves-Nothing-Of-The-Project.md) | M | - | `project unfollow` removes the project's build lock and upstream copies, so `porelo prune` finds nothing of it; following stops first, under the clone's lock, which a removal never leaves to two holders |
 | <a id="b286"></a>[B286](B286-The-Hosts-Git-Trusts-The-Accounts-Authorities.md) | S | - | Every host-side git command against a remote - following, mirror distance, the gate's push - trusts the account's `ca-certificates.pem` beside the system's roots, through a combined bundle Porelo writes for `GIT_SSL_CAINFO` |
-| <a id="b285"></a>[B285](B285-A-Snapshot-Deployed-To-The-Local-Forge.md) | S | - | porelo-parent's profile `forge-release` deploys an opted-in module's snapshot unsigned to the local forge's registry at `MAVEN_SNAPSHOTS_URL`; the Publish step takes its profile from `PORELO_DEPLOY_PROFILE`, so GitHub publishes to Sonatype as before |
-| <a id="b266"></a>[B266](B266-A-Task-Fits-The-Machine-It-Runs-On.md) | M | - | A task container and an image build are bounded on any host: a default CPU limit that `nproc` inside reads (`OMP_NUM_THREADS`), the project's limits on the build; open files measured high enough; porelo's part of porelo-project [PJ68](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj68) |
-| <a id="b234"></a>[B234](B234-The-Hosts-Authority-In-A-Tasks-Trust-Store.md) | M | - | A separate owner-only task authority is copied read-only into each task and applied to the system and Node trust stores |
 | <a id="b272"></a>[B272](B272-A-Sign-In-Is-Renewed-On-The-Host-On-Request.md) | S | - | `porelo vault renew <name>` marks an agent's own sign-in due, so the next task's broker renews it on the host by the path every renewal takes; nothing but its end changes and no token is printed |
 
 ## Rework
@@ -119,6 +116,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b294"></a>[B294](B294-A-Tasks-Trust-And-Limits-Measured-Where-Not-Yet-Seen.md) | - | - | The task authority checked with git, Node and two concurrent tasks on an SELinux host, and a task's limits with `native-image` and on Fedora, where the rented-host test did not reach |
 | <a id="b291"></a>[B291](B291-One-SARIF-Profile-For-Every-Review.md) | - | - | One closed SARIF 2.1.0 profile for every review producer and consumer, with field ownership, Git-tree anchors, safe rendering and shared fixtures. |
 | <a id="b292"></a>[B292](B292-Hardened-SARIF-Reading-On-java-sarif.md) | - | [B291](README.md#b291) | Strict java-sarif/Jackson reader and fresh-object writer, plus isolated scanner normalization with byte, CPU and memory bounds and explicit completeness. |
 | <a id="b283"></a>[B283](B283-A-Retargeted-Symbolic-Link-Ranked-Dangerous.md) | - | - | Every changed symbolic link ranks dangerous, including retarget, deletion and replacement; feeds C3 evidence without traversal. |
@@ -189,6 +187,9 @@ from its side, as *blocked by*.
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="b285"></a>B285 | A Snapshot Deployed To The Local Forge | porelo-parent's profile `forge-release` deploys an opted-in module's snapshot unsigned to the local forge's registry at `MAVEN_SNAPSHOTS_URL`, and the Publish step takes its profile from `PORELO_DEPLOY_PROFILE`, so GitHub publishes to Sonatype as before. |
+| <a id="b266"></a>B266 | A Task Fits The Machine It Runs On | Every task has a CPU limit of 4 by default, made visible to `nproc` through `OMP_NUM_THREADS`, and an image build runs under the project's memory and CPU limits with the same hint as a build argument. |
+| <a id="b234"></a>B234 | The Host's Authority In A Task's Trust Store | The account's owner-only `task-ca-certificates.pem` is copied read-only into each new task and added to its system and Node trust stores before the agent starts. |
 | <a id="b278"></a>B278 | A Person Removed From A Project's Conversation | `porelo talk members` lists who joined a project's conversation and `porelo talk remove` takes one out through the transport's `part` verb, then off the members list, so their room lines no longer reach tasks; the daemon answers `RemoveMessageMember`. |
 | <a id="b279"></a>B279 | A Windows Log's Line Ends As A Line | `porelo build status` drops a carriage return right before a newline, so a Windows job log reads as lines, while a lone CR stays escaped and `--json` keeps the log as given. |
 | <a id="b280"></a>B280 | A Test Leaves No Key In The Kernel Keyring | The tests cache vault passphrases under a per-JVM `porelo-test-<pid>` prefix and a leak guard forgets and names any key a test leaves, so repeated builds never fill the account's key quota. |
