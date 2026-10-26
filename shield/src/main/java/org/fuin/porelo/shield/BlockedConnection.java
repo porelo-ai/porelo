@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.fuin.porelo.wire.Json;
+import org.jspecify.annotations.Nullable;
 
 /**
  * One connection the firewall refused.
@@ -75,22 +76,48 @@ public record BlockedConnection(
     }
 
     /**
-     * Tells whether this event is worth putting in front of an operator.
+     * Tells whether this event is worth recording.
      *
      * <p>A container's network namespace is noisy in ways that have nothing to do with the agent:
      * IPv6 router solicitations, multicast listener reports and mDNS all get dropped by the
-     * default-deny chain and all produce events. Asking about those would bury the one prompt that
-     * matters, and an operator who has learned to dismiss prompts is worse than no prompts.
+     * default-deny chain and all produce events. Recording those would bury the one line that
+     * matters.
      *
-     * <p>Only unicast TCP and UDP survive: those are the connections an agent actually makes.
+     * <p>Only unicast TCP and UDP survive: those are the connections an agent actually makes. An
+     * IPv4 link-local destination is one of them, since under pasta the host itself is one; whether
+     * anybody is asked about it is not decided here.
      *
-     * @return {@code true} if an operator should be asked about it.
+     * @return {@code true} if the event belongs in the audit trail.
      */
-    public boolean worthAsking() {
+    public boolean worthRecording() {
         if (protocol != TCP && protocol != UDP) {
             return false;
         }
-        return !isMulticast() && !isLinkLocal();
+        return !isMulticast() && !isLinkLocalV6();
+    }
+
+    /**
+     * Tells whether an address is IPv4 link-local, {@code 169.254.0.0/16}.
+     *
+     * <p>Where pasta puts the host as the task reaches it, and where a cloud puts its metadata
+     * service: places an allow must never open.
+     *
+     * @param address Address as text.
+     * @return {@code true} if it is link-local.
+     */
+    public static boolean isLinkLocalV4(String address) {
+        return address.strip().startsWith("169.254.");
+    }
+
+    /**
+     * Returns what a clearance watcher never asks about: the host as the task reaches it, and every
+     * IPv4 link-local address.
+     *
+     * @param host The address the task reaches this host at, or {@code null} when it is not known.
+     * @return Answers whether an address is never asked about.
+     */
+    public static java.util.function.Predicate<String> neverAsked(@Nullable String host) {
+        return address -> isLinkLocalV4(address) || address.strip().equals(host);
     }
 
     private boolean isMulticast() {
@@ -103,16 +130,14 @@ public record BlockedConnection(
         return (first >= 224 && first <= 239) || destination.equals("255.255.255.255");
     }
 
-    private boolean isLinkLocal() {
-        if (destination.contains(":")) {
-            // fe80::/10
-            final String lower = destination.toLowerCase();
-            return lower.startsWith("fe8")
-                    || lower.startsWith("fe9")
-                    || lower.startsWith("fea")
-                    || lower.startsWith("feb");
-        }
-        return destination.startsWith("169.254.");
+    private boolean isLinkLocalV6() {
+        // fe80::/10
+        final String lower = destination.toLowerCase();
+        return destination.contains(":")
+                && (lower.startsWith("fe8")
+                        || lower.startsWith("fe9")
+                        || lower.startsWith("fea")
+                        || lower.startsWith("feb"));
     }
 
     private int firstOctet() {

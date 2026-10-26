@@ -256,6 +256,9 @@ final class EgressReport {
      * destination that was deliberately refused is listed too, and marked: "we said no" and "nobody
      * mentioned it" are different states, and only one of them is a thing to go and fix.
      *
+     * <p>The project's own host services are listed with it; a task's start passes its
+     * repository's.
+     *
      * @param project The project.
      * @param origins Host to the origin that granted it, in the order the sources were consulted.
      * @param refused Hosts refused whatever allows them, each with who refused it.
@@ -266,11 +269,52 @@ final class EgressReport {
             java.util.Map<String, String> origins,
             java.util.Map<String, String> refused,
             PrintWriter out) {
+        reportReachable(project, origins, refused, project.egress().hostServices(), out);
+    }
+
+    /**
+     * Prints every destination a task may reach, with who decided it, and the services it reaches
+     * on this host.
+     *
+     * <p>A host service is not in the allow set: the task's resolver answers it with the gate's
+     * address and the firewall opens TCP 443 there. Listed apart, so nobody reads it as a grant.
+     *
+     * @param project The project.
+     * @param origins Host to the origin that granted it, in the order the sources were consulted.
+     * @param refused Hosts refused whatever allows them, each with who refused it.
+     * @param hostServices Names the task reaches on this host.
+     * @param out Where to report.
+     */
+    static void reportReachable(
+            Project project,
+            java.util.Map<String, String> origins,
+            java.util.Map<String, String> refused,
+            java.util.List<String> hostServices,
+            PrintWriter out) {
+        reportHosts(project, origins, refused, hostServices.isEmpty(), out);
+        final int width = hostServices.stream().mapToInt(String::length).max().orElse(0);
+        String label = "host service";
+        for (final String name : hostServices) {
+            out.printf("%-14s %-" + width + "s  port 443 on this host%n", label, name);
+            label = "";
+        }
+        out.flush();
+    }
+
+    private static void reportHosts(
+            Project project,
+            java.util.Map<String, String> origins,
+            java.util.Map<String, String> refused,
+            boolean saysNothing,
+            PrintWriter out) {
 
         final java.util.Map<String, String> reachable = reachable(origins, refused);
 
         if (origins.isEmpty() && refused.isEmpty()) {
-            out.println("reachable      nothing - no agent, provider or project declared a host");
+            if (saysNothing) {
+                out.println(
+                        "reachable      nothing - no agent, provider or project declared a host");
+            }
             out.flush();
             return;
         }

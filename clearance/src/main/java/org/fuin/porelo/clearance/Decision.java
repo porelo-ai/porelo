@@ -20,7 +20,8 @@ import java.util.Map;
  * @param protocol Protocol name.
  * @param shown What the operator was shown, which may carry a resolved name.
  * @param verdict What was decided.
- * @param source Where the answer came from: {@link #PROMPT} or {@link #CLIENT}.
+ * @param source Where the answer came from: {@link #PROMPT}, {@link #CLIENT}, or why nobody was
+ *     asked: {@link #GRANTED}, {@link #LIMIT} or {@link #HOST}.
  */
 public record Decision(
         Instant at,
@@ -55,6 +56,13 @@ public record Decision(
      * on screen.
      */
     public static final String LIMIT = "limit";
+
+    /**
+     * Nobody was asked: the destination is the host as the task reaches it, where an allow would
+     * open every port the host listens on, or another IPv4 link-local address such as a cloud's
+     * metadata service. It stays blocked, and no client can allow it.
+     */
+    public static final String HOST = "host";
 
     /**
      * Returns this decision as the event a subscriber receives.

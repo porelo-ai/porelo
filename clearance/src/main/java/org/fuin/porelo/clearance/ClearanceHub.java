@@ -62,6 +62,12 @@ public class ClearanceHub {
     private java.util.function.Predicate<String> granted = name -> false;
 
     /**
+     * Addresses nobody is asked about and nobody can allow: the host as the task reaches it, and
+     * every IPv4 link-local address.
+     */
+    private java.util.function.Predicate<String> unasked = address -> false;
+
+    /**
      * Constructor.
      *
      * @param project Project name, shown to the operator.
@@ -107,6 +113,31 @@ public class ClearanceHub {
     }
 
     /**
+     * Says which addresses are never asked about and never allowed.
+     *
+     * <p>The host as the task reaches it: the firewall opens only the ports Porelo serves there,
+     * and an allow would add the address to the allow set and open every other port with it. The
+     * same holds for a cloud's metadata service and any other IPv4 link-local address. A drop there
+     * is still recorded, as denied by {@link Decision#HOST}.
+     *
+     * @param addresses Answers whether an address is never to be asked about.
+     */
+    public void unasked(java.util.function.Predicate<String> addresses) {
+        this.unasked = addresses;
+    }
+
+    /**
+     * Tells whether an address is one nobody is asked about, so a watcher does not put it in front
+     * of anybody as a question.
+     *
+     * @param address Address as text.
+     * @return {@code true} if it is never asked about.
+     */
+    public boolean neverAsked(String address) {
+        return unasked.test(address.strip());
+    }
+
+    /**
      * Handles one blocked connection.
      *
      * @param blocked What the firewall stopped.
@@ -118,6 +149,13 @@ public class ClearanceHub {
         final Verdict already = decided.get(key);
         if (already != null) {
             return already;
+        }
+
+        if (neverAsked(blocked.destination())) {
+            decided.put(key, Verdict.DENY);
+            seen.put(key, blocked);
+            announce(blocked, Verdict.DENY, Decision.HOST);
+            return Verdict.DENY;
         }
 
         // Somebody has already said this run may reach that name, so there is nothing to ask. The
@@ -181,6 +219,13 @@ public class ClearanceHub {
         asking.remove(key);
         final Blocked blocked =
                 seen.computeIfAbsent(key, unknown -> Blocked.fromKey(unknown, address));
+        if (neverAsked(address) || neverAsked(blocked.destination())) {
+            // Recorded once, when it was first denied; a client's answer changes nothing.
+            if (decided.put(key, Verdict.DENY) == null) {
+                announce(blocked, Verdict.DENY, Decision.HOST);
+            }
+            return;
+        }
         final Verdict previous = decided.put(key, verdict);
         if (verdict.allows() && (previous == null || !previous.allows())) {
             // No name here: a verdict from a client names an address, and the name it was reached
@@ -212,6 +257,11 @@ public class ClearanceHub {
             last.put(decision.key(), decision);
         }
         for (final Decision decision : last.values()) {
+            if (neverAsked(decision.destination())) {
+                // Allowed by an older watcher that did not know the host; never again.
+                decided.put(decision.key(), Verdict.DENY);
+                continue;
+            }
             decided.put(decision.key(), decision.verdict());
             seen.put(
                     decision.key(),

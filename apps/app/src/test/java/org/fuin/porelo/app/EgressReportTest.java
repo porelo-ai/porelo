@@ -48,6 +48,28 @@ class EgressReportTest {
     }
 
     @Test
+    void namesEachHostServiceAndItsPort() {
+
+        // Reached on the host, not through the allow set: without its own line a task's start
+        // said nothing of the one thing it could reach on this machine.
+        final StringWriter written = new StringWriter();
+        final PrintWriter out = new PrintWriter(written);
+        EgressReport.reportReachable(
+                project(SecurityClass.GUARDED, new Egress(List.of(), List.of())),
+                Map.of(),
+                Map.of(),
+                List.of("forge.example", "registry.example"),
+                out);
+        out.flush();
+
+        assertThat(written.toString())
+                .as("each host service on a line of its own, with its port")
+                .contains("host service   forge.example     port 443 on this host")
+                .contains("               registry.example  port 443 on this host")
+                .doesNotContain("reachable      nothing");
+    }
+
+    @Test
     void namesTheSetThatGrantedEachHost() {
 
         final Map<String, String> origins =

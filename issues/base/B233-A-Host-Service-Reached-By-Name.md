@@ -1,6 +1,6 @@
 # B233 — A Host Service Reached By Name
 
-**Status:** Rework: on a rented host the task reached the forge by name on 443 and nothing else, but two things were found, below.
+**Status:** Review: on a rented host the task reached the forge by name on 443 and nothing else; the two things found there are built, below.
 **Size:** M - the design is settled; `core`, `shield` and `app-base` carry it, with docs and an acceptance scenario; porelo-host's [HO08](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho08) builds on it.
 
 **What must be true.** A task reaches a service on its own host, such as a forge or a registry, by a name the project
@@ -57,6 +57,11 @@ port (`LoopbackMapping`).
   asked about.
 - **`task start` does not name the host services.** Its resolver line counts only `egress.domains`, and its report
   of reachable names knows no `host_services`; it names each declared host service and its port 443.
+- **Built for both:** the reader passes on a unicast TCP or UDP drop to an IPv4 link-local address, and the
+  clearance watcher never asks about the host's address, which `task start` records as `host-address` in the task's
+  state, or any IPv4 link-local address: such a drop is denied and journaled by `host`, and a client's Allow there
+  is refused. `task start` names each host service with port 443 in its resolver line and below the hosts it can
+  reach. Each was seen failing first in a unit test.
 - Not a defect: the host's public address answered a task at once because under pasta it is the namespace's own
   address (`/proc/net/fib_trie` lists it as `host LOCAL`), so the connection never left the task.
 

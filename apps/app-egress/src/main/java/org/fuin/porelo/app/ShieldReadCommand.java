@@ -43,7 +43,7 @@ public class ShieldReadCommand implements Callable<Integer> {
     @Option(
             names = "--all",
             description =
-                    "Reports every dropped packet, including multicast and link-local noise and the retries of"
+                    "Reports every dropped packet, including multicast and IPv6 link-local noise and the retries of"
                             + " one connection attempt.")
     private boolean all;
 
@@ -68,7 +68,7 @@ public class ShieldReadCommand implements Callable<Integer> {
             final org.fuin.porelo.shield.RetryFold fold = new org.fuin.porelo.shield.RetryFold();
             reader.readUntilStopped(
                     event -> {
-                        if (!all && !event.worthAsking()) {
+                        if (!all && !event.worthRecording()) {
                             // Router solicitations and multicast listener reports are dropped by
                             // the default-deny chain too. Passing them on would bury the events
                             // that matter.

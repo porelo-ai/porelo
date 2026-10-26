@@ -18,6 +18,7 @@ import org.fuin.porelo.clearance.Decision;
 import org.fuin.porelo.clearance.DesktopPrompt;
 import org.fuin.porelo.clearance.Verdict;
 import org.fuin.porelo.core.process.ProcessCommandRunner;
+import org.fuin.porelo.shield.BlockedConnection;
 import org.fuin.porelo.shield.EgressPolicy;
 import org.fuin.porelo.shield.NftRuleset;
 import org.jspecify.annotations.Nullable;
@@ -128,6 +129,14 @@ public class ShieldWatchCommand implements Callable<Integer> {
                     "Where decisions are recorded and read back from. Default: beside the"
                             + " clearance socket.")
     private @Nullable Path journal;
+
+    @Option(
+            names = "--host-address",
+            paramLabel = "<address>",
+            description =
+                    "The address the task reaches this host at. Never asked about or allowed, like"
+                            + " every IPv4 link-local address.")
+    private @Nullable String hostAddress;
 
     @Spec private CommandSpec spec;
 
@@ -253,6 +262,10 @@ public class ShieldWatchCommand implements Callable<Integer> {
             // one that matters.
             hub.granted(name -> org.fuin.porelo.wire.GrantedNames.covers(socketDirectory(), name));
 
+            // The firewall opens only the ports Porelo serves on the host; an allow would open the
+            // rest. A cloud's metadata service is link-local too.
+            hub.unasked(BlockedConnection.neverAsked(hostAddress));
+
             // Before anything is followed. A resumed task re-reads the events file from the start,
             // so a destination decided in the previous run reaches the hub again within seconds -
             // and without its decisions back, that is a second prompt for a question the operator
@@ -353,7 +366,9 @@ public class ShieldWatchCommand implements Callable<Integer> {
             // showing a settled question with buttons under it - the client cannot tell the two
             // apart, because on the wire they are the same event. Answered here rather than there,
             // so every client gets it right rather than each one guarding.
-            if (hub.settled(blocked.key())) {
+            if (hub.settled(blocked.key()) || hub.neverAsked(destination)) {
+                // Never a question either: the hub denies it without asking, and its decision is
+                // what subscribers see.
                 return hub.handle(blocked);
             }
 

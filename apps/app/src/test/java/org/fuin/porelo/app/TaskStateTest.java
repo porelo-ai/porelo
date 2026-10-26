@@ -44,6 +44,7 @@ class TaskStateTest {
         final Path runtime = Files.createDirectories(context.paths().tasks().containerState(TASK));
         Files.writeString(runtime.resolve("task.json"), "{\"version\":3}");
         Files.writeString(runtime.resolve("ruleset.nft"), "table inet porelo {}");
+        Files.writeString(runtime.resolve(TaskRunner.HOST_ADDRESS_FILE), "169.254.1.2");
         Files.writeString(runtime.resolve("dnsmasq.servers"), "server=/example.com/1.1.1.1\n");
         Files.writeString(runtime.resolve("vault.token"), "porelo_pt_phantom");
         Files.writeString(runtime.resolve("gate.pid"), "4242");
@@ -79,6 +80,9 @@ class TaskStateTest {
         assertThat(durable.resolve("task.json")).exists();
         assertThat(durable.resolve("ruleset.nft")).hasContent("table inet porelo {}");
         assertThat(durable.resolve("dnsmasq.servers")).exists();
+        assertThat(durable.resolve(TaskRunner.HOST_ADDRESS_FILE))
+                .as("a resumed watcher still knows the host it never asks about")
+                .hasContent("169.254.1.2");
         // Live, or secret: not saved.
         assertThat(durable.resolve("gate.pid")).doesNotExist();
         assertThat(durable.resolve("vault.token")).doesNotExist();

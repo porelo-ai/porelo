@@ -126,7 +126,7 @@ class NflogMessageTest {
         // the default-deny chain drops too. An operator who learns to dismiss prompts is worse than
         // no prompts at all.
         final List<BlockedConnection> worth =
-                parseAll().stream().filter(BlockedConnection::worthAsking).toList();
+                parseAll().stream().filter(BlockedConnection::worthRecording).toList();
 
         assertThat(worth).isNotEmpty();
         assertThat(worth)
@@ -136,25 +136,54 @@ class NflogMessageTest {
     }
 
     @Test
-    void classifiesTheAddressesThatShouldNeverRaiseAPrompt() {
+    void classifiesTheAddressesThatAreNamespaceNoise() {
 
-        assertThat(ask("224.0.0.251", BlockedConnection.UDP)).as("mDNS multicast").isFalse();
-        assertThat(ask("255.255.255.255", BlockedConnection.UDP)).as("broadcast").isFalse();
-        assertThat(ask("169.254.1.1", BlockedConnection.TCP)).as("link-local").isFalse();
-        assertThat(ask("ff02:0:0:0:0:0:0:2", BlockedConnection.UDP)).as("IPv6 multicast").isFalse();
-        assertThat(ask("fe80:0:0:0:0:0:0:1", BlockedConnection.TCP))
+        assertThat(recorded("224.0.0.251", BlockedConnection.UDP)).as("mDNS multicast").isFalse();
+        assertThat(recorded("255.255.255.255", BlockedConnection.UDP)).as("broadcast").isFalse();
+        assertThat(recorded("ff02:0:0:0:0:0:0:2", BlockedConnection.UDP))
+                .as("IPv6 multicast")
+                .isFalse();
+        assertThat(recorded("fe80:0:0:0:0:0:0:1", BlockedConnection.TCP))
                 .as("IPv6 link-local")
                 .isFalse();
 
-        assertThat(ask("1.1.1.1", BlockedConnection.TCP)).as("a real destination").isTrue();
-        assertThat(ask("2606:4700:4700:0:0:0:0:1111", BlockedConnection.TCP))
+        assertThat(recorded("1.1.1.1", BlockedConnection.TCP)).as("a real destination").isTrue();
+        assertThat(recorded("2606:4700:4700:0:0:0:0:1111", BlockedConnection.TCP))
                 .as("a real IPv6 destination")
                 .isTrue();
-        assertThat(ask("1.1.1.1", 58)).as("ICMPv6 is not a connection").isFalse();
+        assertThat(recorded("1.1.1.1", 58)).as("ICMPv6 is not a connection").isFalse();
     }
 
-    private boolean ask(String destination, int protocol) {
-        return new BlockedConnection("p", protocol, destination, 443, Instant.EPOCH).worthAsking();
+    @Test
+    void passesOnADropToTheHostAsTheTaskReachesIt() {
+
+        // Under pasta the host is a link-local address. A connection to another of its ports is
+        // dropped, and the audit trail has to say so: it was missing while a drop to the host's VPN
+        // address was there.
+        assertThat(recorded("169.254.1.2", BlockedConnection.TCP))
+                .as("a drop to another port of the host belongs in the audit trail")
+                .isTrue();
+    }
+
+    @Test
+    void neverAsksAboutTheHostOrALinkLocalAddress() {
+
+        assertThat(BlockedConnection.neverAsked("192.0.2.5"))
+                .as("the host's address as podman answered it")
+                .accepts("192.0.2.5", " 192.0.2.5 ")
+                .as("pasta's host and a cloud's metadata service")
+                .accepts("169.254.1.2", "169.254.169.254")
+                .as("an ordinary destination is still asked about")
+                .rejects("1.1.1.1", "192.0.2.6");
+        assertThat(BlockedConnection.neverAsked(null))
+                .as("an unknown host still leaves link-local unasked")
+                .accepts("169.254.1.2")
+                .rejects("1.1.1.1");
+    }
+
+    private boolean recorded(String destination, int protocol) {
+        return new BlockedConnection("p", protocol, destination, 443, Instant.EPOCH)
+                .worthRecording();
     }
 
     @Test

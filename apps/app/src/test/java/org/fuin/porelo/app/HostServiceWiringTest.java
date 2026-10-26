@@ -23,6 +23,8 @@ class HostServiceWiringTest {
 
     @TempDir Path dir;
 
+    private final StringWriter said = new StringWriter();
+
     private Path start(String declaration, String address) throws IOException {
         final Project project =
                 ProjectReader.read(
@@ -60,7 +62,7 @@ class HostServiceWiringTest {
                         Map.of(),
                         List.of("external.example"),
                         new TaskWiring(address, 9418, null, null),
-                        new PrintWriter(new StringWriter()));
+                        new PrintWriter(said, true));
         return paths.tasks().containerState("porelo-local-service");
     }
 
@@ -85,6 +87,24 @@ class HostServiceWiringTest {
         assertThat(Files.readString(state.resolve("ruleset.nft")))
                 .as("the hook gets the matching rule beside its gate")
                 .contains("ip daddr 192.0.2.5 tcp dport 443 accept");
+        assertThat(said.toString())
+                .as("the resolver line names what it answers on this host")
+                .contains(
+                        "(1 domains, host services forge.example and registry.example on port 443)");
+    }
+
+    @Test
+    void recordsWhereTheTaskReachesTheHostForTheClearanceWatcher() throws IOException {
+        final Path state =
+                start(
+                        """
+                repositories:
+                  backend:
+                """,
+                        "192.0.2.5");
+        assertThat(state.resolve(TaskRunner.HOST_ADDRESS_FILE))
+                .as("the watcher never asks about the address the gate was probed at")
+                .hasContent("192.0.2.5");
     }
 
     @Test

@@ -168,6 +168,20 @@ class RunningClearanceTest {
     }
 
     @Test
+    void theWatcherIsToldWhereTheTaskReachesTheHost(@TempDir Path dir) throws Exception {
+
+        // It never asks about that address: an allow there would open every port of the host.
+        final Path state = task(dir, "prompt");
+        Files.writeString(state.resolve(TaskRunner.HOST_ADDRESS_FILE), "192.0.2.5");
+
+        assertThat(
+                        ClearanceWiring.watcherCommand(
+                                context(dir), "demo", "shell", 42, CONTAINER, "deny"))
+                .as("the watcher is started knowing the host")
+                .containsSequence("--host-address", "192.0.2.5");
+    }
+
+    @Test
     void theTaskNameIsReadWithTheProjectRatherThanBySplittingOnHyphens() {
 
         // A project name may contain hyphens, so this is only answerable once the project is known.

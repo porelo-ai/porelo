@@ -94,3 +94,8 @@ things that is:
 Allow it only if you expected that host. A prompt is asked once per destination and task, and the
 answer, or the silence, is journaled. Silence refuses: a prompt nobody answers within 60 seconds is a Deny, and the
 destination stays blocked for the run unless a person allows it later from the interface while the task runs.
+
+**This host, as the task reaches it, is never asked about**, nor is any other IPv4 link-local address, such as a
+cloud's metadata service. The firewall opens only the gate's port and, for a declared host service, TCP 443 there;
+an Allow would open every other port the host listens on. A connection to one of them is a line in `events.jsonl`
+and a Deny in the journal by `host`, and no answer from an interface allows it.

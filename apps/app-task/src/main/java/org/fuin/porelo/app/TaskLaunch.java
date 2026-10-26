@@ -1168,6 +1168,7 @@ public final class TaskLaunch {
                         project,
                         EgressReport.compose(selected, serving, projectOrigins).origins(),
                         EgressReport.refusals(selected, project, repository),
+                        project.egressFor(repository).hostServices(),
                         out);
             } catch (org.fuin.porelo.agent.api.AgentException ex) {
                 err.println("porelo: " + ex.getMessage());
@@ -1713,7 +1714,8 @@ public final class TaskLaunch {
 
             final java.util.Map<String, String> refusals =
                     EgressReport.refusals(selected, project, repository);
-            EgressReport.reportReachable(project, origins, refusals, out);
+            EgressReport.reportReachable(
+                    project, origins, refusals, project.egressFor(repository).hostServices(), out);
             runner.refusing(java.util.List.copyOf(refusals.keySet()));
 
             // The port is decided before this, so the firewall rule can name it; the gate itself

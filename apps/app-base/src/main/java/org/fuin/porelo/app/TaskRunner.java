@@ -66,6 +66,12 @@ public class TaskRunner {
      */
     public static final String HAND_IN_LIMIT_FILE = "hand-in.limit";
 
+    /**
+     * The file in a task's state holding the address the task reaches this host at, which the
+     * clearance watcher never asks about.
+     */
+    public static final String HOST_ADDRESS_FILE = "host-address";
+
     private final Podman podman;
 
     private final PoreloPaths paths;
@@ -334,6 +340,10 @@ public class TaskRunner {
                         hostServices),
                 StandardCharsets.UTF_8);
         out.println("policy    " + ruleset);
+        if (wiring.gateAddress() != null) {
+            Files.writeString(
+                    state.resolve(HOST_ADDRESS_FILE), wiring.gateAddress(), StandardCharsets.UTF_8);
+        }
 
         // Written before the container is created, like the ruleset: the supervisor hook reads it
         // while the container is coming up.
@@ -344,9 +354,16 @@ public class TaskRunner {
         out.println(
                 "resolver  "
                         + dnsConfig
+                        + " ("
                         + (allowedDomains.isEmpty()
-                                ? " (no domains allowed)"
-                                : " (" + allowedDomains.size() + " domains)"));
+                                ? "no domains allowed"
+                                : allowedDomains.size() + " domains")
+                        + (hostServices.isEmpty()
+                                ? ""
+                                : ", host services "
+                                        + String.join(" and ", hostServices)
+                                        + " on port 443")
+                        + ")");
 
         final Path sidecarFile = state.resolve("sidecar.json");
         new Sidecar(

@@ -95,6 +95,18 @@ final class ClearanceWiring {
                                 context.paths().tasks().clearanceJournal(container).toString(),
                                 "--pid-file",
                                 state.resolve("watcher.pid").toString()));
+        final java.nio.file.Path host = state.resolve(TaskRunner.HOST_ADDRESS_FILE);
+        try {
+            if (java.nio.file.Files.isRegularFile(host)) {
+                command.add("--host-address");
+                command.add(
+                        java.nio.file.Files.readString(
+                                        host, java.nio.charset.StandardCharsets.UTF_8)
+                                .strip());
+            }
+        } catch (java.io.IOException ex) {
+            // Every IPv4 link-local address, pasta's host among them, is still never asked about.
+        }
         switch (mode) {
             case "allow" -> command.add("--allow-all");
             case "deny" -> command.add("--deny-all");

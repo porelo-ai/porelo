@@ -45,6 +45,7 @@ public final class TaskState {
                     UnhandedWork.FILE,
                     "dns.conf",
                     TaskRunner.HAND_IN_LIMIT_FILE,
+                    TaskRunner.HOST_ADDRESS_FILE,
                     TaskCertificates.FILE,
                     "dnsmasq.servers",
                     "ruleset.nft",

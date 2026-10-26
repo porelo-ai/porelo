@@ -20,15 +20,10 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b233"></a>[B233](B233-A-Host-Service-Reached-By-Name.md) | M | - | `egress.host_services` maps declared names to the gate address and opens TCP 443 on it in every class, offline included; a drop to another port of the host is recorded and never asked about, and the start report names each host service |
 | <a id="b238"></a>[B238](B238-An-Unfollow-Leaves-Nothing-Of-The-Project.md) | M | - | `project unfollow` removes the project's build lock and upstream copies, so `porelo prune` finds nothing of it; following stops first, under the clone's lock, which a removal never leaves to two holders |
 | <a id="b286"></a>[B286](B286-The-Hosts-Git-Trusts-The-Accounts-Authorities.md) | S | - | Every host-side git command against a remote - following, mirror distance, the gate's push - trusts the account's `ca-certificates.pem` beside the system's roots, through a combined bundle Porelo writes for `GIT_SSL_CAINFO` |
 | <a id="b272"></a>[B272](B272-A-Sign-In-Is-Renewed-On-The-Host-On-Request.md) | S | - | `porelo vault renew <name>` marks an agent's own sign-in due, so the next task's broker renews it on the host by the path every renewal takes; nothing but its end changes and no token is printed |
-
-## Rework
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="b233"></a>[B233](B233-A-Host-Service-Reached-By-Name.md) | M | - | `egress.host_services` maps declared names to the gate address and opens TCP 443 on it in every class, offline included; rework: a drop to the gate's address recorded and never asked about, and the start report naming each host service |
 
 ## Backlog
 

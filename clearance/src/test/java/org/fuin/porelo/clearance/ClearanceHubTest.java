@@ -212,6 +212,68 @@ class ClearanceHubTest {
     }
 
     @Test
+    void neverAsksAboutTheHostAndRecordsWhy() {
+
+        // An allow would put the host's address into the allow set and open every port it listens
+        // on, so the question is never put, however the run answers questions.
+        final ClearanceHub hub = hub(Verdict.ALLOW);
+        hub.unasked("169.254.1.2"::equals);
+
+        assertThat(hub.handle(new Blocked("169.254.1.2", 3000, "tcp", "169.254.1.2:3000")))
+                .as("denied even by a run that allows everything")
+                .isEqualTo(Verdict.DENY);
+        assertThat(asked).as("nobody was asked").hasValue(0);
+        assertThat(allowed).as("nothing opened").isEmpty();
+        assertThat(announced)
+                .as("the record says why nobody was asked")
+                .singleElement()
+                .satisfies(decision -> assertThat(decision.source()).isEqualTo(Decision.HOST));
+    }
+
+    @Test
+    void aClientCannotAllowTheHost() {
+
+        final ClearanceHub hub = hub(Verdict.DENY);
+        hub.unasked("169.254.1.2"::equals);
+
+        hub.handle(new Blocked("169.254.1.2", 22, "tcp", "169.254.1.2:22"));
+        hub.decide(ClearanceService.key("tcp", "169.254.1.2", 22), " 169.254.1.2 ", Verdict.ALLOW);
+
+        assertThat(allowed).as("an address padded with blanks is still the host").isEmpty();
+        assertThat(hub.decisions())
+                .as("the client's allow does not stand")
+                .containsValue(Verdict.DENY)
+                .doesNotContainValue(Verdict.ALLOW);
+        assertThat(announced).as("recorded once, when it was first denied").hasSize(1);
+    }
+
+    @Test
+    void anAllowOfTheHostFromAnEarlierWatcherIsNotPutBack() {
+
+        final ClearanceHub hub = hub(Verdict.DENY);
+        hub.unasked("169.254.1.2"::equals);
+
+        hub.restore(
+                List.of(
+                        new Decision(
+                                Instant.EPOCH,
+                                "uc",
+                                "shell",
+                                "tcp/169.254.1.2/22",
+                                "169.254.1.2",
+                                22,
+                                "tcp",
+                                "169.254.1.2:22",
+                                Verdict.ALLOW,
+                                Decision.CLIENT)));
+
+        assertThat(allowed).as("the old allow is not applied again").isEmpty();
+        assertThat(hub.decisions())
+                .as("the host stays denied")
+                .containsEntry("tcp/169.254.1.2/22", Verdict.DENY);
+    }
+
+    @Test
     void aGrantDoesNotCoverADestinationNothingResolved() {
 
         // A grant is made for a name; an address on its own can never match one, and treating it as
