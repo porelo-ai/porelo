@@ -22,6 +22,8 @@ it reviews.
 - Its comments appear in the review beside the person's, marked with their origin (task and role), through [B166](README.md#b166)'s
   checks; on a forge, through [B171](README.md#b171)'s release.
 - Gate operations - approve, reject, push - are refused to a reviewer task, by role, on the host.
+- A reviewer task ends by itself once its comments are delivered; nobody has to accept or remove it (the
+  operator's decision).
 
 ## Plan
 
