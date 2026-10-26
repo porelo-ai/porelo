@@ -1,6 +1,6 @@
 # B233 — A Host Service Reached By Name
 
-**Status:** Review: published since `0.5.1~snapshot.329`; green on the VM in its acceptance suite, but for its two host-service scenarios, which need a listener on port 443 that only root can open.
+**Status:** Rework: on a rented host the task reached the forge by name on 443 and nothing else, but two things were found, below.
 **Size:** M - the design is settled; `core`, `shield` and `app-base` carry it, with docs and an acceptance scenario; porelo-host's [HO08](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho08) builds on it.
 
 **What must be true.** A task reaches a service on its own host, such as a forge or a registry, by a name the project
@@ -45,6 +45,20 @@ port (`LoopbackMapping`).
 - Port 443 only.
 - It holds in `offline` too, as the gate does.
 - The exposure - whatever listens on the host's loopback 443 is reachable by every task that names it - is accepted and named in `doc/decisions.md`.
+
+## Found on a rented host
+
+- **A drop to another port of the host is not recorded.** The task's reader passes an event on only if
+  `BlockedConnection.worthAsking()`, which excludes every `169.254.*` destination as link-local noise, and under
+  pasta the host is `169.254.1.2`: connections to its ports 3000 and 22 timed out, dropped, with no line in
+  `events.jsonl`, while one to the VPN address `10.73.0.1:443` was recorded. A drop to the gate's address on any
+  port but the gate's is recorded and never asked about, since an Allow would put the host's address into the allow
+  set and open its web ports. Red first: the reader passing on a drop to the gate's address as an event that is not
+  asked about.
+- **`task start` does not name the host services.** Its resolver line counts only `egress.domains`, and its report
+  of reachable names knows no `host_services`; it names each declared host service and its port 443.
+- Not a defect: the host's public address answered a task at once because under pasta it is the namespace's own
+  address (`/proc/net/fib_trie` lists it as `host LOCAL`), so the connection never left the task.
 
 ## Acceptance
 

@@ -24,9 +24,14 @@ from its side, as *blocked by*.
 | <a id="b286"></a>[B286](B286-The-Hosts-Git-Trusts-The-Accounts-Authorities.md) | S | - | Every host-side git command against a remote - following, mirror distance, the gate's push - trusts the account's `ca-certificates.pem` beside the system's roots, through a combined bundle Porelo writes for `GIT_SSL_CAINFO` |
 | <a id="b285"></a>[B285](B285-A-Snapshot-Deployed-To-The-Local-Forge.md) | S | - | porelo-parent's profile `forge-release` deploys an opted-in module's snapshot unsigned to the local forge's registry at `MAVEN_SNAPSHOTS_URL`; the Publish step takes its profile from `PORELO_DEPLOY_PROFILE`, so GitHub publishes to Sonatype as before |
 | <a id="b266"></a>[B266](B266-A-Task-Fits-The-Machine-It-Runs-On.md) | M | - | A task container and an image build are bounded on any host: a default CPU limit that `nproc` inside reads (`OMP_NUM_THREADS`), the project's limits on the build; open files measured high enough; porelo's part of porelo-project [PJ68](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj68) |
-| <a id="b233"></a>[B233](B233-A-Host-Service-Reached-By-Name.md) | M | - | `egress.host_services` maps declared names to the gate address and opens TCP 443 on it in every class, offline included |
 | <a id="b234"></a>[B234](B234-The-Hosts-Authority-In-A-Tasks-Trust-Store.md) | M | - | A separate owner-only task authority is copied read-only into each task and applied to the system and Node trust stores |
 | <a id="b272"></a>[B272](B272-A-Sign-In-Is-Renewed-On-The-Host-On-Request.md) | S | - | `porelo vault renew <name>` marks an agent's own sign-in due, so the next task's broker renews it on the host by the path every renewal takes; nothing but its end changes and no token is printed |
+
+## Rework
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="b233"></a>[B233](B233-A-Host-Service-Reached-By-Name.md) | M | - | `egress.host_services` maps declared names to the gate address and opens TCP 443 on it in every class, offline included; rework: a drop to the gate's address recorded and never asked about, and the start report naming each host service |
 
 ## Backlog
 
