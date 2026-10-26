@@ -112,6 +112,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b290"></a>[B290](B290-A-Merge-Task-Started-When-The-Central-Forge-Moved.md) | - | `porelo-buildtools` [BT06](https://github.com/porelo-ai/porelo-buildtools/blob/main/issues/README.md#bt06) | A task started by the host when the gathered push is refused, merging `central/main` into the local work, off unless the project says so. |
 | <a id="b289"></a>[B289](B289-A-Task-Removed-When-Its-Pull-Request-Is-Merged.md) | - | - | A task removed by the host once the person has merged its pull request, unless it holds unmerged work, off unless the project says so. |
 | <a id="b288"></a>[B288](B288-A-Reviewer-Started-When-The-Build-Is-Green.md) | - | - | A reviewer task started by Porelo itself when the forge's build of a pushed commit is green, once per commit, off unless the project says so. |
 | <a id="b95"></a>[B95](B95-A-Container-To-Try-Waiting-Work-In.md) | - | - | `gate try` and a streaming `Try` in a container without gate or vault; the IDE split into an issue of its own. |

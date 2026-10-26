@@ -19,6 +19,12 @@ starting it is a step that only waits on the build's verdict, which the host alr
 ([B253](README.md#b253)). The developer agent is woken by the comments by itself
 ([B171](README.md#b171)), so with this the loop from push to reviewed work needs the person only for the merge.
 
+## The shape proposed
+
+The host starts the reviewer when its build reader ([B253](README.md#b253)) reads the green verdict, not a workflow on
+the forge. A workflow is code in the repository the agents push, so a task could change when reviewers start, or what
+starts; the host acts only on what it reads itself.
+
 ## To be checked
 
 - Where the setting lives in the project file, and whether it names one reviewer agent or a list to choose from.
