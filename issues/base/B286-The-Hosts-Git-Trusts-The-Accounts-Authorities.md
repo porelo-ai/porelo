@@ -32,3 +32,7 @@ authority is reached, and GitHub still is.
 - The bundle holds every certificate of the system bundle and of the account's file, counted from the files.
 - A lent token, a lent key and nothing lent each carry the variable for an https URL; an ssh URL carries none.
 - The acceptance suite on the VM stays green with the change; reaching the real forge is porelo-host's sprint 5 run.
+
+**Decided:**
+- A real fetch and the `online` gate's push to an HTTPS forge under the host's authority are measured by the
+  operator's sprint-5 test on the rented host; porelo's VM acceptance gets no scenario of its own with a test authority.

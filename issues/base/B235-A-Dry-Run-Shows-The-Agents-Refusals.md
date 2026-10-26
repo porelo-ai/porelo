@@ -1,6 +1,6 @@
 # B235 — A Dry Run Shows The Agent's Refusals
 
-**Status:** Implementing.
+**Status:** Review: built on 2026-10-22; `EgressReportTest` and `TaskRunCommandTest` hold the plan's red-first tests, and the operator's test reads the dry run with a real agent.
 **Size:** S - `TaskLaunch`'s dry run and one guard in `EgressReport`, tests in `app`; no contract.
 
 **What must be true.** `porelo task start --dry-run` names a host the task's agent refuses as refused, never as
