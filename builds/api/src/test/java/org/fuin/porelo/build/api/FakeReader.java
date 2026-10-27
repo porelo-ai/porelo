@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A reader the tests start as an executable: fixed answers, so a test sees what crossed the socket.
@@ -13,7 +14,8 @@ import java.util.List;
  * starting with {@code m} failed in {@link Build#MOST_JOBS} jobs, each with a full {@link
  * Build#TAIL} of log ending in {@code END}, and one starting with {@code x} ends the reader's
  * process before it answers; any other succeeded, with its one job's log only when every log is
- * asked for; the token {@code wrong} is refused.
+ * asked for; the token {@code wrong} is refused. A pull request is opened from a branch the first
+ * time and found open after, its title the one given or else {@code head subject}.
  */
 public final class FakeReader implements BuildReader {
 
@@ -85,6 +87,19 @@ public final class FakeReader implements BuildReader {
                                         "all green\n".getBytes(StandardCharsets.UTF_8))),
                         "")
                 : new Build(Build.SUCCESS, "");
+    }
+
+    /** The branches whose pull request is open, in this reader's process. */
+    private final java.util.Set<String> opened = new java.util.HashSet<>();
+
+    @Override
+    public PullRequest openPullRequest(
+            final Target target, final String branch, final @Nullable String title) {
+        refuseWrongToken(target);
+        return new PullRequest(
+                "https://forge.example/owner/name/pulls/1#"
+                        + (title == null ? "head subject" : title),
+                opened.add(branch));
     }
 
     private static void refuseWrongToken(final Target target) {

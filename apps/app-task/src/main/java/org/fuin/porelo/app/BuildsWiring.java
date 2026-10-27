@@ -156,6 +156,13 @@ final class BuildsWiring {
                             + ", read with '"
                             + builds.credential()
                             + "'; each verdict arrives in /porelo/files");
+            // Said at the start, since the person who approves it must not be its author.
+            out.println(
+                    "pull request   opened from "
+                            + branch
+                            + " at the task's first push, as the forge account of '"
+                            + builds.credential()
+                            + "'");
         } catch (java.io.IOException ex) {
             err.println(
                     "porelo: the builds helper did not start ("

@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.stream.Stream;
 import org.fuin.porelo.build.api.Build;
 import org.fuin.porelo.build.api.BuildRefused;
+import org.fuin.porelo.build.api.PullRequest;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.wire.Sidecar;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,6 +54,20 @@ class BuildWatchTest {
     private final Map<String, Build> forge = new HashMap<>();
 
     private BuildRefused refusal;
+
+    /**
+     * The forge's answer to opening the task's pull request: {@code null}, the default, for a
+     * reader that opens none; a refusal of its own, so the builds go on being asked.
+     */
+    private PullRequest pullRequest;
+
+    private static final PullRequest OPENED =
+            new PullRequest("https://forge.example/owner/name/pulls/7", true);
+
+    private BuildRefused pullRequestRefusal;
+
+    /** The branches a pull request was asked to be opened from, in order. */
+    private final List<String> opening = new ArrayList<>();
 
     private BuildWatch.NotNow notNow;
 
@@ -101,6 +116,20 @@ class BuildWatchTest {
                         return forge.getOrDefault(
                                 commit,
                                 Build.unknown("no build of " + commit.substring(0, 12) + " yet"));
+                    }
+
+                    @Override
+                    public PullRequest openPullRequest(final String branch) {
+                        refuse();
+                        opening.add(branch);
+                        if (pullRequestRefusal != null) {
+                            throw pullRequestRefusal;
+                        }
+                        final PullRequest answer = pullRequest;
+                        if (answer != null) {
+                            pullRequest = new PullRequest(answer.url(), false);
+                        }
+                        return answer;
                     }
                 },
                 (name, file) -> {
@@ -379,6 +408,80 @@ class BuildWatchTest {
         assertThat(asked[0])
                 .as("asked before each round, and the fourth answer ends it")
                 .isEqualTo(4);
+    }
+
+    @Test
+    void opensThePullRequestOnceTheTaskFirstPushesAndHandsInWhereItIs() throws IOException {
+        pullRequest = OPENED;
+        head = "";
+        final BuildWatch watch = watch();
+        watch.round();
+        assertThat(opening).as("no branch yet: nothing to open a pull request from").isEmpty();
+
+        head = FIRST;
+        watch.round();
+        head = SECOND;
+        watch.round();
+
+        assertThat(opening).as("opened once, at the first push").containsExactly(TASK);
+        assertThat(files.get("pull-request.txt"))
+                .isEqualTo("branch: " + TASK + "\nurl: https://forge.example/owner/name/pulls/7\n");
+        assertThat(builds.view(TASK).pullRequest())
+                .isEqualTo("https://forge.example/owner/name/pulls/7");
+        assertThat(builds.view(TASK).pullRequestProblem()).isEmpty();
+    }
+
+    @Test
+    void aReaderThatOpensNoPullRequestIsSaidOnceAndNotAskedAgain() throws IOException {
+        pullRequest = null;
+        head = "";
+        final BuildWatch watch = watch();
+        watch.round();
+        head = FIRST;
+        watch.round();
+        later(BuildWatch.REFUSED);
+        watch.round();
+
+        assertThat(opening).hasSize(1);
+        assertThat(files).doesNotContainKey("pull-request.txt");
+        assertThat(builds.view(TASK).pullRequest()).isEmpty();
+        assertThat(builds.view(TASK).pullRequestProblem())
+                .contains("opens no pull request")
+                .contains("another forge account");
+    }
+
+    @Test
+    void aRefusalToOpenItLeavesTheBuildsToldAndIsAskedAgainLater() throws IOException {
+        pullRequest = OPENED;
+        pullRequestRefusal =
+                new BuildRefused(
+                        BuildRefused.Reason.CREDENTIAL_REFUSED, "the token may not open one");
+        head = "";
+        final BuildWatch watch = watch();
+        watch.round();
+        head = FIRST;
+        forge.put(FIRST, new Build(Build.SUCCESS, ""));
+        watch.round();
+        watch.round();
+
+        assertThat(files)
+                .as("the build is told all the same")
+                .containsKey("build-111111111111.txt");
+        assertThat(troubles)
+                .as("a pull request refused is not the builds' trouble")
+                .containsExactly("");
+        assertThat(builds.view(TASK).pullRequestProblem())
+                .contains("did not open the pull request")
+                .contains("the token may not open one");
+        assertThat(opening).as("not asked again at once").hasSize(1);
+
+        pullRequestRefusal = null;
+        later(BuildWatch.REFUSED);
+        watch.round();
+        assertThat(opening).hasSize(2);
+        assertThat(builds.view(TASK).pullRequest())
+                .isEqualTo("https://forge.example/owner/name/pulls/7");
+        assertThat(builds.view(TASK).pullRequestProblem()).isEmpty();
     }
 
     private void later(final Duration duration) {

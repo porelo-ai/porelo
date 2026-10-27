@@ -30,6 +30,12 @@ public final class BuildProtocol {
     /** Returns what the build of one commit did. */
     public static final String BUILD = INTERFACE + ".Build";
 
+    /**
+     * Opens a pull request from a branch, or answers the open one. Not raising {@link #VERSION}: a
+     * method a reader may not serve misreads nothing, it is answered as missing.
+     */
+    public static final String OPEN_PULL_REQUEST = INTERFACE + ".OpenPullRequest";
+
     private BuildProtocol() {
         throw new UnsupportedOperationException("Constants");
     }

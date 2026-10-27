@@ -15,6 +15,7 @@ import java.util.function.BooleanSupplier;
 import org.fuin.porelo.build.api.Build;
 import org.fuin.porelo.build.api.BuildReaderException;
 import org.fuin.porelo.build.api.BuildRefused;
+import org.fuin.porelo.build.api.PullRequest;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -78,6 +79,18 @@ public final class BuildWatch {
     /** Where the branch pointed when last asked; a change is a push. */
     private @Nullable String head;
 
+    /** Whether this run of the task pushed: only then is there a pull request to open. */
+    private boolean pushed;
+
+    /**
+     * Whether the pull request is settled - open, or the reader opens none - so it is not asked
+     * again.
+     */
+    private boolean pullRequestSettled;
+
+    /** When a pull request the forge would not open may be asked for again. */
+    private @Nullable Instant pullRequestAgain;
+
     /** The forge, as the watch asks it: the reader and the token behind it. */
     public interface Forge {
 
@@ -98,6 +111,17 @@ public final class BuildWatch {
          * @throws BuildRefused When the forge would not answer.
          */
         Build build(String commit);
+
+        /**
+         * Opens the pull request from the task's branch, or answers the one already open.
+         *
+         * @param branch The branch.
+         * @return It; {@code null} when the forge's reader opens none.
+         * @throws BuildRefused When the forge would not answer or not open it.
+         */
+        default @Nullable PullRequest openPullRequest(final String branch) {
+            return null;
+        }
     }
 
     /**
@@ -252,6 +276,7 @@ public final class BuildWatch {
     Duration round() {
         try {
             follow(forge.head(branch));
+            pullRequest();
             for (final Map.Entry<String, Watched> each : List.copyOf(watched.entrySet())) {
                 build(each.getKey(), each.getValue());
             }
@@ -313,6 +338,7 @@ public final class BuildWatch {
             // Nothing to take up: the watch starts from where the branch points now.
         }
         head = last;
+        pushed = last != null;
     }
 
     /**
@@ -326,7 +352,56 @@ public final class BuildWatch {
         }
         if (!now.isEmpty() && !now.equals(head)) {
             head = now;
+            pushed = true;
             watched.putIfAbsent(now, new Watched(clock.instant()));
+        }
+    }
+
+    /**
+     * Opens the pull request from the task's branch once the task pushed, so the person who alone
+     * approves never has to be its author. Its own refusals are its own: the builds are still told,
+     * and it is asked again after {@link #REFUSED}.
+     */
+    private void pullRequest() {
+        final Instant now = clock.instant();
+        if (!pushed
+                || pullRequestSettled
+                || pullRequestAgain != null && now.isBefore(pullRequestAgain)) {
+            return;
+        }
+        try {
+            final PullRequest opened = forge.openPullRequest(branch);
+            pullRequestSettled = true;
+            if (opened == null) {
+                builds.pullRequest(
+                        container,
+                        "",
+                        "this forge's build reader opens no pull request; open one from "
+                                + branch
+                                + " as another forge account than the person who approves it");
+                return;
+            }
+            Files.createDirectories(scratch);
+            handIn(
+                    "pull-request.txt",
+                    ("branch: " + branch + "\nurl: " + opened.url() + "\n")
+                            .getBytes(StandardCharsets.UTF_8));
+            builds.pullRequest(container, opened.url(), "");
+        } catch (BuildRefused | BuildReaderException ex) {
+            pullRequestSettled = false;
+            pullRequestAgain = now.plus(REFUSED);
+            final String why =
+                    ex instanceof BuildRefused refused ? refused.detail() : ex.getMessage();
+            try {
+                builds.pullRequest(
+                        container, "", "the forge did not open the pull request: " + why);
+            } catch (IOException written) {
+                // Said at the next try; the builds go on.
+            }
+        } catch (IOException | HandIns.Refused ex) {
+            // Not written down or not handed in: asked again next round, and the forge answers the
+            // open one.
+            pullRequestSettled = false;
         }
     }
 

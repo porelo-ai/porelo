@@ -1,6 +1,6 @@
 # B297 — The Gate Opens The Pull Request For A Task's Branch
 
-**Status:** Backlog, set by the operator on 2026-10-27, after its estimate the same day.
+**Status:** Review: built and tested here, porelo's side and porelo-adapters' forgejo reader; what remains is its acceptance on a host with the forge.
 **Size:** M - one contract method with its version step, the forgejo adapter's implementation and recordings, the
 call from the task's builds helper, the start report's line, a doc line.
 
@@ -53,6 +53,26 @@ open; a `TaskWatchBuildsCommand` test where the first head opens it and the seco
 - A second push of the same task opens nothing new, and `task status` names the one address.
 - With an adapter that predates the method, the task runs as today and the start says once that no pull request is
   opened.
+
+## Built
+
+- **The contract** grows by `OpenPullRequest(upstream, api, token, branch, title: ?string) -> (url, opened)` in
+  `org.fuin.porelo.Build2`, without raising its version: `BuildReader.openPullRequest` has a default that opens
+  none, `BuildServer` answers it as `org.varlink.service.MethodNotImplemented`, and `InstalledBuildReader` hears that
+  and an earlier reader's `MethodNotFound` alike as `null`, "this reader cannot".
+- **The title is the reader's to take:** absent, it is the subject of the branch's newest commit, which the forge
+  holds; the builds helper on the host never reads the task's commits.
+- **`BuildWatch`** asks it once the task pushed in this run - the head moved, or the resumed record holds a push -
+  and never again once it is open or the reader cannot. The address is handed in as `/porelo/files/pull-request.txt`
+  and kept beside the reader in the task's `builds.json`; a refusal is the pull request's own, said there, the
+  builds still told, and asked again after ten minutes.
+- **`task status`** shows `pull req   <address>`, or why none is open. The start report says it will be opened, and
+  as which credential's forge account.
+- **Docs:** `doc/build-readers.md` names the optional method, `doc/way-of-working.md`'s step 3 says Porelo opens it.
+- **Tests, red first:** `InstalledBuildReaderTest` (opened once and then found; a reader that opens none and one of
+  the earlier contract both `null`), `BuildServerTest` (four methods served as declared), `BuildWatchTest` (opened
+  once at the first push and handed in; a reader that opens none said once; a refusal leaves the builds told and is
+  asked again later). porelo-adapters' forgejo reader opens it against recordings.
 
 ## To be checked
 

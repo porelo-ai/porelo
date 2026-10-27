@@ -55,6 +55,33 @@ public class BuildServer implements AutoCloseable {
                             answering(() -> reader.build(target(parameters), commit, logs))
                                     .asMap());
                 });
+
+        server.method(
+                "OpenPullRequest",
+                (parameters, replies) -> {
+                    final String branch = required(parameters, "branch");
+                    final Object title = parameters.get("title");
+                    final PullRequest opened;
+                    try {
+                        opened =
+                                answering(
+                                        () ->
+                                                reader.openPullRequest(
+                                                        target(parameters),
+                                                        branch,
+                                                        title == null
+                                                                ? null
+                                                                : String.valueOf(title)));
+                    } catch (UnsupportedOperationException ex) {
+                        throw new VarlinkException(
+                                "org.varlink.service.MethodNotImplemented",
+                                Map.of("method", BuildProtocol.OPEN_PULL_REQUEST));
+                    }
+                    final Map<String, Object> answer = new LinkedHashMap<>();
+                    answer.put("url", opened.url());
+                    answer.put("opened", Boolean.valueOf(opened.opened()));
+                    replies.last(answer);
+                });
     }
 
     /**

@@ -67,7 +67,8 @@ setup, registry, runner, credentials and what is lost with the host - is describ
    `forgejo` build reader and its credential in the vault.
 2. Start a task: `porelo task start --project <project> --repository <repository>`. The gate passes each push on to
    `porelo/<task>` on the forge at once.
-3. Review the task's branch and its build in a pull request in Forgejo, and merge it into the forge's `main`.
+3. Review the task's branch and its build in the pull request Porelo opens at the task's first push, as the forge
+   account of the `builds:` credential, and merge it into the forge's `main`.
 4. Send the merged work to the central forge, the gathered push; its tool is not built yet.
 
 - **The person decides** twice: the merge on the host's forge, and the gathered push to the central forge.
@@ -75,8 +76,7 @@ setup, registry, runner, credentials and what is lost with the host - is describ
   builds task-branch pushes or pull requests.
 - **It needs** porelo-host's forge and runner, an agent, a model provider credential, and the `forgejo` build reader.
   A model provider in the cloud still sees the prompts; a Git destination on this host does not change that.
-- **Not built yet:** opening the pull request - the person who approves must not be its author, so open it as another
-  forge account - main's protection set by the forge role (set it in Forgejo yourself), the reviewer start, comments
+- **Not built yet:** main's protection set by the forge role (set it in Forgejo yourself), the reviewer start, comments
   reaching the task and waking it, the task's end after the merge, the gathered-push tool, and the automatic merge
   task.
 

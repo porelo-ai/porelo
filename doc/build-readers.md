@@ -32,6 +32,11 @@ interface, the refusal names its executable, the build interfaces it serves and 
   under: `/usr/libexec/porelo/builds/<forge>`, or `~/.local/share/porelo/builds/<forge>` for one account.
 - **`head(target, branch)`**: the commit a branch points at, "" when the forge has no such branch.
 - **`build(target, commit, logs)`**: what the build of one commit did, across everything the forge ran for it.
+- **`openPullRequest(target, branch, title)`**, optional: opens a pull request from the branch into the repository's
+  default branch, or answers the one already open from it, so asking twice opens one. Without a title it takes the
+  subject of the branch's newest commit. The task's builds helper asks it once, at an `online` task's first push, as
+  the forge account whose token `builds:` names - never the person's, who approves it. A reader that leaves the
+  default in place opens none: Porelo then says so in `task status`, and the task runs as before.
 
 `target` carries the repository as the project file names it (the reader takes it apart: only it knows how its
 forge spells a repository), the API's address ("" for the forge's own) and the token. **A reader keeps no secret**:

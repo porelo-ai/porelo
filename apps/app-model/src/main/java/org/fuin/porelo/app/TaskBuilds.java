@@ -105,8 +105,26 @@ public final class TaskBuilds {
      * @param reader The forge whose builds of its pushes are followed; "" when none is named.
      * @param problem Why the named reader does not follow them; "" while it does.
      * @param builds Each push's newest verdict, the newest push first.
+     * @param pullRequest Where the pull request from the task's branch is; "" while none is known.
+     * @param pullRequestProblem Why none is open; "" while one is, or before the first push.
      */
-    public record View(String reader, String problem, List<Seen> builds) {
+    public record View(
+            String reader,
+            String problem,
+            List<Seen> builds,
+            String pullRequest,
+            String pullRequestProblem) {
+
+        /**
+         * Constructor for a view without a pull request.
+         *
+         * @param reader The forge whose builds of its pushes are followed.
+         * @param problem Why the named reader does not follow them.
+         * @param builds Each push's newest verdict, the newest push first.
+         */
+        public View(final String reader, final String problem, final List<Seen> builds) {
+            this(reader, problem, builds, "", "");
+        }
 
         /**
          * Returns the view of a task whose builds nobody follows.
@@ -267,11 +285,49 @@ public final class TaskBuilds {
      */
     public void reader(final String container, final String reader, final String problem)
             throws IOException {
-        final Path state = paths.containerState(container);
-        Files.createDirectories(state);
-        final Map<String, Object> said = new LinkedHashMap<>();
+        final Map<String, Object> said = said(container);
         said.put("reader", reader);
         said.put("problem", problem);
+        write(container, said);
+    }
+
+    /**
+     * Writes down where the pull request from a task's branch is, or why none is open.
+     *
+     * @param container The task.
+     * @param url Its address; "" when none is open.
+     * @param problem Why none is open; "" when one is.
+     * @throws IOException When it cannot be written.
+     */
+    public void pullRequest(final String container, final String url, final String problem)
+            throws IOException {
+        final Map<String, Object> said = said(container);
+        said.putIfAbsent("reader", "");
+        said.putIfAbsent("problem", "");
+        said.put("pull_request", url);
+        said.put("pull_request_problem", problem);
+        write(container, said);
+    }
+
+    /** What the task's reader file says now, so one writer keeps what the other wrote. */
+    private Map<String, Object> said(final String container) {
+        final Map<String, Object> said = new LinkedHashMap<>();
+        final Path file = paths.containerState(container).resolve(READER_FILE);
+        try {
+            if (Files.isRegularFile(file)
+                    && Json.parse(Files.readString(file, StandardCharsets.UTF_8))
+                            instanceof Map<?, ?> read) {
+                read.forEach((key, value) -> said.put(String.valueOf(key), value));
+            }
+        } catch (IOException | RuntimeException ex) {
+            // Unreadable, it is written anew.
+        }
+        return said;
+    }
+
+    private void write(final String container, final Map<String, Object> said) throws IOException {
+        final Path state = paths.containerState(container);
+        Files.createDirectories(state);
         Files.writeString(
                 state.resolve(READER_FILE), Json.write(said) + "\n", StandardCharsets.UTF_8);
     }
@@ -289,7 +345,11 @@ public final class TaskBuilds {
                     && Json.parse(Files.readString(file, StandardCharsets.UTF_8))
                             instanceof Map<?, ?> said) {
                 return new View(
-                        text(said.get("reader")), text(said.get("problem")), current(container));
+                        text(said.get("reader")),
+                        text(said.get("problem")),
+                        current(container),
+                        text(said.get("pull_request")),
+                        text(said.get("pull_request_problem")));
             }
         } catch (IOException | RuntimeException ex) {
             // Unreadable, it says nothing follows them rather than failing the listing it is a part

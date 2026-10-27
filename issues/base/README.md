@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b297"></a>[B297](B297-The-Gate-Opens-The-Pull-Request-For-A-Tasks-Branch.md) | M | - | An online task's first push to `porelo/<task>` opens one pull request into the default branch, as the gate's forge identity through the builds adapter's new `OpenPullRequest`, so the person who alone approves is never its author |
 | <a id="b296"></a>[B296](B296-A-Token-Lent-Over-HTTPS-Reaches-Git.md) | S | - | Every token lent git for an `https://` address reaches it: the credential helper Porelo configures starts with `!`, so git runs it instead of looking for a `git credential-'<path>'` command |
 | <a id="b215"></a>[B215](B215-A-Helper-Started-With-A-UTF-8-Locale.md) | XS | - | A transport and the message filter run with `LANG=C.UTF-8` where porelod has no locale, so a non-ASCII argument or path reaches them whole; a locale the machine sets passes unchanged |
 | <a id="b235"></a>[B235](B235-A-Dry-Run-Shows-The-Agents-Refusals.md) | S | - | `task start --dry-run` chooses the agent as a start does and names a host it or the project refuses as refused, never as reachable |
@@ -38,7 +39,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b297"></a>[B297](B297-The-Gate-Opens-The-Pull-Request-For-A-Tasks-Branch.md) | M | - | An online task's first push to `porelo/<task>` opens one pull request into the default branch, as the gate's forge identity through the builds adapter's new `OpenPullRequest`, so the person who alone approves is never its author |
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
 | <a id="b206"></a>[B206](B206-A-Transport-Takes-Its-Secrets-On-Its-Input.md) | L | - | A transport takes the secrets Porelo kept for it on its standard input, not in its environment, so no other process of the account can read them from `/proc`; a version declared in `describe`, with the matrix transport's matching change. |
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | XL | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own; analyzed: filled only from reviewed work, mounted `:ro,z`, read through `maven.repo.local.tail`, filled by `dependency:go-offline` on request and when the default branch moved, Maven first |

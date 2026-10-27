@@ -226,6 +226,96 @@ class InstalledBuildReaderTest {
         }
     }
 
+    @Test
+    void opensAPullRequestOnceAndThenFindsTheOpenOne() throws IOException {
+        try (InstalledBuildReader reader =
+                new InstalledBuildReader(java(FakeReader.class), "fake", socket())) {
+
+            assertThat(reader.openPullRequest(TARGET, "porelo/t", null))
+                    .as("no title given: the reader takes its own")
+                    .isEqualTo(
+                            new PullRequest(
+                                    "https://forge.example/owner/name/pulls/1#head subject", true));
+            assertThat(reader.openPullRequest(TARGET, "porelo/t", "Fix the login"))
+                    .as("asked again, the open one is answered and nothing is opened")
+                    .isEqualTo(
+                            new PullRequest(
+                                    "https://forge.example/owner/name/pulls/1#Fix the login",
+                                    false));
+        }
+    }
+
+    @Test
+    void hearsAReaderThatOpensNoPullRequestAsOneThatCannotSay() throws IOException {
+        try (InstalledBuildReader reader =
+                new InstalledBuildReader(java(ReadsOnly.class), "fake", socket())) {
+
+            assertThat(reader.openPullRequest(TARGET, "porelo/t", null)).isNull();
+        }
+        try (InstalledBuildReader reader =
+                new InstalledBuildReader(java(EarlierContract.class), "fake", socket())) {
+
+            assertThat(reader.openPullRequest(TARGET, "porelo/t", null))
+                    .as("a reader built before the method existed")
+                    .isNull();
+        }
+    }
+
+    /** A reader that reads builds and opens no pull request. */
+    public static final class ReadsOnly implements BuildReader {
+
+        /**
+         * Runs it.
+         *
+         * @param arguments As every reader takes them.
+         */
+        public static void main(final String[] arguments) {
+            BuildMain.run(new ReadsOnly(), arguments);
+        }
+
+        @Override
+        public String forge() {
+            return "fake";
+        }
+
+        @Override
+        public String head(final Target target, final String branch) {
+            return "";
+        }
+
+        @Override
+        public Build build(final Target target, final String commit, final Build.Logs logs) {
+            return Build.unknown("");
+        }
+    }
+
+    /** A reader of this contract's version from before {@code OpenPullRequest}. */
+    public static final class EarlierContract {
+
+        /**
+         * Serves Describe alone.
+         *
+         * @param arguments {@code serve <socket>}.
+         */
+        public static void main(final String[] arguments) {
+            try (VarlinkServer server =
+                    new VarlinkServer(Path.of(arguments[1]), BuildProtocol.INTERFACE)) {
+                server.method(
+                        "Describe",
+                        (parameters, replies) ->
+                                replies.last(
+                                        Map.of(
+                                                "protocolVersion",
+                                                BuildProtocol.VERSION,
+                                                "forge",
+                                                "fake")));
+                System.out.println("ready " + arguments[1]);
+                System.out.flush();
+                server.run();
+            }
+        }
+    }
+
     /** An adapter whose Describe fails for a reason other than a missing method. */
     public static final class FailedDescribe {
 

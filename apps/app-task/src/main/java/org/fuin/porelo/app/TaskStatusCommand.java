@@ -220,6 +220,11 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
                             ? builds.reader() + (builds.builds().isEmpty() ? ", no push yet" : "")
                             : warn(builds.reader() + " - " + builds.problem()));
         }
+        if (!builds.pullRequest().isEmpty()) {
+            line(out, "pull req", builds.pullRequest());
+        } else if (!builds.pullRequestProblem().isEmpty()) {
+            line(out, "pull req", warn(builds.pullRequestProblem()));
+        }
         for (final TaskBuilds.Seen seen : builds.builds()) {
             final long failed =
                     seen.jobs().stream().filter(job -> "failure".equals(job.result())).count();

@@ -1160,7 +1160,9 @@ public final class TaskInventory {
                             named.forge(),
                             "the helper that follows its builds has"
                                     + " not started: the task's launch has not reached it, or stopped before it; start the task again",
-                            view.builds());
+                            view.builds(),
+                            view.pullRequest(),
+                            view.pullRequestProblem());
         }
         final java.nio.file.Path pid =
                 context.paths()
@@ -1172,7 +1174,9 @@ public final class TaskInventory {
                     view.reader(),
                     "the helper that follows its builds is not running; stop the"
                             + " task and start it again to bring it back",
-                    view.builds());
+                    view.builds(),
+                    view.pullRequest(),
+                    view.pullRequestProblem());
         }
         return view;
     }

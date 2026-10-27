@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import org.fuin.porelo.build.api.Build;
 import org.fuin.porelo.build.api.InstalledBuildReader;
+import org.fuin.porelo.build.api.PullRequest;
 import org.fuin.porelo.build.api.Target;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
@@ -139,6 +140,12 @@ public class TaskWatchBuildsCommand implements Callable<Integer>, PoreloFactory.
                         @Override
                         public Build build(final String commit) {
                             return reader.build(target(), commit, policy);
+                        }
+
+                        @Override
+                        public @Nullable PullRequest openPullRequest(final String name) {
+                            // No title: the forge's reader takes the newest commit's subject.
+                            return reader.openPullRequest(target(), name, null);
                         }
                     };
             new BuildWatch(

@@ -24,6 +24,13 @@ type Job (name: string, result: string, log: ?string)
 method Build(upstream: string, api: string, token: string, commit: string, logs: ?string)
     -> (verdict: string, jobs: []Job, detail: string)
 
+# Opens a pull request from a branch into the repository's default branch, or answers the one already open from it:
+# url is where a person reads it, opened whether this call opened it. Absent, the title is the subject of the
+# branch's newest commit. A reader that opens none answers org.varlink.service.MethodNotImplemented, as one from
+# before this method answers MethodNotFound; Porelo hears both as "this reader cannot".
+method OpenPullRequest(upstream: string, api: string, token: string, branch: string, title: ?string)
+    -> (url: string, opened: bool)
+
 # The forge limits how often it is asked; retryAfter is in seconds, 0 when it did not say.
 error RateLimited(detail: string, retryAfter: int)
 

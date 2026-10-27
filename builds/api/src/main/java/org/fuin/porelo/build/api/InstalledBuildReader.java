@@ -142,6 +142,46 @@ public final class InstalledBuildReader implements AutoCloseable {
         }
     }
 
+    /**
+     * Asks the reader to open a pull request from a branch, or to answer the open one.
+     *
+     * @param target Where and with what.
+     * @param branch The branch.
+     * @param title Its title, or {@code null} for the reader's own.
+     * @return The pull request; {@code null} when this reader opens none, either because it says so
+     *     or because it was built before the question existed.
+     * @throws BuildRefused When the forge would not answer or not open it.
+     * @throws BuildReaderException When the reader failed, or answered without an address.
+     */
+    public @Nullable PullRequest openPullRequest(
+            final Target target, final String branch, final @Nullable String title) {
+        final Map<String, Object> parameters = parameters(target);
+        parameters.put("branch", branch);
+        if (title != null) {
+            parameters.put("title", title);
+        }
+        final Map<String, Object> answer;
+        try {
+            answer = call(BuildProtocol.OPEN_PULL_REQUEST, parameters);
+        } catch (BuildReaderException ex) {
+            if (ex.getCause() instanceof VarlinkException said
+                    && ("org.varlink.service.MethodNotFound".equals(said.getErrorName())
+                            || "org.varlink.service.MethodNotImplemented"
+                                    .equals(said.getErrorName()))) {
+                return null;
+            }
+            throw ex;
+        }
+        try {
+            return new PullRequest(
+                    String.valueOf(answer.getOrDefault("url", "")),
+                    Boolean.TRUE.equals(answer.get("opened")));
+        } catch (IllegalArgumentException ex) {
+            throw new BuildReaderException(
+                    executable + " answered a pull request " + ex.getMessage(), ex);
+        }
+    }
+
     @Override
     public void close() {
         final Process process = running.process();

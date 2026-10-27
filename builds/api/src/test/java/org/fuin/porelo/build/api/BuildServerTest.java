@@ -27,9 +27,12 @@ class BuildServerTest {
                         .map(match -> BuildProtocol.INTERFACE + "." + match.group(1))
                         .collect(Collectors.toSet());
         assertThat(declared)
-                .as("the published contract declares its three operations")
+                .as("the published contract declares its four operations")
                 .containsExactlyInAnyOrder(
-                        BuildProtocol.DESCRIBE, BuildProtocol.HEAD, BuildProtocol.BUILD);
+                        BuildProtocol.DESCRIBE,
+                        BuildProtocol.HEAD,
+                        BuildProtocol.BUILD,
+                        BuildProtocol.OPEN_PULL_REQUEST);
         try (BuildServer server = new BuildServer(new FakeReader(), directory.resolve("r.sock"))) {
             assertThat(
                             server.methodNames().stream()
