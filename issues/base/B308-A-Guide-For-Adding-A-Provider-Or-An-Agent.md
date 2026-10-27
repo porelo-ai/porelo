@@ -108,7 +108,10 @@ jar today) and in the adapters at porelo-pi 1ab0e47, porelo-omp b545d4b, porelo-
 
 ## To be checked
 
-- The proof the decision asks for: porelo-codex, whose shared scenarios cost no provider money, run green on the VM
-  from a locally built kit with `installed` and `terminal` taken from the kit's set.
-- Whether Cucumber 7.34.8's JUnit engine takes `@SelectClasspathResource` twice in one suite, one directory from the
-  kit's jar: otherwise one `cucumber.features` property naming both.
+- The full proof the decision asks for, one adapter green on the VM from the kit's set, comes with the first
+  adapter's switch, in its own account. **What holds already (2026-10-28, 00:10Z):** a copy of porelo-codex 88acb8a,
+  its `installed.feature` deleted, ran from a kit built with that feature under
+  `org/fuin/porelo/acceptance/agent/` in its jar. Cucumber 7.34.8's JUnit engine took the two
+  `@SelectClasspathResource` in one suite, and ran both scenarios from `classpath:org/fuin/porelo/acceptance/agent/`
+  beside the adapter's own eight, in dry-run mode, no host: 10 scenarios, green. The same run with one step
+  misspelled in the kit's feature failed with `UndefinedStepException`, so a dry run is the kit test step 6 needs.
