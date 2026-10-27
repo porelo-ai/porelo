@@ -47,6 +47,8 @@ public final class World implements AutoCloseable {
 
     private @Nullable ToolRecords toolRecords;
 
+    private @Nullable String emptyCall;
+
     private boolean daemonWasRunning;
 
     private @Nullable String daemonUnit;
@@ -231,9 +233,34 @@ public final class World implements AutoCloseable {
         toolRecords = new ToolRecords(directory, suffix);
     }
 
-    /** Returns the declared tool-call records, or {@code null} when none were declared. */
+    /**
+     * Declares what a call that printed nothing looks like in the agent's tool-call records.
+     *
+     * @param emptyCall The literal text, as the record writes it.
+     */
+    public void emptyToolCall(String emptyCall) {
+        if (emptyCall.isBlank()) {
+            throw new IllegalArgumentException("an empty call that is blank is on every line");
+        }
+        this.emptyCall = emptyCall;
+    }
+
+    /**
+     * Returns the declared tool-call records with the empty call declared for them, in whichever
+     * order the scenario said the two.
+     *
+     * @return The records, or {@code null} when none were declared.
+     * @throws IllegalStateException When an empty call was declared with nowhere to look for it.
+     */
     @Nullable ToolRecords toolRecords() {
-        return toolRecords;
+        if (toolRecords == null) {
+            if (emptyCall != null) {
+                throw new IllegalStateException(
+                        "an empty tool call was declared, but not where the agent records tool calls");
+            }
+            return null;
+        }
+        return new ToolRecords(toolRecords.directory(), toolRecords.suffix(), emptyCall);
     }
 
     /**

@@ -26,6 +26,16 @@ Read in `LoopWatch`, `TaskHistories`, `SessionIds`, `TaskSession.fromFiles` and 
    by the same plain-path rule as `SessionIds`; `LoopWatch` also reads the newest such file in each task container
    and counts the marker in what was added; `TaskHistories` takes both.
 3. **Red first:** `LoopWatchTest.aToolFailureThatTheSessionFileRecordedThreeTimesIsALoopWhileTheHistoryAddsNothing`.
+4. **The empty call, measured in the record:** a refused `bash -c` and the bare `bash` after it sit in one tool
+   output, the refusal's text intact through the JSON escaping and the bare call as an escaped empty `output`. A
+   further kit step declares what an empty call looks like in the record (`an empty tool call in its records looks
+   like '...'`), and the count inside the container takes each one that follows a marker before the next as another
+   try; an empty call with no marker before it is none. Both strings reach `awk` through its environment, never its
+   program. Red first: `ToolRecordsTest.anEmptyCallRightAfterARefusedOneIsAnotherTry` (two refusals and a bare call
+   counted 2, now 3), with the step's quoting held by a test of the documented example. The fixture is written to
+   the record's measured shape, not copied from it: a session record does not go into the repository.
+   Only the first empty call after a marker on the same line, ending before the next marker, counts: an empty
+   output is also what every quiet command that worked prints, so a second one, or one on a later line, is no try.
 
 **Decided:**
 - The file's place comes from a kit step, in the kit only; the agent definition is not changed here.
@@ -41,14 +51,3 @@ Read in `LoopWatch`, `TaskHistories`, `SessionIds`, `TaskSession.fromFiles` and 
 - In porelo-codex's live wake case, a model repeating a refused tool call stops the scenario well before its bound.
   Seen to fail first: today it runs to the 120 s bound.
 - A kit test with an unchanged history and a growing session file reports a loop.
-
-## To be checked
-
-- Confirmed in the adapter definition and its conversation-record documentation: attended session files
-  live under `.codex/sessions` in the agent's home, in dated subdirectories, with suffix `.jsonl`.
-  The definition also selects `session_meta/payload.id` for the session id.
-- Still to measure in a live attended record: whether the refused-call marker survives JSON escaping,
-  and how an empty call immediately after a refused one is represented. The empty-call-after-refusal
-  rule is not built yet because the record's format is unmeasured. The measured case of two refusals
-  followed by a bare call is therefore not yet caught; the kit counts literal markers and does not
-  infer a refusal from an unmarked empty call.

@@ -173,6 +173,17 @@ public class TerminalSteps {
     }
 
     /**
+     * Declares what a call that printed nothing looks like in those records, so a bare call right
+     * after a refused one counts as another try.
+     *
+     * @param emptyCall The literal text, as the record writes it.
+     */
+    @Given("an empty tool call in its records looks like {string}")
+    public void anEmptyToolCallLooksLike(String emptyCall) {
+        world.emptyToolCall(emptyCall);
+    }
+
+    /**
      * Opens a terminal with a known prompt.
      *
      * @throws IOException If it cannot be opened.

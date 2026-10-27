@@ -9,6 +9,36 @@ import org.junit.jupiter.api.Test;
 class WorldTest {
 
     @Test
+    void aDeclaredEmptyCallReachesTheRecordsWhicheverStepCameFirst() {
+
+        // Dropped, the bare call after a refusal would go uncounted and a paid loop run to its
+        // bound.
+        final World first = new World();
+        first.emptyToolCall("\"output\":\"\"");
+        first.toolRecords(".sessions", ".jsonl");
+        final World second = new World();
+        second.toolRecords(".sessions", ".jsonl");
+        second.emptyToolCall("\"output\":\"\"");
+
+        assertThat(first.toolRecords())
+                .as("an empty call declared before the records reaches them")
+                .isEqualTo(new ToolRecords(".sessions", ".jsonl", "\"output\":\"\""));
+        assertThat(second.toolRecords())
+                .as("an empty call declared after the records reaches them")
+                .isEqualTo(new ToolRecords(".sessions", ".jsonl", "\"output\":\"\""));
+    }
+
+    @Test
+    void anEmptyCallWithNowhereToLookForItIsAMistakeSaidAtTheWait() {
+        final World world = new World();
+        world.emptyToolCall("\"output\":\"\"");
+
+        assertThatThrownBy(world::toolRecords)
+                .as("a declared empty call that nothing reads must not pass in silence")
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
     void expandsAPlaceholderFromTheEnvironment() {
         // PATH is set on every machine that can run this test; the value is not the point.
         assertThat(World.expand("echo ${PATH}")).isEqualTo("echo " + System.getenv("PATH"));

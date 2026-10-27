@@ -1,0 +1,2 @@
+title: An acceptance wait also counts a bare tool call right after a refused one as another try, once a scenario declares what an empty call looks like in the agent's record
+type: added

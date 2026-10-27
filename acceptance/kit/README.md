@@ -111,8 +111,17 @@ The wait stops at once, naming what repeated and where, rather than waiting out 
   from that file's first sight in the wait, including a file first seen after the wait began;
   history still counts from the wait's first look, or from nothing for a task that appears later.
   History and file counts are not added together. The marker matches literal file text, so a
-  JSON record needs a marker that survives its escaping. An empty call counts when its record
-  carries the marker too; an unmarked call cannot be classified without the record format.
+  JSON record needs a marker that survives its escaping. A bare call right after a refused one
+  prints nothing and so carries no marker; declare what such a call looks like in the record, and
+  the first one after each marker on the same line, before the next marker, counts as another try:
+
+      And an empty tool call in its records looks like '\\"output\\":\\"\\"'
+
+  The step's quotes turn `\"` into `"`, so a backslash the record writes right before a quote is
+  doubled.
+
+  An empty call anywhere else - with no marker before it on its line, a second one after a marker,
+  or on a later line - is a quiet command that worked, and no try.
 
 - **when one line has scrolled by more often than `porelo.acceptance.repeats` allows** (25 if unset),
   declared or not. Lines without a letter or a digit, such as the bottom edge of a box, do not count.
