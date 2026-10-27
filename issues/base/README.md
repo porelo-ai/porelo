@@ -49,6 +49,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="b308"></a>[B308](B308-A-Guide-For-Adding-A-Provider-Or-An-Agent.md) | L | - | One guide in `doc/` to the checks that prove a new provider or agent safe, with scripts beside the acceptance kit: recording a provider's answers through the broker, the walk script's shared shape; the agents' part kept by their repositories | 0 |
 | <a id="b136"></a>[B136](B136-An-Approve-Bound-To-What-Was-Reviewed.md) | M | - | Capture one reviewed commit for patch/log and every approval path; confirmations and signatures use that key; SARIF never authorizes forwarding. | 0 |
 | <a id="b150"></a>[B150](B150-The-Whole-Diff-In-Review.md) | M | - | Bound serialized review replies with explicit file-boundary cuts; retain complete file inventory or refuse by name; full-diff risk and SARIF completeness stay independent. | 0 |
 | <a id="b141"></a>[B141](B141-New-Dependencies-Checked-Before-Review.md) | XL | [B136](README.md#b136), [B291](README.md#b291), [B292](README.md#b292) | Dependency changes and registry/name findings as SARIF; commit-bound human confirmation holds approval; splits into extraction (M), registry/hold (L), look-alike names (S). | 1 |
@@ -116,7 +117,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b309"></a>[B309](B309-A-Machine-Sets-Its-Own-Transport-Settings.md) | - | - | A machine sets for itself what a transport lists - for Matrix its homeserver, room, CA and registration token - over the signed project file's, so one project file serves machines on different servers; split from [B304](#b304) |
-| <a id="b308"></a>[B308](B308-A-Guide-For-Adding-A-Provider-Or-An-Agent.md) | - | - | One guide in `doc/` to the checks that prove a new provider or agent safe, with scripts beside the acceptance kit: recording a provider's answers through the broker, the walk script's shared shape; the agents' part kept by their repositories |
 | <a id="b307"></a>[B307](B307-Not-Waiting-Is-Read-Once-The-Screen-Settles.md) | - | - | The kit's "not waiting" step lets the screen settle after a key before it judges, and fails only on waiting read again after not waiting, as "waiting" already waits |
 | <a id="b305"></a>[B305](B305-Porelos-Agent-Works-In-A-Porelo-Task.md) | - | - | porelo's agent works in a Porelo task on the move's host as `Agent Core`, pushes to its Forgejo and talks in the room, with a way back to this machine; `porelo-parent` has no move of its own |
 | <a id="b306"></a>[B306](B306-Porelos-Build-Runs-On-The-Local-Forge.md) | - | - | porelo's workflows run green on the host's Forgejo and the central forge on one commit: legs asked by kind, no provider named, deploy and uploads switched by variables on both forges |
