@@ -21,10 +21,7 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b302"></a>[B302](B302-A-Broker-Stopped-By-A-Signal-Leaves-No-Socket.md) | XS | - | A helper serving a unix socket - `vault serve`, `vault agent`, the clearance watcher, the builds reader - removes it when SIGTERM or SIGINT ends it, as when it returns |
-| <a id="b297"></a>[B297](B297-The-Gate-Opens-The-Pull-Request-For-A-Tasks-Branch.md) | M | - | An online task's first push to `porelo/<task>` opens one pull request into the default branch, as the gate's forge identity through the builds adapter's new `OpenPullRequest`, so the person who alone approves is never its author |
-| <a id="b296"></a>[B296](B296-A-Token-Lent-Over-HTTPS-Reaches-Git.md) | S | - | Every token lent git for an `https://` address reaches it: the credential helper Porelo configures starts with `!`, so git runs it instead of looking for a `git credential-'<path>'` command |
 | <a id="b238"></a>[B238](B238-An-Unfollow-Leaves-Nothing-Of-The-Project.md) | M | - | `project unfollow` removes the project's build lock and upstream copies, so `porelo prune` finds nothing of it; following stops first, under the clone's lock, which a removal never leaves to two holders |
-| <a id="b286"></a>[B286](B286-The-Hosts-Git-Trusts-The-Accounts-Authorities.md) | S | - | Every host-side git command against a remote - following, mirror distance, the gate's push - trusts the account's `ca-certificates.pem` beside the system's roots, through a combined bundle Porelo writes for `GIT_SSL_CAINFO` |
 
 ## Implementing
 
@@ -192,6 +189,9 @@ from its side, as *blocked by*.
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="b297"></a>B297 | The Gate Opens The Pull Request For A Task's Branch | An online task's first push opens one pull request from `porelo/<task>` into the default branch, as the gate's forge identity through the build reader's optional `OpenPullRequest`, so the person who alone approves is never its author; `task status` shows it |
+| <a id="b296"></a>B296 | A Token Lent Over HTTPS Reaches Git | The credential helper Porelo configures for an `https://` address starts with `!`, so git runs it rather than looking for a `git credential-<path>` command |
+| <a id="b286"></a>B286 | The Host's Git Trusts The Account's Authorities | Every host-side git command against a remote trusts the account's `ca-certificates.pem` beside the system's roots, through a combined bundle for `GIT_SSL_CAINFO` |
 | <a id="b215"></a>B215 | A Helper Started With A UTF-8 Locale | A transport and the message filter that porelod starts get `LANG=C.UTF-8` where the account sets no locale, so a non-ASCII argument or path reaches them whole |
 | <a id="b272"></a>B272 | A Sign-In Is Renewed On The Host On Request | `porelo vault renew <name>` marks an agent's own sign-in due, and the next task's broker renews it on the host; an imported sign-in is refused |
 | <a id="b235"></a>B235 | A Dry Run Shows The Agent's Refusals | `task start --dry-run` chooses the agent as a start does and lists a host it or the project refuses as refused, never as reachable, and the start's own report leaves a refused host out of what it can reach. |
