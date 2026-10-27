@@ -1,6 +1,6 @@
 # B297 — The Gate Opens The Pull Request For A Task's Branch
 
-**Status:** Estimated by the operator on 2026-10-27; accepted on the operator's word the same day.
+**Status:** Backlog, set by the operator on 2026-10-27, after its estimate the same day.
 **Size:** M - one contract method with its version step, the forgejo adapter's implementation and recordings, the
 call from the task's builds helper, the start report's line, a doc line.
 
