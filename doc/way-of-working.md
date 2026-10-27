@@ -75,7 +75,8 @@ setup, registry, runner, credentials and what is lost with the host - is describ
   builds task-branch pushes or pull requests.
 - **It needs** porelo-host's forge and runner, an agent, a model provider credential, and the `forgejo` build reader.
   A model provider in the cloud still sees the prompts; a Git destination on this host does not change that.
-- **Not built yet:** main's protection set by the forge role (set it in Forgejo yourself), the reviewer start, comments
+- **Not built yet:** opening the pull request - the person who approves must not be its author, so open it as another
+  forge account - main's protection set by the forge role (set it in Forgejo yourself), the reviewer start, comments
   reaching the task and waking it, the task's end after the merge, the gathered-push tool, and the automatic merge
   task.
 
