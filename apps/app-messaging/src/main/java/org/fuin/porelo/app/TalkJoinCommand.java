@@ -41,6 +41,14 @@ public class TalkJoinCommand implements Callable<Integer>, PoreloFactory.Context
                             + " password, for an agent whose output is its transcript.")
     private @Nullable String intoVault;
 
+    @Option(
+            names = "--display",
+            paramLabel = "<name>",
+            description =
+                    "The name the conversation shows for the person, which is how others address"
+                            + " them there.")
+    private @Nullable String display;
+
     @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
@@ -56,6 +64,15 @@ public class TalkJoinCommand implements Callable<Integer>, PoreloFactory.Context
         final PrintWriter err = spec.commandLine().getErr();
         final Project project = GateSupport.byName(context, projectName);
         if (noConversation(project, err)) {
+            return 64;
+        }
+        // Handed on as its own argument, a name like "--reset" would reach the transport as a flag.
+        if (display != null && display.startsWith("-")) {
+            err.println(
+                    "porelo: '"
+                            + display
+                            + "' cannot be a display name, since it reads as an option");
+            err.flush();
             return 64;
         }
         // Asked before the account is made: an account whose login nobody keeps is one too many.
@@ -86,7 +103,7 @@ public class TalkJoinCommand implements Callable<Integer>, PoreloFactory.Context
         try {
             said =
                     new TaskConversations(context)
-                            .join(context, project, person, reset, intoVault != null);
+                            .join(context, project, person, reset, intoVault != null, display);
         } catch (TransportLifecycle.Refused ex) {
             err.println("porelo: " + ex.getMessage());
             err.flush();
@@ -143,7 +160,16 @@ public class TalkJoinCommand implements Callable<Integer>, PoreloFactory.Context
             err.flush();
             return 69;
         }
-        out.println("joined    " + person + ", login kept in the vault as '" + entry + "'");
+        // The room acts by its id, so the agent learns it here, where no secret is.
+        final String room =
+                said.get("login") instanceof Map<?, ?> login
+                                && login.get("room") instanceof String id
+                                && !id.isBlank()
+                                && id.chars().noneMatch(Character::isWhitespace)
+                                && id.chars().noneMatch(Character::isISOControl)
+                        ? " in " + id
+                        : "";
+        out.println("joined    " + person + room + ", login kept in the vault as '" + entry + "'");
         out.flush();
         return 0;
     }

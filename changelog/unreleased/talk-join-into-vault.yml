@@ -1,2 +1,2 @@
-title: porelo talk join --into-vault keeps a person's access token in the vault and shows no password, so an agent joins a project's room through its own shell
+title: porelo talk join --into-vault keeps a person's access token in the vault and shows no password, names the room's id, and --display sets the name the room shows, so an agent joins a project's room through its own shell
 type: added

@@ -54,7 +54,8 @@ mail:
   Two tasks that must not read each other's messages belong in two projects.
 - **A person joins** with `porelo talk join PROJECT PERSON`, which makes them an account, invites it into the
   room and prints the login once for their client; `--into-vault ENTRY` keeps the person's access token in the vault
-  instead and prints no password, which is how an agent joins. `porelo talk members PROJECT` lists who joined and their
+  instead and prints no password but the room's id, which is how an agent joins; `--display NAME` is the name the room
+  shows for them, which is how others address them. `porelo talk members PROJECT` lists who joined and their
   accounts. `porelo talk remove PROJECT PERSON` removes them through the transport and, only after it
   succeeds, from the members list; it says why if their account stays. Their room messages no longer reach
   tasks, and tasks can no longer address them by their joined name.

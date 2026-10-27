@@ -105,7 +105,7 @@ class TransportConversationsTest {
         final PoreloContext context = removalContext("guarded", false);
         runner.answering(
                 " join ",
-                "{\"login\":{\"user\":\"@carol\",\"password\":\"pw-SECRET\"},"
+                "{\"login\":{\"user\":\"@carol\",\"password\":\"pw-SECRET\",\"room\":\"!room-p\"},"
                         + "\"shown\":\"user @carol password pw-SECRET\","
                         + "\"secrets\":{\"PORELO_MATRIX_ACCESS_TOKEN\":\"tok-SECRET\"}}");
 
@@ -113,7 +113,8 @@ class TransportConversationsTest {
 
         assertThat(reply.code()).as(reply.err()).isZero();
         assertThat(reply.out())
-                .isEqualTo("joined    carol, login kept in the vault as 'talk.carol'\n");
+                .as("the agent learns its room from this line alone, since the room acts by its id")
+                .contains(" in !room-p", "'talk.carol'");
         assertThat(reply.out() + reply.err())
                 .as("neither the password nor the token is shown")
                 .doesNotContain("pw-SECRET", "tok-SECRET");
@@ -128,6 +129,34 @@ class TransportConversationsTest {
         assertThat(kept).isNotNull();
         assertThat(kept.value()).isEqualTo("tok-SECRET");
         assertThat(kept.type()).isEqualTo("token");
+    }
+
+    @Test
+    void aJoinHandsThePersonsDisplayNameToTheTransport() throws Exception {
+        // The room names a member by its display name; without it no head names anyone.
+        final PoreloContext context = removalContext("guarded", false);
+
+        final TalkReply reply = talk(context, "join", "p", "carol", "--display", "Agent Carol");
+
+        assertThat(reply.code()).as(reply.err()).isZero();
+        assertThat(runner.only("--person carol").arguments())
+                .as("the transport's join is given the display name as one argument")
+                .containsSubsequence("--display", "Agent Carol");
+    }
+
+    @Test
+    void aDisplayNameThatReadsAsAnOptionIsRefusedBeforeTheTransportRuns() throws Exception {
+        // Handed on as its own argument, "--token" reaches the transport's join as a flag; picocli
+        // refuses only the options of porelo's own join.
+        final PoreloContext context = removalContext("guarded", false);
+
+        final TalkReply reply = talk(context, "join", "p", "carol", "--display=--token");
+
+        assertThat(reply.code()).as(reply.err()).isEqualTo(64);
+        assertThat(reply.err()).contains("'--token'");
+        assertThat(runner.lines())
+                .as("the transport's join never ran for the refused name")
+                .noneMatch(line -> line.contains("--person carol"));
     }
 
     @Test

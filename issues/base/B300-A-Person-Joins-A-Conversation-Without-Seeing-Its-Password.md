@@ -1,14 +1,15 @@
 # B300 — A Person Joins A Conversation Without Seeing Its Password
 
-**Status:** Review: built and tested here, set to Backlog by the operator on 2026-10-27 after its estimate; the
-transport's `join --token` is porelo-message-matrix's.
+**Status:** Implementing: rework found in porelo-message-matrix's acceptance, the display name and the room's id;
+the transport's `join --token` and `--display` are porelo-message-matrix's.
 **Size:** S - one option on `talk join` in `app-messaging`, the vault write it makes, its tests and doc rows; the
 transport contract grows by `join --token`, written with porelo-message-matrix.
 
 **What must be true.** `porelo talk join <project> <person> --into-vault <entry>` makes the person's account in the
 project's conversation and keeps the person's access token, which the transport answers, in the account's vault
-under `<entry>`, printing only that it did. The password reaches no stream, log or file, so an agent can join a room through its own shell,
-whose output is its transcript.
+under `<entry>`, printing only that it did and the room's id. The password reaches no stream, log or file, so an agent can join a room
+through its own shell, whose output is its transcript. `--display <name>` gives the person the name the room shows, by
+which the others address them.
 
 ## Why
 
@@ -58,6 +59,13 @@ Read in `TalkJoinCommand`, `TaskConversations.join`, `TransportLifecycle.join`, 
   asks again.
 - `TransportLifecycle.join` and `TaskConversations.join` take the token flag; without it nothing changes.
 - Docs: `doc/commands.md`, `doc/messages.md`, and `join --token` in `doc/transports.md`; a changelog entry.
+- `--display <name>` is handed to the transport's `join` as `--display`, with or without `--into-vault`, and the
+  transport checks it. With `--into-vault` the line names the room from `login.room`: `joined <person> in <room>,
+  login kept in the vault as '<entry>'`; a transport that answers no room leaves the line as before.
+- A display name starting with `-` is refused (64) before the transport runs, since it would reach the transport's
+  `join` as a flag; the room is printed only when it is one token, with no whitespace or control character.
+- Red first in `TransportConversationsTest`: `--display` was unknown and the line named no room, then green; the
+  refusal of `--display=--token` seen red with the check removed.
 - Red first in `TransportConversationsTest`: the option was unknown, then green - the token kept, neither the
   password nor the token in either stream, `--token` asked; a missing vault refused with no `join` run. A shut vault
   is the same path through `openerAsking` and has no test of its own.

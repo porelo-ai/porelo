@@ -21,7 +21,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b302"></a>[B302](B302-A-Broker-Stopped-By-A-Signal-Leaves-No-Socket.md) | XS | - | A helper serving a unix socket - `vault serve`, `vault agent`, the clearance watcher, the builds reader - removes it when SIGTERM or SIGINT ends it, as when it returns |
-| <a id="b300"></a>[B300](B300-A-Person-Joins-A-Conversation-Without-Seeing-Its-Password.md) | S | - | `talk join --into-vault <entry>` keeps the person's access token in the vault, read through `vault credential`, and prints no password, so an agent joins the project's room through its own shell |
 | <a id="b297"></a>[B297](B297-The-Gate-Opens-The-Pull-Request-For-A-Tasks-Branch.md) | M | - | An online task's first push to `porelo/<task>` opens one pull request into the default branch, as the gate's forge identity through the builds adapter's new `OpenPullRequest`, so the person who alone approves is never its author |
 | <a id="b296"></a>[B296](B296-A-Token-Lent-Over-HTTPS-Reaches-Git.md) | S | - | Every token lent git for an `https://` address reaches it: the credential helper Porelo configures starts with `!`, so git runs it instead of looking for a `git credential-'<path>'` command |
 | <a id="b215"></a>[B215](B215-A-Helper-Started-With-A-UTF-8-Locale.md) | XS | - | A transport and the message filter run with `LANG=C.UTF-8` where porelod has no locale, so a non-ASCII argument or path reaches them whole; a locale the machine sets passes unchanged |
@@ -33,6 +32,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b300"></a>[B300](B300-A-Person-Joins-A-Conversation-Without-Seeing-Its-Password.md) | S | - | `talk join --into-vault <entry>` keeps the person's access token in the vault, read through `vault credential`, and prints no password but the room's id, and `--display` names the person in the room, so an agent joins the project's room through its own shell; rework built, the transport's `--display` is porelo-message-matrix's |
 | <a id="b244"></a>[B244](B244-The-Loop-Watch-Sees-A-Compact-Screen.md) | M | - | The acceptance kit reads a declared tool-call record beside tmux history to stop repeated failures on compact screens; implementing, live record format still to verify |
 
 ## Backlog

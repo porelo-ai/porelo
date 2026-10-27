@@ -474,6 +474,35 @@ final class TransportLifecycle {
             boolean loopbackOnly,
             boolean token)
             throws Refused {
+        return join(scheme, project, person, reset, settings, loopbackOnly, token, null);
+    }
+
+    /**
+     * Lets a person in under the name the conversation shows for them.
+     *
+     * @param scheme The transport.
+     * @param project The project.
+     * @param person Whom the account is for.
+     * @param reset Whether to give an existing one a new password.
+     * @param settings What the project says to this transport.
+     * @param loopbackOnly Whether the project is offline.
+     * @param token Whether the transport answers the access token in {@code secrets}, and no
+     *     password anywhere.
+     * @param display The name shown for the person, checked by the transport, or {@code null} for
+     *     the transport's own.
+     * @return What the transport printed.
+     * @throws Refused If the transport refused.
+     */
+    Map<?, ?> join(
+            String scheme,
+            String project,
+            String person,
+            boolean reset,
+            Map<String, Object> settings,
+            boolean loopbackOnly,
+            boolean token,
+            @Nullable String display)
+            throws Refused {
         final Map<String, String> given = new LinkedHashMap<>(secrets(scheme, "account"));
         given.putAll(secrets(scheme, "project/" + project));
         final java.util.List<String> verb =
@@ -484,6 +513,10 @@ final class TransportLifecycle {
         }
         if (token) {
             verb.add("--token");
+        }
+        if (display != null) {
+            verb.add("--display");
+            verb.add(display);
         }
         return run(scheme, settings, given, loopbackOnly, verb.toArray(String[]::new));
     }
