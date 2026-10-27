@@ -22,3 +22,7 @@ has a workspace; without one, `TaskWiring` carries none. Then:
   wording changes.
 - What finding the host's address costs without a workspace: `Podman.hostAddressFromContainer` starts one throwaway
   container against the project's base image.
+- Host services under podman 4 and under the slirp4netns fallback, where the gate binds every interface: not measured
+  when host services were built, which was under pasta with podman 5.
+- The written `@host-services` acceptance scenario, which needs a VM fixture - a root-run TLS listener on loopback
+  443 and its public test CA - and has not been run.

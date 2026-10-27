@@ -161,6 +161,9 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
 - **A rootless container's agent user is a subordinate uid** (1001 on `ubuntu:24.04`), so a socket the container must
   reach is world-writable inside a `0700` directory.
 - **A rootless container reaches the host at `169.254.1.2`**; `host.containers.internal` exists only inside it.
+- **Under pasta a task's connection to its host goes to `169.254.1.2`, a link-local address**: the shield records a
+  drop there and denies it without asking, since an Allow would open every port the host listens on. The host's
+  public address is the task namespace's own, so a connection to it never leaves the task.
 - **`XDG_DATA_HOME` is podman's storage**: a test redirects something narrower.
 - **Give a container a literal loopback address, never `localhost`**, which Node resolves to `::1` first.
 - **The gate binds loopback, mapped in by a `CONTAINERS_CONF_OVERRIDE` file that only `podman start` reads**
