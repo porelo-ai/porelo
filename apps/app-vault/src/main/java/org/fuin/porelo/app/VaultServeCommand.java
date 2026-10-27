@@ -349,31 +349,34 @@ public class VaultServeCommand implements Callable<Integer>, PoreloFactory.Conte
                     out.flush();
                 };
         try (VaultProxy proxy =
-                new VaultProxy(
-                        socket,
-                        upstream,
-                        exchange(
-                                broker,
-                                token,
-                                credentials,
-                                purchases,
-                                ungranted,
-                                (scope, state) -> {
-                                    final String project =
-                                            new TaskInventory(context).projectOf(task);
-                                    AuthorizationsNeeded.raise(
-                                            context,
-                                            scope,
-                                            task,
-                                            project == null ? "" : project,
-                                            state);
-                                }),
-                        authHeader,
-                        authPrefix,
-                        authQuery,
-                        headers,
-                        routes,
-                        requests)) {
+                        new VaultProxy(
+                                socket,
+                                upstream,
+                                exchange(
+                                        broker,
+                                        token,
+                                        credentials,
+                                        purchases,
+                                        ungranted,
+                                        (scope, state) -> {
+                                            final String project =
+                                                    new TaskInventory(context).projectOf(task);
+                                            AuthorizationsNeeded.raise(
+                                                    context,
+                                                    scope,
+                                                    task,
+                                                    project == null ? "" : project,
+                                                    state);
+                                        }),
+                                authHeader,
+                                authPrefix,
+                                authQuery,
+                                headers,
+                                routes,
+                                requests);
+                // Closed by a signal too, not only on return: the proxy's close removes its
+                // socket, and a socket left behind reads as a live broker.
+                Teardown closing = Teardown.arm(proxy::close)) {
 
             // The routes' tokens before the agent's own: the agent's is what a caller waits for.
             routeTokenValues.forEach(

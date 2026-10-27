@@ -1,0 +1,2 @@
+title: The credential broker, the ssh agent, the clearance watcher and the builds reader remove their unix socket when SIGTERM or SIGINT ends them, as when they return, so no dead socket is left in the runtime directory
+type: fixed

@@ -1,9 +1,11 @@
 # B302 — A Broker Stopped By A Signal Leaves No Socket
 
-**Status:** Idea.
+**Status:** Review: built and tested here, set to Backlog by the operator on 2026-10-27.
+**Size:** XS - one line in each of four helpers and a test that sends SIGTERM to a real one.
 
-**What must be true.** `porelo vault serve`, the credential broker beside a task, removes its unix socket when it is
-ended by SIGTERM or SIGINT, as it does when it returns, so nothing of it is left in the runtime directory.
+**What must be true.** A helper beside a task that serves a unix socket - the credential broker `vault serve`, the ssh
+agent `vault agent`, the clearance watcher and the builds helper's reader - removes it when SIGTERM or SIGINT ends
+it, as it does when it returns, so nothing of it is left in the runtime directory.
 
 ## Why
 
@@ -17,10 +19,19 @@ next bind deletes a stale socket first (`VaultProxy`, before `createDirectories`
 clears the runtime directory at the session's end. What is left is a dead socket in between, which a person or a test
 reading the directory takes for a live one.
 
-## To be checked
+## Built
 
-- Whether `Teardown.arm` (already used by `task run` and `AgentLogin`) is the whole fix: registered around the proxy,
-  it closes it, and so deletes the socket, on SIGTERM and SIGINT, with a test that sends SIGTERM to a started
-  `vault serve` and finds the socket gone.
-- Which other helper of a task binds a socket the same way and ends the same way (the gate, the builds helper, the
-  clearance watcher).
+- **Which helpers, read in the code:** every one that serves a unix socket closes it only through try-with-resources,
+  which a signal skips: `vault serve` (`VaultProxy`), `vault agent` (`SshAgentServer`), the clearance watcher
+  `shield watch` (`ClearanceService`), and the builds helper `task watch-builds`, whose reader process serves
+  `builds.sock` and is ended, and its socket removed, only by `InstalledBuildReader.close()`. Each of those `close()`
+  methods already deletes the socket. The gate binds TCP, not a file, and the daemon already closes its server in a
+  shutdown hook.
+- **The fix:** each of the four arms `Teardown.arm(<server>::close)` beside the server, so the same `close()` runs from
+  the shutdown hook on a signal; on return it runs twice, through the teardown and the server's own slot, which each
+  `close()` takes as done.
+- **Measured:** a native image built with the workflow's GraalVM runs its shutdown hooks on SIGTERM (exit 143) and
+  SIGINT (exit 130), so the hook reaches the packaged binary too.
+- **Red first:** `HelperSocketOnSignalTest` starts `vault agent --ephemeral` as a real process, sends SIGTERM and finds
+  its socket: red before, green after. `vault serve`, the watcher and the builds helper take the same line; a signal
+  test of each would need an open vault, root for NFLOG or an installed reader, and has not been written.

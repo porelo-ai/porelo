@@ -281,7 +281,10 @@ public class ShieldWatchCommand implements Callable<Integer> {
             out.flush();
             hub.restore(earlier);
 
-            try (ClearanceService service = new ClearanceService(socketPath(), hub)) {
+            // Closed by a signal too, not only on return: a socket left behind reads as a live
+            // watcher.
+            try (ClearanceService service = new ClearanceService(socketPath(), hub);
+                    Teardown closing = Teardown.arm(service::close)) {
 
                 service.start();
                 out.println("clearance " + service.socketPath());

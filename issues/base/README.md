@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b302"></a>[B302](B302-A-Broker-Stopped-By-A-Signal-Leaves-No-Socket.md) | XS | - | A helper serving a unix socket - `vault serve`, `vault agent`, the clearance watcher, the builds reader - removes it when SIGTERM or SIGINT ends it, as when it returns |
 | <a id="b300"></a>[B300](B300-A-Person-Joins-A-Conversation-Without-Seeing-Its-Password.md) | S | - | `talk join --into-vault <entry>` keeps the person's access token in the vault, read through `vault credential`, and prints no password, so an agent joins the project's room through its own shell |
 | <a id="b297"></a>[B297](B297-The-Gate-Opens-The-Pull-Request-For-A-Tasks-Branch.md) | M | - | An online task's first push to `porelo/<task>` opens one pull request into the default branch, as the gate's forge identity through the builds adapter's new `OpenPullRequest`, so the person who alone approves is never its author |
 | <a id="b296"></a>[B296](B296-A-Token-Lent-Over-HTTPS-Reaches-Git.md) | S | - | Every token lent git for an `https://` address reaches it: the credential helper Porelo configures starts with `!`, so git runs it instead of looking for a `git credential-'<path>'` command |
@@ -117,7 +118,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b302"></a>[B302](B302-A-Broker-Stopped-By-A-Signal-Leaves-No-Socket.md) | - | - | `vault serve` removes its socket when SIGTERM or SIGINT ends it, as when it returns, so no dead socket is left in the runtime directory |
 | <a id="b301"></a>[B301](B301-An-Unattended-Task-For-An-Issue-Takes-Its-Phase-From-It.md) | - | - | An unattended task is started for one issue, and its phase follows from that issue, so the person names the issue and nothing else |
 | <a id="b298"></a>[B298](B298-A-Repository-Names-Its-Agent.md) | - | - | A project file names the agent each repository is worked with, `repositories.<repository>.agent`, and `Projects` carries it on each repository |
 | <a id="b299"></a>[B299](B299-A-Projects-Declared-Parameters-Reach-An-Interface.md) | - | - | `Projects` carries the parameters `project.yml` declares - name, description, required, values or pattern, default - so an interface asks for them before `Start` |

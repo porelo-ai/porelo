@@ -96,7 +96,9 @@ public class VaultAgentCommand implements Callable<Integer> {
             return 70;
         }
 
-        try (SshAgentServer agent = new SshAgentServer(socket, List.of(key))) {
+        // Closed by a signal too, not only on return: a socket left behind reads as a live agent.
+        try (SshAgentServer agent = new SshAgentServer(socket, List.of(key));
+                Teardown closing = Teardown.arm(agent::close)) {
 
             if (printPublicKey) {
                 out.println(key.authorizedKeysLine());
