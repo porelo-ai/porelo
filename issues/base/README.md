@@ -115,6 +115,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b304"></a>[B304](B304-A-Machine-Sets-Its-Own-Transport-Settings.md) | - | - | A machine that follows a project may set some of a transport's settings for itself - for Matrix the homeserver, the room, the CA file and the registration token file - in place of the project file's |
 | <a id="b301"></a>[B301](B301-An-Unattended-Task-For-An-Issue-Takes-Its-Phase-From-It.md) | - | - | An unattended task is started for one issue, and its phase follows from that issue, so the person names the issue and nothing else |
 | <a id="b299"></a>[B299](B299-A-Projects-Declared-Parameters-Reach-An-Interface.md) | - | - | `Projects` carries the parameters `project.yml` declares - name, description, required, values or pattern, default - so an interface asks for them before `Start` |
 | <a id="b295"></a>[B295](B295-A-Task-Without-A-Gate-Knows-Its-Host.md) | - | - | A task without a gate refuses declared host services in one sentence, not a `NullPointerException`, and its watcher still knows the host's address it never asks about |
