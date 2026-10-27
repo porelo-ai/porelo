@@ -20,7 +20,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b303"></a>[B303](B303-An-Untyped-Answer-Is-Read-By-Its-First-Bytes.md) | S | - | A provider's answer with no type reaches the agent when it has a typed one's framing - JSON, or events whose every line is a field and every `data:` is JSON - checked for a credential as a typed one; any other is withheld or cut off, and a withheld answer is a `400` naming the provider's status, or a `502` when the provider failed for now |
 | <a id="b300"></a>[B300](B300-A-Person-Joins-A-Conversation-Without-Seeing-Its-Password.md) | S | - | `talk join --into-vault <entry>` keeps the person's access token in the vault, read through `vault credential`, and prints no password but the room's id, and `--display` names the person in the room, so an agent joins the project's room through its own shell; the transport's `--display` is porelo-message-matrix's |
 | <a id="b302"></a>[B302](B302-A-Broker-Stopped-By-A-Signal-Leaves-No-Socket.md) | XS | - | A helper serving a unix socket - `vault serve`, `vault agent`, the clearance watcher, the builds reader - removes it when SIGTERM or SIGINT ends it, as when it returns |
 | <a id="b238"></a>[B238](B238-An-Unfollow-Leaves-Nothing-Of-The-Project.md) | M | - | `project unfollow` removes the project's build lock and upstream copies, so `porelo prune` finds nothing of it; following stops first, under the clone's lock, which a removal never leaves to two holders |
@@ -193,6 +192,7 @@ from its side, as *blocked by*.
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="b303"></a>B303 | An Untyped Answer Is Read By Its First Bytes | A provider's answer with no type reaches the agent when it has a typed one's framing - JSON, or events whose every line is a field and every `data:` is JSON - checked for a credential as a typed one; any other is withheld with a `400` naming the provider's status, or a `502` when the provider failed for now |
 | <a id="b297"></a>B297 | The Gate Opens The Pull Request For A Task's Branch | An online task's first push opens one pull request from `porelo/<task>` into the default branch, as the gate's forge identity through the build reader's optional `OpenPullRequest`, so the person who alone approves is never its author; `task status` shows it |
 | <a id="b296"></a>B296 | A Token Lent Over HTTPS Reaches Git | The credential helper Porelo configures for an `https://` address starts with `!`, so git runs it rather than looking for a `git credential-<path>` command |
 | <a id="b286"></a>B286 | The Host's Git Trusts The Account's Authorities | Every host-side git command against a remote trusts the account's `ca-certificates.pem` beside the system's roots, through a combined bundle for `GIT_SSL_CAINFO` |
