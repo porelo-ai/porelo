@@ -109,7 +109,7 @@ jar today) and in the adapters at porelo-pi 1ab0e47, porelo-omp b545d4b, porelo-
 ## To be checked
 
 - The full proof the decision asks for, one adapter green on the VM from the kit's set, comes with the first
-  adapter's switch, in its own account. **What holds already (2026-10-28, 00:10Z):** a copy of porelo-codex 88acb8a,
+  adapter's switch, in its own account. **What holds already (2026-10-27, 23:05Z):** a copy of porelo-codex 88acb8a,
   its `installed.feature` deleted, ran from a kit built with that feature under
   `org/fuin/porelo/acceptance/agent/` in its jar. Cucumber 7.34.8's JUnit engine took the two
   `@SelectClasspathResource` in one suite, and ran both scenarios from `classpath:org/fuin/porelo/acceptance/agent/`
