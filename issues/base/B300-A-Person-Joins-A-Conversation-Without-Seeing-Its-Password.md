@@ -27,14 +27,14 @@ Read in `TalkJoinCommand`, `TaskConversations.join`, `TransportLifecycle.join`, 
 1. **`TalkJoinCommand`** gains `--into-vault <entry>`, an entry name checked by the vault's name rule. With it, the
    vault is opened first, as `vault put` opens it, and a shut or absent vault is refused before `join` runs, so no
    account is made whose login nobody keeps.
-2. **What is kept:** with the option, porelo asks the transport's `join` with `--token`, the verb's form that
-   answers the person's access token in `secrets` and no password anywhere, logs out every earlier session of the
-   person, and takes a display name (porelo-message-matrix
-   [MX41](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx41)). That token is written
-   as the value of `<entry>`, type `token`, in one `VaultFile.update`, so `porelo vault credential --entry <entry>
-   get` hands it on a pipe to the room's command line, which needs nothing else from porelo. `shown` is neither
-   printed nor kept. The output is `joined    <person>, login kept in the vault as '<entry>'`. With `--reset` the
-   entry is replaced.
+2. **What is kept:** with the option, porelo asks the transport's `join` with `--token`, the verb's form that answers
+   the person's access token in `secrets` as `PORELO_MATRIX_ACCESS_TOKEN`, that key alone, and no password anywhere,
+   logs out every earlier session of the person, and takes a display name (porelo-message-matrix
+   [MX41](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx41)). That token is written as
+   the value of `<entry>`, type `token`, in one `VaultFile.update`, so `porelo vault credential --entry <entry> get`
+   hands it on a pipe to the room's command line, which needs nothing else from porelo. `shown` is neither printed nor
+   kept, and nothing of the join is kept generically, as today. The output is `joined <person>, login kept in the vault
+   as '<entry>'`. With `--reset` the entry is replaced.
 3. **Without the option** nothing changes: a person at a terminal still gets the login shown once.
 4. **Docs:** the `talk join` row of `doc/commands.md`, the join paragraph of `doc/messages.md`, and `join
    --token`'s row in `doc/transports.md`, written with porelo-message-matrix.
@@ -48,8 +48,3 @@ Read in `TalkJoinCommand`, `TaskConversations.join`, `TransportLifecycle.join`, 
 - `porelo talk join porelo agent-core --into-vault talk.agent-core` prints no password, and `porelo vault list` shows
   the entry `talk.agent-core` with its type and no value.
 - Run with a shut vault it refuses before any account is made.
-
-## To be checked
-
-- The name of the token's key in `join --token`'s `secrets`, with Agent Matrix when the verb is written; and whether
-  porelo's generic keeping of a transport's `secrets` must leave that one out, so the token is kept once.
