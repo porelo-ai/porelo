@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b300"></a>[B300](B300-A-Person-Joins-A-Conversation-Without-Seeing-Its-Password.md) | S | - | `talk join --into-vault <entry>` keeps the person's access token in the vault, read through `vault credential`, and prints no password, so an agent joins the project's room through its own shell |
 | <a id="b297"></a>[B297](B297-The-Gate-Opens-The-Pull-Request-For-A-Tasks-Branch.md) | M | - | An online task's first push to `porelo/<task>` opens one pull request into the default branch, as the gate's forge identity through the builds adapter's new `OpenPullRequest`, so the person who alone approves is never its author |
 | <a id="b296"></a>[B296](B296-A-Token-Lent-Over-HTTPS-Reaches-Git.md) | S | - | Every token lent git for an `https://` address reaches it: the credential helper Porelo configures starts with `!`, so git runs it instead of looking for a `git credential-'<path>'` command |
 | <a id="b215"></a>[B215](B215-A-Helper-Started-With-A-UTF-8-Locale.md) | XS | - | A transport and the message filter run with `LANG=C.UTF-8` where porelod has no locale, so a non-ASCII argument or path reaches them whole; a locale the machine sets passes unchanged |
@@ -50,7 +51,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="b300"></a>[B300](B300-A-Person-Joins-A-Conversation-Without-Seeing-Its-Password.md) | S | - | `talk join --into-vault <entry>` keeps the person's access token in the vault, read through `vault credential`, and prints no password, so an agent joins the project's room through its own shell | 0 |
 | <a id="b136"></a>[B136](B136-An-Approve-Bound-To-What-Was-Reviewed.md) | M | - | Capture one reviewed commit for patch/log and every approval path; confirmations and signatures use that key; SARIF never authorizes forwarding. | 0 |
 | <a id="b150"></a>[B150](B150-The-Whole-Diff-In-Review.md) | M | - | Bound serialized review replies with explicit file-boundary cuts; retain complete file inventory or refuse by name; full-diff risk and SARIF completeness stay independent. | 0 |
 | <a id="b141"></a>[B141](B141-New-Dependencies-Checked-Before-Review.md) | XL | [B136](README.md#b136), [B291](README.md#b291), [B292](README.md#b292) | Dependency changes and registry/name findings as SARIF; commit-bound human confirmation holds approval; splits into extraction (M), registry/hold (L), look-alike names (S). | 1 |

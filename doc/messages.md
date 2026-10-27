@@ -53,7 +53,8 @@ mail:
 - **The room is the boundary.** Every task of the project and every person in it reads everything said there.
   Two tasks that must not read each other's messages belong in two projects.
 - **A person joins** with `porelo talk join PROJECT PERSON`, which makes them an account, invites it into the
-  room and prints the login once for their client. `porelo talk members PROJECT` lists who joined and their
+  room and prints the login once for their client; `--into-vault ENTRY` keeps the person's access token in the vault
+  instead and prints no password, which is how an agent joins. `porelo talk members PROJECT` lists who joined and their
   accounts. `porelo talk remove PROJECT PERSON` removes them through the transport and, only after it
   succeeds, from the members list; it says why if their account stays. Their room messages no longer reach
   tasks, and tasks can no longer address them by their joined name.

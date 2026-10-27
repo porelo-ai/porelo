@@ -448,30 +448,44 @@ final class TransportLifecycle {
             Map<String, Object> settings,
             boolean loopbackOnly)
             throws Refused {
+        return join(scheme, project, person, reset, settings, loopbackOnly, false);
+    }
+
+    /**
+     * Lets a person in, asking for the person's access token instead of a password when asked to.
+     *
+     * @param scheme The transport.
+     * @param project The project.
+     * @param person Whom the account is for.
+     * @param reset Whether to give an existing one a new password.
+     * @param settings What the project says to this transport.
+     * @param loopbackOnly Whether the project is offline.
+     * @param token Whether the transport answers the access token in {@code secrets}, and no
+     *     password anywhere.
+     * @return What the transport printed.
+     * @throws Refused If the transport refused.
+     */
+    Map<?, ?> join(
+            String scheme,
+            String project,
+            String person,
+            boolean reset,
+            Map<String, Object> settings,
+            boolean loopbackOnly,
+            boolean token)
+            throws Refused {
         final Map<String, String> given = new LinkedHashMap<>(secrets(scheme, "account"));
         given.putAll(secrets(scheme, "project/" + project));
-        return reset
-                ? run(
-                        scheme,
-                        settings,
-                        given,
-                        loopbackOnly,
-                        "join",
-                        "--project",
-                        project,
-                        "--person",
-                        person,
-                        "--reset")
-                : run(
-                        scheme,
-                        settings,
-                        given,
-                        loopbackOnly,
-                        "join",
-                        "--project",
-                        project,
-                        "--person",
-                        person);
+        final java.util.List<String> verb =
+                new java.util.ArrayList<>(
+                        java.util.List.of("join", "--project", project, "--person", person));
+        if (reset) {
+            verb.add("--reset");
+        }
+        if (token) {
+            verb.add("--token");
+        }
+        return run(scheme, settings, given, loopbackOnly, verb.toArray(String[]::new));
     }
 
     /**

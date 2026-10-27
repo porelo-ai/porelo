@@ -193,6 +193,25 @@ final class TaskConversations {
      */
     Map<?, ?> join(PoreloContext context, Project project, String person, boolean reset)
             throws TransportLifecycle.Refused {
+        return join(context, project, person, reset, false);
+    }
+
+    /**
+     * Lets a person into the project's conversation, asking for an access token instead of a
+     * password when asked to.
+     *
+     * @param context Where the state is.
+     * @param project The project.
+     * @param person Whom the account is for.
+     * @param reset Whether to give an existing account new credentials.
+     * @param token Whether the transport answers the access token in {@code secrets}, and no
+     *     password anywhere.
+     * @return What the transport printed.
+     * @throws TransportLifecycle.Refused If the person has joined already or the transport refused.
+     */
+    Map<?, ?> join(
+            PoreloContext context, Project project, String person, boolean reset, boolean token)
+            throws TransportLifecycle.Refused {
         final String scheme = scheme(project);
         if (!reset && members(context, project).containsKey(person)) {
             throw new TransportLifecycle.Refused(
@@ -209,7 +228,13 @@ final class TaskConversations {
         lifecycle.setup(scheme, project.name(), settings(project, scheme), offline);
         final Map<?, ?> said =
                 lifecycle.join(
-                        scheme, project.name(), person, reset, settings(project, scheme), offline);
+                        scheme,
+                        project.name(),
+                        person,
+                        reset,
+                        settings(project, scheme),
+                        offline,
+                        token);
         final String user =
                 said.get("login") instanceof Map<?, ?> login && login.get("user") != null
                         ? String.valueOf(login.get("user"))

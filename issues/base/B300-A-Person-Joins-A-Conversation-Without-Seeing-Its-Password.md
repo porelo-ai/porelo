@@ -1,7 +1,7 @@
 # B300 — A Person Joins A Conversation Without Seeing Its Password
 
-**Status:** Analyzed; accepted on the operator's word on 2026-10-27, with the room's command line in
-porelo-message-matrix.
+**Status:** Review: built and tested here, set to Backlog by the operator on 2026-10-27 after its estimate; the
+transport's `join --token` is porelo-message-matrix's.
 **Size:** S - one option on `talk join` in `app-messaging`, the vault write it makes, its tests and doc rows; the
 transport contract grows by `join --token`, written with porelo-message-matrix.
 
@@ -48,3 +48,16 @@ Read in `TalkJoinCommand`, `TaskConversations.join`, `TransportLifecycle.join`, 
 - `porelo talk join porelo agent-core --into-vault talk.agent-core` prints no password, and `porelo vault list` shows
   the entry `talk.agent-core` with its type and no value.
 - Run with a shut vault it refuses before any account is made.
+
+## Built
+
+- `talk join --into-vault <entry>` refuses a reserved name (64), a missing vault and a shut one (69) before the
+  transport's `join` runs; then asks `join --token`, keeps the one value of its `secrets` as `<entry>`, type `token`,
+  through the opener the vault opened with, and prints only `joined <person>, login kept in the vault as '<entry>'`.
+  A transport that answers no single token is refused (69) with the account made and nothing kept, and `--reset`
+  asks again.
+- `TransportLifecycle.join` and `TaskConversations.join` take the token flag; without it nothing changes.
+- Docs: `doc/commands.md`, `doc/messages.md`, and `join --token` in `doc/transports.md`; a changelog entry.
+- Red first in `TransportConversationsTest`: the option was unknown, then green - the token kept, neither the
+  password nor the token in either stream, `--token` asked; a missing vault refused with no `join` run. A shut vault
+  is the same path through `openerAsking` and has no test of its own.

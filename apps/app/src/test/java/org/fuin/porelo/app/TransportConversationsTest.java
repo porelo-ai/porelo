@@ -100,6 +100,54 @@ class TransportConversationsTest {
     }
 
     @Test
+    void aJoinIntoTheVaultKeepsTheTokenAndShowsNoSecret() throws Exception {
+        // Run by an agent, the output is its transcript: no password and no token may reach it.
+        final PoreloContext context = removalContext("guarded", false);
+        runner.answering(
+                " join ",
+                "{\"login\":{\"user\":\"@carol\",\"password\":\"pw-SECRET\"},"
+                        + "\"shown\":\"user @carol password pw-SECRET\","
+                        + "\"secrets\":{\"PORELO_MATRIX_ACCESS_TOKEN\":\"tok-SECRET\"}}");
+
+        final TalkReply reply = talk(context, "join", "p", "carol", "--into-vault", "talk.carol");
+
+        assertThat(reply.code()).as(reply.err()).isZero();
+        assertThat(reply.out())
+                .isEqualTo("joined    carol, login kept in the vault as 'talk.carol'\n");
+        assertThat(reply.out() + reply.err())
+                .as("neither the password nor the token is shown")
+                .doesNotContain("pw-SECRET", "tok-SECRET");
+        final List<String> joins =
+                runner.lines().stream().filter(line -> line.contains("--person carol")).toList();
+        assertThat(joins)
+                .singleElement()
+                .as("the transport is asked for a token, not a password")
+                .satisfies(line -> assertThat(line).contains(" join ", "--token"));
+        final org.fuin.porelo.vault.VaultEntry kept =
+                context.vault().read(PASSPHRASE).get("talk.carol");
+        assertThat(kept).isNotNull();
+        assertThat(kept.value()).isEqualTo("tok-SECRET");
+        assertThat(kept.type()).isEqualTo("token");
+    }
+
+    @Test
+    void aJoinIntoAMissingVaultIsRefusedBeforeAnyAccountIsMade() throws Exception {
+        // An account whose login nobody keeps must not be made.
+        final PoreloContext context = removalContext("guarded", false);
+        Files.delete(context.vault().path());
+
+        final TalkReply reply = talk(context, "join", "p", "carol", "--into-vault", "talk.carol");
+
+        assertThat(reply.code()).isEqualTo(69);
+        assertThat(reply.err())
+                .isEqualTo(
+                        "porelo: there is no vault to keep the login in; 'porelo vault init' makes one\n");
+        assertThat(runner.lines())
+                .as("the transport's join never ran for the refused person")
+                .noneMatch(line -> line.contains("--person carol"));
+    }
+
+    @Test
     void aTransportWithoutPartIsNeverAskedToRemoveAPerson() throws Exception {
         // An unsupported lifecycle verb must not cause a destructive fallback.
         final PoreloContext context = removalContext("guarded", false);
