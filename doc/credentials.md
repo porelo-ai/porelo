@@ -43,12 +43,19 @@ The proxy scans every provider answer for the JSON members `access_token`, `refr
 `id_token`, spelled plainly or with `\uXXXX` escapes, split across reads, or with any amount of
 whitespace before the colon. The first 8 KB are held until they are examined, and an answer carrying one
 there is withheld; the rest is examined as it streams, and an answer carrying one later is cut off at that
-point, so the agent sees a truncated answer and never the credential.
+point, so the agent sees a truncated answer and never the credential. A withheld answer reaches the agent as
+`400`, naming the provider's status, because the same request is withheld again and a client retries a `5xx` or
+a `403`; when the provider itself answered `5xx` or `429`, it stays `502`, so the client backs off as from any
+outage.
 
 - **What it refuses to guess about, it refuses.** An answer in any content coding but `identity`,
-  or of a media type other than `application/json` or `text/event-stream`, fails closed with `502`.
-  The proxy therefore asks the provider for `identity` itself, replacing the agent's
-  `Accept-Encoding`.
+  or of a media type other than `application/json` or `text/event-stream`, is withheld. An answer that
+  declares no type passes only in the framing a typed one has: JSON, or server-sent events in which every
+  line is empty, a comment or a field and every `data:` value is JSON. Its opening says nothing about the
+  rest, so a line that is none of these cuts it off, as does a comment or a field other than `data:` that
+  names one of the three in any spelling: a form value, a YAML or INI key never reaches the JSON scan. Such a
+  line is held until it is judged, so nothing of it reaches the agent first. The
+  proxy asks the provider for `identity` itself, replacing the agent's `Accept-Encoding`.
 - **The accepted gap:** this is filtering on known field names. A provider that names its credential
   differently is not covered. A full parser per response format was judged riskier, since one that
   mis-frames an ordinary answer breaks every task. The decision holds only while the three names and

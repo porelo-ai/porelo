@@ -32,6 +32,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b303"></a>[B303](B303-An-Untyped-Answer-Is-Read-By-Its-First-Bytes.md) | S | - | A provider's answer with no type reaches the agent when it has a typed one's framing - JSON, or events whose every line is a field and every `data:` is JSON - checked for a credential as a typed one; any other is withheld or cut off, and a withheld answer is a `400` naming the provider's status, or a `502` when the provider failed for now; built, its VM run follows |
 | <a id="b300"></a>[B300](B300-A-Person-Joins-A-Conversation-Without-Seeing-Its-Password.md) | S | - | `talk join --into-vault <entry>` keeps the person's access token in the vault, read through `vault credential`, and prints no password but the room's id, and `--display` names the person in the room, so an agent joins the project's room through its own shell; rework built, the transport's `--display` is porelo-message-matrix's |
 | <a id="b244"></a>[B244](B244-The-Loop-Watch-Sees-A-Compact-Screen.md) | M | - | The acceptance kit reads a declared tool-call record beside tmux history to stop repeated failures on compact screens; implementing, live record format still to verify |
 

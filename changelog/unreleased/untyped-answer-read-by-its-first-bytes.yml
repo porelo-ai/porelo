@@ -1,0 +1,2 @@
+title: The credential broker passes on a provider's answer that declares no type when it is JSON or server-sent events carrying JSON, checked like a typed one, and answers a withheld one with a 400 naming the provider's status, which a client does not retry, or a 502 when the provider itself failed for now
+type: fixed

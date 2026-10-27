@@ -54,12 +54,22 @@ class VaultProxyTest {
     /** A content coding to declare, when a case needs one. */
     private AtomicReference<String> responseEncoding;
 
+    /** The status the fake provider answers with. */
+    private AtomicReference<Integer> responseStatus;
+
+    /**
+     * Sent and flushed alone before the rest of the answer, when a case needs a split first read.
+     */
+    private AtomicReference<String> responseHead;
+
     @BeforeEach
     void startUpstream() throws IOException {
         responseBody = new AtomicReference<>("{\"ok\":true}");
         rawResponse = new AtomicReference<>(null);
         responseType = new AtomicReference<>("application/json");
         responseEncoding = new AtomicReference<>(null);
+        responseStatus = new AtomicReference<>(200);
+        responseHead = new AtomicReference<>(null);
         upstream = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         upstream.createContext(
                 "/",
@@ -86,8 +96,19 @@ class VaultProxyTest {
                         exchange.getResponseHeaders()
                                 .set("Content-Encoding", responseEncoding.get());
                     }
-                    exchange.sendResponseHeaders(200, payload.length);
+                    final String head = responseHead.get();
+                    exchange.sendResponseHeaders(
+                            responseStatus.get(), head == null ? payload.length : 0);
                     try (OutputStream out = exchange.getResponseBody()) {
+                        if (head != null) {
+                            out.write(head.getBytes(StandardCharsets.UTF_8));
+                            out.flush();
+                            try {
+                                Thread.sleep(300);
+                            } catch (InterruptedException ex) {
+                                Thread.currentThread().interrupt();
+                            }
+                        }
                         out.write(payload);
                     }
                 });
@@ -228,8 +249,10 @@ class VaultProxyTest {
                             socket,
                             "GET /v1/whatever HTTP/1.1\r\n" + "x-api-key: " + PHANTOM + "\r\n\r\n");
 
-            assertThat(response).startsWith("HTTP/1.1 403");
-            assertThat(response).contains("answered with a credential");
+            assertThat(response)
+                    .as("a withheld answer is one the client does not retry")
+                    .startsWith("HTTP/1.1 400");
+            assertThat(response).contains("answered with a credential", "upstream 200");
             assertThat(response).doesNotContain("sk-live-RENEWED").doesNotContain("rt-8b2");
         }
     }
@@ -763,7 +786,7 @@ class VaultProxyTest {
                             socket,
                             "GET /v1/whatever HTTP/1.1\r\n" + "x-api-key: " + PHANTOM + "\r\n\r\n");
 
-            assertThat(response).startsWith("HTTP/1.1 403");
+            assertThat(response).startsWith("HTTP/1.1 400");
             assertThat(response).doesNotContain("sk-live-ESCAPED").doesNotContain("rt-esc");
         }
     }
@@ -896,7 +919,7 @@ class VaultProxyTest {
                             socket,
                             "GET /v1/whatever HTTP/1.1\r\n" + "x-api-key: " + PHANTOM + "\r\n\r\n");
 
-            assertThat(response).startsWith("HTTP/1.1 502");
+            assertThat(response).startsWith("HTTP/1.1 400");
             assertThat(response).contains("content-encoding gzip");
             assertThat(response).doesNotContain("sk-live-HIDDEN");
         }
@@ -917,7 +940,7 @@ class VaultProxyTest {
                             socket,
                             "GET /v1/whatever HTTP/1.1\r\n" + "x-api-key: " + PHANTOM + "\r\n\r\n");
 
-            assertThat(response).startsWith("HTTP/1.1 502");
+            assertThat(response).startsWith("HTTP/1.1 400");
             assertThat(response).contains("content-type application/octet-stream");
         }
     }
@@ -980,10 +1003,10 @@ class VaultProxyTest {
     }
 
     @Test
-    void refusesABodyThatDeclaresNoTypeAtAll(@TempDir Path dir) throws IOException {
+    void anUntypedBodyIsStillSearchedForACredential(@TempDir Path dir) throws IOException {
 
-        // The other half of the case above: bytes with no declared type are bytes the scan has been
-        // told nothing about.
+        // Measured with chatgpt.com: a 200 with a body and no type. Read by its first bytes as
+        // JSON, it meets the same scan as a typed answer, so leaving the type out hides nothing.
         final Path socket = dir.resolve("vault.sock");
         responseType.set(null);
         responseBody.set("{\"access_token\":\"sk-live-UNDECLARED\"}");
@@ -994,9 +1017,270 @@ class VaultProxyTest {
                             socket,
                             "GET /v1/whatever HTTP/1.1\r\n" + "x-api-key: " + PHANTOM + "\r\n\r\n");
 
-            assertThat(response).startsWith("HTTP/1.1 502");
-            assertThat(response).contains("no content-type");
+            assertThat(response).startsWith("HTTP/1.1 400");
+            assertThat(response).contains("answered with a credential");
             assertThat(response).doesNotContain("sk-live-UNDECLARED");
+        }
+    }
+
+    @Test
+    void anUntypedStreamOfEventsReachesTheAgent(@TempDir Path dir) throws IOException {
+
+        // What chatgpt.com answered a Codex turn with: without this, every answer of that provider
+        // was withheld and no reply ever reached the agent.
+        final Path socket = dir.resolve("vault.sock");
+        responseType.set(null);
+        responseBody.set("event: response.created\ndata: {\"delta\":\"one\"}\n\n");
+        try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
+
+            final String response =
+                    send(
+                            socket,
+                            "POST /v1/responses HTTP/1.1\r\n"
+                                    + "x-api-key: "
+                                    + PHANTOM
+                                    + "\r\ncontent-length: 0\r\n\r\n");
+
+            assertThat(response).startsWith("HTTP/1.1 200");
+            assertThat(response)
+                    .as("the events reach the agent unchanged")
+                    .contains("data: {\"delta\":\"one\"}");
+        }
+    }
+
+    @Test
+    void anUntypedBodyThatIsNeitherJsonNorEventsIsWithheld(@TempDir Path dir) throws IOException {
+
+        // A form-encoded token is a credential the scan does not look for: with no type to say what
+        // it is, only a body that starts as JSON or events is read.
+        final Path socket = dir.resolve("vault.sock");
+        responseType.set(null);
+        responseBody.set("access_token=sk-live-FORM&token_type=bearer");
+        try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
+
+            final String response =
+                    send(
+                            socket,
+                            "GET /v1/whatever HTTP/1.1\r\n" + "x-api-key: " + PHANTOM + "\r\n\r\n");
+
+            assertThat(response)
+                    .as("a withheld answer is one the client does not retry, naming what came")
+                    .startsWith("HTTP/1.1 400");
+            assertThat(response).contains("no content-type", "upstream 200");
+            assertThat(response).doesNotContain("sk-live-FORM");
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {
+                "data: {\"delta\":\"one\"}\n\n",
+                ": keep-alive\n\ndata: {\"delta\":\"one\"}\n\n",
+                "\n  {\"ok\":true}",
+                "[{\"ok\":true}]",
+                "\uFEFF{\"ok\":true}"
+            })
+    void anUntypedBodyThatOpensAsJsonOrEventsReachesTheAgent(final String answer, @TempDir Path dir)
+            throws IOException {
+
+        // Each opening the two framings have - an event field, a comment, leading whitespace, an
+        // array, a byte order mark - since a provider answering in one of them must not be cut off.
+        final Path socket = dir.resolve("vault.sock");
+        responseType.set(null);
+        responseBody.set(answer);
+        try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
+
+            final String response =
+                    send(
+                            socket,
+                            "GET /v1/whatever HTTP/1.1\r\n" + "x-api-key: " + PHANTOM + "\r\n\r\n");
+
+            assertThat(response).as(answer).startsWith("HTTP/1.1 200");
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {
+                "event: auth\ndata: access_token=sk-live-BARE&token_type=bearer\n\n",
+                ": note\naccess_token=sk-live-BARE",
+                "[default]\naccess_token = sk-live-BARE\n",
+                "id: 1\nrefresh_token: sk-live-BARE\n",
+                "[tokens]\naccess_token = sk-live-BARE\n",
+                "{access_token: sk-live-BARE}",
+                ": access_token=sk-live-BARE"
+            })
+    void anUntypedBodyThatOpensLikeEventsOrAnArrayButIsNotEventsOfJsonIsWithheld(
+            final String answer, @TempDir Path dir) throws IOException {
+
+        // With no type, the opening says nothing about the rest: events need not carry JSON, and a
+        // YAML or INI body opens like an event or an array. A form value or a YAML key escapes a
+        // JSON scan, so an untyped body passes only as JSON or as events of JSON.
+        final Path socket = dir.resolve("vault.sock");
+        responseType.set(null);
+        responseBody.set(answer);
+        try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
+
+            final String response =
+                    send(
+                            socket,
+                            "GET /v1/whatever HTTP/1.1\r\n" + "x-api-key: " + PHANTOM + "\r\n\r\n");
+
+            assertThat(response).as(answer).startsWith("HTTP/1.1 400");
+            assertThat(response).as(answer).doesNotContain("sk-live-BARE");
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {503, 429})
+    void aWithheldAnswerToAProviderThatFailedForNowStaysAGatewayErrorTheClientRetries(
+            final int status, @TempDir Path dir) throws IOException {
+
+        // A provider's own 503 or 429 in HTML is withheld as unreadable, and is transient: answered
+        // as a 400, the client would give up on an outage instead of backing off.
+        final Path socket = dir.resolve("vault.sock");
+        responseStatus.set(status);
+        responseType.set("text/html");
+        responseBody.set("<html>overloaded</html>");
+        try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
+
+            final String response =
+                    send(
+                            socket,
+                            "GET /v1/whatever HTTP/1.1\r\n" + "x-api-key: " + PHANTOM + "\r\n\r\n");
+
+            assertThat(response).startsWith("HTTP/1.1 502");
+            assertThat(response)
+                    .as("the provider's own status is named")
+                    .contains("upstream " + status);
+        }
+    }
+
+    @Test
+    void anUntypedStreamWhoseFirstReadIsTooShortToTellIsReadOnAndReachesTheAgent(@TempDir Path dir)
+            throws IOException {
+
+        // A provider that flushes "ev" before the rest of "event:" must not be judged on two bytes:
+        // that would withhold every answer it gives, as chatgpt.com's were.
+        final Path socket = dir.resolve("vault.sock");
+        responseType.set(null);
+        responseHead.set("ev");
+        responseBody.set("ent: response.created\ndata: {\"delta\":\"one\"}\n\n");
+        try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
+
+            final String response =
+                    send(
+                            socket,
+                            "GET /v1/whatever HTTP/1.1\r\n" + "x-api-key: " + PHANTOM + "\r\n\r\n");
+
+            assertThat(response).startsWith("HTTP/1.1 200");
+            assertThat(response).contains("data: {\"delta\":\"one\"}");
+        }
+    }
+
+    @Test
+    void untypedEventsThatStopBeingEventsOfJsonAreCutOffBeforeTheRest(@TempDir Path dir)
+            throws IOException {
+
+        // The first event is judged before the headers go; a later line is judged as it streams,
+        // where the only way left to withhold it is to stop.
+        final Path socket = dir.resolve("vault.sock");
+        responseType.set(null);
+        responseHead.set("data: {\"delta\":\"one\"}\n\n");
+        responseBody.set("access_token=sk-live-LATE\n");
+        try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
+
+            final String response =
+                    send(
+                            socket,
+                            "GET /v1/whatever HTTP/1.1\r\n" + "x-api-key: " + PHANTOM + "\r\n\r\n");
+
+            assertThat(response).startsWith("HTTP/1.1 200").contains("\"delta\":\"one\"");
+            assertThat(response).doesNotContain("sk-live-LATE");
+        }
+    }
+
+    @Test
+    void aCommentNamingATokenAfterAJudgedEventIsNeverPassedOn(@TempDir Path dir)
+            throws IOException {
+
+        // Measured in review: the comment was judged only at a line break that never came, while
+        // its bytes had already gone. The event before it may go; the comment may not.
+        final Path socket = dir.resolve("vault.sock");
+        responseType.set(null);
+        responseBody.set("event: ok\n: access_token=sk-live-HELD");
+        try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
+
+            final String response =
+                    send(
+                            socket,
+                            "GET /v1/whatever HTTP/1.1\r\n" + "x-api-key: " + PHANTOM + "\r\n\r\n");
+
+            assertThat(response).doesNotContain("sk-live-HELD");
+        }
+    }
+
+    @Test
+    void aLastEventWithNoLineBreakAfterItStillReachesTheAgent(@TempDir Path dir)
+            throws IOException {
+
+        // The filter holds a line until it ends; an answer that ends without a final line break
+        // must still hand its last event on, or the agent never sees the end of its stream.
+        final Path socket = dir.resolve("vault.sock");
+        responseType.set(null);
+        responseHead.set("event: ok\n");
+        responseBody.set(": keep-alive\ndata: [DONE]");
+        try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
+
+            final String response =
+                    send(
+                            socket,
+                            "GET /v1/whatever HTTP/1.1\r\n" + "x-api-key: " + PHANTOM + "\r\n\r\n");
+
+            assertThat(response).startsWith("HTTP/1.1 200").contains("data: [DONE]");
+        }
+    }
+
+    @Test
+    void untypedEventsArrivingInSeveralReadsAllReachTheAgent(@TempDir Path dir) throws IOException {
+
+        // The loop after the first read passes on what the framing judged, not the raw read: each
+        // event that arrives later must still reach the agent whole.
+        final Path socket = dir.resolve("vault.sock");
+        responseType.set(null);
+        responseHead.set("data: {\"delta\":\"one\"}\n\n");
+        responseBody.set(": keep-alive\n\ndata: {\"delta\":\"two\"}\n\n");
+        try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
+
+            final String response =
+                    send(
+                            socket,
+                            "GET /v1/whatever HTTP/1.1\r\n" + "x-api-key: " + PHANTOM + "\r\n\r\n");
+
+            assertThat(response)
+                    .startsWith("HTTP/1.1 200")
+                    .contains("\"delta\":\"one\"", ": keep-alive", "\"delta\":\"two\"");
+        }
+    }
+
+    @Test
+    void aWithheldAnswerNamesTheProvidersOwnStatus(@TempDir Path dir) throws IOException {
+
+        // The status is the one clue an agent has to why it got nothing: a refused sign-in reads
+        // differently from a provider that answered.
+        final Path socket = dir.resolve("vault.sock");
+        responseStatus.set(401);
+        responseType.set(null);
+        responseBody.set("error=invalid_token");
+        try (VaultProxy proxy = proxy(socket, "x-api-key", "", REAL)) {
+
+            final String response =
+                    send(
+                            socket,
+                            "GET /v1/whatever HTTP/1.1\r\n" + "x-api-key: " + PHANTOM + "\r\n\r\n");
+
+            assertThat(response).startsWith("HTTP/1.1 400");
+            assertThat(response).contains("upstream 401");
         }
     }
 

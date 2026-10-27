@@ -68,6 +68,13 @@ public class VaultProxy implements AutoCloseable, Runnable {
     private static final Set<String> UNDERSTOOD_TYPES =
             Set.of("application/json", "text/event-stream");
 
+    /** The UTF-8 byte order mark, which may open a body before its text. */
+    private static final byte[] BOM = {(byte) 0xEF, (byte) 0xBB, (byte) 0xBF};
+
+    /** How a line of server-sent events starts; a lone colon opens a comment. */
+    private static final List<String> EVENT_FIELDS =
+            List.of("event:", "data:", "id:", "retry:", ":");
+
     /**
      * Headers carrying a credential, all of which are dropped before forwarding.
      *
@@ -589,6 +596,20 @@ public class VaultProxy implements AutoCloseable, Runnable {
     }
 
     /**
+     * The answer to a withheld body. The same request is withheld again and a client retries a 5xx
+     * or a 403 (measured with Codex CLI 0.163.0: 30 requests for a 502, 6 for a 403, 1 for a 400),
+     * so it is a 400 - unless the provider itself failed for now, which a client is right to back
+     * off from and retry.
+     */
+    private static byte[] withheld(final int upstream, final String message) {
+        final boolean forNow = upstream >= 500 || upstream == 429;
+        return HttpHead.response(
+                forNow ? 502 : 400,
+                forNow ? "Bad Gateway" : "Bad Request",
+                error("api_error", message));
+    }
+
+    /**
      * Returns an error answer in the provider's vocabulary, with a message that may carry text from
      * elsewhere.
      *
@@ -918,12 +939,16 @@ public class VaultProxy implements AutoCloseable, Runnable {
      * that actually arrived rather than on a declared length - a chunked answer declares none, and
      * an empty one would have been refused for saying nothing about a body it does not have.
      *
+     * <p>An answer that declares no type is read by its first bytes: chatgpt.com answers a Codex
+     * turn so. A body that opens as neither JSON nor events stays refused; one that opens as events
+     * is held to {@link EventFraming} as it streams, since its opening says nothing about the rest.
+     *
      * @param response The upstream answer.
-     * @param body How many bytes of body were read before judging.
+     * @param first The body's first bytes, read before judging.
      * @return What makes it unreadable, or {@code null}.
      */
     @org.jspecify.annotations.Nullable
-    private static String whyUnreadable(HttpResponse<InputStream> response, int body) {
+    private static String whyUnreadable(HttpResponse<InputStream> response, byte[] first) {
         final String coding =
                 response.headers()
                         .firstValue("content-encoding")
@@ -932,15 +957,139 @@ public class VaultProxy implements AutoCloseable, Runnable {
         if (!"identity".equals(coding)) {
             return "content-encoding " + coding;
         }
-        if (body == 0) {
+        if (first.length == 0) {
             return null;
         }
-        final String type = response.headers().firstValue("content-type").orElse("");
-        final String media = type.split(";", 2)[0].trim().toLowerCase(Locale.ROOT);
+        final String media = media(response);
         if (media.isEmpty()) {
-            return "no content-type";
+            return startsAsJsonOrEvents(first) ? null : "no content-type";
         }
         return UNDERSTOOD_TYPES.contains(media) ? null : "content-type " + media;
+    }
+
+    /** The declared media type without its parameters, empty when none is declared. */
+    private static String media(HttpResponse<InputStream> response) {
+        final String type = response.headers().firstValue("content-type").orElse("");
+        return type.split(";", 2)[0].trim().toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * Says whether a body opens as JSON or as server-sent events, the two framings the scan reads.
+     *
+     * @param first The body's first bytes.
+     * @return Whether the first text after a byte order mark and whitespace is an object, an array
+     *     or an event field.
+     */
+    static boolean startsAsJsonOrEvents(final byte[] first) {
+        final int at = opening(first);
+        if (at >= first.length) {
+            return false;
+        }
+        return opensAsJson(first, at) || opensAsEvents(first, at);
+    }
+
+    /**
+     * Says whether the text opens a JSON object whose first member is quoted or an array of
+     * objects, arrays or strings: "[tokens]", an INI section, and "{access_token: x}", YAML, open
+     * neither.
+     */
+    private static boolean opensAsJson(final byte[] first, final int at) {
+        if (at >= first.length || first[at] != '{' && first[at] != '[') {
+            return false;
+        }
+        final int next = meaningAfter(first, at + 1);
+        return next < first.length
+                && (first[at] == '{' ? "\"}" : "{[\"]").indexOf(first[next]) >= 0;
+    }
+
+    /** Where the next byte that is not JSON whitespace is, or the length when there is none. */
+    private static int meaningAfter(final byte[] first, final int from) {
+        int next = from;
+        while (next < first.length
+                && (first[next] == ' '
+                        || first[next] == '\t'
+                        || first[next] == '\n'
+                        || first[next] == '\r')) {
+            next++;
+        }
+        return next;
+    }
+
+    private static boolean opensAsEvents(final byte[] first, final int at) {
+        return EVENT_FIELDS.stream().anyMatch(field -> opensWith(first, at, field));
+    }
+
+    /**
+     * Says whether too few bytes have arrived to tell the opening, so that more must be read before
+     * judging: whitespace alone, part of a byte order mark, or part of an event field.
+     */
+    static boolean undecided(final byte[] first) {
+        if (first.length < BOM.length
+                && java.util.Arrays.equals(first, java.util.Arrays.copyOf(BOM, first.length))) {
+            return true;
+        }
+        final int at = opening(first);
+        if (at >= first.length) {
+            return true;
+        }
+        if ((first[at] == '{' || first[at] == '[') && meaningAfter(first, at + 1) >= first.length) {
+            return true;
+        }
+        final int left = first.length - at;
+        return EVENT_FIELDS.stream()
+                .anyMatch(
+                        field ->
+                                left < field.length()
+                                        && opensWith(first, at, field.substring(0, left)));
+    }
+
+    /** Where the text starts after a byte order mark and JSON whitespace. */
+    private static int opening(final byte[] first) {
+        int at =
+                first.length >= BOM.length
+                                && java.util.Arrays.equals(
+                                        java.util.Arrays.copyOf(first, BOM.length), BOM)
+                        ? BOM.length
+                        : 0;
+        while (at < first.length
+                && (first[at] == ' '
+                        || first[at] == '\t'
+                        || first[at] == '\n'
+                        || first[at] == '\r')) {
+            at++;
+        }
+        return at;
+    }
+
+    private static boolean opensWith(final byte[] first, final int at, final String field) {
+        if (first.length - at < field.length()) {
+            return false;
+        }
+        for (int each = 0; each < field.length(); each++) {
+            if (first[at + each] != field.charAt(each)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Reads on until an untyped body's opening can be told, within the peek's bound: a first read
+     * of only "ev" or a newline would otherwise withhold a stream of events.
+     */
+    private static byte[] decided(final InputStream body, final byte[] first) throws IOException {
+        byte[] read = first;
+        while (read.length < PEEK && undecided(read)) {
+            final byte[] more = new byte[PEEK - read.length];
+            final int got = body.read(more);
+            if (got < 0) {
+                break;
+            }
+            final byte[] joined = java.util.Arrays.copyOf(read, read.length + got);
+            System.arraycopy(more, 0, joined, read.length, got);
+            read = joined;
+        }
+        return read;
     }
 
     /**
@@ -954,25 +1103,57 @@ public class VaultProxy implements AutoCloseable, Runnable {
             throws IOException {
 
         final InputStream upstreamBody = response.body();
+        final boolean untyped = media(response).isEmpty();
         final CredentialScan scan = new CredentialScan();
-        final byte[] first = peek(upstreamBody);
-        final String unreadable = whyUnreadable(response, first.length);
+        final byte[] peeked = peek(upstreamBody);
+        final byte[] first = untyped && peeked.length > 0 ? decided(upstreamBody, peeked) : peeked;
+        final String framed = whyUnreadable(response, first);
+        final EventFraming framing =
+                framed == null && untyped && first.length > 0 && !opensAsJson(first, opening(first))
+                        ? new EventFraming()
+                        : null;
+        String unreadable = framed;
+        byte[] judged = first;
+        boolean ended = false;
+        if (framing != null) {
+            // Read on until the framing has passed something, so a refusal is still a status:
+            // a first read of "data: " alone would otherwise send the headers before the value.
+            final java.io.ByteArrayOutputStream passed = new java.io.ByteArrayOutputStream();
+            try {
+                passed.writeBytes(framing.pass(first, first.length));
+                int total = first.length;
+                final byte[] more = new byte[PEEK];
+                while (passed.size() == 0 && !ended && total < PEEK) {
+                    final int got = upstreamBody.read(more, 0, PEEK - total);
+                    if (got < 0) {
+                        passed.writeBytes(framing.end());
+                        ended = true;
+                    } else {
+                        total += got;
+                        passed.writeBytes(framing.pass(more, got));
+                    }
+                }
+            } catch (EventFraming.Refused refused) {
+                unreadable = "no content-type, and not events of JSON: " + refused.getMessage();
+            }
+            judged = passed.toByteArray();
+        }
+        final String upstream = "upstream " + response.statusCode();
         if (unreadable != null) {
             upstreamBody.close();
             log.accept("answer withheld: " + unreadable);
             out.write(
-                    HttpHead.response(
-                            502,
-                            "Bad Gateway",
-                            error(
-                                    "api_error",
-                                    "porelo: the provider answered in a form this proxy cannot check for credentials ("
-                                            + unreadable
-                                            + "), so nothing was passed on")));
+                    withheld(
+                            response.statusCode(),
+                            "porelo: the provider answered in a form this proxy cannot check for credentials ("
+                                    + upstream
+                                    + ", "
+                                    + unreadable
+                                    + "), so nothing was passed on"));
             out.flush();
             return;
         }
-        if (scan.sees(first, first.length)) {
+        if (scan.sees(judged, judged.length)) {
             // The one exchange whose answer is itself a credential. Measured with a stub provider:
             // the container received access_token and refresh_token verbatim, which is the single
             // thing the phantom token exists to prevent. What the provider did upstream cannot be
@@ -981,12 +1162,12 @@ public class VaultProxy implements AutoCloseable, Runnable {
             upstreamBody.close();
             log.accept("answer withheld: it carried a credential");
             out.write(
-                    HttpHead.response(
-                            403,
-                            "Forbidden",
-                            "{\"type\":\"error\",\"error\":{\"type\":\"permission_error\","
-                                    + "\"message\":\"porelo: the provider answered with a credential, which"
-                                    + " this container may not have; nothing was passed on\"}}"));
+                    withheld(
+                            response.statusCode(),
+                            "porelo: the provider answered with a credential, which this"
+                                    + " container may not have ("
+                                    + upstream
+                                    + "); nothing was passed on"));
             out.flush();
             return;
         }
@@ -1010,21 +1191,16 @@ public class VaultProxy implements AutoCloseable, Runnable {
         out.flush();
 
         try (InputStream body = upstreamBody) {
-            if (first.length > 0) {
-                out.write(
-                        (Integer.toHexString(first.length) + "\r\n")
-                                .getBytes(StandardCharsets.UTF_8));
-                out.write(first);
-                out.write("\r\n".getBytes(StandardCharsets.UTF_8));
-                out.flush();
-            }
+            chunk(out, judged, judged.length);
             final byte[] buffer = new byte[8192];
             int read;
             while ((read = body.read(buffer)) != -1) {
                 if (read == 0) {
                     continue;
                 }
-                if (scan.sees(buffer, read)) {
+                final byte[] passed = framing == null ? buffer : cutOff(framing, buffer, read);
+                final int length = framing == null ? read : passed.length;
+                if (scan.sees(passed, length)) {
                     // The headers have already gone, so there is no status left to answer with: the
                     // only thing that still withholds the credential is to stop writing and drop
                     // the connection. The agent sees a truncated answer, which is what a failure
@@ -1039,16 +1215,56 @@ public class VaultProxy implements AutoCloseable, Runnable {
                             "The provider's answer carried a credential"
                                     + " partway through; nothing further was passed on");
                 }
-                out.write((Integer.toHexString(read) + "\r\n").getBytes(StandardCharsets.UTF_8));
-                out.write(buffer, 0, read);
-                out.write("\r\n".getBytes(StandardCharsets.UTF_8));
-                // Flushed per chunk, or streamed events arrive in batches and the agent looks
-                // slower than it is.
-                out.flush();
+                chunk(out, passed, length);
+            }
+            if (framing != null && !ended) {
+                final byte[] tail = cutOff(framing, null, 0);
+                if (scan.sees(tail, tail.length)) {
+                    log.accept("answer cut off: it carried a credential after the first bytes");
+                    out.flush();
+                    throw new IOException(
+                            "The provider's answer carried a credential"
+                                    + " partway through; nothing further was passed on");
+                }
+                chunk(out, tail, tail.length);
             }
         }
         out.write("0\r\n\r\n".getBytes(StandardCharsets.UTF_8));
         out.flush();
+    }
+
+    /**
+     * Writes one chunk of the answer, flushed, or streamed events arrive in batches and the agent
+     * looks slower than it is; nothing at all when there is nothing to pass on.
+     */
+    private static void chunk(final OutputStream out, final byte[] data, final int length)
+            throws IOException {
+        if (length == 0) {
+            return;
+        }
+        out.write((Integer.toHexString(length) + "\r\n").getBytes(StandardCharsets.UTF_8));
+        out.write(data, 0, length);
+        out.write("\r\n".getBytes(StandardCharsets.UTF_8));
+        out.flush();
+    }
+
+    /**
+     * Passes the next read through the framing, or ends it when {@code read} is null; untyped
+     * events that stop being events of JSON are cut off, as a credential is once the headers went.
+     */
+    private byte[] cutOff(
+            final EventFraming framing, final byte @Nullable [] read, final int length)
+            throws IOException {
+        try {
+            return read == null ? framing.end() : framing.pass(read, length);
+        } catch (EventFraming.Refused refused) {
+            log.accept("answer cut off: untyped events stopped being events of JSON");
+            throw new IOException(
+                    "The provider's untyped answer stopped being events of JSON partway through ("
+                            + refused.getMessage()
+                            + "); nothing further was passed on",
+                    refused);
+        }
     }
 
     /**
