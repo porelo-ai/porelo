@@ -457,7 +457,9 @@ Use one or the other; Porelo refuses both together.
   what they are almost always for.
 - **They run after the agent layer**, so the agent's CLI is already there.
 - `porelo task start --dry-run` shows what would be built without building it. The generated
-  `Containerfile` is kept in `$XDG_DATA_HOME/porelo/build/<project>/` for you to read.
+  `Containerfile` is kept in `$XDG_DATA_HOME/porelo/build/<project>/` for you to read. It also lists the hosts the
+  task may reach, each with who granted it, and a host the agent named with `--agent` or the project refuses as
+  "refused on purpose", never as reachable - as the running task enforces it.
 
 Nothing you add escapes the rest of the model: the container still starts with no capabilities and with
 `NoNewPrivs`, and installing something does not widen what the task may reach.
