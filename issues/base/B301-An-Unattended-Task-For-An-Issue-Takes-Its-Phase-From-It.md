@@ -6,6 +6,10 @@
 phase it works in follows from that issue, for example from its state, so the person names the issue and nothing
 else.
 
+**It adds a way and takes none away.** `porelo task start ... -P/--prompt "<free text>"`, for any repository and with
+no issue and no phase, stays exactly as it is. "An unattended task works on one issue, in the phase that issue is in"
+is how porelo-project works, not a rule porelo enforces on every project.
+
 ## Why
 
 The operator, 2026-10-27, settling porelo-frontend [F148](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md#f148):
