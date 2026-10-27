@@ -1,6 +1,6 @@
 # B304 — A Machine Sets Its Own Transport Settings
 
-**Status:** Analyzed.
+**Status:** Implementing.
 **Size:** L - crosses repositories: a transport contract change (a `describe` field and two lifecycle verbs) agreed
 with porelo-message-matrix, a machine's settings file and its command, one seam for the three places that read a
 project's transport settings, daemon methods for an interface, and the docs; porelo-message-matrix builds its side
@@ -95,6 +95,9 @@ over `transports()` only) read the values; `MessageWatch:1127` reads only which 
 - **A machine's own settings take precedence over the project file's homeserver and room** (QB74, operator,
   2026-10-27), also for a guarded or online project, though they are the account's unsigned file: only the account
   writes them, as it writes its own vault. The accepted risk goes into `doc/decisions.md` with the change.
+- **`talk admit --into FILE` may write the registration token in the clear to a new owner-only file** (QB75, operator,
+  2026-10-27), for a person without an interface; the interface always takes it from `AdmitMachine` straight into
+  `secrets.kdbx`. The accepted risk goes into `doc/decisions.md` with the change.
 
 ## Acceptance
 
@@ -102,13 +105,6 @@ over `transports()` only) read the values; `MessageWatch:1127` reads only which 
   homeserver and a local agent answers; `dismiss` refuses the host's token at once.
 - A machine's `homeserver` reaches the transport over the project file's; a name the transport does not list is refused.
 - Seen to fail first: today the project file's homeserver is the only one a transport is given.
-
-## Open questions
-
-- **QB75: the registration token on disk for a person without an interface:** `talk admit --into FILE` writes it in the
-  clear to a new owner-only file, as the VPN key lies on the host's disk. (a) Recommended: allowed, with the accepted
-  risk recorded; the interface takes it from `AdmitMachine` straight into `secrets.kdbx`. (b) Only the interface may
-  admit a machine.
 
 ## To be checked
 
