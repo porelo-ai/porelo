@@ -45,9 +45,11 @@ jobs:
             contents: read
             actions: write
         steps:
+            # Every commit, so the pushed range can be read.
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   persist-credentials: false
+                  fetch-depth: 0
 
             - name: The pinned GraalVM
               uses: ./.github/actions/pinned-jdk
@@ -55,6 +57,30 @@ jobs:
             # -s settings.xml so a developer's own ~/.m2/settings.xml cannot be what makes a build work here.
             - name: Build and unit tests
               run: ./mvnw -B verify -s settings.xml
+
+            # A direct push to main never meets the pull request's check, so the push's own range is read here, by the
+            # rule this commit carries. A tag checks the commit it names. A new branch or a branch pushed over has no start
+            # this checkout holds, so its range starts at main; main itself cannot be pushed over.
+            - name: The pushed commits' messages
+              if: github.event_name == 'push'
+              env:
+                  PUSH_BEFORE: ${{ github.event.before }}
+              run: |
+                  set -eu
+                  case "$PUSH_BEFORE" in
+                      '') echo "::error::the push names no commit it started from"; exit 1 ;;
+                  esac
+                  start=$PUSH_BEFORE
+                  if [ "$GITHUB_REF_TYPE" = tag ]; then
+                      start="$GITHUB_SHA~1"
+                  elif ! git cat-file -e "$PUSH_BEFORE^{commit}" 2>/dev/null; then
+                      if [ "$GITHUB_REF" = refs/heads/main ]; then
+                          echo "::error::main moved from $PUSH_BEFORE, a commit this checkout does not hold"
+                          exit 1
+                      fi
+                      start=origin/main
+                  fi
+                  ./mvnw -B -s settings.xml -N exec:exec@release -Drelease.args="check-commits $start..$GITHUB_SHA"
 
             # The jar deploy Publish runs, on every push, with both upload URLs at a port on this runner where nothing
             # listens: every module must go through the publishing plugin and nothing may leave the machine. Its upload
