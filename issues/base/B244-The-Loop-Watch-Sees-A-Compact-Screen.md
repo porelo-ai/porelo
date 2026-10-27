@@ -30,6 +30,11 @@ Read in `LoopWatch`, `TaskHistories`, `SessionIds`, `TaskSession.fromFiles` and 
 **Decided:**
 - The file's place comes from a kit step, in the kit only; the agent definition is not changed here.
 - The threshold stays three, and an empty call right after a refused one counts as a repeat.
+- **The record is measured in porelo-codex [CX01](https://github.com/porelo-ai/porelo-codex/blob/main/issues/README.md#cx01)'s
+  live run** (operator, 2026-10-27): task A's first request has Codex call a refused tool on purpose (`bash -c` with no
+  argument, then `bash` alone), within at most ten upstream admissions for the whole run, 90 s per turn, no retries and
+  no hosted tools. Codex copies the newest `.codex/sessions/**/*.jsonl` into its handover after checking it holds no
+  token; the empty-call rule is built red first against that record, as a kit fixture.
 
 ## Acceptance
 
