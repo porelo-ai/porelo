@@ -156,6 +156,7 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
         }
         final java.util.List<String> answers = new java.util.ArrayList<>();
         final java.util.List<String> silent = new java.util.ArrayList<>();
+        final java.util.List<String> exposing = new java.util.ArrayList<>();
         found.forEach(
                 (transport, executable) -> {
                     try {
@@ -170,6 +171,9 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
                                                                 "describe")));
                         if (result.successful()) {
                             answers.add(transport);
+                            if (exposesSecrets(result.standardOutput())) {
+                                exposing.add(transport);
+                            }
                         } else {
                             silent.add(transport);
                         }
@@ -177,15 +181,43 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
                         silent.add(transport);
                     }
                 });
+        // An accepted risk until every published transport takes them on its input, so said, not
+        // degraded.
+        final String exposed =
+                exposing.stream()
+                        .map(
+                                transport ->
+                                        "; "
+                                                + transport
+                                                + " takes its secrets in its environment, where"
+                                                + " another process of the account can read them:"
+                                                + " update it")
+                        .collect(java.util.stream.Collectors.joining());
         if (silent.isEmpty()) {
-            return Probe.ok(name, String.join(", ", answers));
+            return Probe.ok(name, String.join(", ", answers) + exposed);
         }
         return Probe.degraded(
                 name,
                 String.join(", ", silent)
                         + " did not answer 'describe'"
-                        + (answers.isEmpty() ? "" : "; " + String.join(", ", answers) + " did"),
+                        + (answers.isEmpty() ? "" : "; " + String.join(", ", answers) + " did")
+                        + exposed,
                 "run the adapter by hand to see why");
+    }
+
+    /**
+     * Whether a transport's {@code describe} says it keeps a conversation - only such a transport
+     * is handed secrets - and does not say it takes them on its input.
+     */
+    private static boolean exposesSecrets(final String described) {
+        try {
+            return org.fuin.porelo.wire.Json.parse(described) instanceof java.util.Map<?, ?> said
+                    && said.get("lifecycle") instanceof java.util.List<?> verbs
+                    && !verbs.isEmpty()
+                    && !TransportInput.ON_INPUT.equals(said.get("secrets"));
+        } catch (final RuntimeException ex) {
+            return false;
+        }
     }
 
     /**

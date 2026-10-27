@@ -17,6 +17,8 @@ import org.fuin.porelo.vault.KernelKeyring;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for a transport that keeps a conversation of its own - a room - as Porelo sees it: without
@@ -404,16 +406,22 @@ class TransportConversationsTest {
     @Test
     void aWordToHelpersIsAnsweredOnceAsTheProjectWithoutWakingAnyTask() throws Exception {
         // A helper mention must not wake tasks or use their credentials to answer for the relay.
-        answerToHelpers(0);
+        answerToHelpers(0, false);
+    }
+
+    @Test
+    void aWordToHelpersIsAnsweredWithTheProjectsSecretOnTheInputOfATransportTakingItSo()
+            throws Exception {
+        answerToHelpers(0, true);
     }
 
     @Test
     void aFailedHelperAnswerLeavesNoFilesAndWakesNoTaskAndIsNeverRetried() throws Exception {
         // A failed answer must not wake tasks or keep files that send it again on the next pass.
-        answerToHelpers(TransportSend.TEMPORARY);
+        answerToHelpers(TransportSend.TEMPORARY, false);
     }
 
-    private void answerToHelpers(int exit) throws Exception {
+    private void answerToHelpers(int exit, boolean onInput) throws Exception {
         final String line =
                 "This is Porelo's technical account; it passes your messages on to the tasks and does not answer itself. Mention a task to reach it.";
         final List<Path> temporary = new java.util.ArrayList<>();
@@ -422,7 +430,9 @@ class TransportConversationsTest {
         final List<String> shown = new java.util.ArrayList<>();
         runner.answering(
                 "describe",
-                "{\"scheme\":\"room\",\"poll\":true,\"persons\":true,\"shown\":true,\"mention\":true,\"lifecycle\":[\"setup\",\"enroll\",\"join\"]}");
+                "{\"scheme\":\"room\",\"poll\":true,\"persons\":true,\"shown\":true,\"mention\":true,\"lifecycle\":[\"setup\",\"enroll\",\"join\"]"
+                        + input(onInput)
+                        + "}");
         runner.answering(
                 "setup",
                 "{\"account\":{\"ADMIN\":\"a-1\"},\"secrets\":{\"POLLER\":\"p-1\"},\"conversation\":\"!room-p\",\"reaches\":[\"127.0.0.1\"]}");
@@ -496,10 +506,9 @@ class TransportConversationsTest {
                         .toList();
         assertThat(sends).as("the relay answers exactly once and never queues a retry").hasSize(1);
         final var sent = sends.getFirst();
-        assertThat(sent.environment())
-                .as("only the project's polling credential answers")
-                .containsEntry("POLLER", "p-1")
-                .doesNotContainKeys("ADMIN", "TASK");
+        handed(sent, onInput, "POLLER", "p-1");
+        notHanded(sent, "ADMIN");
+        notHanded(sent, "TASK");
         assertThat(sent.arguments())
                 .as("the answer goes to the project's room and mentions its author")
                 .containsSubsequence("--to", "!room-p")
@@ -674,8 +683,10 @@ class TransportConversationsTest {
         assertThat(TransportConversations.reference("$a.json")).isEqualTo("$a");
     }
 
-    @Test
-    void aPassPollsOncePerProjectWithTheProjectsSecretsAndMarksWhatWasTaken() throws Exception {
+    @ParameterizedTest(name = "secrets on the input: {0}")
+    @ValueSource(booleans = {false, true})
+    void aPassPollsOncePerProjectWithTheProjectsSecretsAndMarksWhatWasTaken(boolean onInput)
+            throws Exception {
         Assumptions.assumeTrue(
                 KernelKeyring.available(),
                 "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
@@ -688,7 +699,10 @@ class TransportConversationsTest {
             runner.answering(
                     "describe",
                     "{\"scheme\":\"room\",\"poll\":true,\"confirms\":\"read\","
-                            + "\"lifecycle\":[\"setup\",\"enroll\",\"retire\",\"join\"]}");
+                            + "\"direct\":true,"
+                            + "\"lifecycle\":[\"setup\",\"enroll\",\"retire\",\"join\"]"
+                            + input(onInput)
+                            + "}");
             runner.answering(
                     "setup",
                     "{\"account\":{\"ADMIN\":\"a-1\"},\"secrets\":{\"POLLER\":\"p-1\"},"
@@ -702,14 +716,13 @@ class TransportConversationsTest {
             // project's.
             assertThat(new TaskConversations(context).enroll(project("guarded"), "porelo-p-other"))
                     .isNull();
-            assertThat(
-                            runner.invocations().stream()
-                                    .filter(command -> command.describe().contains(" setup "))
-                                    .toList()
-                                    .getLast()
-                                    .environment())
-                    .containsEntry("ADMIN", "a-1")
-                    .containsEntry("POLLER", "p-1");
+            final org.fuin.porelo.core.process.Command again =
+                    runner.invocations().stream()
+                            .filter(command -> command.describe().contains(" setup "))
+                            .toList()
+                            .getLast();
+            handed(again, onInput, "ADMIN", "a-1");
+            handed(again, onInput, "POLLER", "p-1");
             Files.writeString(review.record().resolve(TransportConversations.ARRIVED), "$a.json\n");
             Files.writeString(review.inboxCur().resolve("$a.json"), "{}");
             final TransportConversations.Outcome outcome =
@@ -721,17 +734,33 @@ class TransportConversationsTest {
                                                     "porelo-p-review", review, "p", "room")));
 
             assertThat(outcome.marked()).containsExactly("$a.json");
-            final org.fuin.porelo.core.process.Command poll = runner.only(" poll ");
-            assertThat(poll.environment())
-                    .as("the project's secrets, never the account's")
-                    .containsEntry("POLLER", "p-1")
-                    .doesNotContainKey("ADMIN");
-            assertThat(runner.only(" read ").environment())
-                    .containsEntry("TASK", "t-1")
-                    .doesNotContainKey("ADMIN");
+            final List<org.fuin.porelo.core.process.Command> polls =
+                    runner.invocations().stream()
+                            .filter(command -> command.arguments().contains("poll"))
+                            .toList();
+            final org.fuin.porelo.core.process.Command poll =
+                    polls.stream()
+                            .filter(command -> !command.arguments().contains("--direct"))
+                            .findFirst()
+                            .orElseThrow();
+            handed(poll, onInput, "POLLER", "p-1");
+            notHanded(poll, "ADMIN");
+            final org.fuin.porelo.core.process.Command direct =
+                    polls.stream()
+                            .filter(command -> command.arguments().contains("--direct"))
+                            .findFirst()
+                            .orElseThrow();
+            handed(direct, onInput, "TASK", "t-1");
+            notHanded(direct, "POLLER");
+            final org.fuin.porelo.core.process.Command read = runner.only(" read ");
+            handed(read, onInput, "TASK", "t-1");
+            notHanded(read, "ADMIN");
             assertThat(runner.only("--task porelo-p-review").input())
                     .as("the project's settings, verbatim")
-                    .contains("\"server\":\"https://example.org\"");
+                    .contains(
+                            onInput
+                                    ? "\"settings\":{\"server\":\"https://example.org\"}"
+                                    : "{\"server\":\"https://example.org\"}");
             // Sending acts as the task, to the conversation setup named.
             assertThat(
                             new TransportConversations(
@@ -893,8 +922,10 @@ class TransportConversationsTest {
         }
     }
 
-    @Test
-    void whatATaskSentIsAskedAboutByTheRecipientsAddressAndRecordedReadOnce() throws Exception {
+    @ParameterizedTest(name = "secrets on the input: {0}")
+    @ValueSource(booleans = {false, true})
+    void whatATaskSentIsAskedAboutByTheRecipientsAddressAndRecordedReadOnce(boolean onInput)
+            throws Exception {
         Assumptions.assumeTrue(
                 KernelKeyring.available(),
                 "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
@@ -907,7 +938,9 @@ class TransportConversationsTest {
             runner.answering(
                     "describe",
                     "{\"scheme\":\"room\",\"poll\":true,\"confirms\":\"read\","
-                            + "\"lifecycle\":[\"setup\",\"enroll\"]}");
+                            + "\"lifecycle\":[\"setup\",\"enroll\"]"
+                            + input(onInput)
+                            + "}");
             runner.answering(
                     "setup",
                     "{\"secrets\":{\"POLLER\":\"p-1\"},\"conversation\":\"!r\","
@@ -941,7 +974,7 @@ class TransportConversationsTest {
 
             final org.fuin.porelo.core.process.Command asked = runner.only(" receipt ");
             assertThat(asked.arguments()).endsWith("receipt", "$e1", "--by", "@review");
-            assertThat(asked.environment()).as("as the sender").containsEntry("TASK", "w-1");
+            handed(asked, onInput, "TASK", "w-1");
             assertThat(Files.readString(write.record().resolve(MessageRecord.FILE)))
                     .contains("\"event\":\"read\"")
                     .contains("\"peer\":\"review\"");
@@ -1254,5 +1287,42 @@ class TransportConversationsTest {
         } finally {
             keyring.forget();
         }
+    }
+
+    /** The field of a transport that takes its secrets on its input, or nothing. */
+    private static String input(boolean onInput) {
+        return onInput ? ",\"secrets\":\"input\"" : "";
+    }
+
+    /**
+     * Asserts a secret reached the transport the way it takes it: on its input, then never in its
+     * environment, where another process of the account reads it - or as before, in its
+     * environment.
+     */
+    private static void handed(
+            org.fuin.porelo.core.process.Command command,
+            boolean onInput,
+            String name,
+            String value) {
+        if (onInput) {
+            assertThat(command.environment())
+                    .as("%s kept out of the environment of %s", name, command.describe())
+                    .doesNotContainKey(name)
+                    .doesNotContainValue(value);
+            assertThat(command.input())
+                    .as("%s on the input of %s", name, command.describe())
+                    .contains("\"secrets\":{")
+                    .contains("\"" + name + "\":\"" + value + "\"");
+        } else {
+            assertThat(command.environment())
+                    .as("%s in the environment of %s", name, command.describe())
+                    .containsEntry(name, value);
+        }
+    }
+
+    /** Asserts a secret reached the transport in no way at all. */
+    private static void notHanded(org.fuin.porelo.core.process.Command command, String name) {
+        assertThat(command.environment()).doesNotContainKey(name);
+        assertThat(String.valueOf(command.input())).doesNotContain("\"" + name + "\"");
     }
 }

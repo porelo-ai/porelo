@@ -30,6 +30,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b206"></a>[B206](B206-A-Transport-Takes-Its-Secrets-On-Its-Input.md) | L | - | A transport takes the secrets Porelo kept for it on its standard input, not in its environment, so no other process of the account can read them from `/proc`; a version declared in `describe`, with the matrix transport's matching change. |
 | <a id="b304"></a>[B304](B304-A-Machine-Lets-Another-Into-Its-Conversation.md) | M | - | A person on the machine whose server holds a project's conversation lets another machine in with `talk admit`, its secret written to a new owner-only file, and takes it out with `talk dismiss`; a failure's message redacted and an offline setup checked against loopback on every path |
 
 ## Backlog
@@ -37,7 +38,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
-| <a id="b206"></a>[B206](B206-A-Transport-Takes-Its-Secrets-On-Its-Input.md) | L | - | A transport takes the secrets Porelo kept for it on its standard input, not in its environment, so no other process of the account can read them from `/proc`; a version declared in `describe`, with the matrix transport's matching change. |
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | XL | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own; analyzed: filled only from reviewed work, mounted `:ro,z`, read through `maven.repo.local.tail`, filled by `dependency:go-offline` on request and when the default branch moved, Maven first |
 | <a id="b207"></a>[B207](B207-An-Image-Built-Within-The-Projects-Egress.md) | L | - | An image's build reaches only the project's egress and its trusted package sources, through the firewall or a proxy, so a snippet - a project's or a repository's `porelo.yml` - cannot fetch from anywhere while the image is made. |
 | <a id="b190"></a>[B190](B190-A-Tasks-Branch-Named-By-The-Projects-Scheme.md) | L | - | `branch.template` and `branch.pattern` or `--branch` name a task's forge branch, kept in `task.json`; the gate passes on and keeps out of its mirror by them, an existing upstream branch refused at an online start, a guarded approval onto it by default and only within the pattern. |

@@ -15,8 +15,8 @@ holding non-ASCII characters reaches it whole; a locale the account sets, even `
 - **`describe`** reads nothing and prints one JSON object: `scheme`; `poll`; `confirms` (`handover`, `receipt`
   or `read`); `max_bytes`; `credentials` (for example `[{"name":"PORELO_MATRIX_ACCESS_TOKEN","as":"env"}]`);
   `hosts`; `attests`; and, if it keeps a conversation, `lifecycle` (the verbs below it offers) and `takes`
-  (`["machine"]` to be told this machine's name). A transport whose description cannot be read is not polled
-  and attests nothing.
+  (`["machine"]` to be told this machine's name); and `"secrets": "input"` when it takes its secrets on its
+  standard input (below). A transport whose description cannot be read is not polled and attests nothing.
 - **`send <file> <sig> --to <rest>`** hands one message over. `<rest>` is the peer's address after its first
   colon, never a path Porelo invented. It prints its receipt as one JSON object, `{"reference": "..."}`.
 - **`poll --into <dir>`** writes what arrived into that directory, each message with its detached signature as
@@ -43,7 +43,8 @@ announce is never passed, since an unknown one is its 64:
 | `"direct": true` | also polls each task's direct chats, with `poll --into <dir> --direct` and that task's secrets, and hands what arrived to that task alone |
 | `"waits": true` | passes `--wait <seconds>` to `poll` (at most 30): the server may hold its answer open until something arrives |
 
-Nothing is read from standard input except a lifecycle verb's settings: messages are files. A transport never
+Nothing is read from standard input but what Porelo hands a transport: a lifecycle verb's settings, and its
+secrets (below). Messages are files. A transport never
 changes a message's bytes, never decides whether a message may be sent, never reads another transport's queue,
 and never creates a directory: it delivers into the `tmp/` Porelo made and renames, and refuses or defers when
 something is missing.
@@ -58,9 +59,18 @@ has the message held; one that claims nothing has such a file ignored.
 ## A transport that keeps a conversation
 
 Such a transport offers a lifecycle. Every verb takes the project's settings (what `project.yml` says under
-`mail.transports.<scheme>`) as JSON on standard input, takes the secrets Porelo kept for it as environment
-variables, never as arguments, prints one JSON object, and exits with the codes above. Any `secrets` it prints are
-kept in the account's vault and handed back; they are never shown, logged or put into a task.
+`mail.transports.<scheme>`) and the secrets Porelo kept for it, never as arguments, prints one JSON object, and
+exits with the codes above. Any `secrets` it prints are kept in the account's vault and handed back; they are never
+shown, logged or put into a task.
+
+**How they are handed over.** A transport that says `"secrets": "input"` in `describe` gets on standard input one
+object, `{"settings": {...}, "secrets": {...}}`, and nothing secret in its environment: `settings` for a lifecycle
+verb (`{}` when the project names none), `secrets` wherever Porelo kept some - for `poll`, `read`, `receipt` and
+`send` too - as the whole map the transport printed, key for key. Standard input is closed once written. Once its
+input holds `secrets`, the transport reads no secret from its environment. A transport that does not say so gets
+the settings alone on standard input and its secrets as environment variables, where another process of the account
+can read them in `/proc/<pid>/environ`; `porelo doctor` names it. That way stays until every published transport
+takes its secrets on its input, and goes in a change of its own.
 
 | Verb | When Porelo runs it | Given | Prints |
 |---|---|---|---|

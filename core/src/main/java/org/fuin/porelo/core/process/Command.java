@@ -141,4 +141,22 @@ public record Command(
     public String describe() {
         return String.join(" ", arguments);
     }
+
+    /**
+     * Returns the command for a log or a debugger: its arguments, and its environment and input
+     * named but never shown, since either may carry a secret.
+     *
+     * @return Readable form, holding no value of the environment or the input.
+     */
+    @Override
+    public String toString() {
+        return "Command["
+                + describe()
+                + (workingDirectory == null ? "" : ", in " + workingDirectory)
+                + (environment.isEmpty()
+                        ? ""
+                        : ", environment " + new java.util.TreeSet<>(environment.keySet()))
+                + (input == null ? "" : ", input of " + input.length() + " characters")
+                + "]";
+    }
 }

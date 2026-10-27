@@ -68,15 +68,18 @@ final class HelperAnswer {
                     context.runner()
                             .run(
                                     HelperEnvironment.chosen(
-                                            TransportSend.command(
+                                            TransportInput.handed(
+                                                    TransportSend.command(
                                                             adapter,
                                                             message,
                                                             signature,
                                                             conversation.conversation(),
                                                             described,
                                                             shown,
-                                                            person)
-                                                    .withEnvironment(secrets)));
+                                                            person),
+                                                    described,
+                                                    null,
+                                                    secrets)));
             // A transport's output may echo its credential, so only its exit status is reported.
             return result.successful()
                     ? null

@@ -1,8 +1,9 @@
 # B206 — A Transport Takes Its Secrets On Its Input
 
-**Status:** Backlog.
-**Size:** L - a change to the contract every transport implements, in porelo's eight places that run one and in each
-transport, released together with a version both sides read.
+**Status:** Implementing; its transport side, agreed with Agent Matrix on 2026-10-27, is porelo-message-matrix
+[MX23](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx23).
+**Size:** L - a change to the contract every transport implements, in porelo's four places that hand a transport
+its secrets and in each transport, released together with a version both sides read.
 
 **What must be true.** No secret Porelo keeps for a transport is in the environment of the transport's process.
 Another process of the same account that reads `/proc/<pid>/environ` at any moment of a run finds none of them.
@@ -20,17 +21,49 @@ loop reading `/proc/<pid>/environ` right after each start still caught the token
 between `exec` and the `prctl` call is 15 to 40 ms, and the relay starts the transport often. That window is accepted
 as a risk for now. This issue closes it.
 
-## The shape, to be analysed
+## Plan
 
-- **Secrets on standard input**, beside the settings that already go there: one JSON object
-  `{"settings": {...}, "secrets": {...}}` instead of the settings alone. Or a file descriptor of its own (`3`) when a
-  verb's standard input carries something else. The analysis checks which verbs read standard input today.
-- **A version the transport declares in `describe`**, so Porelo knows which way to hand them over. A transport that
-  declares none keeps the environment until every published transport has moved, and `doctor` names it.
-- **Nothing else changes:** the environment keeps only `PATH`, `HOME`, the locale, `TMPDIR`, `XDG_*` and
-  `DBUS_SESSION_BUS_ADDRESS`; secrets are still never arguments, never logged and never put into a task.
-- The matching change in the matrix transport is
-  [MX23](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx23).
+Read in porelo at 2782c27a. Secrets go into a transport's environment at four places, not eight:
+`TransportLifecycle.run` (every lifecycle verb; its standard input already carries the settings, `:817`),
+`TransportConversations` (`poll` of a project `:318` and of a task's direct messages `:482`, `read` `:683`, `receipt`
+`:773`), `TransportSend` (`send` with the acting task's secrets, `:212`) and `HelperAnswer` (`send` of Porelo's own
+answers, `:79`). `TransportPoll` and `describe` hand none; `MessageFiltering` and `InboundCheck` run the message
+filter, not a transport, and hand none either. No verb but the lifecycle's reads its standard input today (`doc/
+transports.md`: "Nothing is read from standard input except a lifecycle verb's settings").
+
+1. **One object on standard input, for every verb that is given secrets or settings:** `{"settings": {...},
+   "secrets": {...}}`, `settings` only for a lifecycle verb, `secrets` only where Porelo kept some. Standard input
+   rather than a descriptor of its own: no verb carries anything else there, and Java's `ProcessBuilder` hands a
+   child no descriptor beyond the three.
+   `secrets` is the whole map the transport printed and Porelo kept, key for key, `PORELO_MATRIX_CA_FILE` and the like
+   among it: Porelo keeps no list of which keys are secret, and none of them goes into the environment. Standard
+   input is closed once written, `poll`'s too (`ProcessCommandRunner.writeInput` does so today).
+2. **The transport says it takes them so:** `describe` gains `"secrets": "input"`; absent, Porelo hands them over as
+   today - the settings alone on standard input, the secrets in the environment - and `porelo doctor` names the
+   transport as one whose secrets another process of the account can read. One class, `TransportInput`, builds the
+   command for both ways from `TransportDescription`, and the four places use it, so no place can hand a secret the
+   old way to a transport that takes the new one.
+3. **The old way stays until every published transport has moved**, as this issue says: Porelo hands the
+   environment to a transport that does not declare `input`, and `doctor` names it; dropping it is an issue of its
+   own. The transport reads the environment only while its input holds no `secrets`, so it works with a Porelo of
+   either way. Once its input holds `secrets`, it reads no secret from the environment, so a Porelo half-way between
+   the two fails visibly; an object of only `settings` and `secrets` is the new way, any other the bare settings.
+4. **No secret in a command's text:** `Command`, a record, prints its environment and input in `toString()`; it
+   gets a `toString()` that names both by key only, so a log line built from a command holds no secret, whichever
+   way it went.
+5. **Red first:** `TransportInputTest`, a stand-in transport run by the real `ProcessCommandRunner`, writes its
+   own `/proc/self/environ` and what it read on standard input; for `setup`, `poll`, `read`, `receipt` and `send`
+   the secret is on the input and not in the environment. `TransportConversationsTest` runs its pass, receipt and
+   relay-answer tests both ways and `TransportSendTest` a task's `send`, each asserting through one helper where
+   the secret went; `CommandTest` asserts `toString()` holds no value; `DoctorCommandTest` names an old transport.
+   Each was seen red with `TransportInput` forced to the old way, or before its change.
+6. **Read against the skills, and what came of it:** a transport whose `describe` failed is handed no secret at
+   all, neither way, so its verb fails rather than hand them out; the claim is kept among what a transport takes
+   under a name no option can have; `doctor` names an old transport also beside one that did not answer, and only
+   one that keeps a conversation, since no other is handed secrets; tests now check the settings inside the object,
+   empty settings as `{}`, and `poll --direct` both ways.
+7. **Docs:** `doc/transports.md` (the object, the `describe` field, the old way kept until its own change) and the
+   changelog; `doc/security.md` does not name a transport's environment.
 
 ## Acceptance
 

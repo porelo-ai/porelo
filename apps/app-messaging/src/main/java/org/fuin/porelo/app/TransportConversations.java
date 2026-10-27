@@ -315,7 +315,10 @@ final class TransportConversations {
         }
         final CommandResult polled =
                 context.runner()
-                        .run(HelperEnvironment.chosen(Command.of(poll).withEnvironment(secrets)));
+                        .run(
+                                HelperEnvironment.chosen(
+                                        TransportInput.handed(
+                                                Command.of(poll), described, null, secrets)));
         said(polled, "what arrived for " + project, scheme, failures);
     }
 
@@ -479,7 +482,13 @@ final class TransportConversations {
         }
         final CommandResult polled =
                 context.runner()
-                        .run(HelperEnvironment.chosen(Command.of(poll).withEnvironment(secrets)));
+                        .run(
+                                HelperEnvironment.chosen(
+                                        TransportInput.handed(
+                                                Command.of(poll),
+                                                TransportDescription.of(context.runner(), adapter),
+                                                null,
+                                                secrets)));
         said(
                 polled,
                 "what was said to " + member.container() + " directly",
@@ -674,13 +683,20 @@ final class TransportConversations {
             return List.of();
         }
         final List<String> marked = new ArrayList<>();
+        final TransportDescription described = TransportDescription.of(context.runner(), adapter);
         for (final String name : taken) {
             final CommandResult result =
                     context.runner()
                             .run(
                                     HelperEnvironment.chosen(
-                                            Command.of(adapter.toString(), "read", reference(name))
-                                                    .withEnvironment(secrets)));
+                                            TransportInput.handed(
+                                                    Command.of(
+                                                            adapter.toString(),
+                                                            "read",
+                                                            reference(name)),
+                                                    described,
+                                                    null,
+                                                    secrets)));
             if (result.successful()) {
                 Files.writeString(
                         member.mailbox().record().resolve(MARKED),
@@ -745,6 +761,7 @@ final class TransportConversations {
                             .sorted()
                             .toList();
         }
+        final TransportDescription described = TransportDescription.of(context.runner(), adapter);
         for (final Path receipt : receipts) {
             final String name = receipt.getFileName().toString().replace(".receipt.json", "");
             final Path message = sent.resolve(name);
@@ -764,13 +781,16 @@ final class TransportConversations {
                     context.runner()
                             .run(
                                     HelperEnvironment.chosen(
-                                            Command.of(
+                                            TransportInput.handed(
+                                                    Command.of(
                                                             adapter.toString(),
                                                             "receipt",
                                                             reference,
                                                             "--by",
-                                                            address)
-                                                    .withEnvironment(secrets)));
+                                                            address),
+                                                    described,
+                                                    null,
+                                                    secrets)));
             if (!result.successful()) {
                 if (result.exitCode() != TransportSend.TEMPORARY) {
                     failures.add(

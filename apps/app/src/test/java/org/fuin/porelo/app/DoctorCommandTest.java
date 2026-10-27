@@ -357,6 +357,112 @@ class DoctorCommandTest {
                         });
     }
 
+    /**
+     * A transport handed its secrets in its environment is named, until every published transport
+     * takes them on its input: another process of the account reads them there.
+     */
+    @Test
+    void namesATransportThatTakesItsSecretsInItsEnvironment(@TempDir Path dir)
+            throws java.io.IOException {
+        final java.nio.file.Path transports = dir.resolve("data/porelo/transports");
+        java.nio.file.Files.createDirectories(transports);
+        for (final String transport : java.util.List.of("local", "room", "plain", "broken")) {
+            final java.nio.file.Path adapter =
+                    transports.resolve(TransportDirectory.PREFIX + transport);
+            java.nio.file.Files.writeString(adapter, "#!/bin/sh\n");
+            java.nio.file.Files.setPosixFilePermissions(
+                    adapter, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        }
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    default -> null;
+                                },
+                        dir);
+        final DoctorCommand doctor = new DoctorCommand();
+        doctor.setContext(
+                new PoreloContext(
+                        new FakeCommandRunner()
+                                .answering(
+                                        "local describe",
+                                        "{\"scheme\":\"local\",\"lifecycle\":[\"setup\"]}")
+                                .answering(
+                                        "room describe",
+                                        "{\"scheme\":\"room\",\"lifecycle\":[\"setup\"],"
+                                                + "\"secrets\":\"input\"}")
+                                .answering("plain describe", "{\"scheme\":\"plain\"}")
+                                .failing("broken describe", 3, "no"),
+                        new PoreloPaths(xdg, dir.resolve("bin")),
+                        arguments -> 0));
+
+        assertThat(doctor.probes())
+                .filteredOn(probe -> "transports".equals(probe.name()))
+                .singleElement()
+                .satisfies(
+                        probe -> {
+                            assertThat(probe.state())
+                                    .as("degraded by the one that did not answer, not by this")
+                                    .isEqualTo(Probe.State.DEGRADED);
+                            assertThat(probe.detail())
+                                    .as("said beside a transport that did not answer, too")
+                                    .contains("local takes its secrets in its environment")
+                                    .doesNotContain("room takes")
+                                    .as("one that keeps no conversation is handed no secret")
+                                    .doesNotContain("plain takes");
+                        });
+    }
+
+    /** Named while every transport answers too, and then only said, not degraded. */
+    @Test
+    void namesAnOldTransportAndStaysOkWhenEveryTransportAnswers(@TempDir Path dir)
+            throws java.io.IOException {
+        final java.nio.file.Path transports = dir.resolve("data/porelo/transports");
+        java.nio.file.Files.createDirectories(transports);
+        for (final String transport : java.util.List.of("local", "room")) {
+            final java.nio.file.Path adapter =
+                    transports.resolve(TransportDirectory.PREFIX + transport);
+            java.nio.file.Files.writeString(adapter, "#!/bin/sh\n");
+            java.nio.file.Files.setPosixFilePermissions(
+                    adapter, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        }
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    default -> null;
+                                },
+                        dir);
+        final DoctorCommand doctor = new DoctorCommand();
+        doctor.setContext(
+                new PoreloContext(
+                        new FakeCommandRunner()
+                                .answering(
+                                        "local describe",
+                                        "{\"scheme\":\"local\",\"lifecycle\":[\"setup\"]}")
+                                .answering(
+                                        "room describe",
+                                        "{\"scheme\":\"room\",\"lifecycle\":[\"setup\"],"
+                                                + "\"secrets\":\"input\"}"),
+                        new PoreloPaths(xdg, dir.resolve("bin")),
+                        arguments -> 0));
+
+        assertThat(doctor.probes())
+                .filteredOn(probe -> "transports".equals(probe.name()))
+                .singleElement()
+                .satisfies(
+                        probe -> {
+                            assertThat(probe.state())
+                                    .as("an accepted risk until every transport has moved")
+                                    .isEqualTo(Probe.State.OK);
+                            assertThat(probe.detail())
+                                    .contains("local takes its secrets in its environment")
+                                    .doesNotContain("room takes");
+                        });
+    }
+
     @Test
     void asksATransportWithTheEnvironmentEveryHelperGets(@TempDir Path dir) throws Exception {
 

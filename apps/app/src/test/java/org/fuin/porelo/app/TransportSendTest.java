@@ -269,4 +269,28 @@ class TransportSendTest {
                         command -> command.arguments().get(command.arguments().indexOf("--to") + 1))
                 .containsExactlyInAnyOrder("@alice:localhost", "!room:localhost");
     }
+
+    @Test
+    void aTasksSecretGoesOnTheInputOfATransportTakingItSoAndNeverIntoItsEnvironment(
+            @TempDir final Path dir) throws IOException {
+
+        // In the environment, any process of the account reads it from /proc while it runs.
+        final Mailbox mailbox = queued(dir);
+        runner.answering("describe", "{\"scheme\":\"local\",\"secrets\":\"input\"}");
+        runner.answering("send", "{}");
+
+        new TransportSend(
+                        runner,
+                        withAdapter(dir),
+                        (transport, container) ->
+                                new TransportSend.Acting(
+                                        java.util.Map.of("TOKEN", "task-secret-1234"),
+                                        "!room:localhost",
+                                        java.util.Map.of()))
+                .send(mailbox, "local");
+
+        final org.fuin.porelo.core.process.Command sent = runner.only(" send ");
+        assertThat(sent.environment()).doesNotContainKey("TOKEN");
+        assertThat(sent.input()).isEqualTo("{\"secrets\":{\"TOKEN\":\"task-secret-1234\"}}");
+    }
 }

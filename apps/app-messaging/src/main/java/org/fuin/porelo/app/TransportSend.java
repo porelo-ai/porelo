@@ -209,7 +209,7 @@ public final class TransportSend {
                             line,
                             mention);
             if (acting != null) {
-                command = command.withEnvironment(acting.environment());
+                command = TransportInput.handed(command, described, null, acting.environment());
             }
             final CommandResult result;
             try {

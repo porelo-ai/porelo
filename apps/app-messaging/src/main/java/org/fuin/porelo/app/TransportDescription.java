@@ -27,7 +27,7 @@ import org.fuin.porelo.wire.Json;
  * @param waitsOn What its setup waits on, or empty.
  * @param takes The options it takes beyond the ones every transport does - {@code machine} for this
  *     machine's name on its lifecycle verbs. An option it does not list is never passed: an unknown
- *     one is its 64.
+ *     one is its 64. {@link TransportInput#INPUT} when it takes its secrets on its standard input.
  */
 public record TransportDescription(
         String scheme,
@@ -112,6 +112,10 @@ public record TransportDescription(
                 // --shown.
                 if (Boolean.TRUE.equals(said.get(TransportSend.SHOWN))) {
                     takes.add(TransportSend.SHOWN);
+                }
+                // Its secrets on its input rather than in its environment.
+                if (TransportInput.ON_INPUT.equals(said.get("secrets"))) {
+                    takes.add(TransportInput.INPUT);
                 }
                 // And a person's words in the room, and a task's direct chats.
                 for (final String flag :

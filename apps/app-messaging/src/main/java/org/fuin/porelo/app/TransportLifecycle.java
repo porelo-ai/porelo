@@ -799,11 +799,12 @@ final class TransportLifecycle {
         // account over. The transport keeps the name it first used, so a machine renamed later
         // keeps its accounts.
         // admit and dismiss name the other machine themselves, so this one's is never added.
+        final TransportDescription described = TransportDescription.of(context.runner(), adapter);
         if (!"settings".equals(verb[0])
                 && !"part".equals(verb[0])
                 && !"admit".equals(verb[0])
                 && !"dismiss".equals(verb[0])
-                && TransportDescription.of(context.runner(), adapter).takes("machine")) {
+                && described.takes("machine")) {
             arguments.add("--machine");
             arguments.add(MachineName.hostName());
         }
@@ -813,16 +814,18 @@ final class TransportLifecycle {
                     context.runner()
                             .run(
                                     HelperEnvironment.chosen(
-                                            Command.of(arguments)
-                                                    .withInput(Json.write(settings))
-                                                    .withEnvironment(secrets)));
+                                            TransportInput.handed(
+                                                    Command.of(arguments),
+                                                    described,
+                                                    settings,
+                                                    secrets)));
         } catch (org.fuin.porelo.core.process.CommandException ex) {
             throw ex.withStandardError(redact(StartStep.cleanLines(ex.standardError()), secrets));
         }
         if (!result.successful()) {
             // What it printed before failing may hold secrets it made; they are withheld too.
-            // Cleaned
-            // first: a secret split by an escape sequence would be whole again once cleaned.
+            // Cleaned first: a secret split by an escape sequence would be whole again once
+            // cleaned.
             final Map<String, String> withheld = new LinkedHashMap<>(secrets);
             withheld.putAll(printed(result.standardOutput()));
             final String said =
