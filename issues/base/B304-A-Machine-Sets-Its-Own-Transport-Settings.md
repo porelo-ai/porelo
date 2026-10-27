@@ -1,6 +1,6 @@
 # B304 — A Machine Sets Its Own Transport Settings
 
-**Status:** Idea.
+**Status:** Accepted.
 
 **What must be true.** A machine that follows a project may set some of a transport's settings for itself - for
 Matrix, the homeserver, the room, the CA file and the registration token file - in place of what the project file

@@ -101,6 +101,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b304"></a>[B304](B304-A-Machine-Sets-Its-Own-Transport-Settings.md) | - | - | A machine that follows a project may set some of a transport's settings for itself - for Matrix the homeserver, the room, the CA file and the registration token file - in place of the project file's |
 | <a id="b274"></a>[B274](B274-A-Room-Line-Wakes-Only-The-Tasks-It-Mentions.md) | S | - | A person's room line wakes only the tasks it mentions, and every task on `@room`; an unaddressed line is delivered but wakes none, read at the next wake; a reply to a task's message stays a mention |
 | <a id="b270"></a>[B270](B270-A-Forge-Token-Stored-By-The-Forges-Own-Login.md) | - | - | A person gets their forge token into a machine's vault as `git.token.<host>` by the forge's own device-code login in a terminal there, never by pasting a token made by hand; Porelo's OAuth App by default, a person's own if named, `repo` scope |
 | <a id="b260"></a>[B260](B260-Only-Porelos-Own-Source-Installs-An-Agent.md) | M | - | What the setup script's `--with` installs and what `--list` and `Installable` offer comes only from Porelo's own package source, the install bound to it on apt and dnf; dnf5's catalogue finds every agent |
@@ -115,7 +116,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b304"></a>[B304](B304-A-Machine-Sets-Its-Own-Transport-Settings.md) | - | - | A machine that follows a project may set some of a transport's settings for itself - for Matrix the homeserver, the room, the CA file and the registration token file - in place of the project file's |
 | <a id="b301"></a>[B301](B301-An-Unattended-Task-For-An-Issue-Takes-Its-Phase-From-It.md) | - | - | An unattended task is started for one issue, and its phase follows from that issue, so the person names the issue and nothing else |
 | <a id="b299"></a>[B299](B299-A-Projects-Declared-Parameters-Reach-An-Interface.md) | - | - | `Projects` carries the parameters `project.yml` declares - name, description, required, values or pattern, default - so an interface asks for them before `Start` |
 | <a id="b295"></a>[B295](B295-A-Task-Without-A-Gate-Knows-Its-Host.md) | - | - | A task without a gate refuses declared host services in one sentence, not a `NullPointerException`, and its watcher still knows the host's address it never asks about |
