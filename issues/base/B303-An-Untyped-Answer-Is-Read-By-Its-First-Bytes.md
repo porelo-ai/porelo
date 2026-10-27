@@ -1,6 +1,6 @@
 # B303 — An Untyped Answer Is Read By Its First Bytes
 
-**Status:** Implementing: a bug, set to Backlog on 2026-10-27, built after [B300](README.md#b300)'s rework.
+**Status:** Review: pushed and published as `0.5.1~snapshot.343` (Build 40531815214 on 3342902f).
 **Size:** S - one module: `VaultProxy`'s refusal and its answer, `EventFraming`, their tests, and the answers' rows in
 `doc/reach.md` and `doc/credentials.md`.
 
