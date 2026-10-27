@@ -13,11 +13,16 @@ a release.
 Grouped by state, as in [the base set](../base/README.md); within a group ordered by what to do next. [P09](README.md#p09) concerns
 providers as a class, the others one provider each.
 
+## Review
+
+| # | Size | Blocked by | What it covers |
+|---|---|---|---|
+| <a id="p11"></a>[P11](P11-Provider-ChatGPT-Sign-In.md) | M | - | `providers/chatgpt.yaml` (`chatgpt.com`, `openai` under `/backend-api/codex`, the sign-in as Bearer) and a provider key `credential_headers` that fills `ChatGPT-Account-Id` from the stored sign-in; the agent side is porelo-codex's; walked live through porelo-codex's acceptance on snapshot .343, the operator's walk included. |
+
 ## Implementing
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="p11"></a>[P11](P11-Provider-ChatGPT-Sign-In.md) | M | - | `providers/chatgpt.yaml` (`chatgpt.com`, `openai` under `/backend-api/codex`, the sign-in as Bearer) and a provider key `credential_headers` that fills `ChatGPT-Account-Id` from the stored sign-in; the agent side is porelo-codex's; built and unit-tested, the VM next. |
 | <a id="p12"></a>[P12](P12-The-Google-Sign-In-As-A-Provider.md) | L | - | Antigravity CLI served through the person's Google sign-in, brokered on the host, beside the API key of [P06](README.md#p06); the sign-in is measured first, attended |
 
 ## Analyzed

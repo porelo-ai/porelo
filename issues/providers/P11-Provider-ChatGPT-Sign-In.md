@@ -1,6 +1,6 @@
 # P11 — Provider ChatGPT Sign-In
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** M - a provider file, one new provider key the broker and the agent API carry, the sign-in kept whole with
 one more setting, tests at each place, a doc row; the agent side is porelo-codex's.
 
@@ -66,9 +66,3 @@ loses the answer, and the next renewal uses the refresh token still stored. A re
   pointed at the broker reached the model without it.
 - An API key stored for `chatgpt`, or a sign-in stored for `openai`, is refused before the start with a reason naming
   the other provider.
-
-## To be checked
-
-- Whether the CLI pointed at the broker with a dummy token contacts `ab.chatgpt.com` at all; Agent Codex measures it
-  in the task.
-- The CLI's client id and how the access token's end is read (its JWT `exp`), from Agent Codex.
