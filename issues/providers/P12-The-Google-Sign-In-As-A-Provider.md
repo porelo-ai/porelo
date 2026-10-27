@@ -3,7 +3,7 @@
 **Status:** Implementing.
 **Size:** L - a provider file; the agent API lets one agent speak a second dialect under its own base URL variable;
 a sign-in's renewal carries a client secret; tests at each place, a doc row and the accepted risk. The agent side is
-porelo-agy's (AG01).
+porelo-agy's ([AG01](https://github.com/porelo-ai/porelo-agy/blob/main/issues/README.md#ag01)).
 
 **What must be true.** A task's Antigravity CLI is served models through the person's Google sign-in, brokered on
 the host like the other sign-ins, with the real tokens never in the container. It is a provider of its own beside
