@@ -1,6 +1,6 @@
 # B298 — A Repository Names Its Agent
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** M - several modules (the project file's reader, the agent choice, the task's workspace, the project
 inventory) and one contract change, `Repository` in `Projects` growing by three fields, with the project file's docs.
 

@@ -20,6 +20,8 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b298"></a>[B298](B298-A-Repository-Names-Its-Agent.md) | M | - | A project file names each repository's agent, `repositories.<repository>.agent`, and an optional one-word nickname; `task start` takes that agent without `--agent`, and `Projects` carries both with the name it goes by, `Agent <nickname>` or `Agent <repository>`, for the room and the commits |
+| <a id="b244"></a>[B244](B244-The-Loop-Watch-Sees-A-Compact-Screen.md) | M | - | The acceptance kit reads a declared tool-call record beside tmux history to stop repeated failures on compact screens, a bare call right after a refused one counted as another try; published, judged by porelo-codex's live wake case |
 | <a id="b300"></a>[B300](B300-A-Person-Joins-A-Conversation-Without-Seeing-Its-Password.md) | S | - | `talk join --into-vault <entry>` keeps the person's access token in the vault, read through `vault credential`, and prints no password but the room's id, and `--display` names the person in the room, so an agent joins the project's room through its own shell; the transport's `--display` is porelo-message-matrix's |
 | <a id="b302"></a>[B302](B302-A-Broker-Stopped-By-A-Signal-Leaves-No-Socket.md) | XS | - | A helper serving a unix socket - `vault serve`, `vault agent`, the clearance watcher, the builds reader - removes it when SIGTERM or SIGINT ends it, as when it returns |
 | <a id="b238"></a>[B238](B238-An-Unfollow-Leaves-Nothing-Of-The-Project.md) | M | - | `project unfollow` removes the project's build lock and upstream copies, so `porelo prune` finds nothing of it; following stops first, under the clone's lock, which a removal never leaves to two holders |
@@ -29,8 +31,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b304"></a>[B304](B304-A-Machine-Lets-Another-Into-Its-Conversation.md) | M | - | A person on the machine whose server holds a project's conversation lets another machine in with `talk admit`, its secret written to a new owner-only file, and takes it out with `talk dismiss`; a failure's message redacted and an offline setup checked against loopback on every path |
-| <a id="b298"></a>[B298](B298-A-Repository-Names-Its-Agent.md) | M | - | A project file names each repository's agent, `repositories.<repository>.agent`, and an optional one-word nickname; `task start` takes that agent without `--agent`, and `Projects` carries both with the name it goes by, `Agent <nickname>` or `Agent <repository>`, for the room and the commits |
-| <a id="b244"></a>[B244](B244-The-Loop-Watch-Sees-A-Compact-Screen.md) | M | - | The acceptance kit reads a declared tool-call record beside tmux history to stop repeated failures on compact screens, a bare call right after a refused one counted as another try; built and unit-tested, porelo-codex's live wake case next |
 
 ## Backlog
 
