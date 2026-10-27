@@ -48,6 +48,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="b298"></a>[B298](B298-A-Repository-Names-Its-Agent.md) | M | - | A project file names each repository's agent, `repositories.<repository>.agent`, and an optional one-word nickname; `task start` takes that agent without `--agent`, and `Projects` carries both with the name it goes by, `Agent <nickname>` or `Agent <repository>`, for the room and the commits | 1 |
 | <a id="b136"></a>[B136](B136-An-Approve-Bound-To-What-Was-Reviewed.md) | M | - | Capture one reviewed commit for patch/log and every approval path; confirmations and signatures use that key; SARIF never authorizes forwarding. | 0 |
 | <a id="b150"></a>[B150](B150-The-Whole-Diff-In-Review.md) | M | - | Bound serialized review replies with explicit file-boundary cuts; retain complete file inventory or refuse by name; full-diff risk and SARIF completeness stay independent. | 0 |
 | <a id="b141"></a>[B141](B141-New-Dependencies-Checked-Before-Review.md) | XL | [B136](README.md#b136), [B291](README.md#b291), [B292](README.md#b292) | Dependency changes and registry/name findings as SARIF; commit-bound human confirmation holds approval; splits into extraction (M), registry/hold (L), look-alike names (S). | 1 |
@@ -115,7 +116,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b301"></a>[B301](B301-An-Unattended-Task-For-An-Issue-Takes-Its-Phase-From-It.md) | - | - | An unattended task is started for one issue, and its phase follows from that issue, so the person names the issue and nothing else |
-| <a id="b298"></a>[B298](B298-A-Repository-Names-Its-Agent.md) | - | - | A project file names the agent each repository is worked with, `repositories.<repository>.agent`, and `Projects` carries it on each repository |
 | <a id="b299"></a>[B299](B299-A-Projects-Declared-Parameters-Reach-An-Interface.md) | - | - | `Projects` carries the parameters `project.yml` declares - name, description, required, values or pattern, default - so an interface asks for them before `Start` |
 | <a id="b295"></a>[B295](B295-A-Task-Without-A-Gate-Knows-Its-Host.md) | - | - | A task without a gate refuses declared host services in one sentence, not a `NullPointerException`, and its watcher still knows the host's address it never asks about |
 | <a id="b294"></a>[B294](B294-A-Tasks-Trust-And-Limits-Measured-Where-Not-Yet-Seen.md) | - | - | The task authority checked with git, Node and two concurrent tasks on an SELinux host, and a task's limits with `native-image` and on Fedora, where the rented-host test did not reach |
