@@ -1,7 +1,7 @@
 # B300 — A Person Joins A Conversation Without Seeing Its Password
 
-**Status:** Implementing: rework found in porelo-message-matrix's acceptance, the display name and the room's id;
-the transport's `join --token` and `--display` are porelo-message-matrix's.
+**Status:** Review: pushed and published as `0.5.1~snapshot.342` (Build 40524953818 on 026cbf77); the transport's `join
+--token` and `--display` are porelo-message-matrix's.
 **Size:** S - one option on `talk join` in `app-messaging`, the vault write it makes, its tests and doc rows; the
 transport contract grows by `join --token`, written with porelo-message-matrix.
 
