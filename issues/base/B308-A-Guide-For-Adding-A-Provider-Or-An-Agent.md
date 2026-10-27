@@ -49,7 +49,10 @@ again, and a walk written in a hurry spends a provider's money on a fault an ear
 - **Where:** the guide is one page in `doc/`, in `mkdocs.yml`'s navigation; the scripts sit beside the acceptance
   kit, so an agent repository runs them from the published kit.
 
-## To be checked
 
-- Whether the kit ships the shared features as files an adapter copies, or as a feature set it runs with its own
-  parameters from the kit's jar: the second keeps one copy, if Cucumber can run a feature from a jar.
+## Decided
+
+- **The kit ships the shared features as a feature set each adapter runs from the kit's jar with its own parameters**,
+  never as files an adapter copies. The analysis proves it against the five adapters that exist: each one's feature
+  files mapped to the kit's parameterized ones, what stays the adapter's alone, and one adapter run green from the
+  kit's set.
