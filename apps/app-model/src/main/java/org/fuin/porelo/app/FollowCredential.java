@@ -341,6 +341,12 @@ public final class FollowCredential implements AutoCloseable {
      *
      * <p>What travels as an argument is where the value lives, never the value: {@code
      * /proc/<pid>/cmdline} is world readable on both supported distributions.
+     *
+     * <p><strong>A leading {@code !}.</strong> git runs a helper value as a shell snippet only when
+     * it starts with {@code !}, and as a program only when it is an absolute path; anything else
+     * names a {@code git credential-<name>} command. The quoted path was the third kind, so git
+     * never ran it and no token reached a forge over https (found on the sprint-5 host,
+     * 2026-10-27).
      */
     private static FollowCredential helper(
             final PoreloContext context,
@@ -356,7 +362,7 @@ public final class FollowCredential implements AutoCloseable {
                         "PORELO_GIT_CREDENTIAL_CONFIG",
                         "credential.https://"
                                 + host
-                                + ".helper="
+                                + ".helper=!"
                                 + word(PoreloBinary.path().toString())
                                 + " vault credential "
                                 + option

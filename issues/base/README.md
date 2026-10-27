@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b296"></a>[B296](B296-A-Token-Lent-Over-HTTPS-Reaches-Git.md) | S | - | Every token lent git for an `https://` address reaches it: the credential helper Porelo configures starts with `!`, so git runs it instead of looking for a `git credential-'<path>'` command |
 | <a id="b215"></a>[B215](B215-A-Helper-Started-With-A-UTF-8-Locale.md) | XS | - | A transport and the message filter run with `LANG=C.UTF-8` where porelod has no locale, so a non-ASCII argument or path reaches them whole; a locale the machine sets passes unchanged |
 | <a id="b235"></a>[B235](B235-A-Dry-Run-Shows-The-Agents-Refusals.md) | S | - | `task start --dry-run` chooses the agent as a start does and names a host it or the project refuses as refused, never as reachable |
 | <a id="b233"></a>[B233](B233-A-Host-Service-Reached-By-Name.md) | M | - | `egress.host_services` maps declared names to the gate address and opens TCP 443 on it in every class, offline included; a drop to another port of the host is recorded and never asked about, and the start report names each host service |
@@ -144,7 +145,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b296"></a>[B296](B296-A-Token-Lent-Over-HTTPS-Reaches-Git.md) | S | - | Every token lent git for an `https://` address reaches it: the credential helper Porelo configures starts with `!`, so git runs it instead of looking for a `git credential-'<path>'` command |
 | <a id="b184"></a>[B184](B184-Only-What-Porelo-Delivered-Counts-As-A-Message.md) | M | - | A message in the inbox counts only when the account running Porelo owns it (root inside); the host reads the inbox without following links and names a planted file; the guide and the agent kit check the owner. |
 | <a id="b185"></a>[B185](B185-A-Bound-On-What-A-Task-Writes-To-This-Disk.md) | M | - | The daemon measures a task's box and writable layer and pauses it over `limits.disk` (10 GiB), `limits.mailbox` (256 MiB) or under `limits.disk_free` (2 GiB), each settable in `project.yml`, and says how to go on. |
 | <a id="b123"></a>[B123](B123-Message-Transports-Behind-A-Published-API.md) | XL | - | `porelo-transport-api` and its contract `Transport1`; splits into the library, the stub, the host client, the Matrix move and the end of the command-line contract. |

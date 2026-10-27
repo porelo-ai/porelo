@@ -1,6 +1,6 @@
 # B296 — A Token Lent Over HTTPS Reaches Git
 
-**Status:** Estimated by the operator on 2026-10-27; accepted on the operator's word the same day.
+**Status:** Review: built and tested here; what remains is its acceptance on a host.
 **Size:** S - one string in `FollowCredential.helper()` and a test that has git itself run what that string names.
 
 **What must be true.** Every token Porelo lends git for an `https://` address - from the vault (`--entry`), a file
@@ -48,6 +48,14 @@ start's probe, so it passed where the start refused.
   `--file` and `--env`, and for a Porelo binary whose path contains a space.
 - On a host with a token stored for an `https://` forge and no other git configuration, `porelo credentials check
   <url>` says `read`, and `porelo task start` of a task on that forge gets past its upstream check.
+
+## Built
+
+- `FollowCredential.helper()` writes `credential.https://<host>.helper=!'<porelo>' vault credential ...`.
+- `FollowCredentialHelperTest` has git run `credential fill` through the configuration `FollowCredential` builds,
+  for a token lent from a file and from a variable, with a stand-in Porelo whose path holds a space: red before
+  (`git: 'credential-/tmp/.../my bin/porelo' is not a git command`), green after. The vault's `--entry` takes the
+  same `helper()`.
 
 ## Meanwhile
 
