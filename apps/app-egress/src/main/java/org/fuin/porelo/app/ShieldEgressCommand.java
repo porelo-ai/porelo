@@ -74,7 +74,9 @@ public class ShieldEgressCommand implements Callable<Integer>, PoreloFactory.Con
     @Option(
             names = "--agent",
             paramLabel = "<name>",
-            description = "Agent whose own grants to include. Default: the only one installed.")
+            description =
+                    "Agent whose own grants to include. Default: the agent the project file names for"
+                            + " the repository, else the only one installed.")
     private @Nullable String agentName;
 
     @Option(
@@ -318,13 +320,15 @@ public class ShieldEgressCommand implements Callable<Integer>, PoreloFactory.Con
                             + project.securityClass().name().toLowerCase(java.util.Locale.ROOT));
             EgressReport.reportReachable(
                     project,
-                    control.reachable(ProjectSource.require(context, name), agentName),
-                    control.refusals(ProjectSource.require(context, name), null, agentName),
+                    control.reachable(ProjectSource.require(context, name), repository, agentName),
+                    control.refusals(ProjectSource.require(context, name), repository, agentName),
                     out);
             out.println("declared in    " + ProjectSource.require(context, name));
             out.flush();
             return 0;
-        } catch (ProjectException | EgressSetException ex) {
+        } catch (ProjectException
+                | EgressSetException
+                | org.fuin.porelo.agent.api.AgentException ex) {
             err.println("porelo: " + ex.getMessage());
             err.flush();
             return 2;

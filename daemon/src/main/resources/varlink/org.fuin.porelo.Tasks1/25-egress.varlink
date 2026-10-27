@@ -97,7 +97,7 @@ method Sets() -> (
 #
 # The agent's own hosts and its provider's are included, because what an operator wants to know
 # is what a task will reach and half of it is not in the project file. Which agent that is
-# follows the same rule a run does: the one named, or the only one installed.
+# follows the same rule a run does: the one named, the repository's, or the only one installed.
 method Egress(
   # Project NAME, as Projects.name gives it.
   project: string,
@@ -108,7 +108,8 @@ method Egress(
   # says which of the two granted it, in EgressHost.origin: "project", "set <name>", or
   # "repository <name>".
   repository: ?string,
-  # Agent whose grants to include. Default: the only one installed.
+  # Agent whose grants to include. Default: the agent the project file names for the repository,
+  # else the only one installed.
   agent: ?string
 ) -> (
   hosts: []EgressHost,

@@ -1,6 +1,6 @@
 # B298 — A Repository Names Its Agent
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** M - several modules (the project file's reader, the agent choice, the task's workspace, the project
 inventory) and one contract change, `Repository` in `Projects` growing by three fields, with the project file's docs.
 
@@ -45,8 +45,13 @@ and `20-project.varlink`'s `Repository`.
      display name read as an option) and fits the transport's 64-character display name with `Agent ` before it.
    - Two repositories of one project may not go by the same name, compared without regard to case. A nickname is
      also refused when it equals another repository's name, since that repository goes by its name when it has no
-     nickname. The project's own repository is a repository like the others here.
+     nickname. The project's own repository has no entry under `repositories` and goes by `Agent <project>`, which
+     a nickname may not repeat either.
    - A nickname without an `agent` is allowed: it names whoever works the repository.
+   - `project.nickname` gives the project's own repository's agent its name the same way, so the planning
+     repository's agent goes by `Agent Coordinator`.
+   - A followed machine needs nothing of its own for them: the follow verifies the signature of the commit that
+     holds the whole file (`ConfigurationGate`).
 2. **The record.** `Repository` gains `@Nullable String agent` and `@Nullable String nickname`, and `goesBy()`:
    `Agent <nickname>`, or `Agent <repository>` without one (e.g. `Agent porelo-pi`).
 3. **The choice.** `AgentChoice.considerAgent` takes the repository's agent as the second source, after `--agent`
@@ -62,22 +67,30 @@ and `20-project.varlink`'s `Repository`.
    only grows. `Start`'s comment changes: a project file may name a repository's agent.
 6. **Docs.** `doc/project-file.md` gains the two keys with an example that `DocumentedProjectFileTest` reads;
    `doc/commands.md` says where `task start` takes its agent from; the changelog.
-7. **Red first:** `ProjectReaderTest` (a nickname shared by two repositories, one equal to another repository's
+7. **Red first:** `ProjectRepositoryAgentTest` (a nickname shared by two repositories, one equal to another repository's
    name, one with a space, an `@` or a leading `-` each refused; an agent named and read back), `AgentChoiceTest`
    (the repository's agent chosen without `--agent`, `--agent` winning over it, a named agent not installed
-   refused), `TaskWorkspaceTest` (the commit's author is `goesBy()`), and `ProjectInventoryTest` (`goesBy` with and
-   without a nickname).
+   refused), `StartCheckTest` (`CanStart` asks about the repository's agent as `Start` takes it), `TaskWorkspaceTest`
+   (the commit's author is `goesBy()`), and `ProjectInventoryTest` (`goesBy` with and without a nickname); the
+   acceptance feature `task-repository-agent` drives the dry run, the listing and a commit on the VM.
+8. **Every other place that picks an agent takes the repository's too:** the egress listing (`EgressControl`,
+   `shield egress -r`) and `task prepare`, with the `Egress` and `Prepare` contracts; the choice has no overload
+   without a repository left, so a new caller cannot leave it out. `shield egress` refuses a repository's agent
+   that is not installed in one line with 2, as `task start` does.
+9. **Declined after the reading against the skills:** `CanStart` without a repository still answers about the agent
+   before the repository (as before this change, and `Start` refuses such a call too); an invalid repository name
+   reads with or without the file's name depending on its keys (the same as for `issues`); the positive path with
+   the repository's agent installed has no unit test, since no unit test can install an agent, and is driven by
+   `task-repository-agent` on the VM; `CredentialChoice` keeps the raw `--agent` in a field nothing reads;
+   `task prepare` still prepares an image without an agent when the one asked for is not installed, as its contract
+   says, and the daemon's `Prepare` takes no repository; `ConsiderAgentTest` names an agent, as it did before.
 
 ## Acceptance
 
 - A project naming `agent: stub` and `nickname: Tester` for a repository: `porelo task start -p <project> -r
   <repository>` without `--agent` starts the stub, and the dry run says the agent came from the repository.
-- `porelo project list --verbose` or the daemon's `Projects` shows `Agent Tester` for it, and `Agent <name>` for a
+- `porelo project list --json`, which is the daemon's `Projects`, shows `Agent Tester` for it, and `Agent <name>` for a
   repository without a nickname.
 - A task's commit on that repository is authored by `Agent Tester <agent@localhost>`.
-- Seen to fail first: today a project file with `agent:` under a repository is refused as an unknown key.
-
-## To be checked
-
-- Whether `project.yml` is signed whole when it is followed, so the two keys need nothing of their own on the host.
-  Read so far: the follow checks the signature of the commit that holds the file.
+- Seen to fail first: today a project file with `agent:` under a repository is reported as an unknown key, and its
+  agent is not read.

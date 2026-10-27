@@ -173,10 +173,12 @@ public final class ProjectReader {
                                 SecurityClass.parse(
                                         required(project, "security_class", origin, "project"))),
                         null,
-                        parameters(root, origin));
+                        parameters(root, origin),
+                        projectNickname(project, origin));
         for (final Repository repository : definition.repositories()) {
             definition.egressFor(repository);
         }
+        goesByOnce(definition, origin);
         return definition;
     }
 
@@ -403,7 +405,9 @@ public final class ProjectReader {
                             egress(repository, origin, "repositories." + name + "."),
                             declaredLimits(repository, origin, name),
                             issues(repository, origin, name),
-                            repositoryImage(repository, origin, name)));
+                            repositoryImage(repository, origin, name),
+                            word(repository, "agent", origin, name),
+                            word(repository, "nickname", origin, name)));
         }
         // A prefix tells whose an issue is at a glance only while one repository owns it.
         final Map<String, String> owner = new java.util.LinkedHashMap<>();
@@ -424,6 +428,91 @@ public final class ProjectReader {
             }
         }
         return java.util.List.copyOf(read);
+    }
+
+    /**
+     * Reads a repository's optional {@code agent} or {@code nickname}, which the repository checks.
+     *
+     * @param repository The repository's section.
+     * @param key Which of the two.
+     * @param origin Name used in error messages.
+     * @param name The repository's name.
+     * @return The value as written, or {@code null} when the key is absent.
+     */
+    private static @Nullable String word(
+            Map<?, ?> repository, String key, String origin, String name) {
+        final Object value = repository.get(key);
+        if (value == null) {
+            return null;
+        }
+        if (!(value instanceof String written)) {
+            throw new ProjectException(
+                    origin + ": 'repositories." + name + "." + key + "' is one word, a string");
+        }
+        try {
+            new Repository(
+                    name,
+                    null,
+                    "",
+                    Egress.none(),
+                    Limits.Declared.none(),
+                    java.util.List.of(),
+                    null,
+                    "agent".equals(key) ? written : null,
+                    "nickname".equals(key) ? written : null);
+            return written;
+        } catch (final ProjectException ex) {
+            throw new ProjectException(origin + ": " + ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * Reads the optional {@code project.nickname}, whose shape the project checks.
+     *
+     * @param project The project section.
+     * @param origin Name used in error messages.
+     * @return The nickname, or {@code null} when the key is absent.
+     */
+    private static @Nullable String projectNickname(Map<?, ?> project, String origin) {
+        final Object value = project.get("nickname");
+        if (value == null) {
+            return null;
+        }
+        if (!(value instanceof String written)) {
+            throw new ProjectException(origin + ": 'project.nickname' is one word, a string");
+        }
+        return written;
+    }
+
+    /**
+     * Refuses two repositories of one project that would go by the same name.
+     *
+     * <p>Compared without regard to case, since people do not tell {@code Agent Pi} from {@code
+     * Agent PI} apart in a room; the project's own repository goes by the project's name.
+     *
+     * @param project The project as read.
+     * @param origin Name used in error messages.
+     * @throws ProjectException If two go by one name.
+     */
+    private static void goesByOnce(Project project, String origin) {
+        final Map<String, Repository> taken = new java.util.LinkedHashMap<>();
+        for (final Repository repository : project.allRepositories()) {
+            final Repository other =
+                    taken.putIfAbsent(
+                            repository.goesBy().toLowerCase(java.util.Locale.ROOT), repository);
+            if (other != null) {
+                throw new ProjectException(
+                        origin
+                                + ": '"
+                                + other.name()
+                                + "' and '"
+                                + repository.name()
+                                + "' would both go by '"
+                                + repository.goesBy()
+                                + "'; a nickname may not repeat another repository's nickname or"
+                                + " name, whatever the case");
+            }
+        }
     }
 
     private static java.util.List<String> issues(Map<?, ?> repository, String origin, String name) {

@@ -65,6 +65,15 @@ class DocumentedProjectFileTest {
         assertThat(project.repository("backend").issues())
                 .as("the documented prefixes")
                 .containsExactly("B", "P");
+        assertThat(project.repository("backend").agent())
+                .as("the documented agent, read rather than reported as an unknown key")
+                .isNotNull();
+        assertThat(project.repository("backend").goesBy())
+                .as("the name the documented nickname gives its agent")
+                .isEqualTo("Agent Payments");
+        assertThat(project.ownRepository().goesBy())
+                .as("the name the documented project nickname gives its own repository's agent")
+                .isEqualTo("Agent Planner");
         final Repository frontend = project.repository("frontend");
         assertThat(project.egressFor(frontend).sets()).contains("maven", "nodejs");
         assertThat(project.limitsFor(frontend).memory()).isEqualTo("16g");

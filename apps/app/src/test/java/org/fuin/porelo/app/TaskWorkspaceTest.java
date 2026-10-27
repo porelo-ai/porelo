@@ -339,6 +339,59 @@ class TaskWorkspaceTest {
     }
 
     @Test
+    void aTasksCommitIsAuthoredByTheNameItsAgentGoesBy(@TempDir Path root) throws IOException {
+
+        // Every task's commits said 'agent', so a reviewer of a project with several repositories
+        // could not tell from the log which agent wrote what.
+        final Path mirror = seededMirror(root, "main");
+        final Path workspace = Files.createDirectories(root.resolve("workspace"));
+        final org.fuin.porelo.core.project.Project project =
+                org.fuin.porelo.core.project.ProjectReader.read(
+                        new java.io.StringReader(
+                                """
+                                project:
+                                  name: "p"
+                                  security_class: "guarded"
+                                image:
+                                  base_image: "ubuntu:24.04"
+                                repositories:
+                                  backend:
+                                    nickname: "Ledger"
+                                """),
+                        "test");
+        final Map<String, String> environment =
+                TaskWorkspace.gated(
+                                java.util.Objects.requireNonNull(project.repository("backend")),
+                                new org.fuin.porelo.gate.GitGate(
+                                        runner,
+                                        mirror,
+                                        org.fuin.porelo.gate.GateMode.GATEKEEPING,
+                                        null),
+                                "127.0.0.1")
+                        .environment(project, "t");
+        final Map<String, String> container = new java.util.HashMap<>();
+        container.put("PORELO_GIT_NAME", environment.get("PORELO_GIT_NAME"));
+        container.put("PORELO_REMOTE_URL", mirror.toString());
+        container.put("GIT_TERMINAL_PROMPT", "0");
+        container.put("GIT_CONFIG_GLOBAL", "/dev/null");
+        final String script =
+                TaskWorkspace.cloneScript()
+                        .replace("cd " + TaskWorkspace.MOUNT + ";", "cd " + workspace + ";");
+        runner.runOrFail(new Command(List.of("sh", "-c", script), workspace, container, null));
+
+        Files.writeString(workspace.resolve("work.txt"), "done\n");
+        runner.runOrFail(
+                new Command(List.of("git", "add", "work.txt"), workspace, container, null));
+        runner.runOrFail(
+                new Command(
+                        List.of("git", "commit", "-q", "-m", "work"), workspace, container, null));
+
+        assertThat(git(workspace, "log", "-1", "--format=%an <%ae>"))
+                .as("the nickname's name, at the address every task commits from")
+                .isEqualTo("Agent Ledger <agent@localhost>");
+    }
+
+    @Test
     void takesTheBranchTheMirrorActuallyHas(@TempDir Path root) throws IOException {
 
         // A repository seeded from a checkout on 'master' has no 'main' at all, and assuming one

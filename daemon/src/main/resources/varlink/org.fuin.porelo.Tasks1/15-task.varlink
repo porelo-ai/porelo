@@ -431,11 +431,12 @@ method Start(
   task: ?string,
   # Project NAME, as Projects.name gives it. REQUIRED - there is no default directory any more.
   project: ?string,
-  # Agent to run, by the name Agents reports. Default: the only one installed, or an error naming
-  # them all when several are.
+  # Agent to run, by the name Agents reports. Default: the agent the project file names for the
+  # repository (Repository.agent), else the only one installed, or an error naming them all when
+  # several are.
   agent: ?string,
   # Provider to route through. Default: the agent's own declared default, or an error when it
-  # declares none. A project file names neither an agent nor a provider.
+  # declares none. A project file may name a repository's agent, never a provider.
   provider: ?string,
   # Overrides the stored credential kind for this run.
   credentialType: ?string,
@@ -763,7 +764,8 @@ method CanStart(
   # The task name Start would be given. Omitted, no name is checked. The length rule needs the
   # project, so without one only the characters are.
   task: ?string,
-  # Agent to run. Omitted, the only one installed.
+  # Agent to run. Omitted, the agent the project file names for the repository, else the only one
+  # installed.
   agent: ?string,
   # Provider to route through. Omitted, the agent's own declared default.
   provider: ?string,

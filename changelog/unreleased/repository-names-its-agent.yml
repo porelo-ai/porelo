@@ -1,0 +1,2 @@
+title: A project file names the agent each repository is worked with and a one-word nickname for it and for the project's own repository; a task start without --agent takes that agent, its commits are authored as Agent <nickname> or Agent <repository>, and Projects carries both with the name it goes by
+type: added

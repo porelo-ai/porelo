@@ -55,6 +55,20 @@ class ShieldEgressCommandTest {
                 .doesNotContain("'null'");
     }
 
+    @Test
+    void aRepositorysAgentThatIsNotInstalledIsARefusalNotAFailure(@TempDir Path dir)
+            throws IOException {
+
+        // It escaped as an unhandled failure: exit 70 and a trace in the failures log, for what is
+        // the caller's to fix, as task start says it.
+        project(dir, "guarded", "repositories:\n  backend:\n    agent: \"worker\"\n");
+
+        final int code = execute(context(dir), "shield", "egress", "-p", "uc", "-r", "backend");
+
+        assertThat(code).as(err.toString()).isEqualTo(2);
+        assertThat(err.toString()).contains("'worker'").contains("'backend'");
+    }
+
     /** Two sets on this machine, so a change can be reported in hosts rather than in names. */
     private void installSets(Path dir) throws IOException {
         final Path sets = dir.resolve("data/porelo/egress");

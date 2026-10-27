@@ -40,6 +40,10 @@ import org.jspecify.annotations.Nullable;
  *     when it has none.
  * @param image What the project file says this repository's image is built from, or {@code null}
  *     when it says nothing; a later source in the order gives what it leaves unset.
+ * @param agent The agent this repository is worked with, by the name {@code porelo agents} lists,
+ *     or {@code null} when the project file names none. Whether it is installed is the start's
+ *     question: a followed project is read on machines without it.
+ * @param nickname The one word its agent is addressed by, or {@code null} for none.
  */
 public record Repository(
         String name,
@@ -48,7 +52,44 @@ public record Repository(
         Egress egress,
         Limits.Declared limits,
         java.util.List<String> issues,
-        @Nullable ImageSource image) {
+        @Nullable ImageSource image,
+        @Nullable String agent,
+        @Nullable String nickname) {
+
+    /** What an agent's name looks like: lower-case letters, digits and hyphens. */
+    public static final String AGENT_PATTERN = "[a-z0-9]+(?:-[a-z0-9]+)*";
+
+    /**
+     * What a nickname looks like: one word, a letter first, at most 32 characters, so that {@code
+     * Agent } before it fits a transport's 64-character display name and nothing reads it as an
+     * address, a separator or an option.
+     */
+    public static final String NICKNAME_PATTERN = "[A-Za-z][A-Za-z0-9-]{0,31}";
+
+    /** What the name an agent goes by starts with. */
+    private static final String AGENT_PREFIX = "Agent ";
+
+    /**
+     * Constructor for a repository that names no agent.
+     *
+     * @param name Repository name.
+     * @param upstream Where approved work goes, or {@code null}.
+     * @param description What it is for.
+     * @param egress Added to the project's.
+     * @param limits Replacing the project's key by key.
+     * @param issues The issue prefixes it owns.
+     * @param image What its image is built from, or {@code null}.
+     */
+    public Repository(
+            String name,
+            @Nullable String upstream,
+            String description,
+            Egress egress,
+            Limits.Declared limits,
+            java.util.List<String> issues,
+            @Nullable ImageSource image) {
+        this(name, upstream, description, egress, limits, issues, image, null, null);
+    }
 
     /**
      * Constructor for a repository whose image the project file does not name.
@@ -147,6 +188,24 @@ public record Repository(
         }
         description = description == null ? "" : description;
         issues = issues == null ? java.util.List.of() : java.util.List.copyOf(issues);
+        if (agent != null && !agent.matches(AGENT_PATTERN)) {
+            throw new ProjectException(
+                    "'repositories."
+                            + name
+                            + ".agent' is '"
+                            + agent.replaceAll("\\p{Cntrl}", "?")
+                            + "'; an agent is named as 'porelo agents' lists it: lower-case letters,"
+                            + " digits and hyphens");
+        }
+        if (nickname != null && !nickname.matches(NICKNAME_PATTERN)) {
+            throw new ProjectException(
+                    "'repositories."
+                            + name
+                            + ".nickname' is '"
+                            + nickname.replaceAll("\\p{Cntrl}", "?")
+                            + "'; a nickname is one word of at most 32 letters, digits or hyphens,"
+                            + " starting with a letter");
+        }
         for (final String prefix : issues) {
             if (!prefix.matches(ISSUES_PATTERN)) {
                 throw new ProjectException(
@@ -185,6 +244,16 @@ public record Repository(
                             + value.replaceAll("\\p{Cntrl}", "?")
                             + "', which git or podman would read as an option or a command, not an address");
         }
+    }
+
+    /**
+     * Returns the name this repository's agent goes by where people and agents talk, and on its
+     * commits.
+     *
+     * @return {@code Agent <nickname>}, or {@code Agent <name>} without a nickname.
+     */
+    public String goesBy() {
+        return AGENT_PREFIX + (nickname == null ? name : nickname);
     }
 
     /**

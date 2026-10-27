@@ -145,23 +145,6 @@ public final class EgressControl {
     }
 
     /**
-     * Returns what a project may reach, host to the origin that grants it.
-     *
-     * <p>The agent's own grants and its provider's host are included, through the same composition
-     * a task run uses: what an operator wants to know is what the task will reach, and half of it
-     * is not in the project file.
-     *
-     * @param projectFile The project file.
-     * @param agentName Agent to include, or {@code null} for the only one installed.
-     * @return Hosts and origins.
-     * @throws ProjectException If the project file cannot be read.
-     * @throws EgressSetException If it names a set this machine does not have.
-     */
-    public Map<String, String> reachable(Path projectFile, @Nullable String agentName) {
-        return reachable(projectFile, null, agentName);
-    }
-
-    /**
      * Returns what a task on one repository may reach, host to the origin that grants it.
      *
      * <p>A repository's grants are <strong>added</strong> to the project's, so asking without one
@@ -170,7 +153,8 @@ public final class EgressControl {
      *
      * @param projectFile The project file.
      * @param repository Which repository, or {@code null} for the project's own.
-     * @param agentName Agent to include, or {@code null} for the only one installed.
+     * @param agentName Agent to include, or {@code null} for the repository's, else the only one
+     *     installed.
      * @return Hosts and origins.
      */
     public Map<String, String> reachable(
@@ -182,7 +166,9 @@ public final class EgressControl {
                         GateSupport.repository(project, repository),
                         context.paths().egress().egressSets());
         try (InstalledAgents agents = context.agents()) {
-            final InstalledAgent selected = AgentChoice.select(agents, agentName);
+            final InstalledAgent selected =
+                    AgentChoice.select(
+                            agents, agentName, GateSupport.repository(project, repository));
             final SelectedProvider serving =
                     selected == null
                             ? null
@@ -202,7 +188,8 @@ public final class EgressControl {
      *
      * @param projectFile The project file.
      * @param repository Which repository, or {@code null} for the project's own.
-     * @param agentName Agent to include, or {@code null} for the only one installed.
+     * @param agentName Agent to include, or {@code null} for the repository's, else the only one
+     *     installed.
      * @return Host to who refused it, empty when nobody refuses anything.
      */
     public Map<String, String> refusals(
@@ -210,7 +197,8 @@ public final class EgressControl {
         final Project project = ProjectReader.read(projectFile);
         try (InstalledAgents agents = context.agents()) {
             return EgressReport.refusals(
-                    AgentChoice.select(agents, agentName),
+                    AgentChoice.select(
+                            agents, agentName, GateSupport.repository(project, repository)),
                     project,
                     GateSupport.repository(project, repository));
         }

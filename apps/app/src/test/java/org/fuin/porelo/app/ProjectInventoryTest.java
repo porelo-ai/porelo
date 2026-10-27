@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.wire.Sidecar;
@@ -553,6 +554,52 @@ class ProjectInventoryTest {
                         .orElseThrow();
         assertThat(own.egress()).extracting(ProjectInventory.Grant::from).containsOnly("project");
         assertThat(own.limits().memory()).isEqualTo("16g");
+    }
+
+    @Test
+    void eachRepositoryCarriesItsAgentAndTheNameItGoesBy(@TempDir Path dir) throws IOException {
+
+        // An interface shows and addresses each repository's agent by this name and starts it
+        // with this agent; one that built the name itself would say another than the commits do.
+        final PoreloContext context = context(dir);
+        mirror("uc");
+        final Path file = dir.resolve("project.yml");
+        Files.writeString(
+                file,
+                """
+                project:
+                  name: "uc"
+                  security_class: "guarded"
+                image:
+                  base_image: "ubuntu:24.04"
+                repositories:
+                  backend:
+                    agent: "helper"
+                    nickname: "Ledger"
+                  site:
+                    agent: "worker"
+                """);
+        registry(dir, "uc", file);
+
+        final Map<String, Map<String, Object>> byName = new java.util.HashMap<>();
+        for (final ProjectInventory.RepositorySummary each :
+                projectsOf(context).get(0).repositories()) {
+            byName.put(each.name(), each.asMap());
+        }
+
+        assertThat(byName.get("backend"))
+                .containsEntry("agent", "helper")
+                .containsEntry("nickname", "Ledger")
+                .containsEntry("goesBy", "Agent Ledger");
+        assertThat(byName.get("site"))
+                .as("without a nickname, the repository's name")
+                .containsEntry("agent", "worker")
+                .containsEntry("nickname", "")
+                .containsEntry("goesBy", "Agent site");
+        assertThat(byName.get("uc"))
+                .as("the project's own repository names no agent and goes by the project's name")
+                .containsEntry("agent", "")
+                .containsEntry("goesBy", "Agent uc");
     }
 
     /** A project this machine follows, with the file its verified clone holds. */

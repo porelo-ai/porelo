@@ -409,7 +409,16 @@ type Repository (
   # is which.
   egress: []Grant,
   # What a task on this repository may consume, and where each key came from.
-  limits: ResolvedLimits
+  limits: ResolvedLimits,
+  # The agent the project file names for this repository, by the name Agents reports; "" when it
+  # names none. Start takes it when its own 'agent' is omitted. Whether it is installed here is
+  # CanStart's question.
+  agent: string,
+  # The one word the project file gives this repository's agent, or "" when it gives none.
+  nickname: string,
+  # The name this repository's agent goes by in a conversation and on its commits: "Agent
+  # <nickname>", or "Agent <name>" without a nickname. Show it as it is; never build it.
+  goesBy: string
 )
 
 # One thing a repository may reach.

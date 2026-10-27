@@ -23,7 +23,7 @@ import org.jspecify.annotations.Nullable;
  * on what the vault already holds</em>, and a client intersecting two lists would report a missing
  * credential for precisely the vault that has one.
  *
- * <p>Every decision here is delegated rather than restated - {@link TaskLaunch#considerAgent},
+ * <p>Every decision here is delegated rather than restated - {@link AgentChoice#considerAgent},
  * {@link SelectedProvider#consider}, {@link CredentialWiring#credentialUnavailable} - so this and
  * an actual launch cannot come to different conclusions.
  */
@@ -373,7 +373,13 @@ public final class StartCheck {
 
         final Result checked =
                 checkEverythingElse(
-                        context, projectFile, taskName, agentName, providerName, credentialType);
+                        context,
+                        projectFile,
+                        taskName,
+                        agentName,
+                        providerName,
+                        credentialType,
+                        needsRepository ? namedRepository(projectFile, repository) : null);
         final Result rest = withParameters(checked, projectFile, parameters);
         final Result chosen =
                 withRepository(
@@ -871,6 +877,27 @@ public final class StartCheck {
     }
 
     /**
+     * Returns the repository a start names, as Start would find it.
+     *
+     * @param projectFile The project file, or {@code null}.
+     * @param repository The name given, or {@code null}.
+     * @return The repository, or {@code null} when there is none to find; a file that cannot be
+     *     read or a name it does not have is the other checks' to say.
+     */
+    private static org.fuin.porelo.core.project.@Nullable Repository namedRepository(
+            @Nullable Path projectFile, @Nullable String repository) {
+        if (projectFile == null || repository == null || repository.isBlank()) {
+            return null;
+        }
+        try {
+            return org.fuin.porelo.core.project.ProjectReader.read(projectFile)
+                    .repository(repository);
+        } catch (RuntimeException ex) {
+            return null;
+        }
+    }
+
+    /**
      * Everything a start needs except which repository it is for.
      *
      * @param context The machine.
@@ -879,6 +906,8 @@ public final class StartCheck {
      * @param agentName Agent to run, or {@code null}.
      * @param providerName Provider to route through, or {@code null}.
      * @param credentialType Credential kind override, or {@code null}.
+     * @param repository The repository the task is for, whose agent is taken without {@code
+     *     agentName}, or {@code null}.
      * @return What was found.
      */
     private static Result checkEverythingElse(
@@ -887,7 +916,8 @@ public final class StartCheck {
             @Nullable String taskName,
             @Nullable String agentName,
             @Nullable String providerName,
-            @Nullable String credentialType) {
+            @Nullable String credentialType,
+            org.fuin.porelo.core.project.@Nullable Repository repository) {
 
         if (projectFile != null && !Files.isRegularFile(projectFile)) {
             return refused(Outcome.NO_PROJECT_FILE, "no project file at " + projectFile);
@@ -919,7 +949,8 @@ public final class StartCheck {
 
         try (InstalledAgents agents = context.agents()) {
 
-            final AgentChoice.Choice chosen = TaskLaunch.considerAgent(agents, agentName);
+            final AgentChoice.Choice chosen =
+                    AgentChoice.considerAgent(agents, agentName, repository);
             if (chosen.refusal() != null) {
                 return refused(
                         switch (chosen.refusal()) {

@@ -390,6 +390,12 @@ public final class TaskLaunch {
     private Request request;
 
     /**
+     * The repository the task works on, once the start has settled it; its agent is taken when
+     * {@code --agent} names none.
+     */
+    private org.fuin.porelo.core.project.@Nullable Repository workedOn;
+
+    /**
      * Constructor.
      *
      * @param context Where podman, the paths and the vault come from.
@@ -1059,6 +1065,8 @@ public final class TaskLaunch {
             return 64;
         }
 
+        workedOn = repository;
+
         steps.started(StartStep.Step.CHECKS);
         out.println("task           " + request.task());
         out.println("project        " + project.name());
@@ -1066,6 +1074,10 @@ public final class TaskLaunch {
                 "repository     "
                         + repository.name()
                         + (repository.name().equals(project.name()) ? " (the project's own)" : ""));
+        final AgentChoice.Wanted wanted = AgentChoice.wanted(request.agentName(), repository);
+        if (wanted.source() == AgentChoice.Source.REPOSITORY) {
+            out.println("agent          " + wanted.name() + " (named for the repository)");
+        }
         out.println("security class " + project.securityClass().name().toLowerCase());
         // Chosen per repository, key by key, and each key named with where it came from: the image
         // is built as root outside the task's firewall, so which file said what is not a detail.
@@ -1138,7 +1150,7 @@ public final class TaskLaunch {
         if (request.dryRun()) {
             try (InstalledAgents agents = context.agents()) {
                 final AgentChoice.Choice choice =
-                        AgentChoice.considerAgent(agents, request.agentName());
+                        AgentChoice.considerAgent(agents, request.agentName(), repository);
                 if (choice.refusal() == AgentChoice.AgentRefusal.SEVERAL_AGENTS) {
                     out.println(
                             "note           name an agent with --agent to include its hosts and refusals");
@@ -1468,10 +1480,11 @@ public final class TaskLaunch {
             if (request.mode() == org.fuin.porelo.wire.TaskMode.AGENT && select(agents) == null) {
                 err.println(
                         "porelo: no agent to attach"
-                                + (request.agentName() == null
+                                + (AgentChoice.wanted(request.agentName(), workedOn).name() == null
                                         ? "; none is installed here"
                                         : ": no agent called '"
-                                                + request.agentName()
+                                                + AgentChoice.wanted(request.agentName(), workedOn)
+                                                        .name()
                                                 + "' is installed"));
                 err.println(
                         "porelo: nothing was created; run with '--attach shell' for a terminal"
@@ -2091,15 +2104,17 @@ public final class TaskLaunch {
 
     @Nullable
     private InstalledAgent select(InstalledAgents agents) {
+        // A person is asked to choose only when neither --agent nor the repository named one.
         final String named =
-                request.agentName() != null || offer == Offer.NOBODY
+                AgentChoice.wanted(request.agentName(), workedOn).name() != null
+                                || offer == Offer.NOBODY
                         ? request.agentName()
                         : agentName(
                                 agents.all().stream().map(InstalledAgent::name).toList(),
                                 null,
                                 offer,
                                 chosenAgent);
-        return select(agents, named);
+        return AgentChoice.select(agents, named, workedOn);
     }
 
     /**
@@ -2154,23 +2169,6 @@ public final class TaskLaunch {
     static boolean refusesWithoutCredential(org.fuin.porelo.wire.TaskMode mode) {
         return mode == org.fuin.porelo.wire.TaskMode.UNATTENDED
                 || mode == org.fuin.porelo.wire.TaskMode.AGENT;
-    }
-
-    @Nullable
-    static InstalledAgent select(InstalledAgents agents, @Nullable String agentName) {
-        return AgentChoice.select(agents, agentName);
-    }
-
-    /**
-     * Picks the agent a command should work with, without throwing.
-     *
-     * @param agents What is installed.
-     * @param agentName Value of {@code --agent}, or {@code null}.
-     * @return The choice, refused or not.
-     */
-    public static AgentChoice.Choice considerAgent(
-            InstalledAgents agents, @Nullable String agentName) {
-        return AgentChoice.considerAgent(agents, agentName);
     }
 
     /**

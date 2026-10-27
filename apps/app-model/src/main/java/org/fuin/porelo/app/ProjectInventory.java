@@ -553,6 +553,11 @@ public final class ProjectInventory {
      * @param mirror The bare mirror on this machine, or "" when it has never been used.
      * @param pending How many pushes are waiting for review in that mirror.
      * @param behind How far this repository is from its upstream, as last measured.
+     * @param egress Everything a task on it may reach, each saying which block granted it.
+     * @param limits What a task on it may consume, and where each key came from.
+     * @param agent The agent the project file names for it, or "" when it names none.
+     * @param nickname The nickname the project file gives its agent, or "" when it gives none.
+     * @param goesBy The name its agent goes by, filled here so a client derives nothing.
      */
     public record RepositorySummary(
             String name,
@@ -562,7 +567,10 @@ public final class ProjectInventory {
             int pending,
             org.fuin.porelo.gate.UpstreamDistance.Distance behind,
             List<Grant> egress,
-            ResolvedLimits limits) {
+            ResolvedLimits limits,
+            String agent,
+            String nickname,
+            String goesBy) {
 
         /**
          * Constructor for a repository reported before its egress and limits were.
@@ -589,7 +597,10 @@ public final class ProjectInventory {
                     pending,
                     behind,
                     List.of(),
-                    new ResolvedLimits("", "", 0, "", "", ""));
+                    new ResolvedLimits("", "", 0, "", "", ""),
+                    "",
+                    "",
+                    new org.fuin.porelo.core.project.Repository(name, null).goesBy());
         }
 
         /**
@@ -614,6 +625,9 @@ public final class ProjectInventory {
             map.put("behindDetail", behind.detail() == null ? "" : behind.detail());
             map.put("egress", egress.stream().map(Grant::asMap).toList());
             map.put("limits", limits.asMap());
+            map.put("agent", agent);
+            map.put("nickname", nickname);
+            map.put("goesBy", goesBy);
             return map;
         }
     }
@@ -654,7 +668,10 @@ public final class ProjectInventory {
                             pendingInMirror(mirror),
                             upstream.get(UpstreamRecords.key(project.name(), repository.name())),
                             grantsOf(project, repository),
-                            limitsOf(project, repository)));
+                            limitsOf(project, repository),
+                            repository.agent() == null ? "" : repository.agent(),
+                            repository.nickname() == null ? "" : repository.nickname(),
+                            repository.goesBy()));
         }
         return List.copyOf(found);
     }

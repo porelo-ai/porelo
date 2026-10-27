@@ -77,7 +77,8 @@ public final class Preparation {
      *     null} for the project's own image.
      * @param context The machine.
      * @param projectFile The project file to build from.
-     * @param agentName Whose tooling to install, or {@code null} for the only agent installed.
+     * @param agentName Whose tooling to install, or {@code null} for the repository's, else the
+     *     only one installed.
      * @param rebuild How much of any previous build to discard.
      * @param dryRun Says what it would do and does nothing.
      * @param out Where progress goes, line by line, because a build takes minutes and silence is
@@ -101,6 +102,8 @@ public final class Preparation {
         }
         final Project project;
         final @Nullable String snippetFrom;
+        // The agent a start on this repository would take, so the image carries what it runs.
+        @Nullable String wantedAgent = agentName;
         if (repositoryName == null) {
             project = declared;
             snippetFrom = org.fuin.porelo.core.project.ImageSource.of(declared).from();
@@ -128,6 +131,7 @@ public final class Preparation {
                 return new Result(Outcome.FAILED, "", rebuild, CliErrors.reason(ex));
             }
             project = choice.applyTo(declared, repository.get());
+            wantedAgent = AgentChoice.wanted(agentName, repository.get()).name();
             snippetFrom = choice.snippetFrom();
             out.println("base image " + project.baseImage() + "  (from " + choice.baseFrom() + ")");
             if (choice.snippetFrom() != null) {
@@ -139,8 +143,8 @@ public final class Preparation {
 
         try (var agents = context.agents()) {
             final var selected =
-                    agentName != null
-                            ? agents.find(agentName)
+                    wantedAgent != null
+                            ? agents.find(wantedAgent)
                             : agents.names().size() == 1
                                     ? agents.find(agents.names().getFirst())
                                     : java.util.Optional

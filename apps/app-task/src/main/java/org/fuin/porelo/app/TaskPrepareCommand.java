@@ -40,7 +40,9 @@ public class TaskPrepareCommand implements Callable<Integer>, PoreloFactory.Cont
     @Option(
             names = "--agent",
             paramLabel = "<name>",
-            description = "Whose tooling to install. Default: the only one installed.")
+            description =
+                    "Whose tooling to install. Default: the agent the project file names for the"
+                            + " repository, else the only one installed.")
     private @Nullable String agentName;
 
     @Option(

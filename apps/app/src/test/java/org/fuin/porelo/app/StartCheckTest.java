@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.junit.jupiter.api.Test;
@@ -80,6 +81,27 @@ class StartCheckTest {
 
         assertThat(result.outcome()).isEqualTo(StartCheck.Outcome.PARAMETER_REFUSED);
         assertThat(result.detail()).contains("[feature, bugfix]");
+    }
+
+    @Test
+    void asksAboutTheAgentTheProjectFileNamesForTheRepository(@TempDir Path dir) throws Exception {
+
+        // Start takes the repository's agent without --agent, so CanStart answering for whatever
+        // the machine has would offer a start that Start then refuses, or runs with another agent.
+        Files.createDirectories(dir.resolve("project"));
+        final Path project = dir.resolve("project/project.yml");
+        Files.writeString(
+                project,
+                "project:\n  name: \"uc\"\n  security_class: \"guarded\"\n"
+                        + "image:\n  base_image: \"ubuntu:24.04\"\n"
+                        + "repositories:\n  backend:\n    agent: \"helper\"\n");
+
+        final StartCheck.Result result =
+                StartCheck.check(
+                        context(dir), project, null, null, null, null, "backend", true, Map.of());
+
+        assertThat(result.outcome()).isEqualTo(StartCheck.Outcome.UNKNOWN_AGENT);
+        assertThat(result.detail()).contains("'helper'").contains("'backend'");
     }
 
     @Test

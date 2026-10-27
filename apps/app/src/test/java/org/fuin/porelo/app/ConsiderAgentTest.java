@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Tests for {@link TaskLaunch#considerAgent}: a refusal says what is wrong with the agent asked
+ * Tests for {@link AgentChoice#considerAgent}: a refusal says what is wrong with the agent asked
  * for.
  */
 class ConsiderAgentTest {
@@ -30,10 +30,11 @@ class ConsiderAgentTest {
         Files.setPosixFilePermissions(adapter, PosixFilePermissions.fromString("rwx------"));
 
         final AgentChoice.Choice choice =
-                TaskLaunch.considerAgent(
+                AgentChoice.considerAgent(
                         new InstalledAgents(
                                 new AgentDirectory(List.of(agents)), dir.resolve("run")),
-                        "claude");
+                        "claude",
+                        null);
 
         assertThat(choice.detail())
                 .contains("'claude' is installed but did not start")

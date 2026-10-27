@@ -41,7 +41,8 @@ final class ProjectSchema {
                 "parameters.<parameter>",
                 Set.of("description", "values", "pattern", "default", "required", "env"));
         SECTIONS.put(
-                "project", Set.of("name", "description", "security_class", "upstream", "signers"));
+                "project",
+                Set.of("name", "description", "security_class", "upstream", "signers", "nickname"));
         SECTIONS.put("image", Set.of("base_image", "snippet", "snippet_file", "package_sources"));
         SECTIONS.put("egress", Set.of("sets", "domains", "refused", "host_services"));
         SECTIONS.put("limits", Set.of("memory", "pids", "cpus", "hand_in"));
@@ -50,7 +51,15 @@ final class ProjectSchema {
         SECTIONS.put("mail.peers.<peer>", Set.of("address", "trust", "per_day", "mode"));
         SECTIONS.put(
                 "repositories.<repository>",
-                Set.of("upstream", "description", "egress", "limits", "issues", "image"));
+                Set.of(
+                        "upstream",
+                        "description",
+                        "egress",
+                        "limits",
+                        "issues",
+                        "image",
+                        "agent",
+                        "nickname"));
     }
 
     /**
@@ -234,6 +243,14 @@ final class ProjectSchema {
                             "upstream",
                             "Where approved work on the project's own repository goes; required for"
                                     + " online.",
+                            "string",
+                            "",
+                            false),
+                    key(
+                            "project",
+                            "nickname",
+                            "The one word the agent of the project's own repository goes by, as"
+                                    + " Agent <nickname>; without one, Agent <project>.",
                             "string",
                             "",
                             false),
@@ -458,6 +475,22 @@ final class ProjectSchema {
                             "The issue prefixes this repository owns, each one or more"
                                     + " capital letters and named by no other repository; a task on it is told them.",
                             "list",
+                            "",
+                            false),
+                    key(
+                            "repositories.<repository>",
+                            "agent",
+                            "The agent this repository is worked with, as 'porelo agents' lists it;"
+                                    + " a task start without --agent takes it.",
+                            "string",
+                            "",
+                            false),
+                    key(
+                            "repositories.<repository>",
+                            "nickname",
+                            "The one word its agent goes by, as Agent <nickname>, in a conversation"
+                                    + " and on its commits; without one, Agent <repository>.",
+                            "string",
                             "",
                             false));
 

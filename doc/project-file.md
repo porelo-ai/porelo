@@ -42,6 +42,11 @@ project:
   # forwards the task's own branch at once.
   upstream: "git@github.com:you/myproject.git"
 
+  # Optional. The one word the agent of the project's own repository goes by: "Agent Planner" in
+  # a conversation and on its commits, with the rules of a repository's nickname below. Without
+  # one it goes by "Agent myproject".
+  nickname: "Planner"
+
   # Optional. The public keys of the people whose signed commits change this file. A commit
   # signed by a key a machine has pinned that adds or removes one here makes the machine pin or
   # unpin it. A key never counts for the commit that adds it.
@@ -62,6 +67,14 @@ repositories:
     # Optional. The issue prefixes this repository owns, each one or more capital letters and named
     # by no other repository. A task on it is told them in PORELO_ISSUE_PREFIXES ("B,P").
     issues: ["B", "P"]
+    # Optional. The agent this repository is worked with, as 'porelo agents' lists it: a task
+    # start without --agent takes it, and refuses when it is not installed here.
+    agent: "claude"
+    # Optional. One word, a letter first, at most 32 letters, digits or hyphens: its agent goes by
+    # "Agent Payments" in a conversation and as the author of its task's commits. Without one it
+    # goes by "Agent backend". No two repositories, the project's own among them, may go by one
+    # name, whatever the case.
+    nickname: "Payments"
 
   frontend:
     upstream: "git@github.com:you/frontend.git"
@@ -417,7 +430,8 @@ from git.
 
 ## What is not in here
 
-- **Agents and providers.** They are chosen per run: `porelo task start --agent claude --provider openrouter`.
+- **Providers.** They are chosen per run: `porelo task start --provider openrouter`. An agent is named per
+  repository (`repositories.<repository>.agent`), and `--agent` chooses another for one run.
 - **Secrets.** Everyone who can read the repository reads this file. Credentials live in the vault;
   `credentials:` only names vault entries. See [authentication](credentials.md).
 - **Paths.** Where the workspace, state and gate mirror live is Porelo's choice; `porelo doctor` shows it.

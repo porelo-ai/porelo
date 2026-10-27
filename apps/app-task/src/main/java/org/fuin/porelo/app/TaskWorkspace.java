@@ -53,6 +53,12 @@ public class TaskWorkspace {
     private final @Nullable String repository;
 
     /**
+     * The name the agent goes by on this repository, the author of the task's commits, or {@code
+     * null} for the project's own.
+     */
+    private final @Nullable String goesBy;
+
+    /**
      * Prepares the settings for one task's gate.
      *
      * <p>Does not start a server. The gate has to outlive {@code task run} - which either returns
@@ -62,8 +68,10 @@ public class TaskWorkspace {
      * @param gate The project's gate.
      * @param host Address the container reaches the host on.
      */
-    private TaskWorkspace(GitGate gate, String host, @Nullable String repository) {
+    private TaskWorkspace(
+            GitGate gate, String host, @Nullable String repository, @Nullable String goesBy) {
         this.repository = repository;
+        this.goesBy = goesBy;
         this.gate = gate;
         this.host = host;
         this.token = TaskToken.mint();
@@ -97,7 +105,7 @@ public class TaskWorkspace {
      * @return A gated workspace.
      */
     public static TaskWorkspace gated(GitGate gate, String host) {
-        return new TaskWorkspace(gate, host, null);
+        return new TaskWorkspace(gate, host, null, null);
     }
 
     /**
@@ -110,7 +118,7 @@ public class TaskWorkspace {
      */
     public static TaskWorkspace gated(
             org.fuin.porelo.core.project.Repository repository, GitGate gate, String host) {
-        return new TaskWorkspace(gate, host, repository.name());
+        return new TaskWorkspace(gate, host, repository.name(), repository.goesBy());
     }
 
     /**
@@ -185,6 +193,10 @@ public class TaskWorkspace {
         // underneath them. An online task's gate passes it on as porelo/<task> at the upstream at
         // once; a guarded one's keeps it for approval.
         environment.put("PORELO_TASK_REF", GitGate.INCOMING + taskName);
+        // The task's commits are authored by the name its agent goes by, so a reviewer reads who
+        // wrote them; the address stays agent@localhost.
+        environment.put(
+                "PORELO_GIT_NAME", goesBy == null ? project.ownRepository().goesBy() : goesBy);
         return Map.copyOf(environment);
     }
 

@@ -171,8 +171,11 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
   start with nothing stored for its agent says that the credential is missing, and never names a stored kind that
   is not there; a kind asked for with `--credential-type` that the agent's provider cannot use is refused before
   the start, in words that do not say "stored".
-  With several agents installed and none named, it lists them and asks which, by number; without a terminal it
-  asks for `--agent` as before. Without `-r`, it lists the repositories the project works in and asks which,
+  Without `--agent`, the start takes the agent the project file names for the repository
+  (`repositories.<repository>.agent`) and says so in its plan; one that is not installed refuses the start. With
+  neither, and several agents installed, it lists them and asks which, by number; without a terminal it asks for
+  `--agent` as before. A task's commits are authored by the name its agent goes by, `Agent <nickname>` or
+  `Agent <repository>`, at `agent@localhost`. Without `-r`, it lists the repositories the project works in and asks which,
   before the task is named after it. `--no-input` asks nothing and refuses as without a terminal; `--yes`
   takes a harmless remedy without asking and never a trust decision.
 - After a reboot, `task list` shows which tasks went down and `porelo task start --restarted` brings

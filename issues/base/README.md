@@ -29,13 +29,13 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b298"></a>[B298](B298-A-Repository-Names-Its-Agent.md) | M | - | A project file names each repository's agent, `repositories.<repository>.agent`, and an optional one-word nickname; `task start` takes that agent without `--agent`, and `Projects` carries both with the name it goes by, `Agent <nickname>` or `Agent <repository>`, for the room and the commits |
 | <a id="b244"></a>[B244](B244-The-Loop-Watch-Sees-A-Compact-Screen.md) | M | - | The acceptance kit reads a declared tool-call record beside tmux history to stop repeated failures on compact screens; implementing, live record format still to verify |
 
 ## Backlog
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b298"></a>[B298](B298-A-Repository-Names-Its-Agent.md) | M | - | A project file names each repository's agent, `repositories.<repository>.agent`, and an optional one-word nickname; `task start` takes that agent without `--agent`, and `Projects` carries both with the name it goes by, `Agent <nickname>` or `Agent <repository>`, for the room and the commits |
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
 | <a id="b206"></a>[B206](B206-A-Transport-Takes-Its-Secrets-On-Its-Input.md) | L | - | A transport takes the secrets Porelo kept for it on its standard input, not in its environment, so no other process of the account can read them from `/proc`; a version declared in `describe`, with the matrix transport's matching change. |
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | XL | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own; analyzed: filled only from reviewed work, mounted `:ro,z`, read through `maven.repo.local.tail`, filled by `dependency:go-offline` on request and when the default branch moved, Maven first |
