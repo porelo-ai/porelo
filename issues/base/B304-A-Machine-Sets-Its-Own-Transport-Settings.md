@@ -90,6 +90,12 @@ over `transports()` only) read the values; `MessageWatch:1127` reads only which 
 8. **Docs:** `doc/transports.md` (the field, the two verbs, the token as a secret), `doc/commands.md` (`talk
    settings`, `talk admit`, `talk dismiss`), `doc/hosts.md` (where an admitted host's values go), the changelog.
 
+## Decided
+
+- **A machine's own settings take precedence over the project file's homeserver and room** (QB74, operator,
+  2026-10-27), also for a guarded or online project, though they are the account's unsigned file: only the account
+  writes them, as it writes its own vault. The accepted risk goes into `doc/decisions.md` with the change.
+
 ## Acceptance
 
 - On porelo-host's rented host, admitted from this machine: its task writes in the project's room on this machine's
@@ -99,17 +105,14 @@ over `transports()` only) read the values; `MessageWatch:1127` reads only which 
 
 ## Open questions
 
-- **A machine's settings change where a signed project's messages go.** For a guarded or online project, the
-  account's own unsigned file can point the transport at another homeserver than the project file names. (a)
-  Recommended: allowed, since only the account writes it, as it writes its own vault; the accepted risk goes into
-  `doc/decisions.md`. (b) Only an offline project's or none: a host then needs a project file of its own.
-- **The registration token on disk for a person without an interface:** `talk admit --into FILE` writes it in the
+- **QB75: the registration token on disk for a person without an interface:** `talk admit --into FILE` writes it in the
   clear to a new owner-only file, as the VPN key lies on the host's disk. (a) Recommended: allowed, with the accepted
   risk recorded; the interface takes it from `AdmitMachine` straight into `secrets.kdbx`. (b) Only the interface may
   admit a machine.
 
 ## To be checked
 
-- With Agent Matrix: `machineSecrets` in `describe`, beside the agreed `machineSettings` (`homeserver`, `room`), the
-  CA as `ca_file` in Porelo's directory, the token as `PORELO_MATRIX_REGISTRATION_TOKEN`, and `admit`'s
-  `admission`/`secrets` split.
+- The transport's side is agreed with porelo-message-matrix (`machineSettings` `homeserver` and `room`,
+  `machineSecrets` `PORELO_MATRIX_REGISTRATION_TOKEN`, `admit`'s `admission`/`secrets` split, `settings
+  --loopback-only`) and built in its MX42; Porelo passes `--loopback-only` to `settings` only once that is published,
+  since today's transport refuses the option.

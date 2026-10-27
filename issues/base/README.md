@@ -48,7 +48,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="b304"></a>[B304](B304-A-Machine-Sets-Its-Own-Transport-Settings.md) | L | - | A machine that follows a project may set some of a transport's settings for itself - for Matrix the homeserver, the room, the CA certificate and the registration token - in place of the project file's | 2 |
+| <a id="b304"></a>[B304](B304-A-Machine-Sets-Its-Own-Transport-Settings.md) | L | - | A machine that follows a project may set some of a transport's settings for itself - for Matrix the homeserver, the room, the CA certificate and the registration token - in place of the project file's | 1 |
 | <a id="b136"></a>[B136](B136-An-Approve-Bound-To-What-Was-Reviewed.md) | M | - | Capture one reviewed commit for patch/log and every approval path; confirmations and signatures use that key; SARIF never authorizes forwarding. | 0 |
 | <a id="b150"></a>[B150](B150-The-Whole-Diff-In-Review.md) | M | - | Bound serialized review replies with explicit file-boundary cuts; retain complete file inventory or refuse by name; full-diff risk and SARIF completeness stay independent. | 0 |
 | <a id="b141"></a>[B141](B141-New-Dependencies-Checked-Before-Review.md) | XL | [B136](README.md#b136), [B291](README.md#b291), [B292](README.md#b292) | Dependency changes and registry/name findings as SARIF; commit-bound human confirmation holds approval; splits into extraction (M), registry/hold (L), look-alike names (S). | 1 |
