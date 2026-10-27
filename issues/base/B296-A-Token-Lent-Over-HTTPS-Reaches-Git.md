@@ -1,6 +1,6 @@
 # B296 — A Token Lent Over HTTPS Reaches Git
 
-**Status:** Analyzed; accepted on the operator's word on 2026-10-27.
+**Status:** Estimated by the operator on 2026-10-27; accepted on the operator's word the same day.
 **Size:** S - one string in `FollowCredential.helper()` and a test that has git itself run what that string names.
 
 **What must be true.** Every token Porelo lends git for an `https://` address - from the vault (`--entry`), a file
