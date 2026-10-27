@@ -26,6 +26,8 @@ commits carry.
 
 - **One agent per repository.** A task holds one repository (`doc/commands.md`, *Names*), so an agent that spans
   several repositories becomes one per repository; reading across them is the coordinator's.
+- **A task's commits carry the name it goes by** as their author, `Agent <nickname> <agent@localhost>` or `Agent
+  <repository> <agent@localhost>`, not as a trailer.
 
 ## Plan
 
@@ -54,8 +56,7 @@ and `20-project.varlink`'s `Repository`.
 4. **The commits.** A task's workspace sets `PORELO_GIT_NAME` to `goesBy()`, so a task's commits are authored by
    `Agent Pi` instead of `agent`; the e-mail stays `agent@localhost`. This touches no signature: the task never
    signs, and the gate's push carries the commits unchanged. The shared commit rule is about agents' own
-   repositories and their `Assisted-by:` trailer, which this leaves as it is. (QB73 decides whether this step is
-   built.)
+   repositories and their `Assisted-by:` trailer, which this leaves as it is.
 5. **The contract.** `Repository` in `20-project.varlink` gains `agent: string` and `nickname: string` (`""` when
    absent) and `goesBy: string`, which the daemon fills so a client derives nothing (`ProjectInventory`). `Tasks1`
    only grows. `Start`'s comment changes: a project file may name a repository's agent.
@@ -73,14 +74,8 @@ and `20-project.varlink`'s `Repository`.
   <repository>` without `--agent` starts the stub, and the dry run says the agent came from the repository.
 - `porelo project list --verbose` or the daemon's `Projects` shows `Agent Tester` for it, and `Agent <name>` for a
   repository without a nickname.
-- A task's commit on that repository is authored by `Agent Tester` (if QB73 says so).
+- A task's commit on that repository is authored by `Agent Tester <agent@localhost>`.
 - Seen to fail first: today a project file with `agent:` under a repository is refused as an unknown key.
-
-## Open questions
-
-- **QB73:** should a task's commits carry the nickname? (a) As the author's name, `Agent Pi <agent@localhost>`
-  (recommended: it is what `git log` and a forge show, and it touches no signature); (b) as a trailer such as
-  `Agent: Pi`, leaving the author `agent`; (c) not at all, the nickname only for messaging.
 
 ## To be checked
 
