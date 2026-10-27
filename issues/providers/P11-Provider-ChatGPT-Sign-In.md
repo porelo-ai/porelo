@@ -37,15 +37,16 @@ loses the answer, and the next renewal uses the refresh token still stored. A re
 1. **Red first:** `SelectedProviderTest` that `chatgpt` is shipped, serves `openai` under `/backend-api/codex`, takes
    `oauth` in `Authorization: Bearer` and refuses an API key before the start; a `VaultProxyTest` that a request on a
    `chatgpt` route arrives upstream with `ChatGPT-Account-Id` from the vault entry and without the container's own
-   value of that header; a `LoginCredentialsTest` that `account_id` from the agent's credential is kept as a setting.
+   value of that header; a `LoginRenewalTest` that `account_id` from the agent's credential is kept as a setting.
 2. **`providers/chatgpt.yaml`:** `upstream: https://chatgpt.com`, `dialects: { openai: "/backend-api/codex" }`,
    `auth_header`/`auth_prefix` `Authorization` / `Bearer `, `token_env: { _default: CHATGPT_TOKEN }`,
    `unbrokerable: { api-key: ... }` naming `openai`, and the new key below.
 3. **A new provider key, `credential_headers`:** header name to the setting of the vault entry it is filled from,
-   here `ChatGPT-Account-Id: account_id`. Read by `ProviderDefinitionReader` into `ProviderDefinition`, carried by
-   `ProviderRoute` and `VaultProxy.Route`; the broker sets each header from the entry and drops the container's own
-   value of it. An entry lacking a named setting is refused before the start (`CredentialChoice.unbrokerable`, read by
-   `StartCheck`) and by `vault serve`, through one check, `LoginCredentials.lacking`; never sent without it.
+   here `ChatGPT-Account-Id: account_id`. Read by `ProviderDefinitionReader` into `ProviderDefinition`, taken from
+   there by `CredentialWiring` into `VaultProxy.Route`; the broker sets each header from the entry and drops the
+   container's own value of it. An entry lacking a named setting is refused before the start
+   (`CredentialChoice.unbrokerable`, read by `StartCheck`) and by `vault serve`, through one check,
+   `CredentialHeaders.lacking`; never sent without it.
 4. **`LoginCredentials.put`** keeps the credential attributes the provider's `credential_headers` name as settings
    beside `expires_at`, `token_url` and `client_id`; none is a secret.
 5. **`doc/credentials.md`:** a row in "The providers Porelo ships", and the accepted risk in `doc/decisions.md`.
@@ -59,10 +60,10 @@ loses the answer, and the next renewal uses the refresh token still stored. A re
 - A task's Codex CLI answers through the person's ChatGPT sign-in, and the container holds none of its tokens, seen
   by searching the container's environment, files and process arguments for them. Seen to fail: a request the
   broker forwards without `ChatGPT-Account-Id`.
-- A rotated refresh token is kept when the broker is interrupted after the refresh. Seen to fail: a vault that still
-  holds the spent refresh token after a renewal.
+- A rotated refresh token is stored in the same vault update as the new access token, before that token is handed to
+  any request. Seen to fail: a vault that still holds the spent refresh token after a renewal.
 - `ab.chatgpt.com` is refused: it is a refused domain of porelo-codex's definition, listed by `porelo agents
-  --verbose`, and a connection to it from the task is dropped by the firewall. It is not the model route, and a client
-  pointed at the broker reached the model without it.
+  --verbose`, and a lookup of it from the task is refused by the task's resolver. It is not the model route, and a
+  client pointed at the broker reached the model without it.
 - An API key stored for `chatgpt`, or a sign-in stored for `openai`, is refused before the start with a reason naming
   the other provider.

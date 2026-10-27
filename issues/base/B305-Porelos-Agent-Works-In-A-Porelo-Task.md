@@ -2,27 +2,29 @@
 
 **Status:** Idea.
 
-**What must be true.** porelo's own agent works in a Porelo task of the project `porelo` on the move's host, as
-porelo-project [PJ59](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj59) lays out for sprint
-8a, the last builder beside porelo-host. The task follows this repository through the gate and pushes to the host's
-Forgejo, whose build is read through the `forgejo` reader. The agent is reached in the project's room as `Agent porelo`
-or by the nickname `project.yml` gives it ([B298](README.md#b298)). This issue is taken from start to Review inside the
-task, with the forge's build green. A way back to this machine stays open at any time, since a fault in Porelo stops
-the agent's own work.
+**What must be true.** porelo's agent works in a Porelo task on the move's host, as porelo-project
+[PJ59](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj59) lays out for the last builders,
+and takes this issue to Review inside the task with the host's Forgejo build green. It talks in the project's room as
+`Agent Core`, from the nickname `Core` that porelo-project's `project.yml` gives the repository `core`
+([B298](README.md#b298)), and can work on this machine again at any time.
 
 ## What moves, and what to check
 
-- **The repository:** `porelo` alone. `porelo-parent` has no task of its own and moves with it: its changes are made
-  from porelo's task, as today from this machine. `porelo-adapters` and `porelo-ai.github.io`, kept by the same agent
-  today, move on their own in sprint 8, by issues of their own repositories.
+- **The repository:** `porelo`, the repository `core` in porelo-project's `project.yml`. A task holds one repository,
+  so `porelo-parent` (the repository `parent`) has no move of its own: a change to it is a task on `parent` that this
+  agent starts when one is needed. `porelo-adapters` and `porelo-ai.github.io`, kept by the same agent today, move by
+  issues of their own repositories.
 - **The task's image:** this repository's `porelo.yml`, Ubuntu by digest with the pinned GraalVM and `shfmt`, for the
-  unit tests, `-Pnative,dist` and the package check. Its comment still calls it a draft nothing reads; Porelo reads a
-  repository's own image now, so the comment changes with the move.
-- **What a task cannot run:** the acceptance suite needs podman and a machine of its own, and the native build's
-  checks need `~/.m2` of its own: the suite runs on the forge's legs or a VM of the host's pool, never in the task
-  ([PJ49](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj49)).
-- **Forgejo's build:** `build.yml` asks for rented legs today; it runs on the local forge only after
-  [B306](README.md#b306).
+  unit tests and the native build. Its comment still calls it a draft nothing reads and claims the package check;
+  both change with the move.
+- **To be checked before the move:**
+  - The native build's hooks link against the musl toolchain from the build tools, which `porelo.yml` does not
+    install yet.
+  - The package check runs `podman run` against several distributions' images, and the acceptance suite needs
+    podman and a machine of its own: both run on the forge's legs, never in the task.
+  - The vault's tests use the kernel keyring, whose system calls the task's seccomp refuses (porelo-project
+    [PJ49](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj49)).
+- **Forgejo's build:** `build.yml` rents legs today; it runs on the local forge only after [B306](README.md#b306).
 - **The way back:** the task's open work is fetched from the host's forge into this machine's checkout, the
   repository's upstream switches back in `project.yml`, and the local session resumes with its watcher, as the move's
   step 5 says.
