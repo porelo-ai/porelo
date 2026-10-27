@@ -16,6 +16,6 @@ builds.
 - **The other workflows that name the provider:** `sweep.yml` passes `HETZNER_API` to `sweep --now`, and
   `artifactory-smoke.yml` rents a machine and uploads to Artifactory; `delete-runs.yml` calls GitHub's API.
 - **Publishing:** the Maven deploy is switched between Central and the forge's Maven registry by the deploy profile
-  PJ60 names (`PORELO_DEPLOY_PROFILE`), and the Artifactory uploads of the packages stay off on the local forge by
+  [PJ60](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj60) names (`PORELO_DEPLOY_PROFILE`), and the Artifactory uploads of the packages stay off on the local forge by
   `PORELO_PUBLISH`, each a variable present on both forges, never a branch in the workflow.
 - **What holds on both:** the published binary is the one the Ubuntu leg tested, fetched back with a manifest.

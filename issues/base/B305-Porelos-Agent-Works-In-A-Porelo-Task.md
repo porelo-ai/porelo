@@ -5,7 +5,7 @@
 **What must be true.** porelo's agent works in a Porelo task on the move's host, as porelo-project
 [PJ59](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj59) lays out for the last builders,
 and takes this issue to Review inside the task with the host's Forgejo build green. It talks in the project's room as
-`Agent Core`, from the nickname `Core` that porelo-project's `project.yml` gives the repository `core`
+`Agent Core`, from the nickname `Core` that porelo-project's `project.yml` is to give the repository `core`
 ([B298](README.md#b298)), and can work on this machine again at any time.
 
 ## What moves, and what to check
