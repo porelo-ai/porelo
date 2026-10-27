@@ -113,7 +113,8 @@ would change the answer.
 | Porelo knows transports; the transport knows Matrix | a generic lifecycle; no Matrix code or settings parsing in `porelo` | [entry](#porelo-knows-transports-the-transport-knows-matrix) |
 | The homeserver is one endpoint Porelo names, and offline means loopback | the declared URL or the account's own; offline reaches loopback only | [entry](#the-homeserver-is-one-endpoint-porelo-names-and-offline-means-loopback) |
 | A person joins by an account made for them | the login is printed once, no registration stays open, and the recorded account's words reach the project's tasks as `ROLE_USER` | [entry](#a-person-joins-by-an-account-made-for-them) |
-| A machine on a shared server is admitted by a person | Porelo admits nobody; a machine not yet let in starts no task | [entry](#a-machine-on-a-shared-server-is-admitted-by-a-person) |
+| A machine on a shared server is admitted by a person | a person lets it in, from their client or with `talk admit` on the serving machine; a machine not yet let in starts no task | [entry](#a-machine-on-a-shared-server-is-admitted-by-a-person) |
+| An admitted machine's token may lie in a file | accepted: `talk admit --into` writes it in the clear to a new owner-only file; the interface keeps it in its secrets file instead | [entry](#an-admitted-machines-token-may-lie-in-a-file) |
 | Only a transport a peer names is polled | a transport no peer names is never polled; a failure is said once | [entry](#only-a-transport-a-peer-names-is-polled) |
 | **The build and packages** | | |
 | Porelo is split into modules by area, not into repositories | `app-<area>` modules with enforced dependencies; one build, one package, one contract on the wire | [entry](#porelo-is-split-into-modules-by-area-not-into-repositories) |
@@ -787,7 +788,7 @@ The homeserver is the project's declared URL, or the account's own on loopback: 
 keeps in the account's state, with no root, so two users never share a server's administrator. The host's egress for
 a project's messages is what the transport's `setup` reports in `reaches`, and nothing else. An `offline` project's
 conversation may reach nothing but loopback: Porelo passes `--loopback-only`, so the transport refuses before it
-contacts anything else, and checks `reaches` again before a task exists.
+contacts anything else, and checks `reaches` after every `setup`, before it keeps anything the transport handed back.
 
 ## A person joins by an account made for them
 
@@ -801,8 +802,19 @@ and Varlink socket.
 ## A machine on a shared server is admitted by a person
 
 On a central homeserver a person makes the room, names it in the settings and lets each machine's account in from
-their own client; Porelo admits nobody. Until a machine is let in, it starts no task of the project and says whom to
-let in and where. Each machine holds its own provisioning account, so one can be revoked alone.
+their own client. Where the room is on one machine's own server, a person there runs `porelo talk admit` for another
+machine, which hands that machine what it needs, and `porelo talk dismiss` to take it out; Porelo never admits a
+machine on its own. Until a machine is let in, it starts no task of the project and says whom to let in and where.
+Each machine holds its own provisioning account, so one can be revoked alone.
+
+## An admitted machine's token may lie in a file
+
+`porelo talk admit --into FILE` writes the admitted machine's registration token in the clear to a new file readable
+by its owner only, for a person without an interface; the interface takes it from the daemon's `AdmitMachine`
+straight into its secrets file and never writes it out. **The exposure:** the file holds a token that lets anybody on
+the network path register accounts on this machine's server until it is dismissed. **Why it stays:** it is how a
+person without an interface carries it to the other machine, like the VPN key on a host's disk; `talk dismiss` takes
+it back at once. **What would change it:** an admission that never leaves the two machines' own stores.
 
 ## Only a transport a peer names is polled
 

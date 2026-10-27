@@ -71,6 +71,8 @@ kept in the account's vault and handed back; they are never shown, logged or put
 | `part --project P --person N` | on `porelo talk remove` | account and project secrets | `{"removed":"<account>"}`, `{"kept":"<account>","why":"<words>"}`, or `{}` when nothing remains |
 | `clear [--project P]` | when a project is cleared from the machine, with `--project`; when the account's vault is cleared, without | the account's secrets, and the project's with `--project` | `removed` |
 | `settings` | when a project file is checked | nothing: no secrets, no network | `refused`, `warnings` |
+| `admit --project P --machine M` | on `porelo talk admit`, on the machine whose server holds the conversation | account and project secrets | `admission` (what machine `M` needs to reach the conversation) and `secrets` (what it keeps as secrets), answered once, never kept here |
+| `dismiss --project P --machine M` | on `porelo talk dismiss` | account and project secrets | `removed` |
 
 - **Every map of secrets is complete** for the verbs that use it: a project's are what `poll` reads and what
   `send` uses for Porelo's own helper answers, a task's are what its `send`, `read` and `receipt` read, and the
@@ -81,7 +83,7 @@ kept in the account's vault and handed back; they are never shown, logged or put
   For an offline project Porelo adds `--loopback-only` to `setup`, `enroll`, `join` and `part`, and the transport refuses
   (78) before it contacts anything but loopback.
 - **`--machine NAME`** is added to `setup`, `enroll`, `retire`, `join` and `clear` for a transport that `takes`
-  it. The transport keeps the name it first used, so a renamed machine keeps its accounts, and refuses (78) a name
+  it; `admit` and `dismiss` carry the other machine's name instead, and this machine's is never added. The transport keeps the name it first used, so a renamed machine keeps its accounts, and refuses (78) a name
   another machine already holds.
 - **`part` never receives `--machine`**, even when the transport announces it. A successful part (exit 0)
   removes the person from Porelo's members list, including when the account stays for the reason in `why`,

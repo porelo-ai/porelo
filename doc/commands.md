@@ -451,6 +451,8 @@ A task's mailbox. Each command names the task by its container name.
 | `porelo talk join PROJECT PERSON [--reset] [--into-vault ENTRY] [--display NAME]` | Makes a person an account in the project's conversation and shows the login once. `--reset` sets a new password. `--into-vault` keeps the person's access token in the vault under `ENTRY` instead and shows no password, for an agent whose output is its transcript; it refuses before making the account when there is no open vault, and its line names the room's id. `--display` is the name the conversation shows for the person, which others address them by; the transport checks it, and one starting with `-` is refused. |
 | `porelo talk members PROJECT` | Lists each person who joined the conversation and their account, or says nobody has joined. |
 | `porelo talk remove PROJECT PERSON` | Removes a person through the transport, then drops them from the members list. Says why if their account stays; a failed removal leaves them listed. |
+| `porelo talk admit PROJECT MACHINE --into FILE` | Lets another machine into the project's conversation on this machine's server, and writes what it needs - its secret among it - to a new file readable by you only. Refused for an offline project. |
+| `porelo talk dismiss PROJECT MACHINE` | Takes another machine out of the project's conversation on this machine's server. Refused for an offline project. |
 
 A message is never edited. Read it before you release it. A message released despite the filter is
 recorded as such, and the receiving peer may refuse it again.

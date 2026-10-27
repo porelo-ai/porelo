@@ -59,22 +59,40 @@ public record StartStep(Step step, State state, String text, String waitingOn, S
      * @return Its safe last line.
      */
     public static String cleanCause(String value) {
-        final String[] lines = value.split("\\R", -1);
+        final String[] lines = cleanLines(value).split("\n", -1);
         for (int index = lines.length - 1; index >= 0; index--) {
-            final String line =
+            final String line = lines[index].strip();
+            if (!line.isEmpty()) {
+                return line.substring(0, Math.min(300, line.length()));
+            }
+        }
+        return "";
+    }
+
+    /**
+     * Cleans every line of a dependency's diagnostic for a terminal: escape sequences and control
+     * and format characters are gone, the lines stay, joined by a line feed.
+     *
+     * @param value The diagnostic.
+     * @return Its lines, safe to show.
+     */
+    public static String cleanLines(String value) {
+        final String[] lines = value.split("\\R", -1);
+        final StringBuilder clean = new StringBuilder();
+        for (int index = 0; index < lines.length; index++) {
+            if (index > 0) {
+                clean.append('\n');
+            }
+            clean.append(
                     lines[index]
                             .replaceAll("\u001b\\[[0-?]*[ -/]*[@-~]", "")
                             .replaceAll(
                                     "[\\p{Cc}\\p{Cf}\\x{034f}\\x{115f}-\\x{1160}\\x{17b4}-\\x{17b5}"
                                             + "\\x{180b}-\\x{180f}\\x{2065}\\x{3164}\\x{fe00}-\\x{fe0f}"
                                             + "\\x{ffa0}\\x{fff0}-\\x{fff8}\\x{e0000}-\\x{e0fff}]",
-                                    "")
-                            .strip();
-            if (!line.isEmpty()) {
-                return line.substring(0, Math.min(300, line.length()));
-            }
+                                    ""));
         }
-        return "";
+        return clean.toString();
     }
 
     /**

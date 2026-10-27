@@ -28,7 +28,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b304"></a>[B304](B304-A-Machine-Sets-Its-Own-Transport-Settings.md) | L | - | A machine that follows a project may set some of a transport's settings for itself - for Matrix the homeserver, the room, the CA certificate and the registration token - in place of the project file's |
+| <a id="b304"></a>[B304](B304-A-Machine-Lets-Another-Into-Its-Conversation.md) | M | - | A person on the machine whose server holds a project's conversation lets another machine in with `talk admit`, its secret written to a new owner-only file, and takes it out with `talk dismiss`; a failure's message redacted and an offline setup checked against loopback on every path |
 | <a id="b298"></a>[B298](B298-A-Repository-Names-Its-Agent.md) | M | - | A project file names each repository's agent, `repositories.<repository>.agent`, and an optional one-word nickname; `task start` takes that agent without `--agent`, and `Projects` carries both with the name it goes by, `Agent <nickname>` or `Agent <repository>`, for the room and the commits |
 | <a id="b244"></a>[B244](B244-The-Loop-Watch-Sees-A-Compact-Screen.md) | M | - | The acceptance kit reads a declared tool-call record beside tmux history to stop repeated failures on compact screens, a bare call right after a refused one counted as another try; built and unit-tested, porelo-codex's live wake case next |
 
@@ -115,6 +115,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b309"></a>[B309](B309-A-Machine-Sets-Its-Own-Transport-Settings.md) | - | - | A machine sets for itself what a transport lists - for Matrix its homeserver, room, CA and registration token - over the signed project file's, so one project file serves machines on different servers; split from [B304](#b304) |
 | <a id="b308"></a>[B308](B308-A-Guide-For-Adding-A-Provider-Or-An-Agent.md) | - | - | One guide in `doc/` to the checks that prove a new provider or agent safe, with scripts beside the acceptance kit: recording a provider's answers through the broker, the walk script's shared shape; the agents' part kept by their repositories |
 | <a id="b307"></a>[B307](B307-Not-Waiting-Is-Read-Once-The-Screen-Settles.md) | - | - | The kit's "not waiting" step lets the screen settle after a key before it judges, and fails only on waiting read again after not waiting, as "waiting" already waits |
 | <a id="b305"></a>[B305](B305-Porelos-Agent-Works-In-A-Porelo-Task.md) | - | - | porelo's agent works in a Porelo task on the move's host as `Agent Core`, pushes to its Forgejo and talks in the room, with a way back to this machine; `porelo-parent` has no move of its own |

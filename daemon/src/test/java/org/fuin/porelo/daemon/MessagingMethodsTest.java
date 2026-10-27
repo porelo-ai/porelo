@@ -113,6 +113,43 @@ class MessagingMethodsTest {
                 .hasSize(1);
     }
 
+    @Test
+    void anAdmissionCrossesTheWireWithItsSecretApartAndABadMachineNameIsARefusal()
+            throws Exception {
+
+        // Mixed into the admission, a client would show or log the token with the room's name; a
+        // machine's name read as an option, the transport would take it for one.
+        final PoreloContext context = context();
+        runner.answering(
+                "describe",
+                "{\"scheme\":\"room\",\"lifecycle\":[\"setup\",\"admit\",\"dismiss\","
+                        + "\"settings\"]}");
+        runner.answering(
+                " admit ",
+                "{\"admission\":{\"room\":\"!r\"},\"secrets\":{\"registration_token\":\"t-12345678\"}}");
+
+        final Map<String, Object> admitted =
+                MessagingMethods.admitMachine(context, Map.of("project", "p", "machine", "host2"));
+
+        assertThat(admitted.get("admission"))
+                .as("what the other machine sets, holding no secret")
+                .isEqualTo(Map.of("room", "!r"));
+        assertThat(admitted.get("secrets"))
+                .as("the secret apart")
+                .isEqualTo(Map.of("registration_token", "t-12345678"));
+        assertThatThrownBy(
+                        () ->
+                                MessagingMethods.dismissMachine(
+                                        context, Map.of("project", "p", "machine", "--help")))
+                .isInstanceOfSatisfying(
+                        VarlinkException.class,
+                        ex ->
+                                assertThat(ex.getErrorName())
+                                        .as("the named refusal, not a crash")
+                                        .isEqualTo(
+                                                PoreloDaemon.INTERFACE + ".ConversationRefused"));
+    }
+
     private PoreloContext context() throws Exception {
         final XdgPaths xdg =
                 XdgPaths.of(

@@ -25,6 +25,8 @@ public class FakeCommandRunner implements CommandRunner {
 
     private final java.util.Set<String> missing = new HashSet<>();
 
+    private final java.util.Set<String> timingOut = new HashSet<>();
+
     private CommandResult fallback(Command command) {
         return new CommandResult(command, 0, "", "");
     }
@@ -72,6 +74,35 @@ public class FakeCommandRunner implements CommandRunner {
     }
 
     /**
+     * Answers any command containing the given text with a failure that printed something first.
+     *
+     * @param match Text that must appear in the command line.
+     * @param exitCode Exit code to return.
+     * @param standardOutput Output to return.
+     * @param standardError Error output to return.
+     * @return This instance.
+     */
+    public FakeCommandRunner failing(
+            String match, int exitCode, String standardOutput, String standardError) {
+        answers.put(
+                match,
+                new CommandResult(
+                        Command.of("placeholder"), exitCode, standardOutput, standardError));
+        return this;
+    }
+
+    /**
+     * Times out any command containing the given text, as the real runner does when one never ends.
+     *
+     * @param match Text that must appear in the command line.
+     * @return This instance.
+     */
+    public FakeCommandRunner timingOut(String match) {
+        timingOut.add(match);
+        return this;
+    }
+
+    /**
      * Refuses to run the given program, as the real runner does on a machine that has none.
      *
      * @param program The program's name, the command's first word.
@@ -87,6 +118,11 @@ public class FakeCommandRunner implements CommandRunner {
         invocations.add(command);
         final String line = command.describe();
         final String program = line.split(" ", 2)[0];
+        for (final String match : timingOut) {
+            if (line.contains(match)) {
+                throw new CommandException(command, new IOException("Timed out after 60 s"), "");
+            }
+        }
         if (missing.contains(program)) {
             throw new CommandException(
                     command,

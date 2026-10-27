@@ -329,6 +329,15 @@ final class MessagingMethods {
                                     said.get("shown") instanceof String shown ? shown : ""));
                 });
 
+        // Answered once: the admitted machine's secret is in this reply and nowhere else.
+        server.method(
+                "AdmitMachine",
+                (parameters, replies) -> replies.last(admitMachine(context, parameters)));
+
+        server.method(
+                "DismissMachine",
+                (parameters, replies) -> replies.last(dismissMachine(context, parameters)));
+
         server.method(
                 "RemoveMessageMember",
                 (parameters, replies) -> replies.last(removeMessageMember(context, parameters)));
@@ -405,5 +414,79 @@ final class MessagingMethods {
                     Map.of("message", String.valueOf(ex.getMessage()), "code", ex.code()));
         }
         return Map.of("user", removed.user(), "kept", removed.kept(), "why", removed.why());
+    }
+
+    /**
+     * Lets another machine in, answering its admission and its secrets apart, once.
+     *
+     * @param context The machine.
+     * @param parameters {@code project}, {@code machine}.
+     * @return {@code admission} and {@code secrets}.
+     */
+    static Map<String, Object> admitMachine(PoreloContext context, Map<String, Object> parameters) {
+        final org.fuin.porelo.core.project.Project project =
+                conversational(context, text(parameters, "project"));
+        final Map<?, ?> said;
+        try {
+            said =
+                    org.fuin.porelo.app.MachineTransports.admit(
+                            context, project, text(parameters, "machine"));
+        } catch (org.fuin.porelo.app.Conversations.Refused ex) {
+            throw refused(ex);
+        }
+        return Map.of(
+                "admission",
+                strings(said.get("admission")),
+                "secrets",
+                strings(said.get("secrets")));
+    }
+
+    /**
+     * Takes another machine out.
+     *
+     * @param context The machine.
+     * @param parameters {@code project}, {@code machine}.
+     * @return {@code removed}.
+     */
+    static Map<String, Object> dismissMachine(
+            PoreloContext context, Map<String, Object> parameters) {
+        final org.fuin.porelo.core.project.Project project =
+                conversational(context, text(parameters, "project"));
+        final Map<?, ?> said;
+        try {
+            said =
+                    org.fuin.porelo.app.MachineTransports.dismiss(
+                            context, project, text(parameters, "machine"));
+        } catch (org.fuin.porelo.app.Conversations.Refused ex) {
+            throw refused(ex);
+        }
+        return Map.of("removed", list(said.get("removed")));
+    }
+
+    private static VarlinkException refused(org.fuin.porelo.app.Conversations.Refused ex) {
+        return new VarlinkException(
+                INTERFACE + ".ConversationRefused",
+                Map.of("message", String.valueOf(ex.getMessage()), "code", ex.code()));
+    }
+
+    /** A map of strings from a parameter or an answer, empty when absent; other values dropped. */
+    private static Map<String, String> strings(@org.jspecify.annotations.Nullable Object given) {
+        final Map<String, String> found = new LinkedHashMap<>();
+        if (given instanceof Map<?, ?> map) {
+            map.forEach(
+                    (key, value) -> {
+                        if (value instanceof String text) {
+                            found.put(String.valueOf(key), text);
+                        }
+                    });
+        }
+        return found;
+    }
+
+    /** A list of strings from a parameter or an answer, empty when absent. */
+    private static java.util.List<String> list(@org.jspecify.annotations.Nullable Object given) {
+        return given instanceof java.util.List<?> each
+                ? each.stream().map(String::valueOf).toList()
+                : java.util.List.of();
     }
 }

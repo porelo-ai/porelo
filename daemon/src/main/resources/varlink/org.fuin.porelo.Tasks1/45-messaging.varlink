@@ -260,6 +260,31 @@ method JoinMessages(
   shown: string
 )
 
+# Lets another machine into a project's conversation on this machine's server. Answered once: the
+# admission and its secrets are in this reply and nowhere else, never kept here. Refused for an offline
+# project, whose messages never leave this machine, and when the transport does not offer it.
+method AdmitMachine(
+  project: string,
+  # The machine let in, by the name its transport goes by.
+  machine: string
+) -> (
+  # What the other machine needs to reach this server, for its project's transport settings: for
+  # Matrix homeserver, room and ca_certificate.
+  admission: [string]string,
+  # What it keeps as its secrets, by the names its transport lists. Never show or log it.
+  secrets: [string]string
+)
+
+# Takes another machine out of a project's conversation on this machine's server. Refused for an
+# offline project, which admits nobody.
+method DismissMachine(
+  project: string,
+  machine: string
+) -> (
+  # What the transport removed; empty when nothing was left.
+  removed: []string
+)
+
 # Who has joined a project's conversation, by the name join was given.
 method MessageMembers(project: string) -> (members: []MessageMember)
 
