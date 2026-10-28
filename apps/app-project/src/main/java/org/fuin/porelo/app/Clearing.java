@@ -442,7 +442,14 @@ public final class Clearing {
             final String what =
                     "the project's " + scheme + " conversation, and what this machine kept for it";
             if (dryRun) {
-                items.add(new Item("conversation", what, Status.WOULD_REMOVE, ""));
+                items.add(
+                        new Item(
+                                "conversation",
+                                what,
+                                Status.WOULD_REMOVE,
+                                "",
+                                scheme,
+                                project.name()));
                 continue;
             }
             try {
@@ -456,15 +463,23 @@ public final class Clearing {
                                 said ->
                                         items.add(
                                                 new Item(
-                                                        "conversation", said, Status.REMOVED, "")));
-                items.add(new Item("conversation", what, Status.REMOVED, ""));
+                                                        "conversation",
+                                                        said,
+                                                        Status.REMOVED,
+                                                        "",
+                                                        scheme,
+                                                        project.name())));
+                items.add(
+                        new Item("conversation", what, Status.REMOVED, "", scheme, project.name()));
             } catch (final TransportLifecycle.Refused ex) {
                 items.add(
                         new Item(
                                 "conversation",
                                 what,
                                 Status.NOT_REMOVED,
-                                String.valueOf(ex.getMessage())));
+                                String.valueOf(ex.getMessage()),
+                                scheme,
+                                project.name()));
             }
         }
     }

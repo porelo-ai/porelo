@@ -83,11 +83,13 @@ public final class VaultClearing {
         final boolean taskHolds = exists && tasksHolding(entries, items);
         boolean refused = taskHolds;
         if (unread) {
+            // Forced, it still stays while a task holds a token from it.
+            final boolean goes = force && !taskHolds;
             items.add(
                     new Clearing.Item(
                             "vault",
                             "what " + vault.path() + " holds",
-                            force
+                            goes
                                     ? dryRun
                                             ? Clearing.Status.WOULD_REMOVE
                                             : Clearing.Status.REMOVED
@@ -145,7 +147,9 @@ public final class VaultClearing {
                                                         "conversation",
                                                         said,
                                                         Clearing.Status.REMOVED,
-                                                        "")));
+                                                        "",
+                                                        each.scheme(),
+                                                        each.project())));
                 items.add(
                         new Clearing.Item(
                                 "conversation",

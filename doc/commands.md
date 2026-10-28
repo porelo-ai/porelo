@@ -380,7 +380,7 @@ removing nothing of the vault:
 `--json` answers one object for a program that decides on `--force`: `items`, each with `kind`, `what`,
 `status`, `why`, `transport` and `project` (the last two set on a transport's account of a project),
 `refused`, and `kept`, why the vault was kept - `tasks`, `locked` or `transports`, `""` when it was
-not. It exits 1 on any refusal, as without it.
+not. It exits 1 when anything was not removed, as without it.
 
 Afterwards `porelo vault init` starts as on a new machine.
 

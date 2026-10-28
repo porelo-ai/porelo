@@ -1333,6 +1333,9 @@ class TaskRunCommandTest {
         assertThat(runner.lines())
                 .as("a refused start must leave no image or container")
                 .noneMatch(line -> line.contains("podman build") || line.contains("podman create"));
+        assertThat(context.paths().tasks().containerState("porelo-uc-shell"))
+                .as("nor its state, made when it joins its conversation")
+                .doesNotExist();
     }
 
     @Test

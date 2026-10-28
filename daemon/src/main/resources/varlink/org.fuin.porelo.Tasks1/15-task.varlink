@@ -753,7 +753,11 @@ type StartOutcome (
   # nobody has granted it. 'credential' names the entry; 'detail' gives the command that grants it, and
   # Authorize is how an interface grants it. Start refuses an unattended or agent run for it; a shell
   # starts with a warning. A grant that ended at the service is not seen here: it is found when spent.
-  AUTHORIZATION_NEEDED
+  AUTHORIZATION_NEEDED,
+  # The start would have no gate (noGate), and the project declares host services, which a task
+  # reaches at the gate's address. 'detail' names them. Start refuses the same case before anything is
+  # created.
+  HOST_SERVICES_NEED_A_GATE
 )
 
 # Whether work could start here, asked before anything is created.

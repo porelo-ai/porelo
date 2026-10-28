@@ -1229,14 +1229,9 @@ public final class TaskLaunch {
                             + forgeBranch
                             + (request.branch() == null ? "" : " (named with --branch)"));
         } else {
-            // A host service is answered with the gate's address, which a start without one lacks.
-            final java.util.List<String> hostServices =
-                    project.egressFor(repository).hostServices();
-            if (!hostServices.isEmpty()) {
-                err.println(
-                        "porelo: --no-gate leaves the task no gate, and the project's host services ("
-                                + String.join(", ", hostServices)
-                                + ") are reached at the gate's address; start it with its gate");
+            final String refused = StartCheck.hostServicesWithoutAGate(project, repository.name());
+            if (refused != null) {
+                err.println("porelo: --no-gate: " + refused);
                 err.println("porelo: nothing was created");
                 err.flush();
                 return 64;
@@ -1672,6 +1667,16 @@ public final class TaskLaunch {
                     out.flush();
                 }
                 image = fetched;
+            }
+            // Every mode: a shell without a gate cannot reach the host services either.
+            final String gateless =
+                    gated && workspace == null
+                            ? StartCheck.hostServicesWithoutAGate(project, repository.name())
+                            : null;
+            if (gateless != null) {
+                err.println("porelo: nothing was created; " + gateless);
+                err.flush();
+                return 69;
             }
             // No shell offered in its place: a shell without a gate has an empty workspace and
             // fixes nothing about what stopped the gate, which is said above.

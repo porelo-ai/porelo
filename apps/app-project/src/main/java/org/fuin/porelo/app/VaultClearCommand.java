@@ -43,8 +43,8 @@ public class VaultClearCommand implements Callable<Integer>, PoreloFactory.Conte
             description =
                     "Answers one object on standard output: 'items' (each with kind, what, status, why,"
                             + " transport and project), 'refused', and 'kept' - why the vault was kept:"
-                            + " tasks, locked or transports, \"\" when it was not. The exit is 1 on any"
-                            + " refusal, as without it.")
+                            + " tasks, locked or transports, \"\" when it was not. The exit is 1 when anything"
+                            + " was not removed, as without it.")
     private boolean json;
 
     @Spec private CommandSpec spec;
@@ -66,7 +66,12 @@ public class VaultClearCommand implements Callable<Integer>, PoreloFactory.Conte
             // A program decides on --force from these values, never from a sentence.
             out.println(org.fuin.porelo.wire.Json.write(asJson(result)));
             out.flush();
-            return result.refused() ? 1 : 0;
+            // As the listing exits: anything not removed is a failure, refused or not.
+            return result.refused()
+                            || result.items().stream()
+                                    .anyMatch(item -> item.status() == Clearing.Status.NOT_REMOVED)
+                    ? 1
+                    : 0;
         }
         final int code = ClearCommand.render(result, listOnly, !dryRun && !yes, out);
         if (result.items().stream()

@@ -84,6 +84,37 @@ class StartCheckTest {
     }
 
     @Test
+    void aStartWithoutAGateIsRefusedForHostServicesAsTheStartRefusesIt(@TempDir Path dir)
+            throws Exception {
+        // An interface told READY would start a task the start then refuses.
+        Files.createDirectories(dir.resolve("project"));
+        final Path project = dir.resolve("project/project.yml");
+        Files.writeString(
+                project,
+                "project:\n  name: \"uc\"\n  security_class: \"guarded\"\n"
+                        + "image:\n  base_image: \"ubuntu:24.04\"\n"
+                        + "egress:\n  host_services: [\"forge.internal.example\"]\n");
+
+        final StartCheck.Result result =
+                StartCheck.check(
+                        context(dir),
+                        project,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        false,
+                        java.util.Map.of(),
+                        java.util.Map.of());
+
+        assertThat(result.outcome())
+                .as("no gate and a host service is refused by name")
+                .isEqualTo(StartCheck.Outcome.HOST_SERVICES_NEED_A_GATE);
+        assertThat(result.detail()).contains("forge.internal.example");
+    }
+
+    @Test
     void aBranchThePatternRefusesIsRefusedAsTheStartRefusesIt(@TempDir Path dir) throws Exception {
 
         // CanStart and Start make and judge the branch with one class: offered here and refused

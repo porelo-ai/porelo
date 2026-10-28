@@ -453,6 +453,25 @@ class VaultClearingTest {
     }
 
     @Test
+    void aForcedClearOfALockedVaultARunningTaskHoldsSaysTheVaultStayed() throws IOException {
+        // Said removed, it sent the person to 'vault init' over a vault still on disk.
+        final PoreloContext context = context();
+        Files.createDirectories(context.vault().path().getParent());
+        context.vault().write(Map.of("github", VaultEntry.of("not-a-real-token")), PASSPHRASE);
+        org.fuin.porelo.wire.Sidecar.recordId(
+                context.paths().tasks().containerState("porelo-p-shell-1"), "111111111111");
+        runner.answering("ps", "111111111111\trunning\n");
+
+        final Clearing.Result cleared = new VaultClearing(context).clear(false, true);
+
+        assertThat(cleared.kept()).isEqualTo(Clearing.Kept.TASKS);
+        assertThat(names(cleared, "vault", "holds", Clearing.Status.REMOVED))
+                .as("a vault that stays is never answered removed")
+                .isFalse();
+        assertThat(context.vault().path()).exists();
+    }
+
+    @Test
     void aLockedVaultIsClearedOnlyWithForceBecauseWhatItHoldsCannotBeNamed() throws IOException {
         final PoreloContext context = context();
         Files.createDirectories(context.vault().path().getParent());

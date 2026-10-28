@@ -147,7 +147,13 @@ public final class StartCheck {
          * or agent run; a shell starts with a warning. A grant that ended at the service is not
          * seen here: it is found when the broker spends it.
          */
-        AUTHORIZATION_NEEDED
+        AUTHORIZATION_NEEDED,
+
+        /**
+         * The start would have no gate, and the project declares host services, which a task
+         * reaches at the gate's address. {@code detail} names them.
+         */
+        HOST_SERVICES_NEED_A_GATE
     }
 
     /**
@@ -453,7 +459,69 @@ public final class StartCheck {
                         withHost(context, chosen, projectFile, repository),
                         projectFile,
                         repository)
-                : chosen;
+                : withoutAGate(chosen, projectFile, repository);
+    }
+
+    /**
+     * Returns the answer for a start without a gate: refused when the project declares host
+     * services, as Start refuses it, so the two cannot disagree.
+     *
+     * @param rest What everything else answered.
+     * @param projectFile The project file, or {@code null}.
+     * @param repository Which repository the task is for, or {@code null}.
+     * @return The answer.
+     */
+    static Result withoutAGate(
+            Result rest, @Nullable Path projectFile, @Nullable String repository) {
+        // In every outcome but a file that is not there, as a refused value is: no agent, or a
+        // credential missing, would be fixed for nothing while this still stands.
+        if (rest.outcome() == Outcome.NO_PROJECT_FILE
+                || rest.outcome() == Outcome.BAD_TASK_NAME
+                || rest.outcome() == Outcome.PARAMETER_REFUSED
+                || projectFile == null) {
+            return rest;
+        }
+        final org.fuin.porelo.core.project.Project project;
+        try {
+            project = org.fuin.porelo.core.project.ProjectReader.read(projectFile);
+        } catch (RuntimeException ex) {
+            return rest;
+        }
+        final String refused = hostServicesWithoutAGate(project, repository);
+        return refused == null
+                ? rest
+                : new Result(
+                        Outcome.HOST_SERVICES_NEED_A_GATE,
+                        rest.agent(),
+                        rest.provider(),
+                        rest.credential(),
+                        refused);
+    }
+
+    /**
+     * Says why a task of this repository cannot run without a gate, when it cannot.
+     *
+     * @param project The project.
+     * @param repository The repository's name, or {@code null} for the project's own egress.
+     * @return The refusal, or {@code null} when the project declares no host service for it.
+     */
+    static @Nullable String hostServicesWithoutAGate(
+            org.fuin.porelo.core.project.Project project, @Nullable String repository) {
+        final java.util.List<String> hostServices =
+                project.repositories().stream()
+                        .filter(each -> each.name().equals(repository))
+                        .findFirst()
+                        .map(project::egressFor)
+                        .orElse(project.egress())
+                        .hostServices();
+        if (hostServices.isEmpty()) {
+            return null;
+        }
+        // A host service is answered with the gate's address, which a task without one lacks.
+        return "the project's host services ("
+                + String.join(", ", hostServices)
+                + ") are reached at the gate's address, and this task would have no gate; start it"
+                + " with its gate";
     }
 
     /**
