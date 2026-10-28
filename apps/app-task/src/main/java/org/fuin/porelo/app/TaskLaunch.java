@@ -1231,7 +1231,7 @@ public final class TaskLaunch {
         } else {
             final String refused = StartCheck.hostServicesWithoutAGate(project, repository.name());
             if (refused != null) {
-                err.println("porelo: --no-gate: " + refused);
+                err.println("porelo: --no-gate: " + refused + "; start it with its gate");
                 err.println("porelo: nothing was created");
                 err.flush();
                 return 64;
@@ -1674,7 +1674,10 @@ public final class TaskLaunch {
                             ? StartCheck.hostServicesWithoutAGate(project, repository.name())
                             : null;
             if (gateless != null) {
-                err.println("porelo: nothing was created; " + gateless);
+                err.println(
+                        "porelo: nothing was created; "
+                                + gateless
+                                + ", since it did not open: fix what is said above");
                 err.flush();
                 return 69;
             }

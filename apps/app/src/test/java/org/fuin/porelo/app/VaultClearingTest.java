@@ -316,6 +316,15 @@ class VaultClearingTest {
         final Clearing.Result cleared = new VaultClearing(context).clear(false, false);
 
         assertThat(cleared.refused()).isFalse();
+        assertThat(cleared.items())
+                .filteredOn(item -> item.kind().equals("conversation"))
+                .as("each of the project's conversation items names its transport and project")
+                .isNotEmpty()
+                .allSatisfy(
+                        item -> {
+                            assertThat(item.transport()).isEqualTo("room");
+                            assertThat(item.project()).isEqualTo("p");
+                        });
         final List<String> lines = runner.lines();
         final int project = indexOf(lines, line -> line.contains(" clear --project p"));
         final int account = indexOf(lines, line -> line.endsWith(" clear"));
@@ -425,6 +434,23 @@ class VaultClearingTest {
     }
 
     @Test
+    void aForcedJsonClearWhoseTransportCouldNotClearExitsAsAFailure() throws IOException {
+        // A play reading exit 0 would tell the person that account is gone from its server.
+        final PoreloContext context = unlockedVault();
+        transport("room");
+        project("p", "mail:\n  transports:\n    room:\n      server: https://example.org\n");
+        runner.failing("clear --project", 75, "the server did not answer");
+
+        final int exit = execute(context, "vault", "clear", "--yes", "--force", "--json");
+
+        assertThat(exit).as("an account left on its server is a failure: %s%s", out, err).isOne();
+        assertThat(out.toString())
+                .as("not refused, since --force removed the vault, and the item says what stayed")
+                .contains("\"refused\":false")
+                .contains("NOT_REMOVED");
+    }
+
+    @Test
     void aLockedVaultOrATaskHoldingATokenIsKeptForItsOwnNamedReason() throws IOException {
         final PoreloContext locked = context();
         Files.createDirectories(locked.vault().path().getParent());
@@ -449,6 +475,9 @@ class VaultClearingTest {
 
         assertThat(new VaultClearing(holding).clear(false, true).kept())
                 .as("a running task's token is named apart, since --force does not get past it")
+                .isEqualTo(Clearing.Kept.TASKS);
+        assertThat(new VaultClearing(holding).clear(true, false).kept())
+                .as("a dry run names it too")
                 .isEqualTo(Clearing.Kept.TASKS);
     }
 

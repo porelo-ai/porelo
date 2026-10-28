@@ -475,9 +475,11 @@ public final class StartCheck {
             Result rest, @Nullable Path projectFile, @Nullable String repository) {
         // In every outcome but a file that is not there, as a refused value is: no agent, or a
         // credential missing, would be fixed for nothing while this still stands.
+        // The daemon's Start refuses an undeclared destination before it opens the launch.
         if (rest.outcome() == Outcome.NO_PROJECT_FILE
                 || rest.outcome() == Outcome.BAD_TASK_NAME
                 || rest.outcome() == Outcome.PARAMETER_REFUSED
+                || rest.outcome() == Outcome.UNKNOWN_DESTINATION
                 || projectFile == null) {
             return rest;
         }
@@ -494,8 +496,8 @@ public final class StartCheck {
                         Outcome.HOST_SERVICES_NEED_A_GATE,
                         rest.agent(),
                         rest.provider(),
-                        rest.credential(),
-                        refused);
+                        "",
+                        refused + "; start it with its gate");
     }
 
     /**
@@ -520,8 +522,7 @@ public final class StartCheck {
         // A host service is answered with the gate's address, which a task without one lacks.
         return "the project's host services ("
                 + String.join(", ", hostServices)
-                + ") are reached at the gate's address, and this task would have no gate; start it"
-                + " with its gate";
+                + ") are reached at the gate's address, and this task would have no gate";
     }
 
     /**
