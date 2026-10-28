@@ -50,7 +50,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
-| <a id="b316"></a>[B316](B316-A-Warning-Only-Where-Something-Is-Wrong.md) | M | - | Porelo warns only where something is wrong: `vault put` knows the names followed projects ask for (`builds.credential`, `credentials:`) and says what an entry is used for; a sweep of the command line's 263 warnings for fine states printed as findings | 0 |
 | <a id="b308"></a>[B308](B308-A-Guide-For-Adding-A-Provider-Or-An-Agent.md) | L | - | One guide in `doc/` to the checks that prove a new provider or agent safe, with scripts beside the acceptance kit: recording a provider's answers through the broker, the walk script's shared shape; the agents' part kept by their repositories | 0 |
 | <a id="b136"></a>[B136](B136-An-Approve-Bound-To-What-Was-Reviewed.md) | M | - | Capture one reviewed commit for patch/log and every approval path; confirmations and signatures use that key; SARIF never authorizes forwarding. | 0 |
 | <a id="b150"></a>[B150](B150-The-Whole-Diff-In-Review.md) | M | - | Bound serialized review replies with explicit file-boundary cuts; retain complete file inventory or refuse by name; full-diff risk and SARIF completeness stay independent. | 0 |
@@ -152,6 +151,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b316"></a>[B316](B316-A-Warning-Only-Where-Something-Is-Wrong.md) | M | - | Porelo warns only where something is wrong: `vault put` knows the names followed projects ask for (`builds.credential`, `credentials:`) and says what an entry is used for; a sweep of the command line's 263 warnings for fine states printed as findings |
 | <a id="b310"></a>[B310](B310-A-Project-Names-A-Private-Signed-Access-File.md) | M | - | A project names a private access file: `host:`, `developers:` and its transports' settings in a signed `access.yml` in a private repository, verified against the project's signers and applied as the project file is; no transport verb runs before it is applied ([PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78)). |
 | <a id="b311"></a>[B311](B311-A-Project-Verified-Without-Following-It.md) | S | [B310](README.md#b310) | `porelo project verify ... --json` checks a project and its access file as following would, writing nothing and needing no vault, home or network; root's `sync` and the interface's *Join* run it instead of a checker of their own ([PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78)). |
 | <a id="b312"></a>[B312](B312-A-Machine-Named-By-Its-Host-And-Account.md) | S | - | The machine name a transport is given is `<host>-<account>`, so two accounts on one host never share one; a name a transport already kept stays; `porelo talk machine` prints it ([PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78)). |

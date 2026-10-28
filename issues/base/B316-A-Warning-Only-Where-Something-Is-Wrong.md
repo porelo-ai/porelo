@@ -1,6 +1,6 @@
 # B316 — A Warning Only Where Something Is Wrong
 
-**Status:** Analyzed
+**Status:** Estimated
 **Size:** M - one check in `vault put` that knows what the followed projects ask for, and a sweep of every warning
 the command line prints.
 
