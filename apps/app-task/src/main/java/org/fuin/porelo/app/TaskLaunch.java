@@ -1228,6 +1228,19 @@ public final class TaskLaunch {
                     "branch         "
                             + forgeBranch
                             + (request.branch() == null ? "" : " (named with --branch)"));
+        } else {
+            // A host service is answered with the gate's address, which a start without one lacks.
+            final java.util.List<String> hostServices =
+                    project.egressFor(repository).hostServices();
+            if (!hostServices.isEmpty()) {
+                err.println(
+                        "porelo: --no-gate leaves the task no gate, and the project's host services ("
+                                + String.join(", ", hostServices)
+                                + ") are reached at the gate's address; start it with its gate");
+                err.println("porelo: nothing was created");
+                err.flush();
+                return 64;
+            }
         }
         out.flush();
 

@@ -1305,6 +1305,37 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void aStartWithoutAGateRefusesDeclaredHostServicesBeforeAnythingIsMade(@TempDir Path dir)
+            throws IOException {
+        // A host service is answered with the gate's address, which a start without a gate has
+        // none of: it failed late, at the image, after the task had joined its conversation.
+        final PoreloContext context = context(dir, false);
+        hookBinaries(dir);
+        final String file =
+                projectFile(
+                        dir,
+                        MINIMAL
+                                + """
+                                egress:
+                                  host_services: ["forge.internal.example"]
+                                """);
+
+        final int exit =
+                execute(context, "task", "start", "--attach", "shell", "--no-gate", "-p", file);
+
+        assertThat(exit).as("the combination is refused as a usage error: %s", err).isEqualTo(64);
+        assertThat(err.toString())
+                .as("the refusal names the host service and that nothing exists")
+                .contains("forge.internal.example")
+                .contains("--no-gate")
+                .contains("porelo: nothing was created")
+                .doesNotContain("NullPointerException");
+        assertThat(runner.lines())
+                .as("a refused start must leave no image or container")
+                .noneMatch(line -> line.contains("podman build") || line.contains("podman create"));
+    }
+
+    @Test
     void aStartFetchesBeforeRefusingTheRepositorysImage(@TempDir Path dir) throws IOException {
         // A stale refusal must not prevent the fetch that can repair it.
         final String file = changedRepositoryImage(dir, "egress: {}\n", "limits: {}\n");

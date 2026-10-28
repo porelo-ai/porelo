@@ -1,6 +1,6 @@
 # B317 — A Start Without A Gate Refuses Host Services In Words
 
-**Status:** Analyzed
+**Status:** Implementing
 **Size:** XS - one refusal in the start's checks and its test.
 
 **What must be true.** `porelo task start --no-gate` for a project whose egress declares `host_services` is refused in

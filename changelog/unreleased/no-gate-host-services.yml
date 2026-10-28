@@ -1,0 +1,2 @@
+title: porelo task start --no-gate refuses a project that declares host services, before anything is made, since they are reached at the gate's address; it no longer fails with a NullPointerException while the image is built
+type: fixed
