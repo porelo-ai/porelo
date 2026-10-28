@@ -80,6 +80,13 @@ before a task enrolls).
   2026-10-27), for a person without an interface; the interface always takes it from `AdmitMachine` straight into
   `secrets.kdbx`. The accepted risk is in `doc/decisions.md`.
 
+**What [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78) changes (2026-10-28),
+nothing reworked yet:** `talk admit` and `talk dismiss` serve an account's own homeserver, the laptop's of the move
+to a host, and are not the model of that plan: on a prepared host each person registers with a token of their own and the
+project admin's Porelo keeps the room's machines to the signed list ([B314](README.md#b314)). Under
+[B310](README.md#b310) a project naming an access file gives them its transport settings from that file.
+`doc/commands.md` already says that `dismiss` takes the machine out of every project on the server.
+
 ## Acceptance
 
 - On porelo-host's rented host, admitted from this machine: its task writes in the project's room on this machine's
