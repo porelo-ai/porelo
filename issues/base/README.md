@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b190"></a>[B190](B190-A-Tasks-Branch-Named-By-The-Projects-Scheme.md) | L | - | `branch.template` and `branch.pattern` or `--branch` name a task's forge branch, kept in `task.json`; the gate passes on and keeps out of its mirror by them, an existing upstream branch refused at an online start, a guarded approval onto it by default and only within the pattern. |
 | <a id="b206"></a>[B206](B206-A-Transport-Takes-Its-Secrets-On-Its-Input.md) | L | - | A transport takes the secrets Porelo kept for it on its standard input, not in its environment, so no other process of the account can read them from `/proc`; a version declared in `describe`, with the matrix transport's matching change. |
 | <a id="b304"></a>[B304](B304-A-Machine-Lets-Another-Into-Its-Conversation.md) | M | - | A person on the machine whose server holds a project's conversation lets another machine in with `talk admit`, its secret written to a new owner-only file, and takes it out with `talk dismiss`; a failure's message redacted and an offline setup checked against loopback on every path |
 | <a id="b298"></a>[B298](B298-A-Repository-Names-Its-Agent.md) | M | - | A project file names each repository's agent, `repositories.<repository>.agent`, and an optional one-word nickname; `task start` takes that agent without `--agent`, and `Projects` carries both with the name it goes by, `Agent <nickname>` or `Agent <repository>`, for the room and the commits |
@@ -32,7 +33,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b190"></a>[B190](B190-A-Tasks-Branch-Named-By-The-Projects-Scheme.md) | L | - | `branch.template` and `branch.pattern` or `--branch` name a task's forge branch, kept in `task.json`; the gate passes on and keeps out of its mirror by them, an existing upstream branch refused at an online start, a guarded approval onto it by default and only within the pattern. |
 
 ## Backlog
 
