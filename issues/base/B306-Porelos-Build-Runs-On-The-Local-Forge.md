@@ -18,4 +18,10 @@ builds.
 - **Publishing:** the Maven deploy is switched between Central and the forge's Maven registry by the deploy profile
   [PJ60](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj60) names (`PORELO_DEPLOY_PROFILE`), and the Artifactory uploads of the packages stay off on the local forge by
   `PORELO_PUBLISH`, each a variable present on both forges, never a branch in the workflow.
+- **The agent repositories build against what this Build deploys there:** porelo's snapshots (the
+  `porelo-acceptance-kit` among them) reach the forge's registry only from porelo's own Build on that forge, never
+  copied from Sonatype, so a change made in a task can be built against before it reaches GitHub (porelo-pi
+  [PI38](https://github.com/porelo-ai/porelo-pi/blob/main/issues/README.md#pi38), porelo-omp
+  [OM35](https://github.com/porelo-ai/porelo-omp/blob/main/issues/README.md#om35), porelo-claude-code
+  [CC38](https://github.com/porelo-ai/porelo-claude-code/blob/main/issues/README.md#cc38)).
 - **What holds on both:** the published binary is the one the Ubuntu leg tested, fetched back with a manifest.
