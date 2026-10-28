@@ -455,7 +455,7 @@ A task's mailbox. Each command names the task by its container name.
 | `porelo talk members PROJECT` | Lists each person who joined the conversation and their account, or says nobody has joined. |
 | `porelo talk remove PROJECT PERSON` | Removes a person through the transport, then drops them from the members list. Says why if their account stays; a failed removal leaves them listed. |
 | `porelo talk admit PROJECT MACHINE --into FILE` | Lets another machine into the project's conversation on this machine's server, and writes what it needs - its secret among it - to a new file readable by you only. Refused for an offline project. |
-| `porelo talk dismiss PROJECT MACHINE` | Takes another machine out of the project's conversation on this machine's server. Refused for an offline project. |
+| `porelo talk dismiss PROJECT MACHINE` | Takes another machine out of this machine's conversation server: out of every project's conversation there, not only PROJECT's, and its registration token revoked, so a machine that still holds another project here is cut off from it too. Refused for an offline project. |
 
 A message is never edited. Read it before you release it. A message released despite the filter is
 recorded as such, and the receiving peer may refuse it again.
