@@ -13,12 +13,6 @@ a release.
 Grouped by state, as in [the base set](../base/README.md); within a group ordered by what to do next. [P09](README.md#p09) concerns
 providers as a class, the others one provider each.
 
-## Implementing
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="p12"></a>[P12](P12-The-Google-Sign-In-As-A-Provider.md) | L | - | Antigravity CLI served through the person's Google sign-in, brokered on the host, beside the API key of [P06](README.md#p06); the sign-in is measured first, attended |
-
 ## Analyzed
 
 | # | Size | Blocked by | What it covers | Open questions |
@@ -37,6 +31,7 @@ providers as a class, the others one provider each.
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="p12"></a>P12 | The Google Sign-In As A Provider | `providers/google-sign-in.yaml` serves `https://daily-cloudcode-pa.googleapis.com` with `cloud-code` and the Google sign-in as `Authorization: Bearer`; an agent may speak a second dialect under its own variable; the sign-in is renewed on the host with the client's own secret, kept hidden, and the login picks that client among those the agent's CLI holds by asking the service once per pair; an API key is refused before the start, naming `google`. Walked live: a task's Antigravity CLI answered, the container held only a phantom token, the sign-in was renewed with the picked client, the three hosts outside the model route refused. |
 | <a id="p11"></a>P11 | Provider ChatGPT Sign-In | `providers/chatgpt.yaml` serves `https://chatgpt.com` with `openai` under `/backend-api/codex` and the ChatGPT sign-in as `Authorization: Bearer`, its account as `ChatGPT-Account-Id` filled by the provider key `credential_headers`; renewed on the host; an API key is refused before the start, naming `openai`. Walked live: a task's Codex CLI answered, the container held only a phantom token, the sign-in was renewed, `ab.chatgpt.com` refused. |
 | <a id="p05"></a>P05 | Provider OpenAI | `providers/openai.yaml` serves `https://api.openai.com` with `openai` under `/v1` and the API key in `Authorization: Bearer`, refusing a ChatGPT sign-in before the start and naming `chatgpt`; proved through the broker in `porelo-codex`. |
 | <a id="p06"></a>P06 | Provider Google | `providers/google.yaml` serves `https://generativelanguage.googleapis.com` with `google-generative-ai` under `/v1beta` and the API key in `x-goog-api-key`, refusing a Google sign-in before the start and naming `google-sign-in`; proved through the broker in `porelo-agy`. |
