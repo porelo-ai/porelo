@@ -87,6 +87,7 @@ would change the answer.
 | A credential with no expiry is stored and named | accepted, never refused; the store says so and the list marks it (not yet built) | [entry](#a-credential-with-no-expiry-is-stored-and-named) |
 | A storage class Porelo cannot prove is shown as user-scoped | stronger only by a slot the node enrolled or evidence it checks; a client's claim is recorded and shown as user-scoped (not yet built) | [entry](#a-storage-class-porelo-cannot-prove-is-shown-as-user-scoped) |
 | **Projects and following** | | |
+| One agent works in one repository | a task holds one repository, so an agent that spans several is one per repository, its commits authored by the name it goes by | [entry](#one-agent-works-in-one-repository) |
 | A project file describes constraints, not instructions | no prompt or standing instruction belongs in `project.yml` | [entry](#a-project-file-describes-constraints-not-instructions) |
 | A project exists by being followed | every project beside `default` is followed from a repository or bundle; `CheckProjectFile` checks a draft without registering it | [entry](#a-project-exists-by-being-followed) |
 | A project is named, never pointed at | every command and call takes a project name; no path form exists | [entry](#a-project-is-named-never-pointed-at) |
@@ -115,6 +116,7 @@ would change the answer.
 | A person joins by an account made for them | the login is printed once, no registration stays open, and the recorded account's words reach the project's tasks as `ROLE_USER` | [entry](#a-person-joins-by-an-account-made-for-them) |
 | A machine on a shared server is admitted by a person | a person lets it in, from their client or with `talk admit` on the serving machine; a machine not yet let in starts no task | [entry](#a-machine-on-a-shared-server-is-admitted-by-a-person) |
 | An admitted machine's token may lie in a file | accepted: `talk admit --into` writes it in the clear to a new owner-only file; the interface keeps it in its secrets file instead | [entry](#an-admitted-machines-token-may-lie-in-a-file) |
+| The signed project file names a shared server | homeserver, room, CA and token file come from the project file every machine follows; a machine sets none of them | [entry](#the-signed-project-file-names-a-shared-server) |
 | Only a transport a peer names is polled | a transport no peer names is never polled; a failure is said once | [entry](#only-a-transport-a-peer-names-is-polled) |
 | **The build and packages** | | |
 | Porelo is split into modules by area, not into repositories | `app-<area>` modules with enforced dependencies; one build, one package, one contract on the wire | [entry](#porelo-is-split-into-modules-by-area-not-into-repositories) |
@@ -817,6 +819,12 @@ the network path register accounts on this machine's server until it is dismisse
 person without an interface carries it to the other machine, like the VPN key on a host's disk; `talk dismiss` takes
 it back at once. **What would change it:** an admission that never leaves the two machines' own stores.
 
+## The signed project file names a shared server
+
+A project's conversation on a shared server is named in its signed `project.yml`: the homeserver, the room, the CA's
+text as `ca_certificate` and a `registration_token_file`, and every machine that follows the project reaches that
+name. A machine sets none of it for itself.
+
 ## Only a transport a peer names is polled
 
 A daemon polls a transport only if a peer of one of the account's projects names its scheme, and says a
@@ -1258,3 +1266,9 @@ A clearance prompt nobody answers within 60 seconds refuses, and nothing is meas
 question is recorded, replaced on screen by a notice that the destination stays blocked, and can still be answered
 afterwards through `Decide`, from the interface while the task runs. Whoever wants a longer wait sets it with
 `shield watch --timeout`.
+
+## One agent works in one repository
+
+A task holds one repository, so an agent whose work spans several becomes one per repository, and reading across them
+is the coordinator's. A task's commits carry the name it goes by as their author, `Agent <nickname>` or `Agent
+<repository>` at `agent@localhost`, not as a trailer, so who wrote a commit is read where git shows it.
