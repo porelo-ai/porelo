@@ -256,7 +256,8 @@ the question. Merge or cherry-pick `porelo/myproject` when you are ready.
 
 For a followed `guarded` project whose repository names a remote `upstream:` in `project.yml`, use
 `porelo gate approve -p <project> [-r <repo>] <task>`: it pushes the approved work to that `upstream`
-(or `--upstream <url>`), onto `--branch` (`main` by default). With no `upstream` it refuses: "No
+(or `--upstream <url>`), onto `--branch` (`main` by default; in a project with a
+[`branch` block](project-file.md#branch), the task's own branch). With no `upstream` it refuses: "No
 upstream is configured for this project". Both approve commands refuse in an `offline` project.
 
 The next task starting from that repository is brought up to the upstream first, so approved
@@ -345,7 +346,8 @@ porelo gate approve -p payments -r backend backend
 - **A commit is followed, never the working tree.** An edit to `project.yml` is read once it is committed; until then
   the machine keeps the last commit it applied.
 - The task works on `backend`, fetched from its `upstream` on the host; `porelo gate approve` forwards approved work
-  back there (onto `main` by default, or `--branch <branch>`). The project's own repository holds only the file, and no
+  back there (onto `main` by default, or `--branch <branch>`; the task's own branch where the project has a `branch`
+  block). The project's own repository holds only the file, and no
   task is started in it.
 
 ### Working alone, with no forge

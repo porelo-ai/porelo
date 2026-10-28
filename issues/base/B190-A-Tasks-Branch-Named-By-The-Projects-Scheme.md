@@ -1,6 +1,6 @@
 # B190 — A Task's Branch Named By The Project's Scheme
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** L - a project file block, the start's check and record, a typed refusal and an optional approval branch in
 the daemon's contract, the gate's pass-on and its mirror refresh, the build watch, both approvals, and about 45 test
 assertions and eight documents that name `porelo/<task>`.
@@ -88,6 +88,39 @@ gate's lending before a start, but keeps only whether it answered.
     gate's ref with `sed`; a scenario in an online project with a template and `--set type=bugfix` whose push arrives
     upstream as `bugfix/porelo/<task>`, one refused at the start for a branch that exists, and a guarded one approved
     with no branch named that arrives under its recorded branch.
+
+**Built, where it departs from the steps above:**
+
+- The name is made by [B189](README.md#b189)'s `Parameters.fill` and judged by `BranchScheme` (`core`); `TaskBranch` (`app-task`) does
+  both for the start and the daemon's `CanStart` alike. git's ref-name rules are checked in Java, so a dry run starts
+  no process.
+- `gate serve` reads the pattern from the project file it already takes with `--project`, and gets the branch with
+  `--branch`; `GateSupport.gate` sets the scheme on every gate, so the mirror refresh, the restored default and the
+  upstream's HEAD all judge task branches by it.
+- The branch another task holds is checked just before the workspace opens, after the runtime is known to be there,
+  and not in a dry run, which touches no container runtime.
+- `MirrorFile` keeps reading `porelo/*` as task branches: the gate drops every branch the pattern matches before a
+  mirror is read, so it needs no change.
+- `ApprovalBranch` (`app-model`) is the one rule for `gate approve` and the daemon's `Approve` and `PendingBundle`. A
+  project "has a branch block" when its scheme for the repository is not today's.
+- `task status` shows the branch as `forge`, one word, so a script reads it with `awk`.
+
+**Read against the skills, and what came of it:** `gate serve` judges a recorded branch only by git's rules, so a
+task resumed after the project file changed keeps its branch; a restored bundle and a seed whose HEAD is a task
+branch leave none in the mirror and HEAD on a branch it holds; under a project's own scheme a refresh asks for the
+other branches by name, so a task branch is never in the mirror between a fetch and its removal; `CanStart` names a
+task as Start does, from its repository or out of a container name, and leaves an unknown repository to the
+repository check; `HEAD` is no branch name; `--branch` on a task brought back is refused like `--set`; a written block
+is a block even when it says what the default says (`Project.declaresBranch`); `porelo approve` reads the record kept
+over a restart; `BranchTaken` carries the settled task name and also types a branch another task here holds.
+A second reading: the refresh under a scheme fetches before it removes what vanished, takes its refspecs on
+standard input and names refs as git prints them; a mirror whose HEAD names a task branch or none it holds is put on
+`main`, its only branch, or `main` unborn, which a start refuses naming the branches; the daemon's `RestoreGate` keeps
+the scheme's task branches out as `gate restore` does; `CanStart` leaves the project's own repository of a project
+with others to the repository check. **Declined:** an empty upstream with an unborn HEAD is not refused - a push with
+force there replaces nothing; a recorded branch is not checked again on approval, since its start checked it; a
+detached HEAD after the first clone is guarded but untested, since `git clone --bare` gives the mirror a branch even
+from a detached upstream; `EarlierWorkWaits` naming the task as the call did predates this.
 
 ## Acceptance
 

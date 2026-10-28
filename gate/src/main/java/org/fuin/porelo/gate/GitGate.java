@@ -13,6 +13,7 @@ import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
+import org.fuin.porelo.core.project.BranchScheme;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -46,6 +47,8 @@ public class GitGate {
     @Nullable private final String upstreamUrl;
 
     @Nullable private final String seedUrl;
+
+    private BranchScheme taskBranches = BranchScheme.DEFAULT;
 
     /** Where a credential for a remote comes from. Nothing, until a caller that has one says so. */
     private GitCredentials lending = GitCredentials.NONE;
@@ -85,6 +88,20 @@ public class GitGate {
         this.mode = mode;
         this.upstreamUrl = upstreamUrl;
         this.seedUrl = seedUrl;
+    }
+
+    /**
+     * Returns this gate keeping the task branches a project's scheme names out of the mirror.
+     *
+     * <p>A task's work reaches the forge under such a name, so another task's would come back into
+     * the mirror every task fetches from; a person's own branches stay.
+     *
+     * @param scheme How the project names its tasks' branches; {@code porelo/<task>} by default.
+     * @return This gate.
+     */
+    public GitGate taskBranches(final BranchScheme scheme) {
+        this.taskBranches = scheme;
+        return this;
     }
 
     /**
@@ -152,6 +169,7 @@ public class GitGate {
             }
         }
         dropApprovedBranches();
+        headOnABranch();
         // The agent pushes over HTTP, and git refuses that on a bare repository unless told the
         // repository is meant to be served.
         gitIn("config", "http.receivepack", "true");
@@ -183,15 +201,22 @@ public class GitGate {
             return "";
         }
         try (GitCredentials.Lease lease = lending.forUrl(upstreamUrl)) {
-            gitWith(
-                    lease,
-                    "fetch",
-                    "--quiet",
-                    "--prune",
-                    "--end-of-options",
-                    upstreamUrl,
-                    "+refs/heads/*:refs/heads/*",
-                    "^" + APPROVED + "*");
+            // Not fetched at all under today's names; under a project's own scheme, whose pattern a
+            // refspec cannot say, fetched and dropped before a task fetches: the gate refreshes
+            // before it serves.
+            if (taskBranches.equals(BranchScheme.DEFAULT)) {
+                gitWith(
+                        lease,
+                        "fetch",
+                        "--quiet",
+                        "--prune",
+                        "--end-of-options",
+                        upstreamUrl,
+                        "+refs/heads/*:refs/heads/*",
+                        "^" + APPROVED + "*");
+            } else {
+                fetchOnlyOthers(lease, upstreamUrl);
+            }
             dropApprovedBranches();
             refreshHead(lease, upstreamUrl);
             return "";
@@ -200,6 +225,151 @@ public class GitGate {
                     + " holds, which may be behind: "
                     + ex.getMessage();
         }
+    }
+
+    /**
+     * Says why an online task may not pass its work on as a branch: the upstream holds it already,
+     * so a push with force would replace someone else's work, or the project's pattern matches the
+     * upstream's default branch, so the mirror would hide it from every task.
+     *
+     * <p>Asked once, at the start, with the upstream's own answer and nothing cached.
+     *
+     * @param branch The task's branch, without {@code refs/heads/}.
+     * @return Why it is refused, or {@code null}; {@code null} too for a gate with no upstream.
+     */
+    public @Nullable String taken(final String branch) {
+        if (upstreamUrl == null) {
+            return null;
+        }
+        final String answer;
+        try (GitCredentials.Lease lease = lending.forUrl(upstreamUrl)) {
+            answer =
+                    gitWith(
+                                    lease,
+                                    "ls-remote",
+                                    "--symref",
+                                    "--end-of-options",
+                                    upstreamUrl,
+                                    "HEAD",
+                                    "refs/heads/" + branch)
+                            .standardOutput();
+        } catch (GateException ex) {
+            return "the upstream could not be asked whether the branch '"
+                    + branch
+                    + "' is free, so no work is passed on to it: "
+                    + ex.getMessage();
+        }
+        for (final String line : answer.lines().toList()) {
+            if (line.startsWith("ref: refs/heads/") && line.endsWith("\tHEAD")) {
+                final String main =
+                        line.substring(
+                                "ref: refs/heads/".length(), line.length() - "\tHEAD".length());
+                if (taskBranches.accepts(main)) {
+                    return "the project's branch.pattern "
+                            + taskBranches.pattern()
+                            + " matches the upstream's default branch '"
+                            + main
+                            + "', which the gate would then keep from every task; narrow the pattern";
+                }
+            }
+        }
+        for (final String line : answer.lines().toList()) {
+            if (line.endsWith("\trefs/heads/" + branch)) {
+                return "the branch '"
+                        + branch
+                        + "' exists at the upstream already, and passing work on would replace what it"
+                        + " holds; name another with --branch or other values";
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Fetches the upstream's branches but the task branches the project's scheme names: asked for
+     * by name, so none of them is ever in the mirror, not even between a fetch and its removal,
+     * while another task's gate serves a fetch from it. Branches gone from the upstream go here
+     * too.
+     */
+    private void fetchOnlyOthers(final GitCredentials.Lease lease, final String upstream) {
+        final List<String> wanted = new ArrayList<>();
+        for (final String line :
+                gitWith(lease, "ls-remote", "--heads", "--end-of-options", upstream)
+                        .standardOutput()
+                        .lines()
+                        .toList()) {
+            final int tab = line.indexOf('\t');
+            if (tab > 0) {
+                // As git prints it: a ref name may end in a character strip() would take.
+                final String ref = line.substring(tab + 1);
+                if (ref.startsWith("refs/heads/") && !taskBranch(ref)) {
+                    wanted.add(ref);
+                }
+            }
+        }
+        if (!wanted.isEmpty()) {
+            // On standard input: an upstream with thousands of branches would exceed a command
+            // line.
+            final StringBuilder refspecs = new StringBuilder();
+            wanted.forEach(
+                    ref -> refspecs.append('+').append(ref).append(':').append(ref).append('\n'));
+            gitWithInput(
+                    lease,
+                    refspecs.toString(),
+                    "fetch",
+                    "--quiet",
+                    "--stdin",
+                    "--end-of-options",
+                    upstream);
+        }
+        // Only once the fetch has brought what replaces them: a refresh that fails keeps what the
+        // mirror held.
+        for (final String ref :
+                gitIn("for-each-ref", "--format=%(refname)", "refs/heads/")
+                        .standardOutput()
+                        .lines()
+                        .filter(line -> !line.isEmpty())
+                        .toList()) {
+            if (!wanted.contains(ref)) {
+                gitIn("update-ref", "-d", ref);
+            }
+        }
+    }
+
+    /**
+     * Points the mirror's HEAD at a branch it holds when the one it names was a task's or is not
+     * there: {@code main} when there is one, else its only branch, else {@code main} unborn, which
+     * a start then refuses naming the branches there are rather than guessing one.
+     */
+    private void headOnABranch() {
+        final CommandResult symbolic =
+                runner.run(
+                        Command.of(
+                                "git",
+                                "--git-dir",
+                                mirror.toString(),
+                                "symbolic-ref",
+                                "--quiet",
+                                "HEAD"));
+        if (!symbolic.successful()) {
+            // A detached HEAD: the default branch is the start's to refuse, not this to repair.
+            return;
+        }
+        final String current = symbolic.standardOutput().strip();
+        final List<String> heads =
+                gitIn("for-each-ref", "--format=%(refname)", "refs/heads/")
+                        .standardOutput()
+                        .lines()
+                        .filter(line -> !line.isEmpty())
+                        .toList();
+        if (!taskBranch(current) && (heads.contains(current) || heads.isEmpty())) {
+            return;
+        }
+        gitIn(
+                "symbolic-ref",
+                "HEAD",
+                heads.contains("refs/heads/main") || heads.size() != 1
+                        ? "refs/heads/main"
+                        : heads.getFirst());
     }
 
     private void refreshHead(GitCredentials.Lease lease, String upstream) {
@@ -213,8 +383,7 @@ public class GitGate {
                 }
                 final String ref =
                         line.substring("ref: ".length(), line.length() - "\tHEAD".length());
-                if (ref.startsWith(APPROVED)
-                        || ref.substring("refs/heads/".length()).startsWith("-")) {
+                if (taskBranch(ref) || ref.substring("refs/heads/".length()).startsWith("-")) {
                     return;
                 }
                 gitIn("check-ref-format", ref);
@@ -265,19 +434,33 @@ public class GitGate {
     static final String APPROVED = "refs/heads/porelo/";
 
     /**
-     * Removes the branches a source holds only because work was approved into it: brought back, a
-     * task saw its own approved work again as {@code porelo/porelo/<task>}.
+     * Removes the task branches the mirror holds: work approved into a source, and work another
+     * task passed on to the forge under the project's scheme. Brought back, a task saw its own
+     * approved work again as {@code porelo/porelo/<task>}, and every other task's.
      */
     private void dropApprovedBranches() {
         for (final String ref :
-                gitIn("for-each-ref", "--format=%(refname)", APPROVED)
+                gitIn("for-each-ref", "--format=%(refname)", "refs/heads/")
                         .standardOutput()
                         .lines()
                         .map(String::strip)
                         .filter(line -> !line.isEmpty())
+                        .filter(this::taskBranch)
                         .toList()) {
             gitIn("update-ref", "-d", ref);
         }
+    }
+
+    /**
+     * Says whether a branch is a task's: under {@code porelo/}, or named by the project's scheme.
+     *
+     * @param ref A full ref.
+     * @return {@code true} for a task's branch, never read by or handed to a task.
+     */
+    private boolean taskBranch(final String ref) {
+        return ref.startsWith(APPROVED)
+                || ref.startsWith("refs/heads/")
+                        && taskBranches.accepts(ref.substring("refs/heads/".length()));
     }
 
     @Nullable
@@ -455,7 +638,10 @@ public class GitGate {
         // every pending push - which is exactly the work an operator restoring a backup is least
         // able to reconstruct. Fetching refs/*:refs/* takes all of it.
         gitIn("fetch", bundle.toString(), "refs/*:refs/*");
+        // A task's branch in the bundle is no more a task's to see than one fetched.
+        dropApprovedBranches();
         restoreHead(bundle);
+        headOnABranch();
         gitIn("config", "http.receivepack", "true");
         gitIn("config", "receive.denyCurrentBranch", "ignore");
     }
@@ -477,7 +663,7 @@ public class GitGate {
         final List<String> branches =
                 heads.entrySet().stream()
                         .filter(entry -> entry.getKey().startsWith("refs/heads/"))
-                        .filter(entry -> !entry.getKey().startsWith(APPROVED))
+                        .filter(entry -> !taskBranch(entry.getKey()))
                         .filter(entry -> head == null || head.equals(entry.getValue()))
                         .map(Map.Entry::getKey)
                         .toList();
@@ -1345,6 +1531,20 @@ public class GitGate {
 
     private CommandResult gitIn(String... arguments) {
         return gitWith(GitCredentials.Lease.EMPTY, arguments);
+    }
+
+    private CommandResult gitWithInput(
+            GitCredentials.Lease lease, String input, String... arguments) {
+        final List<String> all = new ArrayList<>(List.of("git"));
+        all.addAll(lease.arguments());
+        all.addAll(List.of("--git-dir", mirror.toString()));
+        all.addAll(List.of(arguments));
+        try {
+            return runner.runOrFail(
+                    Command.of(all).withEnvironment(lease.environment()).withInput(input));
+        } catch (CommandException ex) {
+            throw new GateException(ex.getMessage() == null ? "git failed" : ex.getMessage(), ex);
+        }
     }
 
     private CommandResult gitWith(GitCredentials.Lease lease, String... arguments) {

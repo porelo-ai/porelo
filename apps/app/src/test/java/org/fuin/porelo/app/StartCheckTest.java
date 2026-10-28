@@ -84,6 +84,109 @@ class StartCheckTest {
     }
 
     @Test
+    void aBranchThePatternRefusesIsRefusedAsTheStartRefusesIt(@TempDir Path dir) throws Exception {
+
+        // CanStart and Start make and judge the branch with one class: offered here and refused
+        // there, a dialog would show a start that never comes.
+        Files.createDirectories(dir.resolve("project"));
+        final Path project = dir.resolve("project/project.yml");
+        Files.writeString(
+                project,
+                "project:\n  name: \"uc\"\n  security_class: \"guarded\"\n"
+                        + "image:\n  base_image: \"ubuntu:24.04\"\n"
+                        + "parameters:\n  type:\n    values: [feature, bugfix, chore]\n"
+                        + "branch:\n  template: \"{type}/porelo/{task}\"\n"
+                        + "  pattern: \"^(feature|bugfix)/porelo/[a-z0-9-]+$\"\n");
+        final StartCheck.Result ready =
+                new StartCheck.Result(StartCheck.Outcome.READY, "a", "", "", "");
+
+        final StartCheck.Result chore =
+                StartCheck.withBranch(
+                        context(dir), ready, project, "uc", "fix", given("chore"), null);
+        assertThat(chore.outcome()).isEqualTo(StartCheck.Outcome.BRANCH_REFUSED);
+        assertThat(chore.detail()).contains("chore/porelo/fix").contains("(feature|bugfix)");
+
+        assertThat(
+                        StartCheck.withBranch(
+                                        context(dir),
+                                        ready,
+                                        project,
+                                        "uc",
+                                        "fix",
+                                        given("bugfix"),
+                                        null)
+                                .outcome())
+                .isEqualTo(StartCheck.Outcome.READY);
+        assertThat(
+                        StartCheck.withBranch(
+                                        context(dir),
+                                        ready,
+                                        project,
+                                        "uc",
+                                        "fix",
+                                        given("bugfix"),
+                                        "main")
+                                .detail())
+                .as("a branch named outright is judged as well")
+                .contains("--branch");
+    }
+
+    @Test
+    void aStartWithoutANameIsJudgedUnderTheNameItsRepositoryGivesAndAContainerNameAsItsTask(
+            @TempDir Path dir) throws Exception {
+
+        // A dialog asks before a task is named; Start then names it after its repository. And a
+        // container name is the task's, as Start reads it.
+        Files.createDirectories(dir.resolve("project"));
+        final Path project = dir.resolve("project/project.yml");
+        Files.writeString(
+                project,
+                "project:\n  name: \"uc\"\n  security_class: \"guarded\"\n"
+                        + "image:\n  base_image: \"ubuntu:24.04\"\n"
+                        + "parameters:\n  type:\n    values: [feature, bugfix, chore]\n"
+                        + "branch:\n  template: \"{type}/porelo/{task}\"\n"
+                        + "  pattern: \"^(feature|bugfix)/porelo/fix$\"\n");
+        final StartCheck.Result ready =
+                new StartCheck.Result(StartCheck.Outcome.READY, "a", "", "", "");
+
+        final StartCheck.Result unnamed =
+                StartCheck.withBranch(
+                        context(dir), ready, project, "uc", null, given("chore"), null);
+        assertThat(unnamed.outcome()).isEqualTo(StartCheck.Outcome.BRANCH_REFUSED);
+        assertThat(unnamed.detail()).contains("chore/porelo/uc");
+
+        assertThat(
+                        StartCheck.withBranch(
+                                        context(dir),
+                                        ready,
+                                        project,
+                                        "uc",
+                                        "porelo-uc-fix",
+                                        given("bugfix"),
+                                        null)
+                                .outcome())
+                .as("bugfix/porelo/fix, not bugfix/porelo/porelo-uc-fix")
+                .isEqualTo(StartCheck.Outcome.READY);
+        assertThat(
+                        StartCheck.withBranch(
+                                        context(dir),
+                                        ready,
+                                        project,
+                                        "elsewhere",
+                                        "fix",
+                                        given("bugfix"),
+                                        "main")
+                                .outcome())
+                .as("an unknown repository is the repository check's to say")
+                .isEqualTo(StartCheck.Outcome.READY);
+    }
+
+    private static Map<String, org.fuin.porelo.core.project.Parameters.Given> given(
+            final String type) {
+        return Map.of("type", new org.fuin.porelo.core.project.Parameters.Given(type, "test"));
+    }
+
+    @Test
     void asksAboutTheAgentTheProjectFileNamesForTheRepository(@TempDir Path dir) throws Exception {
 
         // Start takes the repository's agent without --agent, so CanStart answering for whatever

@@ -180,6 +180,14 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     private @Nullable String repository;
 
     @Option(
+            names = "--branch",
+            paramLabel = "<name>",
+            description =
+                    "The task's branch at the forge, named outright instead of by the project's"
+                            + " branch.template; it must match branch.pattern too.")
+    private @Nullable String branch;
+
+    @Option(
             names = "--no-gate",
             description =
                     "Runs without a workspace or a git gate. The agent gets an empty"
@@ -473,7 +481,8 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                         minutes,
                                         repository,
                                         credentials,
-                                        given),
+                                        given,
+                                        branch),
                                 new StartSteps(step -> StartSteps.render(out, step), err))
                         // What a refusal would name is offered at a terminal instead; a script or a
                         // pipe is refused as before.
@@ -1035,6 +1044,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                     "--set",
                     "--set-file",
                     "--set-env",
+                    "--branch",
                     "--credential-type",
                     "--token-hours",
                     "--shell",

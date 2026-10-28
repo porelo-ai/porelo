@@ -45,8 +45,13 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
     @Option(
             names = "--branch",
             paramLabel = "<name>",
-            description = "Upstream branch. Default: ${DEFAULT-VALUE}")
-    private String branch = "main";
+            description =
+                    "Upstream branch. Default: main; in a project with a branch block, the task's own"
+                            + " branch, and a named one must match its branch.pattern.")
+    private @Nullable String branch;
+
+    /** The branch this run approves onto, once settled. */
+    private String onto = "main";
 
     @Option(
             names = "--commit",
@@ -94,12 +99,27 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
                         : new Offer(asker, false, false, err);
         // Each branch taken is offered the next free one once, so a run of taken names ends rather
         // than loops.
+        try {
+            final Project project = GateSupport.byName(context, projectName);
+            final String chosen =
+                    ApprovalBranch.of(
+                            context,
+                            project,
+                            GateSupport.repository(context, project, repository, name),
+                            name,
+                            branch);
+            onto = chosen == null ? "main" : chosen;
+        } catch (RuntimeException ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return 64;
+        }
         for (int tries = 0; tries < 10; tries++) {
             final String next = approveOnce(out, err, offer);
             if (next == null) {
                 return exit;
             }
-            branch = next;
+            onto = next;
         }
         return exit;
     }
@@ -108,7 +128,7 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
     private int exit;
 
     /**
-     * Approves onto {@link #branch} once.
+     * Approves onto {@link #onto} once.
      *
      * @param out Where to report.
      * @param err Where to refuse.
@@ -129,11 +149,11 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
                             null);
             gate.initialize();
             if (signed) {
-                GateSupport.approveSigned(gate, name, branch, commit);
-                out.println("merged    " + name + " onto " + branch + ", signed, and forwarded");
+                GateSupport.approveSigned(gate, name, onto, commit);
+                out.println("merged    " + name + " onto " + onto + ", signed, and forwarded");
             } else {
-                gate.approve(name, branch, commit);
-                out.println("forwarded " + name + " to " + branch);
+                gate.approve(name, onto, commit);
+                out.println("forwarded " + name + " to " + onto);
             }
             out.flush();
             exit = 0;
@@ -142,7 +162,10 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
             // The next free branch is offered at a terminal; the words the contract names, and that
             // branch, otherwise. Never a force over the one that is taken.
             final String next = suggested(ex.branch());
-            final String taken = instead(ex.branch(), String.valueOf(ex.at()), next, offer);
+            // Offered only where the forge's rules cover it.
+            final boolean offerable = offerable(next);
+            final String taken =
+                    offerable ? instead(ex.branch(), String.valueOf(ex.at()), next, offer) : null;
             if (taken != null) {
                 return taken;
             }
@@ -152,8 +175,8 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
                             + " already holds "
                             + ex.at()
                             + ", from earlier work; approve onto"
-                            + " another branch with --branch "
-                            + next);
+                            + " another branch with --branch"
+                            + (offerable ? " " + next : " the project's branch.pattern accepts"));
             err.flush();
             exit = 70;
             return null;
@@ -199,6 +222,16 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
      * @param taken The branch that holds earlier work.
      * @return A suggestion only; the person chooses.
      */
+    private boolean offerable(final String next) {
+        try {
+            final Project project = GateSupport.byName(context, projectName);
+            return ApprovalBranch.offerable(
+                    project, GateSupport.repository(context, project, repository, name), next);
+        } catch (RuntimeException ex) {
+            return false;
+        }
+    }
+
     private String suggested(final String taken) {
         try {
             final Project project = GateSupport.byName(context, projectName);

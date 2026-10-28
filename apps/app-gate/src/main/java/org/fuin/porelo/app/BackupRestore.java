@@ -131,10 +131,11 @@ public final class BackupRestore {
                             : mirrors.resolve(read.name()).resolve(chosen.name() + ".git");
             gate =
                     new GitGate(
-                            context.runner(),
-                            mirror,
-                            org.fuin.porelo.gate.GateMode.of(read.securityClass()),
-                            chosen.upstream());
+                                    context.runner(),
+                                    mirror,
+                                    org.fuin.porelo.gate.GateMode.of(read.securityClass()),
+                                    chosen.upstream())
+                            .taskBranches(read.branchScheme(chosen.name()));
         } catch (RuntimeException ex) {
             return new Result(Outcome.FAILED, "", List.of(), String.valueOf(ex.getMessage()));
         }

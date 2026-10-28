@@ -55,6 +55,8 @@ public final class TaskLaunch {
      *     repositories exist today is one nobody can read.
      * @param parameters The values a start hands in, each with where it came from, not yet checked
      *     against the project's declarations.
+     * @param branch Value of {@code --branch}: the task's branch at the forge named outright, or
+     *     {@code null} for the one the project's scheme makes.
      */
     public record Request(
             String task,
@@ -75,7 +77,74 @@ public final class TaskLaunch {
             int minutes,
             @Nullable String repository,
             java.util.Map<String, String> credentials,
-            java.util.Map<String, org.fuin.porelo.core.project.Parameters.Given> parameters) {
+            java.util.Map<String, org.fuin.porelo.core.project.Parameters.Given> parameters,
+            @Nullable String branch) {
+
+        /**
+         * Constructor for a request that names no branch: the project's scheme makes it.
+         *
+         * @param task Task name.
+         * @param projectFile Project file.
+         * @param agentName Agent to use, or {@code null}.
+         * @param providerName Provider, or {@code null}.
+         * @param credentialType Credential type override, or {@code null}.
+         * @param tokenHours Phantom token lifetime.
+         * @param upstream Upstream override, or {@code null}.
+         * @param noGate Whether to skip the gate.
+         * @param dryRun Whether to stop before starting.
+         * @param clearance Clearance mode.
+         * @param keep Whether to keep the container.
+         * @param mode What the task is for.
+         * @param prompt Prompt, or {@code null}.
+         * @param model Model, or {@code null}.
+         * @param maxTurns Turn limit, or {@code null}.
+         * @param minutes Minutes an unattended run may take.
+         * @param repository Which repository, or {@code null}.
+         * @param credentials Further credentials, by vault entry.
+         * @param parameters The values a start hands in.
+         */
+        public Request(
+                String task,
+                Path projectFile,
+                @Nullable String agentName,
+                @Nullable String providerName,
+                @Nullable String credentialType,
+                int tokenHours,
+                @Nullable String upstream,
+                boolean noGate,
+                boolean dryRun,
+                String clearance,
+                boolean keep,
+                org.fuin.porelo.wire.TaskMode mode,
+                @Nullable String prompt,
+                @Nullable String model,
+                @Nullable Integer maxTurns,
+                int minutes,
+                @Nullable String repository,
+                java.util.Map<String, String> credentials,
+                java.util.Map<String, org.fuin.porelo.core.project.Parameters.Given> parameters) {
+            this(
+                    task,
+                    projectFile,
+                    agentName,
+                    providerName,
+                    credentialType,
+                    tokenHours,
+                    upstream,
+                    noGate,
+                    dryRun,
+                    clearance,
+                    keep,
+                    mode,
+                    prompt,
+                    model,
+                    maxTurns,
+                    minutes,
+                    repository,
+                    credentials,
+                    parameters,
+                    null);
+        }
 
         /**
          * Constructor for a request that hands in no values, as every start did before a project
@@ -330,7 +399,8 @@ public final class TaskLaunch {
                     minutes,
                     repository,
                     credentials,
-                    parameters);
+                    parameters,
+                    branch);
         }
     }
 
@@ -535,6 +605,17 @@ public final class TaskLaunch {
             err.flush();
             return new Existing(container, project.name(), 64);
         }
+        // Its branch at the forge was settled when it was created and recorded; one handed to a
+        // start that brings it back would change nothing, and say nothing.
+        if (request.branch() != null) {
+            err.println(
+                    "porelo: "
+                            + container
+                            + " was started with its branch, which stays as it was; start a new task"
+                            + " for another branch");
+            err.flush();
+            return new Existing(container, project.name(), 64);
+        }
         // A task's values were fixed when it was created, in its environment and its record; a
         // value handed to a start that brings it back would change neither, and said nothing.
         if (!request.parameters().isEmpty()) {
@@ -709,7 +790,9 @@ public final class TaskLaunch {
                             request.maxTurns(),
                             request.minutes(),
                             request.repository(),
-                            request.credentials());
+                            request.credentials(),
+                            request.parameters(),
+                            request.branch());
         }
         return null;
     }
@@ -1131,6 +1214,21 @@ public final class TaskLaunch {
                                         + " ("
                                         + given.origin()
                                         + ")"));
+        if (!request.noGate()) {
+            // Settled here, before anything exists, and kept with the task: a resume and a later
+            // change to the project file leave it as it is.
+            final String refused = settleForgeBranch(project, repository);
+            if (refused != null) {
+                err.println("porelo: " + refused);
+                err.println("porelo: nothing was created");
+                err.flush();
+                return 64;
+            }
+            out.println(
+                    "branch         "
+                            + forgeBranch
+                            + (request.branch() == null ? "" : " (named with --branch)"));
+        }
         out.flush();
 
         // Resolved here rather than at the point of use: a set name that does not exist is a
@@ -1496,6 +1594,21 @@ public final class TaskLaunch {
             if (gated) {
                 steps.started(StartStep.Step.WORKSPACE);
             }
+            if (gated) {
+                final String branchHeld = branchHeldElsewhere(project);
+                if (branchHeld != null) {
+                    heldElsewhere =
+                            new BranchTaken(
+                                    request.task(),
+                                    java.util.Objects.requireNonNull(forgeBranch),
+                                    branchHeld);
+                    err.println("porelo: " + branchHeld);
+                    err.println("porelo: nothing was created");
+                    err.flush();
+                    return 64;
+                }
+            }
+            workspace().forgeBranch(forgeBranch);
             final TaskWorkspace workspace = workspace().openWorkspace(project, gated, out, err);
             final String earlier = workspace().refusal();
             if (earlier != null
@@ -1759,6 +1872,7 @@ public final class TaskLaunch {
                                 container,
                                 request.task(),
                                 project,
+                                forgeBranch,
                                 out,
                                 err);
                 workspace()
@@ -1770,13 +1884,7 @@ public final class TaskLaunch {
 
             clearance().startClearance(runner, project, container, out, err);
             new BuildsWiring(context, this::recordHelper)
-                    .start(
-                            project,
-                            repository,
-                            container,
-                            environmentCache.get("PORELO_TASK_REF"),
-                            out,
-                            err);
+                    .start(project, repository, container, forgeBranch, out, err);
             writeResumeRecord(container, err);
             // What only this moment knows: which agent, how somebody is meant to be involved, what
             // it was asked to do, and which ref its work goes to. None of it can be recovered from
@@ -2010,7 +2118,8 @@ public final class TaskLaunch {
                             request.clearance(),
                             null,
                             servingName,
-                            request.model())
+                            request.model(),
+                            forgeBranch)
                     .writeTo(context.paths().tasks().containerState(container));
         } catch (java.io.IOException ex) {
             err.println("porelo: could not record what this task is: " + ex.getMessage());
@@ -2597,6 +2706,62 @@ public final class TaskLaunch {
         }
     }
 
+    /**
+     * The task's branch at the forge, settled when it is launched; {@code null} until then and for
+     * a task without a gate.
+     */
+    private @Nullable String forgeBranch;
+
+    /**
+     * Makes the task's branch at the forge from {@code --branch} or the repository's scheme, and
+     * checks it is one the forge accepts and git can name.
+     *
+     * @param project The project.
+     * @param repository The repository the task works on.
+     * @return Why it is refused, or {@code null} once {@link #forgeBranch} holds it.
+     */
+    private @Nullable String settleForgeBranch(
+            final Project project, final org.fuin.porelo.core.project.Repository repository) {
+        final TaskBranch.Settled settled =
+                TaskBranch.settle(
+                        project, repository.name(), request.task(), values, request.branch());
+        if (settled.refused() != null) {
+            return settled.refused();
+        }
+        final String name = java.util.Objects.requireNonNull(settled.name());
+        forgeBranch = name;
+        return null;
+    }
+
+    /**
+     * Says why the task's branch is another task's already: two tasks of one repository on one
+     * branch would pass their work on onto one, and one would move the other's. Asked just before
+     * the workspace opens, once the runtime is known to be there.
+     *
+     * @param project The project.
+     * @return Why it is refused, or {@code null}.
+     */
+    private @Nullable String branchHeldElsewhere(final Project project) {
+        if (forgeBranch == null || workedOn == null) {
+            return null;
+        }
+        final String other =
+                TaskBranch.heldBy(
+                        context,
+                        project.name(),
+                        workedOn.name(),
+                        forgeBranch,
+                        context.tasks().containerName(project, request.task()));
+        return other == null
+                ? null
+                : "the task's branch '"
+                        + forgeBranch
+                        + "' is "
+                        + other
+                        + "'s already, and two tasks would pass their work on onto one; name another"
+                        + " with --branch or other values";
+    }
+
     /** The values the task was started with, settled when it is launched; empty until then. */
     private java.util.Map<String, org.fuin.porelo.core.project.Parameters.Given> values =
             java.util.Map.of();
@@ -2630,6 +2795,38 @@ public final class TaskLaunch {
         }
         return gate;
     }
+
+    /**
+     * Returns the branch an online start found the upstream holding already, when the start was
+     * refused for it.
+     *
+     * @return The branch and why, or {@code null}.
+     */
+    public @Nullable BranchTaken branchTaken() {
+        if (heldElsewhere != null) {
+            return heldElsewhere;
+        }
+        if (workspace == null || workspace.takenBranch() == null) {
+            return null;
+        }
+        return new BranchTaken(
+                request.task(),
+                java.util.Objects.requireNonNull(workspace.takenBranch()),
+                String.valueOf(workspace.refusal()));
+    }
+
+    /** The branch another task of this machine holds, when that refused the start. */
+    private @Nullable BranchTaken heldElsewhere;
+
+    /**
+     * The branch a start found taken - at the upstream, or by another task here - and why it was
+     * refused.
+     *
+     * @param task The task's name, as the start settled it.
+     * @param branch The branch.
+     * @param detail What the refusal said.
+     */
+    public record BranchTaken(String task, String branch, String detail) {}
 
     /**
      * Returns the earlier work of this task's name that waits at the gate, when the start was

@@ -31,13 +31,57 @@ class GateServingTest {
         // 'porelo' could be started, and a runner without one recorded no gate at all.
         final Path state = Path.of("/run/user/1000/porelo/porelo-uc-shell");
 
-        assertThat(GateWiring.serving(project("online"), "127.0.0.1", 9418, state, "shell", "uc"))
+        assertThat(
+                        GateWiring.serving(
+                                project("online"), "127.0.0.1", 9418, state, "shell", "uc", null))
                 .contains("--pass-on")
                 .containsSequence("--ref", "refs/porelo/incoming/shell")
                 .containsSequence("--repository", "uc")
                 .noneMatch(word -> word.contains("ssh-agent"));
-        assertThat(GateWiring.serving(project("guarded"), "127.0.0.1", 9418, state, "shell", null))
+        assertThat(
+                        GateWiring.serving(
+                                project("guarded"), "127.0.0.1", 9418, state, "shell", null, null))
                 .doesNotContain("--pass-on")
                 .doesNotContain("--repository");
+    }
+
+    @Test
+    void anOnlineTasksGateIsToldItsBranchOnlyWhenItIsNotTodays() {
+
+        // On the recorded command line, so a resumed task passes on where it did; a task started
+        // before keeps the command line it had.
+        final Path state = Path.of("/run/user/1000/porelo/porelo-uc-shell");
+
+        assertThat(
+                        GateWiring.serving(
+                                project("online"),
+                                "127.0.0.1",
+                                9418,
+                                state,
+                                "shell",
+                                null,
+                                "bugfix/porelo/shell"))
+                .containsSequence("--branch", "bugfix/porelo/shell");
+        assertThat(
+                        GateWiring.serving(
+                                project("online"),
+                                "127.0.0.1",
+                                9418,
+                                state,
+                                "shell",
+                                null,
+                                "porelo/shell"))
+                .doesNotContain("--branch");
+        assertThat(
+                        GateWiring.serving(
+                                project("guarded"),
+                                "127.0.0.1",
+                                9418,
+                                state,
+                                "shell",
+                                null,
+                                "bugfix/porelo/shell"))
+                .as("a guarded task's work waits at the gate; nothing is passed on")
+                .doesNotContain("--branch");
     }
 }

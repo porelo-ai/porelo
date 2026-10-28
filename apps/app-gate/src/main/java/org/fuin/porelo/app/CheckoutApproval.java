@@ -116,7 +116,7 @@ final class CheckoutApproval {
             // question read as ambiguous, under the sentence that no work of that name waits.
             return chosenRefusal;
         }
-        final String branch = PREFIX + chosen.name();
+        final String branch = branchOf(chosen.name());
         show(gate, chosen);
         final String refused = refusal(top, gate.mirror(), branch, chosen.commit());
         if (refused != null) {
@@ -165,6 +165,7 @@ final class CheckoutApproval {
         if (own != null) {
             final Project project = GateSupport.byName(context, DefaultProject.NAME);
             final Repository repository = project.repository(own.name());
+            gateProject = project;
             return repository == null
                     ? null
                     : GateSupport.gate(context, project, repository, null, null);
@@ -217,6 +218,36 @@ final class CheckoutApproval {
                             + " there with 'porelo gate approve <task> <branch>'");
         }
         return null;
+    }
+
+    /** The project whose gate holds the work, once {@link #gateOf} found it. */
+    private @Nullable Project gateProject;
+
+    /**
+     * Returns the branch a task's work arrives on in the checkout: the one its start recorded, or
+     * {@code porelo/<task>} for a task started before it was recorded, or one already removed.
+     *
+     * @param task The task's name.
+     * @return The branch.
+     */
+    private String branchOf(final String task) {
+        if (gateProject != null) {
+            final String container = org.fuin.porelo.runtime.ContainerName.of(gateProject, task);
+            org.fuin.porelo.wire.TaskProfile profile =
+                    org.fuin.porelo.wire.TaskProfile.readFrom(
+                            context.paths().tasks().containerState(container));
+            if (profile == null) {
+                // Kept over a restart, when the runtime directory is gone.
+                profile =
+                        org.fuin.porelo.wire.TaskProfile.readFrom(
+                                context.paths().tasks().taskRecord(container));
+            }
+            final String recorded = profile == null ? null : profile.forgeBranchOrToday();
+            if (recorded != null) {
+                return recorded;
+            }
+        }
+        return PREFIX + task;
     }
 
     /** The exit of the refusal {@link #choose} said, when it chose nothing. */

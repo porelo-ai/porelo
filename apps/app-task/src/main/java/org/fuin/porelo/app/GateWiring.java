@@ -83,6 +83,7 @@ final class GateWiring {
      * @param state The task's runtime state.
      * @param taskName The task's own name.
      * @param repository Which repository of the project, or {@code null} for its own.
+     * @param forgeBranch The task's branch at the forge, or {@code null} for {@code porelo/<task>}.
      * @return The command.
      */
     static java.util.List<String> serving(
@@ -91,7 +92,8 @@ final class GateWiring {
             final int port,
             final java.nio.file.Path state,
             final String taskName,
-            final @Nullable String repository) {
+            final @Nullable String repository,
+            final @Nullable String forgeBranch) {
         final java.util.List<String> command =
                 new java.util.ArrayList<>(
                         java.util.List.of(
@@ -118,6 +120,11 @@ final class GateWiring {
             // An online task's push goes on to the upstream at once, from here, with the host's
             // key; its container holds none.
             command.add("--pass-on");
+            if (forgeBranch != null && !forgeBranch.equals("porelo/" + taskName)) {
+                // On the recorded command line too, so a resumed task passes on where it did.
+                command.add("--branch");
+                command.add(forgeBranch);
+            }
         }
         if (repository != null) {
             // On the recorded command line, so that resuming the task brings back a gate on the
@@ -136,6 +143,7 @@ final class GateWiring {
             String container,
             String taskName,
             org.fuin.porelo.core.project.Project project,
+            @org.jspecify.annotations.Nullable String forgeBranch,
             PrintWriter out,
             PrintWriter err) {
 
@@ -147,7 +155,8 @@ final class GateWiring {
                         workspace.port(),
                         state,
                         taskName,
-                        repository);
+                        repository,
+                        forgeBranch);
 
         try {
             final ProcessBuilder builder =

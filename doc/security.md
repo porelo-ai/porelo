@@ -108,10 +108,13 @@ gate and in which no hook runs. Two things to know about the shortcut:
 The agent works against the gate on this machine, as in `guarded`: it clones from it and pushes to
 it, and its container holds no key, no socket of one, and no route to the upstream. What differs is
 what the gate does with a push. It passes the task's own branch on to the upstream at once, as
-`porelo/<task>`, with the key the host lends for it, and the agent's push succeeds only when the
+`porelo/<task>` or the name the project's [`branch` block](project-file.md#branch) makes, with the key the host
+lends for it, and the agent's push succeeds only when the
 upstream took it; a refusal by the forge fails the agent's push with the forge's words. The gate
 refuses a push to any other branch, a tag, a deletion and any other repository; a push with force
-to the task's own branch goes through, since an agent that rebases needs it. The gate fetches from
+to the task's own branch goes through, since an agent that rebases needs it. That branch is settled at the start: a
+start whose branch the upstream holds already, or whose project's pattern matches the upstream's default branch, is
+refused before anything is made, so a push with force never replaces work it did not make. The gate fetches from
 the upstream when the task starts, as in `guarded`, and again before each fetch of the agent - at most
 once every few seconds, so an agent fetching in a loop cannot make the host flood the forge with your
 key.

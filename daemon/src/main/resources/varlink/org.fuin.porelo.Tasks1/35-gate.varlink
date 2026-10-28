@@ -98,15 +98,19 @@ method Review(
 )
 
 # Forwards a pending push upstream. The only call in this interface that sends anything
-# anywhere, and it makes the caller name the branch rather than inferring one.
+# anywhere, and it makes the caller name the branch rather than inferring one - except in a project
+# with a branch block, where the task's own branch, as its start recorded it, is what the forge's
+# rules cover.
 method Approve(
   project: string,
   upstream: ?string,
   # Which repository of the project. Default: the project's own.
   repository: ?string,
   name: string,
-  # Branch to push to. Required.
-  branch: string,
+  # Branch to push to. Required in a project without a branch block (BranchRequired otherwise). In a
+  # project with one, empty means the task's own branch (Task.forgeBranch), and a named one must match its
+  # branch.pattern, or the answer is BranchRefused.
+  branch: ?string,
   # Merge the work onto the branch as a commit signed with the signing key the daemon's user has configured
   # in git (user.signingkey; gpg.format ssh for an ssh key), and push that, rather than pushing the work as
   # it is. For what the project's configuration is made of - a machine's enrolment - which every machine
@@ -130,7 +134,8 @@ method PendingBundle(
   # Which repository of the project. Default: the project's own.
   repository: ?string,
   name: string,
-  # The branch it is to be merged onto. Default: main.
+  # The branch it is to be merged onto. Default: main; in a project with a branch block, the task's own
+  # branch, and a named one must match its branch.pattern (BranchRefused otherwise).
   branch: ?string
 ) -> (
   # The bundle, base64.
@@ -172,8 +177,13 @@ error AlreadyUpstream(name: string)
 # forwarded. Review it again (now is what it holds) and approve that.
 error MovedSinceReview(name: string, reviewed: string, now: string)
 
-# Approve was called without a branch to push to.
+# Approve was called without a branch to push to, in a project with no branch block - or in one with
+# a block, for a task whose branch was not recorded.
 error BranchRequired(name: string)
+
+# Approve or PendingBundle named a branch the project's branch.pattern does not accept, so the forge's
+# rules would not cover it: nothing was pushed. Name one the pattern accepts, or none for the task's own.
+error BranchRefused(branch: string, pattern: string)
 
 # Approve's branch holds work the reviewed commit did not grow from - earlier work of a task whose name came back:
 # nothing was pushed. 'at' is the commit the branch holds. Approve onto another branch, such as the next free

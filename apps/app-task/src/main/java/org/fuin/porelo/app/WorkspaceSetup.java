@@ -80,6 +80,31 @@ final class WorkspaceSetup {
         return refusal;
     }
 
+    /** The online task's branch at the forge, checked against the upstream when it is opened. */
+    private @Nullable String forgeBranch;
+
+    /** The branch the upstream holds already, when that is the refusal. */
+    private @Nullable String takenBranch;
+
+    /**
+     * Sets the task's branch at the forge, which an online start checks is free before it opens.
+     *
+     * @param branch The branch, or {@code null} for none.
+     */
+    void forgeBranch(final @Nullable String branch) {
+        this.forgeBranch = branch;
+    }
+
+    /**
+     * Returns the branch the upstream holds already, when that is why the last {@link
+     * #openWorkspace} refused.
+     *
+     * @return The branch, or {@code null}.
+     */
+    @Nullable String takenBranch() {
+        return takenBranch;
+    }
+
     WorkspaceSetup(
             PoreloContext context,
             String task,
@@ -101,6 +126,7 @@ final class WorkspaceSetup {
     @Nullable TaskWorkspace openWorkspace(
             Project project, boolean wanted, PrintWriter out, PrintWriter err) {
         refusal = null;
+        takenBranch = null;
         if (!wanted) {
             return null;
         }
@@ -141,6 +167,17 @@ final class WorkspaceSetup {
                 // would only make the new task's plain push "fetch first", and an agent that
                 // followed git's hint pull it into its own.
                 gate.forget(task);
+                if (forgeBranch != null) {
+                    // Passed on with force from here on: onto a branch that exists, it would
+                    // replace what a person or another task put there. A resume does not come here;
+                    // the branch is its own.
+                    final String taken = gate.taken(forgeBranch);
+                    if (taken != null) {
+                        takenBranch = forgeBranch;
+                        refusal = taken;
+                        return null;
+                    }
+                }
             } else {
                 final String earlier = gate.waiting(task);
                 if (earlier != null) {

@@ -75,14 +75,22 @@ class TaskBuildsHelperTest {
     }
 
     @Test
-    void theHelperFollowsTheBranchTheGatePassedThePushOnTo() {
-        // An online task pushed to refs/heads/<task> at the forge itself; now its gate passes its
-        // own ref on as porelo/<task>, and that is the branch the forge builds.
-        assertThat(BuildsWiring.branchAtTheUpstream("refs/porelo/incoming/builds"))
-                .isEqualTo("porelo/builds");
-        assertThat(BuildsWiring.branchAtTheUpstream("refs/heads/builds")).isNull();
-        assertThat(BuildsWiring.branchAtTheUpstream("refs/porelo/incoming/")).isNull();
-        assertThat(BuildsWiring.branchAtTheUpstream(null)).isNull();
+    void theHelperFollowsTheBranchTheStartSettled() throws IOException {
+
+        // The branch the forge builds is the one the gate passes the push on to, as the start made
+        // it from the project's scheme - not one derived from the gate's ref.
+        assertThat(
+                        BuildsWiring.command(
+                                context(),
+                                "porelo-p-builds",
+                                "bugfix/porelo/builds",
+                                "https://forge.example/p.git",
+                                new org.fuin.porelo.core.project.Builds(
+                                        "github",
+                                        "forge-read",
+                                        "",
+                                        org.fuin.porelo.core.project.Builds.FAILURE)))
+                .containsSequence("--branch", "bugfix/porelo/builds");
     }
 
     @Test

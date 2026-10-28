@@ -80,28 +80,13 @@ final class BuildsWiring {
     }
 
     /**
-     * Returns the branch an online task's gate passes its push on to, the one the forge builds.
-     *
-     * @param ref The ref the task pushes to.
-     * @return {@code porelo/<task>} for the task's own ref at its gate, {@code null} for anything
-     *     else.
-     */
-    static @Nullable String branchAtTheUpstream(final @Nullable String ref) {
-        return ref == null
-                        || !ref.startsWith(org.fuin.porelo.gate.GitGate.INCOMING)
-                        || ref.length() == org.fuin.porelo.gate.GitGate.INCOMING.length()
-                ? null
-                : "porelo/" + ref.substring(org.fuin.porelo.gate.GitGate.INCOMING.length());
-    }
-
-    /**
      * Starts the helper, once the container runs: it hands files into it.
      *
      * @param project The project.
      * @param repository The repository the task works on.
      * @param container The task.
-     * @param ref The ref the task pushes to, {@code refs/porelo/incoming/<task>}, which an online
-     *     task's gate passes on as {@code porelo/<task>} at the upstream.
+     * @param branch The branch an online task's gate passes its push on to at the upstream, as its
+     *     start settled it, the one the forge builds; {@code null} for a task without a gate.
      * @param out Where progress goes.
      * @param err Where a reason it was not started goes.
      */
@@ -109,7 +94,7 @@ final class BuildsWiring {
             final Project project,
             final Repository repository,
             final String container,
-            final @Nullable String ref,
+            final @Nullable String branch,
             final PrintWriter out,
             final PrintWriter err) {
         final Builds builds = project.builds();
@@ -118,7 +103,6 @@ final class BuildsWiring {
         }
         final String upstream =
                 repository.upstream() != null ? repository.upstream() : project.upstream();
-        final String branch = branchAtTheUpstream(ref);
         if (upstream == null || branch == null) {
             err.println(
                     "porelo: the task has no upstream branch, so it is not told what its builds did");

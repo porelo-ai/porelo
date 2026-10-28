@@ -35,7 +35,9 @@ final class ProjectSchema {
                         "repositories",
                         "credentials",
                         "builds",
-                        "parameters"));
+                        "parameters",
+                        "branch"));
+        SECTIONS.put("branch", Set.of("template", "pattern"));
         SECTIONS.put("builds", Set.of("forge", "credential", "api", "logs"));
         SECTIONS.put(
                 "parameters.<parameter>",
@@ -59,7 +61,8 @@ final class ProjectSchema {
                         "issues",
                         "image",
                         "agent",
-                        "nickname"));
+                        "nickname",
+                        "branch"));
     }
 
     /**
@@ -92,6 +95,30 @@ final class ProjectSchema {
                             "",
                             false),
                     key("", "limits", "What one task may consume.", "map", "", false),
+                    key(
+                            "",
+                            "branch",
+                            "How a task's branch at the forge is named and which names the forge"
+                                    + " accepts; without it, porelo/<task>.",
+                            "map",
+                            "",
+                            false),
+                    key(
+                            "branch",
+                            "template",
+                            "The branch name, with {task}, {project}, {repository} and the task's"
+                                    + " values in braces; needs a pattern.",
+                            "string",
+                            "porelo/{task}",
+                            false),
+                    key(
+                            "branch",
+                            "pattern",
+                            "A regular expression of the branch names the forge accepts; the gate"
+                                    + " keeps every branch it matches from the tasks.",
+                            "string",
+                            "^porelo/.+$",
+                            false),
                     key(
                             "",
                             "mail",
@@ -479,6 +506,14 @@ final class ProjectSchema {
                             false),
                     key(
                             "repositories.<repository>",
+                            "branch",
+                            "How a task's branch at this repository's forge is named, replacing the"
+                                    + " project's; template and pattern as in 'branch'.",
+                            "map",
+                            "",
+                            false),
+                    key(
+                            "repositories.<repository>",
                             "agent",
                             "The agent this repository is worked with, as 'porelo agents' lists it;"
                                     + " a task start without --agent takes it.",
@@ -538,7 +573,7 @@ final class ProjectSchema {
         final List<String> unknown = new java.util.ArrayList<>();
         keys(root, "", "", origin, unknown);
         for (final String section :
-                List.of("project", "image", "egress", "limits", "mail", "builds")) {
+                List.of("project", "image", "egress", "limits", "mail", "builds", "branch")) {
             if (root.get(section) instanceof Map<?, ?> map) {
                 keys(map, section, section, origin, unknown);
             }
@@ -575,7 +610,7 @@ final class ProjectSchema {
                                     "repositories." + name,
                                     origin,
                                     unknown);
-                            for (final String inner : List.of("egress", "limits")) {
+                            for (final String inner : List.of("egress", "limits", "branch")) {
                                 if (map.get(inner) instanceof Map<?, ?> nested) {
                                     keys(
                                             nested,

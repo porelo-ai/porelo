@@ -133,8 +133,8 @@ final class GateMethods {
                     // The single call that sends anything anywhere, and it makes the caller name
                     // where.
                     final GitGate gate = gate(parameters, context);
-                    final String branch = text(parameters, "branch");
-                    if (branch.isEmpty()) {
+                    final String branch = approvalBranch(parameters, context);
+                    if (branch == null) {
                         throw new VarlinkException(
                                 INTERFACE + ".BranchRequired",
                                 Map.of("name", text(parameters, "name")));
@@ -179,10 +179,8 @@ final class GateMethods {
                 "PendingBundle",
                 (parameters, replies) -> {
                     final GitGate gate = gate(parameters, context);
-                    final String branch =
-                            text(parameters, "branch").isEmpty()
-                                    ? "main"
-                                    : text(parameters, "branch");
+                    final String chosen = approvalBranch(parameters, context);
+                    final String branch = chosen == null ? "main" : chosen;
                     final java.nio.file.Path scratch;
                     try {
                         // In a directory of its own, owner-only: a file made and then deleted in
@@ -275,5 +273,37 @@ final class GateMethods {
                     }
                     replies.last(Map.of("rejected", text(parameters, "name"), "told", told));
                 });
+    }
+
+    /**
+     * Returns the branch a call approves onto: the one named, or in a project with a branch block
+     * the task's own.
+     *
+     * @param parameters {@code project}, {@code repository}, {@code name} and {@code branch}.
+     * @param context The machine.
+     * @return The branch, or {@code null} when the project names no scheme and none was named.
+     * @throws VarlinkException {@code BranchRefused} for a named branch the pattern does not
+     *     accept; {@code BranchRequired} when the task's own is not recorded.
+     */
+    static @org.jspecify.annotations.Nullable String approvalBranch(
+            final Map<String, Object> parameters, final PoreloContext context) {
+        final org.fuin.porelo.core.project.Project project =
+                GateSupport.project(projectFile(parameters, context));
+        try {
+            return org.fuin.porelo.app.ApprovalBranch.of(
+                    context,
+                    project,
+                    // As PoreloDaemon.gate opens the gate, so both judge one repository.
+                    GateSupport.repository(project, text(parameters, "repository")),
+                    text(parameters, "name"),
+                    empty(parameters, "branch"));
+        } catch (org.fuin.porelo.app.ApprovalBranch.Refused ex) {
+            throw new VarlinkException(
+                    INTERFACE + ".BranchRefused",
+                    Map.of("branch", ex.branch(), "pattern", ex.pattern()));
+        } catch (org.fuin.porelo.core.project.ProjectException ex) {
+            throw new VarlinkException(
+                    INTERFACE + ".BranchRequired", Map.of("name", text(parameters, "name")));
+        }
     }
 }

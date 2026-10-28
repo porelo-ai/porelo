@@ -143,6 +143,11 @@ type Task (
   prompt: string,
   # Ref its work goes to, such as refs/porelo/incoming/shell. "" when it has no gate.
   branch: string,
+  # The branch its work carries beyond the gate, as its start settled it from the project's branch
+  # scheme or --branch: what an online task's push arrives as at the forge, and where a guarded
+  # task's approval goes by default in a project with a branch block. porelo/<task> for a task
+  # started before it was recorded; "" when it has no gate.
+  forgeBranch: string,
   # When the current state began, ISO-8601: a running task since it started, a stopped one since
   # it exited. "" when the runtime could not say - a container that was created and never started
   # has no honest answer. This is what "idle for forty minutes" is arithmetic on; state is not.
@@ -465,6 +470,11 @@ method Start(
   # is missing: CanStart answers PARAMETER_REFUSED. A task brought back keeps the values it was made with
   # and refuses new ones.
   parameters: ?[string]ParameterValue,
+  # The task's branch at the forge, named outright: what an online task's push arrives as, and where a
+  # guarded task's approval goes by default in a project with a branch block. Omitted, project.yml's
+  # branch.template makes it (porelo/<task> without one). It must match branch.pattern; CanStart answers
+  # BRANCH_REFUSED for one that does not. Settled at the start and kept: a task brought back keeps it.
+  branch: ?string,
   # Runs with no workspace and no git gate: the agent gets an empty directory and can commit
   # nowhere.
   noGate: ?bool,
@@ -681,6 +691,10 @@ type StartOutcome (
   # one is missing. 'detail' names it and what is allowed. Answered in every mode: no value nothing allows
   # reaches a task.
   PARAMETER_REFUSED,
+  # The task's branch at the forge - named with 'branch', or made by project.yml's branch.template from
+  # the task's name and values - is not one branch.pattern accepts or git can name, or the template names
+  # a value the start does not give. 'detail' names the branch and the pattern.
+  BRANCH_REFUSED,
   # No repository was named and Start never picks one, not even for a project that has exactly
   # one. Somebody chooses a REPOSITORY; Project.repositories lists them, its own first, and
   # 'detail' names them too. This is the outcome a start dialog turns into its required choice.
@@ -776,7 +790,10 @@ method CanStart(
   credentials: ?[string]string,
   # The values Start would be handed, as it takes them. One the project's declaration does not allow is
   # PARAMETER_REFUSED.
-  parameters: ?[string]ParameterValue
+  parameters: ?[string]ParameterValue,
+  # The task's branch at the forge, named outright, as Start takes it. Omitted, the one project.yml's
+  # branch scheme makes. One its pattern refuses is BRANCH_REFUSED.
+  branch: ?string
 ) -> (
   # Whether work could start. True exactly when outcome is READY, so branch on whichever suits -
   # but never infer the ACTION from this alone: three different things somebody has to do all
@@ -1032,6 +1049,13 @@ error UpstreamUnreadable(cause: string, detail: string, fix: string)
 # Start of a guarded or offline task whose name's earlier work still waits at the gate: nothing was created. 'commit'
 # and 'subject' are that work's. Approve or reject it first, or start under another name.
 error EarlierWorkWaits(task: string, commit: string, subject: string)
+
+# Start of a task whose branch at the forge another task of the project's repository holds on this
+# machine, in every class; or of an online task whose branch the upstream holds already, or whose
+# project's branch.pattern matches the upstream's default branch, or when the upstream could not be
+# asked: nothing was created. Passing work on would replace what the branch holds. 'task' is the task's
+# name as Start settled it; 'detail' says which; name another branch with Start's 'branch' or other values.
+error BranchTaken(task: string, branch: string, detail: string)
 
 error NoSuchTask(task: string)
 

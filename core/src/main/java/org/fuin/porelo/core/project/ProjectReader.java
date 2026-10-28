@@ -174,7 +174,8 @@ public final class ProjectReader {
                                         required(project, "security_class", origin, "project"))),
                         null,
                         parameters(root, origin),
-                        projectNickname(project, origin));
+                        projectNickname(project, origin),
+                        branch(root.get("branch"), "branch", origin, null));
         for (final Repository repository : definition.repositories()) {
             definition.egressFor(repository);
         }
@@ -407,7 +408,12 @@ public final class ProjectReader {
                             issues(repository, origin, name),
                             repositoryImage(repository, origin, name),
                             word(repository, "agent", origin, name),
-                            word(repository, "nickname", origin, name)));
+                            word(repository, "nickname", origin, name),
+                            branch(
+                                    repository.get("branch"),
+                                    "repositories." + name + ".branch",
+                                    origin,
+                                    null)));
         }
         // A prefix tells whose an issue is at a glance only while one repository owns it.
         final Map<String, String> owner = new java.util.LinkedHashMap<>();
@@ -463,6 +469,50 @@ public final class ProjectReader {
             return written;
         } catch (final ProjectException ex) {
             throw new ProjectException(origin + ": " + ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * Reads a {@code branch} block: how a task's branch at the forge is named, and which names the
+     * forge accepts.
+     *
+     * @param value What the file holds there, or {@code null}.
+     * @param where The block's path, for messages.
+     * @param origin Name used in error messages.
+     * @param absent What an absent block means.
+     * @return The scheme, or {@code absent}.
+     */
+    private static @Nullable BranchScheme branch(
+            @Nullable Object value, String where, String origin, @Nullable BranchScheme absent) {
+        if (value == null) {
+            return absent;
+        }
+        if (!(value instanceof Map<?, ?> block)) {
+            throw new ProjectException(
+                    origin + ": '" + where + "' is a mapping with 'template' and 'pattern'");
+        }
+        final Object template = block.get("template");
+        final Object pattern = block.get("pattern");
+        if (template != null && !(template instanceof String)
+                || pattern != null && !(pattern instanceof String)) {
+            throw new ProjectException(
+                    origin + ": '" + where + ".template' and '.pattern' are strings");
+        }
+        if (template != null && pattern == null) {
+            // The pattern is also what the gate keeps out of the mirror an agent fetches from.
+            throw new ProjectException(
+                    origin
+                            + ": '"
+                            + where
+                            + "' names a template and no pattern; name the pattern of the"
+                            + " branches the forge accepts too");
+        }
+        try {
+            return new BranchScheme(
+                    template == null ? BranchScheme.DEFAULT.template() : (String) template,
+                    pattern == null ? BranchScheme.DEFAULT.pattern() : (String) pattern);
+        } catch (final ProjectException ex) {
+            throw new ProjectException(origin + ": '" + where + "': " + ex.getMessage(), ex);
         }
     }
 

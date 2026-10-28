@@ -546,6 +546,53 @@ class GitGateTest {
     }
 
     @Test
+    void aProjectsSchemeKeepsEveryTaskBranchItNamesFromTheMirror() throws IOException {
+
+        // Under a forge's scheme another task's work lives at bugfix/porelo/<task>, not under
+        // porelo/; fetched into the mirror, every task would see it.
+        final Path upstream = upstreamWithMain();
+        final Path seed = root.resolve("seed");
+        final GitGate gate =
+                gate(GateMode.GATEKEEPING, upstream.toString())
+                        .taskBranches(
+                                new org.fuin.porelo.core.project.BranchScheme(
+                                        "{type}/porelo/{task}",
+                                        "^(feature|bugfix)/porelo/[a-z0-9-]+$"));
+        git(seed, "push", "--quiet", upstream.toString(), "HEAD:refs/heads/bugfix/porelo/other");
+        git(seed, "push", "--quiet", upstream.toString(), "HEAD:refs/heads/feature/login");
+
+        assertThat(gate.refresh()).isEmpty();
+
+        assertThat(gate.branches())
+                .as("a person's branch stays; another task's goes")
+                .containsOnlyKeys("main", "feature/login");
+    }
+
+    @Test
+    void aBranchTheUpstreamHoldsOrAPatternMatchingItsDefaultIsTaken() throws IOException {
+
+        // An online gate passes work on with force: onto a branch that exists, it would replace
+        // what a person or another task put there.
+        final Path upstream = upstreamWithMain();
+        final Path seed = root.resolve("seed");
+        git(seed, "push", "--quiet", upstream.toString(), "HEAD:refs/heads/bugfix/porelo/other");
+        final GitGate gate =
+                gate(GateMode.ONLINE, upstream.toString())
+                        .taskBranches(
+                                new org.fuin.porelo.core.project.BranchScheme(
+                                        "{type}/porelo/{task}", "^(feature|bugfix)/porelo/.+$"));
+
+        assertThat(gate.taken("bugfix/porelo/other")).contains("exists at the upstream");
+        assertThat(gate.taken("bugfix/porelo/new")).isNull();
+
+        final GitGate wide =
+                gate(GateMode.ONLINE, upstream.toString())
+                        .taskBranches(
+                                new org.fuin.porelo.core.project.BranchScheme("{task}", ".+"));
+        assertThat(wide.taken("new")).contains("default branch 'main'");
+    }
+
+    @Test
     void workThatNeverMetTheBranchIsComparedAsItStands() throws IOException {
         final GitGate gate = gate(GateMode.GATEKEEPING, upstreamWithMain().toString());
         git(root, "init", "--quiet", "--initial-branch=other", work.toString());
@@ -1095,6 +1142,75 @@ class GitGateTest {
                 .as(
                         "a carried project or restored backup must have a default branch to start tasks")
                 .isEqualTo("refs/heads/main");
+    }
+
+    @Test
+    void aRestoredBundleKeepsTheTaskBranchesOfTheProjectsSchemeFromTheTasks() throws IOException {
+
+        // An offline project's mirror is never refreshed: what a restore leaves is what every task
+        // fetches.
+        git(root, "init", "--initial-branch=main", work.toString());
+        makeCommit("porelo.yml", "image: ubuntu:24.04\n");
+        git(work, "branch", "bugfix/porelo/other");
+        final Path bundle = root.resolve("carried.bundle");
+        git(work, "bundle", "create", bundle.toString(), "--all");
+        final GitGate gate =
+                new GitGate(runner, mirror, GateMode.OFFLINE, null)
+                        .taskBranches(
+                                new org.fuin.porelo.core.project.BranchScheme(
+                                        "bugfix/porelo/{task}", "^bugfix/porelo/.+$"));
+
+        gate.restore(bundle);
+
+        assertThat(gate.branches()).containsOnlyKeys("main");
+    }
+
+    @Test
+    void aSeedWhoseHeadIsATaskBranchLeavesTheMirrorOnOneItHolds() throws IOException {
+        final Path upstream = upstreamWithMain();
+        final Path seed = root.resolve("seed");
+        git(seed, "push", "--quiet", upstream.toString(), "HEAD:refs/heads/bugfix/porelo/other");
+        git(
+                root,
+                "--git-dir",
+                upstream.toString(),
+                "symbolic-ref",
+                "HEAD",
+                "refs/heads/bugfix/porelo/other");
+        final GitGate gate =
+                new GitGate(runner, mirror, GateMode.GATEKEEPING, upstream.toString())
+                        .taskBranches(
+                                new org.fuin.porelo.core.project.BranchScheme(
+                                        "bugfix/porelo/{task}", "^bugfix/porelo/.+$"));
+
+        gate.initialize();
+
+        assertThat(gate.branches()).containsOnlyKeys("main");
+        assertThat(
+                        git(root, "--git-dir", mirror.toString(), "symbolic-ref", "HEAD")
+                                .standardOutput()
+                                .strip())
+                .as("not a task branch that is gone")
+                .isEqualTo("refs/heads/main");
+    }
+
+    @Test
+    void underAProjectsSchemeABranchGoneFromTheUpstreamGoesFromTheMirror() throws IOException {
+        final Path upstream = upstreamWithMain();
+        final Path seed = root.resolve("seed");
+        final GitGate gate =
+                gate(GateMode.GATEKEEPING, upstream.toString())
+                        .taskBranches(
+                                new org.fuin.porelo.core.project.BranchScheme(
+                                        "bugfix/porelo/{task}", "^bugfix/porelo/.+$"));
+        git(seed, "push", "--quiet", upstream.toString(), "HEAD:refs/heads/feature/x");
+        assertThat(gate.refresh()).isEmpty();
+        assertThat(gate.branches()).containsOnlyKeys("main", "feature/x");
+
+        git(seed, "push", "--quiet", upstream.toString(), ":refs/heads/feature/x");
+        assertThat(gate.refresh()).isEmpty();
+
+        assertThat(gate.branches()).containsOnlyKeys("main");
     }
 
     @Test

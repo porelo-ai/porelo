@@ -44,6 +44,9 @@ import org.jspecify.annotations.Nullable;
  *     lists, or {@code null} when it was brokered to none. Settled once at start and asked about
  *     afterwards - "which service did this task's prompts go to" - when nothing else records it.
  * @param model Model requested at start, or {@code null} for the agent's default.
+ * @param forgeBranch The branch the task's work carries beyond the gate, as its start settled it
+ *     from the project's scheme or {@code --branch}; {@code null} in a profile from before it was
+ *     recorded, which means {@code porelo/<task>}.
  */
 public record TaskProfile(
         int version,
@@ -55,7 +58,38 @@ public record TaskProfile(
         @Nullable String clearance,
         @Nullable String label,
         @Nullable String provider,
-        @Nullable String model) {
+        @Nullable String model,
+        @Nullable String forgeBranch) {
+
+    /**
+     * Constructor for a task whose branch beyond the gate is today's, {@code porelo/<task>}.
+     *
+     * @param version Schema version.
+     * @param agent Agent running in the task, or {@code null}.
+     * @param mode How a person is meant to be involved.
+     * @param prompt What an unattended task was asked to do, or {@code null}.
+     * @param branch Ref the work goes to, or {@code null}.
+     * @param startedAt When it started, ISO-8601.
+     * @param clearance What it does with a blocked connection.
+     * @param label Its caption, or {@code null}.
+     * @param provider Its model provider, or {@code null}.
+     * @param model Model requested at start, or {@code null}.
+     */
+    public TaskProfile(
+            int version,
+            @Nullable String agent,
+            TaskMode mode,
+            @Nullable String prompt,
+            @Nullable String branch,
+            String startedAt,
+            @Nullable String clearance,
+            @Nullable String label,
+            @Nullable String provider,
+            @Nullable String model) {
+        this(
+                version, agent, mode, prompt, branch, startedAt, clearance, label, provider, model,
+                null);
+    }
 
     /**
      * Constructor for a task that requests no model.
@@ -148,7 +182,8 @@ public record TaskProfile(
                 clearance,
                 caption == null || caption.isBlank() ? null : caption.strip(),
                 provider,
-                model);
+                model,
+                forgeBranch);
     }
 
     /**
@@ -163,11 +198,37 @@ public record TaskProfile(
      */
     public TaskProfile withClearance(String mode) {
         return new TaskProfile(
-                version, agent, this.mode, prompt, branch, startedAt, mode, label, provider, model);
+                version,
+                agent,
+                this.mode,
+                prompt,
+                branch,
+                startedAt,
+                mode,
+                label,
+                provider,
+                model,
+                forgeBranch);
+    }
+
+    /**
+     * Returns the branch the task's work carries beyond the gate.
+     *
+     * @return The recorded one; for a profile from before it was recorded, {@code porelo/<task>}
+     *     from the gate's ref; {@code null} for a task with no gate.
+     */
+    public @Nullable String forgeBranchOrToday() {
+        if (forgeBranch != null) {
+            return forgeBranch;
+        }
+        final String incoming = "refs/porelo/incoming/";
+        return branch != null && branch.startsWith(incoming)
+                ? "porelo/" + branch.substring(incoming.length())
+                : null;
     }
 
     /** Current schema version. */
-    public static final int VERSION = 5;
+    public static final int VERSION = 6;
 
     /** Name of the file in a task's state directory. */
     public static final String FILE = "task.json";
@@ -190,6 +251,7 @@ public record TaskProfile(
         document.put("label", label == null ? "" : label);
         document.put("provider", provider == null ? "" : provider);
         document.put("model", model == null ? "" : model);
+        document.put("forgeBranch", forgeBranch == null ? "" : forgeBranch);
         final Path file = stateDirectory.resolve(FILE);
         Files.writeString(file, Json.write(document), StandardCharsets.UTF_8);
         // A prompt is the operator's own words and may name anything they were working on; the same
@@ -231,7 +293,9 @@ public record TaskProfile(
                     // A task started before the provider was recorded reads as brokered to none,
                     // which is what an interface shows for "not known" as well.
                     text(document, "provider"),
-                    text(document, "model"));
+                    text(document, "model"),
+                    // A task started before it was recorded reads as porelo/<task>, its name then.
+                    text(document, "forgeBranch"));
         } catch (IOException | RuntimeException ex) {
             // A half-written file from a start that was killed. A task nobody can describe is still
             // a task somebody may need to stop.

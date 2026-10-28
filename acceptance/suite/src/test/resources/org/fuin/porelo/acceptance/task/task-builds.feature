@@ -1,7 +1,7 @@
 @slow
 Feature: The build of what an online task pushed
 
-    An online task pushes to its gate, which passes its branch on to the forge as porelo/<task>, and the forge builds it
+    An online task pushes to its gate, which passes its branch on to the forge as the branch its start settled, and the forge builds it
     somewhere the task cannot see. The upstream here is a repository on the machine, which the gate reads from the
     host. When the project names the forge, a helper on the host follows every commit the task pushes and hands each
     verdict into /porelo/files as it changes, with the failed job's log beside it. The task asks for nothing and holds
@@ -35,7 +35,7 @@ Feature: The build of what an online task pushed
         # The push: the branch now points at a commit, whose build runs.
         When a script runs about the task:
             """
-            branch=$(porelo task status {task} | awk '$1 == "branch" { sub("refs/porelo/incoming/", "porelo/", $2); print $2 }')
+            branch=$(porelo task status {task} | awk '$1 == "forge" { print $2 }')
             printf '{"heads": {"%s": "%s"}, "builds": {"%s": {"verdict": "running"}}}' "$branch" "$(printf 'c%.0s' $(seq 40))" \
                 "$(printf 'c%.0s' $(seq 40))" > ~/.local/share/porelo/builds/answers.json
             """
@@ -45,7 +45,7 @@ Feature: The build of what an online task pushed
             """
         When a script runs about the task:
             """
-            branch=$(porelo task status {task} | awk '$1 == "branch" { sub("refs/porelo/incoming/", "porelo/", $2); print $2 }')
+            branch=$(porelo task status {task} | awk '$1 == "forge" { print $2 }')
             sha=$(printf 'c%.0s' $(seq 40))
             cat > ~/.local/share/porelo/builds/answers.json <<EOF
             {"heads": {"$branch": "$sha"}, "builds": {"$sha": {"verdict": "failure", "jobs": [

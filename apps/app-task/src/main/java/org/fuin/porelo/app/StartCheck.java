@@ -52,6 +52,13 @@ public final class StartCheck {
          */
         PARAMETER_REFUSED,
 
+        /**
+         * The task's branch at the forge, named outright or made by the project's scheme, is not
+         * one its pattern accepts or git can name, or a placeholder in its template has no value.
+         * {@code detail} names it and the pattern.
+         */
+        BRANCH_REFUSED,
+
         /** No repository was named, and Start never picks one. {@code detail} names the choices. */
         NO_REPOSITORY_CHOSEN,
 
@@ -370,6 +377,48 @@ public final class StartCheck {
             boolean needsRepository,
             Map<String, String> credentials,
             Map<String, org.fuin.porelo.core.project.Parameters.Given> parameters) {
+        return check(
+                context,
+                projectFile,
+                taskName,
+                agentName,
+                providerName,
+                credentialType,
+                repository,
+                needsRepository,
+                credentials,
+                parameters,
+                null);
+    }
+
+    /**
+     * Settles everything a start would, its branch at the forge among it.
+     *
+     * @param context Where the machine's state comes from.
+     * @param projectFile The project file, or {@code null}.
+     * @param taskName The task's name, or {@code null}.
+     * @param agentName Agent to run, or {@code null} for the only one installed.
+     * @param providerName Provider to route through, or {@code null}.
+     * @param credentialType Overrides the stored credential kind, or {@code null}.
+     * @param repository Which repository the task is for, or {@code null}.
+     * @param needsRepository Whether this run would have a gate at all.
+     * @param credentials The credentials the run adds.
+     * @param parameters The values the start hands in, each with where it came from.
+     * @param branch The branch named outright, or {@code null} for the one the scheme makes.
+     * @return What was found.
+     */
+    public static Result check(
+            PoreloContext context,
+            @Nullable Path projectFile,
+            @Nullable String taskName,
+            @Nullable String agentName,
+            @Nullable String providerName,
+            @Nullable String credentialType,
+            @Nullable String repository,
+            boolean needsRepository,
+            Map<String, String> credentials,
+            Map<String, org.fuin.porelo.core.project.Parameters.Given> parameters,
+            @Nullable String branch) {
 
         final Result checked =
                 checkEverythingElse(
@@ -380,7 +429,18 @@ public final class StartCheck {
                         providerName,
                         credentialType,
                         needsRepository ? namedRepository(projectFile, repository) : null);
-        final Result rest = withParameters(checked, projectFile, parameters);
+        final Result valued = withParameters(checked, projectFile, parameters);
+        final Result rest =
+                needsRepository
+                        ? withBranch(
+                                context,
+                                valued,
+                                projectFile,
+                                repository,
+                                taskName,
+                                parameters,
+                                branch)
+                        : valued;
         final Result chosen =
                 withRepository(
                         withCredentials(context, rest, projectFile, credentials),
@@ -432,6 +492,68 @@ public final class StartCheck {
                     String.valueOf(ex.getMessage()));
         }
         return rest;
+    }
+
+    /**
+     * Returns the answer with the task's branch at the forge made and judged as the start would: a
+     * branch the forge's pattern refuses must not be found out after the container exists.
+     *
+     * @param context The machine, where a task named after its repository finds the free name.
+     * @param rest What everything else answered.
+     * @param projectFile The project file, or {@code null}.
+     * @param repository Which repository, or {@code null}.
+     * @param taskName The task's name, or {@code null}.
+     * @param parameters The values handed in.
+     * @param branch The branch named outright, or {@code null}.
+     * @return The answer.
+     */
+    static Result withBranch(
+            PoreloContext context,
+            Result rest,
+            @Nullable Path projectFile,
+            @Nullable String repository,
+            @Nullable String taskName,
+            Map<String, org.fuin.porelo.core.project.Parameters.Given> parameters,
+            @Nullable String branch) {
+        if (rest.outcome() == Outcome.NO_PROJECT_FILE
+                || rest.outcome() == Outcome.BAD_TASK_NAME
+                || rest.outcome() == Outcome.PARAMETER_REFUSED
+                || projectFile == null
+                || repository == null
+                || repository.isBlank()) {
+            return rest;
+        }
+        final org.fuin.porelo.core.project.Project project;
+        final Map<String, org.fuin.porelo.core.project.Parameters.Given> values;
+        try {
+            project = org.fuin.porelo.core.project.ProjectReader.read(projectFile);
+            values = project.parameters().resolve(parameters);
+        } catch (RuntimeException ex) {
+            // A file that cannot be read is the other checks' to say, not a refused branch.
+            return rest;
+        }
+        if (!repository.equals(project.name()) && project.repository(repository) == null
+                || OwnRepository.refused(project, repository)) {
+            // An unknown repository is the repository check's to say.
+            return rest;
+        }
+        // Named as the start names it: a container name taken back to the task's, and without a
+        // name, the one its repository gives.
+        final String task =
+                taskName == null || taskName.isBlank()
+                        ? TaskNames.fromRepository(context, project.name(), repository)
+                        : org.fuin.porelo.runtime.ContainerName.taskFrom(project.name(), taskName);
+        final TaskBranch.Settled settled =
+                TaskBranch.settle(project, repository, task, values, branch);
+        if (settled.refused() == null) {
+            return rest;
+        }
+        return new Result(
+                Outcome.BRANCH_REFUSED,
+                rest.agent(),
+                rest.provider(),
+                rest.credential(),
+                settled.refused());
     }
 
     /**

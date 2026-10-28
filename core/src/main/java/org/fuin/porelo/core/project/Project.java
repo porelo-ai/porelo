@@ -28,6 +28,9 @@ package org.fuin.porelo.core.project;
  * @param parameters The values a task of it may be started with.
  * @param nickname The one word the agent of its own repository goes by, or {@code null} for none,
  *     with the rules of {@link Repository#nickname()}.
+ * @param branch How a task's branch at the forge is named, for its own repository and every
+ *     repository that names no scheme of its own; {@code null} when the file has no {@code branch}
+ *     block, which names it {@code porelo/<task>}.
  */
 public record Project(
         String name,
@@ -45,7 +48,65 @@ public record Project(
         @org.jspecify.annotations.Nullable Builds builds,
         @org.jspecify.annotations.Nullable String imageVariant,
         Parameters parameters,
-        @org.jspecify.annotations.Nullable String nickname) {
+        @org.jspecify.annotations.Nullable String nickname,
+        @org.jspecify.annotations.Nullable BranchScheme branch) {
+
+    /**
+     * Constructor for a project that says nothing of its task's branches: {@code porelo/<task>}.
+     *
+     * @param name Short name.
+     * @param description Human-readable description.
+     * @param securityClass Trust level.
+     * @param baseImage Base image.
+     * @param imageSnippet Extra build lines, or {@code null}.
+     * @param upstream Where approved work goes, or {@code null}.
+     * @param limits What a task may consume.
+     * @param egress What the project's own tooling may reach.
+     * @param packageSources Where apt fetches from, or {@code null} for the default.
+     * @param mail The peers its tasks may address.
+     * @param repositories The work repositories it names.
+     * @param credentials Vault entries every task holds, by the destination each is for.
+     * @param builds Where its builds are read, or {@code null}.
+     * @param imageVariant The repository whose own image this is, or {@code null}.
+     * @param parameters The values a task of it may be started with.
+     * @param nickname The one word the agent of its own repository goes by, or {@code null}.
+     */
+    public Project(
+            String name,
+            String description,
+            SecurityClass securityClass,
+            String baseImage,
+            @org.jspecify.annotations.Nullable String imageSnippet,
+            @org.jspecify.annotations.Nullable String upstream,
+            Limits limits,
+            Egress egress,
+            java.util.@org.jspecify.annotations.Nullable List<String> packageSources,
+            Mail mail,
+            java.util.List<Repository> repositories,
+            java.util.Map<String, String> credentials,
+            @org.jspecify.annotations.Nullable Builds builds,
+            @org.jspecify.annotations.Nullable String imageVariant,
+            Parameters parameters,
+            @org.jspecify.annotations.Nullable String nickname) {
+        this(
+                name,
+                description,
+                securityClass,
+                baseImage,
+                imageSnippet,
+                upstream,
+                limits,
+                egress,
+                packageSources,
+                mail,
+                repositories,
+                credentials,
+                builds,
+                imageVariant,
+                parameters,
+                nickname,
+                null);
+    }
 
     /**
      * Constructor for a project whose own repository's agent has no nickname.
@@ -549,6 +610,37 @@ public record Project(
         return packageSources != null;
     }
 
+    /**
+     * Returns how a task's branch is named on a repository: its own scheme, or the project's.
+     *
+     * @param repository The repository's name; the project's own name for its own repository.
+     * @return The scheme.
+     */
+    public BranchScheme branchScheme(String repository) {
+        for (final Repository each : repositories) {
+            if (each.name().equals(repository) && each.branch() != null) {
+                return each.branch();
+            }
+        }
+        return branch == null ? BranchScheme.DEFAULT : branch;
+    }
+
+    /**
+     * Says whether the file names how a task's branch on a repository is named: a {@code branch}
+     * block of the repository's or the project's, even one that says what the default says.
+     *
+     * @param repository The repository's name; the project's own name for its own repository.
+     * @return {@code true} when a block was written.
+     */
+    public boolean declaresBranch(String repository) {
+        for (final Repository each : repositories) {
+            if (each.name().equals(repository) && each.branch() != null) {
+                return true;
+            }
+        }
+        return branch != null;
+    }
+
     public Project {
         parameters = parameters == null ? Parameters.none() : parameters;
         if (nickname != null && !nickname.matches(Repository.NICKNAME_PATTERN)) {
@@ -910,6 +1002,7 @@ public record Project(
                 builds,
                 repository,
                 parameters,
-                nickname);
+                nickname,
+                branch);
     }
 }

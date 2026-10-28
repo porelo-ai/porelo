@@ -154,6 +154,9 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
 - `--rm` removes the container when you leave. By default it is kept.
 - `--set NAME=VALUE`, `--set NAME`, `--set-file FILE` and `--set-env` hand in the
   [values the project declares](running.md#values-a-task-is-started-with), checked before anything is made.
+- `--branch NAME` names the task's branch at the forge outright, instead of the one the project's
+  [`branch` block](project-file.md#branch) makes; it must match its pattern too. The start shows the branch, and
+  `task status` keeps showing it as `forge`.
 - **A running task is gone into**, as `attach` does: at a terminal, `start` on it starts its agent again where the
   session is gone, continuing its conversation. An option that takes effect only when a task is created or brought
   up (`--prompt`, `--model`, `--agent`, `--attach`, `--detach`, `--rm` and the like) is refused, naming each, since it
@@ -407,7 +410,7 @@ Nothing an agent pushes reaches a real upstream without passing here.
 | `porelo gate pending` | Lists waiting pushes and how long each has waited. |
 | `porelo gate review NAME` | Shows what a pending push would change. |
 | `porelo gate checkout NAME` | Opens waiting work as a read copy. It can only go back to the gate. |
-| `porelo gate approve NAME [--commit=ID] [--signed]` | Forwards a push. `--commit` names the commit you reviewed and refuses if the push moved since. `--signed` merges it as a commit signed with your own git key. |
+| `porelo gate approve NAME [--branch=NAME] [--commit=ID] [--signed]` | Forwards a push, onto `main` unless `--branch` names another; in a project with a [`branch` block](project-file.md#branch), onto the task's own branch, and a named one must match the block's pattern. `--commit` names the commit you reviewed and refuses if the push moved since. `--signed` merges it as a commit signed with your own git key. |
 | `porelo gate reject NAME [--reason] [--force]` | Discards a push and tells the task. `--reason` reads why from standard input. A push somebody pushed upstream by hand, which `gate pending` marks "already upstream", is refused without `--force`, since discarding it would record the opposite of what happened. |
 | `porelo gate protect` | Installs a pre-push hook that catches unapproved agent work. |
 | `porelo gate check` | The check that hook runs. |

@@ -60,6 +60,8 @@ public final class TaskInventory {
      * @param lastWrote Last modification time of the agent's log, ISO-8601, or "".
      * @param inboxWaiting New messages waiting in the host-side inbox, including for a stopped
      *     task.
+     * @param forgeBranch The branch its work carries beyond the gate, as its start settled it, or
+     *     {@code null} when it has no gate.
      */
     public record Task(
             String name,
@@ -92,7 +94,77 @@ public final class TaskInventory {
             Map<String, Map<String, String>> parameters,
             String phase,
             String lastWrote,
-            int inboxWaiting) {
+            int inboxWaiting,
+            @Nullable String forgeBranch) {
+
+        /** Creates a task whose branch beyond the gate is today's or unknown. */
+        public Task(
+                String name,
+                @Nullable String project,
+                @Nullable String securityClass,
+                String state,
+                boolean running,
+                long helpers,
+                @Nullable String agent,
+                @Nullable String mode,
+                @Nullable String prompt,
+                @Nullable String branch,
+                String since,
+                Activity activity,
+                @Nullable String waitingFor,
+                @Nullable String clearance,
+                @Nullable String label,
+                int waiting,
+                String startAction,
+                String startDetail,
+                @Nullable String repository,
+                @Nullable String commit,
+                AgentWaiting.Derived derived,
+                Map<String, String> credentials,
+                Map<String, Map<String, String>> grants,
+                @Nullable String provider,
+                AgentEnding.@Nullable Ended agentEnded,
+                HandIns.Summary handIns,
+                TaskBuilds.View builds,
+                Map<String, Map<String, String>> parameters,
+                String phase,
+                String lastWrote,
+                int inboxWaiting) {
+            this(
+                    name,
+                    project,
+                    securityClass,
+                    state,
+                    running,
+                    helpers,
+                    agent,
+                    mode,
+                    prompt,
+                    branch,
+                    since,
+                    activity,
+                    waitingFor,
+                    clearance,
+                    label,
+                    waiting,
+                    startAction,
+                    startDetail,
+                    repository,
+                    commit,
+                    derived,
+                    credentials,
+                    grants,
+                    provider,
+                    agentEnded,
+                    handIns,
+                    builds,
+                    parameters,
+                    phase,
+                    lastWrote,
+                    inboxWaiting,
+                    null);
+        }
+
         /** Creates a task with no active start phase, as callers before step reporting do. */
         public Task(
                 String name,
@@ -637,6 +709,7 @@ public final class TaskInventory {
             map.put("mode", mode == null ? "" : mode);
             map.put("prompt", prompt == null ? "" : prompt);
             map.put("branch", branch == null ? "" : branch);
+            map.put("forgeBranch", forgeBranch == null ? "" : forgeBranch);
             map.put("since", since);
             map.put("activity", activity.name());
             map.put("lastWrote", lastWrote);
@@ -1132,7 +1205,8 @@ public final class TaskInventory {
                         restartTookIt ? context.paths().tasks().taskRecord(summary.name()) : state),
                 startSteps.phase(state),
                 lastWrote == null ? "" : lastWrote.toString(),
-                inboxWaiting(summary.name()));
+                inboxWaiting(summary.name()),
+                profile == null ? null : profile.forgeBranchOrToday());
     }
 
     /**

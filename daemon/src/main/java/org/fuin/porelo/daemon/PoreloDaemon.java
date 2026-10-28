@@ -744,7 +744,8 @@ public final class PoreloDaemon {
                 // the CLI gives, naming what there is to choose from.
                 empty(parameters, "repository"),
                 credentials(parameters),
-                values(parameters));
+                values(parameters),
+                empty(parameters, "branch"));
     }
 
     /**

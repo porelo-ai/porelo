@@ -195,7 +195,8 @@ public final class GateSupport {
                         GateMode.of(project.securityClass()),
                         forwardTo,
                         forwardTo != null ? forwardTo : seed)
-                .using(credentials(context, project.name(), repository.name()));
+                .using(credentials(context, project.name(), repository.name()))
+                .taskBranches(project.branchScheme(repository.name()));
     }
 
     /**

@@ -261,7 +261,7 @@ the socket reaches.
 ## Being told what the build of a push did
 
 A task in an `online` project pushes to its gate, which passes the task's own branch on to the upstream at once as
-`porelo/<task>`, and the forge builds it somewhere the task cannot see. When the project file names the forge, Porelo follows every commit the task pushes and hands the build's verdict
+`porelo/<task>`, or as the name the project's [`branch` block](project-file.md#branch) makes, and the forge builds it somewhere the task cannot see. When the project file names the forge, Porelo follows every commit the task pushes and hands the build's verdict
 into the task as it changes - the task asks for nothing and holds no forge credential:
 
 ```yaml

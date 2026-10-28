@@ -746,6 +746,113 @@ class TaskRunCommandTest {
                 .contains("value          label=from-the-file (file " + file + ")");
     }
 
+    private static final String WITH_BRANCH =
+            WITH_PARAMETERS
+                    + """
+                    branch:
+                      template: "{type}/porelo/{task}"
+                      pattern: "^(feature|bugfix)/porelo/[a-z0-9-]+$"
+                    """;
+
+    @Test
+    void aTasksBranchIsMadeByTheProjectsSchemeAndShownBeforeAnythingExists(@TempDir Path dir)
+            throws IOException {
+        final int code =
+                execute(
+                        context(dir, true),
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, WITH_BRANCH),
+                        "--set",
+                        "type=bugfix",
+                        "--dry-run");
+
+        assertThat(code).as(err.toString()).isZero();
+        assertThat(out.toString()).contains("branch         bugfix/porelo/shell");
+    }
+
+    @Test
+    void aProjectWithoutABlockNamesItsTasksBranchAsToday(@TempDir Path dir) throws IOException {
+        final int code =
+                execute(
+                        context(dir, true),
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, WITH_PARAMETERS),
+                        "--dry-run");
+
+        assertThat(code).as(err.toString()).isZero();
+        assertThat(out.toString()).contains("branch         porelo/shell");
+    }
+
+    @Test
+    void aBranchThePatternRefusesCreatesNothing(@TempDir Path dir) throws IOException {
+        final int code =
+                execute(
+                        context(dir, true),
+                        "task",
+                        "start",
+                        "-p",
+                        projectFile(dir, WITH_BRANCH),
+                        "--branch",
+                        "main");
+
+        assertThat(code).isEqualTo(64);
+        assertThat(err.toString())
+                .contains("'main' is not one the project's branch.pattern")
+                .contains("nothing was created");
+        assertThat(runner.invocations())
+                .as("no container made")
+                .noneMatch(command -> command.arguments().contains("create"));
+    }
+
+    @Test
+    void aTaskRecordsItsBranchAndABranchAnotherTaskHoldsIsRefused(@TempDir Path dir)
+            throws IOException {
+
+        // Two tasks of one repository on one branch would pass their work on onto one, and one
+        // would move the other's.
+        final PoreloContext context = context(dir, true);
+        execute(
+                context,
+                "task",
+                "start",
+                "--attach",
+                "shell",
+                "--detach",
+                "-p",
+                projectFile(dir, WITH_BRANCH),
+                "--set",
+                "type=bugfix");
+        assertThat(
+                        Files.readString(
+                                dir.resolve("state/porelo/tasks/porelo-uc-shell")
+                                        .resolve(org.fuin.porelo.wire.TaskProfile.FILE)))
+                .contains("\"forgeBranch\":\"bugfix/porelo/shell\"");
+
+        runner.answering(
+                "ps", "porelo-uc-shell\tUp 4 minutes\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
+        err.getBuffer().setLength(0);
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "other",
+                        "--attach",
+                        "shell",
+                        "--detach",
+                        "-p",
+                        projectFile(dir, WITH_BRANCH),
+                        "--branch",
+                        "bugfix/porelo/shell");
+
+        assertThat(code).as(err.toString()).isEqualTo(64);
+        assertThat(err.toString()).contains("porelo-uc-shell's already");
+    }
+
     @Test
     void aValueTheDeclarationDoesNotAllowCreatesNothing(@TempDir Path dir) throws IOException {
 
@@ -791,6 +898,32 @@ class TaskRunCommandTest {
 
         assertThat(code).as(err.toString()).isEqualTo(64);
         assertThat(err.toString()).contains("stay as they were");
+    }
+
+    @Test
+    void aStoppedTaskBroughtBackKeepsItsBranchAndRefusesANewOne(@TempDir Path dir)
+            throws IOException {
+
+        // Its branch was settled and recorded when it was created; a new one would change
+        // nothing and look applied.
+        final PoreloContext context = context(dir, true);
+        runner.answering(
+                "ps",
+                "porelo-uc-shell\tExited (0) 4 minutes ago\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "shell",
+                        "-p",
+                        projectFile(dir, WITH_BRANCH),
+                        "--branch",
+                        "fix/porelo/other");
+
+        assertThat(code).as(err.toString()).isEqualTo(64);
+        assertThat(err.toString()).contains("stays as it was");
     }
 
     @Test

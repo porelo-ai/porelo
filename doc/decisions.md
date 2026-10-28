@@ -231,7 +231,8 @@ everything the key may do: push to `main`, push with force, set tags, delete bra
 every other repository it opens. Holding a key and being able to use it unchecked differ little. So every class works
 against the gate on the host, and the container holds no key, no socket of one and no route to the upstream. The
 classes differ in what the gate does with a push: `guarded` keeps it until a person approves it, `online` passes the
-task's own branch on at once, as `porelo/<task>`, with the key the host lends, and fails the agent's push when the
+task's own branch on at once, as `porelo/<task>` or the name the project's branch scheme makes, with the key the
+host lends, and fails the agent's push when the
 forge refuses. Anything but that branch is refused at the gate; a push with force to it goes through, since an agent
 that rebases needs it. Before the agent fetches, the gate fetches from the upstream, at most once every few seconds,
 so an agent fetching in a loop cannot make the host flood the forge with a person's key. A gate that reads the

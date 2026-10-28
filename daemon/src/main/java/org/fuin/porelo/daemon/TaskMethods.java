@@ -598,7 +598,8 @@ final class TaskMethods {
                                                     // does not exist for that run.
                                                     !flag(parameters, "noGate"),
                                                     credentials(parameters),
-                                                    values(parameters))
+                                                    values(parameters),
+                                                    empty(parameters, "branch"))
                                             .asMap());
                     // What the host offers, asked only when it is the question: it reaches the
                     // network.
@@ -737,6 +738,21 @@ final class TaskMethods {
                                         earlier.commit(),
                                         "subject",
                                         earlier.subject()));
+                    }
+                    final org.fuin.porelo.app.TaskLaunch.BranchTaken taken = launch.branchTaken();
+                    if (existing == null && code != 0 && taken != null) {
+                        // Typed, so an interface asks for another branch in the same dialog;
+                        // nothing was made.
+                        System.out.println(startLine(text(parameters, "task"), "", code));
+                        throw new VarlinkException(
+                                INTERFACE + ".BranchTaken",
+                                Map.of(
+                                        "task",
+                                        taken.task(),
+                                        "branch",
+                                        taken.branch(),
+                                        "detail",
+                                        taken.detail()));
                     }
                     final org.fuin.porelo.app.UpstreamProbe.Answer unreadable =
                             launch.unreadableUpstream();

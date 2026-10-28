@@ -209,7 +209,32 @@ parameters:
     pattern: "[A-Z]+-[0-9]+"                     # a regular expression the whole value matches
     required: false
     env: "TASK_TICKET"                           # default PORELO_PARAM_TICKET; none keeps it out
+
+# Optional. How a task's branch at the forge is named, and which names the forge accepts. Without
+# it, porelo/<task>. A repository may name its own under 'repositories.<name>.branch'.
+branch:
+  template: "{type}/porelo/{task}"   # {task}, {project}, {repository} and the values above
+  pattern: "^(feature|bugfix|hotfix|release)/porelo/[a-z0-9-]+$"   # required with a template
 ```
+
+## branch
+
+A forge commonly allows branches only under its own paths, one per kind of work, with rules attached to each. The
+`branch` block makes a task's work arrive there, as `bugfix/porelo/login-fix` instead of `porelo/login-fix`:
+
+- **The name is settled at the start** from `template` - or from `--branch NAME`, for a name no template makes - and
+  must match `pattern` and be a name git takes. A name the pattern refuses, or a placeholder no value fills, is
+  refused before anything is made; the start shows the branch, and `porelo task status` keeps showing it as `forge`.
+  A resumed task, and a task after the file changed, keeps its branch.
+- **An `online` task's push arrives under it** at the upstream. A start whose branch the upstream holds already, or
+  whose pattern matches the upstream's default branch, is refused, since the gate passes work on with force. Two
+  tasks of one repository never share a branch.
+- **A `guarded` task's approval goes to it**: `porelo gate approve` with no branch approves onto the task's own branch,
+  and a branch a person names must match `pattern`, so work reaches only branches the forge's rules cover. A project
+  without the block approves as before, onto `main` unless another branch is named.
+- **The pattern also keeps those branches from every task**: the gate drops every branch it matches from the mirror
+  an agent fetches from, as it drops `porelo/*` without one, so no task sees another task's work at the forge. A
+  template without a pattern is refused for that reason.
 
 ## Limits
 

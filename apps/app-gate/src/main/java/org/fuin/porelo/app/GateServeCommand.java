@@ -77,9 +77,17 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
     @Option(
             names = "--pass-on",
             description =
-                    "Passes a push to the task's own ref on to the upstream at once, as porelo/<task>, and fetches"
+                    "Passes a push to the task's own ref on to the upstream at once, as its branch, and fetches"
                             + " from the upstream before the agent fetches: an online task's gate. Needs --ref.")
     private boolean passOn;
+
+    @Option(
+            names = "--branch",
+            paramLabel = "NAME",
+            description =
+                    "The task's branch at the forge, as its start settled it against the project file of"
+                            + " its day; porelo/<task> when not given. Only with --pass-on, and only a name git takes.")
+    private @Nullable String branchName;
 
     @Option(
             names = "--seconds",
@@ -144,11 +152,27 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
                 err.flush();
                 return 2;
             }
+            if (branchName != null && !passOn) {
+                err.println("porelo: --branch names where work is passed on; it needs --pass-on");
+                err.flush();
+                return 2;
+            }
+            // Not judged by the project file's pattern again: the start settled the branch against
+            // the file of its day and recorded it, and a resume after the file changed keeps it.
+            // Only that git can name it, since this is what pushes with force to the forge.
+            if (branchName != null
+                    && !org.fuin.porelo.core.project.BranchScheme.refFormat(branchName)) {
+                err.println("porelo: '" + branchName + "' is not a name git takes for a branch");
+                err.flush();
+                return 2;
+            }
             final String branch =
                     passOn
-                            ? "porelo/"
-                                    + java.util.Objects.requireNonNull(ref)
-                                            .substring(GitGate.INCOMING.length())
+                            ? branchName != null
+                                    ? branchName
+                                    : "porelo/"
+                                            + java.util.Objects.requireNonNull(ref)
+                                                    .substring(GitGate.INCOMING.length())
                             : null;
             final GitHttpServer.Upstream through =
                     branch == null

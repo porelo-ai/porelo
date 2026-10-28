@@ -44,6 +44,7 @@ import org.jspecify.annotations.Nullable;
  *     or {@code null} when the project file names none. Whether it is installed is the start's
  *     question: a followed project is read on machines without it.
  * @param nickname The one word its agent is addressed by, or {@code null} for none.
+ * @param branch How a task's branch at its forge is named, or {@code null} for the project's.
  */
 public record Repository(
         String name,
@@ -54,7 +55,8 @@ public record Repository(
         java.util.List<String> issues,
         @Nullable ImageSource image,
         @Nullable String agent,
-        @Nullable String nickname) {
+        @Nullable String nickname,
+        @Nullable BranchScheme branch) {
 
     /** What an agent's name looks like: lower-case letters, digits and hyphens. */
     public static final String AGENT_PATTERN = "[a-z0-9]+(?:-[a-z0-9]+)*";
@@ -68,6 +70,32 @@ public record Repository(
 
     /** What the name an agent goes by starts with. */
     private static final String AGENT_PREFIX = "Agent ";
+
+    /**
+     * Constructor for a repository that names no branch scheme of its own.
+     *
+     * @param name Repository name.
+     * @param upstream Where approved work goes, or {@code null}.
+     * @param description What it is for.
+     * @param egress Added to the project's.
+     * @param limits Replacing the project's key by key.
+     * @param issues The issue prefixes it owns.
+     * @param image What its image is built from, or {@code null}.
+     * @param agent The agent it is worked with, or {@code null}.
+     * @param nickname The one word its agent is addressed by, or {@code null}.
+     */
+    public Repository(
+            String name,
+            @Nullable String upstream,
+            String description,
+            Egress egress,
+            Limits.Declared limits,
+            java.util.List<String> issues,
+            @Nullable ImageSource image,
+            @Nullable String agent,
+            @Nullable String nickname) {
+        this(name, upstream, description, egress, limits, issues, image, agent, nickname, null);
+    }
 
     /**
      * Constructor for a repository that names no agent.

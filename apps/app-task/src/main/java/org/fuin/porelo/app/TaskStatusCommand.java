@@ -174,6 +174,8 @@ public class TaskStatusCommand implements Callable<Integer>, PoreloFactory.Conte
                         : task.clearance());
         out.println();
         line(out, "branch", task.branch());
+        // Beyond the gate: what an online push arrives as, and where an approval goes by default.
+        line(out, "forge", task.forgeBranch());
         line(out, "reviewing", task.waiting() > 0 ? task.waiting() + " waiting at the gate" : null);
         line(out, "workspace", workspace(task));
         line(out, "prompt", task.prompt());
