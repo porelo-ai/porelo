@@ -286,6 +286,52 @@ class VaultFileTest {
     }
 
     @Test
+    void anUpdateThatChangesNothingLeavesTheFileByteForByte(@TempDir Path dir) throws Exception {
+
+        // Every write takes a fresh nonce, so the same entries written again were a changed file,
+        // and a play that puts its keys on every run could not tell a second run changed nothing.
+        final Path file = dir.resolve("vault.bin");
+        final VaultFile vault = new VaultFile(file);
+        vault.write(ENTRIES, PASSPHRASE);
+        final byte[] before = Files.readAllBytes(file);
+
+        assertThat(
+                        vault.update(
+                                PASSPHRASE,
+                                entries -> {
+                                    entries.put(
+                                            "gitlab.token",
+                                            new VaultEntry("glpat_example", "oauth"));
+                                    return entries;
+                                }))
+                .isFalse();
+        assertThat(
+                        vault.update(
+                                VaultFile.Opener.passphrase(PASSPHRASE),
+                                entries -> {
+                                    entries.put("github.token", VaultEntry.of("ghp_example"));
+                                    return entries;
+                                }))
+                .isFalse();
+
+        assertThat(Files.readAllBytes(file)).isEqualTo(before);
+
+        assertThat(
+                        vault.update(
+                                VaultFile.Opener.passphrase(PASSPHRASE),
+                                entries -> {
+                                    entries.put(
+                                            "gitlab.token",
+                                            new VaultEntry("glpat_example", "token"));
+                                    return entries;
+                                }))
+                .as("changed in place, through the opener")
+                .isTrue();
+        assertThat(Files.readAllBytes(file)).as("a changed kind is a change").isNotEqualTo(before);
+        assertThat(vault.read(PASSPHRASE).get("gitlab.token").type()).isEqualTo("token");
+    }
+
+    @Test
     void concurrentUpdatesDoNotLoseEntries(@TempDir Path dir) throws Exception {
 
         // Two porelo processes storing different credentials at the same moment is not exotic: a

@@ -61,6 +61,14 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
                             + " they are listed and printed, so no secret belongs in one.")
     private java.util.Map<String, String> settings = new java.util.LinkedHashMap<>();
 
+    @picocli.CommandLine.Option(
+            names = "--json",
+            description =
+                    "Answers {\"name\", \"stored\"} alone on standard output, 'stored' false when the"
+                            + " entry already held exactly this; every other line goes to standard error."
+                            + " Never any part of the value.")
+    private boolean json;
+
     @Spec private CommandSpec spec;
 
     private PoreloContext context = PoreloContext.real();
@@ -120,6 +128,23 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
     }
 
     /**
+     * Stores an entry, or leaves the vault as it is when the entry already holds exactly this.
+     *
+     * @param vault The vault.
+     * @param passphrase Its passphrase.
+     * @param name The entry's name.
+     * @param entry What to store.
+     * @return Whether anything was stored.
+     */
+    static boolean put(
+            final org.fuin.porelo.vault.VaultFile vault,
+            final char[] passphrase,
+            final String name,
+            final org.fuin.porelo.vault.VaultEntry entry) {
+        return vault.update(passphrase, entries -> replace(entries, name, entry));
+    }
+
+    /**
      * Puts an entry in place of whatever had its name.
      *
      * <p>A put never carries a sign-in's client secret, so one left from a sign-in it replaces is
@@ -147,6 +172,24 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
      * @param kind The entry's kind, or {@code null}.
      * @return The value, {@value GrantEntry#NO_SECRET} for a grant's empty answer.
      */
+    /**
+     * Returns the value a file holds as standard input would give it: a private key whole, for the
+     * vault to read; anything else stripped, as a file an editor saved ends in a newline that no
+     * credential has, and an empty grant's file as a public client.
+     *
+     * <p>Read raw, the same token from a file and from standard input were two values, and a put of
+     * the one after the other was a change.
+     *
+     * @param raw What the file holds.
+     * @param kind The kind stated, or {@code null}.
+     * @return The value to store.
+     */
+    static String fileValue(String raw, @org.jspecify.annotations.Nullable String kind) {
+        return org.fuin.porelo.vault.OpenSshPrivateKey.looksLikeAnyPrivateKey(raw)
+                ? raw
+                : grantValue(raw.strip(), kind);
+    }
+
     static String grantValue(String value, @org.jspecify.annotations.Nullable String kind) {
         return value.isEmpty() && granted(kind) ? GrantEntry.NO_SECRET : value;
     }
@@ -491,8 +534,10 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
     @Override
     public Integer call() throws IOException {
 
-        final PrintWriter out = spec.commandLine().getOut();
+        final PrintWriter answer = spec.commandLine().getOut();
         final PrintWriter err = spec.commandLine().getErr();
+        // With --json, standard output holds the answer alone, so a play can read it whole.
+        final PrintWriter out = json ? err : answer;
 
         if (TaskSecrets.reserved(name)) {
             // Refused before anything is asked for: a name here would look like a task's own token.
@@ -528,6 +573,7 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
                 err.flush();
                 return 70;
             }
+            value = fileValue(value, type);
         }
         if (org.fuin.porelo.vault.OpenSshPrivateKey.looksLikeAnyPrivateKey(value)) {
             // What a person has is the file they use every day. An Ed25519 key is kept as the seed
@@ -576,26 +622,39 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
             return 2;
         }
 
+        final boolean written;
         try {
-            context.vault()
-                    .update(context.requirePassphrase(), entries -> replace(entries, name, entry));
+            written = put(context.vault(), context.requirePassphrase(), name, entry);
         } catch (VaultException ex) {
             err.println("porelo: " + ex.getMessage());
             err.flush();
             return 70;
         }
-
-        // The value is never echoed, not even truncated: a terminal scrollback is a file.
-        out.println(
-                "stored    "
-                        + name
-                        + " ("
-                        + (type == null ? "kind not stated" : type)
-                        + ", "
-                        + stored.length()
-                        + " characters)");
-        entry.settings()
-                .forEach((setting, text) -> out.println("setting   " + setting + " = " + text));
+        if (json) {
+            final java.util.Map<String, Object> said = new java.util.LinkedHashMap<>();
+            said.put("name", name);
+            said.put("stored", written);
+            answer.println(org.fuin.porelo.wire.Json.write(said));
+            answer.flush();
+        }
+        if (written) {
+            // The value is never echoed, not even truncated: a terminal scrollback is a file.
+            out.println(
+                    "stored    "
+                            + name
+                            + " ("
+                            + (type == null ? "kind not stated" : type)
+                            + ", "
+                            + stored.length()
+                            + " characters)");
+            entry.settings()
+                    .forEach((setting, text) -> out.println("setting   " + setting + " = " + text));
+        } else {
+            // Nothing written and nothing of the value said: only that the entry holds it already.
+            out.println("unchanged " + name);
+        }
+        // Said either way: a put that changed nothing still names what reads the entry, or that
+        // nothing will.
         warnIfNothingWillUseIt(out, err);
         final String suspicious = entry.suspicious();
         if (suspicious != null) {

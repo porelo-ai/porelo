@@ -1,0 +1,2 @@
+title: porelo vault put given exactly what the entry already holds writes nothing and says unchanged NAME, and --json answers {"name", "stored"}, so a playbook that puts its keys on every run reports a second run as changing nothing; --from-file strips its value as standard input does, so a file's trailing newline is no longer stored
+type: added

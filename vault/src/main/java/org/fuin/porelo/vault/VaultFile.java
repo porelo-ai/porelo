@@ -946,13 +946,17 @@ public class VaultFile {
      * <p>The lock is held across the whole cycle, so two {@code porelo} processes storing different
      * credentials at the same time cannot lose one of them.
      *
+     * <p>A change that leaves every entry as it was writes nothing: each write takes a fresh nonce,
+     * so the same entries written again would read as a changed file.
+     *
      * @param passphrase The passphrase.
      * @param change Receives the current entries and returns what should be stored.
+     * @return Whether the vault was written, {@code false} when the change changed nothing.
      * @throws VaultException If the vault cannot be locked, read or written.
      */
-    public void update(
+    public boolean update(
             char[] passphrase, java.util.function.UnaryOperator<Map<String, VaultEntry>> change) {
-        update(passphrase, change, passphrase, false);
+        return update(passphrase, change, passphrase, false);
     }
 
     /**
@@ -962,13 +966,16 @@ public class VaultFile {
      * a machine unlocked by a device can store a credential exactly as one unlocked by a person
      * can, and neither has to know which the other used.
      *
+     * <p>A change that leaves every entry as it was writes nothing.
+     *
      * @param opener The passphrase or a held share.
      * @param change What to do with the entries.
+     * @return Whether the vault was written, {@code false} when the change changed nothing.
      * @throws VaultException If the vault cannot be locked, opened or written.
      */
-    public void update(
+    public boolean update(
             Opener opener, java.util.function.UnaryOperator<Map<String, VaultEntry>> change) {
-        locked(
+        return locked(
                 () -> {
                     if (!exists()) {
                         throw new VaultException(
@@ -978,9 +985,13 @@ public class VaultFile {
                     try {
                         final Map<String, VaultEntry> current =
                                 new LinkedHashMap<>(read(opened(opener)));
-                        writeContent(
-                                change.apply(current), opened.header().slots(), opened.master());
-                        return null;
+                        final Map<String, VaultEntry> before = new LinkedHashMap<>(current);
+                        final Map<String, VaultEntry> next = change.apply(current);
+                        if (unchanged(before, next)) {
+                            return Boolean.FALSE;
+                        }
+                        writeContent(next, opened.header().slots(), opened.master());
+                        return Boolean.TRUE;
                     } finally {
                         // not stay.
                         Arrays.fill(opened.master(), (byte) 0);
@@ -1021,7 +1032,28 @@ public class VaultFile {
         }
     }
 
-    private void update(
+    /**
+     * Says whether a change left every entry as it was, the same names holding the same entries.
+     *
+     * @param before What the vault held.
+     * @param after What the change returned.
+     * @return Whether writing it would change nothing but the nonce.
+     */
+    static boolean unchanged(
+            final Map<String, VaultEntry> before, final Map<String, VaultEntry> after) {
+        if (!before.keySet().equals(after.keySet())) {
+            return false;
+        }
+        for (final Map.Entry<String, VaultEntry> each : before.entrySet()) {
+            final VaultEntry now = after.get(each.getKey());
+            if (now == null || !each.getValue().sameAs(now)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean update(
             char[] passphrase,
             java.util.function.UnaryOperator<Map<String, VaultEntry>> change,
             char[] writeWith,
@@ -1041,7 +1073,7 @@ public class VaultFile {
                     FileLock lock = raf.getChannel().lock()) {
                 if (!exists()) {
                     write(change.apply(new LinkedHashMap<>()), writeWith, false);
-                    return;
+                    return true;
                 }
                 // Opened once, with the passphrase that is current now. A rekey then writes under
                 // the new one without opening again - opening with the new passphrase is exactly
@@ -1050,12 +1082,16 @@ public class VaultFile {
                 try {
                     final Map<String, VaultEntry> current =
                             new LinkedHashMap<>(read(opened(Opener.passphrase(passphrase))));
+                    final Map<String, VaultEntry> before = new LinkedHashMap<>(current);
                     final Map<String, VaultEntry> next = change.apply(current);
                     if (rekeying) {
                         writeRekeyed(next, opened, writeWith);
+                    } else if (unchanged(before, next)) {
+                        return false;
                     } else {
                         writeContent(next, opened.header().slots(), opened.master());
                     }
+                    return true;
                 } finally {
                     // stay.
                     Arrays.fill(opened.master(), (byte) 0);

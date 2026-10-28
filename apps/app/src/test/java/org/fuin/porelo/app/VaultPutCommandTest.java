@@ -69,6 +69,106 @@ class VaultPutCommandTest {
     }
 
     @Test
+    void aValueTheEntryAlreadyHoldsIsSaidUnchangedAndWritesNothing(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws IOException {
+
+        // A play puts its keys on every run; a second run that changed nothing must be able to
+        // say so without ever reading a value to compare.
+        final char[] passphrase = "correct horse battery staple".toCharArray();
+        final java.nio.file.Path file = dir.resolve("vault.bin");
+        final org.fuin.porelo.vault.VaultFile vault = new org.fuin.porelo.vault.VaultFile(file);
+        final org.fuin.porelo.vault.VaultEntry key =
+                new org.fuin.porelo.vault.VaultEntry(
+                        "sk-a-key-long-enough", "api-key", java.util.Map.of("region", "eu"));
+
+        assertThat(VaultPutCommand.put(vault, passphrase, "anthropic", key)).isTrue();
+        final byte[] before = java.nio.file.Files.readAllBytes(file);
+        assertThat(
+                        VaultPutCommand.put(
+                                vault,
+                                passphrase,
+                                "anthropic",
+                                new org.fuin.porelo.vault.VaultEntry(
+                                        "sk-a-key-long-enough",
+                                        "api-key",
+                                        java.util.Map.of("region", "eu"))))
+                .as("the same value, kind and settings")
+                .isFalse();
+        assertThat(java.nio.file.Files.readAllBytes(file)).isEqualTo(before);
+
+        assertThat(
+                        VaultPutCommand.put(
+                                vault,
+                                passphrase,
+                                "anthropic",
+                                new org.fuin.porelo.vault.VaultEntry(
+                                        "sk-a-key-long-enough", "api-key", java.util.Map.of())))
+                .as("a setting dropped is a change")
+                .isTrue();
+        assertThat(
+                        VaultPutCommand.put(
+                                vault,
+                                passphrase,
+                                "anthropic",
+                                new org.fuin.porelo.vault.VaultEntry(
+                                        "sk-another-key-as-long", "api-key", java.util.Map.of())))
+                .as("a different value is a change")
+                .isTrue();
+    }
+
+    @Test
+    void aFileGivesTheValueStandardInputWouldGive() throws IOException {
+
+        // A token file an editor saved ends in a newline: read raw, it was another value than the
+        // same token piped in, and a second put by file after one by pipe was a change.
+        assertThat(VaultPutCommand.fileValue("sk-a-key-long-enough\n", "api-key"))
+                .isEqualTo(
+                        VaultPutCommand.valueFrom(
+                                "anthropic",
+                                null,
+                                new java.io.ByteArrayInputStream(
+                                        "sk-a-key-long-enough\n"
+                                                .getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+                                "api-key"));
+        assertThat(VaultPutCommand.fileValue("", org.fuin.porelo.supervisor.DeviceGrant.KIND))
+                .as("an empty grant's file is a public client, as an empty answer is")
+                .isEqualTo(GrantEntry.NO_SECRET);
+        final String key =
+                "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaA==\n-----END OPENSSH PRIVATE KEY-----\n";
+        assertThat(VaultPutCommand.fileValue(key, null))
+                .as("a key is the vault's to read, whole")
+                .isEqualTo(key);
+    }
+
+    @Test
+    void aSameValueOverASignInWithAClientSecretIsStillAChange(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) {
+
+        // The put takes the sign-in's client secret with it, so the vault does change.
+        final char[] passphrase = "correct horse battery staple".toCharArray();
+        final org.fuin.porelo.vault.VaultFile vault =
+                new org.fuin.porelo.vault.VaultFile(dir.resolve("vault.bin"));
+        vault.update(
+                passphrase,
+                entries -> {
+                    entries.put("google-sign-in", org.fuin.porelo.vault.VaultEntry.of("at-1"));
+                    entries.put(
+                            TaskSecrets.CLIENT_SECRET_PREFIX + "google-sign-in",
+                            org.fuin.porelo.vault.VaultEntry.of("client-secret-1"));
+                    return entries;
+                });
+
+        assertThat(
+                        VaultPutCommand.put(
+                                vault,
+                                passphrase,
+                                "google-sign-in",
+                                org.fuin.porelo.vault.VaultEntry.of("at-1")))
+                .isTrue();
+        assertThat(vault.read(passphrase)).containsOnlyKeys("google-sign-in");
+    }
+
+    @Test
     void saysSoWhenTheNameIsAnAgentsRatherThanAProviders() {
 
         // Stored under 'claude', a key is still found by a task running claude - but only as a

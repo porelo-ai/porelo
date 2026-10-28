@@ -1,6 +1,6 @@
 # B214 — A Vault Entry Put Again Unchanged
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** M - two modules (`vault`, `app-vault`) and a `--json` answer porelo-host's play reads, with a row in `doc/hosts.md`.
 
 **What must be true.** `porelo vault put NAME` given exactly the value the entry already holds says so and exits 0,
@@ -37,6 +37,20 @@ Read in `VaultPutCommand`, `VaultFile`, `VaultEntry`, `GrantEntry`, `VaultStatus
 4. **Docs:** a row in `doc/hosts.md` among the answers a second run reads, and the option in the command's help.
 5. **Red first:** `VaultFileTest.anUpdateThatChangesNothingLeavesTheFileByteForByte`, then
    `VaultPutCommandTest.aValueTheEntryAlreadyHoldsIsSaidUnchangedAndWritesNothing`.
+
+**Built, where it departs from the steps above:** `VaultFile.update` answers whether it wrote, and both of its
+ways in (passphrase and opener) compare before writing; a rekey always writes. `vault put` reads that answer
+rather than looking at the entry itself, so a put over a sign-in that still has a client secret is a change, as the
+secret goes with it. The command's own test calls `VaultPutCommand.put` against a vault file, since `vault put`
+takes its passphrase from the keyring or a terminal; the output and `--json` are checked in
+`vault-commands.feature`.
+
+A reading by a second agent changed: `--from-file` now gives the value standard input would, stripped and an empty
+grant's file a public client (`fileValue`), so the same token by pipe and by an editor's file is one value, where
+before a file's newline made every such put a change and stored the newline; the scenario puts by a file ending in a
+newline, checks each put's exit and that `--json` leaves exactly one line on standard output, and no longer throws
+standard error away; the opener's way is tested with its answer and a change in place; `put`'s documentation sat on
+`replace`. Not changed: an ssh key put again still says `read …` before `unchanged`, which is still true of it.
 
 **Decided:**
 - A second `put` without `--type` after one that stored a type is a change and overwrites, as now: a put states the whole entry.

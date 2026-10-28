@@ -131,6 +131,40 @@ Feature: The vault commands
         And its output contains "nothing named 'acceptance.removed' was in the vault"
         And its output contains "the vault is empty"
 
+    Scenario: a value the entry already holds is put again, and nothing is written
+        Given a vault of this scenario's own, unlocked with the passphrase "acceptance"
+        When a script runs:
+            """
+            set -e
+            vault=$(porelo vault status --json | sed 's/.*"path":"\([^"]*\)".*/\1/')
+            printf 'not-a-real-token' | porelo vault put acceptance.again --type token
+            before=$(sha256sum "$vault" | cut -c1-64)
+            printf 'not-a-real-token' | porelo vault put acceptance.again --type token
+            # A file an editor saved ends in a newline; it is the same value all the same.
+            printf 'not-a-real-token\n' > "$HOME/again.txt"
+            porelo vault put acceptance.again --type token --from-file "$HOME/again.txt" --json > "$HOME/again.out" 2> "$HOME/again.err"
+            echo "unchanged exit $?, $(wc -l < "$HOME/again.out") line(s) on standard output"
+            sed 's/^/json: /' "$HOME/again.out"
+            sed 's/^/said: /' "$HOME/again.err"
+            [ "$(sha256sum "$vault" | cut -c1-64)" = "$before" ] && echo "the vault file is byte for byte as it was"
+            printf 'not-a-real-token' | porelo vault put acceptance.again --type oauth --json > "$HOME/again.out" 2> "$HOME/again.err"
+            echo "changed exit $?, $(wc -l < "$HOME/again.out") line(s) on standard output"
+            sed 's/^/json: /' "$HOME/again.out"
+            sed 's/^/said: /' "$HOME/again.err"
+            rm -f "$HOME/again.txt" "$HOME/again.out" "$HOME/again.err"
+            porelo vault remove acceptance.again
+            """
+        Then it exits zero
+        And its output contains "unchanged acceptance.again"
+        And its output contains "unchanged exit 0, 1 line(s) on standard output"
+        And its output contains 'json: {"name":"acceptance.again","stored":false}'
+        And its output contains "said: unchanged acceptance.again"
+        And its output contains "the vault file is byte for byte as it was"
+        And its output contains "changed exit 0, 1 line(s) on standard output"
+        And its output contains 'json: {"name":"acceptance.again","stored":true}'
+        And its output contains "said: stored    acceptance.again (oauth, 16 characters)"
+        And its output does not contain "not-a-real-token"
+
     Scenario: a locked vault is opened again with its passphrase, and nothing else
         Given a vault of this scenario's own, unlocked with the passphrase "acceptance"
         When a script runs "porelo vault lock"

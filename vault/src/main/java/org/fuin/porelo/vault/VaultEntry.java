@@ -73,6 +73,24 @@ public record VaultEntry(String value, @Nullable String type, Map<String, String
     }
 
     /**
+     * Says whether another entry holds the same secret, kind and settings.
+     *
+     * <p>The secrets are compared in time that does not depend on where they differ, as {@link
+     * PhantomToken} compares a token: only a caller who may overwrite the entry can ask, but
+     * nothing is lost by giving the answer no shape.
+     *
+     * @param other The other entry.
+     * @return Whether storing one over the other changes nothing.
+     */
+    public boolean sameAs(final VaultEntry other) {
+        return java.util.Objects.equals(type, other.type)
+                && settings.equals(other.settings)
+                && java.security.MessageDigest.isEqual(
+                        value.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                        other.value.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    /**
      * Returns an entry of unstated kind.
      *
      * @param value The secret.

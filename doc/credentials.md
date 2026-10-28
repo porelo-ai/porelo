@@ -153,6 +153,9 @@ At a terminal it asks without echoing, so a pasted key does not land in the scro
 value is read from standard input. An ssh key goes in as the file you were given
 (`porelo vault put github-work < ~/.ssh/id_ed25519`); the vault converts it to the 32-byte signing
 seed. A key with a passphrase, or of an algorithm Porelo does not sign with, is refused by name.
+`--from-file` reads a value as standard input would: stripped, so the newline an editor ends a file with is not
+part of it, and a private key whole. A value the entry already holds, with the same kind and settings, is not written
+again: `vault put` says `unchanged NAME` and exits 0, and `--json` answers `{"name", "stored"}` for a program.
 
 **`vault import`** saves retyping, and with it the commonest mistake, storing the guide's
 placeholder instead of the key.
