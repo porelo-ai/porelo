@@ -33,8 +33,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b318"></a>[B318](B318-A-Vault-Clear-A-Play-Can-Read.md) | S | - | `porelo vault clear --json`: why the vault was kept as a named value (`tasks`, `locked`, `transports`) and each item with its transport and project, so porelo-host's `down` decides on `--force` without parsing a sentence |
-| <a id="b317"></a>[B317](B317-A-Start-Without-A-Gate-Refuses-Host-Services-In-Words.md) | XS | - | `task start --no-gate` for a project that declares `host_services` is refused in words before anything is made, not with a `NullPointerException` at the image |
 | <a id="b313"></a>[B313](B313-An-Inventory-From-The-Access-File.md) | S | - | Part 1 in 6i, `files` from the public project file; part 2, blocked by [B310](README.md#b310) and [B311](README.md#b311), reads them from the access file. The inventory verifies the access bundle beside the project's and names each transport's `*_file` settings as `files`, paths only, in version 2 ([PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78)). |
 | <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |
@@ -119,6 +117,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b319"></a>[B319](B319-CanStart-Without-A-Gate-Checks-The-Repository.md) | - | - | `CanStart` with `noGate` judges the named repository as `Start` does, which refuses an unknown one |
 | <a id="b309"></a>[B309](B309-A-Machine-Sets-Its-Own-Transport-Settings.md) | - | - | A machine sets for itself what a transport lists - for Matrix its homeserver, room, CA and registration token - over the signed project file's, so one project file serves machines on different servers; split from [B304](#b304) |
 | <a id="b307"></a>[B307](B307-Not-Waiting-Is-Read-Once-The-Screen-Settles.md) | - | - | The kit's "not waiting" step lets the screen settle after a key before it judges, and fails only on waiting read again after not waiting, as "waiting" already waits |
 | <a id="b305"></a>[B305](B305-Porelos-Agent-Works-In-A-Porelo-Task.md) | - | - | porelo's agent works in a Porelo task on the move's host as `Agent Core`, pushes to its Forgejo and talks in the room, with a way back to this machine; `porelo-parent` has no move of its own |
@@ -203,6 +202,8 @@ from its side, as *blocked by*.
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="b318"></a>B318 | A Vault Clear A Play Can Read | `porelo vault clear --json` answers `items` (each with its transport and project where it is a transport's account), `refused` and `kept` - `tasks`, `locked` or `transports` - and exits 1 when anything was not removed; the daemon's `VaultClear` answers `kept` too, and a forced clear of a locked vault a running task holds no longer says the vault was removed |
+| <a id="b317"></a>B317 | A Start Without A Gate Refuses Host Services In Words | A start with no gate - `--no-gate`, or a gate that did not open, in every mode - for a project that declares `host_services` is refused in words before it joins its conversation, and `CanStart` answers `HOST_SERVICES_NEED_A_GATE` for it, instead of a `NullPointerException` at the image |
 | <a id="b303"></a>B303 | An Untyped Answer Is Read By Its First Bytes | A provider's answer with no type reaches the agent when it has a typed one's framing - JSON, or events whose every line is a field and every `data:` is JSON - checked for a credential as a typed one; any other is withheld with a `400` naming the provider's status, or a `502` when the provider failed for now |
 | <a id="b297"></a>B297 | The Gate Opens The Pull Request For A Task's Branch | An online task's first push opens one pull request from `porelo/<task>` into the default branch, as the gate's forge identity through the build reader's optional `OpenPullRequest`, so the person who alone approves is never its author; `task status` shows it |
 | <a id="b296"></a>B296 | A Token Lent Over HTTPS Reaches Git | The credential helper Porelo configures for an `https://` address starts with `!`, so git runs it rather than looking for a `git credential-<path>` command |
