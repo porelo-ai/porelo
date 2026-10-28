@@ -13,12 +13,6 @@ a release.
 Grouped by state, as in [the base set](../base/README.md); within a group ordered by what to do next. [P09](README.md#p09) concerns
 providers as a class, the others one provider each.
 
-## Review
-
-| # | Size | Blocked by | What it covers |
-|---|---|---|---|
-| <a id="p11"></a>[P11](P11-Provider-ChatGPT-Sign-In.md) | M | - | `providers/chatgpt.yaml` (`chatgpt.com`, `openai` under `/backend-api/codex`, the sign-in as Bearer) and a provider key `credential_headers` that fills `ChatGPT-Account-Id` from the stored sign-in; the agent side is porelo-codex's; walked live on snapshot .343 through porelo-codex [CX01](https://github.com/porelo-ai/porelo-codex/blob/main/issues/README.md#cx01)'s acceptance. |
-
 ## Implementing
 
 | # | Size | Blocked by | What it covers |
@@ -43,6 +37,7 @@ providers as a class, the others one provider each.
 
 | # | Title | What was built |
 |---|---|---|
+| <a id="p11"></a>P11 | Provider ChatGPT Sign-In | `providers/chatgpt.yaml` serves `https://chatgpt.com` with `openai` under `/backend-api/codex` and the ChatGPT sign-in as `Authorization: Bearer`, its account as `ChatGPT-Account-Id` filled by the provider key `credential_headers`; renewed on the host; an API key is refused before the start, naming `openai`. Walked live: a task's Codex CLI answered, the container held only a phantom token, the sign-in was renewed, `ab.chatgpt.com` refused. |
 | <a id="p05"></a>P05 | Provider OpenAI | `providers/openai.yaml` serves `https://api.openai.com` with `openai` under `/v1` and the API key in `Authorization: Bearer`, refusing a ChatGPT sign-in before the start and naming `chatgpt`; proved through the broker in `porelo-codex`. |
 | <a id="p06"></a>P06 | Provider Google | `providers/google.yaml` serves `https://generativelanguage.googleapis.com` with `google-generative-ai` under `/v1beta` and the API key in `x-goog-api-key`, refusing a Google sign-in before the start and naming `google-sign-in`; proved through the broker in `porelo-agy`. |
 
