@@ -433,6 +433,9 @@ class VaultClearingTest {
         assertThat(new VaultClearing(locked).clear(false, false).kept())
                 .as("a locked vault is kept as locked, which --force clears")
                 .isEqualTo(Clearing.Kept.LOCKED);
+        assertThat(new VaultClearing(locked).clear(true, false).kept())
+                .as("a dry run that would be refused names the same reason")
+                .isEqualTo(Clearing.Kept.LOCKED);
 
         final PoreloContext holding = unlockedVault();
         final Map<String, VaultEntry> entries =

@@ -201,7 +201,16 @@ public final class VaultClearing {
         if ((gone || dryRun) && ownVault(vault)) {
             new Clearing(context).transports(dryRun, items);
         }
-        return new Clearing.Result(List.copyOf(items), List.copyOf(keys), "", refused);
+        // Only a dry run reaches here refused: it lists on, and still says what would keep the
+        // vault.
+        return new Clearing.Result(
+                List.copyOf(items),
+                List.copyOf(keys),
+                "",
+                refused,
+                !refused
+                        ? Clearing.Kept.NONE
+                        : taskHolds ? Clearing.Kept.TASKS : Clearing.Kept.LOCKED);
     }
 
     /** Whether the vault cleared is the account's own, not one {@code PORELO_VAULT} names. */
