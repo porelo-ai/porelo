@@ -1,6 +1,6 @@
 # B206 — A Transport Takes Its Secrets On Its Input
 
-**Status:** Implementing; its transport side, agreed with Agent Matrix on 2026-10-27, is porelo-message-matrix
+**Status:** Review; its transport side, agreed with Agent Matrix on 2026-10-27, is porelo-message-matrix
 [MX23](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx23).
 **Size:** L - a change to the contract every transport implements, in porelo's four places that hand a transport
 its secrets and in each transport, released together with a version both sides read.
@@ -70,4 +70,7 @@ transports.md`: "Nothing is read from standard input except a lifecycle verb's s
 - [ ] A stand-in transport that copies its own `/proc/self/environ` into its output shows no secret, for every verb
   and for `poll` and `send`; the test is watched to fail against today's code.
 - [ ] The matrix transport, released with the new version, runs the acceptance's message scenarios on both legs.
+  Measured on 2026-10-28 by Agent Matrix on the VM, against porelo at 2ef7cde6 and the transport of [MX23](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx23): setup, join,
+  enroll, poll, receipt, send, retire and clear ran with no `PORELO_MATRIX_*` variable in their environment, and 5193
+  samples of `/proc/<pid>/environ` found none readable.
 - [ ] A transport declaring the old way still works and is named by `doctor`.

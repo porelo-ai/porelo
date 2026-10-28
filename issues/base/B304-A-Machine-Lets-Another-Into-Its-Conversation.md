@@ -1,6 +1,6 @@
 # B304 — A Machine Lets Another Into Its Conversation
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** M - a transport contract change (two lifecycle verbs) agreed with porelo-message-matrix, two commands and
 two daemon methods for an interface, three fixes to what every verb shares, and the docs;
 porelo-message-matrix builds its side in [MX42](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx42).
