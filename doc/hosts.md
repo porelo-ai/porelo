@@ -59,6 +59,8 @@ all:
             porelo_transports:
               -   scheme: matrix
                   package: porelo-message-transport-matrix
+                  files:
+                      registration_token_file: ~/.config/porelo/matrix/host-registration-token
             porelo_vault_keys:
               -   name: github-deploy
                   path: /mnt/drive/keys/github-deploy
@@ -71,9 +73,13 @@ all:
 - **`porelo_transports`** lists the transports the project's mail conversations and peers use, once each, in
   file order, with their `scheme` and `package`, `porelo-message-transport-<scheme>`. A project without mail gets an
   empty list. The machine file names no transport package; any homeserver package is the playbook's decision.
+  **`files`**, where there is any, names each file the transport expects, by its setting (every setting named
+  `*_file`) and the path as the project file gives it, `~/` meaning the account's home. Nothing else of a
+  transport's settings reaches the inventory: a path is never a secret, another setting may be.
 - **Refusals**, with nothing printed on standard output: 66 when the machine file is not there; 65 when Porelo's part
   of it is wrong (a missing `project` field, a key outside the file's directory, a `tasks` or `agents` section), or
-  when the project file fails its check against the key.
+  when the project file fails its check against the key, or names under a transport a `*_file` setting that is not
+  one path, absolute or under `~/`, without `..` (the setting is named, its value never).
 
 ## The answers a second run reads
 

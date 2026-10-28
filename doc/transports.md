@@ -60,7 +60,9 @@ has the message held; one that claims nothing has such a file ignored.
 
 Such a transport offers a lifecycle. Every verb takes the project's settings (what `project.yml` says under
 `mail.transports.<scheme>`) and the secrets Porelo kept for it, never as arguments, prints one JSON object, and
-exits with the codes above. Any `secrets` it prints are kept in the account's vault and handed back; they are never
+exits with the codes above. **A setting named `*_file` is a path, never a value**: `porelo project inventory` hands
+such paths to the play that prepares a host (`files`), and nothing else of the settings. A setting that carries its
+value inline has another name, as a CA's text in `ca_certificate`. Any `secrets` it prints are kept in the account's vault and handed back; they are never
 shown, logged or put into a task.
 
 **How they are handed over.** A transport that says `"secrets": "input"` in `describe` gets on standard input one

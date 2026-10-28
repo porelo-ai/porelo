@@ -266,6 +266,97 @@ class ProjectInventoryCommandTest {
     }
 
     @Test
+    void namesTheFilesATransportExpectsAndNothingElseOfItsSettings(@TempDir final Path dir)
+            throws IOException {
+
+        // A play writes the file a transport reads, such as a homeserver's registration token, and
+        // has no other way to know where; a value never goes into the inventory, only a path.
+        final Path key = key(dir, "operator");
+        final Path repo =
+                published(
+                        dir,
+                        key,
+                        """
+                        mail:
+                          transports:
+                            matrix:
+                              homeserver: "https://matrix.example.internal:8448"
+                              room: "#porelo-demo:matrix.example.internal"
+                              registration_token_file: "~/.config/porelo/matrix/host-registration-token"
+                              ca_file: "/etc/porelo/ca.pem"
+                            room: {}
+                          peers:
+                            conversation: { address: "chat:", trust: external }
+                        """);
+        final Path file = machineFile(dir, repo, fingerprint(key), "");
+
+        assertThat(execute(context(dir), "project", "inventory", "--machine-file", file.toString()))
+                .as("exit code; " + err)
+                .isZero();
+
+        @SuppressWarnings("unchecked")
+        final List<Map<String, Object>> transports =
+                (List<Map<String, Object>>) host(out.toString()).get("porelo_transports");
+        assertThat(transports.get(0))
+                .containsEntry("scheme", "matrix")
+                .containsEntry(
+                        "files",
+                        Map.of(
+                                "registration_token_file",
+                                "~/.config/porelo/matrix/host-registration-token",
+                                "ca_file",
+                                "/etc/porelo/ca.pem"))
+                .doesNotContainKeys("homeserver", "room");
+        assertThat(transports.get(1))
+                .as("a transport naming no file has no files key")
+                .doesNotContainKey("files");
+        assertThat(out.toString()).doesNotContain("matrix.example.internal");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {
+                "registration_token_file: \"syt-a-secret-written-by-mistake\"",
+                "registration_token_file: \"\"",
+                "registration_token_file: \"~/../../etc/cron.d/porelo\"",
+                "registration_token_file: \"/tmp/a\\n/tmp/b\"",
+                "registration_token_file: [\"~/.config/porelo/token\"]",
+                "ca_file: 123",
+                "_file: \"/etc/porelo/ca.pem\""
+            })
+    void refusesAFileSettingThatHoldsNoPathAndNeverPrintsItsValue(
+            final String setting, @TempDir final Path dir) throws IOException {
+
+        // A value under a *_file name may be a secret written under the wrong name, and the play
+        // writes a file wherever the path points: the inventory refuses it, naming only the
+        // setting.
+        final Path key = key(dir, "operator");
+        final Path repo =
+                published(
+                        dir,
+                        key,
+                        """
+                        mail:
+                          transports:
+                            matrix:
+                              %s
+                          peers:
+                            reviewer: { address: "matrix:review", trust: external }
+                        """
+                                .formatted(setting));
+        final Path file = machineFile(dir, repo, fingerprint(key), "");
+
+        assertThat(execute(context(dir), "project", "inventory", "--machine-file", file.toString()))
+                .isEqualTo(65);
+        assertThat(out.toString()).as("no inventory").isEmpty();
+        assertThat(err.toString())
+                .contains("mail.transports.matrix.")
+                .doesNotContain("syt-a-secret")
+                .doesNotContain("cron.d")
+                .doesNotContain("/tmp/a");
+    }
+
+    @Test
     void writesNoTransportsForAProjectWithoutMail(@TempDir final Path dir) throws IOException {
 
         final Path key = key(dir, "operator");

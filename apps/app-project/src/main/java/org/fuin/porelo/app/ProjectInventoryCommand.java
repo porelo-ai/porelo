@@ -15,6 +15,7 @@ import java.util.concurrent.Callable;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectException;
 import org.fuin.porelo.core.project.ProjectReader;
+import org.jspecify.annotations.Nullable;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 import picocli.CommandLine.Command;
@@ -101,6 +102,10 @@ public class ProjectInventoryCommand implements Callable<Integer>, PoreloFactory
         } catch (final ProjectException ex) {
             return refuse(err, 65, "project.yml: " + ex.getMessage());
         }
+        final String notAPath = notAPath(project);
+        if (notAPath != null) {
+            return refuse(err, 65, "project.yml: " + notAPath + " No inventory was written.");
+        }
         final List<Object> keys = new ArrayList<>();
         for (final MachineFile.Key key : machine.keys()) {
             keys.add(Map.of("name", key.name(), "path", key.path().toString()));
@@ -142,9 +147,78 @@ public class ProjectInventoryCommand implements Callable<Integer>, PoreloFactory
             final Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("scheme", scheme);
             entry.put("package", TransportDirectory.PREFIX + scheme);
+            final Map<String, Object> files = files(project.mail().transports().get(scheme));
+            if (!files.isEmpty()) {
+                entry.put("files", files);
+            }
             transports.add(entry);
         }
         return transports;
+    }
+
+    /**
+     * Names the first setting named {@code *_file} that does not hold a path, never its value: a
+     * value there may be a secret written under the wrong name, and the play would write a file
+     * wherever it pointed.
+     *
+     * @param project The checked project.
+     * @return Why, or {@code null} when each is a path.
+     */
+    static @Nullable String notAPath(final Project project) {
+        for (final Map.Entry<String, Object> transport : project.mail().transports().entrySet()) {
+            if (!(transport.getValue() instanceof Map<?, ?> settings)) {
+                continue;
+            }
+            for (final Map.Entry<?, ?> setting : settings.entrySet()) {
+                final String name = String.valueOf(setting.getKey());
+                if (!name.endsWith("_file")) {
+                    continue;
+                }
+                final String where = "mail.transports." + transport.getKey() + "." + name;
+                final String why = pathProblem(name, setting.getValue());
+                if (why != null) {
+                    return where + " " + why + ".";
+                }
+            }
+        }
+        return null;
+    }
+
+    private static @Nullable String pathProblem(final String name, final @Nullable Object value) {
+        if (name.equals("_file")) {
+            return "names no file";
+        }
+        if (!(value instanceof String path) || path.isBlank()) {
+            return "must be a path and is not one";
+        }
+        if (path.chars().anyMatch(c -> c < 0x20 || c == 0x7f)) {
+            return "must be one path on one line";
+        }
+        if (!path.startsWith("/") && !path.startsWith("~/")) {
+            return "must be an absolute path or one under ~/";
+        }
+        if (("/" + path + "/").contains("/../")) {
+            return "must not climb out of its directory with ..";
+        }
+        return null;
+    }
+
+    /**
+     * The files a transport expects, by its settings named {@code *_file}: a path is never a
+     * secret, while any other setting may be one, so nothing else of the settings is passed on.
+     */
+    private static Map<String, Object> files(final @Nullable Object settings) {
+        final Map<String, Object> files = new LinkedHashMap<>();
+        if (settings instanceof Map<?, ?> map) {
+            map.forEach(
+                    (name, value) -> {
+                        if (String.valueOf(name).endsWith("_file")
+                                && value instanceof String path) {
+                            files.put(String.valueOf(name), path);
+                        }
+                    });
+        }
+        return files;
     }
 
     private static int refuse(final PrintWriter err, final int code, final String message) {
