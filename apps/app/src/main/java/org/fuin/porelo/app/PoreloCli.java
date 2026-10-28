@@ -29,6 +29,7 @@ import picocli.CommandLine.Spec;
             TalkCommand.class,
             SetupCommand.class,
             DoctorCommand.class,
+            EventsCommand.class,
             PruneCommand.class,
             PanicCommand.class,
             DaemonCommand.class,

@@ -107,6 +107,12 @@ public class GateRejectCommand implements Callable<Integer>, PoreloFactory.Conte
             }
             gate.reject(name, upstreamHas, force);
             out.println("discarded " + name);
+            EventLog.record(
+                    context,
+                    EventLog.REJECTED,
+                    project.name(),
+                    name,
+                    upstreamHas ? "discarded, already upstream" : "discarded");
             // Told whether or not a reason was given: an agent whose work silently vanished hands
             // it over again.
             out.println(

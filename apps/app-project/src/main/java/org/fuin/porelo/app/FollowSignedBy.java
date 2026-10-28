@@ -230,9 +230,12 @@ public final class FollowSignedBy {
                                                 context.paths().projects().followedClone(name),
                                                 "FETCH_HEAD")));
             } catch (final Refused ex) {
-                // A first follow the named key did not sign leaves nothing behind either.
+                // A first follow the named key did not sign leaves nothing behind either. One
+                // followed before stays at what its own key verified, applied all the same.
                 if (!followedBefore) {
                     forgetFirstFollow(projects, name);
+                } else {
+                    Reconcile.recordApplied(context, projects.require(name), result);
                 }
                 throw ex;
             }
@@ -253,6 +256,9 @@ public final class FollowSignedBy {
             return new Answer(result, false, pinned);
         }
         projects.write(Reconcile.after(projects.require(name), result));
+        // Only once the follow stands: a first follow refused for its key was applied and taken
+        // back, and is no event.
+        Reconcile.recordApplied(context, projects.require(name), result);
         return new Answer(result, true, pinned);
     }
 

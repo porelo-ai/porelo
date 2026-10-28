@@ -198,6 +198,7 @@ public final class ConfigurationWatch implements AutoCloseable {
                 // while this fetched is not brought back.
                 if (projects.writeIfUnchanged(followed, Reconcile.after(followed, result))) {
                     done.put(followed.name(), result);
+                    Reconcile.recordApplied(context, followed, result);
                 }
             } catch (final IOException | RuntimeException ex) {
                 continue;

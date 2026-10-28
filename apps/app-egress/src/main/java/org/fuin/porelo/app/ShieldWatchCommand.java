@@ -50,7 +50,15 @@ import picocli.CommandLine.Spec;
         name = "watch",
         mixinStandardHelpOptions = true,
         description = "Prompts for each blocked connection and allows the ones you approve.")
-public class ShieldWatchCommand implements Callable<Integer> {
+public class ShieldWatchCommand implements Callable<Integer>, PoreloFactory.ContextAware {
+
+    /** The machine, whose event log each decision goes to. */
+    private PoreloContext context = PoreloContext.real();
+
+    @Override
+    public void setContext(final PoreloContext context) {
+        this.context = context;
+    }
 
     @Option(
             names = "--project",
@@ -156,7 +164,8 @@ public class ShieldWatchCommand implements Callable<Integer> {
             final java.util.concurrent.CountDownLatch enough =
                     new java.util.concurrent.CountDownLatch(1);
 
-            final ClearanceJournal record = new ClearanceJournal(journalPath());
+            final ClearanceJournal record =
+                    eventLogged(new ClearanceJournal(journalPath()), context);
 
             final ClearanceHub hub =
                     new ClearanceHub(
@@ -609,5 +618,37 @@ public class ShieldWatchCommand implements Callable<Integer> {
         public void close() {
             // Nothing to release.
         }
+    }
+
+    /**
+     * Returns the journal writing each decision into the account's event log as well: a connection
+     * allowed or denied while the task ran is a change of what it may reach.
+     *
+     * @param journal The task's clearance journal.
+     * @param context The machine.
+     * @return The same journal, writing to both.
+     */
+    static ClearanceJournal eventLogged(
+            final ClearanceJournal journal, final PoreloContext context) {
+        return new ClearanceJournal(journal.file()) {
+            @Override
+            public void record(final org.fuin.porelo.clearance.Decision decision) {
+                super.record(decision);
+                EventLog.record(
+                        context,
+                        EventLog.CLEARANCE,
+                        decision.project(),
+                        decision.task(),
+                        decision.verdict().name().toLowerCase(java.util.Locale.ROOT)
+                                + " "
+                                + decision.protocol()
+                                + " "
+                                + decision.destination()
+                                + (decision.port() == 0 ? "" : ":" + decision.port())
+                                + " ("
+                                + decision.source()
+                                + ")");
+            }
+        };
     }
 }

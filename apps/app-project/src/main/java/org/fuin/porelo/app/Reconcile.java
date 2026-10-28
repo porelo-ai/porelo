@@ -589,6 +589,35 @@ public final class Reconcile {
         }
     }
 
+    /**
+     * Writes a commit applied into the account's event log: what this machine's tasks run under
+     * from now on, and whose key vouched for it. Called where the follow stands, never by a check:
+     * a check applies nothing.
+     *
+     * @param context The machine.
+     * @param followed The project followed.
+     * @param result What the reconcile did; nothing is written unless it applied a commit.
+     */
+    public static void recordApplied(
+            final PoreloContext context,
+            final FollowedProjects.Followed followed,
+            final Result result) {
+        if (result.outcome() != Outcome.APPLIED) {
+            return;
+        }
+        EventLog.record(
+                context,
+                EventLog.PROJECT_APPLIED,
+                followed.name(),
+                "",
+                "commit "
+                        + result.commit()
+                        + (followed.unverified()
+                                ? ", unverified"
+                                : result.signer().isEmpty() ? "" : ", signed by " + result.signer())
+                        + (result.detail().isEmpty() ? "" : "; " + result.detail()));
+    }
+
     private static String signerOf(final CommandRunner runner, final Path clone) {
         final String key = SignedBy.keyOf(runner, clone, "FETCH_HEAD");
         final String fingerprint = key == null ? null : SignedBy.fingerprintOf(key);

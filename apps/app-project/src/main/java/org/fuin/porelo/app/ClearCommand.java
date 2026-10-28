@@ -66,6 +66,15 @@ public class ClearCommand implements Callable<Integer>, PoreloFactory.ContextAwa
         boolean forced = force;
         Clearing.Result listed = new Clearing(context).account(listOnly, forced);
         int code = render(listed, listOnly, !dryRun && !yes && !asking, out);
+        if (java.nio.file.Files.exists(context.paths().eventLog())) {
+            // The account's history, not a project's: what was approved and allowed here outlives
+            // a clearing, which is when somebody asks.
+            out.println(
+                    "stays       event log  "
+                            + context.paths().eventLog()
+                            + " - the account's history outlives its clearing");
+            out.flush();
+        }
         // What a refusal would send a person to do first is offered instead, each once: the running
         // tasks that hold a token from the vault stopped, then what only --force clears, no by
         // default.

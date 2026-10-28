@@ -199,6 +199,20 @@ public final class TaskPanic {
                         + (stopped.isEmpty() ? "none" : String.join(",", stopped))
                         + " surviving="
                         + (surviving.isEmpty() ? "none" : String.join(",", surviving));
+        if (!stopped.isEmpty() || !surviving.isEmpty()) {
+            // Only when it stopped something or failed to: a stop of nothing changed nothing.
+            EventLog.record(
+                    context,
+                    EventLog.STOPPED_ALL,
+                    "",
+                    "",
+                    "via "
+                            + via
+                            + ", stopped "
+                            + (stopped.isEmpty() ? "none" : String.join(",", stopped))
+                            + ", surviving "
+                            + (surviving.isEmpty() ? "none" : String.join(",", surviving)));
+        }
         try {
             final java.nio.file.Path file = context.paths().stopJournal();
             java.nio.file.Files.createDirectories(file.getParent());

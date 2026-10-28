@@ -238,9 +238,18 @@ public final class HandIns {
      * @return Hand-ins for it.
      */
     public static HandIns of(final PoreloContext context) {
-        return new HandIns(
-                context.paths().tasks(), context.podman(), HandIns::process, Clock.systemUTC());
+        final HandIns handIns =
+                new HandIns(
+                        context.paths().tasks(),
+                        context.podman(),
+                        HandIns::process,
+                        Clock.systemUTC());
+        handIns.events = context;
+        return handIns;
     }
+
+    /** The machine whose event log each hand-in goes to as well; none for one made apart. */
+    private @org.jspecify.annotations.Nullable PoreloContext events;
 
     /**
      * Takes one part of a file for a running task.
@@ -559,6 +568,15 @@ public final class HandIns {
         final Map<String, Object> line = new LinkedHashMap<>();
         line.put("event", event);
         line.putAll(file.asMap());
+        if (events != null) {
+            // What a task holds that it did not bring: the hash, never the content.
+            EventLog.record(
+                    events,
+                    EventLog.HAND_IN,
+                    "",
+                    container,
+                    event + " " + file.name() + " sha256 " + file.sha256() + " by " + file.by());
+        }
         if (!Files.exists(record)) {
             Files.createFile(
                     record,

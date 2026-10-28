@@ -196,6 +196,12 @@ public final class RunningClearance {
                 out.println("clearance " + mode + ", log at " + state.resolve("clearance.log"));
             }
             profile.withClearance(mode).writeTo(state);
+            EventLog.record(
+                    context,
+                    EventLog.CLEARANCE,
+                    sidecar.project(),
+                    container,
+                    "mode " + (was.isEmpty() ? "unrecorded" : was) + " to " + mode);
             out.flush();
             new TaskState(context).save(container);
             return new Result(Outcome.CHANGED, was, mode, "");

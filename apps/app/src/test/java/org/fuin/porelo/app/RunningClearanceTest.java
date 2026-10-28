@@ -122,6 +122,10 @@ class RunningClearanceTest {
 
         assertThat(result.outcome()).isEqualTo(RunningClearance.Outcome.CHANGED);
         assertThat(result.was()).isEqualTo("prompt");
+        assertThat(java.nio.file.Files.readString(context(dir).paths().eventLog()))
+                .as("a change of what the task may reach is in the account's event log")
+                .contains("\"kind\":\"clearance\"")
+                .contains("mode prompt to off");
         assertThat(runner.invocations())
                 .anySatisfy(
                         command ->

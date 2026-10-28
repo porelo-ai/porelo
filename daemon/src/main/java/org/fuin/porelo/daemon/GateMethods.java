@@ -169,6 +169,19 @@ final class GateMethods {
                                 INTERFACE + ".BranchExists",
                                 Map.of("branch", ex.branch(), "at", ex.at()));
                     }
+                    org.fuin.porelo.app.EventLog.record(
+                            context,
+                            org.fuin.porelo.app.EventLog.APPROVED,
+                            text(parameters, "project"),
+                            text(parameters, "name"),
+                            (flag(parameters, "signed")
+                                            ? "signed and forwarded onto "
+                                            : "forwarded onto ")
+                                    + branch
+                                    + (empty(parameters, "commit") == null
+                                            ? ""
+                                            : ", reviewed at " + empty(parameters, "commit"))
+                                    + ", through the daemon");
                     replies.last(Map.of("forwarded", text(parameters, "name"), "branch", branch));
                 });
 
@@ -257,6 +270,12 @@ final class GateMethods {
                                 INTERFACE + ".AlreadyUpstream", Map.of("name", name));
                     }
                     gate.reject(name, false, true);
+                    org.fuin.porelo.app.EventLog.record(
+                            context,
+                            org.fuin.porelo.app.EventLog.REJECTED,
+                            text(parameters, "project"),
+                            name,
+                            "discarded, through the daemon");
                     // The task the work came from is told, reason or not: an agent whose work
                     // silently vanished hands it over again.
                     boolean told;

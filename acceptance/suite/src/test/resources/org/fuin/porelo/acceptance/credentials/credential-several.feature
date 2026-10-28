@@ -53,6 +53,10 @@ Feature: A task holds more than one credential
             """
         Then its output contains "real key in the container: 0"
         And its output contains "a token for search is there"
+        # The account's event log names the credential the start gave, by entry and destination, never a token.
+        When a script runs "porelo events | grep credential"
+        Then its output contains "search for echo, named by the project"
+        And its output does not contain "sk-porelo-acceptance-not-a-real-key"
         # An interface lists what a task holds, by name and destination, never a token.
         When a script runs:
             """

@@ -124,6 +124,11 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
         return exit;
     }
 
+    /** The reviewed commit, as the event log names it. */
+    private String reviewed() {
+        return commit == null ? "" : ", reviewed at " + commit;
+    }
+
     /** The exit code of the last try. */
     private int exit;
 
@@ -151,9 +156,21 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
             if (signed) {
                 GateSupport.approveSigned(gate, name, onto, commit);
                 out.println("merged    " + name + " onto " + onto + ", signed, and forwarded");
+                EventLog.record(
+                        context,
+                        EventLog.APPROVED,
+                        projectName,
+                        name,
+                        "signed and forwarded onto " + onto + reviewed());
             } else {
                 gate.approve(name, onto, commit);
                 out.println("forwarded " + name + " to " + onto);
+                EventLog.record(
+                        context,
+                        EventLog.APPROVED,
+                        projectName,
+                        name,
+                        "forwarded onto " + onto + reviewed());
             }
             out.flush();
             exit = 0;

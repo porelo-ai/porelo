@@ -1,0 +1,47 @@
+
+# The account's event log: every security-relevant event of this node - an approval or rejection,
+# a clearance at run time, a hand-in, a credential a start gave, a project file applied, every task
+# stopped at once - one line each, hash-chained, and each line's hash anchored in the user's systemd
+# journal, which the account can append to but not rewrite. A read: nothing here changes anything.
+method Events(
+  # Only events at or after this instant, as 2026-10-28T03:00:00Z. Omitted, all.
+  since: ?string
+) -> (events: []Event)
+
+# One event, as the log holds it.
+type Event (
+  # When it was recorded, ISO-8601.
+  at: string,
+  # approved, rejected, clearance, hand-in, credential, project-applied or stopped-all; unreadable for
+  # a line that cannot be read, its other fields "".
+  kind: string,
+  # The project, or "".
+  project: string,
+  # The task's container, or "".
+  task: string,
+  # What happened, in words and values; never a secret.
+  detail: string,
+  # This line's hash, and the one before it ("" for the first).
+  hash: string,
+  previous: string
+)
+
+# Checks the log's chain, and every line against the hashes the user's journal holds. 'holds' is
+# true only when the chain is whole, every line is anchored but those ahead of the first anchored one
+# and older than the oldest hash the journal still holds of this log, and the journal holds no hash
+# the log has lost. A log with lines and no hash in the journal does not hold.
+method VerifyEvents() -> (
+  holds: bool,
+  lines: int,
+  # The number of the first line whose chain breaks, or 0.
+  firstBroken: int,
+  # Lines whose hash the journal does not hold, other than those counted in beforeAnchor.
+  notAnchored: []int,
+  # Hashes the journal holds that no line has: a line changed or removed afterwards.
+  missing: []string,
+  # Whether the journal could be read at all; false means nothing was checked against it.
+  anchorRead: bool,
+  # Lines ahead of the first anchored one and older than the oldest hash the journal still holds of
+  # this log, and not held: rotated out, vouched for by the chain alone.
+  beforeAnchor: int
+)

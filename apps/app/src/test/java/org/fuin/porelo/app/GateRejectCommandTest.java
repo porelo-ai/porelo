@@ -128,6 +128,11 @@ class GateRejectCommandTest {
         assertThat(git(gate.mirror(), "for-each-ref", GitGate.INCOMING))
                 .as("cleared when the person says so")
                 .doesNotContain("writer");
+        assertThat(java.nio.file.Files.readString(context.paths().eventLog()))
+                .as("the rejection is in the account's event log, the refused try is not")
+                .contains("\"kind\":\"rejected\"")
+                .contains("\"task\":\"writer\"")
+                .contains("discarded, already upstream");
     }
 
     private record Run(int code, String out, String err) {}

@@ -174,6 +174,36 @@ class ClearingTest {
     }
 
     @Test
+    void clearingTheAccountLeavesItsEventLogWithItsChainIntact(@TempDir final Path dir)
+            throws IOException {
+
+        // The account's history, not a project's: what was approved and allowed here is asked
+        // about after a clearing, not before.
+        final PoreloContext context = context(dir);
+        project("one");
+        final java.util.List<EventLog.Anchored> anchored = new java.util.ArrayList<>();
+        final EventLog.Anchor journal =
+                new EventLog.Anchor() {
+                    @Override
+                    public boolean send(final String hash, final String kind) {
+                        return anchored.add(new EventLog.Anchored(hash, java.time.Instant.now()));
+                    }
+
+                    @Override
+                    public java.util.List<EventLog.Anchored> anchored() {
+                        return java.util.List.copyOf(anchored);
+                    }
+                };
+        final EventLog log = new EventLog(context.paths().eventLog(), journal);
+        log.append(EventLog.APPROVED, "one", "porelo-one-fix", "onto main");
+
+        new Clearing(context).account(false, false);
+
+        assertThat(context.paths().eventLog()).exists();
+        assertThat(log.verify().holds()).isTrue();
+    }
+
+    @Test
     void clearingTheAccountLeavesNothingOfWhatPoreloKeptForAnyConversation(@TempDir final Path dir)
             throws IOException {
 

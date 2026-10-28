@@ -5,11 +5,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -352,23 +349,12 @@ public final class MessageRecord {
             final String peer,
             final String detail,
             final String direction) {
-        try {
-            final MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            // Length-prefixed rather than separated: a separator can appear inside a reason, and
-            // two different sets of fields would then hash alike.
-            final StringBuilder material = new StringBuilder();
-            for (final String field : List.of(previous, event, message, id, peer, detail)) {
-                material.append(field.length()).append(':').append(field);
-            }
-            // Only when there is one: a line written before directions were recorded keeps the hash
-            // it was written with, so the chain of an existing record still verifies.
-            if (!direction.isEmpty()) {
-                material.append(direction.length()).append(':').append(direction);
-            }
-            digest.update(material.toString().getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(digest.digest());
-        } catch (final NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 is not available", e);
-        }
+        // Only when there is one: a line written before directions were recorded keeps the hash
+        // it was written with, so the chain of an existing record still verifies.
+        return HashChain.link(
+                previous,
+                direction.isEmpty()
+                        ? List.of(event, message, id, peer, detail)
+                        : List.of(event, message, id, peer, detail, direction));
     }
 }

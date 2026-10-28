@@ -128,6 +128,7 @@ public final class PoreloDaemon {
         AgentMethods.register(server, context, inventory, control);
         MessagingMethods.register(server, context, inventory, control);
         MachineMethods.register(server, context, inventory, control);
+        EventMethods.register(server, context, inventory, control);
         return server;
     }
 
@@ -174,7 +175,8 @@ public final class PoreloDaemon {
                     "35-gate",
                     "40-agent",
                     "45-messaging",
-                    "50-machine");
+                    "50-machine",
+                    "55-events");
 
     /**
      * Returns hosts and their origins as a client reads them.

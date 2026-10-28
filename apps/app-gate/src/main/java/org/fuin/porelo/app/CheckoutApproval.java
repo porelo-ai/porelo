@@ -134,6 +134,12 @@ final class CheckoutApproval {
         }
         try {
             gate.approve(chosen.name(), branch, chosen.commit());
+            EventLog.record(
+                    context,
+                    EventLog.APPROVED,
+                    gateProject == null ? "" : gateProject.name(),
+                    chosen.name(),
+                    "brought into " + top + " as " + branch + " at " + chosen.commit());
         } catch (GateException ex) {
             return refuse(
                     NOT_MOVED,

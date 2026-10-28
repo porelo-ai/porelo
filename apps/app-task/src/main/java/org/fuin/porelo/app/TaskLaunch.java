@@ -1859,6 +1859,30 @@ public final class TaskLaunch {
                     out,
                     steps);
 
+            // Once the container is up, and only one the broker gave a token for: a credential the
+            // vault lacks, or one the broker never came up for, was given to nobody. Names only,
+            // never a value: which entry, and where.
+            final String projectName = project.name();
+            this.extras.forEach(
+                    (entry, destination) -> {
+                        if (plumbing != null
+                                && plumbing.environment()
+                                        .containsKey(
+                                                "PORELO_TOKEN_"
+                                                        + CredentialWiring.variableSuffix(entry))) {
+                            EventLog.record(
+                                    context,
+                                    EventLog.CREDENTIAL,
+                                    projectName,
+                                    container,
+                                    entry
+                                            + " for "
+                                            + destination.name()
+                                            + (request.credentials().containsKey(entry)
+                                                    ? ", given with --credential"
+                                                    : ", named by the project"));
+                        }
+                    });
             steps.started(StartStep.Step.HELPERS);
             if (needsRelay && plumbing != null) {
                 wiring().startRelay(runner, container, plumbing.socket(), out, err);

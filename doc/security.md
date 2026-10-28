@@ -292,6 +292,29 @@ a missing resolver lets nothing escape, because the packet filter still drops by
 to start would turn a degraded run into no run. The failure shows at the point of use, since the
 agent can resolve nothing at all, and the hook records why.
 
+## The event log
+
+Every security-relevant event of an account - an approval or rejection of a task's work, a connection allowed or
+denied while a task ran and a change of its clearance mode, a file handed into a task or taken back, the credentials
+a start gave a task beyond its agent's own (names and destinations, never a value), a project file applied, a stop
+of all tasks at once - is one line of `~/.local/state/porelo/events.jsonl`. `porelo events` shows it, the daemon's
+`Events` answers it.
+
+- **Each line carries the hash of the one before**, so a line changed in place breaks the chain from there on.
+- **Each line's hash also goes to the user's systemd journal**, with the log's path, through `logger --journald`.
+  The account can append to its journal and read it, never rewrite it. So rewriting the file and recomputing every
+  hash still leaves the original hashes in the journal: `porelo events --verify` names each hash the journal holds
+  that the log has lost, each line the journal does not hold, and the first line whose chain breaks. Only a line
+  ahead of the first one the journal holds, and older than the oldest hash it still holds of the log, may lack its
+  own, since the journal drops its oldest entries first; a line added after an anchored one is named whatever date it
+  claims, and a log with lines and nothing in the journal does not hold.
+- **What it does not prove:** that an event happened when nothing wrote it - a person with the account's rights can
+  act without Porelo. Lines older than the journal keeps are vouched for by the chain alone. The account can add
+  hashes of its own to the journal, never take one out: an entry it adds makes the log fail to verify, never pass. A copy sent off the machine, which would survive the
+  machine itself, is not built yet.
+- **It outlives `porelo clear`** of the account: it is the account's history, not a project's, and the clearing
+  says so.
+
 ## What is accepted rather than solved
 
 **A unix socket can be taken from a live process, in a window.** Before binding, Porelo connects to

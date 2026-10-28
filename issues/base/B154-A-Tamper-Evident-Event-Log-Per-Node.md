@@ -1,6 +1,6 @@
 # B154 — A Tamper-Evident Event Log Per Node
 
-**Status:** Backlog.
+**Status:** Implementing; part 1 built, part 2 (step 5, the copy sent off the machine) after its *To be checked*.
 **Size:** L - a new record written from many commands, its anchor in the user's journal, an optional copy sent off the
 machine, and a log that `porelo clear` leaves.
 
@@ -58,6 +58,31 @@ Steps:
 7. [B121](README.md#b121) then drops the chain from `MessageRecord` and `talk verify`.
 8. `doc/security.md` gets a section: what is logged, where, what the journal anchor and the copy off the machine do
    and do not prove, and that a clearing of the account keeps the log.
+
+**Part 1, built, where it departs from the steps above:**
+
+- `EventLog` and `HashChain` sit in `app-base` beside `PoreloContext`, so every module that writes an event reaches
+  them; `MessageRecord` hashes with `HashChain` too, its material unchanged, so an existing record still verifies.
+- The anchor is `logger --journald`, a line of fields on standard input, read back with `journalctl --user`; each
+  entry carries `PORELO_EVENT_LOG`, the log's path, so a test's log or a second state directory never counts as this
+  one's lost lines. `verify` names the first broken line, each line the journal lacks after the first it holds, and
+  each hash the journal holds that the log lost; lines before the journal's first are counted apart, vouched for by
+  the chain alone.
+- The writers: `gate approve`, `porelo approve` and the daemon's `Approve`; `gate reject` and the daemon's `Reject`;
+  each decision the clearance watcher records, and a change of a running task's clearance mode; `HandIns` for give
+  and take back; the credentials a start gives beyond the agent's own (where `GrantRecord` records them); a
+  reconcile that applies a new commit; `task stop --all`. "A runtime extension" is a credential granted beyond the
+  agent's own: no other extension of a running task exists today.
+- `porelo events [--since] [--verify]` and the daemon's `Events` and `VerifyEvents` in `55-events.varlink`.
+- `porelo clear` leaves the log, and says so.
+- A reading by a second agent changed: append and journal send under one lock, `verify` under it too; only lines ahead
+  of the first the journal holds and older than its oldest entry of this log count as before it, so a line appended
+  later with an old date is named, and a log the journal holds nothing of does not hold; a line without a hash and a
+  kind is listed as `unreadable`, its other fields empty; a reconcile records once its commit is followed or written,
+  and a follow refused for its key records what the pinned key applied before; a start records a credential only once
+  the task runs and only one the broker gave a token for; `task stop --all` records only when something was stopped.
+  Not changed: entries another process of the account adds to the journal under the log's identifier can only make
+  `verify` fail, never hold.
 
 ## Acceptance
 

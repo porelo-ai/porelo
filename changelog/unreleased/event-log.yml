@@ -1,0 +1,2 @@
+title: Every security-relevant event of an account - approvals, clearances, hand-ins, credentials given at a start, project files applied, stops of all tasks - is one hash-chained line of an event log anchored in the user's systemd journal; porelo events shows it and porelo events --verify names a line changed or removed afterwards
+type: added

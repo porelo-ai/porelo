@@ -397,10 +397,17 @@ class ReconcileTest {
         assertThat(context.paths().projects().configurationSigners())
                 .as("a check pins nothing")
                 .doesNotExist();
+        assertThat(context.paths().eventLog()).as("and applies nothing to log").doesNotExist();
         final FollowSignedBy.Answer answer =
                 following.follow("demo", repo.toString(), fingerprint, false, false);
 
         assertThat(answer.result().outcome()).isEqualTo(Reconcile.Outcome.APPLIED);
+        assertThat(Files.readString(context.paths().eventLog()))
+                .as("what this machine's tasks run under from now on, and whose key vouched")
+                .contains("\"kind\":\"project-applied\"")
+                .contains("\"project\":\"demo\"")
+                .contains("commit " + answer.result().commit())
+                .contains("signed by " + fingerprint);
         assertThat(answer.pinned()).isEqualTo(fingerprint);
         assertThat(answer.result().signer()).isEqualTo(fingerprint);
     }
@@ -423,6 +430,53 @@ class ReconcileTest {
         assertThat(context.paths().projects().configurationSigners()).doesNotExist();
         assertThat(new FollowedProjects(context.paths().projects().followed()).find("demo"))
                 .isNull();
+        assertThat(context.paths().eventLog())
+                .as("a follow taken back for its key is no event")
+                .doesNotExist();
+    }
+
+    @Test
+    void a_follow_refused_for_its_key_still_records_what_the_pinned_key_applied(
+            @TempDir final Path dir) throws Exception {
+
+        // The reconcile runs before the named key is checked: for a project followed before, the
+        // pinned key's newer commit is applied then, and was in force with no event.
+        final PoreloContext context = context(dir);
+        final Path key = key(dir, "operator");
+        final Path repo = published(dir, key, "demo");
+        final String fingerprint =
+                SignedBy.fingerprintOf(Files.readString(Path.of(key + ".pub")).strip());
+        final String other =
+                SignedBy.fingerprintOf(
+                        Files.readString(Path.of(key(dir, "other") + ".pub")).strip());
+        new FollowSignedBy(context).follow("demo", repo.toString(), fingerprint, false, false);
+        commit(repo, key, "demo", "The second version");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () ->
+                                new FollowSignedBy(context)
+                                        .follow("demo", repo.toString(), other, false, false))
+                .isInstanceOf(FollowSignedBy.Refused.class);
+
+        assertThat(Files.readAllLines(context.paths().eventLog()))
+                .hasSize(2)
+                .last()
+                .asString()
+                .contains("\"kind\":\"project-applied\"")
+                .contains("signed by " + fingerprint);
+    }
+
+    @Test
+    void an_unverified_follow_says_so_in_the_event_it_records(@TempDir final Path dir)
+            throws Exception {
+        final PoreloContext context = context(dir);
+        final Path repo = published(dir, null, "demo");
+
+        new FollowSignedBy(context).follow("demo", repo.toString(), null, true, false);
+
+        assertThat(Files.readString(context.paths().eventLog()))
+                .contains("\"kind\":\"project-applied\"")
+                .contains(", unverified");
     }
 
     @Test
@@ -1420,6 +1474,26 @@ class ReconcileTest {
         assertThat(done.get("demo").commit())
                 .as("what was in force stays")
                 .isEqualTo(first.result().commit());
+    }
+
+    @Test
+    void a_commit_the_watch_applies_is_an_event_and_one_it_finds_unchanged_is_not(
+            @TempDir final Path dir) throws Exception {
+        final PoreloContext context = context(dir);
+        final Path repo = ofClass(dir, "guarded");
+        new FollowSignedBy(context).follow("demo", repo.toUri().toString(), null, true, false);
+        commit(repo, null, "demo", "The second version");
+        final ConfigurationWatch watch = new ConfigurationWatch(context, java.time.Duration.ZERO);
+
+        final Reconcile.Result applied = watch.refresh("demo").get("demo");
+        watch.refresh("demo");
+
+        assertThat(applied.outcome()).isEqualTo(Reconcile.Outcome.APPLIED);
+        assertThat(Files.readAllLines(context.paths().eventLog()))
+                .hasSize(2)
+                .last()
+                .asString()
+                .contains("commit " + applied.commit());
     }
 
     @Test

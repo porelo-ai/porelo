@@ -162,6 +162,9 @@ class PanicCommandTest {
         assertThat(runner.lines())
                 .anyMatch(line -> line.startsWith("podman stop") && line.endsWith("111111111111"))
                 .anyMatch(line -> line.startsWith("podman stop") && line.endsWith("222222222222"));
+        assertThat(Files.readString(context.paths().eventLog()))
+                .contains("\"kind\":\"stopped-all\"")
+                .contains("porelo-uc-shell-1");
         final java.util.List<String> journal = Files.readAllLines(context.paths().stopJournal());
         assertThat(journal)
                 .singleElement()
@@ -184,6 +187,9 @@ class PanicCommandTest {
                 .singleElement()
                 .asString()
                 .contains("stopped=none");
+        assertThat(context.paths().eventLog())
+                .as("a stop of nothing changed nothing, and is no event")
+                .doesNotExist();
     }
 
     @Test

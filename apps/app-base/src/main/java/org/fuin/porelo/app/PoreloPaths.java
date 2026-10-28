@@ -245,6 +245,19 @@ public record PoreloPaths(
     }
 
     /**
+     * Returns the account's event log: every security-relevant event of this node, hash-chained,
+     * each hash anchored in the user's journal.
+     *
+     * <p>The account's history, not a project's: under the state directory, which {@code porelo
+     * clear} of the account leaves.
+     *
+     * @return The file.
+     */
+    public Path eventLog() {
+        return xdg.state().resolve("events.jsonl");
+    }
+
+    /**
      * Returns the record of every stop of all tasks at once: one line each, with when, who, from
      * where, what stopped and what survived.
      *

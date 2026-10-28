@@ -542,6 +542,15 @@ Makes this account ready. Each step runs only if needed, so running it again is 
 It ends by saying whether the account is ready. `--hooks-only` registers only the hooks;
 `--uninstall` removes them.
 
+## events
+
+`porelo events [--since INSTANT]` shows this account's event log: every approval and rejection, every connection
+allowed or denied while a task ran and every change of a task's clearance mode, every file handed in or taken back,
+the credentials a start gave a task beyond its agent's own, every project file applied, and every stop of all tasks
+at once. `porelo events --verify` checks the log's chain and every line against the hashes the user's systemd
+journal holds, and exits 1 when a line was changed or removed afterwards; see
+[the event log](security.md#the-event-log).
+
 ## doctor
 
 `porelo doctor` reports paths, the daemon's hardening and whether this machine can run a task. Each
