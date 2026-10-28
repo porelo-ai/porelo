@@ -1,6 +1,6 @@
 # B312 — A Machine Named By Its Host And Account
 
-**Status:** Estimated, released by the operator on 2026-10-28 with this size; accepted the same day, from
+**Status:** Estimated, from
 [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78).
 **Size:** S - `MachineName`, its callers in `TransportLifecycle`, one command and the tests.
 

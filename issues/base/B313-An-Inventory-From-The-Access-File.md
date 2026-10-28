@@ -1,8 +1,8 @@
 # B313 — An Inventory From The Access File
 
-**Status:** Implementing, part 1; placed in sprint 6i by the operator on 2026-10-28, beside porelo-host's
+**Status:** Implementing, part 1, in sprint 6i beside porelo-host's
 [HO41](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho41).
-Accepted and estimated the same day, from
+Accepted and estimated from
 [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78).
 **Size:** S - the machine file's second bundle, the inventory's `files`, docs and tests.
 
@@ -11,7 +11,7 @@ beside the
 project's, and each `porelo_transports` entry gains `files`: the transport's `*_file` settings from the applied
 access file, paths only; the inventory stays version 2.
 
-**Split, the operator's on 2026-10-28.** Part 1, built now: `files` from the public `project.yml`, inventory version
+**Split.** Part 1, built now: `files` from the public `project.yml`, inventory version
 2, so [HO41](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho41)'s play finds the laptop
 homeserver's `registration_token_file` while that file is still public. Part 2,
 with [B310](README.md#b310): the machine file's access bundle, verified beside the project's, and `files` read from

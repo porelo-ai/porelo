@@ -84,8 +84,8 @@ Steps:
   Not changed: entries another process of the account adds to the journal under the log's identifier can only make
   `verify` fail, never hold.
 
-**What [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78) changes (2026-10-28),
-nothing reworked yet:** a project may name a private access file ([B310](README.md#b310)); an applied commit of it
+**What [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78) changes, nothing
+reworked yet:** a project may name a private access file ([B310](README.md#b310)); an applied commit of it
 is a `project-applied` line too, naming the access repository. It is built with that issue.
 
 ## Acceptance

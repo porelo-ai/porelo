@@ -1,6 +1,6 @@
 # B315 — A Person Locked Out Without A Terminal
 
-**Status:** Estimated, released by the operator on 2026-10-28 with this size; accepted the same day, from
+**Status:** Estimated, from
 [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78).
 **Size:** XS - an acceptance scenario of two commands that exist, run as root's helper runs them.
 
