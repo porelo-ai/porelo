@@ -9,12 +9,16 @@ import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
 
-/** Takes another machine out of a project's conversation on this machine's server. */
+/**
+ * Takes another machine off this machine's conversation server: out of every project's conversation
+ * there, and its registration refused.
+ */
 @Command(
         name = "dismiss",
         mixinStandardHelpOptions = true,
         description =
-                "Takes another machine out of a project's conversation on this machine's server.")
+                "Takes another machine off this machine's conversation server: out of every"
+                        + " project's conversation there, its token revoked.")
 public class TalkDismissCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
     @Parameters(index = "0", paramLabel = "<project>", description = "Project name.")
@@ -45,15 +49,25 @@ public class TalkDismissCommand implements Callable<Integer>, PoreloFactory.Cont
             err.flush();
             return ex.code() == 0 ? 69 : ex.code();
         }
-        out.println(
-                said.get("removed") instanceof java.util.List<?> removed && !removed.isEmpty()
-                        ? "dismissed " + machine + " from " + projectName + "'s conversation"
-                        : "nothing of "
-                                + machine
-                                + " was left in "
-                                + projectName
-                                + "'s conversation");
+        out.println(said(machine, said));
         out.flush();
         return 0;
+    }
+
+    /**
+     * Says what a dismiss did. The transport takes the machine out of every project's conversation
+     * on this server and revokes its token, so the line names the server, not the project it was
+     * asked through.
+     *
+     * @param machine The machine taken out.
+     * @param said What the transport answered.
+     * @return The line.
+     */
+    static String said(final String machine, final Map<?, ?> said) {
+        return said.get("removed") instanceof java.util.List<?> removed && !removed.isEmpty()
+                ? "dismissed "
+                        + machine
+                        + " from every project's conversation on this server, its token revoked"
+                : "nothing of " + machine + " was left on this server";
     }
 }

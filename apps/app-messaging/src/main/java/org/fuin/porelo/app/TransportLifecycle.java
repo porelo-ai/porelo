@@ -688,7 +688,7 @@ final class TransportLifecycle {
     }
 
     /**
-     * Takes another machine out of a project's conversation on this machine's server.
+     * Takes another machine off this machine's conversation server, asked through one project.
      *
      * @param scheme The transport.
      * @param project The project.

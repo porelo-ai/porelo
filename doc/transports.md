@@ -82,7 +82,7 @@ takes its secrets on its input, and goes in a change of its own.
 | `clear [--project P]` | when a project is cleared from the machine, with `--project`; when the account's vault is cleared, without | the account's secrets, and the project's with `--project` | `removed` |
 | `settings` | when a project file is checked | nothing: no secrets, no network | `refused`, `warnings` |
 | `admit --project P --machine M` | on `porelo talk admit`, on the machine whose server holds the conversation | account and project secrets | `admission` (what machine `M` needs to reach the conversation) and `secrets` (what it keeps as secrets), answered once, never kept here |
-| `dismiss --project P --machine M` | on `porelo talk dismiss` | account and project secrets | `removed` |
+| `dismiss --project P --machine M` | on `porelo talk dismiss` | account and project secrets | `removed`: every account of M taken out of every project's conversation on this server, and M's registration refused; the project only names the server |
 
 - **Every map of secrets is complete** for the verbs that use it: a project's are what `poll` reads and what
   `send` uses for Porelo's own helper answers, a task's are what its `send`, `read` and `receipt` read, and the
