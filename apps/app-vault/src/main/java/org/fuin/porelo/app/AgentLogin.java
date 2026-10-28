@@ -98,6 +98,18 @@ public final class AgentLogin {
         throw new UnsupportedOperationException("Utility class");
     }
 
+    /**
+     * The client a sign-in's token endpoint is asked with, trusting what the account trusts, as the
+     * broker's renewals do.
+     */
+    private static java.net.http.HttpClient tokenHttp(final PoreloContext context) {
+        return org.fuin.porelo.core.net.TrustedCertificates.builder(
+                        org.fuin.porelo.core.net.TrustedCertificates.file(context.paths().xdg()))
+                .connectTimeout(java.time.Duration.ofSeconds(30))
+                .followRedirects(java.net.http.HttpClient.Redirect.NEVER)
+                .build();
+    }
+
     private static Result failed(Outcome outcome, String detail) {
         return new Result(outcome, "", "", 0, detail);
     }
@@ -151,6 +163,7 @@ public final class AgentLogin {
      * @param tokenUrl A stand-in's token endpoint replacing the agent's, or {@code null}.
      * @param kept The attributes the provider sends beside the token.
      * @param directory Where it was read, for the refusal.
+     * @param http How the token endpoint is asked, where a client secret is to be picked.
      * @return What happened.
      */
     static Result keepFrom(
@@ -160,7 +173,8 @@ public final class AgentLogin {
             final java.util.Optional<Credential> found,
             final @Nullable String tokenUrl,
             final java.util.Set<String> kept,
-            final Path directory) {
+            final Path directory,
+            final java.net.http.HttpClient http) {
         if (found.isEmpty()) {
             return failed(
                     Outcome.NOTHING_TO_COLLECT,
@@ -173,14 +187,20 @@ public final class AgentLogin {
             }
         }
         final Credential read = found.get();
-        final Credential value;
+        final Credential pointed;
         if (tokenUrl == null) {
-            value = read;
+            pointed = read;
         } else {
             final java.util.Map<String, String> attributes =
                     new java.util.LinkedHashMap<>(read.attributes());
             attributes.put(Credential.TOKEN_URL, tokenUrl);
-            value = new Credential(read.type(), read.secret(), attributes);
+            pointed = new Credential(read.type(), read.secret(), attributes);
+        }
+        final Credential value;
+        try {
+            value = ClientPick.pick(pointed, http, java.time.Clock.systemUTC());
+        } catch (final ClientPick.NoPair ex) {
+            return failed(Outcome.FAILED, ex.getMessage() + " - nothing was kept");
         }
         final boolean[] renewable = {false};
         vault.update(
@@ -248,7 +268,8 @@ public final class AgentLogin {
                     agent.extractCredential(directory),
                     tokenUrl,
                     LoginCredentials.kept(selection),
-                    directory);
+                    directory,
+                    tokenHttp(context));
         } catch (RuntimeException ex) {
             return failed(Outcome.FAILED, String.valueOf(ex.getMessage()));
         }
@@ -571,7 +592,14 @@ public final class AgentLogin {
                                 + " - its own session,"
                                 + " not the login, and the credential was written before that");
             }
-            final Credential value = credential.get();
+            final Credential value;
+            try {
+                value =
+                        ClientPick.pick(
+                                credential.get(), tokenHttp(context), java.time.Clock.systemUTC());
+            } catch (final ClientPick.NoPair ex) {
+                return failed(Outcome.FAILED, "logged in, but " + ex.getMessage());
+            }
 
             final SelectedProvider selection =
                     SelectedProvider.choose(context.providers(), agent.definition(), null);
@@ -736,6 +764,14 @@ public final class AgentLogin {
                     continue;
                 }
                 found.set(credential.get());
+                final java.util.Map<String, String> read = credential.get().attributes();
+                if (read.containsKey(Credential.CLIENT_ID_CANDIDATES)
+                        || read.containsKey(Credential.CLIENT_SECRET_CANDIDATES)) {
+                    // Its client is picked once, after the run, by asking the service; stored here
+                    // it would be stored before that.
+                    podman.stop(container);
+                    return;
+                }
                 // Stored here when it can be, so that nothing after this moment can lose it.
                 final java.util.Optional<org.fuin.porelo.vault.VaultFile.Opener> way =
                         context.opener();

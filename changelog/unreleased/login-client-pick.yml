@@ -1,0 +1,2 @@
+title: A sign-in whose agent's CLI holds several OAuth clients keeps the client its service answers - the host tries each id with each secret once right after the sign-in - so its first renewal is no longer refused as invalid_client
+type: fixed

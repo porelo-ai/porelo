@@ -69,6 +69,16 @@ sign-in** and kept only in the vault, as a hidden entry beside the refresh token
 porelo-agy's source, a setting, a log or a post: it is another vendor's credential, and republishing it would add to
 the terms' risk.
 
+**Found in the live walk, and fixed:** a due sign-in was refused at its first renewal as `invalid_client`.
+Antigravity's CLI holds three OAuth clients and chooses one by the kind of sign-in in its code; the adapter stored
+the first id and the first secret it found, a pair Google does not know. The adapter now hands every id and every
+secret (`Credential.CLIENT_ID_CANDIDATES`, `CLIENT_SECRET_CANDIDATES`), and the host's login (`ClientPick`) tries
+each pair once with the fresh refresh token and keeps the one the service answers. That a refused pair leaves the
+refresh token usable is what the next live walk's renewal shows. A reading by a second agent changed the pick: a
+refresh token is sent only to an endpoint `Grants.secure` allows; only `invalid_client`, `unauthorized_client` and
+`invalid_grant` mean the next pair, any other answer stops it; and no transport's message reaches a refusal, which
+names codes and counts only.
+
 ## Acceptance
 
 - A task's Antigravity CLI answers through the person's sign-in, and the container holds none of its tokens nor the

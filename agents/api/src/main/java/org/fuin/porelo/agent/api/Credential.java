@@ -37,6 +37,21 @@ public record Credential(String type, String secret, Map<String, String> attribu
     public static final String CLIENT_SECRET = "clientSecret";
 
     /**
+     * The attribute holding every client id an agent's CLI holds, one per line, distinct, in the
+     * CLI's order, where nothing in its files says which one the sign-in was granted to. Beside it
+     * {@link #CLIENT_SECRET_CANDIDATES}; such a credential names neither {@link #CLIENT_ID} nor
+     * {@link #CLIENT_SECRET}. The host tries each pair once with the fresh refresh token and keeps
+     * the one the service answers; the lists themselves are never kept.
+     */
+    public static final String CLIENT_ID_CANDIDATES = "clientIdCandidates";
+
+    /**
+     * The attribute holding every client secret an agent's CLI holds, one per line, distinct, in
+     * the CLI's order; see {@link #CLIENT_ID_CANDIDATES}.
+     */
+    public static final String CLIENT_SECRET_CANDIDATES = "clientSecretCandidates";
+
+    /**
      * Constructor with all data.
      *
      * @param type Credential type.

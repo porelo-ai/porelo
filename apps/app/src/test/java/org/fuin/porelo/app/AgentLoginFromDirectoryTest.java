@@ -53,7 +53,8 @@ class AgentLoginFromDirectoryTest {
                 found,
                 tokenUrl,
                 Set.of(),
-                Path.of("/run/kit/credentials"));
+                Path.of("/run/kit/credentials"),
+                java.net.http.HttpClient.newHttpClient());
     }
 
     @Test
@@ -84,6 +85,33 @@ class AgentLoginFromDirectoryTest {
         assertThat(vault.read(PASSPHRASE).get("anthropic").settings())
                 .as("the renewal goes to the stand-in, never to the endpoint the file named")
                 .containsEntry("token_url", "http://127.0.0.1:8017/oauth/token");
+    }
+
+    @Test
+    void aSignInWhoseClientIsStillToBePickedIsAskedForFirstAndNothingIsKeptWithoutIt(
+            @TempDir Path dir) {
+
+        // A sign-in naming candidates instead of its client is kept only once the service has
+        // answered one pair; a service that cannot be reached leaves nothing in the vault.
+        final VaultFile vault = emptyVault(dir);
+        final Credential candidates =
+                new Credential(
+                        "oauth",
+                        "at-1",
+                        java.util.Map.of(
+                                Credential.REFRESH_TOKEN,
+                                "rt-1",
+                                Credential.CLIENT_ID_CANDIDATES,
+                                "1-a.apps.googleusercontent.com",
+                                Credential.CLIENT_SECRET_CANDIDATES,
+                                "secret-one"));
+
+        final AgentLogin.Result result =
+                keep(vault, Optional.of(candidates), "http://127.0.0.1:9/token");
+
+        assertThat(result.outcome()).isEqualTo(AgentLogin.Outcome.FAILED);
+        assertThat(result.detail()).contains("could not be matched").contains("nothing was kept");
+        assertThat(vault.read(PASSPHRASE)).isEmpty();
     }
 
     @Test
