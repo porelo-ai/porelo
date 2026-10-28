@@ -80,7 +80,8 @@ public final class VaultClearing {
         final @Nullable Map<String, VaultEntry> entries = exists ? entries(vault) : null;
         final boolean unread = exists && entries == null;
 
-        boolean refused = exists && tasksHolding(entries, items);
+        final boolean taskHolds = exists && tasksHolding(entries, items);
+        boolean refused = taskHolds;
         if (unread) {
             items.add(
                     new Clearing.Item(
@@ -99,7 +100,13 @@ public final class VaultClearing {
             refused |= !force;
         }
         if (refused && !dryRun) {
-            return new Clearing.Result(List.copyOf(items), List.of(), "", true);
+            // A task holding a token is named first: --force does not get past it.
+            return new Clearing.Result(
+                    List.copyOf(items),
+                    List.of(),
+                    "",
+                    true,
+                    taskHolds ? Clearing.Kept.TASKS : Clearing.Kept.LOCKED);
         }
 
         final List<Project> projects = projects();
@@ -119,7 +126,13 @@ public final class VaultClearing {
                             + " on the server the project names";
             if (dryRun) {
                 items.add(
-                        new Clearing.Item("conversation", what, Clearing.Status.WOULD_REMOVE, ""));
+                        new Clearing.Item(
+                                "conversation",
+                                what,
+                                Clearing.Status.WOULD_REMOVE,
+                                "",
+                                each.scheme(),
+                                each.project()));
                 continue;
             }
             try {
@@ -133,14 +146,23 @@ public final class VaultClearing {
                                                         said,
                                                         Clearing.Status.REMOVED,
                                                         "")));
-                items.add(new Clearing.Item("conversation", what, Clearing.Status.REMOVED, ""));
+                items.add(
+                        new Clearing.Item(
+                                "conversation",
+                                what,
+                                Clearing.Status.REMOVED,
+                                "",
+                                each.scheme(),
+                                each.project()));
             } catch (final TransportLifecycle.Refused ex) {
                 items.add(
                         new Clearing.Item(
                                 "conversation",
                                 what,
                                 Clearing.Status.NOT_REMOVED,
-                                String.valueOf(ex.getMessage())));
+                                String.valueOf(ex.getMessage()),
+                                each.scheme(),
+                                each.project()));
                 failed = true;
             }
         }
@@ -153,7 +175,8 @@ public final class VaultClearing {
                             Clearing.Status.NOT_REMOVED,
                             "a transport could not clear an account it keeps with the vault's secrets; nothing of the vault"
                                     + " was removed - clear it with --force to remove it all the same, and that account stays"));
-            return new Clearing.Result(List.copyOf(items), List.copyOf(keys), "", true);
+            return new Clearing.Result(
+                    List.copyOf(items), List.copyOf(keys), "", true, Clearing.Kept.TRANSPORTS);
         }
 
         final boolean gone = files(vault, dryRun, items);

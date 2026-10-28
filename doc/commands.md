@@ -325,7 +325,7 @@ Credentials, and the broker that lets a task use one without holding it. See
 | `porelo vault passphrase` | Re-encrypts the vault under a new passphrase. |
 | `porelo vault devices` | Lists what can open the vault: the passphrase and each device. |
 | `porelo vault revoke ID` | Removes a device's way in. The last way in is never removed. |
-| `porelo vault clear [--yes] [--dry-run] [--force]` | Removes the vault, its backup and lock, and what the keyring caches of it, with what the transports keep in it. Lists it first; `--yes` clears it. |
+| `porelo vault clear [--yes] [--dry-run] [--force] [--json]` | Removes the vault, its backup and lock, and what the keyring caches of it, with what the transports keep in it. Lists it first; `--yes` clears it. |
 | `porelo vault serve` | The credential proxy a task's requests go through. Started per task. |
 | `porelo vault relay` | Forwards a port in a task's namespace to the proxy's socket. Started per task. |
 | `porelo vault agent` | An ssh-agent that signs with a key from the vault, for a command on the host. No task is given one. |
@@ -376,6 +376,11 @@ removing nothing of the vault:
 - while the vault is locked, since what it holds cannot be named; `--force` clears it unread;
 - when a transport could not clear a project's account; `--force` clears the vault all the same, and
   that account stays on its server.
+
+`--json` answers one object for a program that decides on `--force`: `items`, each with `kind`, `what`,
+`status`, `why`, `transport` and `project` (the last two set on a transport's account of a project),
+`refused`, and `kept`, why the vault was kept - `tasks`, `locked` or `transports`, `""` when it was
+not. It exits 1 on any refusal, as without it.
 
 Afterwards `porelo vault init` starts as on a new machine.
 

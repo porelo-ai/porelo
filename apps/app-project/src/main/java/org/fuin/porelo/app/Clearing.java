@@ -49,8 +49,24 @@ public final class Clearing {
      * @param what Which one, for a person.
      * @param status What became of it.
      * @param why Why, where it was not removed; "" otherwise.
+     * @param transport The transport whose account it is, for a reader that acts on it; "" for
+     *     anything not a transport's.
+     * @param project The project whose account it is; "" for anything not a project's account.
      */
-    public record Item(String kind, String what, Status status, String why) {
+    public record Item(
+            String kind, String what, Status status, String why, String transport, String project) {
+
+        /**
+         * Constructor for anything that is not a transport's account of a project.
+         *
+         * @param kind What sort of thing.
+         * @param what Which one, for a person.
+         * @param status What became of it.
+         * @param why Why, where it was not removed; "" otherwise.
+         */
+        public Item(String kind, String what, Status status, String why) {
+            this(kind, what, status, why, "", "");
+        }
 
         /**
          * Returns it as plain values, for a wire.
@@ -58,7 +74,46 @@ public final class Clearing {
          * @return The item.
          */
         public Map<String, Object> asMap() {
-            return Map.of("kind", kind, "what", what, "status", status.name(), "why", why);
+            return Map.of(
+                    "kind",
+                    kind,
+                    "what",
+                    what,
+                    "status",
+                    status.name(),
+                    "why",
+                    why,
+                    "transport",
+                    transport,
+                    "project",
+                    project);
+        }
+    }
+
+    /** Why a clearing kept the vault, as a reader decides on it; {@link #NONE} when it did not. */
+    public enum Kept {
+
+        /** Nothing kept it. */
+        NONE,
+
+        /** A running task holds a token from it; stopping the task is the only way on. */
+        TASKS,
+
+        /** It is locked, so what it holds cannot be named; {@code --force} clears it unread. */
+        LOCKED,
+
+        /**
+         * Only a transport could not clear an account it keeps; {@code --force} clears it anyway.
+         */
+        TRANSPORTS;
+
+        /**
+         * Returns the name a wire carries: "" for {@link #NONE}, else the lower-case name.
+         *
+         * @return The name.
+         */
+        public String wire() {
+            return this == NONE ? "" : name().toLowerCase(java.util.Locale.ROOT);
         }
     }
 
@@ -71,9 +126,27 @@ public final class Clearing {
      *     project that lists it; "" when this machine has no message key.
      * @param refused Whether it stopped before removing anything, because work nobody reviewed or a
      *     running task would go; {@code --force} clears it all the same.
+     * @param kept Why a vault clearing kept the vault; {@link Kept#NONE} otherwise.
      */
     public record Result(
-            List<Item> items, List<LeftDeployKeys.Key> keys, String signer, boolean refused) {
+            List<Item> items,
+            List<LeftDeployKeys.Key> keys,
+            String signer,
+            boolean refused,
+            Kept kept) {
+
+        /**
+         * Constructor for a clearing that names no reason of its own beside {@code refused}.
+         *
+         * @param items Each thing, in the order it was handled.
+         * @param keys The deploy keys this machine had at forges.
+         * @param signer This machine's {@code allowed_signers} line, or "".
+         * @param refused Whether it stopped before removing anything.
+         */
+        public Result(
+                List<Item> items, List<LeftDeployKeys.Key> keys, String signer, boolean refused) {
+            this(items, keys, signer, refused, Kept.NONE);
+        }
 
         /**
          * Returns it as plain values, for a wire.

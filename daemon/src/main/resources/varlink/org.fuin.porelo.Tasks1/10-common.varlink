@@ -196,7 +196,11 @@ type ClearedItem (
   # REMOVED, WOULD_REMOVE, NOT_REMOVED, or FOR_A_PERSON: only a person's credentials can remove it.
   status: string,
   # Why, where it was not removed or is left for a person; "" otherwise.
-  why: string
+  why: string,
+  # The transport whose account of a project it is, for a reader that acts on it; "" for anything else.
+  transport: string,
+  # The project whose account it is; "" for anything not a project's account.
+  project: string
 )
 
 # A deploy key this machine made for one repository: the public half, for a person or an interface to

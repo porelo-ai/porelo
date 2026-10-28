@@ -1,6 +1,6 @@
 # B318 — A Vault Clear A Play Can Read
 
-**Status:** Analyzed
+**Status:** Implementing
 **Size:** S - `vault clear --json`, a transport's name and project on its item, the contract's item grown, tests.
 
 **What must be true.** A program that runs `porelo vault clear` - porelo-host's `down` - can tell from named values,

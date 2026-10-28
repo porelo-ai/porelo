@@ -398,6 +398,58 @@ class VaultClearingTest {
     }
 
     @Test
+    void aTransportsRefusalIsNamedAsSuchForAProgramThatDecidesOnForce() throws IOException {
+        // A play that guessed from the sentence would force past a running task's token, or stop a
+        // give-back that could have gone on.
+        final PoreloContext context = unlockedVault();
+        transport("room");
+        project("p", "mail:\n  transports:\n    room:\n      server: https://example.org\n");
+        runner.failing("clear --project", 75, "the server did not answer");
+
+        final Map<String, Object> json =
+                VaultClearCommand.asJson(new VaultClearing(context).clear(false, false));
+
+        assertThat(json)
+                .as("the refusal and why the vault was kept are values")
+                .containsEntry("refused", true)
+                .containsEntry("kept", "transports");
+        assertThat((List<?>) json.get("items"))
+                .as("the item that was not cleared names its transport and project")
+                .anySatisfy(
+                        item ->
+                                assertThat((Map<Object, Object>) item)
+                                        .containsEntry("kind", "conversation")
+                                        .containsEntry("status", "NOT_REMOVED")
+                                        .containsEntry("transport", "room")
+                                        .containsEntry("project", "p"));
+    }
+
+    @Test
+    void aLockedVaultOrATaskHoldingATokenIsKeptForItsOwnNamedReason() throws IOException {
+        final PoreloContext locked = context();
+        Files.createDirectories(locked.vault().path().getParent());
+        locked.vault().write(Map.of("github", VaultEntry.of("not-a-real-token")), PASSPHRASE);
+
+        assertThat(new VaultClearing(locked).clear(false, false).kept())
+                .as("a locked vault is kept as locked, which --force clears")
+                .isEqualTo(Clearing.Kept.LOCKED);
+
+        final PoreloContext holding = unlockedVault();
+        final Map<String, VaultEntry> entries =
+                new LinkedHashMap<>(holding.vault().read(PASSPHRASE));
+        entries.put(
+                VaultNames.TASK_PREFIX + "porelo-p-shell-1/provider-token", VaultEntry.of("p-1"));
+        holding.vault().write(entries, PASSPHRASE);
+        org.fuin.porelo.wire.Sidecar.recordId(
+                holding.paths().tasks().containerState("porelo-p-shell-1"), "111111111111");
+        runner.answering("ps", "111111111111\trunning\n");
+
+        assertThat(new VaultClearing(holding).clear(false, true).kept())
+                .as("a running task's token is named apart, since --force does not get past it")
+                .isEqualTo(Clearing.Kept.TASKS);
+    }
+
+    @Test
     void aLockedVaultIsClearedOnlyWithForceBecauseWhatItHoldsCannotBeNamed() throws IOException {
         final PoreloContext context = context();
         Files.createDirectories(context.vault().path().getParent());

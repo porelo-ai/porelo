@@ -52,7 +52,9 @@ final class VaultMethods {
                                             .map(org.fuin.porelo.app.LeftDeployKeys.Key::asMap)
                                             .toList(),
                                     "refused",
-                                    result.refused()));
+                                    result.refused(),
+                                    "kept",
+                                    result.kept().wire()));
                 });
 
         server.method(

@@ -443,5 +443,8 @@ method VaultClear(
   keys: []MachineDeployKey,
   # Whether it stopped before removing the vault: a running task holding a token, a locked vault, or a
   # transport that could not clear a project's account.
-  refused: bool
+  refused: bool,
+  # Why it kept the vault, for a reader deciding on force: tasks (force does not get past it), locked, or
+  # transports; "" when it did not.
+  kept: string
 )
