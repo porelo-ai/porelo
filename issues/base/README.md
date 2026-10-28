@@ -50,6 +50,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers | Open questions |
 |---|---|---|---|---|
+| <a id="b318"></a>[B318](B318-A-Vault-Clear-A-Play-Can-Read.md) | S | - | `porelo vault clear --json`: why the vault was kept as a named value (`tasks`, `locked`, `transports`) and each item with its transport and project, so porelo-host's `down` decides on `--force` without parsing a sentence | 0 |
 | <a id="b317"></a>[B317](B317-A-Start-Without-A-Gate-Refuses-Host-Services-In-Words.md) | XS | - | `task start --no-gate` for a project that declares `host_services` is refused in words before anything is made, not with a `NullPointerException` at the image | 0 |
 | <a id="b308"></a>[B308](B308-A-Guide-For-Adding-A-Provider-Or-An-Agent.md) | L | - | One guide in `doc/` to the checks that prove a new provider or agent safe, with scripts beside the acceptance kit: recording a provider's answers through the broker, the walk script's shared shape; the agents' part kept by their repositories | 0 |
 | <a id="b136"></a>[B136](B136-An-Approve-Bound-To-What-Was-Reviewed.md) | M | - | Capture one reviewed commit for patch/log and every approval path; confirmations and signatures use that key; SARIF never authorizes forwarding. | 0 |
