@@ -420,7 +420,7 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
 
 ## Shared across the Porelo repositories
 
-> **BEGIN Shared Area** · sha256 `b51c07efd20274e0` · changed 2026-10-29T12:40Z
+> **BEGIN Shared Area** · sha256 `419a57b2e08e0fd2` · changed 2026-10-29T18:08Z
 
 Identical in every repository `project.yml` names but `porelo-parent`, which holds only the parent pom
 and no `AGENTS.md`. The markers carry the SHA-256 of the lines between them (the first 16 hex digits)
@@ -792,7 +792,9 @@ and the UTC time that text last changed; change it in the channel first, never i
 
 - **A change is ready only after a read-only reviewer, another model than the one that built it, has
   read its final changes against the repository's skills, and every finding has been checked.** A
-  later fix gets a reading of its added diff.
+  later fix gets a reading of its added diff, and that reading reads only the fix: the changed files and
+  those the diff names directly (a callee, the changed code's test), listed by path in the brief, with
+  only the skills that apply; whatever else it needs it asks as a question instead of reading it.
 - **Fail closed and loud**: when a dependency is unreachable, a key is unknown or a check cannot run,
   stop with a non-zero exit code and say why; inside a program, an exception that says why does the
   same. Never silently do less.
@@ -876,4 +878,4 @@ and the UTC time that text last changed; change it in the channel first, never i
   with `+`: estimates summed, the earliest start and the stack's readiness, VM time and tokens counted
   once.
 
-> **END Shared Area** · sha256 `b51c07efd20274e0`
+> **END Shared Area** · sha256 `419a57b2e08e0fd2`
