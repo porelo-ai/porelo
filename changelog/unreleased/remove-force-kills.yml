@@ -1,0 +1,2 @@
+title: porelo task remove --force kills a helper or a process it started that outlives SIGTERM, and a stop no longer reports a process that only waits to be reaped as still running.
+type: fixed

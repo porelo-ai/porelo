@@ -672,6 +672,10 @@ question - counts as still running. `task stop`, `task stop --all`, `panic`, `ta
 unfollow` name each survivor on standard error as `porelo: still running: …` and end 70, and a removal that is not
 confirmed keeps every record of the task, so a later stop or removal still finds it.
 
+A helper and every process it started get SIGTERM and up to 2 s to end. `task remove --force` then sends SIGKILL to
+whatever of them still runs and waits up to 2 s more; without `--force` nothing is killed. A process that has exited
+and only waits for its parent to reap it (a zombie) counts as stopped.
+
 ## daemon
 
 `porelo daemon connect` bridges standard input and output to the daemon's socket, for use as an ssh

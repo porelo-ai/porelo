@@ -439,6 +439,10 @@ public final class TaskControl {
         // Counted first: stopping the container fires the poststop hook, which reaps the helpers
         // and deletes their pid files, leaving nothing to count afterwards.
         final List<ProcessHandle> helpers = TaskLifecycle.running(state);
+        // What they started, taken before the stop as the stop takes it: a child whose parent is
+        // gone is no longer its descendant, and a forced removal kills those that outlive SIGTERM.
+        final java.util.Set<ProcessHandle> started = new java.util.LinkedHashSet<>();
+        if (force) helpers.stream().flatMap(ProcessHandle::descendants).forEach(started::add);
 
         // Counted before the container goes, because afterwards there is nothing left to ask.
         final long discarded = purge ? context.podman().addedPaths(container) : 0;
@@ -449,6 +453,8 @@ public final class TaskControl {
             context.podman().stop(id);
         }
 
+        // Taken again: a helper may have started another process while the container went.
+        if (force) helpers.stream().flatMap(ProcessHandle::descendants).forEach(started::add);
         TaskLifecycle.stopHelpers(state);
 
         if (!known) {
@@ -458,19 +464,19 @@ public final class TaskControl {
 
         // Waited for first: termination is asynchronous, so checking straight away reports live
         // processes that are already on their way out.
-        for (final ProcessHandle helper : helpers) {
-            try {
-                helper.onExit().get(2, TimeUnit.SECONDS);
-            } catch (java.util.concurrent.TimeoutException
-                    | java.util.concurrent.ExecutionException ex) {
-                // Still running, which the caller reports.
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            }
+        final List<ProcessHandle> signalled = new ArrayList<>(started);
+        signalled.addAll(helpers);
+        awaitEnd(signalled);
+        if (force) {
+            // What ignored SIGTERM gets SIGKILL, which it cannot ignore.
+            final List<ProcessHandle> stubborn =
+                    signalled.stream().filter(TaskLifecycle::living).toList();
+            stubborn.forEach(ProcessHandle::destroyForcibly);
+            awaitEnd(stubborn);
         }
         final List<String> surviving = new ArrayList<>();
-        helpers.stream()
-                .filter(ProcessHandle::isAlive)
+        signalled.stream()
+                .filter(TaskLifecycle::living)
                 .map(alive -> alive.pid() + " " + alive.info().command().orElse("?"))
                 .forEach(surviving::add);
         final ContainerState observed = context.podman().stateOf(id);
@@ -594,6 +600,19 @@ public final class TaskControl {
 
     /** An attempted rescue: the ref it landed on, or why it did not. */
     private record Rescue(@Nullable String ref, @Nullable String problem) {}
+
+    /** Waits up to 2 s until none of the processes is living. A zombie counts as ended. */
+    private static void awaitEnd(List<ProcessHandle> processes) {
+        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+        while (processes.stream().anyMatch(TaskLifecycle::living) && System.nanoTime() < deadline) {
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+    }
 
     private void deleteTree(Path directory) {
         try (java.util.stream.Stream<Path> paths = Files.walk(directory)) {

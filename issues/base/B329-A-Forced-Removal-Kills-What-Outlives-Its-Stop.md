@@ -1,6 +1,6 @@
 # B329 — A Forced Removal Kills What Outlives Its Stop
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - a second, forced round after the wait in the one place a task stop counts its survivors, and a zombie
 told apart from a living process; tests with real processes.
 
@@ -29,3 +29,9 @@ still answers alive; `--force` changes none of that.
   up to 2 s; only then are survivors counted. Without `--force`, nothing changes but the zombie rule.
 - Tests start real processes: a helper that traps SIGTERM (named without `--force`, ended with it) and a helper
   that becomes a zombie under a parent that never reaps it (not named).
+
+## To be checked
+
+- A stop without `--force` still counts only the helpers themselves as survivors, as the acceptance keeps today's
+  behaviour: a helper that ends on SIGTERM while a child of it ignores SIGTERM is reported clean. Counting the
+  children there too would turn such stops into exit 70; that is a decision of its own.

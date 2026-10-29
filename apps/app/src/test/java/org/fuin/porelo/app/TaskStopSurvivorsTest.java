@@ -3,13 +3,18 @@ package org.fuin.porelo.app;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.SoftAssertions.assertSoftly;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import org.fuin.porelo.core.config.XdgPaths;
+import org.fuin.porelo.wire.HelperPid;
 import org.fuin.porelo.wire.Sidecar;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -630,5 +635,126 @@ class TaskStopSurvivorsTest {
         assertThat(out.toString())
                 .as("a failed interactive stop cannot claim removal")
                 .doesNotContain("removed   ");
+    }
+
+    private final List<ProcessHandle> started = new java.util.ArrayList<>();
+
+    @AfterEach
+    void endWhatWasStarted() {
+        for (final ProcessHandle process : started) {
+            process.descendants().forEach(ProcessHandle::destroyForcibly);
+            process.destroyForcibly();
+        }
+    }
+
+    /**
+     * Starts a helper that ignores SIGTERM, as does the child it starts, and records it in the
+     * task's state directory.
+     */
+    private ProcessHandle stubbornHelper(PoreloContext context) throws IOException {
+        final Process helper =
+                new ProcessBuilder(
+                                "sh",
+                                "-c",
+                                "trap '' TERM; (while :; do sleep 1; done) & echo ready;"
+                                        + " while :; do sleep 1; done")
+                        .redirectErrorStream(true)
+                        .start();
+        started.add(helper.toHandle());
+        try (BufferedReader reader =
+                new BufferedReader(new InputStreamReader(helper.getInputStream()))) {
+            assertThat(reader.readLine()).as("the helper traps SIGTERM").isEqualTo("ready");
+        }
+        record(context, helper.toHandle());
+        return helper.toHandle();
+    }
+
+    private void record(PoreloContext context, ProcessHandle helper) throws IOException {
+        final Path state = context.paths().tasks().containerState(CONTAINER);
+        Files.createDirectories(state);
+        HelperPid.record(state.resolve("watch.pid"), helper);
+    }
+
+    @Test
+    void aForcedRemovalKillsAHelperAndItsChildThatOutliveTheirStop(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = context(dir);
+        final ProcessHandle helper = stubbornHelper(context);
+        final List<ProcessHandle> children = helper.descendants().toList();
+        started.addAll(children);
+        assertThat(children).as("the helper started a child").isNotEmpty();
+
+        final TaskControl.Stopped result = new TaskControl(context).remove(CONTAINER, false, true);
+
+        assertThat(result.surviving()).as("nothing outlives SIGKILL").isEmpty();
+        assertThat(helper.isAlive()).as("the helper is killed").isFalse();
+        assertThat(children)
+                .as("the helper's child is killed, though it is no longer its descendant")
+                .noneMatch(TaskStopSurvivorsTest::running);
+    }
+
+    @Test
+    void aStopWithoutForceStillNamesAHelperThatIgnoresSigterm(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = context(dir);
+        final ProcessHandle helper = stubbornHelper(context);
+
+        final TaskControl.Stopped result = new TaskControl(context).stop(CONTAINER);
+
+        assertThat(result.surviving())
+                .as("a stop without force sends no SIGKILL and names the survivor")
+                .anyMatch(value -> value.startsWith(helper.pid() + " "));
+        assertThat(helper.isAlive()).as("the helper was not killed").isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void aHelperThatOnlyWaitsToBeReapedCountsAsStopped(boolean purge, @TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = context(dir);
+        // The parent execs into a sleep that never reaps its child: the stopped helper stays a
+        // zombie.
+        final Process parent =
+                new ProcessBuilder("sh", "-c", "sleep 30 & echo $!; exec sleep 60")
+                        .redirectErrorStream(true)
+                        .start();
+        started.add(parent.toHandle());
+        final long pid;
+        try (BufferedReader reader =
+                new BufferedReader(new InputStreamReader(parent.getInputStream()))) {
+            pid = Long.parseLong(reader.readLine().strip());
+        }
+        final ProcessHandle helper = ProcessHandle.of(pid).orElseThrow();
+        // Stopped only after the parent became the sleep, which never reaps: the shell before it
+        // might.
+        final long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
+        while (!parent.toHandle().info().command().orElse("").endsWith("sleep")
+                && System.nanoTime() < deadline) {
+            Thread.onSpinWait();
+        }
+        assertThat(parent.toHandle().info().command())
+                .as("the parent became the sleep")
+                .hasValueSatisfying(command -> assertThat(command).endsWith("sleep"));
+        record(context, helper);
+
+        final TaskControl control = new TaskControl(context);
+        final TaskControl.Stopped result =
+                purge ? control.remove(CONTAINER, false, true) : control.stop(CONTAINER);
+
+        assertThat(state(pid)).as("the stopped helper is a zombie").isEqualTo("Z");
+        assertThat(result.surviving()).as("a zombie is not reported as running").isEmpty();
+    }
+
+    private static boolean running(ProcessHandle process) {
+        return process.isAlive() && !"Z".equals(state(process.pid()));
+    }
+
+    private static String state(long pid) {
+        try {
+            final String stat = Files.readString(Path.of("/proc/" + pid + "/stat"));
+            return stat.substring(stat.lastIndexOf(')') + 2, stat.lastIndexOf(')') + 3);
+        } catch (IOException ex) {
+            return "gone";
+        }
     }
 }

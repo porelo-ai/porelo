@@ -31,6 +31,33 @@ final class TaskLifecycle {
     }
 
     /**
+     * Tells whether a process still runs: alive and not a zombie, which has exited and only waits
+     * for its parent to reap it. Where there is no {@code /proc}, alive is running.
+     *
+     * @param process The process.
+     * @return {@code true} if it runs.
+     */
+    static boolean living(ProcessHandle process) {
+        if (!process.isAlive()) {
+            return false;
+        }
+        try {
+            // The state follows the command, which is in parentheses and may hold any character.
+            // Read through a stream: a /proc file reports size 0, and Files.readString truncates
+            // it in a native image.
+            final String stat;
+            try (java.io.InputStream in =
+                    Files.newInputStream(Path.of("/proc", String.valueOf(process.pid()), "stat"))) {
+                stat = new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            }
+            final int end = stat.lastIndexOf(')');
+            return end < 0 || end + 2 >= stat.length() || stat.charAt(end + 2) != 'Z';
+        } catch (IOException | RuntimeException ex) {
+            return process.isAlive();
+        }
+    }
+
+    /**
      * Returns handles on every helper the state directory records as running.
      *
      * <p>Taken before anything is stopped: the poststop hook deletes the pid files as it reaps

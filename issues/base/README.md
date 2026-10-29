@@ -20,6 +20,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b329"></a>[B329](B329-A-Forced-Removal-Kills-What-Outlives-Its-Stop.md) | S | - | `task remove --force` kills a helper or descendant that outlives SIGTERM, counts a zombie as stopped, and reports only what lives after SIGKILL |
 | <a id="b314"></a>[B314](B314-A-Project-Admin-Keeps-The-Rooms-Members-To-The-List.md) | S | - | The project admin's Porelo makes the room (`talk room`) and, after each applied commit, keeps its machines to the signed developer list through the transport's `members`. |
 | <a id="b331"></a>[B331](B331-A-Follow-Takes-The-Access-File-From-A-Bundle.md) | S | - | `project follow ... --access-repository <path\|bundle>` takes the access file from a bundle, checked as a fetched one, for a host that cannot fetch its URL |
 | <a id="b320"></a>[B320](B320-An-Inventory-Reads-Its-Files-From-The-Access-File.md) | XS-S | - | The machine file names the access bundle beside the project's; the inventory verifies both and reads each transport's `files` from the applied access file, the answer unchanged in shape, version 2 |
@@ -35,7 +36,6 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
-| <a id="b329"></a>[B329](B329-A-Forced-Removal-Kills-What-Outlives-Its-Stop.md) | S | - | `task remove --force` kills a helper or descendant that outlives SIGTERM, counts a zombie as stopped, and reports only what lives after SIGKILL |
 | <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |
 
