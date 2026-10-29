@@ -64,6 +64,15 @@ public class ProjectFollowCommand implements Callable<Integer>, PoreloFactory.Co
     private @Nullable String signedBy;
 
     @Option(
+            names = "--access-repository",
+            paramLabel = "<path|bundle>",
+            description =
+                    "The project's access repository as a path or bundle on this machine, checked as a"
+                            + " fetched one and used in place of the URL the project names, which is never"
+                            + " fetched. Only for a project followed from a file.")
+    private String accessRepository = "";
+
+    @Option(
             names = "--dry-run",
             description = "Says whether following this would work, and records nothing.")
     private boolean dryRun;
@@ -96,7 +105,39 @@ public class ProjectFollowCommand implements Callable<Integer>, PoreloFactory.Co
             // Recorded as where it is, not where this command happened to run.
             url = java.nio.file.Path.of(url).toAbsolutePath().normalize().toString();
         }
-        final FollowSignedBy following = new FollowSignedBy(context);
+        final String accessFrom;
+        if (accessRepository.isEmpty()) {
+            accessFrom = null;
+        } else {
+            // A project followed from an address is fetched again in the background, and nothing
+            // would carry the bundle into that fetch: its URL would be fetched after all.
+            if (!FollowedProjects.fromAFile(url)) {
+                err.println(
+                        "porelo: --access-repository is only for a project followed from a file;"
+                                + " "
+                                + url
+                                + " is fetched again, and its access repository with it");
+                err.flush();
+                return 64;
+            }
+            final java.nio.file.Path bundle =
+                    java.nio.file.Path.of(accessRepository).toAbsolutePath().normalize();
+            if (!java.nio.file.Files.exists(bundle)) {
+                err.println("porelo: there is nothing at " + accessRepository);
+                err.flush();
+                return 66;
+            }
+            if (!namesAnAccessRepository(url)) {
+                err.println(
+                        "porelo: the project file names no access repository, so "
+                                + accessRepository
+                                + " would not be checked; nothing was recorded");
+                err.flush();
+                return 65;
+            }
+            accessFrom = bundle.toString();
+        }
+        final FollowSignedBy following = new FollowSignedBy(context, accessFrom);
         // One key keeps every way it had, a fingerprint among them; several are whole keys, all
         // pinned or none.
         signedBy = signedByAll.size() == 1 ? signedByAll.get(0) : null;
@@ -245,6 +286,70 @@ public class ProjectFollowCommand implements Callable<Integer>, PoreloFactory.Co
                 err.flush();
                 return 70;
             }
+        }
+    }
+
+    /**
+     * Whether the project file at the tip of a file names an access repository, read unverified and
+     * only to refuse an option it has no use for: the follow that comes after checks the file.
+     */
+    private boolean namesAnAccessRepository(final String source) {
+        java.nio.file.Path scratch = null;
+        try {
+            scratch = java.nio.file.Files.createTempDirectory("porelo-follow-access-");
+            final String clone = scratch.toString();
+            final org.fuin.porelo.core.process.CommandRunner runner = context.runner();
+            if (!runner.run(org.fuin.porelo.core.process.Command.of("git", "init", "-q", clone))
+                            .successful()
+                    || !runner.run(
+                                    org.fuin.porelo.core.process.Command.of(
+                                            "git",
+                                            "-C",
+                                            clone,
+                                            "fetch",
+                                            "--quiet",
+                                            "--end-of-options",
+                                            source,
+                                            "HEAD"))
+                            .successful()) {
+                // Unreadable here is unreadable to the follow, which says so in its own words.
+                return true;
+            }
+            final org.fuin.porelo.core.process.CommandResult shown =
+                    runner.run(
+                            org.fuin.porelo.core.process.Command.of(
+                                    "git", "-C", clone, "show", "FETCH_HEAD:project.yml"));
+            final Object loaded =
+                    new org.yaml.snakeyaml.Yaml(
+                                    new org.yaml.snakeyaml.constructor.SafeConstructor(
+                                            new org.yaml.snakeyaml.LoaderOptions()))
+                            .load(shown.standardOutput());
+            return !shown.successful()
+                    || loaded instanceof java.util.Map<?, ?> root
+                            && root.get("access") instanceof java.util.Map<?, ?> access
+                            && access.get("repository") != null;
+        } catch (final java.io.IOException | RuntimeException ex) {
+            return true;
+        } finally {
+            if (scratch != null) {
+                deleteTree(scratch);
+            }
+        }
+    }
+
+    private static void deleteTree(final java.nio.file.Path root) {
+        try (java.util.stream.Stream<java.nio.file.Path> entries = java.nio.file.Files.walk(root)) {
+            entries.sorted(java.util.Comparator.reverseOrder())
+                    .forEach(
+                            path -> {
+                                try {
+                                    java.nio.file.Files.deleteIfExists(path);
+                                } catch (final java.io.IOException ex) {
+                                    // A scratch directory that will not go is not worth failing.
+                                }
+                            });
+        } catch (final java.io.IOException ex) {
+            // As above.
         }
     }
 }

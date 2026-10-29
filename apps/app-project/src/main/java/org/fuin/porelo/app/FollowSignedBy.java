@@ -66,13 +66,33 @@ public final class FollowSignedBy {
 
     private final PoreloContext context;
 
+    private final @Nullable String accessFrom;
+
     /**
      * Constructor.
      *
      * @param context The machine.
      */
     public FollowSignedBy(final PoreloContext context) {
+        this(context, null);
+    }
+
+    /**
+     * Constructor for a follow whose access repository is a path or bundle given, never the URL the
+     * project names.
+     *
+     * @param context The machine.
+     * @param accessFrom The access repository's path or bundle, or {@code null} to fetch the URL.
+     */
+    public FollowSignedBy(final PoreloContext context, final @Nullable String accessFrom) {
         this.context = context;
+        this.accessFrom = accessFrom;
+    }
+
+    /** A reconcile against this machine's pinned keys, its access repository as given. */
+    private Reconcile reconcile() {
+        return new Reconcile(
+                context, context.paths().projects().configurationSigners(), accessFrom);
     }
 
     /**
@@ -96,13 +116,13 @@ public final class FollowSignedBy {
         final FollowedProjects.Followed followed =
                 new FollowedProjects.Followed(name, url, "", "", "", "", "", "", unverified);
         if (signedBy == null) {
-            return new Answer(new Reconcile(context).check(followed), false, "");
+            return new Answer(reconcile().check(followed), false, "");
         }
         if (!SignedBy.isFingerprint(signedBy)) {
             return new Answer(withKey(name, line(name, signedBy), followed).result(), false, "");
         }
         final String named = signedBy.strip();
-        final Reconcile.Checked first = new Reconcile(context).checked(followed);
+        final Reconcile.Checked first = reconcile().checked(followed);
         final String key = keyNamed(named, first);
         if (key == null) {
             return new Answer(first.result(), false, "");
@@ -300,7 +320,7 @@ public final class FollowSignedBy {
             // nothing to descend from and applies what it verifies.
             projects.write(projects.require(name).forgettingWhatIsInForce());
         }
-        Reconcile.Result result = new Reconcile(context).run(projects.require(name));
+        Reconcile.Result result = reconcile().run(projects.require(name));
         if (signedBy != null && SignedBy.isFingerprint(signedBy)) {
             final String named = signedBy.strip();
             final String key;
@@ -327,7 +347,7 @@ public final class FollowSignedBy {
             if (key != null) {
                 pin(line(name, key));
                 pinned = named;
-                result = new Reconcile(context).run(projects.require(name));
+                result = reconcile().run(projects.require(name));
             }
         }
         final boolean applied =
@@ -514,7 +534,7 @@ public final class FollowSignedBy {
 
     private Reconcile.Checked withKeys(
             final String name, final List<String> added, final FollowedProjects.Followed followed) {
-        return withKeys(name, added, followed, null);
+        return withKeys(name, added, followed, accessFrom);
     }
 
     private Reconcile.Checked withKeys(

@@ -1,6 +1,6 @@
 # B331 — A Follow Takes The Access File From A Bundle
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - one option on `follow` carried into `Reconcile`'s run and dry run, the follow record unchanged; docs
 and tests.
 

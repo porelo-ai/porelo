@@ -90,6 +90,10 @@ all:
   its check or its bundle is missing or has no use, or when the settings name under a transport a `*_file` setting
   that is not one path, absolute or under `~/`, without `..` (the setting is named, its value never).
 
+A host follows a project whose access file is in a private repository from the two bundles a person uploads,
+`porelo project follow NAME project.bundle --signed-by KEY --access-repository access.bundle`: the host holds no
+credential for that repository, and its URL is never fetched.
+
 ## A project verified without following it
 
 Root's `sync` on a host and an interface's *Join* run `porelo project verify ... --json` rather than a checker of

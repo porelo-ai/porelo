@@ -475,7 +475,8 @@ program, as [A host a playbook brings up](hosts.md) says.
 ## project
 
 ```
-porelo project follow NAME URL|FILE [--signed-by=<key> | --unverified] [--dry-run] [--accept-rewrite]
+porelo project follow NAME URL|FILE [--signed-by=<key> | --unverified] [--access-repository PATH] [--dry-run]
+                      [--accept-rewrite]
 porelo project following [--json]
 porelo project inventory --machine-file FILE
 porelo project verify --repository PATH --signed-by KEY... [--project NAME] [--since COMMIT]
@@ -493,7 +494,12 @@ porelo project enroll PROJECT [--remove] [--as=PRINCIPAL]
   From an address (`https://`, `file://`, `git@host:`), it is fetched again in the background. From a
   file - a bundle of the repository, or a directory on this machine - it is read once and never fetched;
   following it again from a newer file is how its settings change. An offline project is followed only
-  from a file, and a fetch from an address that turns a project offline is refused.
+  from a file, and a fetch from an address that turns a project offline is refused. `--access-repository`
+  gives a project followed from a file its access repository as a path or bundle, for a machine that cannot
+  fetch the URL the project names: it is checked as a fetched one, signed by a key the project holds and
+  descending from the access commit in force, and the URL is never fetched. A newer access bundle is applied
+  the same way, by following again. It is refused for a project followed from an address, which is fetched
+  again in the background, and for a project naming no access repository.
 - **`verify`** checks a project and its access file as `follow` would, from local paths or bundles only, and
   writes nothing: no follow, no pinned key, no clone left behind. It reads nothing of the account it runs as - no
   git configuration, vault, credentials, pinned keys or egress sets of its own, so a project naming a set only a
