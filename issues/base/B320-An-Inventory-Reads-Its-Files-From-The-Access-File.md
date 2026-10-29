@@ -1,6 +1,6 @@
 # B320 — An Inventory Reads Its Files From The Access File
 
-**Status:** Backlog; blocked by [B311](README.md#b311).
+**Status:** Implementing.
 **Size:** XS-S - the machine file's second bundle, verified beside the project's, and `files` read from the applied
 access file; docs and tests.
 
