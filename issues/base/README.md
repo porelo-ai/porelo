@@ -116,6 +116,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b329"></a>[B329](B329-A-Forced-Removal-Kills-What-Outlives-Its-Stop.md) | - | - | `task remove --force` kills a helper or descendant that outlives SIGTERM, counts a zombie as stopped, and reports only what lives after SIGKILL |
 | <a id="b328"></a>[B328](B328-An-Inbox-Message-Ends-With-A-Newline.md) | - | - | A message delivered into a task's inbox ends with a newline, so `cat` of it leaves the prompt on its own line |
 | <a id="b327"></a>[B327](B327-An-Unfollow-Retires-The-Accounts-Of-An-Access-Project.md) | - | - | An unfollow or clear of a project with an access repository retires its tasks' transport accounts with the settings applied until then |
 | <a id="b326"></a>[B326](B326-A-Reject-With-Nothing-Waiting-Says-So.md) | - | - | A reject of a name with nothing waiting says so and tells no task its work was discarded |
