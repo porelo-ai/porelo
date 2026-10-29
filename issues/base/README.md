@@ -115,6 +115,8 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b326"></a>[B326](B326-A-Reject-With-Nothing-Waiting-Says-So.md) | - | - | A reject of a name with nothing waiting says so and tells no task its work was discarded |
+| <a id="b325"></a>[B325](B325-Tasks-Started-Together-Share-One-Mirror-Clone.md) | - | - | Two tasks of one repository started at once both get the git gate; the mirror is cloned once |
 | <a id="b324"></a>[B324](B324-A-Moved-Waiting-Push-Changes-WatchProjects.md) | - | - | A waiting push that moves to another commit changes a `WatchProjects` reply, though no count changes, so an interface sees the new work within seconds |
 | <a id="b323"></a>[B323](B323-Source-Levels-And-Risk-Classes-Derived-And-Shown.md) | - | [B291](README.md#b291) | The daemon derives each item's source level from authenticated evidence and the C0-C3 class from rules over the complete change, and carries both with waiting work, comments and findings; nothing is refused by them yet |
 | <a id="b322"></a>[B322](B322-Porelos-Acceptance-Legs-Run-On-The-Hosts-Forge.md) | - | - | porelo's acceptance legs run on the host's Forgejo as well, each on a machine asked for by kind from the host's pool, and the binary published there is again the one the Ubuntu leg tested |
