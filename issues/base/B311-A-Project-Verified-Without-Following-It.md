@@ -1,6 +1,6 @@
 # B311 — A Project Verified Without Following It
 
-**Status:** Estimated.
+**Status:** Implementing.
 **Size:** S - one command over `Reconcile`'s check, its JSON, and the tests.
 
 **What must be true.** `porelo project verify --repository <path|bundle> --signed-by <key> [--since <commit>]
