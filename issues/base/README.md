@@ -121,7 +121,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b330"></a>[B330](B330-A-Snippet-File-Is-Read-From-The-Commit-Being-Applied.md) | - | - | A follow reads `image.snippet_file` from the commit it judges, not from the working tree before it moves, so a first follow of a project with a snippet file is not refused |
-| <a id="b332"></a>[B332](B332-A-Follow-Lists-The-Keys-It-Pinned.md) | - | - | `following --json` names the pinned keys themselves in `signed_by_keys`, so a host checks a newer commit with `verify --since` after a handover too |
 | <a id="b328"></a>[B328](B328-An-Inbox-Message-Ends-With-A-Newline.md) | - | - | A message delivered into a task's inbox ends with a newline, so `cat` of it leaves the prompt on its own line |
 | <a id="b327"></a>[B327](B327-An-Unfollow-Retires-The-Accounts-Of-An-Access-Project.md) | - | - | An unfollow or clear of a project with an access repository retires its tasks' transport accounts with the settings applied until then |
 | <a id="b326"></a>[B326](B326-A-Reject-With-Nothing-Waiting-Says-So.md) | - | - | A reject of a name with nothing waiting says so and tells no task its work was discarded |
@@ -164,6 +163,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b332"></a>[B332](B332-A-Follow-Lists-The-Keys-It-Pinned.md) | XS | - | `following --json` names the pinned keys themselves in `signed_by_keys`, so a host checks a newer commit with `verify --since` after a handover too |
 | <a id="b316"></a>[B316](B316-A-Warning-Only-Where-Something-Is-Wrong.md) | M | - | Porelo warns only where something is wrong: `vault put` knows the names followed projects ask for (`builds.credential`, `credentials:`) and says what an entry is used for; a sweep of the command line's 263 warnings for fine states printed as findings |
 | <a id="b184"></a>[B184](B184-Only-What-Porelo-Delivered-Counts-As-A-Message.md) | M | - | A message in the inbox counts only when the account running Porelo owns it (root inside); the host reads the inbox without following links and names a planted file; the guide and the agent kit check the owner. |
 | <a id="b185"></a>[B185](B185-A-Bound-On-What-A-Task-Writes-To-This-Disk.md) | M | - | The daemon measures a task's box and writable layer and pauses it over `limits.disk` (10 GiB), `limits.mailbox` (256 MiB) or under `limits.disk_free` (2 GiB), each settable in `project.yml`, and says how to go on. |

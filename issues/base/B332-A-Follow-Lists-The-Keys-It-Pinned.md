@@ -1,6 +1,8 @@
 # B332 — A Follow Lists The Keys It Pinned
 
-**Status:** Idea.
+**Status:** Estimated.
+**Size:** XS - one field in `following --json`, read from the pinned signers file that `signed_by` already reads;
+a test and a line in `doc/hosts.md` (XS median 26.5 min, n=6).
 
 **What must be true.** `porelo project following --json` names, for each follow, the keys in force for it as keys
 (`ssh-ed25519 AAAA...`), in a new field `signed_by_keys` beside `signed_by`, which keeps its fingerprints. A program
@@ -18,3 +20,10 @@ handover. After a change of signers, the next bring is refused with 65.
   each as `<type> <base64>` without a comment.
 - A follow walked through a handover lists the keys in force after it.
 - `signed_by` is unchanged, and `doc/hosts.md` names the new field.
+
+## Plan
+
+- `PinnedSigners` gains a reader of the keys themselves per project, `<type> <base64>` in pin order, beside the
+  fingerprints it gives today.
+- `ProjectFollowingCommand.json` puts `signed_by_keys` from it next to `signed_by`.
+- A test follows a project, hands it over to another key, and finds both lists in step; `doc/hosts.md` names the field.
