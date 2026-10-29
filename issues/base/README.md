@@ -117,6 +117,8 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b331"></a>[B331](B331-A-Follow-Takes-The-Access-File-From-A-Bundle.md) | - | - | `project follow ... --access-repository <path\|bundle>` takes the access file from a bundle, checked as a fetched one, for a host that cannot fetch its URL |
+| <a id="b330"></a>[B330](B330-A-Snippet-File-Is-Read-From-The-Commit-Being-Applied.md) | - | - | A follow reads `image.snippet_file` from the commit it judges, not from the working tree before it moves, so a first follow of a project with a snippet file is not refused |
 | <a id="b329"></a>[B329](B329-A-Forced-Removal-Kills-What-Outlives-Its-Stop.md) | - | - | `task remove --force` kills a helper or descendant that outlives SIGTERM, counts a zombie as stopped, and reports only what lives after SIGKILL |
 | <a id="b328"></a>[B328](B328-An-Inbox-Message-Ends-With-A-Newline.md) | - | - | A message delivered into a task's inbox ends with a newline, so `cat` of it leaves the prompt on its own line |
 | <a id="b327"></a>[B327](B327-An-Unfollow-Retires-The-Accounts-Of-An-Access-Project.md) | - | - | An unfollow or clear of a project with an access repository retires its tasks' transport accounts with the settings applied until then |
