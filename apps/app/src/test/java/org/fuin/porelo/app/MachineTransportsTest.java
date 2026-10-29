@@ -235,7 +235,11 @@ class MachineTransportsTest {
                                                 context.machineName().get(),
                                                 MachineName.of(MachineName.hostName(), "alice"),
                                                 MachineName.of(MachineName.hostName(), "bob")))));
-        assertThat(out.toString()).as("says what it made").contains("#p:access.example");
+        assertThat(out.toString())
+                .as("says what it made and whom it invited and removed")
+                .contains("#p:access.example")
+                .contains("invited    x")
+                .contains("removed    -");
     }
 
     @Test

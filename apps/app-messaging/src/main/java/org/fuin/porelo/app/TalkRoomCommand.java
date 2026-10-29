@@ -4,6 +4,7 @@ import java.io.PrintWriter;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import org.fuin.porelo.core.project.Project;
+import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Parameters;
@@ -61,9 +62,18 @@ public class TalkRoomCommand implements Callable<Integer>, PoreloFactory.Context
             return 0;
         }
         if (kept != null) {
-            out.println("members    " + String.valueOf(kept.get("members")));
+            out.println("invited    " + listed(kept.get("invited")));
+            out.println("removed    " + listed(kept.get("removed")));
         }
         out.flush();
         return 0;
+    }
+
+    /** The machines a list names, comma separated, or "-" for none. */
+    private static String listed(final @Nullable Object machines) {
+        if (!(machines instanceof java.util.List<?> list) || list.isEmpty()) {
+            return "-";
+        }
+        return String.join(", ", list.stream().map(String::valueOf).toList());
     }
 }
