@@ -420,7 +420,7 @@ The command line and the daemon's logic are modules by area, `app-<area>`, submo
 
 ## Shared across the Porelo repositories
 
-> **BEGIN Shared Area** · sha256 `beb8bb2dcc465a68` · changed 2026-10-29T05:10Z
+> **BEGIN Shared Area** · sha256 `e19cc9049611bb25` · changed 2026-10-29T12:33Z
 
 Identical in every repository `project.yml` names but `porelo-parent`, which holds only the parent pom
 and no `AGENTS.md`. The markers carry the SHA-256 of the lines between them (the first 16 hex digits)
@@ -535,9 +535,13 @@ and the UTC time that text last changed; change it in the channel first, never i
   - **Backlog** - the operator only: it is built in the next round; the order in the index is the
     priority.
   - **Implementing** - the agent: **Rework** before Backlog; built locally, its whole workflow green on
-    the VM, then pushed by the coordinator.
-  - **Review** - the agent, once it is pushed and published as a snapshot; the operator tests what is
-    published.
+    the VM, then pushed by the coordinator. It is set as the first act of the work, before any code, in
+    an issues-only commit of its own with `[skip ci]` on `main`.
+  - **Review** - the agent, when all is done, in the same commit as the last code; the operator tests
+    what is pushed and published as a snapshot.
+
+  A state counts only on `main`, where the plan page reads it; a state set only in a worktree or branch
+  does not.
   - **Rework** or **Finished** - the operator only, after the test; a rework says what was found.
 
   An agent never sets Accepted, Rejected, Estimated, Backlog, Rework or Finished; it proposes in the channel. A
@@ -849,4 +853,4 @@ and the UTC time that text last changed; change it in the channel first, never i
   times, count returns after first readiness as rework, and explain long waits or size growth. Count
   shared time and token usage only once.
 
-> **END Shared Area** · sha256 `beb8bb2dcc465a68`
+> **END Shared Area** · sha256 `e19cc9049611bb25`
