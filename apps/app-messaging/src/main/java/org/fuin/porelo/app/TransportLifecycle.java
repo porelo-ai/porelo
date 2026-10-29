@@ -164,13 +164,50 @@ final class TransportLifecycle {
     Conversation setup(
             String scheme, String project, Map<String, Object> settings, boolean loopbackOnly)
             throws Refused {
+        return setup(scheme, project, settings, loopbackOnly, false);
+    }
+
+    /**
+     * Sets up a project's conversation and makes its room on the server, as the project admin's
+     * machine does once: the transport's {@code setup --create-room}, refused where its {@code
+     * describe} does not take it.
+     *
+     * @param scheme The transport.
+     * @param project The project.
+     * @param settings What the project says to this transport.
+     * @return What the conversation is and what it reaches.
+     * @throws Refused If the transport does not take it, or refused.
+     */
+    Conversation createRoom(String scheme, String project, Map<String, Object> settings)
+            throws Refused {
+        taken(scheme, "create-room");
+        return setup(scheme, project, settings, false, true);
+    }
+
+    private Conversation setup(
+            String scheme,
+            String project,
+            Map<String, Object> settings,
+            boolean loopbackOnly,
+            boolean createRoom)
+            throws Refused {
         writable(scheme);
         // The account's and the project's, as they were printed: so it keeps what it made - the
         // project's relay
         // - rather than making it again (asked on 2026-09-30).
         final Map<String, String> given = given(scheme, project);
         final Map<?, ?> said =
-                run(scheme, settings, given, loopbackOnly, "setup", "--project", project);
+                createRoom
+                        ? run(
+                                scheme,
+                                settings,
+                                given,
+                                loopbackOnly,
+                                "setup",
+                                "--project",
+                                project,
+                                "--create-room")
+                        : run(scheme, settings, given, loopbackOnly, "setup", "--project", project);
         final Conversation found = Conversation.of(said);
         if (loopbackOnly) {
             // What it says it reaches is checked here, after every setup, not only before a task
@@ -711,6 +748,45 @@ final class TransportLifecycle {
                 project,
                 "--machine",
                 machine);
+    }
+
+    /**
+     * Keeps a project's room to the machines given, as the account that made it: the transport's
+     * {@code members}, declarative, so a machine not given is taken out and one given is let in.
+     *
+     * @param scheme The transport.
+     * @param project The project.
+     * @param machines The machines the room holds afterwards, by the names their transport goes by.
+     * @param settings What the project says to this transport.
+     * @return What the transport printed: whom it invited and removed.
+     * @throws Refused If the transport does not offer it, or refused.
+     */
+    Map<?, ?> members(
+            String scheme, String project, List<String> machines, Map<String, Object> settings)
+            throws Refused {
+        offered(scheme, "members");
+        readable(scheme);
+        return run(
+                scheme,
+                settings,
+                given(scheme, project),
+                false,
+                "members",
+                "--project",
+                project,
+                "--machines",
+                String.join(",", machines));
+    }
+
+    /** Refuses an option the transport does not list: an option it does not list is never given. */
+    private void taken(String scheme, String option) throws Refused {
+        final Path adapter = transports.find(scheme);
+        if (adapter == null) {
+            throw new Refused("no transport for '" + scheme + "' is installed", 0);
+        }
+        if (!TransportDescription.of(context.runner(), adapter).takes(option)) {
+            throw new Refused("the " + scheme + " transport does not take --" + option, 69);
+        }
     }
 
     /** Refuses a verb the transport does not list: a verb it does not list is never run. */

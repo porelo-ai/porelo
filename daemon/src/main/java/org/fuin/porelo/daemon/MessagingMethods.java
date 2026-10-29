@@ -339,6 +339,21 @@ final class MessagingMethods {
                 (parameters, replies) -> replies.last(dismissMachine(context, parameters)));
 
         server.method(
+                "CreateRoom",
+                (parameters, replies) -> {
+                    final org.fuin.porelo.core.project.Project project =
+                            conversational(context, text(parameters, "project"));
+                    try {
+                        replies.last(
+                                new LinkedHashMap<>(
+                                        org.fuin.porelo.app.MachineTransports.createRoom(
+                                                context, project)));
+                    } catch (org.fuin.porelo.app.Conversations.Refused ex) {
+                        throw refused(ex);
+                    }
+                });
+
+        server.method(
                 "RemoveMessageMember",
                 (parameters, replies) -> replies.last(removeMessageMember(context, parameters)));
 

@@ -286,6 +286,19 @@ method DismissMachine(
   removed: []string
 )
 
+# Makes a project's room on its server, as the project admin's machine, and records that this account
+# made it: from then on, after each applied commit of the project or its access file, this account keeps
+# the room's machines to the applied developer list through the transport's members. Refused with
+# ConversationRefused for an offline project and where the transport does not take --create-room.
+method CreateRoom(project: string) -> (
+  # What a peer address of the project stands for.
+  conversation: string,
+  # The room the transport made.
+  room: string,
+  # This machine's name on the transport, the one that made the room.
+  machine: string
+)
+
 # Who has joined a project's conversation, by the name join was given.
 method MessageMembers(project: string) -> (members: []MessageMember)
 

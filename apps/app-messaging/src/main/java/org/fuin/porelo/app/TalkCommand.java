@@ -30,6 +30,7 @@ import picocli.CommandLine.Command;
             TalkMembersCommand.class,
             TalkRemoveCommand.class,
             TalkAdmitCommand.class,
+            TalkRoomCommand.class,
             TalkDismissCommand.class
         })
 public class TalkCommand {}

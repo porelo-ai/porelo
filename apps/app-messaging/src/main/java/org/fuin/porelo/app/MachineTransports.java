@@ -1,7 +1,13 @@
 package org.fuin.porelo.app;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Map;
+import java.util.TreeSet;
 import org.fuin.porelo.core.process.CommandException;
+import org.fuin.porelo.core.project.AccessFile;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.SecurityClass;
 
@@ -73,6 +79,107 @@ public final class MachineTransports {
         } catch (CommandException ex) {
             throw unrun(scheme, "dismiss", ex);
         }
+    }
+
+    /**
+     * Makes a project's room on its server, as the project admin's machine, and records that this
+     * account made it: only the account that made the room keeps its machines to the list.
+     *
+     * @param context The machine.
+     * @param project The project.
+     * @return {@code conversation}, {@code room} and {@code machine}, as the transport said them.
+     * @throws Conversations.Refused For an offline project, when the transport does not take it, or
+     *     when it refuses.
+     */
+    public static Map<String, String> createRoom(PoreloContext context, Project project)
+            throws Conversations.Refused {
+        refuseOffline(project, "have a room on a server elsewhere");
+        final String scheme = scheme(project);
+        try {
+            final TransportLifecycle.Conversation made =
+                    lifecycle(context)
+                            .createRoom(
+                                    scheme,
+                                    project.name(),
+                                    ProjectAccess.settings(context, project, scheme));
+            final Path marker = madeRoom(context, scheme, project.name());
+            Files.createDirectories(marker.getParent());
+            Files.writeString(marker, made.conversation() + "\n");
+            return Map.of(
+                    "conversation", made.conversation(),
+                    "room", made.room(),
+                    "machine", made.machine());
+        } catch (TransportLifecycle.Refused ex) {
+            throw new Conversations.Refused(String.valueOf(ex.getMessage()), ex.code(), null);
+        } catch (ProjectAccess.Withheld ex) {
+            throw new Conversations.Refused(String.valueOf(ex.getMessage()), 78, null);
+        } catch (CommandException ex) {
+            throw unrun(scheme, "setup", ex);
+        } catch (IOException ex) {
+            throw new Conversations.Refused(
+                    "the room of "
+                            + project.name()
+                            + " was made, and that this account made it cannot be recorded: "
+                            + ex.getMessage(),
+                    74,
+                    null);
+        }
+    }
+
+    /**
+     * Keeps a project's room to the machines of its applied developer list, where this account made
+     * the room: each developer's account on this host by its machine's name, and this machine.
+     * Nothing is asked of the transport anywhere else.
+     *
+     * @param context The machine.
+     * @param project The project.
+     * @return What the transport said it invited and removed, or {@code null} when this account did
+     *     not make the room.
+     * @throws Conversations.Refused When the list is not applied, or the transport refuses.
+     */
+    public static @org.jspecify.annotations.Nullable Map<?, ?> keepMembers(
+            PoreloContext context, Project project) throws Conversations.Refused {
+        if (project.securityClass() == SecurityClass.OFFLINE
+                || project.mail().conversations().isEmpty()
+                || project.access() == null) {
+            return null;
+        }
+        final String scheme = scheme(project);
+        if (!Files.isRegularFile(madeRoom(context, scheme, project.name()))) {
+            return null;
+        }
+        try {
+            final AccessFile access = ProjectAccess.applied(context, project);
+            final TreeSet<String> machines = new TreeSet<>();
+            machines.add(context.machineName().get());
+            for (final String account : access.developers().keySet()) {
+                machines.add(MachineName.of(MachineName.hostName(), account));
+            }
+            return lifecycle(context)
+                    .members(
+                            scheme,
+                            project.name(),
+                            new ArrayList<>(machines),
+                            ProjectAccess.settings(context, project, scheme));
+        } catch (TransportLifecycle.Refused ex) {
+            throw new Conversations.Refused(String.valueOf(ex.getMessage()), ex.code(), null);
+        } catch (ProjectAccess.Withheld ex) {
+            throw new Conversations.Refused(String.valueOf(ex.getMessage()), 78, null);
+        } catch (IllegalArgumentException ex) {
+            throw new Conversations.Refused(String.valueOf(ex.getMessage()), 65, null);
+        } catch (CommandException ex) {
+            throw unrun(scheme, "members", ex);
+        }
+    }
+
+    /** Where it is recorded that this account made a project's room. */
+    private static Path madeRoom(PoreloContext context, String scheme, String project) {
+        return context.paths()
+                .xdg()
+                .state()
+                .resolve("transport")
+                .resolve(scheme)
+                .resolve(project + ".room");
     }
 
     /**

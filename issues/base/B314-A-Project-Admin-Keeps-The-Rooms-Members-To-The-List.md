@@ -1,6 +1,6 @@
 # B314 — A Project Admin Keeps The Room's Members To The List
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - one `talk` command, one daemon call, a call after each applied commit, docs and tests,
 on top of the transport's two verbs.
 
@@ -42,5 +42,8 @@ Read in the code on 2026-10-28.
 
 ## To be checked
 
-- The transport's verbs are porelo-message-matrix's: `setup --create-room` and
-  `members --project P --machines M1,M2,…`, declarative and idempotent, both offered by `describe`.
+- The transport's verbs are porelo-message-matrix's: `setup --create-room` (an option `describe` lists in `takes`)
+  and `members --project P --machines M1,M2,…` (a verb in `lifecycle`), declarative and idempotent. Built against
+  them in words; the acceptance scenario on the VM waits until the matrix transport's package offers both.
+- The machines are this machine and each developer of the applied access file as an account on this host
+  (`<host>-<account>`), as on a prepared host every developer has an account there.

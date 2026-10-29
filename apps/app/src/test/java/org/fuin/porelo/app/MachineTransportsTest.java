@@ -134,6 +134,158 @@ class MachineTransportsTest {
         runner.answering(" settings", "{\"refused\":[],\"warnings\":[]}");
     }
 
+    private static final String WIREGUARD = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+
+    /** The applied access file's developer list: two accounts on this host. */
+    private static final String DEVELOPERS =
+            """
+            host:
+              address: host.example.org
+              endpoint: host.example.org:51820
+              wireguard_public_key: %s
+              network: 10.77.0.0/24
+              ssh_host_key: ssh-ed25519 AAAA host@example.org
+              ca_sha256: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+            transports:
+              room: {homeserver: "https://access.example"}
+            developers:
+              bob:
+                laptops:
+                  - ssh_public_key: ssh-ed25519 AAAA bob@laptop
+                    wireguard_public_key: %s
+                    vpn_address: 10.77.0.11
+              alice:
+                laptops:
+                  - ssh_public_key: ssh-ed25519 AAAA alice@laptop
+                    wireguard_public_key: %s
+                    vpn_address: 10.77.0.10
+            """
+                    .formatted(WIREGUARD, WIREGUARD, WIREGUARD);
+
+    /** A followed project whose access file, with its developers, is applied at {@code a1}. */
+    private Project followed(final PoreloContext context) throws IOException {
+        final Path clone = Files.createDirectories(context.paths().projects().followedClone("p"));
+        Files.writeString(
+                clone.resolve("project.yml"),
+                "project:\n  name: \"p\"\n  security_class: \"guarded\"\n"
+                        + "image:\n  base_image: \"ubuntu:24.04\"\n"
+                        + "mail:\n  peers:\n    people: {address: \"room:\", trust: \"external\"}\n"
+                        + "access: {repository: \"git@example.org:p/access.git\"}\n",
+                StandardCharsets.UTF_8);
+        Files.createDirectories(context.paths().projects().followedAccessClone("p"));
+        runner.answering("show a1:access.yml", DEVELOPERS);
+        new FollowedProjects(context.paths().projects().followed())
+                .write(
+                        new FollowedProjects.Followed(
+                                "p",
+                                "git@example.org:p/project.git",
+                                "c1",
+                                "",
+                                "APPLIED",
+                                "",
+                                "",
+                                "",
+                                false,
+                                "a1",
+                                "APPLIED"));
+        return GateSupport.byName(context, "p");
+    }
+
+    /** The transport {@code room}, making rooms and keeping their members. */
+    private void roomTransport() throws IOException {
+        final Path adapters = Files.createDirectories(dir.resolve("data/porelo/transports"));
+        final Path adapter = adapters.resolve(TransportDirectory.PREFIX + "room");
+        Files.writeString(adapter, "#!/bin/sh\n");
+        adapter.toFile().setExecutable(true);
+        runner.answering(
+                " describe",
+                "{\"scheme\":\"room\",\"lifecycle\":[\"setup\",\"settings\",\"members\"],"
+                        + "\"takes\":[\"machine\",\"create-room\"]}");
+        runner.answering(" settings", "{\"refused\":[],\"warnings\":[]}");
+        runner.answering(
+                " setup",
+                "{\"conversation\":\"!r\",\"room\":\"#p:access.example\",\"machine\":\"made-here\","
+                        + "\"admitted\":true}");
+        runner.answering(" members", "{\"invited\":[\"x\"],\"removed\":[]}");
+    }
+
+    @Test
+    void theAdminsMachineMakesTheRoomAndKeepsItsMachinesToTheAppliedList() throws Exception {
+        final PoreloContext context = unlockedVault();
+        roomTransport();
+        followed(context);
+
+        final int code = execute(context, "talk", "room", "p");
+
+        assertThat(code).as("the room is made: " + err).isZero();
+        final List<String> setup = only("setup").arguments();
+        assertThat(setup).as("made as the room's maker").contains("--create-room");
+        final List<String> members = only("members").arguments();
+        assertThat(members.subList(members.indexOf("members"), members.indexOf("members") + 5))
+                .as("this machine and each developer's account on this host, in order")
+                .containsExactly(
+                        "members",
+                        "--project",
+                        "p",
+                        "--machines",
+                        String.join(
+                                ",",
+                                new java.util.TreeSet<>(
+                                        List.of(
+                                                context.machineName().get(),
+                                                MachineName.of(MachineName.hostName(), "alice"),
+                                                MachineName.of(MachineName.hostName(), "bob")))));
+        assertThat(out.toString()).as("says what it made").contains("#p:access.example");
+    }
+
+    @Test
+    void anAppliedCommitKeepsTheRoomOnlyWhereThisAccountMadeIt() throws Exception {
+        final PoreloContext context = unlockedVault();
+        roomTransport();
+        final Project project = followed(context);
+        final FollowedProjects.Followed before =
+                new FollowedProjects.Followed(
+                        "p",
+                        "git@example.org:p/project.git",
+                        "c0",
+                        "",
+                        "APPLIED",
+                        "",
+                        "",
+                        "",
+                        false,
+                        "a0",
+                        "APPLIED");
+        final Reconcile.Result applied =
+                new Reconcile.Result(Reconcile.Outcome.APPLIED, "c1", "", "", "", "a1", "APPLIED");
+
+        Reconcile.recordApplied(context, before, applied);
+
+        assertThat(runner.lines())
+                .as("an account that did not make the room asks nothing of it")
+                .noneMatch(line -> line.contains(" members"));
+
+        MachineTransports.createRoom(context, project);
+        Reconcile.recordApplied(context, before, applied);
+
+        assertThat(runner.lines().stream().filter(line -> line.contains(" members")))
+                .as("the maker keeps the room to the list after the commit")
+                .hasSize(1);
+    }
+
+    @Test
+    void aRoomIsMadeOnlyWhereTheTransportTakesIt() throws Exception {
+        final PoreloContext context = unlockedVault();
+        transport();
+        followed(context);
+
+        assertThat(execute(context, "talk", "room", "p"))
+                .as("refused before anything is run")
+                .isEqualTo(69);
+        assertThat(err.toString()).as("says why").contains("does not take --create-room");
+        assertThat(runner.lines()).as("no setup ran").noneMatch(line -> line.contains(" setup"));
+    }
+
     private Command only(final String verb) {
         final List<Command> found =
                 runner.invocations().stream()

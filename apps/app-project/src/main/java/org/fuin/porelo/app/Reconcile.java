@@ -986,6 +986,11 @@ public final class Reconcile {
             final PoreloContext context,
             final FollowedProjects.Followed followed,
             final Result result) {
+        if (result.outcome() == Outcome.APPLIED
+                || (Outcome.APPLIED.name().equals(result.accessOutcome())
+                        && !result.accessCommit().equals(followed.accessCommit()))) {
+            keepRoom(context, followed.name());
+        }
         if (result.outcome() == Outcome.APPLIED) {
             EventLog.record(
                     context,
@@ -1042,6 +1047,31 @@ public final class Reconcile {
         } catch (final RuntimeException ex) {
             System.err.println(
                     "porelo: the event log could not record the access file: " + ex.getMessage());
+        }
+    }
+
+    /**
+     * Keeps the project's room to its applied developer list, where this account made the room, and
+     * logs what changed; a room that cannot be kept is said, never a reason to undo the commit.
+     */
+    private static void keepRoom(final PoreloContext context, final String name) {
+        try {
+            final java.util.Map<?, ?> kept =
+                    MachineTransports.keepMembers(context, GateSupport.byName(context, name));
+            if (kept != null) {
+                EventLog.record(
+                        context,
+                        EventLog.PROJECT_APPLIED,
+                        name,
+                        "",
+                        "room kept to the list: invited "
+                                + kept.get("invited")
+                                + ", removed "
+                                + kept.get("removed"));
+            }
+        } catch (final Conversations.Refused | RuntimeException ex) {
+            System.err.println(
+                    "porelo: the room of " + name + " is not kept to the list: " + ex.getMessage());
         }
     }
 

@@ -84,6 +84,8 @@ takes its secrets on its input, and goes in a change of its own.
 | `clear [--project P]` | when a project is cleared from the machine, with `--project`; when the account's vault is cleared, without | the account's secrets, and the project's with `--project` | `removed` |
 | `settings` | when a project file is checked | nothing: no secrets, no network | `refused`, `warnings` |
 | `admit --project P --machine M` | on `porelo talk admit`, on the machine whose server holds the conversation | account and project secrets | `admission` (what machine `M` needs to reach the conversation) and `secrets` (what it keeps as secrets), answered once, never kept here |
+| `setup --project P --create-room` | on `porelo talk room`, by the project admin's machine, where `describe` lists `create-room` in `takes` | account and project secrets | as `setup`, the room made on the server |
+| `members --project P --machines M1,M2,...` | after each applied commit of the project or its access file, only in the account that made the room with `talk room` | account and project secrets | `invited` and `removed`: the room's machines are made exactly the list, this machine and each developer of the applied access file by `<host>-<account>` |
 | `dismiss --project P --machine M` | on `porelo talk dismiss` | account and project secrets | `removed`: every account of M taken out of every project's conversation on this server, and M's registration refused; the project only names the server |
 
 - **Every map of secrets is complete** for the verbs that use it: a project's are what `poll` reads and what
