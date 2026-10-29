@@ -1,6 +1,6 @@
 # B329 — A Forced Removal Kills What Outlives Its Stop
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - a second, forced round after the wait in the one place a task stop counts its survivors, and a zombie
 told apart from a living process; tests with real processes.
 
