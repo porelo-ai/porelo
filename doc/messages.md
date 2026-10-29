@@ -48,6 +48,9 @@ mail:
   port Porelo picks and keeps. It needs no root, and no other user on the machine shares it.
 - **An `offline` project** messages through a homeserver on this machine's loopback only; a declared
   homeserver anywhere else refuses its tasks before they start.
+- **On a shared homeserver this account goes by `<host>-<account>`**, in lower case, which `porelo talk machine`
+  prints for a project admin to list, so two people's accounts on one host never meet on one name. A transport keeps
+  the name it first used, so an account that used another one before keeps its accounts there.
 - **Each task gets an account of its own** when it starts, and the account is deactivated when the task is
   removed. Its token stays in your vault; the task never holds it and has no route to the homeserver.
 - **The room is the boundary.** Every task of the project and every person in it reads everything said there.

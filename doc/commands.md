@@ -456,6 +456,7 @@ A task's mailbox. Each command names the task by its container name.
 | `porelo talk log TASK` | What happened to each message, never its text. |
 | `porelo talk verify TASK` | Names the first entry of the message record that does not check out. |
 | `porelo talk key [--as=PRINCIPAL] [--publish]` | Prints this machine's signing key as an `allowed_signers` line. |
+| `porelo talk machine` | Prints the name this account goes by on a transport, `<host>-<account>` in lower case, which a project admin lists to let it into a conversation. |
 | `porelo talk join PROJECT PERSON [--reset] [--into-vault ENTRY] [--display NAME]` | Makes a person an account in the project's conversation and shows the login once. `--reset` sets a new password. `--into-vault` keeps the person's access token in the vault under `ENTRY` instead and shows no password, for an agent whose output is its transcript; it refuses before making the account when there is no open vault, and its line names the room's id. `--display` is the name the conversation shows for the person, which others address them by; the transport checks it, and one starting with `-` is refused. |
 | `porelo talk members PROJECT` | Lists each person who joined the conversation and their account, or says nobody has joined. |
 | `porelo talk remove PROJECT PERSON` | Removes a person through the transport, then drops them from the members list. Says why if their account stays; a failed removal leaves them listed. |

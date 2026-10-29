@@ -25,6 +25,10 @@ import org.fuin.porelo.runtime.HookInstaller;
  * @param input This process's standard input, for a command that reads one line a program hands it:
  *     the real one for {@link #real()}, an empty one for a context a test builds unless it says
  *     otherwise.
+ * @param machineName The name this account goes by on a transport, throwing {@link
+ *     IllegalArgumentException} when the host and account make none: {@code <host>-<account>} for
+ *     {@link #real()}, {@link #TEST_MACHINE} for a context a test builds unless it says otherwise,
+ *     so no test depends on the host it runs on.
  */
 public record PoreloContext(
         CommandRunner runner,
@@ -33,7 +37,33 @@ public record PoreloContext(
         java.util.function.UnaryOperator<String> environment,
         boolean recognizesTasks,
         VaultPrompt prompt,
-        StandardInput input) {
+        StandardInput input,
+        java.util.function.Supplier<String> machineName) {
+
+    /** The name a context a test builds goes by on a transport. */
+    public static final String TEST_MACHINE = "test-host-account";
+
+    /**
+     * Constructor for a context that goes by {@link #TEST_MACHINE} on a transport.
+     *
+     * @param runner Runs commands.
+     * @param paths Where files go.
+     * @param exec Runs a command on this process's terminal.
+     * @param environment Reads an environment variable.
+     * @param recognizesTasks Whether a container is a task only by the id Porelo recorded.
+     * @param prompt Who is asked for the vault passphrase.
+     * @param input This process's standard input.
+     */
+    public PoreloContext(
+            CommandRunner runner,
+            PoreloPaths paths,
+            java.util.function.ToIntFunction<List<String>> exec,
+            java.util.function.UnaryOperator<String> environment,
+            boolean recognizesTasks,
+            VaultPrompt prompt,
+            StandardInput input) {
+        this(runner, paths, exec, environment, recognizesTasks, prompt, input, () -> TEST_MACHINE);
+    }
 
     /**
      * Constructor for a context that reads nothing on standard input.
@@ -126,7 +156,8 @@ public record PoreloContext(
      * @return The context.
      */
     public PoreloContext recognizingTasks() {
-        return new PoreloContext(runner, paths, exec, environment, true, prompt, input);
+        return new PoreloContext(
+                runner, paths, exec, environment, true, prompt, input, machineName);
     }
 
     /**
@@ -136,7 +167,8 @@ public record PoreloContext(
      * @return The context.
      */
     public PoreloContext asking(final VaultPrompt asking) {
-        return new PoreloContext(runner, paths, exec, environment, recognizesTasks, asking, input);
+        return new PoreloContext(
+                runner, paths, exec, environment, recognizesTasks, asking, input, machineName);
     }
 
     /**
@@ -147,7 +179,18 @@ public record PoreloContext(
      */
     public PoreloContext reading(final StandardInput reading) {
         return new PoreloContext(
-                runner, paths, exec, environment, recognizesTasks, prompt, reading);
+                runner, paths, exec, environment, recognizesTasks, prompt, reading, machineName);
+    }
+
+    /**
+     * Returns this context going by the given name on a transport.
+     *
+     * @param naming The name, or what throws {@link IllegalArgumentException} for none.
+     * @return The context.
+     */
+    public PoreloContext namedAs(final java.util.function.Supplier<String> naming) {
+        return new PoreloContext(
+                runner, paths, exec, environment, recognizesTasks, prompt, input, naming);
     }
 
     /**
@@ -206,7 +249,8 @@ public record PoreloContext(
                 System::getenv,
                 true,
                 VaultPrompt.terminal(),
-                StandardInput.real());
+                StandardInput.real(),
+                MachineName::thisAccount);
     }
 
     /**

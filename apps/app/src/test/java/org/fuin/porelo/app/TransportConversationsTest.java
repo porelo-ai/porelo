@@ -1,6 +1,7 @@
 package org.fuin.porelo.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -865,9 +866,96 @@ class TransportConversationsTest {
             // Two machines on one homeserver run tasks of the same name; the machine's name keeps
             // them apart.
             assertThat(runner.only(" setup ").arguments())
-                    .containsSequence("--machine", MachineName.hostName());
+                    .as("a first setup is given this account's name on this host")
+                    .containsSequence("--machine", PoreloContext.TEST_MACHINE);
             assertThat(runner.only(" enroll ").arguments())
-                    .containsSequence("--machine", MachineName.hostName());
+                    .as("and so is every task's enroll")
+                    .containsSequence("--machine", PoreloContext.TEST_MACHINE);
+        } finally {
+            keyring.forget();
+        }
+    }
+
+    @Test
+    void aNameTheTransportAnsweredAtSetupNeverReplacesTheAccountsOwn() throws Exception {
+        Assumptions.assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
+        final PoreloContext context = context();
+        final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
+        try {
+            Files.createDirectories(context.vault().path().getParent());
+            context.vault().write(Map.of(), PASSPHRASE);
+            keyring.store(PASSPHRASE);
+            runner.answering(
+                    "describe",
+                    "{\"scheme\":\"room\",\"lifecycle\":[\"setup\",\"enroll\"],"
+                            + "\"takes\":[\"machine\"]}");
+            runner.answering(
+                    "setup",
+                    "{\"secrets\":{},\"conversation\":\"!r\",\"reaches\":[\"127.0.0.1\"],"
+                            + "\"machine\":\"build-1\"}");
+            runner.answering("enroll", "{\"secrets\":{\"TASK\":\"t-1\"}}");
+
+            assertThat(new TaskConversations(context).enroll(project("guarded"), "porelo-p-review"))
+                    .as("the task enrolls")
+                    .isNull();
+
+            // Passing the host's name back would let two accounts of one host share it in the room.
+            assertThat(runner.only(" enroll ").arguments())
+                    .as("<host>-<account>, not the name the transport answered at setup")
+                    .containsSequence("--machine", PoreloContext.TEST_MACHINE)
+                    .doesNotContain("build-1");
+        } finally {
+            keyring.forget();
+        }
+    }
+
+    @Test
+    void anAccountThatMakesNoMachineNameIsRefusedBeforeTheTransportRuns() throws Exception {
+        Assumptions.assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
+        final PoreloContext context =
+                context()
+                        .namedAs(
+                                () -> {
+                                    throw new IllegalArgumentException(
+                                            "'build-1-al ice' is not a machine's name");
+                                });
+        final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
+        try {
+            Files.createDirectories(context.vault().path().getParent());
+            context.vault().write(Map.of(), PASSPHRASE);
+            keyring.store(PASSPHRASE);
+            runner.answering(
+                    "describe",
+                    "{\"scheme\":\"room\",\"lifecycle\":[\"setup\",\"enroll\"],"
+                            + "\"takes\":[\"machine\"]}");
+            runner.answering(
+                    "setup",
+                    "{\"secrets\":{},\"conversation\":\"!r\",\"reaches\":[\"127.0.0.1\"]}");
+
+            final String refused =
+                    new TaskConversations(context).enroll(project("guarded"), "porelo-p-review");
+
+            // A name that is no machine's must never reach the transport's command line.
+            assertThat(refused).as("the task is refused, naming what is wrong").contains("al ice");
+            assertThat(runner.lines().stream().filter(line -> line.contains(" setup ")))
+                    .as("the transport was never run with it")
+                    .isEmpty();
+            assertThatThrownBy(
+                            () ->
+                                    new TransportLifecycle(
+                                                    context,
+                                                    context.paths()
+                                                            .messaging()
+                                                            .transportDirectory())
+                                            .setup("room", "p", Map.of()))
+                    .as("a configuration fault, which the daemon's set-up answers with")
+                    .isInstanceOfSatisfying(
+                            TransportLifecycle.Refused.class,
+                            ex -> assertThat(ex.code()).as("exit").isEqualTo(78));
         } finally {
             keyring.forget();
         }

@@ -1,0 +1,2 @@
+title: "A transport is given `<host>-<account>` as this machine's name, so two accounts on one host never share one, and `porelo talk machine` prints it"
+type: changed

@@ -95,8 +95,10 @@ takes its secrets on its input, and goes in a change of its own.
   For an offline project Porelo adds `--loopback-only` to `setup`, `enroll`, `join` and `part`, and the transport refuses
   (78) before it contacts anything but loopback.
 - **`--machine NAME`** is added to `setup`, `enroll`, `retire`, `join` and `clear` for a transport that `takes`
-  it; `admit` and `dismiss` carry the other machine's name instead, and this machine's is never added. The transport keeps the name it first used, so a renamed machine keeps its accounts, and refuses (78) a name
-  another machine already holds.
+  it; `admit` and `dismiss` carry the other machine's name instead, and this machine's is never added. `NAME` is
+  `<host>-<account>` in lower case, always, never the `machine` a `setup` answered; Porelo refuses (78) before running
+  the transport when that is not a machine's name. The transport keeps the name it first used, so a renamed machine
+  keeps its accounts, and refuses (78) a name another machine already holds.
 - **`part` never receives `--machine`**, even when the transport announces it. A successful part (exit 0)
   removes the person from Porelo's members list, including when the account stays for the reason in `why`,
   or nothing remains. A failure leaves the list unchanged: 75 temporary, 77 refused, 78 configuration

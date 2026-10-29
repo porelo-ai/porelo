@@ -794,10 +794,11 @@ final class TransportLifecycle {
         if (loopbackOnly) {
             arguments.add("--loopback-only");
         }
-        // This machine's name, to a transport that takes it: two machines on one homeserver run
-        // tasks of the same name, and without it the second one's enroll would take the first one's
-        // account over. The transport keeps the name it first used, so a machine renamed later
-        // keeps its accounts.
+        // This account's name on this host, to a transport that takes it: two accounts on one
+        // homeserver run tasks of the same name, and without it the second one's enroll would take
+        // the first one's account over. Never what setup answered: that may be the host's alone,
+        // which a second account of the host would share. The transport keeps the name it first
+        // used, so an account named otherwise before keeps its accounts.
         // admit and dismiss name the other machine themselves, so this one's is never added.
         final TransportDescription described = TransportDescription.of(context.runner(), adapter);
         if (!"settings".equals(verb[0])
@@ -806,7 +807,7 @@ final class TransportLifecycle {
                 && !"dismiss".equals(verb[0])
                 && described.takes("machine")) {
             arguments.add("--machine");
-            arguments.add(MachineName.hostName());
+            arguments.add(machine());
         }
         final CommandResult result;
         try {
@@ -858,6 +859,17 @@ final class TransportLifecycle {
                         + " with something that is not a"
                         + " JSON object",
                 76);
+    }
+
+    private String machine() throws Refused {
+        try {
+            return context.machineName().get();
+        } catch (IllegalArgumentException ex) {
+            throw new Refused(
+                    String.valueOf(ex.getMessage())
+                            + "; this host and account give no name a transport takes",
+                    78);
+        }
     }
 
     /**

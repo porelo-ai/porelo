@@ -82,17 +82,13 @@ public final class MachineTransports {
                 null);
     }
 
-    /** What a machine's name looks like: never an option, never blank. */
-    private static final java.util.regex.Pattern MACHINE =
-            java.util.regex.Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{0,62}");
-
     private static void refuseMachineName(String machine) throws Conversations.Refused {
-        if (!MACHINE.matcher(machine).matches()) {
+        if (!MachineName.valid(machine)) {
             throw new Conversations.Refused(
                     "'"
                             + machine.replaceAll("\\p{Cntrl}", "?")
-                            + "' is not a machine's name: letters, digits, dots, underscores and"
-                            + " hyphens, a letter or digit first",
+                            + "' is not a machine's name: "
+                            + MachineName.RULE,
                     64,
                     null);
         }
