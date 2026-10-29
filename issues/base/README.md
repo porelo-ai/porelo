@@ -112,11 +112,12 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b322"></a>[B322](B322-Porelos-Acceptance-Legs-Run-On-The-Hosts-Forge.md) | - | - | porelo's acceptance legs run on the host's Forgejo as well, each on a machine asked for by kind from the host's pool, and the binary published there is again the one the Ubuntu leg tested |
 | <a id="b319"></a>[B319](B319-CanStart-Without-A-Gate-Checks-The-Repository.md) | - | - | `CanStart` with `noGate` judges the named repository as `Start` does, which refuses an unknown one |
 | <a id="b309"></a>[B309](B309-A-Machine-Sets-Its-Own-Transport-Settings.md) | - | - | A machine sets for itself what a transport lists - for Matrix its homeserver, room, CA and registration token - over the signed project file's, so one project file serves machines on different servers; split from [B304](#b304) |
 | <a id="b307"></a>[B307](B307-Not-Waiting-Is-Read-Once-The-Screen-Settles.md) | - | - | The kit's "not waiting" step lets the screen settle after a key before it judges, and fails only on waiting read again after not waiting, as "waiting" already waits |
 | <a id="b305"></a>[B305](B305-Porelos-Agent-Works-In-A-Porelo-Task.md) | - | - | porelo's agent works in a Porelo task on the move's host as `Agent Core`, pushes to its Forgejo and talks in the room, with a way back to this machine; `porelo-parent` has no move of its own |
-| <a id="b306"></a>[B306](B306-Porelos-Build-Runs-On-The-Local-Forge.md) | - | - | porelo's workflows run green on the host's Forgejo and the central forge on one commit: legs asked by kind, no provider named, deploy and uploads switched by variables on both forges |
+| <a id="b306"></a>[B306](B306-Porelos-Build-Runs-On-The-Local-Forge.md) | - | - | porelo's workflows run green on the host's Forgejo and the central forge on one commit: the legs only on the central forge for now, no provider named, deploy and uploads switched by variables on both forges |
 | <a id="b301"></a>[B301](B301-An-Unattended-Task-For-An-Issue-Takes-Its-Phase-From-It.md) | - | - | An unattended task is started for one issue, and its phase follows from that issue, so the person names the issue and nothing else |
 | <a id="b299"></a>[B299](B299-A-Projects-Declared-Parameters-Reach-An-Interface.md) | - | - | `Projects` carries the parameters `project.yml` declares - name, description, required, values or pattern, default - so an interface asks for them before `Start` |
 | <a id="b295"></a>[B295](B295-A-Task-Without-A-Gate-Knows-Its-Host.md) | - | - | A task without a gate refuses declared host services in one sentence, not a `NullPointerException`, and its watcher still knows the host's address it never asks about |
