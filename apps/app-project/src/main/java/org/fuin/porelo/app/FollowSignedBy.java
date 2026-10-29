@@ -135,6 +135,83 @@ public final class FollowSignedBy {
     }
 
     /**
+     * Checks a project and its access file against the named keys alone, as following would from
+     * the given commits on. Reads no key this machine pinned, fetches only the paths given, and
+     * records nothing.
+     *
+     * @param name The project's name.
+     * @param repository Its repository, a local path or bundle.
+     * @param keys The keys it must be signed with, as ssh-keygen prints them.
+     * @param since The project commit taken as in force, or "".
+     * @param accessRepository The access repository's path or bundle, or "" when none was given.
+     * @param accessSince The access commit taken as in force, or "".
+     * @return What following would do, the key that signed it, and both files when good.
+     * @throws Refused If the name is reserved or a key is not one.
+     */
+    public Reconcile.Checked verified(
+            final String name,
+            final String repository,
+            final List<String> keys,
+            final String since,
+            final String accessRepository,
+            final String accessSince)
+            throws Refused {
+        refuseReserved(name);
+        // The name becomes the principal of each line the gate trusts: one with a space in it would
+        // write a key of its own choosing there.
+        if (!name.matches("[a-z0-9][a-z0-9-]{0,62}")) {
+            throw new Refused(
+                    "'"
+                            + name.replaceAll("\\p{Cntrl}", "?")
+                            + "' is not a project name: lower-case letters, digits and hyphens");
+        }
+        final List<String> lines = new ArrayList<>();
+        for (final String key : keys) {
+            if (SignedBy.isFingerprint(key)) {
+                throw new Refused(
+                        "'"
+                                + key
+                                + "' is a fingerprint; a check names the key itself, 'ssh-ed25519 AAAA...'");
+            }
+            lines.add(line(name, key));
+        }
+        Path scratch = null;
+        try {
+            scratch = Files.createTempFile("porelo-verify-signers-", "");
+            Files.write(scratch, lines, StandardCharsets.UTF_8);
+            return new Reconcile(context, scratch, accessRepository)
+                    .verified(
+                            new FollowedProjects.Followed(
+                                    name,
+                                    repository,
+                                    since,
+                                    "",
+                                    "",
+                                    "",
+                                    "",
+                                    "",
+                                    false,
+                                    accessSince,
+                                    ""));
+        } catch (final IOException ex) {
+            return new Reconcile.Checked(
+                    new Reconcile.Result(
+                            Reconcile.Outcome.FAILED,
+                            since,
+                            "cannot hold the named keys to check with: " + ex.getMessage()),
+                    null);
+        } finally {
+            if (scratch != null) {
+                try {
+                    Files.deleteIfExists(scratch);
+                } catch (final IOException ex) {
+                    // A scratch file that will not go is not worth failing a check over.
+                }
+            }
+        }
+    }
+
+    /**
      * Follows, pinning the named key, and reconciles once.
      *
      * <p>A first follow that cannot apply leaves nothing behind; a project already followed keeps

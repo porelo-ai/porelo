@@ -81,6 +81,42 @@ all:
   when the project file fails its check against the key, or names under a transport a `*_file` setting that is not
   one path, absolute or under `~/`, without `..` (the setting is named, its value never).
 
+## A project verified without following it
+
+Root's `sync` on a host and an interface's *Join* run `porelo project verify ... --json` rather than a checker of
+their own, so the rules that decide which keys and commits count are Porelo's alone. It is run on copies: root runs
+it as a throwaway unprivileged user on its copies of a person's bundles, with no home, vault or network, against
+the key pinned at the project's registration.
+
+```
+porelo project verify --repository project.bundle --signed-by "ssh-ed25519 AAAA..." \
+    --since <commit> --access-repository access.bundle --access-since <commit> --json
+```
+
+The answer, alone on standard output, for the newest commits that hold:
+
+```json
+{"project": "acme", "commit": "<project commit>", "access_commit": "<access commit>",
+ "signer": "ssh-ed25519 AAAA...", "signers": ["ssh-ed25519 AAAA..."],
+ "host": {...}, "developers": {...}, "transports": {...}}
+```
+
+- **`host`** is the access file's `host:` with its keys as written (`address`, `endpoint`, `wireguard_public_key`,
+  `network`, `ssh_host_key`, `ca_sha256`), or `null`; **`developers`** each developer by account, with `laptops`
+  and `forge_login`; **`transports`** the access file's settings, or the project file's for a project naming none,
+  when `access_commit` is "".
+- **`signer`** is the key that signed the project commit. **`signers`** are the keys in force after it, a handover
+  walked: a handover commit is signed by the key before it and hands on to its successors, so `signers` is what a
+  caller pins and names with `--signed-by` next time, with `commit` and `access_commit` as `--since` and
+  `--access-since`.
+- **The name** is the one at `--since`, so a later commit renaming the project is refused as a follow refuses it.
+  A first check has no `--since`; a caller that knows the project names it with `--project`, or another project's
+  bundles signed with the same key would pass under their own name.
+- **Refusals**, with nothing on standard output: 65 when a check fails, naming the outcome a follow would give
+  (`unknown_key`, `not_signed`, `rewritten`, ...), a key, name or commit is not one, a path is a URL, an access
+  option has no use, or a setting has no form in JSON; 66 when a path is not there. A repository without a
+  `project.yml` at its tip is named so, before any signature is looked at.
+
 ## The answers a second run reads
 
 A playbook changes only what differs, so a second `up` on a host that is up changes nothing. It asks:

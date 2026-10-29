@@ -219,6 +219,12 @@ public final class Reconcile {
     private final Path signers;
 
     /**
+     * Where a check takes the access repository from instead of the URL the project names, or
+     * {@code null} to fetch that URL; "" when none was given, so nothing is fetched for it.
+     */
+    private final @org.jspecify.annotations.Nullable String accessFrom;
+
+    /**
      * Constructor.
      *
      * @param context The machine.
@@ -235,8 +241,25 @@ public final class Reconcile {
      * @param signers The pinned {@code allowed_signers} file to verify with.
      */
     public Reconcile(final PoreloContext context, final Path signers) {
+        this(context, signers, null);
+    }
+
+    /**
+     * Constructor for a check that reaches nothing it was not handed: the access repository is
+     * taken from a path or bundle given, never from the URL the project names.
+     *
+     * @param context The machine.
+     * @param signers The pinned {@code allowed_signers} file to verify with.
+     * @param accessFrom The access repository's path or bundle, "" when none was given, or {@code
+     *     null} to fetch the URL the project names.
+     */
+    public Reconcile(
+            final PoreloContext context,
+            final Path signers,
+            final @org.jspecify.annotations.Nullable String accessFrom) {
         this.context = context;
         this.signers = signers;
+        this.accessFrom = accessFrom;
         this.gate = new ConfigurationGate(context.runner(), signers);
         this.handover = new SignerHandover(context.runner(), signers);
     }
@@ -249,11 +272,34 @@ public final class Reconcile {
      *     was not signed or not reached.
      * @param projectFile The text of {@code project.yml} at the commit a follow would put in force,
      *     or {@code null} unless the check found that commit good to apply.
+     * @param accessFile The text of {@code access.yml} at the access commit a follow would put in
+     *     force, or {@code null} unless the check found that commit good to apply.
+     * @param signers The keys a follow would hold for the project afterwards, a handover walked;
+     *     none unless the check found the commit good to apply.
+     * @param project The project file read at that commit, its snippets from that commit, or {@code
+     *     null} unless the check found that commit good to apply.
      */
     public record Checked(
             Result result,
             @org.jspecify.annotations.Nullable String key,
-            @org.jspecify.annotations.Nullable String projectFile) {
+            @org.jspecify.annotations.Nullable String projectFile,
+            @org.jspecify.annotations.Nullable String accessFile,
+            List<String> signers,
+            org.fuin.porelo.core.project.@org.jspecify.annotations.Nullable Project project) {
+
+        /**
+         * Constructor for a check that kept no access file.
+         *
+         * @param result What a follow would do.
+         * @param key The key that signed it, or {@code null}.
+         * @param projectFile The project file, or {@code null}.
+         */
+        public Checked(
+                final Result result,
+                final @org.jspecify.annotations.Nullable String key,
+                final @org.jspecify.annotations.Nullable String projectFile) {
+            this(result, key, projectFile, null, List.of(), null);
+        }
 
         /**
          * Constructor for a check that kept no project file.
@@ -339,6 +385,32 @@ public final class Reconcile {
      * @return What a follow would do, and the key.
      */
     public Checked checked(final FollowedProjects.Followed followed) {
+        return scratchCheck(
+                new FollowedProjects.Followed(
+                        followed.name(),
+                        followed.url(),
+                        "",
+                        followed.at(),
+                        followed.outcome(),
+                        followed.detail(),
+                        followed.refused(),
+                        followed.signer(),
+                        followed.unverified()));
+    }
+
+    /**
+     * Says what following this project from the given commits on would do, and does none of it:
+     * {@link #checked} with the project's commit and the access commit taken as the ones in force,
+     * so a commit that does not descend from them is refused as a follow refuses it.
+     *
+     * @param followed What would be followed, with the commits in force.
+     * @return What a follow would do, the key, and both files when good.
+     */
+    public Checked verified(final FollowedProjects.Followed followed) {
+        return scratchCheck(followed);
+    }
+
+    private Checked scratchCheck(final FollowedProjects.Followed followed) {
         Path scratch = null;
         try {
             scratch = Files.createTempDirectory("porelo-follow-check-");
@@ -350,26 +422,21 @@ public final class Reconcile {
                             ? Files.copy(signers, scratch.resolve("signers"))
                             : signers;
             final Result result =
-                    new Reconcile(context, checkSigners)
-                            .run(
-                                    new FollowedProjects.Followed(
-                                            followed.name(),
-                                            followed.url(),
-                                            "",
-                                            followed.at(),
-                                            followed.outcome(),
-                                            followed.detail(),
-                                            followed.refused(),
-                                            followed.signer(),
-                                            followed.unverified()),
-                                    clone,
-                                    scratch.resolve("access"));
+                    new Reconcile(context, checkSigners, accessFrom)
+                            .run(followed, clone, scratch.resolve("access"));
             // Read whatever the gate said: with no key pinned here it verifies nothing and names no
             // signer.
+            final String projectFile = projectFile(clone, result);
             return new Checked(
                     result,
                     SignedBy.keyOf(context.runner(), clone, "FETCH_HEAD"),
-                    projectFile(clone, result));
+                    projectFile,
+                    accessFile(clone, scratch.resolve("access"), result),
+                    projectFile == null
+                            ? List.of()
+                            : new SignerHandover(context.runner(), checkSigners)
+                                    .pinned(followed.name()),
+                    projectFile == null ? null : project(clone, result.commit()));
         } catch (final IOException ex) {
             return new Checked(
                     new Result(
@@ -405,6 +472,65 @@ public final class Reconcile {
                                         "show",
                                         result.commit() + ":project.yml"));
         return shown.successful() ? shown.standardOutput() : null;
+    }
+
+    /**
+     * Reads the project file at a commit found good, with the snippets that commit holds: the
+     * scratch clone's tree is moved there first, so nothing is read from wherever the caller runs.
+     */
+    private org.fuin.porelo.core.project.@org.jspecify.annotations.Nullable Project project(
+            final Path clone, final String commit) {
+        final CommandResult moved =
+                context.runner()
+                        .run(
+                                Command.of(
+                                        "git",
+                                        "-C",
+                                        clone.toString(),
+                                        "reset",
+                                        "--hard",
+                                        "--quiet",
+                                        commit));
+        if (!moved.successful()) {
+            return null;
+        }
+        try {
+            return readAt(context.runner(), clone, commit, clone.resolve("project.yml"));
+        } catch (final RuntimeException ex) {
+            return null;
+        }
+    }
+
+    /**
+     * Reads the access file a follow would put in force, from where the check verified it, and only
+     * when it found that commit good.
+     */
+    private @org.jspecify.annotations.Nullable String accessFile(
+            final Path clone, final Path accessClone, final Result result) {
+        if (projectFile(clone, result) == null
+                || result.accessCommit().isEmpty()
+                || (!Outcome.APPLIED.name().equals(result.accessOutcome())
+                        && !Outcome.UNCHANGED.name().equals(result.accessOutcome()))) {
+            return null;
+        }
+        try {
+            final Access access =
+                    readAt(context.runner(), clone, result.commit(), clone.resolve("project.yml"))
+                            .access();
+            final Path where = access instanceof Access.InRepository ? accessClone : clone;
+            final CommandResult shown =
+                    context.runner()
+                            .run(
+                                    Command.of(
+                                            "git",
+                                            "-C",
+                                            where.toString(),
+                                            "show",
+                                            result.accessCommit() + ":" + Access.FILE));
+            return shown.successful() ? shown.standardOutput() : null;
+        } catch (final RuntimeException ex) {
+            return null;
+        }
     }
 
     private static void deleteTree(final Path root) {
@@ -458,7 +584,19 @@ public final class Reconcile {
                         case Access.BesideProject beside ->
                                 readAccess(clone, project.commit(), inForce);
                         case Access.InRepository repository ->
-                                reconcileAccess(followed, repository.url(), accessClone, inForce);
+                                accessFrom == null
+                                        ? reconcileAccess(
+                                                followed, repository.url(), accessClone, inForce)
+                                        : accessFrom.isEmpty()
+                                                ? new Result(
+                                                        Outcome.FAILED,
+                                                        inForce,
+                                                        "the access file is in "
+                                                                + repository.url()
+                                                                + ", and no copy of that"
+                                                                + " repository was given to check")
+                                                : reconcileAccess(
+                                                        followed, accessFrom, accessClone, inForce);
                     };
             return withAccess(project, applied);
         } catch (final RuntimeException ex) {

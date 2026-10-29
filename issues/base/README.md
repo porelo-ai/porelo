@@ -24,6 +24,7 @@ from its side, as *blocked by*.
 | <a id="b206"></a>[B206](B206-A-Transport-Takes-Its-Secrets-On-Its-Input.md) | L | - | A transport takes the secrets Porelo kept for it on its standard input, not in its environment, so no other process of the account can read them from `/proc`; a version declared in `describe`, with the matrix transport's matching change. |
 | <a id="b238"></a>[B238](B238-An-Unfollow-Leaves-Nothing-Of-The-Project.md) | M | - | `project unfollow` removes the project's build lock and upstream copies, so `porelo prune` finds nothing of it; following stops first, under the clone's lock, which a removal never leaves to two holders |
 | <a id="b310"></a>[B310](B310-A-Project-Names-A-Private-Signed-Access-File.md) | M | - | A project names an access file: `host:`, `developers:` and its transports' settings in a signed `access.yml` in a private repository or beside `project.yml`, verified against the project's signers and applied as the project file is; no transport verb runs before it is applied. |
+| <a id="b311"></a>[B311](B311-A-Project-Verified-Without-Following-It.md) | S | [B310](README.md#b310) | `porelo project verify ... --json` checks a project and its access file as following would, writing nothing and needing no vault, home or network; root's `sync` and the interface's *Join* run it instead of a checker of their own. |
 | <a id="b315"></a>[B315](B315-A-Person-Locked-Out-Without-A-Terminal.md) | XS | - | `task stop --all` and `vault clear --yes --force`, run without a terminal in a person's account, are checked together as root's helper runs them to lock a person out. |
 | <a id="b312"></a>[B312](B312-A-Machine-Named-By-Its-Host-And-Account.md) | S | - | The machine name a transport is given is `<host>-<account>`, always, never the name a `setup` answered, so two accounts on one host never share one; `porelo talk machine` prints it. |
 
@@ -33,7 +34,6 @@ from its side, as *blocked by*.
 |---|---|---|---|
 | <a id="b214"></a>[B214](B214-A-Vault-Entry-Put-Again-Unchanged.md) | M | - | `vault put` given the value an entry already holds says `unchanged` and exits 0, so a second play reports nothing changed |
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |
-| <a id="b311"></a>[B311](B311-A-Project-Verified-Without-Following-It.md) | S | [B310](README.md#b310) | `porelo project verify ... --json` checks a project and its access file as following would, writing nothing and needing no vault, home or network; root's `sync` and the interface's *Join* run it instead of a checker of their own. |
 
 ## Backlog
 

@@ -478,6 +478,8 @@ program, as [A host a playbook brings up](hosts.md) says.
 porelo project follow NAME URL|FILE [--signed-by=<key> | --unverified] [--dry-run] [--accept-rewrite]
 porelo project following [--json]
 porelo project inventory --machine-file FILE
+porelo project verify --repository PATH --signed-by KEY... [--project NAME] [--since COMMIT]
+                      [--access-repository PATH] [--access-since COMMIT] [--json]
 porelo project refresh [NAME]
 porelo project list
 porelo project unfollow NAME [--dry-run] [--force]
@@ -492,6 +494,19 @@ porelo project enroll PROJECT [--remove] [--as=PRINCIPAL]
   file - a bundle of the repository, or a directory on this machine - it is read once and never fetched;
   following it again from a newer file is how its settings change. An offline project is followed only
   from a file, and a fetch from an address that turns a project offline is refused.
+- **`verify`** checks a project and its access file as `follow` would, from local paths or bundles only, and
+  writes nothing: no follow, no pinned key, no clone left behind. It reads nothing of the account it runs as - no
+  git configuration, vault, credentials, pinned keys or egress sets of its own, so a project naming a set only a
+  machine defines is refused - and needs no home or network. It checks against the keys named alone, each the key
+  itself (`ssh-ed25519 AAAA...`), never a fingerprint as `follow` takes; they are the keys in force at `--since`
+  (or the ones pinned at the project's registration), and a handover after it is walked as `follow` walks it.
+  `--since` and `--access-since` are full commit hashes taken as in force: a newer one must descend from them, or
+  it is refused as a rewrite. The name checked is `--project`, or the one the commit at `--since` gives, or else
+  the tip's; a file under another name is refused. A project naming an access repository needs
+  `--access-repository`; its URL is never fetched, and an access option the project file has no use for is
+  refused rather than passed unchecked. `--json` answers a program, as
+  [A host a playbook brings up](hosts.md#a-project-verified-without-following-it) says; 65 names why a check
+  failed, 66 a path that is not there.
 - **`following`** lists the follows; **`list`** (also `porelo projects`) lists the projects. `following --json`
   answers a program, as [A host a playbook brings up](hosts.md) says.
   `list --json`, `Projects()` and `WatchProjects()` carry `lastUsed`: the latest recorded task start or

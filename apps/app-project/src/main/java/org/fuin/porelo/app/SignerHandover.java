@@ -210,7 +210,13 @@ final class SignerHandover {
         return found == null ? key : found;
     }
 
-    private List<String> pinned(final String project) {
+    /**
+     * The keys pinned for a project, as ssh-keygen prints them.
+     *
+     * @param project The project's name.
+     * @return Its keys, none when unreadable.
+     */
+    List<String> pinned(final String project) {
         final List<String> keys = new ArrayList<>();
         try {
             if (Files.isRegularFile(signers)) {

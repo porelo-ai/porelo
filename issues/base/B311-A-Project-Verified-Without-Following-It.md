@@ -1,13 +1,13 @@
 # B311 — A Project Verified Without Following It
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - one command over `Reconcile`'s check, its JSON, and the tests.
 
-**What must be true.** `porelo project verify --repository <path|bundle> --signed-by <key> [--since <commit>]
-[--access-repository
-<path|bundle>] [--access-since <commit>] --json` checks a project, and its access file, exactly as following would,
-writes nothing, and needs no vault, home or network; root's `sync` and the interface's *Join* use it instead of a
-checker of their own.
+**What must be true.** `porelo project verify --repository <path|bundle> --signed-by <key>... [--project <name>]
+[--since <commit>] [--access-repository <path|bundle>] [--access-since <commit>] [--json]` checks a project, and its
+access file, exactly as following would, writes nothing, reads nothing of the account it runs as, and needs no
+vault, home or network; root's `sync` and the interface's *Join* use it instead of a checker of their own.
+`--signed-by` is repeated for several keys, each the key itself, never a fingerprint.
 
 ## Why
 
@@ -26,8 +26,9 @@ Read in the code on 2026-10-28.
   `Reconcile`'s check in a scratch directory (`FollowSignedBy.checked`).
 - **The plan:** `ProjectVerifyCommand` (`app-project`) runs the same check on the given repository or bundle, with
   `--since` as the commit in force, and for the access repository ([B310](README.md#b310)) with `--access-since`.
-- It answers `{"project","commit","access_commit","signer","host","developers","transports"}` for the newest
-  commits that hold, or exits 65 naming why; 66 when a path is not there.
+- It answers `{"project","commit","access_commit","signer","signers","host","developers","transports"}` for the
+  newest commits that hold, `signers` being the keys in force after a handover, or exits 65 naming why; 66 when a
+  path is not there.
 - It reads no vault and opens no network: a bundle or a local path only, refused otherwise.
 - **Docs:** `doc/commands.md`, `doc/hosts.md`. **Red first:** a forged access commit, a non-descending one, a key
   handed over, each answered as `follow` answers it.
@@ -37,7 +38,3 @@ Read in the code on 2026-10-28.
 - Seen to fail first, then green, in `app-project` tests.
 - Run with no `$HOME`, no vault and no network (as `systemd-run -p DynamicUser=yes -p PrivateNetwork=yes` gives),
   it answers the same.
-
-## To be checked
-
-- Whether `--signed-by` takes several keys, as `follow` does.
