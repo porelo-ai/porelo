@@ -8,6 +8,8 @@ import java.util.List;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
+import org.fuin.porelo.core.project.Access;
+import org.fuin.porelo.core.project.AccessFile;
 import org.fuin.porelo.core.project.ProjectException;
 import org.fuin.porelo.core.project.ProjectReader;
 
@@ -143,9 +145,31 @@ public final class Reconcile {
      * @param signer The fingerprint of the key that signed the refused commit - or, once one is
      *     applied or unchanged, the commit in force - or "" when there is none to name. Only the
      *     fingerprint, which is not a secret.
+     * @param accessCommit The access commit in force, or "" when none is.
+     * @param accessOutcome The last access attempt's outcome name, or "" when none was tried.
      */
     public record Result(
-            Outcome outcome, String commit, String detail, String refused, String signer) {
+            Outcome outcome,
+            String commit,
+            String detail,
+            String refused,
+            String signer,
+            String accessCommit,
+            String accessOutcome) {
+
+        /**
+         * Constructor for an attempt with no access result.
+         *
+         * @param outcome What happened.
+         * @param commit The commit in force.
+         * @param detail What to tell an operator.
+         * @param refused The commit turned away, or "".
+         * @param signer The signer's fingerprint, or "".
+         */
+        public Result(
+                Outcome outcome, String commit, String detail, String refused, String signer) {
+            this(outcome, commit, detail, refused, signer, "", "");
+        }
 
         /**
          * Constructor for an outcome that turned nothing away.
@@ -165,16 +189,24 @@ public final class Reconcile {
          *     as a failure that the next pass may fix by itself.
          */
         public boolean needsAPerson() {
-            return outcome == Outcome.UNKNOWN_KEY
-                    || outcome == Outcome.NOT_SIGNED
-                    || outcome == Outcome.NO_ANCHOR
-                    || outcome == Outcome.REWRITTEN
-                    || outcome == Outcome.UNUSABLE
-                    || outcome == Outcome.VAULT_LOCKED
-                    || outcome == Outcome.NO_CREDENTIAL
-                    || outcome == Outcome.UNKNOWN_HOST_KEY
-                    || outcome == Outcome.HOST_KEY_CHANGED
-                    || outcome == Outcome.UNUSABLE_VALUE;
+            return needsAPerson(outcome.name()) || needsAPerson(accessOutcome);
+        }
+
+        private static boolean needsAPerson(final String outcome) {
+            return switch (outcome) {
+                case "UNKNOWN_KEY",
+                        "NOT_SIGNED",
+                        "NO_ANCHOR",
+                        "REWRITTEN",
+                        "UNUSABLE",
+                        "VAULT_LOCKED",
+                        "NO_CREDENTIAL",
+                        "UNKNOWN_HOST_KEY",
+                        "HOST_KEY_CHANGED",
+                        "UNUSABLE_VALUE" ->
+                        true;
+                default -> false;
+            };
         }
     }
 
@@ -183,6 +215,8 @@ public final class Reconcile {
     private final ConfigurationGate gate;
 
     private final SignerHandover handover;
+
+    private final Path signers;
 
     /**
      * Constructor.
@@ -202,6 +236,7 @@ public final class Reconcile {
      */
     public Reconcile(final PoreloContext context, final Path signers) {
         this.context = context;
+        this.signers = signers;
         this.gate = new ConfigurationGate(context.runner(), signers);
         this.handover = new SignerHandover(context.runner(), signers);
     }
@@ -260,7 +295,12 @@ public final class Reconcile {
                                                                 "",
                                                                 "this account no longer follows "
                                                                         + followed.name()))
-                                        : run(current, clone);
+                                        : run(
+                                                current,
+                                                clone,
+                                                context.paths()
+                                                        .projects()
+                                                        .followedAccessClone(current.name()));
                             });
             return result;
         } catch (final java.io.IOException ex) {
@@ -303,19 +343,27 @@ public final class Reconcile {
         try {
             scratch = Files.createTempDirectory("porelo-follow-check-");
             final Path clone = scratch.resolve("clone");
+            // A handover a check walks pins into a copy; with no file there is nothing to pin, and
+            // the refusal names the file a person must write.
+            final Path checkSigners =
+                    Files.exists(signers)
+                            ? Files.copy(signers, scratch.resolve("signers"))
+                            : signers;
             final Result result =
-                    run(
-                            new FollowedProjects.Followed(
-                                    followed.name(),
-                                    followed.url(),
-                                    "",
-                                    followed.at(),
-                                    followed.outcome(),
-                                    followed.detail(),
-                                    followed.refused(),
-                                    followed.signer(),
-                                    followed.unverified()),
-                            clone);
+                    new Reconcile(context, checkSigners)
+                            .run(
+                                    new FollowedProjects.Followed(
+                                            followed.name(),
+                                            followed.url(),
+                                            "",
+                                            followed.at(),
+                                            followed.outcome(),
+                                            followed.detail(),
+                                            followed.refused(),
+                                            followed.signer(),
+                                            followed.unverified()),
+                                    clone,
+                                    scratch.resolve("access"));
             // Read whatever the gate said: with no key pinned here it verifies nothing and names no
             // signer.
             return new Checked(
@@ -378,7 +426,202 @@ public final class Reconcile {
         }
     }
 
-    private Result run(final FollowedProjects.Followed followed, final Path clone) {
+    private Result run(
+            final FollowedProjects.Followed followed, final Path clone, final Path accessClone) {
+        final Result project = reconcileProject(followed, clone);
+        if (project.outcome() != Outcome.APPLIED && project.outcome() != Outcome.UNCHANGED) {
+            return new Result(
+                    project.outcome(),
+                    project.commit(),
+                    project.detail(),
+                    project.refused(),
+                    project.signer(),
+                    followed.accessCommit(),
+                    followed.accessOutcome());
+        }
+        String inForce = followed.accessCommit();
+        try {
+            // The verified commit alone may select a source of access settings.
+            final Access access =
+                    readAt(context.runner(), clone, project.commit(), clone.resolve("project.yml"))
+                            .access();
+            if (access == null) {
+                return project;
+            }
+            // An access commit belongs to the place it came from: once the project names another,
+            // none is in force there, so neither is the old one served nor its descent asked for.
+            if (!namedBefore(clone, followed.commit(), project.commit(), access)) {
+                inForce = "";
+            }
+            final Result applied =
+                    switch (access) {
+                        case Access.BesideProject beside ->
+                                readAccess(clone, project.commit(), inForce);
+                        case Access.InRepository repository ->
+                                reconcileAccess(followed, repository.url(), accessClone, inForce);
+                    };
+            return withAccess(project, applied);
+        } catch (final RuntimeException ex) {
+            return withAccess(
+                    project,
+                    new Result(Outcome.UNUSABLE, inForce, String.valueOf(ex.getMessage())));
+        }
+    }
+
+    /** Whether the project file in force before named the access file where this one does. */
+    private boolean namedBefore(
+            final Path clone, final String before, final String now, final Access access) {
+        if (before.isEmpty() || before.equals(now)) {
+            return true;
+        }
+        try {
+            return access.equals(
+                    readAt(context.runner(), clone, before, clone.resolve("project.yml")).access());
+        } catch (final RuntimeException ex) {
+            return false;
+        }
+    }
+
+    private static Result withAccess(final Result project, final Result access) {
+        final String detail =
+                access.detail().isEmpty()
+                        ? project.detail()
+                        : (project.detail().isEmpty() ? "" : project.detail() + "; ")
+                                + "access file: "
+                                + access.detail();
+        return new Result(
+                project.outcome(),
+                project.commit(),
+                detail,
+                project.refused(),
+                project.signer(),
+                access.commit(),
+                access.outcome().name());
+    }
+
+    private Result reconcileAccess(
+            final FollowedProjects.Followed followed,
+            final String url,
+            final Path clone,
+            final String inForce) {
+        final FollowedProjects.Followed access =
+                new FollowedProjects.Followed(followed.name(), url, inForce, "", "", "");
+        final Result failed = fetch(access, clone);
+        if (failed != null) {
+            return new Result(
+                    failed.outcome(),
+                    failed.commit(),
+                    failed.detail()
+                            + "; keeping access commit "
+                            + (access.commit().isEmpty() ? "(none)" : access.commit()));
+        }
+        try {
+            final ConfigurationGate.Verdict verdict =
+                    gate.verify(clone, "FETCH_HEAD", followed.name());
+            if (!followed.unverified() && !verdict.mayApply()) {
+                return refused(access, verdict);
+            }
+            final String commit =
+                    verdict.commit().isEmpty() ? headOf(context.runner(), clone) : verdict.commit();
+            if (!access.commit().isEmpty() && !descends(clone, access.commit(), commit)) {
+                return new Result(
+                        Outcome.REWRITTEN,
+                        access.commit(),
+                        commit
+                                + " is not a descendant of access commit "
+                                + access.commit()
+                                + ", which is in force. Accept the rewrite with 'porelo projects follow "
+                                + followed.name()
+                                + " "
+                                + followed.url()
+                                + " --accept-rewrite'.");
+            }
+            final Result read = readAccess(clone, commit, access.commit());
+            if (read.outcome() != Outcome.APPLIED) {
+                return read;
+            }
+            // A signature and a readable access file must both precede the working tree's move.
+            final CommandResult moved =
+                    context.runner()
+                            .run(
+                                    Command.of(
+                                            "git",
+                                            "-C",
+                                            clone.toString(),
+                                            "reset",
+                                            "--hard",
+                                            "--quiet",
+                                            commit));
+            return moved.successful()
+                    ? read
+                    : new Result(
+                            Outcome.FAILED,
+                            access.commit(),
+                            "have "
+                                    + commit
+                                    + " and could not check it out: "
+                                    + moved.standardError().strip());
+        } catch (final RuntimeException ex) {
+            return new Result(Outcome.FAILED, access.commit(), String.valueOf(ex.getMessage()));
+        }
+    }
+
+    private Result readAccess(final Path clone, final String commit, final String inForce) {
+        try {
+            final CommandResult shown =
+                    context.runner()
+                            .run(
+                                    Command.of(
+                                            "git",
+                                            "-C",
+                                            clone.toString(),
+                                            "show",
+                                            commit + ":" + Access.FILE));
+            if (!shown.successful()) {
+                return new Result(
+                        Outcome.UNUSABLE,
+                        inForce,
+                        "cannot read "
+                                + Access.FILE
+                                + " at "
+                                + commit
+                                + ": "
+                                + shown.standardError().strip());
+            }
+            AccessFile.read(
+                    new java.io.StringReader(shown.standardOutput()),
+                    Access.FILE + " at " + commit);
+            return new Result(
+                    commit.equals(inForce) ? Outcome.UNCHANGED : Outcome.APPLIED, commit, "");
+        } catch (final RuntimeException ex) {
+            return new Result(
+                    Outcome.UNUSABLE,
+                    inForce,
+                    Access.FILE
+                            + " at "
+                            + commit
+                            + " does not read as an access file: "
+                            + ex.getMessage());
+        }
+    }
+
+    private static Result refused(
+            final FollowedProjects.Followed followed, final ConfigurationGate.Verdict verdict) {
+        return new Result(
+                switch (verdict.outcome()) {
+                    case NOT_SIGNED -> Outcome.NOT_SIGNED;
+                    case UNKNOWN_KEY -> Outcome.UNKNOWN_KEY;
+                    case NO_ANCHOR -> Outcome.NO_ANCHOR;
+                    default -> Outcome.UNREADABLE;
+                },
+                followed.commit(),
+                verdict.detail(),
+                verdict.commit(),
+                verdict.signer());
+    }
+
+    private @org.jspecify.annotations.Nullable Result fetch(
+            final FollowedProjects.Followed followed, final Path clone) {
         final CommandRunner runner = context.runner();
         try {
             if (!Files.isDirectory(clone.resolve("HEAD")) && !Files.isDirectory(clone)) {
@@ -494,6 +737,19 @@ public final class Reconcile {
                                 + identityHint(followed.url()));
             }
 
+            return null;
+        } catch (final IOException | RuntimeException ex) {
+            return new Result(Outcome.FAILED, followed.commit(), String.valueOf(ex.getMessage()));
+        }
+    }
+
+    private Result reconcileProject(final FollowedProjects.Followed followed, final Path clone) {
+        final CommandRunner runner = context.runner();
+        final Result failed = fetch(followed, clone);
+        if (failed != null) {
+            return failed;
+        }
+        try {
             final SignerHandover.Handed handed =
                     followed.unverified()
                             ? null
@@ -525,17 +781,7 @@ public final class Reconcile {
                 // The gate already tells these apart; collapsing them into one refusal was throwing
                 // away the only thing that says which of them happened - and the commit that was
                 // turned away with it.
-                return new Result(
-                        switch (verdict.outcome()) {
-                            case NOT_SIGNED -> Outcome.NOT_SIGNED;
-                            case UNKNOWN_KEY -> Outcome.UNKNOWN_KEY;
-                            case NO_ANCHOR -> Outcome.NO_ANCHOR;
-                            default -> Outcome.UNREADABLE;
-                        },
-                        followed.commit(),
-                        verdict.detail(),
-                        verdict.commit(),
-                        verdict.signer());
+                return refused(followed, verdict);
             }
             // Which key signed what is in force, once the signature is verified: a person who
             // pinned it compares it with the one they were given, and an answer without it leaves
@@ -602,24 +848,71 @@ public final class Reconcile {
             final PoreloContext context,
             final FollowedProjects.Followed followed,
             final Result result) {
-        if (result.outcome() != Outcome.APPLIED) {
+        if (result.outcome() == Outcome.APPLIED) {
+            EventLog.record(
+                    context,
+                    EventLog.PROJECT_APPLIED,
+                    followed.name(),
+                    "",
+                    "commit "
+                            + result.commit()
+                            + (followed.unverified()
+                                    ? ", unverified"
+                                    : result.signer().isEmpty()
+                                            ? ""
+                                            : ", signed by " + result.signer())
+                            + (result.detail().isEmpty() ? "" : "; " + result.detail()));
+        }
+        if ((result.outcome() != Outcome.APPLIED && result.outcome() != Outcome.UNCHANGED)
+                || !Outcome.APPLIED.name().equals(result.accessOutcome())
+                || result.accessCommit().equals(followed.accessCommit())) {
             return;
         }
-        EventLog.record(
-                context,
-                EventLog.PROJECT_APPLIED,
-                followed.name(),
-                "",
-                "commit "
-                        + result.commit()
-                        + (followed.unverified()
-                                ? ", unverified"
-                                : result.signer().isEmpty() ? "" : ", signed by " + result.signer())
-                        + (result.detail().isEmpty() ? "" : "; " + result.detail()));
+        try {
+            final Path clone = context.paths().projects().followedClone(followed.name());
+            final Access access =
+                    readAt(context.runner(), clone, result.commit(), clone.resolve("project.yml"))
+                            .access();
+            final String location;
+            final Path repository;
+            switch (access) {
+                case Access.InRepository inRepository -> {
+                    location =
+                            "access file in "
+                                    + inRepository.url()
+                                    + " commit "
+                                    + result.accessCommit();
+                    repository = context.paths().projects().followedAccessClone(followed.name());
+                }
+                case Access.BesideProject beside -> {
+                    location = "access file beside project.yml, commit " + result.accessCommit();
+                    repository = clone;
+                }
+                case null ->
+                        throw new IllegalStateException("an applied access commit has a source");
+            }
+            final String signer = signerOf(context.runner(), repository, result.accessCommit());
+            EventLog.record(
+                    context,
+                    EventLog.PROJECT_APPLIED,
+                    followed.name(),
+                    "",
+                    location
+                            + (followed.unverified()
+                                    ? ", unverified"
+                                    : signer.isEmpty() ? "" : ", signed by " + signer));
+        } catch (final RuntimeException ex) {
+            System.err.println(
+                    "porelo: the event log could not record the access file: " + ex.getMessage());
+        }
     }
 
     private static String signerOf(final CommandRunner runner, final Path clone) {
-        final String key = SignedBy.keyOf(runner, clone, "FETCH_HEAD");
+        return signerOf(runner, clone, "FETCH_HEAD");
+    }
+
+    private static String signerOf(final CommandRunner runner, final Path clone, final String ref) {
+        final String key = SignedBy.keyOf(runner, clone, ref);
         final String fingerprint = key == null ? null : SignedBy.fingerprintOf(key);
         return fingerprint == null ? "" : fingerprint;
     }
@@ -942,6 +1235,8 @@ public final class Reconcile {
                 result.detail(),
                 result.refused(),
                 result.signer(),
-                followed.unverified());
+                followed.unverified(),
+                result.accessCommit(),
+                result.accessOutcome());
     }
 }

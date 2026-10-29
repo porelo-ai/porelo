@@ -197,6 +197,8 @@ public final class Clearing {
         final FollowedProjects followed =
                 new FollowedProjects(context.paths().projects().followed());
         final @Nullable String url = followedUrl(followed, name);
+        final List<ConversationSettings> settings =
+                known == null ? List.of() : conversationSettings(known, dryRun);
         final ProjectDeletion.Result deleted =
                 new ProjectDeletion(context).unfollow(name, dryRun, force);
         boolean refusedListing = false;
@@ -264,7 +266,7 @@ public final class Clearing {
         if (known == null) {
             return new Result(List.copyOf(items), List.of(), "", refusedListing);
         }
-        conversations(known, dryRun, items);
+        conversations(known, settings, dryRun, items);
         final List<LeftDeployKeys.Key> keys = keys(known, dryRun, items);
         final String signer = signer(name, items);
         return new Result(List.copyOf(items), keys, signer, refusedListing);
@@ -434,11 +436,38 @@ public final class Clearing {
         }
     }
 
+    private record ConversationSettings(String scheme, Map<String, Object> settings, String why) {}
+
+    private List<ConversationSettings> conversationSettings(
+            final Project project, final boolean dryRun) {
+        final List<ConversationSettings> settings = new ArrayList<>();
+        for (final String scheme : project.mail().conversations()) {
+            try {
+                settings.add(
+                        new ConversationSettings(
+                                scheme,
+                                dryRun
+                                        ? Map.of()
+                                        : ProjectAccess.settings(context, project, scheme),
+                                ""));
+            } catch (final ProjectAccess.Withheld ex) {
+                settings.add(
+                        new ConversationSettings(
+                                scheme, Map.of(), String.valueOf(ex.getMessage())));
+            }
+        }
+        return settings;
+    }
+
     private void conversations(
-            final Project project, final boolean dryRun, final List<Item> items) {
+            final Project project,
+            final List<ConversationSettings> settings,
+            final boolean dryRun,
+            final List<Item> items) {
         final TransportLifecycle lifecycle =
                 new TransportLifecycle(context, context.paths().messaging().transportDirectory());
-        for (final String scheme : project.mail().conversations()) {
+        for (final ConversationSettings each : settings) {
+            final String scheme = each.scheme();
             final String what =
                     "the project's " + scheme + " conversation, and what this machine kept for it";
             if (dryRun) {
@@ -452,13 +481,20 @@ public final class Clearing {
                                 project.name()));
                 continue;
             }
+            if (!each.why().isEmpty()) {
+                items.add(
+                        new Item(
+                                "conversation",
+                                what,
+                                Status.NOT_REMOVED,
+                                each.why(),
+                                scheme,
+                                project.name()));
+                continue;
+            }
             try {
-                final Map<String, Object> settings =
-                        project.mail().transports().get(scheme) instanceof Map<?, ?> said
-                                ? cast(said)
-                                : Map.of();
                 lifecycle
-                        .clear(scheme, project.name(), settings)
+                        .clear(scheme, project.name(), each.settings())
                         .forEach(
                                 said ->
                                         items.add(
@@ -559,10 +595,5 @@ public final class Clearing {
         } catch (final IOException | RuntimeException ex) {
             return null;
         }
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Map<String, Object> cast(final Map<?, ?> said) {
-        return (Map<String, Object>) said;
     }
 }

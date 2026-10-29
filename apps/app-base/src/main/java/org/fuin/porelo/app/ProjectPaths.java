@@ -44,6 +44,16 @@ public record ProjectPaths(PoreloPaths paths) {
     }
 
     /**
+     * Returns the access repository's clone, serialized by the project's existing clone lock.
+     *
+     * @param project The project's name.
+     * @return The clone's directory, which need not exist.
+     */
+    public Path followedAccessClone(String project) {
+        return followed().resolve(project + ".access.git");
+    }
+
+    /**
      * Returns the lock that serializes changes to a followed project's clone.
      *
      * @param project The project's name.

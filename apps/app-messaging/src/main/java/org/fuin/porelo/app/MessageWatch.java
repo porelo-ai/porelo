@@ -374,9 +374,17 @@ public final class MessageWatch implements AutoCloseable {
 
     private int moveEach(final Moving prepared, final List<Path> mailboxes) {
         int moved = 0;
+        final java.util.Map<String, String> withheld = new java.util.HashMap<>();
         for (final Path mailbox : mailboxes) {
             try {
                 final String container = mailbox.getFileName().toString();
+                final String project = projectOf(container);
+                if (project != null
+                        && withheld.computeIfAbsent(project, this::withheld).length() > 0) {
+                    // Nothing is sent or fetched for it: its messages wait in its mailbox, and the
+                    // conversation pass says why.
+                    continue;
+                }
                 // A mailbox whose project is gone has no peers to send to, so nothing it decides is
                 // read; its own name keeps it from reading another project's holds.
                 final Mail reachable = peersOf(container);
@@ -645,6 +653,14 @@ public final class MessageWatch implements AutoCloseable {
         final List<TransportConversations.Member> members = members(mailboxes, projects);
         waiting(pass.transports(), members);
         final List<String> failures = new ArrayList<>(conversations.pass(members).failures());
+        new java.util.LinkedHashSet<>(projects.values())
+                .forEach(
+                        project -> {
+                            final String why = withheld(project);
+                            if (!why.isEmpty()) {
+                                failures.add("messages of " + project + " wait: " + why);
+                            }
+                        });
         // Said, once while it lasts: a locked vault stopped every conversation without a word.
         final String waits = members.isEmpty() ? "" : Conversations.vaultWait(context);
         if (!waits.isEmpty()) {
@@ -695,10 +711,13 @@ public final class MessageWatch implements AutoCloseable {
                 // The ones asked for still take part.
             }
         }
+        final java.util.Map<String, String> withheld = new java.util.HashMap<>();
         for (final Path mailbox : taking) {
             final String container = mailbox.getFileName().toString();
             final String project = projectOf(container);
-            if (project == null) {
+            if (project == null || withheld.computeIfAbsent(project, this::withheld).length() > 0) {
+                // No send and no poll for a project whose access file is not applied: the
+                // transport's account was set up from settings no longer in force.
                 continue;
             }
             for (final String scheme : peersOf(container).conversations()) {
@@ -708,6 +727,31 @@ public final class MessageWatch implements AutoCloseable {
             }
         }
         return members;
+    }
+
+    /**
+     * Says why a project's messages may not reach its transport, or "" when they may.
+     *
+     * @param project The project's name.
+     * @return The reason; "" for a project naming no access file, or one that cannot be read here,
+     *     whose task start already said why.
+     */
+    String withheld(final String project) {
+        final Project read;
+        try {
+            read = GateSupport.byName(context, project);
+        } catch (final org.fuin.porelo.core.project.ProjectException ex) {
+            return "";
+        }
+        if (read.access() == null) {
+            return "";
+        }
+        try {
+            ProjectAccess.applied(context, read);
+            return "";
+        } catch (final ProjectAccess.Withheld ex) {
+            return String.valueOf(ex.getMessage());
+        }
     }
 
     /**

@@ -67,6 +67,7 @@ class ProjectFollowingCommandTest {
                         "{\"follows\":[{\"name\":\"porelo\","
                                 + "\"url\":\"git@github.com:porelo-ai/porelo-project.git\","
                                 + "\"commit\":\"\",\"outcome\":\"\",\"verified\":false,"
-                                + "\"signed_by\":[],\"detail\":\"\",\"refused\":\"\"}]}");
+                                + "\"signed_by\":[],\"detail\":\"\",\"refused\":\"\","
+                                + "\"access_commit\":\"\",\"access_outcome\":\"\"}]}");
     }
 }

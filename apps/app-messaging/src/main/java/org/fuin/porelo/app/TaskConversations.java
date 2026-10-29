@@ -50,7 +50,6 @@ final class TaskConversations {
 
     @Nullable String enroll(Project project, String container, StartSteps steps) {
         for (final String scheme : project.mail().conversations()) {
-            final Map<String, Object> settings = settings(project, scheme);
             steps.conversation(scheme);
             final java.nio.file.Path adapter =
                     context.paths().messaging().transportDirectory().find(scheme);
@@ -62,6 +61,7 @@ final class TaskConversations {
                     StartStep.Step.CONVERSATION,
                     waitsOn.isEmpty() ? "the " + scheme + " transport" : waitsOn);
             try {
+                final Map<String, Object> settings = settings(project, scheme);
                 final boolean offline = project.securityClass() == SecurityClass.OFFLINE;
                 final TransportLifecycle.Conversation conversation =
                         lifecycle.setup(scheme, project.name(), settings, offline);
@@ -506,11 +506,13 @@ final class TaskConversations {
                 .resolve(project.name() + ".json");
     }
 
-    @SuppressWarnings("unchecked")
-    private static Map<String, Object> settings(Project project, String scheme) {
-        return project.mail().transports().get(scheme) instanceof Map<?, ?> said
-                ? (Map<String, Object>) said
-                : Map.of();
+    private Map<String, Object> settings(Project project, String scheme)
+            throws TransportLifecycle.Refused {
+        try {
+            return ProjectAccess.settings(context, project, scheme);
+        } catch (ProjectAccess.Withheld ex) {
+            throw new TransportLifecycle.Refused(String.valueOf(ex.getMessage()), 78);
+        }
     }
 
     /**

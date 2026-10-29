@@ -31,6 +31,8 @@ package org.fuin.porelo.core.project;
  * @param branch How a task's branch at the forge is named, for its own repository and every
  *     repository that names no scheme of its own; {@code null} when the file has no {@code branch}
  *     block, which names it {@code porelo/<task>}.
+ * @param access Where the project keeps its access file, or {@code null} when it has none and its
+ *     transports' settings are in {@code project.yml}.
  */
 public record Project(
         String name,
@@ -49,7 +51,69 @@ public record Project(
         @org.jspecify.annotations.Nullable String imageVariant,
         Parameters parameters,
         @org.jspecify.annotations.Nullable String nickname,
-        @org.jspecify.annotations.Nullable BranchScheme branch) {
+        @org.jspecify.annotations.Nullable BranchScheme branch,
+        @org.jspecify.annotations.Nullable Access access) {
+
+    /**
+     * Constructor for a project with no access file, whose transports' settings are in {@code
+     * project.yml}.
+     *
+     * @param name Short name.
+     * @param description Human-readable description.
+     * @param securityClass Trust level.
+     * @param baseImage Base image.
+     * @param imageSnippet Extra build lines, or {@code null}.
+     * @param upstream Where approved work goes, or {@code null}.
+     * @param limits What a task may consume.
+     * @param egress What the project's own tooling may reach.
+     * @param packageSources Where apt fetches from, or {@code null} for the default.
+     * @param mail The peers its tasks may address.
+     * @param repositories The work repositories it names.
+     * @param credentials Vault entries every task holds, by the destination each is for.
+     * @param builds Where its builds are read, or {@code null}.
+     * @param imageVariant The repository whose own image this is, or {@code null}.
+     * @param parameters The values a task of it may be started with.
+     * @param nickname The one word the agent of its own repository goes by, or {@code null}.
+     * @param branch How a task's branch is named, or {@code null}.
+     */
+    public Project(
+            String name,
+            String description,
+            SecurityClass securityClass,
+            String baseImage,
+            @org.jspecify.annotations.Nullable String imageSnippet,
+            @org.jspecify.annotations.Nullable String upstream,
+            Limits limits,
+            Egress egress,
+            java.util.@org.jspecify.annotations.Nullable List<String> packageSources,
+            Mail mail,
+            java.util.List<Repository> repositories,
+            java.util.Map<String, String> credentials,
+            @org.jspecify.annotations.Nullable Builds builds,
+            @org.jspecify.annotations.Nullable String imageVariant,
+            Parameters parameters,
+            @org.jspecify.annotations.Nullable String nickname,
+            @org.jspecify.annotations.Nullable BranchScheme branch) {
+        this(
+                name,
+                description,
+                securityClass,
+                baseImage,
+                imageSnippet,
+                upstream,
+                limits,
+                egress,
+                packageSources,
+                mail,
+                repositories,
+                credentials,
+                builds,
+                imageVariant,
+                parameters,
+                nickname,
+                branch,
+                null);
+    }
 
     /**
      * Constructor for a project that says nothing of its task's branches: {@code porelo/<task>}.
@@ -1003,6 +1067,7 @@ public record Project(
                 repository,
                 parameters,
                 nickname,
-                branch);
+                branch,
+                access);
     }
 }

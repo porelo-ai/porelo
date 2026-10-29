@@ -842,6 +842,10 @@ public final class ProjectInventory {
         // Derived from the outcome rather than stored, so the two cannot come to disagree - and so
         // an interface does not have to keep a list of which outcomes are stuck in step with ours.
         map.put("needsAPerson", followed.needsAPerson());
+        // The access file's state beside the project's: a project naming one reaches no transport
+        // until a commit of it is in force.
+        map.put("accessCommit", followed.accessCommit());
+        map.put("accessOutcome", followed.accessOutcome());
         return map;
     }
 

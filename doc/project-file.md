@@ -175,8 +175,15 @@ mail:
   # outgoing_filter: blocking
   # Optional. Each transport's own settings, by scheme. A transport named here gives the project its
   # conversation, through which its tasks reach each other; a peer is needed only for someone else.
+  # Refused once 'access' names an access file: they are in that file then.
   # transports:
   #   matrix: {}
+
+# Optional. Where the project's access file is - its host, developers and transports' settings,
+# signed like this file and kept out of it. Exactly one of the two. See "The access file" below.
+# access:
+#   repository: git@forge.example:acme/acme-access.git   # access.yml in a repository of its own
+#   file: access.yml                                      # or access.yml beside this file
 
 # Credentials every task of this project holds beyond its agent's own: vault entry name and the
 # destination it is for. Only NAMES are here; a task gets a token worthless anywhere else.
@@ -452,6 +459,64 @@ The credential needs read access to the project's own repository, which the mach
 configuration, and write access to work repositories, where it pushes approved work. A token for git
 needs no forge administration right. The forge's API uses a token for its own operations, separately
 from git.
+
+## The access file
+
+A project file is often public. What would identify the people and machines behind a project - a
+prepared host's address and WireGuard endpoint, each developer's account, laptops and keys, the
+conversation server's name, room and CA - goes into a second file, `access.yml`, which
+`project.yml` names under `access`:
+
+- **`access: {repository: <url>}`** - `access.yml` at the top of a repository of its own. A machine
+  fetches it with the person's own credential for that host, as it fetches the project's repository,
+  so whoever follows the project needs read access to both.
+- **`access: {file: access.yml}`** - `access.yml` beside `project.yml`, in the same commit. Nothing
+  else is fetched. **It is then as visible as the project's repository**: if that repository is
+  public, so are the host's address and endpoint and the developers' accounts and keys. Porelo does
+  not find out whether a repository is public; the choice is the project's.
+
+The access file is checked against the project's own signers in either place: a commit of the
+access repository must be signed by a key the project's chain has in force, and must descend from
+the access commit in force, or it waits for `--accept-rewrite` as a project commit does. Beside
+`project.yml`, it is read from the verified project commit and from nothing else. A second
+repository is for confidentiality, never for trust. Once the project file names another place, the
+access commit of the old one is no longer in force; the new place's first commit needs no descent.
+
+Until an access file is applied, nothing reaches a transport for the project: no account is made or
+admitted, and its tasks' messages wait in their mailboxes, neither sent nor fetched;
+`porelo project following` says why. Settings are taken from the commit in force, never from a
+working tree.
+
+```yaml
+host:
+  address: host.example.org
+  endpoint: host.example.org:51820
+  wireguard_public_key: "<the host's WireGuard public key>"
+  network: 10.77.0.0/24
+  ssh_host_key: "ssh-ed25519 AAAA..."
+  ca_sha256: "<SHA-256 of the host's CA certificate, hex>"
+developers:
+  alice:
+    laptops:
+      - ssh_public_key: "ssh-ed25519 AAAA... alice@laptop"
+        wireguard_public_key: "<the laptop's WireGuard public key>"
+        vpn_address: 10.77.0.10
+    forge_login: alice-forge     # optional
+transports:
+  matrix: {homeserver: "https://host.example.org:8448", room: "#acme:host.example.org"}
+```
+
+- **Public keys and addresses only.** No signers - those are the project file's - and nothing
+  secret; a value holding a private key is refused. A laptop's `vpn_address` lies inside `network`,
+  is not its first address (the host's own), and is used once.
+- **No transport runs for the project until its access file is applied.** While it is not readable,
+  not verified, waiting for a rewrite, or names nothing for a transport the project uses, a task's
+  start, `porelo talk` and the conversation's messages are refused or wait, each naming why.
+  `porelo project following` shows the access file's state beside the project's.
+- **Moving a project's transport settings into an access file:** write `access.yml` with the
+  `transports` block from `project.yml`, commit and sign it where `access` will point, then remove
+  `mail.transports` from `project.yml` and add `access` in one signed commit. A project file naming
+  `access` that still holds `mail.transports` is refused.
 
 ## What is not in here
 

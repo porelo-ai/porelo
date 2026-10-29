@@ -36,7 +36,9 @@ final class ProjectSchema {
                         "credentials",
                         "builds",
                         "parameters",
-                        "branch"));
+                        "branch",
+                        "access"));
+        SECTIONS.put("access", Set.of("repository", "file"));
         SECTIONS.put("branch", Set.of("template", "pattern"));
         SECTIONS.put("builds", Set.of("forge", "credential", "api", "logs"));
         SECTIONS.put(
@@ -118,6 +120,31 @@ final class ProjectSchema {
                                     + " keeps every branch it matches from the tasks.",
                             "string",
                             "^porelo/.+$",
+                            false),
+                    key(
+                            "",
+                            "access",
+                            "Where the project's access file is: its host, developers and"
+                                    + " transports' settings, signed like this file and kept out of"
+                                    + " it.",
+                            "map",
+                            "",
+                            false),
+                    key(
+                            "access",
+                            "repository",
+                            "A repository of its own holding access.yml, fetched with this"
+                                    + " account's credential; not with 'file'.",
+                            "string",
+                            "",
+                            false),
+                    key(
+                            "access",
+                            "file",
+                            "access.yml beside this file, in the same commit, as visible as this"
+                                    + " repository; not with 'repository'.",
+                            "string",
+                            "",
                             false),
                     key(
                             "",
@@ -573,7 +600,9 @@ final class ProjectSchema {
         final List<String> unknown = new java.util.ArrayList<>();
         keys(root, "", "", origin, unknown);
         for (final String section :
-                List.of("project", "image", "egress", "limits", "mail", "builds", "branch")) {
+                List.of(
+                        "project", "image", "egress", "limits", "mail", "builds", "branch",
+                        "access")) {
             if (root.get(section) instanceof Map<?, ?> map) {
                 keys(map, section, section, origin, unknown);
             }

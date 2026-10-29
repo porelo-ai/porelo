@@ -195,6 +195,53 @@ class MessageWatchLoopsTest {
     }
 
     @Test
+    void aTaskOfAProjectWhoseAccessFileIsNotAppliedIsNeitherPolledNorWaitedFor() throws Exception {
+        // A transport a pass asks for what arrived, besides the conversation's: answered first.
+        runner.answering("transport-spool describe", "{\"scheme\":\"spool\",\"poll\":true}");
+        machine("porelo-p-held\tUp 4 minutes\t1700000000\t0\tp\tguarded\n");
+        final Path spool =
+                context.paths()
+                        .xdg()
+                        .data()
+                        .resolve("transports")
+                        .resolve(TransportDirectory.PREFIX + "spool");
+        Files.writeString(spool, "#!/bin/sh\n");
+        assertThat(spool.toFile().setExecutable(true)).as("the transport is executable").isTrue();
+        task("porelo-p-held", true);
+        // The project now names an access file, and none beside it is in force: the account was
+        // set up from settings that no longer hold.
+        Files.writeString(
+                dir.resolve("project.yml"),
+                """
+                project:
+                  name: "p"
+                  security_class: "guarded"
+                image:
+                  base_image: "ubuntu:24.04"
+                mail:
+                  peers:
+                    reviewer: { address: "room:", trust: vouched }
+                    bob: { address: "spool:bob", trust: vouched }
+                access:
+                  file: "access.yml"
+                """);
+        final int before = runner.invocations().size();
+
+        watch.passOnce();
+
+        assertThat(runner.invocations().subList(before, runner.invocations().size()))
+                .as("no poll and no send reaches the transport")
+                .noneMatch(
+                        each ->
+                                each.arguments().contains("poll")
+                                        || each.arguments().contains("send"));
+        assertThat(loops("porelo-direct-porelo-p-held"))
+                .as("no loop on its direct chats")
+                .isEmpty();
+        assertThat(loops("porelo-conversation-p")).as("none on its conversation").isEmpty();
+    }
+
+    @Test
     void theLoopsOfARemovedTaskEndAtTheNextPassEvenWithNoMailboxLeft() throws Exception {
         machine("porelo-p-gone\tUp 4 minutes\t1700000000\t0\tp\tguarded\n");
         task("porelo-p-gone", true);

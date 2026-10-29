@@ -1416,6 +1416,23 @@ class ReconcileTest {
     }
 
     @Test
+    void aFailedFirstFollowForgetsItsAccessClone(@TempDir final Path dir) throws Exception {
+        final PoreloContext context = context(dir);
+        final Path accessClone =
+                Files.createDirectories(context.paths().projects().followedAccessClone("demo"));
+        Files.writeString(accessClone.resolve("access.yml"), "{}\n");
+
+        final FollowSignedBy.Answer answer =
+                new FollowSignedBy(context)
+                        .follow("demo", dir.resolve("missing.git").toString(), null, true, false);
+
+        assertThat(answer.recorded()).as("the first follow could not apply").isFalse();
+        assertThat(accessClone)
+                .as("forgetting a first follow removes its access clone too")
+                .doesNotExist();
+    }
+
+    @Test
     void an_offline_project_is_followed_from_a_local_directory(@TempDir final Path dir)
             throws Exception {
         final PoreloContext context = context(dir);

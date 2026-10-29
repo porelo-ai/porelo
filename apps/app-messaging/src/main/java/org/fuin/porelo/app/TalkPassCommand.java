@@ -85,6 +85,12 @@ public class TalkPassCommand implements Callable<Integer>, PoreloFactory.Context
         // than passing with no peers.
         GateSupport.byName(context, project);
         final MessageWatch watch = new MessageWatch(context, java.time.Duration.ZERO);
+        final String withheld = watch.withheld(project);
+        if (!withheld.isEmpty()) {
+            err.println("porelo: nothing was sent or fetched for " + container + ": " + withheld);
+            err.flush();
+            return 78;
+        }
         watch.conversations(pass, java.util.List.of(mailbox.root()))
                 .forEach(failure -> err.println("porelo: " + TalkReadCommand.shown(failure)));
         final MessagePass.Report report =

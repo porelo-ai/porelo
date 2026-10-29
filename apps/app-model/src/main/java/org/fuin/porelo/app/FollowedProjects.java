@@ -46,6 +46,8 @@ public final class FollowedProjects {
      *     is <em>whoever may push here decides what tasks on this machine may reach</em>, rather
      *     than <em>whoever holds the signing key</em>, and that belongs on screen wherever this
      *     project is.
+     * @param accessCommit The access commit in force, or "" when none is.
+     * @param accessOutcome The last access attempt's outcome, or "" when none was tried.
      */
     public record Followed(
             String name,
@@ -56,7 +58,35 @@ public final class FollowedProjects {
             String detail,
             String refused,
             String signer,
-            boolean unverified) {
+            boolean unverified,
+            String accessCommit,
+            String accessOutcome) {
+
+        /**
+         * Constructor for a record from before access files were followed.
+         *
+         * @param name Project name.
+         * @param url Where its repository is.
+         * @param commit The commit in force, or "".
+         * @param at When it was last tried, or "".
+         * @param outcome What happened, or "".
+         * @param detail What to tell an operator, or "".
+         * @param refused The commit turned away, or "".
+         * @param signer The fingerprint that signed it, or "".
+         * @param unverified Whether it is followed without an anchor.
+         */
+        public Followed(
+                String name,
+                String url,
+                String commit,
+                String at,
+                String outcome,
+                String detail,
+                String refused,
+                String signer,
+                boolean unverified) {
+            this(name, url, commit, at, outcome, detail, refused, signer, unverified, "", "");
+        }
 
         /**
          * Constructor for a record that turned nothing away.
@@ -85,6 +115,10 @@ public final class FollowedProjects {
          * @return {@code true} when it is stuck until a person does something.
          */
         public boolean needsAPerson() {
+            return needsAPerson(outcome) || needsAPerson(accessOutcome);
+        }
+
+        private static boolean needsAPerson(final String outcome) {
             return switch (outcome) {
                 case "NOT_SIGNED",
                         "UNKNOWN_KEY",
@@ -135,7 +169,18 @@ public final class FollowedProjects {
          * @return A copy with no commit in force.
          */
         public Followed forgettingWhatIsInForce() {
-            return new Followed(name, url, "", at, outcome, detail, refused, signer, unverified);
+            return new Followed(
+                    name,
+                    url,
+                    "",
+                    at,
+                    outcome,
+                    detail,
+                    refused,
+                    signer,
+                    unverified,
+                    "",
+                    accessOutcome);
         }
     }
 
@@ -226,7 +271,9 @@ public final class FollowedProjects {
                                 existing.detail(),
                                 existing.refused(),
                                 existing.signer(),
-                                unverified)
+                                unverified,
+                                existing.accessCommit(),
+                                existing.accessOutcome())
                         : new Followed(name, url, "", "", "", "", "", "", unverified);
         write(followed);
         return followed;
@@ -348,6 +395,8 @@ public final class FollowedProjects {
         document.put("refused", followed.refused());
         document.put("signer", followed.signer());
         document.put("unverified", followed.unverified());
+        document.put("accessCommit", followed.accessCommit());
+        document.put("accessOutcome", followed.accessOutcome());
         Files.createDirectories(directory);
         final Path file = directory.resolve(followed.name() + ".json");
         final Path staged = directory.resolve("." + followed.name() + ".json.tmp");
@@ -482,7 +531,9 @@ public final class FollowedProjects {
                 text(document, "detail"),
                 text(document, "refused"),
                 text(document, "signer"),
-                Boolean.TRUE.equals(document.get("unverified")));
+                Boolean.TRUE.equals(document.get("unverified")),
+                text(document, "accessCommit"),
+                text(document, "accessOutcome"));
     }
 
     private static String text(final Map<?, ?> document, final String key) {

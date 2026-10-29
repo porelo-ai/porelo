@@ -150,6 +150,19 @@ public final class ProjectReader {
         final Map<?, ?> project = section(root, "project", origin);
         final Map<?, ?> image = section(root, "image", origin);
         signers(project, origin);
+        final Access access = access(root, origin);
+        final Mail mail = mail(root, origin);
+        if (access != null && !mail.transports().isEmpty()) {
+            // Read from the public file once an access file is named, a server's name and room
+            // would be shown to everyone the access file was meant to hide them from.
+            throw new ProjectException(
+                    origin
+                            + ": 'mail.transports' is in the access file once 'access' names one;"
+                            + " move "
+                            + String.join(", ", mail.transports().keySet())
+                            + " into "
+                            + Access.FILE);
+        }
 
         final Project definition =
                 new Project(
@@ -164,7 +177,7 @@ public final class ProjectReader {
                         limits(root, origin),
                         egress(root, origin),
                         packageSources(image, origin),
-                        mail(root, origin),
+                        mail,
                         repositories(root, origin),
                         credentials(root, origin),
                         builds(
@@ -175,7 +188,8 @@ public final class ProjectReader {
                         null,
                         parameters(root, origin),
                         projectNickname(project, origin),
-                        branch(root.get("branch"), "branch", origin, null));
+                        branch(root.get("branch"), "branch", origin, null),
+                        access);
         for (final Repository repository : definition.repositories()) {
             definition.egressFor(repository);
         }
@@ -242,6 +256,64 @@ public final class ProjectReader {
             }
         }
         return keys;
+    }
+
+    /**
+     * Reads the optional {@code access} section: where the project keeps its access file.
+     *
+     * @param root The whole document.
+     * @param origin Name used in error messages.
+     * @return The place, or {@code null} when the section is absent.
+     * @throws ProjectException Unless it names exactly one of {@code repository} and {@code file},
+     *     and nothing else.
+     */
+    private static @Nullable Access access(Map<?, ?> root, String origin) {
+        final Object value = root.get("access");
+        if (value == null) {
+            return null;
+        }
+        if (!(value instanceof Map<?, ?> access)) {
+            throw new ProjectException(
+                    origin
+                            + ": 'access' must be a mapping naming 'repository: <url>' or 'file: "
+                            + Access.FILE
+                            + "'");
+        }
+        for (final Object key : access.keySet()) {
+            if (!"repository".equals(key) && !"file".equals(key)) {
+                throw new ProjectException(
+                        origin
+                                + ": 'access."
+                                + String.valueOf(key).replaceAll("\\p{Cntrl}", "?")
+                                + "' is not known; 'access' names 'repository' or 'file'");
+            }
+        }
+        final Object repository = access.get("repository");
+        final Object file = access.get("file");
+        if ((repository == null) == (file == null)) {
+            throw new ProjectException(
+                    origin
+                            + ": 'access' names "
+                            + (repository == null
+                                    ? "neither 'repository' nor 'file'"
+                                    : "both 'repository' and 'file'")
+                            + "; it names exactly one place for "
+                            + Access.FILE);
+        }
+        if (!((repository == null ? file : repository) instanceof String place)) {
+            throw new ProjectException(
+                    origin
+                            + ": 'access."
+                            + (repository == null ? "file" : "repository")
+                            + "' is a string");
+        }
+        try {
+            return repository == null
+                    ? new Access.BesideProject(place)
+                    : new Access.InRepository(place);
+        } catch (final ProjectException ex) {
+            throw new ProjectException(origin + ": " + ex.getMessage(), ex);
+        }
     }
 
     /**

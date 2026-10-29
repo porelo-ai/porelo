@@ -333,6 +333,15 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
                                         : one.outcome().toLowerCase(java.util.Locale.ROOT))
                                 + ")");
             }
+            if (!one.accessOutcome().isEmpty()
+                    && !"APPLIED".equals(one.accessOutcome())
+                    && !"UNCHANGED".equals(one.accessOutcome())) {
+                behind.add(
+                        one.name()
+                                + " access ("
+                                + one.accessOutcome().toLowerCase(java.util.Locale.ROOT)
+                                + ")");
+            }
         }
         if (behind.isEmpty()) {
             // Named with the commit each is in force at, because that is what a task of that
@@ -370,7 +379,11 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
         // Read from the outcome rather than worked out again here: a shut vault is its own outcome
         // now, and a second rule beside it is how two answers about one machine come to differ.
         final boolean shut =
-                followed.stream().anyMatch(one -> "VAULT_LOCKED".equals(one.outcome()));
+                followed.stream()
+                        .anyMatch(
+                                one ->
+                                        "VAULT_LOCKED".equals(one.outcome())
+                                                || "VAULT_LOCKED".equals(one.accessOutcome()));
         return Probe.degraded(
                 name,
                 String.join(", ", behind)

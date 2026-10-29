@@ -255,10 +255,11 @@ public final class FollowSignedBy {
             forgetFirstFollow(projects, name);
             return new Answer(result, false, pinned);
         }
-        projects.write(Reconcile.after(projects.require(name), result));
+        final FollowedProjects.Followed beforeApply = projects.require(name);
+        projects.write(Reconcile.after(beforeApply, result));
         // Only once the follow stands: a first follow refused for its key was applied and taken
         // back, and is no event.
-        Reconcile.recordApplied(context, projects.require(name), result);
+        Reconcile.recordApplied(context, beforeApply, result);
         return new Answer(result, true, pinned);
     }
 
@@ -268,6 +269,7 @@ public final class FollowSignedBy {
                 () -> {
                     projects.unfollow(name);
                     FollowedProjects.forget(context.paths().projects().followedClone(name));
+                    FollowedProjects.forget(context.paths().projects().followedAccessClone(name));
                     return true;
                 });
     }

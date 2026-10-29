@@ -1,0 +1,2 @@
+title: A project may name a signed access file, beside its project file or in a repository of its own, from which alone its host, developers and transports' settings are taken once verified against the project's signers.
+type: added

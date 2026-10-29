@@ -340,6 +340,7 @@ public final class ProjectDeletion {
                 }
             }
             deleteTree(context.paths().projects().followedClone(project));
+            deleteTree(context.paths().projects().followedAccessClone(project));
             Files.deleteIfExists(context.paths().projects().projectRegistry().resolve(project));
             for (final Path record : upstreamRecordsOf(project)) {
                 Files.deleteIfExists(record);
@@ -452,6 +453,7 @@ public final class ProjectDeletion {
                         checked.detail());
         try {
             deleteTree(context.paths().projects().followedClone(project));
+            deleteTree(context.paths().projects().followedAccessClone(project));
             return planned;
         } catch (IOException | RuntimeException ex) {
             return failed(planned, "could not remove the followed clone: " + ex.getMessage());
@@ -535,6 +537,12 @@ public final class ProjectDeletion {
                     new Removal(
                             "FOLLOWED_CLONE",
                             context.paths().projects().followedClone(project).toString()));
+        }
+        if (Files.isDirectory(context.paths().projects().followedAccessClone(project))) {
+            removes.add(
+                    new Removal(
+                            "FOLLOWED_CLONE",
+                            context.paths().projects().followedAccessClone(project).toString()));
         }
         final Path cloneLock = context.paths().projects().followedCloneLock(project);
         if (Files.exists(cloneLock)) {

@@ -10,6 +10,8 @@ import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for {@link Clearing}: everything of a project, or of the account, in one step, and an
@@ -50,6 +52,97 @@ class ClearingTest {
         assertThat(result.refused()).as("clearing is allowed").isFalse();
         assertThat(removals.get()).as("the deletion was observed").isPositive();
         assertThat(clone).as("clearing removes the clone after the record").doesNotExist();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"repository", "file"})
+    void clearingKeepsAppliedConversationSettingsBeforeUnfollowing(
+            final String place, @TempDir final Path dir) throws IOException {
+        final PoreloContext context = context(dir);
+        accessProject(context, place, "a1", "APPLIED");
+        final Path adapters = Files.createDirectories(dir.resolve("data/porelo/transports"));
+        final Path adapter = adapters.resolve(TransportDirectory.PREFIX + "room");
+        Files.writeString(adapter, "#!/bin/sh\n");
+        assertThat(adapter.toFile().setExecutable(true)).as("the transport is executable").isTrue();
+        runner.answering("describe", "{\"scheme\":\"room\",\"lifecycle\":[\"clear\"]}");
+        runner.answering(" clear", "{\"removed\":[],\"kept\":[]}");
+
+        final Clearing.Result result = new Clearing(context).project("uc", false, false);
+
+        assertThat(result.items())
+                .filteredOn(item -> item.kind().equals("conversation"))
+                .as("the conversation is cleared after its follow and access file are gone")
+                .singleElement()
+                .satisfies(
+                        item ->
+                                assertThat(item.status())
+                                        .as(item.why())
+                                        .isEqualTo(Clearing.Status.REMOVED));
+        assertThat(runner.only("clear --project uc").input())
+                .as("the transport receives the applied settings captured before unfollowing")
+                .contains("https://access.example.org");
+    }
+
+    @Test
+    void clearingKeepsTheAccessRefusalFromBeforeUnfollowing(@TempDir final Path dir)
+            throws IOException {
+        final PoreloContext context = context(dir);
+        accessProject(context, "repository", "", "UNKNOWN_KEY");
+
+        final Clearing.Result result = new Clearing(context).project("uc", false, false);
+
+        assertThat(result.items())
+                .filteredOn(item -> item.kind().equals("conversation"))
+                .as("the original refusal survives deletion of the follow record")
+                .singleElement()
+                .satisfies(
+                        item -> {
+                            assertThat(item.status())
+                                    .as("the unverified conversation stays")
+                                    .isEqualTo(Clearing.Status.NOT_REMOVED);
+                            assertThat(item.why())
+                                    .as("the reason is captured while still followed")
+                                    .contains("is not applied (unknown_key)");
+                        });
+    }
+
+    private void accessProject(
+            final PoreloContext context,
+            final String place,
+            final String commit,
+            final String outcome)
+            throws IOException {
+        project("uc");
+        final String access =
+                place.equals("repository")
+                        ? "access: {repository: 'git@example.org:uc/access.git'}\n"
+                        : "access: {file: access.yml}\n";
+        Files.writeString(
+                root.resolve("uc-project.yml"),
+                access + "mail:\n  peers:\n    people: {address: 'room:', trust: external}\n",
+                java.nio.file.StandardOpenOption.APPEND);
+        final Path clone = Files.createDirectories(context.paths().projects().followedClone("uc"));
+        Files.copy(root.resolve("uc-project.yml"), clone.resolve("project.yml"));
+        final Path accessClone =
+                Files.createDirectories(context.paths().projects().followedAccessClone("uc"));
+        final String settings = "transports: {room: {homeserver: 'https://access.example.org'}}\n";
+        Files.writeString(clone.resolve("access.yml"), settings);
+        Files.writeString(accessClone.resolve("access.yml"), settings);
+        runner.answering("show " + commit + ":access.yml", settings);
+        new FollowedProjects(context.paths().projects().followed())
+                .write(
+                        new FollowedProjects.Followed(
+                                "uc",
+                                "git@example.org:uc.git",
+                                "c1",
+                                "",
+                                "APPLIED",
+                                "",
+                                "",
+                                "",
+                                false,
+                                commit,
+                                outcome));
     }
 
     @Test

@@ -78,6 +78,19 @@ public class ProjectFollowingCommand implements Callable<Integer>, PoreloFactory
                                 + one.refused()
                                 + (one.signer().isEmpty() ? "" : "  signed by " + one.signer()));
             }
+            if (!one.accessOutcome().isEmpty()) {
+                // Its own line: no transport runs for the project until this commit is set.
+                out.println(
+                        "    access     "
+                                + (one.accessCommit().isEmpty()
+                                        ? "none in force"
+                                        : one.accessCommit()
+                                                .substring(
+                                                        0,
+                                                        Math.min(12, one.accessCommit().length())))
+                                + "  "
+                                + one.accessOutcome().toLowerCase(java.util.Locale.ROOT));
+            }
         }
         out.flush();
         return 0;
@@ -106,6 +119,8 @@ public class ProjectFollowingCommand implements Callable<Integer>, PoreloFactory
             entry.put("signed_by", signers.getOrDefault(one.name(), java.util.List.of()));
             entry.put("detail", one.detail());
             entry.put("refused", one.refused());
+            entry.put("access_commit", one.accessCommit());
+            entry.put("access_outcome", one.accessOutcome().toLowerCase(java.util.Locale.ROOT));
             follows.add(entry);
         }
         out.println(org.fuin.porelo.wire.Json.write(java.util.Map.of("follows", follows)));

@@ -301,9 +301,23 @@ public final class VaultClearing {
      * project that says nothing is on the account's own server, which the account-wide clear
      * removes.
      */
-    private static List<Elsewhere> elsewhere(final List<Project> projects) {
+    private List<Elsewhere> elsewhere(final List<Project> projects) {
         final List<Elsewhere> found = new ArrayList<>();
         for (final Project project : projects) {
+            if (project.access() != null) {
+                for (final String scheme : project.mail().conversations()) {
+                    try {
+                        final Map<String, Object> settings =
+                                ProjectAccess.settings(context, project, scheme);
+                        if (!settings.isEmpty()) {
+                            found.add(new Elsewhere(project.name(), scheme, settings));
+                        }
+                    } catch (final ProjectAccess.Withheld ex) {
+                        // Without applied settings no server elsewhere can be named.
+                    }
+                }
+                continue;
+            }
             project.mail()
                     .transports()
                     .forEach(

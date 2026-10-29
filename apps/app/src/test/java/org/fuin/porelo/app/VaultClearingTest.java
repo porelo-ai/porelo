@@ -293,6 +293,54 @@ class VaultClearingTest {
     }
 
     @Test
+    void anAccessProjectsAccountElsewhereIsClearedWithItsAppliedSettings() throws IOException {
+        final PoreloContext context = context();
+        transport("room");
+        project(
+                "p",
+                "access: {repository: 'git@example.org:p/access.git'}\n"
+                        + "mail:\n  peers:\n    people: {address: 'room:', trust: external}\n");
+        final Path clone = Files.createDirectories(context.paths().projects().followedClone("p"));
+        Files.copy(dir.resolve("p-project.yml"), clone.resolve("project.yml"));
+        final Path accessClone =
+                Files.createDirectories(context.paths().projects().followedAccessClone("p"));
+        Files.writeString(
+                accessClone.resolve("access.yml"),
+                "transports: {room: {server: 'https://access.example.org'}}\n");
+        runner.answering(
+                "show a1:access.yml",
+                "transports: {room: {server: 'https://access.example.org'}}\n");
+        new FollowedProjects(context.paths().projects().followed())
+                .write(
+                        new FollowedProjects.Followed(
+                                "p",
+                                "git@example.org:p.git",
+                                "c1",
+                                "",
+                                "APPLIED",
+                                "",
+                                "",
+                                "",
+                                false,
+                                "a1",
+                                "APPLIED"));
+        runner.answering(" clear", "{\"removed\":[],\"kept\":[]}");
+
+        final Clearing.Result cleared = new VaultClearing(context).clear(false, false);
+
+        assertThat(cleared.items())
+                .as("the access file's server is cleared before the vault goes")
+                .anyMatch(
+                        item ->
+                                item.kind().equals("conversation")
+                                        && item.project().equals("p")
+                                        && item.status() == Clearing.Status.REMOVED);
+        assertThat(runner.only("clear --project p").input())
+                .as("the applied access settings reach the transport")
+                .contains("https://access.example.org");
+    }
+
+    @Test
     void
             aProjectsAccountOnAServerElsewhereIsClearedWithTheVaultsSecretsBeforeItGoesAndTheAccountAfter()
                     throws IOException {

@@ -1,6 +1,5 @@
 package org.fuin.porelo.app;
 
-import java.util.LinkedHashMap;
 import java.util.Map;
 import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.project.Project;
@@ -32,9 +31,15 @@ public final class MachineTransports {
         final String scheme = scheme(project);
         try {
             return lifecycle(context)
-                    .admit(scheme, project.name(), machine, settings(project, scheme));
+                    .admit(
+                            scheme,
+                            project.name(),
+                            machine,
+                            ProjectAccess.settings(context, project, scheme));
         } catch (TransportLifecycle.Refused ex) {
             throw new Conversations.Refused(String.valueOf(ex.getMessage()), ex.code(), null);
+        } catch (ProjectAccess.Withheld ex) {
+            throw new Conversations.Refused(String.valueOf(ex.getMessage()), 78, null);
         } catch (CommandException ex) {
             throw unrun(scheme, "admit", ex);
         }
@@ -56,9 +61,15 @@ public final class MachineTransports {
         final String scheme = scheme(project);
         try {
             return lifecycle(context)
-                    .dismiss(scheme, project.name(), machine, settings(project, scheme));
+                    .dismiss(
+                            scheme,
+                            project.name(),
+                            machine,
+                            ProjectAccess.settings(context, project, scheme));
         } catch (TransportLifecycle.Refused ex) {
             throw new Conversations.Refused(String.valueOf(ex.getMessage()), ex.code(), null);
+        } catch (ProjectAccess.Withheld ex) {
+            throw new Conversations.Refused(String.valueOf(ex.getMessage()), 78, null);
         } catch (CommandException ex) {
             throw unrun(scheme, "dismiss", ex);
         }
@@ -117,14 +128,6 @@ public final class MachineTransports {
                     null);
         }
         return project.mail().conversations().iterator().next();
-    }
-
-    private static Map<String, Object> settings(Project project, String scheme) {
-        final Map<String, Object> settings = new LinkedHashMap<>();
-        if (project.mail().transports().get(scheme) instanceof Map<?, ?> declared) {
-            declared.forEach((key, value) -> settings.put(String.valueOf(key), value));
-        }
-        return settings;
     }
 
     private static TransportLifecycle lifecycle(PoreloContext context) {

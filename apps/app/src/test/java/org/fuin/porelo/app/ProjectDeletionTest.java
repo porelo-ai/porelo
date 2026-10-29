@@ -89,6 +89,9 @@ class ProjectDeletionTest {
                         arguments -> 0);
         final Path clone = Files.createDirectories(context.paths().projects().followedClone("uc"));
         final Path lock = Files.writeString(context.paths().projects().followedCloneLock("uc"), "");
+        final Path accessClone =
+                Files.createDirectories(context.paths().projects().followedAccessClone("uc"));
+        Files.writeString(accessClone.resolve("access.yml"), "{}\n");
 
         final ProjectDeletion.Result result =
                 new ProjectDeletion(observed).unfollow("uc", false, false);
@@ -99,10 +102,12 @@ class ProjectDeletionTest {
         assertThat(projects.find("uc")).as("following has stopped").isNull();
         assertThat(clone).as("an unapplied follow leaves no configuration clone").doesNotExist();
         assertThat(lock).as("an unapplied follow leaves no clone lock").doesNotExist();
+        assertThat(accessClone).as("an unapplied follow leaves no access clone").doesNotExist();
         assertThat(result.removes())
                 .as("the removed clone and lock are reported")
                 .contains(
                         new ProjectDeletion.Removal("FOLLOWED_CLONE", clone.toString()),
+                        new ProjectDeletion.Removal("FOLLOWED_CLONE", accessClone.toString()),
                         new ProjectDeletion.Removal("FOLLOWED_CLONE", lock.toString()));
     }
 
@@ -642,6 +647,9 @@ class ProjectDeletionTest {
                 .follow("uc", "git@example.org:uc.git");
         final Path clone = Files.createDirectories(context.paths().projects().followedClone("uc"));
         final Path lock = Files.writeString(clone.resolveSibling("uc.git.lock"), "");
+        final Path accessClone =
+                Files.createDirectories(context.paths().projects().followedAccessClone("uc"));
+        Files.writeString(accessClone.resolve("access.yml"), "{}\n");
         runner.answering("for-each-ref", "");
 
         final ProjectDeletion.Result result =
@@ -652,9 +660,12 @@ class ProjectDeletionTest {
                 .isEqualTo(ProjectDeletion.Outcome.DELETED);
         assertThat(lock).as("the followed clone's lock goes with the clone").doesNotExist();
         assertThat(clone).as("the followed clone goes too").doesNotExist();
+        assertThat(accessClone).as("the followed access clone goes too").doesNotExist();
         assertThat(result.removes())
                 .as("the deletion names the lock it removed")
-                .contains(new ProjectDeletion.Removal("FOLLOWED_CLONE", lock.toString()));
+                .contains(
+                        new ProjectDeletion.Removal("FOLLOWED_CLONE", lock.toString()),
+                        new ProjectDeletion.Removal("FOLLOWED_CLONE", accessClone.toString()));
     }
 
     @Test
@@ -667,6 +678,8 @@ class ProjectDeletionTest {
                 .follow("uc", "git@example.org:uc.git");
         final Path clone = Files.createDirectories(context.paths().projects().followedClone("uc"));
         final Path lock = Files.writeString(clone.resolveSibling("uc.git.lock"), "");
+        final Path accessClone =
+                Files.createDirectories(context.paths().projects().followedAccessClone("uc"));
         runner.answering("for-each-ref", "");
 
         final ProjectDeletion.Result result =
@@ -676,9 +689,11 @@ class ProjectDeletionTest {
                 .as("the preview names the followed clone and its lock")
                 .contains(
                         new ProjectDeletion.Removal("FOLLOWED_CLONE", clone.toString()),
+                        new ProjectDeletion.Removal("FOLLOWED_CLONE", accessClone.toString()),
                         new ProjectDeletion.Removal("FOLLOWED_CLONE", lock.toString()));
         assertThat(lock).as("preview leaves the clone's lock untouched").exists();
         assertThat(clone).as("preview leaves the clone untouched").exists();
+        assertThat(accessClone).as("preview leaves the access clone untouched").exists();
     }
 
     @Test

@@ -520,7 +520,13 @@ type Followed (
   # "whoever holds the signing key". It is per project; one unverified project says nothing about
   # another.
   unverified: bool,
-  detail: string
+  detail: string,
+  # The commit of the project's access file in force, or "" when the project names none or none is
+  # applied. A project naming an access file reaches no transport until this is set.
+  accessCommit: ?string,
+  # How the last attempt at the access file ended, with the values of 'outcome'; "" when the project
+  # names no access file. 'needsAPerson' counts it too.
+  accessOutcome: ?string
 )
 
 # Starts following a project's repository, and reconciles once, now.

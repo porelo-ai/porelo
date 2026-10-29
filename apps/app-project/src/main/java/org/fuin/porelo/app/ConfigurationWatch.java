@@ -116,7 +116,11 @@ public final class ConfigurationWatch implements AutoCloseable {
      */
     public Map<String, Reconcile.Result> afterTheVault() {
         final java.util.function.Predicate<FollowedProjects.Followed> waited =
-                followed -> Reconcile.Outcome.VAULT_LOCKED.name().equals(followed.outcome());
+                followed ->
+                        Reconcile.Outcome.VAULT_LOCKED.name().equals(followed.outcome())
+                                || Reconcile.Outcome.VAULT_LOCKED
+                                        .name()
+                                        .equals(followed.accessOutcome());
         try {
             if (new FollowedProjects(context.paths().projects().followed())
                             .all().stream().noneMatch(waited)

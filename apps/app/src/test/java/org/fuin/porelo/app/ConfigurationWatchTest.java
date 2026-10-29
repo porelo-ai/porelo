@@ -68,6 +68,51 @@ class ConfigurationWatchTest {
         assertThat(watch.afterTheVault()).as("nothing waits any more").isEmpty();
     }
 
+    @Test
+    void anAccessFollowThatWaitedForTheVaultIsRetriedOnceTheVaultOpens() throws Exception {
+        final XdgPaths xdg = XdgPaths.of(name -> null, dir);
+        final PoreloContext context =
+                new PoreloContext(
+                        new ProcessCommandRunner(),
+                        new PoreloPaths(xdg, dir.resolve("bin")),
+                        arguments -> 0);
+        final FollowedProjects follows =
+                new FollowedProjects(context.paths().projects().followed());
+        final String nowhere = dir.resolve("no-such-repository.git").toUri().toString();
+        follows.write(
+                new FollowedProjects.Followed(
+                        "waited",
+                        nowhere,
+                        "c1",
+                        "",
+                        "APPLIED",
+                        "",
+                        "",
+                        "",
+                        false,
+                        "",
+                        "VAULT_LOCKED"));
+        follows.write(
+                new FollowedProjects.Followed(
+                        "other", nowhere, "c1", "", "APPLIED", "", "", "", false, "a1", "APPLIED"));
+        final boolean[] open = {false};
+        final ConfigurationWatch watch =
+                new ConfigurationWatch(context, Duration.ofMinutes(5), () -> open[0]);
+
+        assertThat(watch.afterTheVault()).as("the vault is still shut").isEmpty();
+        open[0] = true;
+
+        assertThat(watch.afterTheVault())
+                .as("only the project whose access repository waited is retried")
+                .containsOnlyKeys("waited");
+        assertThat(outcome(follows, "waited"))
+                .as("reconciliation ran and found the project repository unavailable")
+                .isEqualTo("UNREACHABLE");
+        assertThat(outcome(follows, "other"))
+                .as("the project with applied access settings was not retried")
+                .isEqualTo("APPLIED");
+    }
+
     private static String outcome(final FollowedProjects follows, final String name)
             throws Exception {
         return follows.all().stream()
