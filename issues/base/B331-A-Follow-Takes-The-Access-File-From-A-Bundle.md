@@ -10,9 +10,9 @@ comes from the bundle given and is checked exactly as a fetched one is: signed b
 descending from the access commit in force. The URL is never fetched. A follow from a file is read once, so a newer
 access bundle is applied the same way, by following again.
 
-Asked by Agent Machines for porelo-host HO45 (2026-10-29): a host gets the access repository only as a bundle, the
-bring follows with both bundles, and B310's follow fetches the URL with the person's git credential. B311
-(`project verify`) and B320 (`project inventory`) check an access bundle, but neither makes a follow take one.
+Asked by Agent Machines for porelo-host's bring (2026-10-29): a host gets the access repository only as a bundle, the
+bring follows with both bundles, and [B310](README.md#b310)'s follow fetches the URL with the person's git credential. [B311](README.md#b311)
+(`project verify`) and [B320](README.md#b320) (`project inventory`) check an access bundle, but neither makes a follow take one.
 `Reconcile` already has an `accessFrom` that is used in place of the URL.
 
 ## Plan
@@ -21,7 +21,7 @@ Read in the code on 2026-10-29.
 
 - **Today:** `ProjectFollowCommand` calls `FollowSignedBy.follow`/`check`, which run `new Reconcile(context)`, so the
   access repository is fetched from the URL the project names. `Reconcile` already takes an `accessFrom`, which is
-  used in place of that URL (B311, B320).
+  used in place of that URL ([B311](README.md#b311), [B320](README.md#b320)).
 - **The plan:** `--access-repository <path|bundle>` on `follow`, local paths only as in `verify`, carried into each
   `Reconcile` that follow and `--dry-run` start. It is accepted only with a project followed from a file, which is
   read once and never fetched again, so nothing later fetches the URL in its place. The access clone and record are
