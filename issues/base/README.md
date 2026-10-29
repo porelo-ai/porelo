@@ -115,6 +115,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b327"></a>[B327](B327-An-Unfollow-Retires-The-Accounts-Of-An-Access-Project.md) | - | - | An unfollow or clear of a project with an access repository retires its tasks' transport accounts with the settings applied until then |
 | <a id="b326"></a>[B326](B326-A-Reject-With-Nothing-Waiting-Says-So.md) | - | - | A reject of a name with nothing waiting says so and tells no task its work was discarded |
 | <a id="b325"></a>[B325](B325-Tasks-Started-Together-Share-One-Mirror-Clone.md) | - | - | Two tasks of one repository started at once both get the git gate; the mirror is cloned once |
 | <a id="b324"></a>[B324](B324-A-Moved-Waiting-Push-Changes-WatchProjects.md) | - | - | A waiting push that moves to another commit changes a `WatchProjects` reply, though no count changes, so an interface sees the new work within seconds |
