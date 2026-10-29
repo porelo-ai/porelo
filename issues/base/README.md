@@ -32,6 +32,7 @@ from its side, as *blocked by*.
 | <a id="b154"></a>[B154](B154-A-Tamper-Evident-Event-Log-Per-Node.md) | L | - | One hash-chained event log per account, anchored in the user's journal, optionally copied off the machine, kept by `porelo clear`; written by approve, reject, clearance, hand-in, credentials and project changes.; part 1 built, the copy off the machine after it |
 | <a id="b312"></a>[B312](B312-A-Machine-Named-By-Its-Host-And-Account.md) | S | - | The machine name a transport is given is `<host>-<account>`, always, never the name a `setup` answered, so two accounts on one host never share one; `porelo talk machine` prints it. |
 | <a id="b315"></a>[B315](B315-A-Person-Locked-Out-Without-A-Terminal.md) | XS | - | `task stop --all` and `vault clear --yes --force`, run without a terminal in a person's account, are checked together as root's helper runs them to lock a person out. |
+| <a id="b310"></a>[B310](B310-A-Project-Names-A-Private-Signed-Access-File.md) | M | - | A project names an access file: `host:`, `developers:` and its transports' settings in a signed `access.yml` in a private repository or beside `project.yml`, verified against the project's signers and applied as the project file is; no transport verb runs before it is applied. |
 
 ## Backlog
 
@@ -152,7 +153,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b316"></a>[B316](B316-A-Warning-Only-Where-Something-Is-Wrong.md) | M | - | Porelo warns only where something is wrong: `vault put` knows the names followed projects ask for (`builds.credential`, `credentials:`) and says what an entry is used for; a sweep of the command line's 263 warnings for fine states printed as findings |
-| <a id="b310"></a>[B310](B310-A-Project-Names-A-Private-Signed-Access-File.md) | M | - | A project names an access file: `host:`, `developers:` and its transports' settings in a signed `access.yml` in a private repository or beside `project.yml`, verified against the project's signers and applied as the project file is; no transport verb runs before it is applied. |
 | <a id="b311"></a>[B311](B311-A-Project-Verified-Without-Following-It.md) | S | [B310](README.md#b310) | `porelo project verify ... --json` checks a project and its access file as following would, writing nothing and needing no vault, home or network; root's `sync` and the interface's *Join* run it instead of a checker of their own. |
 | <a id="b320"></a>[B320](B320-An-Inventory-Reads-Its-Files-From-The-Access-File.md) | XS-S | [B310](README.md#b310), [B311](README.md#b311) | The machine file names the access bundle beside the project's; the inventory verifies both and reads each transport's `files` from the applied access file, the answer unchanged in shape, version 2 |
 | <a id="b314"></a>[B314](B314-A-Project-Admin-Keeps-The-Rooms-Members-To-The-List.md) | S | [B310](README.md#b310), [B312](README.md#b312) | The project admin's Porelo makes the room (`talk room`) and, after each applied commit, keeps its machines to the signed developer list through the transport's `members`. |

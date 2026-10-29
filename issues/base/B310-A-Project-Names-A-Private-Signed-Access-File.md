@@ -1,6 +1,6 @@
 # B310 — A Project Names A Private, Signed Access File
 
-**Status:** Estimated.
+**Status:** Implementing.
 **Size:** M - a reader for `access.yml` in one of two places, a second follow state beside the project's in
 `follow`, the watch and `Reconcile`, the guard before every transport verb, an event per applied access commit, docs
 and an acceptance scenario with a private repository.
