@@ -20,7 +20,7 @@ bundles by name.
    boundaries within the reply budget. Add optional `Review.cut` to `35-gate.varlink`, with counts, omitted paths and
    a usable CLI command for the complete patch. Do not partially print a file without saying so.
 3. Risk and dependency extraction operate on complete pinned head/base objects before projection, as required by
-   [B293](README.md#b293), [B283](README.md#b283) and [B141](README.md#b141). Preserve dangerous-first display ordering,
+   [B323](README.md#b323), [B283](README.md#b283) and [B141](README.md#b141). Preserve dangerous-first display ordering,
    but do not equate `ReviewRanking.Rank` with C0-C3: build and security files share `DANGEROUS` while having different
    risk classes. A cut cannot reduce class or approval requirements.
 4. Keep `Review.files` complete for replies that fit. When metadata alone exceeds the limit, return a named size

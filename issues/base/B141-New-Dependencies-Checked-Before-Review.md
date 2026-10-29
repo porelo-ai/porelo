@@ -2,7 +2,7 @@
 
 **Status:** Analyzed.
 **Blocked by:** [B136](README.md#b136), [B291](README.md#b291), [B292](README.md#b292).
-**Blocks:** [B293](README.md#b293), [B163](README.md#b163).
+**Blocks:** [B323](README.md#b323), [B293](README.md#b293), [B163](README.md#b163).
 **Size:** XL - two manifest formats, registry metadata and commit-bound approval holds; splits into M, L and S parts below.
 
 **What must be true.** Added or changed dependencies appear in the review with existence, age and look-alike-name
@@ -42,7 +42,7 @@ Split into three separately buildable issues, in this order; assign their own nu
    or two edits or swapped separators. Red first: a deliberately near name is flagged against the fixed fixture.
    Read these data as trusted shipped policy, never from the waiting change.
 
-Feed dependency additions, changes and incomplete extraction into [B293](README.md#b293)'s deterministic risk rules,
+Feed dependency additions, changes and incomplete extraction into [B323](README.md#b323)'s deterministic risk rules,
 not a model score or the reported SARIF severity. Compute over the whole pinned change before any display cut.
 Update `doc/how-it-works.md` and `doc/reach.md`; CLI and daemon use the same findings and holds.
 

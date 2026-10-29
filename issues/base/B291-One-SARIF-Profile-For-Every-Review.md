@@ -9,7 +9,7 @@ The profile states what each producer may submit and what each destination may r
 ## Proposed
 
 - Blocked by: none.
-- Blocks: [B292](README.md#b292), [B293](README.md#b293), [B166](README.md#b166), [B171](README.md#b171),
+- Blocks: [B292](README.md#b292), [B323](README.md#b323), [B293](README.md#b293), [B166](README.md#b166), [B171](README.md#b171),
   [B172](README.md#b172), [B176](README.md#b176), [B141](README.md#b141); the message filter, the forge adapters,
   the interface and the IDE plugin.
 - Root `version` is `2.1.0`; root `properties` contains only `porelo/profileVersion: "1"`. A run names one configured

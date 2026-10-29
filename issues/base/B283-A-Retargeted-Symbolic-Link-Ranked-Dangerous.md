@@ -9,13 +9,13 @@ suggestion targeting a link.
 ## Proposed
 
 - Blocked by: none.
-- Blocks: [B293](README.md#b293).
+- Blocks: [B323](README.md#b323), [B293](README.md#b293).
 - `ReviewRanking.danger` recognizes only a new mode `120000` whose old mode differs. Treat a changed entry with
   `120000` on either side as dangerous before path, generated or whitespace classification. `GitGate.rankedReview`
   already supplies both modes from NUL-delimited raw changes and treats renames as removal/addition.
 - Cover new and retargeted links, link-to-file and file-to-link changes, removal and rename, including targets that
   look like generated or whitespace-only text. Read the target blob only as data; never follow it.
-- [B293](README.md#b293) consumes this evidence for C3 and emits the daemon-owned SARIF mode diagnostic. Its two-person
+- [B323](README.md#b323) consumes this evidence for C3 and emits the daemon-owned SARIF mode diagnostic. Its two-person
   approval and isolated execution requirements are enforced by [B145](README.md#b145) and [B95](README.md#b95).
   The profile forbids traversal and link-targeted fixes; a diagnostic does not authorize reading the target.
 

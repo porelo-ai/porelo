@@ -1,7 +1,7 @@
 # [B163](README.md#b163) — Several Attempts At One Assignment
 
 **Status:** Analyzed.
-**Blocked by:** [B136](README.md#b136), [B141](README.md#b141), [B145](README.md#b145), [B166](README.md#b166), [B176](README.md#b176), [B293](README.md#b293).
+**Blocked by:** [B136](README.md#b136), [B141](README.md#b141), [B145](README.md#b145), [B166](README.md#b166), [B176](README.md#b176), [B323](README.md#b323).
 **Size:** L - grouped task launch, gate comparison/approval, task and daemon contracts, rate-limit reporting and review-store cleanup.
 
 **What must be true.** `porelo task start --attempts N -P "..."` starts independent tasks on one assignment from the
@@ -22,7 +22,7 @@ supplies a last message. `Offer` supports optional removal after a decision.
    failures without losing already created tasks. Default maximum is 5; a machine setting can raise or lower it.
 3. Add group information to the task record and `15-task.varlink`. Implement `GroupReview` in `app-gate` and
    `ReviewGroup` in `35-gate.varlink` for CLI and daemon alike: per attempt, pinned commit, lines added/removed, files,
-   [B293](README.md#b293)'s risk, build verdict, last agent message and SARIF counts by level with completeness.
+   [B323](README.md#b323)'s risk, build verdict, last agent message and SARIF counts by level with completeness.
    Missing, failed or partial checks are explicit and cannot compare as zero findings or a clean attempt.
 4. Add `gate diff A B` over the two captured waiting commits. A changed incoming ref invalidates the comparison used
    for approval. Apply [B136](README.md#b136)'s commit binding, [B141](README.md#b141)'s dependency confirmations and
