@@ -52,6 +52,42 @@ class MachineFileTest {
     }
 
     @Test
+    void namesTheAccessBundleByItsAbsolutePathOnTheDrive() {
+
+        final MachineFile file =
+                read(
+                        """
+                        project: { name: porelo, url: /srv/porelo.git, signed_by: SHA256:abc }
+                        access: { bundle: bundles/access.bundle }
+                        """);
+
+        assertThat(file.accessBundle())
+                .as("beside the project's, on the person's drive")
+                .isEqualTo(Path.of("/mnt/drive/bundles/access.bundle"));
+        assertThat(
+                        read("project: { name: p, url: /srv/p.git, signed_by: SHA256:a }\n")
+                                .accessBundle())
+                .as("none named, none read")
+                .isNull();
+    }
+
+    @Test
+    void refusesAnAccessBundleOutsideTheDrive() {
+
+        // The same rule as a key's: a path the file cannot vouch for is not one it may name.
+        assertThatThrownBy(
+                        () ->
+                                read(
+                                        """
+                                        project: { name: porelo, url: /srv/p.git, signed_by: SHA256:a }
+                                        access: { bundle: ../../srv/access.bundle }
+                                        """))
+                .as("invalid machine input is refused")
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("outside /mnt/drive");
+    }
+
+    @Test
     void refusesAProjectWithoutTheKeyItIsCheckedAgainst() {
 
         // A play must never follow what it did not check, so there is no unverified form here.

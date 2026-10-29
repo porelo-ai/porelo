@@ -1,6 +1,6 @@
 # B320 — An Inventory Reads Its Files From The Access File
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** XS-S - the machine file's second bundle, verified beside the project's, and `files` read from the applied
 access file; docs and tests.
 
@@ -32,4 +32,5 @@ Read in the code on 2026-10-28.
 
 ## To be checked
 
-- None.
+- None. Built as planned; a machine file's `access` bundle is refused for a project naming no access repository, and a
+  project naming one needs it, because its URL is never fetched.

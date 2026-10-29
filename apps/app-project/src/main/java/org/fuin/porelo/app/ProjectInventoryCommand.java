@@ -12,9 +12,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import org.fuin.porelo.core.project.Access;
+import org.fuin.porelo.core.project.AccessFile;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectException;
-import org.fuin.porelo.core.project.ProjectReader;
 import org.jspecify.annotations.Nullable;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
@@ -75,17 +76,25 @@ public class ProjectInventoryCommand implements Callable<Integer>, PoreloFactory
         } catch (final IllegalArgumentException ex) {
             return refuse(err, 65, String.valueOf(ex.getMessage()));
         }
+        final Path bundle = machine.accessBundle();
+        if (bundle != null && !Files.isRegularFile(bundle)) {
+            return refuse(err, 66, "there is no access bundle at " + bundle);
+        }
         final Reconcile.Checked checked;
         try {
             checked =
                     new FollowSignedBy(context)
-                            .checkedWithFile(machine.project(), machine.url(), machine.signedBy());
+                            .checkedWithFile(
+                                    machine.project(),
+                                    machine.url(),
+                                    machine.signedBy(),
+                                    bundle == null ? "" : bundle.toString());
         } catch (final FollowSignedBy.Refused ex) {
             return refuse(err, 65, ex.getMessage() + " No inventory was written.");
         }
-        final String text = checked.projectFile();
-        if (text == null) {
-            final Reconcile.Result result = checked.result();
+        final Reconcile.Result result = checked.result();
+        final Project project = checked.project();
+        if (checked.projectFile() == null || project == null) {
             return refuse(
                     err,
                     65,
@@ -96,27 +105,62 @@ public class ProjectInventoryCommand implements Callable<Integer>, PoreloFactory
                             + (result.detail().isEmpty() ? "" : ": " + result.detail())
                             + "). No inventory was written.");
         }
-        final Project project;
-        try {
-            project = ProjectReader.read(new StringReader(text), "project.yml");
-        } catch (final ProjectException ex) {
-            return refuse(err, 65, "project.yml: " + ex.getMessage());
+        if (bundle != null && !(project.access() instanceof Access.InRepository)) {
+            return refuse(
+                    err,
+                    65,
+                    "the project file names no access repository, so "
+                            + bundle
+                            + " was not checked. No inventory was written.");
         }
-        final String notAPath = notAPath(project);
+        final @Nullable AccessFile access;
+        try {
+            if (project.access() != null && checked.accessFile() == null) {
+                return refuse(
+                        err,
+                        65,
+                        "the access file of "
+                                + machine.project()
+                                + " did not pass its check ("
+                                + result.accessOutcome().toLowerCase(java.util.Locale.ROOT)
+                                + (result.detail().isEmpty() ? "" : ": " + result.detail())
+                                + "). No inventory was written.");
+            }
+            access =
+                    checked.accessFile() == null
+                            ? null
+                            : AccessFile.read(new StringReader(checked.accessFile()), "access.yml");
+        } catch (final ProjectException ex) {
+            return refuse(err, 65, "access.yml: " + ex.getMessage());
+        }
+        // The transports' settings are the access file's once the project names one: the public
+        // project file then holds none, and the files a play writes are named only there.
+        final Map<String, Object> settings =
+                access == null ? project.mail().transports() : access.transports();
+        final String notAPath =
+                notAPath(settings, access == null ? "mail.transports." : "transports.");
         if (notAPath != null) {
-            return refuse(err, 65, "project.yml: " + notAPath + " No inventory was written.");
+            return refuse(
+                    err,
+                    65,
+                    (access == null ? "project.yml: " : "access.yml: ")
+                            + notAPath
+                            + " No inventory was written.");
         }
         final List<Object> keys = new ArrayList<>();
         for (final MachineFile.Key key : machine.keys()) {
             keys.add(Map.of("name", key.name(), "path", key.path().toString()));
         }
-        out.print(inventory(machine, project, keys));
+        out.print(inventory(machine, project, settings, keys));
         out.flush();
         return 0;
     }
 
     private static String inventory(
-            final MachineFile machine, final Project project, final List<Object> keys) {
+            final MachineFile machine,
+            final Project project,
+            final Map<String, Object> settings,
+            final List<Object> keys) {
         final Map<String, Object> projectVars = new LinkedHashMap<>();
         projectVars.put("name", project.name());
         projectVars.put("url", machine.url());
@@ -125,7 +169,7 @@ public class ProjectInventoryCommand implements Callable<Integer>, PoreloFactory
         host.put("ansible_connection", "local");
         host.put("porelo_account", System.getProperty("user.name"));
         host.put("porelo_project", projectVars);
-        host.put("porelo_transports", transports(project));
+        host.put("porelo_transports", transports(project, settings));
         host.put("porelo_vault_keys", keys);
         final Map<String, Object> all = new LinkedHashMap<>();
         all.put("vars", Map.of("porelo_inventory_version", VERSION));
@@ -139,7 +183,8 @@ public class ProjectInventoryCommand implements Callable<Integer>, PoreloFactory
                 + new Yaml(options).dump(Map.of("all", all));
     }
 
-    private static List<Object> transports(final Project project) {
+    private static List<Object> transports(
+            final Project project, final Map<String, Object> settings) {
         final Set<String> schemes = new LinkedHashSet<>(project.mail().conversations());
         project.mail().peers().forEach(peer -> schemes.add(peer.transport()));
         final List<Object> transports = new ArrayList<>();
@@ -147,7 +192,7 @@ public class ProjectInventoryCommand implements Callable<Integer>, PoreloFactory
             final Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("scheme", scheme);
             entry.put("package", TransportDirectory.PREFIX + scheme);
-            final Map<String, Object> files = files(project.mail().transports().get(scheme));
+            final Map<String, Object> files = files(settings.get(scheme));
             if (!files.isEmpty()) {
                 entry.put("files", files);
             }
@@ -161,11 +206,12 @@ public class ProjectInventoryCommand implements Callable<Integer>, PoreloFactory
      * value there may be a secret written under the wrong name, and the play would write a file
      * wherever it pointed.
      *
-     * @param project The checked project.
+     * @param transports Each transport's settings, from the checked project or access file.
+     * @param prefix Where they are in their file, for the message.
      * @return Why, or {@code null} when each is a path.
      */
-    static @Nullable String notAPath(final Project project) {
-        for (final Map.Entry<String, Object> transport : project.mail().transports().entrySet()) {
+    static @Nullable String notAPath(final Map<String, Object> transports, final String prefix) {
+        for (final Map.Entry<String, Object> transport : transports.entrySet()) {
             if (!(transport.getValue() instanceof Map<?, ?> settings)) {
                 continue;
             }
@@ -174,7 +220,7 @@ public class ProjectInventoryCommand implements Callable<Integer>, PoreloFactory
                 if (!name.endsWith("_file")) {
                     continue;
                 }
-                final String where = "mail.transports." + transport.getKey() + "." + name;
+                final String where = prefix + transport.getKey() + "." + name;
                 final String why = pathProblem(name, setting.getValue());
                 if (why != null) {
                     return where + " " + why + ".";

@@ -20,7 +20,7 @@ vault is cleared.
 ## The machine file
 
 The person's machine file lives on their mounted drive. It is theirs: it names the provider, the offer and the zone
-for the first play, which Porelo does not read, and, for the second, two sections Porelo reads:
+for the first play, which Porelo does not read, and, for the second, the sections Porelo reads:
 
 ```yaml
 project:
@@ -29,20 +29,26 @@ project:
     signed_by: "SHA256:WQGwmhyDCFLwcZ6bK2mzCOXfex1G7vUPdPOVkjtrsfY"
 keys:
     - { name: github-deploy, path: keys/github-deploy }
+access:
+    bundle: bundles/access.bundle
 ```
 
 - **`project`**: the project to bring up, where its repository is, and the key or fingerprint its project file must
   be signed with. There is no unverified form: a play never follows what it did not check.
 - **`keys`**: the keys to put into the vault, each by the vault entry's name and its path on the drive, relative to
   the machine file. A path outside the machine file's directory is refused. Porelo never reads a key here.
+- **`access`**, for a project whose project file names an access repository: the bundle of that repository, beside
+  the project's on the drive, under the same rule as a key's path. Its URL is never fetched, so a project naming an
+  access repository needs it, and one naming none refuses it.
 - **Neither tasks nor agents.** A machine file naming `tasks` or `agents` is refused: the machine installs every
   agent, and which tasks run is decided by the person when they start them.
 
 ## The second play's inventory
 
 `porelo project inventory --machine-file FILE` prints it on standard output; the play writes it to a file. The
-project file is checked against the machine file's key exactly as `porelo project follow` checks it, and nothing is
-recorded, followed or pinned.
+project file is checked against the machine file's key exactly as `porelo project follow` checks it, the access
+bundle against the keys the project holds, as a follow checks a fetched access file, and nothing is recorded,
+followed or pinned.
 
 ```yaml
 all:
@@ -74,12 +80,15 @@ all:
   file order, with their `scheme` and `package`, `porelo-message-transport-<scheme>`. A project without mail gets an
   empty list. The machine file names no transport package; any homeserver package is the playbook's decision.
   **`files`**, where there is any, names each file the transport expects, by its setting (every setting named
-  `*_file`) and the path as the project file gives it, `~/` meaning the account's home. Nothing else of a
-  transport's settings reaches the inventory: a path is never a secret, another setting may be.
-- **Refusals**, with nothing printed on standard output: 66 when the machine file is not there; 65 when Porelo's part
-  of it is wrong (a missing `project` field, a key outside the file's directory, a `tasks` or `agents` section), or
-  when the project file fails its check against the key, or names under a transport a `*_file` setting that is not
-  one path, absolute or under `~/`, without `..` (the setting is named, its value never).
+  `*_file`) and the path as the settings give it, `~/` meaning the account's home. The settings are the verified
+  access file's for a project that names one, and the project file's otherwise, so a setting kept only in the private
+  access file, such as Matrix's `registration_token_file`, is still found. Nothing else of a transport's settings
+  reaches the inventory: a path is never a secret, another setting may be.
+- **Refusals**, with nothing printed on standard output: 66 when the machine file or its access bundle is not there;
+  65 when Porelo's part of it is wrong (a missing `project` field, a key or bundle outside the file's directory, a
+  `tasks` or `agents` section), when the project file fails its check against the key, when the access file fails
+  its check or its bundle is missing or has no use, or when the settings name under a transport a `*_file` setting
+  that is not one path, absolute or under `~/`, without `..` (the setting is named, its value never).
 
 ## A project verified without following it
 

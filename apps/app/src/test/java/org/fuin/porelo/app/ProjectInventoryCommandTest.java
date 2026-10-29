@@ -313,6 +313,114 @@ class ProjectInventoryCommandTest {
         assertThat(out.toString()).doesNotContain("matrix.example.internal");
     }
 
+    /** An access repository, signed by the key given, as the bundle a person carries. */
+    private Path accessBundle(final Path dir, final Path signingKey, final String accessFile)
+            throws IOException {
+        final Path repo = Files.createDirectories(dir.resolve("access"));
+        git(repo, "init", "-q", "-b", "main", ".");
+        git(repo, "config", "user.email", "operator@example.org");
+        git(repo, "config", "user.name", "Operator");
+        git(repo, "config", "gpg.format", "ssh");
+        git(repo, "config", "user.signingkey", signingKey.toString());
+        Files.writeString(repo.resolve("access.yml"), accessFile);
+        git(repo, "add", "access.yml");
+        git(repo, "commit", "-q", "-S", "-m", "access");
+        final Path bundle = Files.createDirectories(dir.resolve("drive")).resolve("access.bundle");
+        git(repo, "bundle", "create", "-q", bundle.toString(), "HEAD", "main");
+        return bundle;
+    }
+
+    private static final String ACCESS_PROJECT =
+            """
+            access:
+              repository: "git@forge.example.org:demo/access.git"
+            mail:
+              peers:
+                conversation: { address: "matrix:", trust: external }
+            """;
+
+    private static final String MATRIX_ACCESS =
+            """
+            transports:
+              matrix:
+                homeserver: "https://matrix.example.internal:8448"
+                registration_token_file: "~/.config/porelo/matrix/host-registration-token"
+            """;
+
+    @Test
+    void takesTheFilesATransportExpectsFromTheVerifiedAccessFile(@TempDir final Path dir)
+            throws IOException {
+
+        // The setting lives only in the private access file now; the play must still find where
+        // to write the homeserver's registration token.
+        final Path key = key(dir, "operator");
+        final Path repo = published(dir, key, ACCESS_PROJECT);
+        accessBundle(dir, key, MATRIX_ACCESS);
+        final Path file =
+                machineFile(dir, repo, fingerprint(key), "access:\n    bundle: access.bundle\n");
+
+        assertThat(execute(context(dir), "project", "inventory", "--machine-file", file.toString()))
+                .as("an inventory from both bundles; " + err)
+                .isZero();
+
+        @SuppressWarnings("unchecked")
+        final List<Map<String, Object>> transports =
+                (List<Map<String, Object>>) host(out.toString()).get("porelo_transports");
+        assertThat(transports)
+                .as("the matrix transport with the file its access settings name")
+                .containsExactly(
+                        Map.of(
+                                "scheme",
+                                "matrix",
+                                "package",
+                                TransportDirectory.PREFIX + "matrix",
+                                "files",
+                                Map.of(
+                                        "registration_token_file",
+                                        "~/.config/porelo/matrix/host-registration-token")));
+        assertThat(out.toString())
+                .as("still version 2, and no setting's value")
+                .contains("porelo_inventory_version: 2")
+                .doesNotContain("matrix.example.internal");
+    }
+
+    @Test
+    void refusesAnAccessBundleTheProjectsKeyDidNotSign(@TempDir final Path dir) throws IOException {
+
+        final Path key = key(dir, "operator");
+        final Path repo = published(dir, key, ACCESS_PROJECT);
+        accessBundle(dir, key(dir, "stranger"), MATRIX_ACCESS);
+        final Path file =
+                machineFile(dir, repo, fingerprint(key), "access:\n    bundle: access.bundle\n");
+
+        assertThat(execute(context(dir), "project", "inventory", "--machine-file", file.toString()))
+                .as("refused as a follow refuses it; " + err)
+                .isEqualTo(65);
+        assertThat(err.toString())
+                .as("names the access file's outcome")
+                .contains("the access file of demo did not pass its check (unknown_key")
+                .contains("No inventory was written.");
+        assertThat(out.toString()).as("no inventory").isEmpty();
+    }
+
+    @Test
+    void refusesAProjectWhoseAccessRepositoryTheMachineFileDoesNotCarry(@TempDir final Path dir)
+            throws IOException {
+
+        // Its URL is never fetched: the host holds no credential for the private repository, and
+        // one it did hold would make the inventory depend on whatever that host serves.
+        final Path key = key(dir, "operator");
+        final Path repo = published(dir, key, ACCESS_PROJECT);
+        final Path file = machineFile(dir, repo, fingerprint(key), "");
+
+        assertThat(execute(context(dir), "project", "inventory", "--machine-file", file.toString()))
+                .as("refused; " + err)
+                .isEqualTo(65);
+        assertThat(err.toString())
+                .as("says what to name")
+                .contains("no copy of that repository was given to check");
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(
             strings = {

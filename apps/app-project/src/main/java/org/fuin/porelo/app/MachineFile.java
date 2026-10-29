@@ -17,16 +17,23 @@ import org.yaml.snakeyaml.constructor.SafeConstructor;
  * its vault.
  *
  * <p>The file is the person's, beside the provider, offer and zone a host package reads from it for
- * the first play; Porelo reads only {@code project} and {@code keys}, and ignores the rest. A key
- * is named by its path on the person's drive and never read here: what leaves this class is a name
- * and a path, never a value.
+ * the first play; Porelo reads only {@code project}, {@code keys} and {@code access}, and ignores
+ * the rest. A key is named by its path on the person's drive and never read here: what leaves this
+ * class is a name and a path, never a value.
  *
  * @param project The project's name.
  * @param url Its repository.
  * @param signedBy The key or fingerprint its project file must be signed with.
  * @param keys The keys to put into the vault, each with its absolute path.
+ * @param accessBundle The bundle of the project's access repository, absolute, or {@code null} when
+ *     the file names none.
  */
-public record MachineFile(String project, String url, String signedBy, List<Key> keys) {
+public record MachineFile(
+        String project,
+        String url,
+        String signedBy,
+        List<Key> keys,
+        @org.jspecify.annotations.Nullable Path accessBundle) {
 
     /**
      * A key to put into the vault.
@@ -87,7 +94,8 @@ public record MachineFile(String project, String url, String signedBy, List<Key>
                 text(project, "name", origin + ": project"),
                 text(project, "url", origin + ": project"),
                 text(project, "signed_by", origin + ": project"),
-                keys(root.get("keys"), base, origin));
+                keys(root.get("keys"), base, origin),
+                access(root.get("access"), base, origin));
     }
 
     private static List<Key> keys(
@@ -109,6 +117,29 @@ public record MachineFile(String project, String url, String signedBy, List<Key>
             keys.add(new Key(name, path));
         }
         return List.copyOf(keys);
+    }
+
+    /**
+     * The access repository's bundle, under the same rule as a key: on the person's drive or not at
+     * all, since the inventory checks whatever it names.
+     */
+    private static @org.jspecify.annotations.Nullable Path access(
+            final @org.jspecify.annotations.Nullable Object section,
+            final Path base,
+            final String origin) {
+        if (section == null) {
+            return null;
+        }
+        if (!(section instanceof Map<?, ?> access)) {
+            throw new IllegalArgumentException(origin + ": 'access' is not a mapping");
+        }
+        final Path root = base.toAbsolutePath().normalize();
+        final Path path = root.resolve(text(access, "bundle", origin + ": access")).normalize();
+        if (!path.startsWith(root)) {
+            throw new IllegalArgumentException(
+                    origin + ": access: the bundle is outside " + root + ": " + path);
+        }
+        return path;
     }
 
     private static List<Map<?, ?>> entries(

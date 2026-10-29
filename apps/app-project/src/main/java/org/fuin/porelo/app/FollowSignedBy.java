@@ -118,20 +118,28 @@ public final class FollowSignedBy {
      * @param name The project's name.
      * @param url Its repository.
      * @param signedBy The key or fingerprint it must be signed with.
-     * @return What a follow would do, with the project file when it would apply.
+     * @param accessFrom The access repository's path or bundle, or "" when none was given: its URL
+     *     is never fetched.
+     * @return What a follow would do, with the project and access files when it would apply.
      * @throws Refused If the name is reserved, or another key signed it.
      */
     public Reconcile.Checked checkedWithFile(
-            final String name, final String url, final String signedBy) throws Refused {
+            final String name, final String url, final String signedBy, final String accessFrom)
+            throws Refused {
         refuseReserved(name);
         final FollowedProjects.Followed followed =
                 new FollowedProjects.Followed(name, url, "", "", "", "", "", "", false);
         if (!SignedBy.isFingerprint(signedBy)) {
-            return withKey(name, line(name, signedBy), followed);
+            return withKeys(name, List.of(line(name, signedBy)), followed, accessFrom);
         }
-        final Reconcile.Checked first = new Reconcile(context).checked(followed);
+        final Reconcile.Checked first =
+                new Reconcile(
+                                context,
+                                context.paths().projects().configurationSigners(),
+                                accessFrom)
+                        .checked(followed);
         final String key = keyNamed(signedBy.strip(), first);
-        return key == null ? first : withKey(name, line(name, key), followed);
+        return key == null ? first : withKeys(name, List.of(line(name, key)), followed, accessFrom);
     }
 
     /**
@@ -506,6 +514,14 @@ public final class FollowSignedBy {
 
     private Reconcile.Checked withKeys(
             final String name, final List<String> added, final FollowedProjects.Followed followed) {
+        return withKeys(name, added, followed, null);
+    }
+
+    private Reconcile.Checked withKeys(
+            final String name,
+            final List<String> added,
+            final FollowedProjects.Followed followed,
+            final @Nullable String accessFrom) {
         Path scratch = null;
         try {
             scratch = Files.createTempFile("porelo-follow-signers-", "");
@@ -516,7 +532,7 @@ public final class FollowSignedBy {
                             : new ArrayList<>();
             lines.addAll(added);
             Files.write(scratch, lines, StandardCharsets.UTF_8);
-            return new Reconcile(context, scratch).checked(followed);
+            return new Reconcile(context, scratch, accessFrom).checked(followed);
         } catch (final IOException ex) {
             return new Reconcile.Checked(
                     new Reconcile.Result(
