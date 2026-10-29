@@ -1,6 +1,6 @@
 # B314 — A Project Admin Keeps The Room's Members To The List
 
-**Status:** Backlog.
+**Status:** Implementing.
 **Size:** S - one `talk` command, one daemon call, a call after each applied commit, docs and tests,
 on top of the transport's two verbs.
 
