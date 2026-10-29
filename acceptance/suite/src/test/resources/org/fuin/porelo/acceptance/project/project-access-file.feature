@@ -9,12 +9,12 @@ Feature: A project takes its transports' settings only from an access file signe
             """
             base=$(mktemp -d)
             name="access-$(basename "$base" | tr 'A-Z' 'a-z' | tr -dc 'a-z0-9')"
-            for k in project stranger; do ssh-keygen -q -t ed25519 -N '' -C "$k" -f "$base/$k"; done
-            key=$(cut -d' ' -f1,2 "$base/project.pub")
+            for k in project stranger; do ssh-keygen -q -t ed25519 -N '' -C "$k" -f "$base/key-$k"; done
+            key=$(cut -d' ' -f1,2 "$base/key-project.pub")
             signed() {
                 git -C "$1" add -A
                 git -C "$1" -c user.name=Person -c user.email=person@example.org -c gpg.format=ssh \
-                    -c user.signingkey="$base/$2.pub" commit -q -S --allow-empty -m "$3"
+                    -c user.signingkey="$base/key-$2.pub" commit -q -S --allow-empty -m "$3"
             }
             git init -q --initial-branch=main "$base/access"
             printf '%s\n' 'transports:' '  room: {homeserver: "https://chat.example.org"}' > "$base/access/access.yml"
