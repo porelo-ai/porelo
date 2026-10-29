@@ -4,8 +4,7 @@
 **Size:** L - the change is in `porelo-parent`, whose snapshot reaches every Maven repository at once, each to be checked whole on it.
 
 **What must be true.** No Maven plugin that porelo-parent versions carries a dependency with a known advisory, where a
-fixed version exists that has stood the age
-[BT14](https://github.com/porelo-ai/porelo-buildtools/blob/main/issues/README.md#bt14) asks
+fixed version exists that has stood the age porelo-release asks
 (`porelo.release.min-age`, three days). Every Maven repository takes its plugins from the parent, so one move there
 fixes them all.
 
@@ -16,7 +15,7 @@ called. [B99](README.md#b99) switches signing on, and from then on that code sig
 
 ## Why
 
-[PJ47](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj47)'s reading of 2026-10-18 looked up
+A reading of 2026-10-18 looked up
 in OSV every coordinate porelo, porelo-parent, porelo-build-github and the site resolve. Nothing that ships had an
 advisory. Every hit was in a plugin's own dependencies, and every plugin version is set by porelo-parent. The other
 repositories' readings found the same plugins:
@@ -36,8 +35,8 @@ GPG key, so jdeb, rpm, cyclonedx and native run beside a secret there.
 
 ## The shape proposed
 
-One move in porelo-parent, in the same wave as
-[BT20](https://github.com/porelo-ai/porelo-buildtools/blob/main/issues/README.md#bt20) (`cyclonedx-core-java`), each
+One move in porelo-parent, in the same wave as porelo-buildtools' move of
+`cyclonedx-core-java`, each
 at the newest release three days old, read from Central on 2026-10-18:
 
 1. **Where a newer release exists:**
@@ -50,8 +49,7 @@ at the newest release three days old, read from Central on 2026-10-18:
    codehaus `rpm-maven-plugin` 2.3.0, `maven-project-info-reports-plugin` 3.9.0): the parent's `pluginManagement`
    gives each plugin its fixed dependencies:
    - jackson 2.22.3;
-   - `cyclonedx-core-java` at the version
-     [BT20](https://github.com/porelo-ai/porelo-buildtools/blob/main/issues/README.md#bt20) takes;
+   - `cyclonedx-core-java` at the version porelo-buildtools takes;
    - `bcprov-jdk18on` and `bcpg-jdk18on` at the parent's own `bouncycastle.version`;
    - a fixed `aircompressor`, `commons-compress` and `plexus-utils`.
 

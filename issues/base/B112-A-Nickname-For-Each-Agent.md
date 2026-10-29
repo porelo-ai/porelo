@@ -9,7 +9,7 @@ message names it by either its nickname or its task.
 
 ## Why
 
-From walk 10; this is Porelo's side of the window's [F88](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md#f88) in porelo-frontend. Decided: Later.
+From walk 10; this is Porelo's side of the interface's agent window. Decided: Later.
 
 ## The shape
 

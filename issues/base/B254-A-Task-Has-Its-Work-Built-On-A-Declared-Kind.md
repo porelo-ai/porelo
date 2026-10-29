@@ -1,11 +1,9 @@
 # B254 — A Task Has Its Work Built on a Declared Kind
 
-**Status:** Idea; blocked by [B253](README.md#b253) and porelo-buildtools' machine kinds (part 1 of porelo-project
-[PJ22](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj22), not yet filed there).
+**Status:** Idea; blocked by [B253](README.md#b253) and porelo-buildtools' machines asked for by kind.
 **Size, proposed:** L.
 
-**Decided:** it stays an Idea, as it is not needed for porelo-project
-[PJ39](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj39): a task's push already starts the
+**Decided:** it stays an Idea, as the agents' move does not need it: a task's push already starts the
 whole workflow on the local forge, its acceptance legs on the VM pool included, and the task follows that build as it
 follows any.
 
@@ -14,8 +12,7 @@ log in `/porelo/files`. A request for a kind or a command the project does not d
 
 ## Why
 
-From porelo-project [PJ22](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj22), part 5: "*A
-task's build* on a declared kind, read through `Task.builds` (`porelo`)."
+*A task's build* on a declared kind, read through `Task.builds`.
 
 Read in today's code: a task's builds are *followed*, not asked for. A helper on the host follows every commit an
 online task pushes, through the reader the project names under `builds`, and hands each verdict and failed log into

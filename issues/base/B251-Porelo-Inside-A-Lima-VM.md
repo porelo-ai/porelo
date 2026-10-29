@@ -7,9 +7,7 @@ loaded and failing closed, or says before the first start what the VM lacks for 
 
 ## Why
 
-From the Mac probe of 2026-10-22, for porelo-project
-[PJ55](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj55) and porelo-frontend
-[F109](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md#f109): in a Lima VM (Ubuntu 26.04.1
+From the Mac probe of 2026-10-22: in a Lima VM (Ubuntu 26.04.1
 aarch64, kernel 7.0.0-34, vz with Rosetta) rootless podman ran, but `unshare` into a user and network namespace for
 nftables failed with `unshare: write failed /proc/self/uid_map: Operation not permitted`. Read, not measured: Ubuntu's
 restriction of unprivileged user namespaces (`kernel.apparmor_restrict_unprivileged_userns`).

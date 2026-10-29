@@ -9,7 +9,7 @@
 ## Why
 
 Asked for when a read-only review run was wanted in a task with OMP, and `porelo task start` had no way to say
-"read only". The agent's side is `porelo-omp` [OM19](https://github.com/porelo-ai/porelo-omp/blob/main/issues/README.md#om19).
+"read only". The agent's side is each adapter's own: it declares its modes.
 
 ### What is missing
 
@@ -35,8 +35,7 @@ takes, a start names one, and nothing else reaches the agent. Two keys, one read
    into `HeadlessFlags.modes()` and `HeadlessFlags.thinking()`. A mode's flags are the definition's only.
 2. **`RunRequest`** gains `agentMode` and `thinking`; `HeadlessCommandBuilder` appends the mode's flags and the
    thinking flag with its value. An undeclared name or level throws before any command line is made.
-3. **`AgentDefinitionJson`** carries both, so a packaged adapter's definition reaches Porelo; the adapters
-   (`porelo-omp` [OM19](https://github.com/porelo-ai/porelo-omp/blob/main/issues/README.md#om19) first) declare theirs.
+3. **`AgentDefinitionJson`** carries both, so a packaged adapter's definition reaches Porelo; the adapters declare theirs.
 4. **`porelo task start --mode <name> --thinking <level>`**; `Start` takes `agentMode: ?string` and
    `thinking: ?string`, refused as `InvalidParameter` naming what the agent declares.
 5. **`porelo agents --verbose` and `Agents`** list the modes and the levels.

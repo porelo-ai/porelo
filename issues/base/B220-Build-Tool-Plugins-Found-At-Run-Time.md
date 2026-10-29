@@ -7,8 +7,7 @@ installed plugin, a start without network, the isolation test, a doc page; no ch
 **What must be true.** A plugin for one build tool - Maven, Gradle, npm, pip, Flutter - is a native executable of its
 own, installed from its own package, that `porelo` finds at run time and asks over a varlink contract
 (`Ecosystem1`: `detect` and `configure`), as it finds agents and build readers; `porelo` starts it without network
-and names no build tool. Porelo's share of
-[PJ52](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj52): the contract in
+and names no build tool. Its parts: the contract in
 `ecosystems/api`, its discovery and a stub the tests drive.
 
 ## Plan

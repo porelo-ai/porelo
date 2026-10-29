@@ -116,7 +116,7 @@ answering OpenSSF tip 2, OWASP AI Agent Cheat Sheet §9.
 - **Whether the guest is the better home for the ruleset anyway** (Agent Core's). A ruleset the workload cannot
   reach around, loaded by something the workload cannot stop, is the property that matters; which kernel holds it
   is not.
-- **This is the rehearsal for `porelo-project` [PJ25](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj25)**, Porelo on Apple Containers (Agent Project's). A container on
+- **This is the rehearsal for Porelo on Apple Containers**. A container on
   macOS always has a kernel of its own, so that requirement asks the same questions: where per-container egress
   filtering lives and whether it fails closed, whether a host socket reaches the workload, whether the host's
   loopback can be mapped in for the gate, and how much is genuinely shared. Answering them here costs one Linux

@@ -10,8 +10,7 @@ commit's id, subject and time - and the diff of one of them or of all together, 
 gate. Today the contract gives only counts (`WorkHeld.unpushedCommits`, `AgentEnded.unpushed`), so the interface
 cannot say in words what a piece of work did until it is pushed.
 
-Asked for by `porelo-frontend`'s
-[F112](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md#f112), which is blocked by it. Accepted
+Asked for by the interface, which waits for it. Accepted
 2026-10-11.
 
 ## Plan

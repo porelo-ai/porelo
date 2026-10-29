@@ -1,6 +1,6 @@
 # B86 — Messages Over Matrix, The Porelo Half
 
-**Status:** Analyzed; blocked by porelo-message-matrix [MX12](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx12).
+**Status:** Analyzed.
 **Size:** M - Porelo's verbs are built; the vault entry per homeserver, and a walk on two machines.
 
 **What must be true.** Several machines run one project on one central homeserver: each is admitted by a person,
@@ -10,7 +10,7 @@ Porelo's side is built and has never run against a central server: `--machine` t
 lists `"takes": ["machine"]`, `setup`'s `admitted`, `machine`, `address` and `room`, no task started while
 `admitted` is false, and the daemon's `SetUpMessages(project)`. A central homeserver has no administrator: each
 machine holds its own provisioning account there, with each task's password kept beside its token. The
-transport's side is [MX12](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx12).
+transport's side, several machines on one homeserver with `--machine` on every verb, is built.
 
 ## Plan
 
@@ -24,7 +24,7 @@ Read in the code on 2026-10-11 (`apps/app-messaging/.../TransportLifecycle.java`
   project on its own homeserver and one on a central one would hand the central server's provisioning account
   the local one's token.
 
-Steps, after [MX12](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx12):
+Steps:
 
 1. **The account entry by homeserver**: `transport/<scheme>/account/<key>`, where the key is what `setup` names
    (a field such as `"server"` in its answer, so Porelo never parses a homeserver URL); a vault holding the old
@@ -53,7 +53,7 @@ Steps, after [MX12](https://github.com/porelo-ai/porelo-message-matrix/blob/main
 - The vault name a central homeserver's registration token is put under, and whether `describe` declares it
   (Agent Core's, with porelo-message-matrix's agent).
 - Whether the central server's admin-room `deactivate` works as specified on a central Tuwunel, with a
-  provisioning account per machine (porelo-message-matrix's agent's, in [MX12](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx12)).
+  provisioning account per machine (porelo-message-matrix's agent's).
 - What `setup` answers to key the account entry by - its homeserver, as the transport spells it, is the leaning
   (Agent Core's, with porelo-message-matrix's agent).
 - Whether the kit can lease two machines into one scenario, or the two-machine walk stays by hand (Agent Core's).

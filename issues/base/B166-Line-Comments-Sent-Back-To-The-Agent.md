@@ -2,7 +2,7 @@
 
 **Status:** Analyzed.
 **Blocked by:** [B136](README.md#b136), [B150](README.md#b150), [B291](README.md#b291), [B292](README.md#b292), [B293](README.md#b293).
-**Blocks:** [B171](README.md#b171), [B172](README.md#b172), [B176](README.md#b176), [B163](README.md#b163), porelo-message-sluice [SL24](https://github.com/porelo-ai/porelo-message-sluice/blob/main/issues/README.md#sl24).
+**Blocks:** [B171](README.md#b171), [B172](README.md#b172), [B176](README.md#b176), [B163](README.md#b163).
 **Size:** L - a shared review contract, host store, CLI, message path and acceptance across the filter, interface and IDE plugin.
 
 **What must be true.** A person can comment on lines, a file or the whole review of waiting work, and a reject
@@ -37,7 +37,7 @@ not needed.
    records. Refusals name invalid anchor, suggestion or size; mutations are authenticated and journaled.
 6. Carry one SARIF data part on today's envelope, only on a message whose kind is `comment`. The filter checks envelope,
    allowed fields and content; the host checks Git objects and authenticated authority. Integrate with
-   porelo-message-sluice [SL24](https://github.com/porelo-ai/porelo-message-sluice/blob/main/issues/README.md#sl24) before acceptance of
+   the message filter's check of the `comment` kind before acceptance of
    agent replies. `MessageDispatch` routes authorized `to: review` submissions locally; it cannot make
    `app-messaging` depend on `app-gate`. Register the handler from the assembly boundary or use a lower-level
    callback. Refuse another task's thread and bounce safely through `HostBounce`.
@@ -64,8 +64,6 @@ not needed.
 
 - Choose SARIF persistence granularity and cursor format within the profile's bounds; measure concurrent CLI/daemon
   writers and recovery after interrupted publication.
-- Confirm the publication order with
-  porelo-message-sluice [SL24](https://github.com/porelo-ai/porelo-message-sluice/blob/main/issues/README.md#sl24). Profile/schema work may
-  land first; the message acceptance path waits for the matching filter.
+- Profile/schema work may land first; the message acceptance path waits for the matching filter.
 - Specify retention of the store and hidden pins at approve, removal and name reuse, including archived review data
   needed by [B176](README.md#b176) and [B289](README.md#b289).

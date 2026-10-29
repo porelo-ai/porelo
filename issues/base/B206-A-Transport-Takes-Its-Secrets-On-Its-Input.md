@@ -1,7 +1,7 @@
 # B206 — A Transport Takes Its Secrets On Its Input
 
-**Status:** Review; its transport side, agreed with Agent Matrix on 2026-10-27, is porelo-message-matrix
-[MX23](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx23).
+**Status:** Review; its transport side, agreed on 2026-10-27, is the matrix transport's: it reads its secrets
+from standard input.
 **Size:** L - a change to the contract every transport implements, in porelo's four places that hand a transport
 its secrets and in each transport, released together with a version both sides read.
 
@@ -16,7 +16,7 @@ keeps a conversation"), through `HelperEnvironment.chosen` in `TransportLifecycl
 read by every process of the same account until the process makes itself undumpable.
 
 The matrix transport does that as the first step of `main`
-([MX21](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx21)). On 2026-10-18 a shell
+. On 2026-10-18 a shell
 loop reading `/proc/<pid>/environ` right after each start still caught the token in 25 of 300 starts: the window
 between `exec` and the `prctl` call is 15 to 40 ms, and the relay starts the transport often. That window is accepted
 as a risk for now. This issue closes it.
@@ -70,7 +70,7 @@ transports.md`: "Nothing is read from standard input except a lifecycle verb's s
 - [ ] A stand-in transport that copies its own `/proc/self/environ` into its output shows no secret, for every verb
   and for `poll` and `send`; the test is watched to fail against today's code.
 - [ ] The matrix transport, released with the new version, runs the acceptance's message scenarios on both legs.
-  Measured on 2026-10-28 by Agent Matrix on the VM, against porelo at 2ef7cde6 and the transport of [MX23](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx23): setup, join,
+  Measured on 2026-10-28 by Agent Matrix on the VM, against porelo at 2ef7cde6 and the transport that reads its secrets from standard input: setup, join,
   enroll, poll, receipt, send, retire and clear ran with no `PORELO_MATRIX_*` variable in their environment, and 5193
   samples of `/proc/<pid>/environ` found none readable.
 - [ ] A transport declaring the old way still works and is named by `doctor`.

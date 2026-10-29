@@ -1,7 +1,6 @@
 # B270 — A Forge Token Stored By The Forge's Own Login
 
-**Status:** Accepted. Analyzed and built after sprint 2c; porelo-frontend [F153](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md#f153) ships first with the
-pasted token, and this then opens the device-code login in the same terminals.
+**Status:** Accepted. The interface ships first with the pasted token, and this then opens the device-code login in the same terminals.
 
 **What must be true.** A person gets their forge token into a machine's vault, as `git.token.<host>`, by the forge's
 own login in a terminal on that machine: a device code shown there, approved in any browser. The person does not make
@@ -11,7 +10,7 @@ a token at the forge's web page and paste it.
 
 With deploy keys gone ([B269](README.md#b269)), git over `https` takes the person's token from the machine's vault.
 Today the only way in is `porelo vault put git.token.<host>`, with a token the person made at the forge by hand.
-porelo-frontend's [F153](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md#f153) would open
+The interface would open
 the login in a terminal on the machine, as it does for an agent's sign-in.
 
 Read in the code: `porelo vault authorize` already runs a device-code flow, but only for an `oauth-device` service

@@ -1,8 +1,8 @@
 # [B172](README.md#b172) — A Task That Reviews
 
 **Status:** Analyzed.
-**Blocked by:** [B166](README.md#b166), [B291](README.md#b291), [B292](README.md#b292), [B293](README.md#b293), porelo-message-sluice [SL24](https://github.com/porelo-ai/porelo-message-sluice/blob/main/issues/README.md#sl24).
-**Blocks:** [B288](README.md#b288), porelo-project [PJ67](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj67).
+**Blocked by:** [B166](README.md#b166), [B291](README.md#b291), [B292](README.md#b292), [B293](README.md#b293).
+**Blocks:** [B288](README.md#b288).
 **Size:** M - one task role across profile, launch, git server and message handling, using the shared review contract, plus daemon fields and acceptance.
 
 **What must be true.** A reviewer task receives another task's work read-only and submits only SARIF comments and
@@ -29,7 +29,7 @@ submission format. No task can call the owner's daemon approval methods merely b
    [B293](README.md#b293)'s input restrictions to the reviewer, whose producer remains A. Provider access is brokered
    for reading/reviewing and is not permission to run untrusted builds or pass credentials into them.
 5. Through [B166](README.md#b166) and
-   porelo-message-sluice [SL24](https://github.com/porelo-ai/porelo-message-sluice/blob/main/issues/README.md#sl24), accept `to: review` data
+   the message filter, accept `to: review` data
    only for this target. The host stamps producer, role, round and exact revision; findings use explicit rule/level,
    comments `review/none`. Refuse native IDs, origin claims, resolution, suppression, baseline and verdict authority.
    A suggestions wait for human release and stay within the profile's one-replacement rule.
@@ -37,8 +37,7 @@ submission format. No task can call the owner's daemon approval methods merely b
    checks, only the daemon compares compatible complete runs and computes baselines; missing results never clear a
    finding. An empty or partial check cannot satisfy approval, including the two people required for E0/C3.
 7. End the reviewer after its output has been durably accepted, without a separate accept/remove step or another
-   reviewer start. Keep its review evidence after cleanup. Update `doc/commands.md` and `doc/messages.md`. The check
-   task in porelo-project [PJ67](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj67) uses this same role.
+   reviewer start. Keep its review evidence after cleanup. Update `doc/commands.md` and `doc/messages.md`.
 
 ## Acceptance
 

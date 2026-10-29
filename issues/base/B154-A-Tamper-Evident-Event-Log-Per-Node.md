@@ -84,7 +84,7 @@ Steps:
   Not changed: entries another process of the account adds to the journal under the log's identifier can only make
   `verify` fail, never hold.
 
-**What [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78) changes, nothing
+**What a private access file changes, nothing
 reworked yet:** a project may name a private access file ([B310](README.md#b310)); an applied commit of it
 is a `project-applied` line too, naming the access repository. It is built with that issue.
 
@@ -102,6 +102,5 @@ is a `project-applied` line too, naming the access repository. It is built with 
   (Agent Core's).
 - How the copy is sent off the machine - syslog over TLS, or an https endpoint - and whether a send that failed is
   retried from the log's position (Agent Core's).
-- Weigh an S3 Object Lock bucket written with a key that cannot delete, as in porelo-project
-  [PJ45](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj45), beside syslog over TLS and
+- Weigh an S3 Object Lock bucket written with a key that cannot delete, beside syslog over TLS and
   an HTTPS endpoint for the copy sent off the machine.

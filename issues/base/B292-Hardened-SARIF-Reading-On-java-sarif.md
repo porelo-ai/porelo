@@ -11,10 +11,8 @@ daemon or appear clean.
 
 - Blocked by: [B291](README.md#b291).
 - Blocks: [B166](README.md#b166), [B171](README.md#b171), [B172](README.md#b172), [B141](README.md#b141),
-  [B95](README.md#b95); the filter's
-  porelo-message-sluice [SL24](https://github.com/porelo-ai/porelo-message-sluice/blob/main/issues/README.md#sl24), adapters'
-  porelo-adapters [GH02](https://github.com/porelo-ai/porelo-adapters/blob/main/issues/README.md#gh02) and IDE plugin's
-  porelo-intellij [IJ04](https://github.com/porelo-ai/porelo-intellij/blob/main/issues/README.md#ij04).
+  [B95](README.md#b95); the message filter, the forge adapters
+  and the IDE plugin.
 - Override the library's older Jackson dependencies together. Use a dedicated synchronous byte-stream factory and
   mapper, counting compressed and decompressed input before allocation. Enforce the profile's byte, depth, token,
   string, key, number and collection bounds before constructing generated model objects. Initial parser bounds are

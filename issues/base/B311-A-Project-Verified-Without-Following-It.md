@@ -1,7 +1,6 @@
 # B311 — A Project Verified Without Following It
 
-**Status:** Estimated, from
-[PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78).
+**Status:** Estimated.
 **Size:** S - one command over `Reconcile`'s check, its JSON, and the tests.
 
 **What must be true.** `porelo project verify --repository <path|bundle> --signed-by <key> [--since <commit>]
@@ -12,7 +11,7 @@ checker of their own.
 
 ## Why
 
-[PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78): porelo-host's `porelo-host-person
+Decided by the operator: porelo-host's `porelo-host-person
 sync` runs it as a throwaway unprivileged user on root's
 copies of the bundles, against the key pinned at the project's registration; the interface's *Join* runs it on the
 developer's laptop. A second implementation of the handover rules would drift from Porelo's, and its drift is where a

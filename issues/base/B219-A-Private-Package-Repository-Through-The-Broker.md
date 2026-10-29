@@ -14,8 +14,8 @@ credential-shaped, not even a phantom token, enters the task.
 Today a private mirror is only reachable as a declared domain (`doc/faq.md`), so its credential has to be in the
 task's `settings.xml` or `.npmrc`. [B15](README.md#b15) rejects a repository manager as something a task publishes
 to; this one only reads through the broker, and publishing still happens after the gate.
-[PJ52](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj52) proposes a draft `project.yml`
-from a checkout's build tools, and its `configure` verb writes the tool settings this issue needs.
+A project's draft `project.yml` is proposed
+from a checkout's build tools, and a `configure` verb writes the tool settings this issue needs.
 
 ## The shape proposed
 

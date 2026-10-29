@@ -10,8 +10,8 @@ project file's.
 ## Why
 
 Split from [B304](README.md#b304) by the operator on 2026-10-27, which
-superseded QB74 (a machine's own settings over the signed project file's): for now the signed project file names the
-homeserver, the room, the CA's text as `ca_certificate` (QM43) and a `registration_token_file`, and every machine reaches the same name,
+superseded an earlier choice (a machine's own settings over the signed project file's): for now the signed project file names the
+homeserver, the room, the CA's text as `ca_certificate` and a `registration_token_file`, and every machine reaches the same name,
 so no machine needs settings of its own. It comes back when machines of one project must reach different servers
 under one project file.
 

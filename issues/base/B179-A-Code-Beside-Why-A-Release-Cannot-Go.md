@@ -10,7 +10,7 @@ of `Release` in `45-messaging.varlink` carries a code beside its `detail` senten
 for each case without matching on an English sentence that is no contract. The field is added, so a client that does
 not read it sees no change.
 
-Asked for by `porelo-frontend`'s [F117](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md#f117),
+Asked for by the interface,
 which shows the sentence as it is until then.
 
 ## Plan

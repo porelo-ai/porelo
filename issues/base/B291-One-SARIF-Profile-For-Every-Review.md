@@ -10,11 +10,8 @@ The profile states what each producer may submit and what each destination may r
 
 - Blocked by: none.
 - Blocks: [B292](README.md#b292), [B293](README.md#b293), [B166](README.md#b166), [B171](README.md#b171),
-  [B172](README.md#b172), [B176](README.md#b176), [B141](README.md#b141); the message filter's
-  porelo-message-sluice [SL24](https://github.com/porelo-ai/porelo-message-sluice/blob/main/issues/README.md#sl24), adapters' review work
-  porelo-adapters [GH02](https://github.com/porelo-ai/porelo-adapters/blob/main/issues/README.md#gh02), interface
-  porelo-frontend [F107](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md#f107) and IDE plugin
-  porelo-intellij [IJ04](https://github.com/porelo-ai/porelo-intellij/blob/main/issues/README.md#ij04).
+  [B172](README.md#b172), [B176](README.md#b176), [B141](README.md#b141); the message filter, the forge adapters,
+  the interface and the IDE plugin.
 - Root `version` is `2.1.0`; root `properties` contains only `porelo/profileVersion: "1"`. A run names one configured
   repository and exact commit in `versionControlProvenance[0]`, its base in `porelo/baseRevisionId`, and
   `columnKind: "unicodeCodePoints"`. Daemon-owned run properties name project, repository, review round and

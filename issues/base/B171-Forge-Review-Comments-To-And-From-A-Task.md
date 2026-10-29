@@ -1,8 +1,8 @@
 # [B171](README.md#b171) — Forge Review Comments To And From A Task
 
 **Status:** Analyzed.
-**Blocked by:** [B166](README.md#b166), [B291](README.md#b291), [B292](README.md#b292), [B293](README.md#b293), porelo-message-sluice [SL24](https://github.com/porelo-ai/porelo-message-sluice/blob/main/issues/README.md#sl24).
-**Blocks:** [B288](README.md#b288), [B289](README.md#b289), porelo-adapters [GH02](https://github.com/porelo-ai/porelo-adapters/blob/main/issues/README.md#gh02).
+**Blocked by:** [B166](README.md#b166), [B291](README.md#b291), [B292](README.md#b292), [B293](README.md#b293).
+**Blocks:** [B288](README.md#b288), [B289](README.md#b289).
 **Size:** L - a review adapter contract, host synchronization and durable release flow across repositories, with project, daemon and message changes.
 
 **What must be true.** Pull request comments, findings, suggestions, threads and observed verdicts reach the owning
@@ -33,7 +33,7 @@ additions. `InboundCheck` filters external peer messages; forge input needs its 
    forge resolution clears its exact mapped finding at the gate; other resolvers are shown without clearing it.
    Unknown resolver identity cannot clear anything, and a verdict never authorizes gate approval.
 5. Every review crosses [B291](README.md#b291)/[B292](README.md#b292) and
-   porelo-message-sluice [SL24](https://github.com/porelo-ai/porelo-message-sluice/blob/main/issues/README.md#sl24). The adapter performs all
+   the message filter's checks. The adapter performs all
    native conversion and supplies independently authenticated origin evidence for the daemon to classify. Support
    line, file and general comments; stamp conversion identity and native mappings on the host. Keep bodies out of
    prompts, snippets and artifact contents out of projections, and raw payloads out of failures and logs.
@@ -70,7 +70,7 @@ additions. `InboundCheck` filters external peer messages; forge input needs its 
 
 - Verify authenticated resolver, merge-head and membership evidence per adapter, plus minimum token scopes and
   redirect behavior. Adapters' implementation remains outside this repository, including
-  porelo-adapters [GH02](https://github.com/porelo-ai/porelo-adapters/blob/main/issues/README.md#gh02).
+  the forge adapters in porelo-adapters.
 - Measure watch, queue and mapping recovery across daemon restarts, task removal and PR head movement; settle burst
   and state-mutation budgets before enabling writes.
 - Keep forge HTTP calls in `porelo-forge-clients` rather than in `porelo-adapters`, and align the contract review

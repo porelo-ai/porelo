@@ -55,7 +55,7 @@ A block of their own beside the settings, `locks:`, naming paths of settings:
 
 ## Relation
 
-porelo-project [PJ16](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj16), an organisation
+An organisation
 deciding which providers its machines use, becomes one case of this: the allowed providers are a locked setting in the
 organisation file. It is to be folded in at analysis.
 

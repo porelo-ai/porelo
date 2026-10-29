@@ -6,8 +6,7 @@ the stub plugin; no new contract beyond [B220](README.md#b220)'s.
 
 **What must be true.** A task's start asks the build-tool plugins to `configure` it and places the settings they write
 - Maven's `settings.xml`, an `.npmrc`, a `pip.conf` - into the container, so the tool reaches a private repository
-through the broker with no credential in the task. Porelo's share of
-[PJ52](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj52).
+through the broker with no credential in the task.
 
 ## Plan
 

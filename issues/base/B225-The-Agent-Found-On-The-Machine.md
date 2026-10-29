@@ -7,7 +7,7 @@ choice and the findings; several modules and two contracts.
 
 **What must be true.** A task started without `--agent` and `--provider` gets the agent the person already uses on the
 machine, signed in, with that provider, and the start names the choice and where it was found; a flag given still wins.
-Porelo's share of [PJ53](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj53): the method `Find`
+Porelo's part: the method `Find`
 in the agent contract, answering presence only, never a credential's value, with "cannot say" in its answer, and the
 choice at the start that reads it.
 

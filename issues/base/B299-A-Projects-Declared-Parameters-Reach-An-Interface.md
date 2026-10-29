@@ -8,7 +8,7 @@ so an interface asks for them before `Start` instead of learning them from a ref
 
 ## Why
 
-porelo-frontend [F148](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md#f148) asks for a
+The interface asks for a
 project's values once for all its repositories. Read in porelo at 0b02c1b7: `project.yml` already declares them, read
 into `Parameters` and `Parameter` (name, description, values or pattern, default, required, env) in `core`, and
 `Start` and `CanStart` take `parameters` and check them; but `Tasks1`'s `Project` type carries no declaration, so an

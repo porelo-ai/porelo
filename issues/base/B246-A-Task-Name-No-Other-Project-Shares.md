@@ -1,6 +1,6 @@
 # B246 — A Task Name No Other Project Shares
 
-**Status:** Accepted; after porelo-project [PJ39](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj39).
+**Status:** Accepted.
 
 **What must be true.** A task's container name belongs to one project and one task, so no task of another project
 ever has it - not while it runs, and not afterwards, when what Porelo keeps by that name is read again.
@@ -22,8 +22,7 @@ not yet read.
   holds as before. A task that exists keeps its name, since every act goes to the container's recorded id.
 - **The other way, refusing a pair that collides**, needs every project's task names known at each start and still
   leaves a removed task's state under a name the other project can take; it is not proposed.
-- A transport keys a task's account by `--project` and `--task` together, which it is given today
-  (porelo-message-matrix [MX28](https://github.com/porelo-ai/porelo-message-matrix/blob/main/issues/README.md#mx28)).
+- A transport keys a task's account by `--project` and `--task` together, which it is given today.
 
 ## To be checked
 

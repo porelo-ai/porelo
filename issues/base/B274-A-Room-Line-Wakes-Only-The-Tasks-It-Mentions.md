@@ -1,7 +1,6 @@
 # B274 — A Room Line Wakes Only The Tasks It Mentions
 
-**Status:** Accepted. Analyzed after sprint 2c. Its counterpart in porelo-message-matrix reports a line addressed
-to the whole room.
+**Status:** Accepted. It needs the transport to report a line addressed to the whole room.
 **Size:** S, a guess: one rule in `AgentWake.namesIt`, one field read from the transport, `doc/messages.md`, and the
 tests.
 

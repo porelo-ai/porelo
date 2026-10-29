@@ -1,7 +1,6 @@
 # B315 — A Person Locked Out Without A Terminal
 
-**Status:** Estimated, from
-[PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78).
+**Status:** Estimated.
 **Size:** XS - an acceptance scenario of two commands that exist, run as root's helper runs them.
 
 **What must be true.** `porelo task stop --all` and `porelo vault clear --yes --force`, run in a person's account with
@@ -10,7 +9,7 @@ that order, stop every task and clear the vault, with exit codes a root helper c
 
 ## Why
 
-[PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78) (QH65 a): porelo-host's
+Decided by the operator: porelo-host's
 `porelo-host-person` locks a developer dropped from the signed list at
 once and purges the account later. It calls these two commands in the person's account.
 

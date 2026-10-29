@@ -1,6 +1,6 @@
 # B160 — A Project Followed From A File Over The Socket
 
-**Status:** Estimated. Blocks `porelo-frontend` [F104](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md#f104).
+**Status:** Estimated.
 **Size:** M - one contract change (a method, a parameter, two fields), the daemon, hand-in's part code shared, docs.
 
 **What must be true.** A client follows a project from a file as `porelo project follow NAME FILE` does: from a path on

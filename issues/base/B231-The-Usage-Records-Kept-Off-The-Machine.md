@@ -6,8 +6,7 @@ playbook in porelo-host runs, which is a contract between repositories.
 
 **What must be true.** `porelo keep <dir>` copies the tasks' usage records into a directory as they stand, and
 `porelo keep --restore <dir>` puts them back on a new machine before a task starts, so the history a project's
-velocity is computed from outlives the machine it was written on. Porelo's share of
-[PJ45](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj45); the copying to the project's
+velocity is computed from outlives the machine it was written on. The copying to the project's
 store and the schedule are the playbook's.
 
 ## Plan
@@ -26,8 +25,7 @@ Read in the code and in [B148](README.md#b148) on 2026-10-20.
    kept if the shorter is its prefix; two that differ before the shorter one ends are refused, naming the record,
    and nothing of it is changed. A restore never shortens a record.
 4. **Where**: `KeepCommand` in `app`, beside the machine's own commands, in `PoreloCli`'s list; no daemon method, since
-   only the playbook calls it on the machine. `doc/commands.md` gets its entry, and the contract
-   [PJ45](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj45) names - a command that writes its
+   only the playbook calls it on the machine. `doc/commands.md` gets its entry, and the contract - a command that writes its
    copy into a directory it is given, and one that puts it back - is stated there.
 
 **Red first:** `KeepCommandTest`: a record whose last line is half written is kept without that line; a restore onto

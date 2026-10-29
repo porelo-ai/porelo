@@ -7,9 +7,7 @@ reads, and it must be published before any of them depends on it.
 **What must be true.** Porelo's `.deb` and `.rpm` each provide `porelo-agent-protocol-<LOWEST>`, the lowest agent
 protocol this build accepts, so an agent's package can depend on it and the package manager refuses only a pairing
 `porelo` itself would refuse; a test holds the provided number to `AgentProtocol.LOWEST`. Neither package declares
-any agent protocol today. Asked for by porelo-claude-code
-[CC22](https://github.com/porelo-ai/porelo-claude-code/blob/main/issues/README.md#cc22), which pi's and oh-my-pi's
-packages follow; it is published before any agent depends on it.
+any agent protocol today. Asked for by the Claude Code adapter, which pi's and oh-my-pi's packages follow; it is published before any agent depends on it.
 
 ## Plan
 
@@ -26,8 +24,7 @@ Read in the code on 2026-10-20 (`dist`).
    `dpkg-deb -f` (`Main.java:267`) and the `.rpm`'s with `rpm -qp --provides`, and compares both with
    `AgentProtocol.LOWEST`, read from `porelo-agent-api` itself, not from the property.
 5. `agents/README.md`'s *Protocol versions* says what an agent's package depends on: any of `porelo-agent-protocol-<n>`
-   from its own lowest up to its `VERSION`, as porelo-claude-code's
-   [CC22](https://github.com/porelo-ai/porelo-claude-code/blob/main/issues/README.md#cc22) builds it.
+   from its own lowest up to its `VERSION`, as the Claude Code adapter builds it.
 
 **Red first:** package-check against packages built with the property one below `LOWEST` fails, naming both numbers;
 today it checks no `Provides` at all.

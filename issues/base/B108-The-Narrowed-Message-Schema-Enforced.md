@@ -34,7 +34,7 @@ Read in the code on 2026-10-11:
   [B14](README.md#b14)'s table lists `kind`, `to`, `from` and `thread` only. And a person's `metadata.from` in the room is a
   Matrix id. The schema is written with what is sent today, or the guide changes with it.
 
-**Which side checks what** - the answer for the filter's [SL23](https://github.com/porelo-ai/porelo-message-sluice/blob/main/issues/README.md#sl23): **the filter checks the shape, the host does not
+**Which side checks what** - the answer for the message filter: **the filter checks the shape, the host does not
 check it again.** The envelope is the filter's (its decisions say so), the host's own checks stay what only the
 host can judge - the role, `to` naming one peer - and every message leaves a task through the filter, so a
 check at the host first would refuse the same message with other words and no answer to the sender.
@@ -51,7 +51,7 @@ Steps:
    it and the guide: red first, since `MailboxGuide.text()` today lists no kind and asks for no `extensions`.
 2. **`MailboxGuide` and `doc/messages.md`** made from the document's kinds, keys and limits; the comparing test
    goes green.
-3. **`MessageFiltering`** passes `--schema` once the filter takes it ([SL23](https://github.com/porelo-ai/porelo-message-sluice/blob/main/issues/README.md#sl23)); until then a filter that does not
+3. **`MessageFiltering`** passes `--schema` once the filter accepts that option; until then a filter that does not
    know the option is not given it, so nothing breaks in between.
 4. **`MessageSay`** (`talk say`) writes the narrowed shape itself, `--kind` among the five.
 5. **The acceptance scenario** in `talk-commands.feature`: one message of each refused shape, each held with
@@ -76,5 +76,5 @@ Steps:
 - How a person is named in `metadata.from`: their Matrix id, or a plain name the host maps (Agent Core's, with
   porelo-message-sluice's agent).
 - The Porelo messaging extension's URI (Agent Core's).
-- Whether a message from before is refused or converted: [SL23](https://github.com/porelo-ai/porelo-message-sluice/blob/main/issues/README.md#sl23) refuses it, since the filter never rewrites a
+- Whether a message from before is refused or converted: the filter refuses it, since the filter never rewrites a
   message; whether the host converts what sits in an outbox on the day of the switch (Agent Core's).

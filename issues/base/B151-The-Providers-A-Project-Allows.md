@@ -39,5 +39,4 @@ such as "the provider asked for is not declared here"; `TaskLaunch` and the daem
 
 ## To be checked
 
-- porelo-project [PJ16](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj16) sets a provider list per machine: whether the two are one check at two levels, and which is
-  built first; a start is refused when either refuses (Agent Core's).
+- a root-owned machine policy may also name the providers its tasks use: whether the two are one check at two levels; a start is refused when either refuses (Agent Core's).

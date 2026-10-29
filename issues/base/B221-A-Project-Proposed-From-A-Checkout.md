@@ -8,8 +8,7 @@ source in [B192](README.md#b192)'s order; several modules and a contract the int
 **What must be true.** `porelo project init <checkout>` asks every installed build-tool plugin what it recognizes,
 merges the answers into a tools draft (`.porelo.yml`) and, where anything needs a rule, a `project.yml` draft, each
 value with its source as a comment, and names where two plugins disagree instead of choosing; no credential is copied
-into a draft, and the checkout's tracked files stay unchanged. Porelo's share of
-[PJ52](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj52).
+into a draft, and the checkout's tracked files stay unchanged.
 
 ## The daemon's methods, agreed with the interface
 

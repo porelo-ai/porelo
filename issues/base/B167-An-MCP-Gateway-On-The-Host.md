@@ -1,7 +1,7 @@
 # B167 — An MCP Gateway On The Host
 
 **Status:** Estimated.
-**Size:** L - the broker taught a protocol, a tool list kept per tool for `porelo-project` [PJ15](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj15),
+**Size:** L - the broker taught a protocol, a tool list kept per tool, which a hold on a changed tool builds on,
 agents' MCP settings in their own repositories, docs and an acceptance step.
 
 **What must be true.** The MCP servers a project names are reached through a gateway on the host, which sees and
@@ -12,7 +12,7 @@ journals their tool lists and their calls, and attaches their credentials as the
 Porelo does not read MCP traffic today, so a changed tool set goes unnoticed, and an MCP server's credential has to be
 in the task - the largest gap `doc/faq.md` and `doc/corporate-security.md` name plainly. The broker's principle carries
 over: the task talks to the host, the host adds the secret and sees what passes. Comparable tools run such a gateway.
-It is the ground `porelo-project` [PJ15](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj15) (a tool does not change behind the person's back) builds on.
+It is the ground that a tool not changing behind the person's back builds on.
 
 ## The shape
 
@@ -23,8 +23,8 @@ It is the ground `porelo-project` [PJ15](https://github.com/porelo-ai/porelo-pro
 - Only servers over HTTP go through the gateway. A server over stdio is never started on the host; where a project
   has one at all, it runs inside the task's container, as the agent's own, and is not covered by the gateway.
 - On a changed tool list, only the tools that are new or changed are held until a person accepts them; the unchanged
-  ones stay usable and the task works on. The gateway tells them apart per tool; the hold and the acceptance are
-  [PJ15](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj15)'s part in `porelo`, built on it.
+  ones stay usable and the task works on. The gateway tells them apart per tool; the hold and the acceptance
+  are not this issue; they build on it.
 
 ## Plan
 
@@ -52,7 +52,8 @@ missing is reading the traffic, a server without a key, and the agents being poi
    settings from it. That is a change of `porelo-agent-api` the agent repositories take.
 6. **A changed tool list:** compared per tool with the list before, and the tools that are new, changed or gone
    journaled by name with their old and new digests and shown by `porelo task status`; the unchanged ones are not
-   named. Holding the new and changed ones until a person accepts them is [PJ15](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj15)'s, on this comparison.
+   named. Holding the new and changed ones until a person accepts them builds on this comparison and
+   is not this issue.
 7. **Docs:** `doc/credentials.md`, `doc/project-file.md`, and `doc/faq.md` and `doc/corporate-security.md` move the
    gap to what is covered, keeping a server over stdio, which runs only inside the container, as not covered.
 8. **Acceptance:** a stub MCP server over HTTP on the acceptance machine, named by a project; the stub agent lists its

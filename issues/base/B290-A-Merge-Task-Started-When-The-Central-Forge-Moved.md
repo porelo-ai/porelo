@@ -3,7 +3,7 @@
 **Status:** Idea.
 
 **What must be true.** When the gathered push
-(`porelo-buildtools` [BT06](https://github.com/porelo-ai/porelo-buildtools/blob/main/issues/README.md#bt06)) is
+from the host's forge to the central one is
 refused because the central forge's `main` holds commits the local forge lacks, Porelo starts a task by itself that
 merges the branch `central/main` into the local work and pushes it as any task does. Its work is built, reviewed and
 merged by the person like any other; the person then starts the gathered push again.
@@ -23,7 +23,7 @@ them). Starting the task that merges the central changes only waits on the refus
 Porelo reads it itself: the daemon asks the forge about its own tasks, as it follows their builds today, so it
 works with any forge it reaches, on this machine or not, and needs no way back to it (the operator's decision).
 It sees the gathered push refused, since the push runs on its host, and reads the forge's `central/main`. **Porelo decides** and acts only if its own rules hold. A report from the forge, where the forge can reach
-Porelo (porelo-host [HO28](https://github.com/porelo-ai/porelo-host/blob/main/issues/README.md#ho28)), only makes it quicker and changes nothing of this.
+Porelo, only makes it quicker and changes nothing of this.
 
 ## To be checked
 

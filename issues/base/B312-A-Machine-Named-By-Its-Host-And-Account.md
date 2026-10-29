@@ -1,7 +1,6 @@
 # B312 — A Machine Named By Its Host And Account
 
-**Status:** Estimated, from
-[PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78).
+**Status:** Estimated.
 **Size:** S - `MachineName`, its callers in `TransportLifecycle`, one command and the tests.
 
 **What must be true.** The name Porelo gives a transport as `--machine` is `<host>-<account>`, so two people's accounts
@@ -10,7 +9,7 @@ never meet on one name; an account whose transport already kept a name keeps pas
 
 ## Why
 
-[PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78) (QB77 a): every person on a prepared
+Decided by the operator: every person on a prepared
 host is an account of their own on the host's shared
 homeserver. Today `MachineName.hostName()` is the host name alone, so the second account's `enroll` meets the first
 one's `@porelo.<host>`, and on a central server that is refused.

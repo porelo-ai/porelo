@@ -9,7 +9,6 @@ the exact reviewed commit; E0/E1 work is only read and commented until this exec
 ## Proposed
 
 - Blocked by: [B136](README.md#b136), [B292](README.md#b292), [B293](README.md#b293).
-- Blocks: interface porelo-frontend [F74](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md#f74).
 - Add `TryRun` in `apps/app-gate` and `GateTryCommand`: `porelo gate try <task> -- <argv...>`, with project/repository
   selection and exact captured commit. Refuse moved work as `MovedSinceReview`. `35-gate.varlink` gains streaming
   `Try` with the same target/commit/argv, output chunks and final exit; refuse calls without streaming as

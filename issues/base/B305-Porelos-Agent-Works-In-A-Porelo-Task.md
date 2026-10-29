@@ -2,8 +2,8 @@
 
 **Status:** Idea.
 
-**What must be true.** porelo's agent works in a Porelo task on the move's host, as porelo-project
-[PJ59](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj59) lays out for the last builders,
+**What must be true.** porelo's agent works in a Porelo task on the move's host, as the project's procedure for an agent's
+move lays out for the last builders,
 and takes this issue to Review inside the task with the host's Forgejo build green. It talks in the project's room as
 `Agent Core`, from the nickname `Core` that porelo-project's `project.yml` is to give the repository `core`
 ([B298](README.md#b298)), and can work on this machine again at any time.
@@ -22,9 +22,8 @@ and takes this issue to Review inside the task with the host's Forgejo build gre
     install yet.
   - The package check runs `podman run` against several distributions' images, and the acceptance suite needs
     podman and a machine of its own: both run on the forge's legs, never in the task.
-  - The vault's tests use the kernel keyring, whose system calls the task's seccomp refuses (porelo-project
-    [PJ49](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj49)).
+  - The vault's tests use the kernel keyring, whose system calls the task's seccomp refuses.
 - **Forgejo's build:** `build.yml` rents legs today; it runs on the local forge only after [B306](README.md#b306).
 - **The way back:** the task's open work is fetched from the host's forge into this machine's checkout, the
-  repository's upstream switches back in `project.yml`, and the local session resumes with its watcher, as the move's
-  step 5 says.
+  repository's upstream switches back in `project.yml`, and the local session resumes with its watcher, as the project's procedure for an
+  agent's move lays out.

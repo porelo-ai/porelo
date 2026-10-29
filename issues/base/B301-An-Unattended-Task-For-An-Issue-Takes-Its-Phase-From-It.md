@@ -12,7 +12,7 @@ is how porelo-project works, not a rule porelo enforces on every project.
 
 ## Why
 
-The operator, 2026-10-27, settling porelo-frontend [F148](https://github.com/porelo-ai/porelo-frontend/blob/main/issues/README.md#f148):
+The operator, 2026-10-27:
 an attended agent is the long-running agent of its repository and gets no issue and no phase; an unattended one is
 always started for one issue, and its phase follows from that issue. Read in porelo at 0b02c1b7, nothing does that:
 a task takes the values its project declares, `--set`, `--set-file` and `--set-env`, each checked and fixed for its

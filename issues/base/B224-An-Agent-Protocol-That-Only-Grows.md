@@ -11,7 +11,7 @@ in step with `porelo`: an agent built against an older contract keeps working, a
 ## Why
 
 `InstalledAgent`'s handshake refuses any `protocolVersion` other than `AgentProtocol.VERSION`, so a new method, such
-as the host findings [PJ53](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj53) needs, means a
+as host findings, means a
 new version and every agent rebuilt and released together with `porelo`.
 
 ## The shape proposed

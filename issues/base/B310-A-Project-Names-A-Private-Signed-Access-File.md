@@ -1,7 +1,6 @@
 # B310 — A Project Names A Private, Signed Access File
 
-**Status:** Estimated, from
-[PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78).
+**Status:** Estimated.
 **Size:** M - a reader for `access.yml`, a second follow state beside the project's in
 `follow`, the watch and `Reconcile`, the guard before every transport verb, an event per applied access commit, docs
 and an acceptance scenario with a private repository.
@@ -13,9 +12,8 @@ signers and applied as the project file is. Until that file is applied, no trans
 
 ## Why
 
-[PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78) (option b): the project file is
-public on GitHub. With
-[PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78) it would
+Decided by the operator: the project file is
+public on GitHub. With a prepared host it would
 carry the host's address and WireGuard endpoint, every developer's account name, laptops and ssh keys, and the
 conversation server's name, room and CA. Those go into a second signed file in a private repository.
 
@@ -69,4 +67,4 @@ account's own homeserver.
 ## To be checked
 
 - Whether a project's own `project.yml` in this repository moves its `mail.transports` into an access file at once,
-  or only when [PJ78](https://github.com/porelo-ai/porelo-project/blob/main/issues/README.md#pj78)'s host is set up.
+  or only when its host is set up.

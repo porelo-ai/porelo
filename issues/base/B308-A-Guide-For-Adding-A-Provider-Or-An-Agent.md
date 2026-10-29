@@ -10,10 +10,7 @@ by a walk written from scratch.
 
 ## Why
 
-The same patterns were rewritten for each provider and agent: porelo-codex
-[CX01](https://github.com/porelo-ai/porelo-codex/blob/main/issues/README.md#cx01), porelo-pi
-[PI21](https://github.com/porelo-ai/porelo-pi/blob/main/issues/README.md#pi21), porelo-agy
-[AG01](https://github.com/porelo-ai/porelo-agy/blob/main/issues/README.md#ag01), [P11](../providers/README.md#p11),
+The same patterns were rewritten for each provider and agent: codex's, pi's and agy's adapters, [P11](../providers/README.md#p11),
 [P12](../providers/README.md#p12), [B272](README.md#b272) and [B303](README.md#b303). Each walk found its faults
 again, and a walk written in a hurry spends a provider's money on a fault an earlier one had already met.
 
@@ -28,8 +25,7 @@ again, and a walk written in a hurry spends a provider's money on a fault an ear
   1. *The credential never reaches the task* - a real token in the container is the agent's to leak; the container's
      environment, export and session record hold only the phantom (kit, whole).
   2. *No sign-in can be stored where the agent's CLI reads one* - a CLI's own `/login` would leave a non-expiring key
-     in the task; every write, move and replace of its stores is refused, as porelo-pi
-     [PI21](https://github.com/porelo-ai/porelo-pi/blob/main/issues/README.md#pi21) proves (kit: the script, its
+     in the task; every write, move and replace of its stores is refused, as pi's adapter proved (kit: the script, its
      paths as parameters; guide: why a root-owned file under the home does not hold).
   3. *A subscription is renewed only on the host* - Part 1's, linked from here.
   4. *First-run questions are measured attended, never guessed* - an unanswered dialog stops an attended task or hangs
