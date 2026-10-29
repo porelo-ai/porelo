@@ -269,3 +269,37 @@ Feature: The vault commands
         When a task called "second" is started in "cleared" for the "stub" agent and left running
         Then a script running "porelo task list" mentions "porelo-cleared-second"
         And a script runs "porelo task remove porelo-cleared-second --force"
+
+    # What root's helper runs in a person's account to lock them out: no terminal, standard input closed, the vault
+    # open as a running task needs it. Guards a dropped person whose task keeps running, or whose vault or cached
+    # passphrase survives, while the helper reads an exit that says it worked.
+    @slow
+    Scenario: a person is locked out without a terminal: every task stopped, then the vault cleared
+        Given the environment variable "PORELO_ACCEPTANCE_FAKE_CREDENTIAL" is set
+        And a vault of this scenario's own, unlocked with the passphrase "acceptance"
+        And the vault holds the value of "PORELO_ACCEPTANCE_FAKE_CREDENTIAL" as "anthropic" of kind "api-key"
+        And a project called "lockedout" of class "guarded" with a file in it
+        When a task called "only" is started in "lockedout" for the "stub" agent and left running
+        And a script runs:
+            """
+            h=0; s="$PORELO_VAULT"
+            for ((i = 0; i < ${#s}; i++)); do h=$(( (h * 31 + $(printf '%d' "'${s:i:1}")) & 0xFFFFFFFF )); done
+            key="porelo:vault:$(printf '%x' "$h")"
+            # Seen cached first, so the check after the clear asks about the key that is really there; /proc/keys
+            # lists this account's keys where no keyctl is installed.
+            grep -q -F " $key: " /proc/keys && echo "cached before"
+            porelo task stop --all </dev/null 2>&1; echo "stop $?"
+            porelo vault clear --yes --force </dev/null 2>&1; echo "clear $?"
+            podman ps --format '{{.Names}}' | grep -q '^porelo-lockedout-' && echo "a task still runs"
+            for suffix in '' .old .lock; do test -e "$PORELO_VAULT$suffix" && echo "left: $PORELO_VAULT$suffix"; done
+            for each in "$key" "$key:share"; do
+              grep -q -F " $each: " /proc/keys && echo "still in the keyring: $each"
+            done
+            """
+        Then its output contains "cached before"
+        And its output contains "stop 0"
+        And its output contains "clear 0"
+        And its output does not contain "a task still runs"
+        And its output does not contain "left: "
+        And its output does not contain "still in the keyring"
+        And a script runs "porelo task remove porelo-lockedout-only --force"

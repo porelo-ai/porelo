@@ -90,8 +90,14 @@ A playbook changes only what differs, so a second `up` on a host that is up chan
 | `porelo project following --json` | `{"follows": [...]}`, each with `name`, `url`, `commit`, `outcome`, `verified`, `signed_by` (the keys pinned for it), `detail` and `refused`. The play follows a project again where its `url` or key differs, or where the followed `commit` is none of the uploaded bundle's heads. |
 | `porelo agents --json` | `{"vault": "open"\|"shut"\|"none", "agents": [...]}`, each with `name`, `found_by` (the description or executable that named it), `credential` (the vault entry it signs in under: its default provider's, or its own name when it is not brokered) and `signed_in`. `signed_in` is given only while the vault is open, and is false for a sign-in lacking what its provider sends beside the token; both are left out for an agent whose default provider cannot be used (none named, none declared, or a dialect it does not serve), since its start is refused whatever the vault holds. No value is printed. |
 | `porelo task stop --all` | Stops every running task of the account and its helpers, and removes nothing. Exit 0 when nothing of the account runs any more, nothing having run included; 70 when something survived, each named on standard error as `porelo: still running: …`. `down` runs it before `vault clear` and stops on 70. Standard output is for a person. |
+| `porelo vault clear --yes --force` | Clears the account's vault, locked or open, and what the keyring caches of it, without asking and without a terminal. Exit 0 when the vault is gone; 1 when anything was not removed, a running task holding a token from it among them, each named. `--json` gives the same as values. |
 | `porelo vault put NAME --json` | `{"name", "stored"}` alone on standard output, every other line on standard error; `stored` is false when the entry already held exactly this value, kind and settings, and then nothing is written. The same for `--from-file` and standard input. No part of the value is printed. The play reports a put as changed only where `stored` is true. |
 | `porelo vault status` | Exit 0 open, 3 shut, 4 no vault, 70 for a file that is not a vault. `--json` gives `{"exists", "open", "path"}`. "Open" is proved by reading the vault with what the account keeps. |
+
+**A person locked out.** A person dropped from the signed list is locked out at once, as their own account, with
+no terminal and standard input closed: `porelo task stop --all`, then, only on its exit 0, `porelo vault clear
+--yes --force`. Exit 0 from both means no task of the account runs and its vault is gone; anything else leaves the
+account to be purged by hand.
 
 **A host nobody sits at.** The second play stops when `porelo vault status` answers 3 or 4, and the vault is
 opened from outside: a person runs `ssh -t HOST porelo vault unlock`, or, for automation only, a program that holds

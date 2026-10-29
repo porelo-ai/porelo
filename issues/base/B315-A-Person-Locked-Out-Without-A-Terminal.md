@@ -1,6 +1,6 @@
 # B315 — A Person Locked Out Without A Terminal
 
-**Status:** Estimated.
+**Status:** Implementing.
 **Size:** XS - an acceptance scenario of two commands that exist, run as root's helper runs them.
 
 **What must be true.** `porelo task stop --all` and `porelo vault clear --yes --force`, run in a person's account with
