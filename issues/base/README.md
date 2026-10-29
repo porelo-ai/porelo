@@ -42,6 +42,7 @@ from its side, as *blocked by*.
 
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
+| <a id="b329"></a>[B329](B329-A-Forced-Removal-Kills-What-Outlives-Its-Stop.md) | S | - | `task remove --force` kills a helper or descendant that outlives SIGTERM, counts a zombie as stopped, and reports only what lives after SIGKILL |
 | <a id="b14"></a>[B14](B14-Talking-Between-Tasks.md) | XL | `porelo` [B86](README.md#b86) | Talking between tasks, built on one machine; splits into groups (M), trust confirmed once with fingerprints (M), two machines on one homeserver (L). |
 | <a id="b193"></a>[B193](B193-A-Dependency-Cache-Shared-Across-Tasks.md) | XL | - | Downloaded dependencies cached once for a project's tasks and handed in read-only; what a task installs stays its own; analyzed: filled only from reviewed work, mounted `:ro,z`, read through `maven.repo.local.tail`, filled by `dependency:go-offline` on request and when the default branch moved, Maven first |
 | <a id="b207"></a>[B207](B207-An-Image-Built-Within-The-Projects-Egress.md) | L | - | An image's build reaches only the project's egress and its trusted package sources, run in a guard container behind the task's own firewall (measured to hold), so a snippet - a project's or a repository's `porelo.yml` - cannot fetch from anywhere while the image is made.; plan written, two questions for the operator |
@@ -120,7 +121,6 @@ from its side, as *blocked by*.
 | # | Size | Blocked by | What it covers |
 |---|---|---|---|
 | <a id="b330"></a>[B330](B330-A-Snippet-File-Is-Read-From-The-Commit-Being-Applied.md) | - | - | A follow reads `image.snippet_file` from the commit it judges, not from the working tree before it moves, so a first follow of a project with a snippet file is not refused |
-| <a id="b329"></a>[B329](B329-A-Forced-Removal-Kills-What-Outlives-Its-Stop.md) | - | - | `task remove --force` kills a helper or descendant that outlives SIGTERM, counts a zombie as stopped, and reports only what lives after SIGKILL |
 | <a id="b328"></a>[B328](B328-An-Inbox-Message-Ends-With-A-Newline.md) | - | - | A message delivered into a task's inbox ends with a newline, so `cat` of it leaves the prompt on its own line |
 | <a id="b327"></a>[B327](B327-An-Unfollow-Retires-The-Accounts-Of-An-Access-Project.md) | - | - | An unfollow or clear of a project with an access repository retires its tasks' transport accounts with the settings applied until then |
 | <a id="b326"></a>[B326](B326-A-Reject-With-Nothing-Waiting-Says-So.md) | - | - | A reject of a name with nothing waiting says so and tells no task its work was discarded |
