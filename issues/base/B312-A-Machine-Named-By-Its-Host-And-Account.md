@@ -1,6 +1,6 @@
 # B312 — A Machine Named By Its Host And Account
 
-**Status:** Implementing.
+**Status:** Review.
 **Size:** S - `MachineName`, `PoreloContext`, its caller in `TransportLifecycle`, one command and the tests.
 
 **What must be true.** The name Porelo gives a transport as `--machine` is `<host>-<account>`, always and everywhere,
